@@ -22,6 +22,14 @@ export class DirectoryScanner {
       '.venv',
       'venv',
       'jobs',
+      'logs',
+      '.claude',
+      'python',
+      'node',
+      'go',
+      'php',
+      'rust',
+      'recovery',
     ]);
     this.maxDepth = options.maxDepth || 10;
   }

@@ -37,6 +37,12 @@ class RepomixCronApp {
         '.idea',
         '.vscode',
         'jobs',
+        '.DS_Store', // OS
+        'Thumbs.db',
+        '.vscode', //IDE
+        '.idea/'
+        '*.swp'
+        '*.swo'
       ],
     });
 
