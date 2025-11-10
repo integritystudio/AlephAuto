@@ -21,6 +21,7 @@ export class DirectoryScanner {
       '__pycache__',
       '.venv',
       'venv',
+      'jobs',
     ]);
     this.maxDepth = options.maxDepth || 10;
   }

@@ -24,6 +24,7 @@ export class READMEScanner {
       'target',
       '.idea',
       '.vscode',
+      'jobs',
     ]);
     this.maxDepth = options.maxDepth || 10;
     this.readmePatterns = options.readmePatterns || [
