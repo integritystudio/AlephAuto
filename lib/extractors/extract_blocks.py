@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
 
 from code_block import CodeBlock, SourceLocation, ASTNode
 from duplicate_group import DuplicateGroup
-from consolidation_suggestion import ConsolidationSuggestion
+from consolidation_suggestion import ConsolidationSuggestion, MigrationStep
 from scan_report import ScanReport, RepositoryInfo, ScanConfiguration, ScanMetrics
 
 def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> List[CodeBlock]:
@@ -128,36 +128,348 @@ def group_duplicates(blocks: List[CodeBlock]) -> List[DuplicateGroup]:
 
 def generate_suggestions(groups: List[DuplicateGroup]) -> List[ConsolidationSuggestion]:
     """
-    Generate consolidation suggestions (basic implementation)
+    Generate consolidation suggestions with enhanced strategy logic
     """
     suggestions = []
 
     for group in groups:
-        # Determine strategy based on occurrence count
-        if group.occurrence_count <= 3:
-            strategy = 'local_util'
-        elif group.occurrence_count <= 10:
-            strategy = 'shared_package'
-        else:
-            strategy = 'mcp_server'
+        # Determine strategy based on multiple factors
+        strategy, rationale, complexity, risk = _determine_strategy(group)
+
+        # Generate migration steps
+        migration_steps = _generate_migration_steps(group, strategy)
+
+        # Generate code example
+        code_example = _generate_code_example(group, strategy)
+
+        # Calculate ROI score (higher for simpler, lower-risk refactoring)
+        roi_score = _calculate_roi(group, complexity, risk)
+
+        # Determine if this is a breaking change
+        breaking_changes = _is_breaking_change(group, strategy)
 
         suggestion = ConsolidationSuggestion(
             suggestion_id=f"cs_{group.group_id}",
             duplicate_group_id=group.group_id,
             strategy=strategy,
-            strategy_rationale=f"Found {group.occurrence_count} occurrences in {len(group.affected_files)} files",
+            strategy_rationale=rationale,
+            target_location=_suggest_target_location(group, strategy),
+            migration_steps=migration_steps,
+            code_example=code_example,
             impact_score=min(group.impact_score, 100.0),
-            complexity='simple',
-            migration_risk='low',
-            breaking_changes=False,
+            complexity=complexity,
+            migration_risk=risk,
+            estimated_effort_hours=_estimate_effort(group, complexity),
+            breaking_changes=breaking_changes,
             affected_files_count=len(group.affected_files),
             affected_repositories_count=len(group.affected_repositories),
-            confidence=0.9 if group.similarity_score >= 0.95 else 0.7
+            confidence=0.9 if group.similarity_score >= 0.95 else 0.7,
+            roi_score=roi_score
         )
 
         suggestions.append(suggestion)
 
     return suggestions
+
+
+def _determine_strategy(group: DuplicateGroup) -> tuple[str, str, str, str]:
+    """
+    Determine consolidation strategy based on group characteristics
+
+    Returns: (strategy, rationale, complexity, risk)
+    """
+    occurrences = group.occurrence_count
+    files = len(group.affected_files)
+    category = group.category
+
+    # Single file duplicates - simplest case
+    if files == 1:
+        return (
+            'local_util',
+            f"All {occurrences} occurrences in same file - extract to local function",
+            'trivial',
+            'minimal'
+        )
+
+    # Logger patterns - special handling
+    if category in ['logger', 'config_access']:
+        if occurrences <= 5:
+            return (
+                'local_util',
+                f"Logger/config pattern used {occurrences} times - extract to module constant",
+                'trivial',
+                'minimal'
+            )
+        else:
+            return (
+                'shared_package',
+                f"Logger/config pattern used {occurrences} times across {files} files - centralize configuration",
+                'simple',
+                'low'
+            )
+
+    # API handlers and auth checks - medium complexity
+    if category in ['api_handler', 'auth_check', 'error_handler']:
+        if occurrences <= 3:
+            return (
+                'local_util',
+                f"API pattern used {occurrences} times - extract to middleware/util",
+                'simple',
+                'low'
+            )
+        elif occurrences <= 10:
+            return (
+                'shared_package',
+                f"API pattern used {occurrences} times across {files} files - create shared middleware",
+                'moderate',
+                'medium'
+            )
+        else:
+            return (
+                'mcp_server',
+                f"API pattern used {occurrences} times - candidate for framework/MCP abstraction",
+                'complex',
+                'high'
+            )
+
+    # Database operations - handle carefully
+    if category == 'database_operation':
+        if occurrences <= 3:
+            return (
+                'local_util',
+                f"Database pattern used {occurrences} times - extract to repository method",
+                'moderate',
+                'medium'
+            )
+        else:
+            return (
+                'shared_package',
+                f"Database pattern used {occurrences} times - create shared query builder",
+                'complex',
+                'high'
+            )
+
+    # General utilities and helpers
+    if occurrences <= 3:
+        return (
+            'local_util',
+            f"Utility pattern used {occurrences} times in {files} files - extract to local util",
+            'trivial' if files == 2 else 'simple',
+            'minimal'
+        )
+    elif occurrences <= 8:
+        return (
+            'shared_package',
+            f"Utility pattern used {occurrences} times across {files} files - create shared utility",
+            'simple',
+            'low'
+        )
+    else:
+        return (
+            'mcp_server',
+            f"Utility pattern used {occurrences} times - consider MCP tool or shared package",
+            'moderate',
+            'medium'
+        )
+
+
+def _generate_migration_steps(group: DuplicateGroup, strategy: str) -> List[MigrationStep]:
+    """Generate specific migration steps based on strategy"""
+
+    if strategy == 'local_util':
+        steps = [
+            ("Create utility function in local utils module", True, "15min"),
+            ("Extract common logic from duplicate blocks", False, "30min"),
+            ("Replace each occurrence with function call", True, "20min"),
+            ("Add unit tests for extracted function", False, "30min"),
+            ("Run existing tests to verify behavior", True, "10min")
+        ]
+    elif strategy == 'shared_package':
+        steps = [
+            ("Create shared package/module for utility", False, "1h"),
+            ("Extract and parameterize common logic", False, "1h"),
+            ("Add comprehensive tests to shared package", False, "45min"),
+            ("Update each file to import from shared package", True, "30min"),
+            ("Replace duplicates with shared function calls", True, "30min"),
+            ("Update package.json/requirements.txt dependencies", False, "15min"),
+            ("Run full test suite across affected projects", True, "20min")
+        ]
+    elif strategy == 'mcp_server':
+        steps = [
+            ("Design MCP tool interface for functionality", False, "2h"),
+            ("Create MCP server with tool implementation", False, "4h"),
+            ("Add MCP tool schema and documentation", False, "1h"),
+            ("Test MCP tool independently", False, "1h"),
+            ("Update projects to use MCP client", False, "2h"),
+            ("Replace duplicates with MCP tool calls", True, "1h"),
+            ("Add integration tests", False, "2h"),
+            ("Document MCP tool usage", False, "1h")
+        ]
+    else:  # autonomous_agent
+        steps = [
+            ("Define agent capabilities and workflow", False, "3h"),
+            ("Design agent prompt and tool access", False, "2h"),
+            ("Implement agent logic and orchestration", False, "8h"),
+            ("Create agent tests and safety checks", False, "3h"),
+            ("Integrate agent with existing systems", False, "4h"),
+            ("Replace complex duplicate logic with agent calls", False, "2h"),
+            ("Monitor agent performance and behavior", False, "ongoing"),
+            ("Document agent usage and limitations", False, "2h")
+        ]
+
+    # Convert to MigrationStep objects
+    return [
+        MigrationStep(
+            step_number=i + 1,
+            description=desc,
+            automated=automated,
+            estimated_time=time
+        )
+        for i, (desc, automated, time) in enumerate(steps)
+    ]
+
+
+def _generate_code_example(group: DuplicateGroup, strategy: str) -> str:
+    """Generate example code showing the refactoring"""
+
+    pattern = group.pattern_id
+    category = group.category
+
+    if strategy == 'local_util':
+        if category == 'logger':
+            return """// Before:
+logger.info({ userId }, 'User action');
+logger.info({ userId }, 'User action');
+
+// After:
+const logUserAction = (userId) => logger.info({ userId }, 'User action');
+logUserAction(userId);
+logUserAction(userId);"""
+
+        return """// Before: Duplicated code in multiple places
+function foo() {
+  // ... duplicate logic ...
+}
+
+// After: Extracted to utility function
+import { sharedUtil } from './utils';
+function foo() {
+  sharedUtil();
+}"""
+
+    elif strategy == 'shared_package':
+        return """// Before: Duplicated across files
+// file1.js: { check logic }
+// file2.js: { check logic }
+
+// After: Shared package
+import { validateInput } from '@shared/validators';
+validateInput(data);"""
+
+    elif strategy == 'mcp_server':
+        return """// Before: Complex duplicated logic
+async function processData() {
+  // ... complex logic ...
+}
+
+// After: MCP tool
+const result = await mcp.callTool('process-data', { input });"""
+
+    return "// Refactoring example not available"
+
+
+def _calculate_roi(group: DuplicateGroup, complexity: str, risk: str) -> float:
+    """Calculate return on investment score (0-100)"""
+
+    # Start with impact score
+    roi = group.impact_score
+
+    # Adjust based on complexity (simpler = higher ROI)
+    complexity_multipliers = {
+        'trivial': 1.3,
+        'simple': 1.1,
+        'moderate': 0.9,
+        'complex': 0.7
+    }
+    roi *= complexity_multipliers.get(complexity, 1.0)
+
+    # Adjust based on risk (lower risk = higher ROI)
+    risk_multipliers = {
+        'minimal': 1.2,
+        'low': 1.1,
+        'medium': 0.9,
+        'high': 0.7
+    }
+    roi *= risk_multipliers.get(risk, 1.0)
+
+    return min(roi, 100.0)
+
+
+def _is_breaking_change(group: DuplicateGroup, strategy: str) -> bool:
+    """Determine if consolidation would be a breaking change"""
+
+    # Local utils are not breaking
+    if strategy == 'local_util':
+        return False
+
+    # Shared packages might be breaking if they change APIs
+    if strategy == 'shared_package':
+        return group.category in ['api_handler', 'auth_check']
+
+    # MCP servers and agents are potentially breaking
+    return True
+
+
+def _suggest_target_location(group: DuplicateGroup, strategy: str) -> str:
+    """Suggest where the consolidated code should live"""
+
+    if strategy == 'local_util':
+        # Extract to utils in same directory
+        first_file = group.affected_files[0] if group.affected_files else ''
+        if '/' in first_file:
+            dir_path = '/'.join(first_file.split('/')[:-1])
+            return f"{dir_path}/utils.js"
+        return "utils.js"
+
+    elif strategy == 'shared_package':
+        category = group.category
+        if category == 'logger':
+            return "shared/logging/logger-utils.js"
+        elif category in ['api_handler', 'auth_check']:
+            return "shared/middleware/auth-middleware.js"
+        elif category == 'database_operation':
+            return "shared/database/query-builder.js"
+        elif category == 'validator':
+            return "shared/validation/validators.js"
+        else:
+            return f"shared/utils/{category}.js"
+
+    elif strategy == 'mcp_server':
+        return f"mcp-servers/{group.pattern_id}-server/"
+
+    else:  # autonomous_agent
+        return f"agents/{group.pattern_id}-agent/"
+
+
+def _estimate_effort(group: DuplicateGroup, complexity: str) -> float:
+    """Estimate effort in hours"""
+
+    base_hours = {
+        'trivial': 0.5,
+        'simple': 1.0,
+        'moderate': 3.0,
+        'complex': 8.0
+    }
+
+    hours = base_hours.get(complexity, 2.0)
+
+    # Add time per affected file (more files = more refactoring)
+    hours += len(group.affected_files) * 0.25
+
+    # Add time for testing
+    hours += 0.5
+
+    return round(hours, 1)
 
 
 def main():
