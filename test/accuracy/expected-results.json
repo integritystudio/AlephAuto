@@ -1,0 +1,452 @@
+{
+  "test_repository": "test/accuracy/fixtures",
+  "description": "Ground truth for duplicate detection accuracy testing",
+  "created": "2025-11-11",
+  "duplicate_groups": [
+    {
+      "group_id": "group_1",
+      "description": "Exact duplicates - filter().map() pattern",
+      "pattern": "array-map-filter",
+      "similarity_type": "exact",
+      "members": [
+        {
+          "file": "src/utils/array-helpers.js",
+          "function": "getUserNames",
+          "line_start": 5,
+          "line_end": 7
+        },
+        {
+          "file": "src/utils/array-helpers.js",
+          "function": "getActiveUserNames",
+          "line_start": 10,
+          "line_end": 12
+        },
+        {
+          "file": "src/utils/array-helpers.js",
+          "function": "filterActiveUsers",
+          "line_start": 15,
+          "line_end": 17
+        }
+      ],
+      "expected_similarity_score": 1.0,
+      "consolidation_recommendation": "local_util"
+    },
+    {
+      "group_id": "group_2",
+      "description": "Structural duplicates - same pattern, different variables",
+      "pattern": "array-map-filter",
+      "similarity_type": "structural",
+      "members": [
+        {
+          "file": "src/utils/array-helpers.js",
+          "function": "getAvailableProducts",
+          "line_start": 23,
+          "line_end": 25
+        },
+        {
+          "file": "src/utils/array-helpers.js",
+          "function": "getActiveItems",
+          "line_start": 28,
+          "line_end": 30
+        }
+      ],
+      "expected_similarity_score": 0.85,
+      "consolidation_recommendation": "local_util"
+    },
+    {
+      "group_id": "group_3",
+      "description": "Exact duplicates - comments ignored",
+      "pattern": "array-map-filter",
+      "similarity_type": "exact",
+      "members": [
+        {
+          "file": "src/utils/array-helpers.js",
+          "function": "processData",
+          "line_start": 43,
+          "line_end": 46
+        },
+        {
+          "file": "src/utils/array-helpers.js",
+          "function": "transformData",
+          "line_start": 49,
+          "line_end": 52
+        }
+      ],
+      "expected_similarity_score": 1.0,
+      "consolidation_recommendation": "local_util"
+    },
+    {
+      "group_id": "group_4",
+      "description": "Exact duplicates - whitespace ignored",
+      "pattern": "array-map-filter",
+      "similarity_type": "exact",
+      "members": [
+        {
+          "file": "src/utils/array-helpers.js",
+          "function": "compact",
+          "line_start": 58,
+          "line_end": 58
+        },
+        {
+          "file": "src/utils/array-helpers.js",
+          "function": "removeEmpty",
+          "line_start": 61,
+          "line_end": 63
+        }
+      ],
+      "expected_similarity_score": 1.0,
+      "consolidation_recommendation": "local_util"
+    },
+    {
+      "group_id": "group_5",
+      "description": "Exact duplicates - JSON.stringify",
+      "pattern": "object-manipulation",
+      "similarity_type": "exact",
+      "members": [
+        {
+          "file": "src/utils/object-helpers.js",
+          "function": "serializeUser",
+          "line_start": 6,
+          "line_end": 8
+        },
+        {
+          "file": "src/utils/object-helpers.js",
+          "function": "formatUserJSON",
+          "line_start": 10,
+          "line_end": 12
+        },
+        {
+          "file": "src/utils/object-helpers.js",
+          "function": "userToJSON",
+          "line_start": 14,
+          "line_end": 16
+        }
+      ],
+      "expected_similarity_score": 1.0,
+      "consolidation_recommendation": "local_util"
+    },
+    {
+      "group_id": "group_6",
+      "description": "Structural duplicates - object spread",
+      "pattern": "object-manipulation",
+      "similarity_type": "structural",
+      "members": [
+        {
+          "file": "src/utils/object-helpers.js",
+          "function": "mergeConfig",
+          "line_start": 21,
+          "line_end": 23
+        },
+        {
+          "file": "src/utils/object-helpers.js",
+          "function": "combineOptions",
+          "line_start": 25,
+          "line_end": 27
+        }
+      ],
+      "expected_similarity_score": 0.9,
+      "consolidation_recommendation": "local_util"
+    },
+    {
+      "group_id": "group_7",
+      "description": "Exact duplicates - Object.keys().map()",
+      "pattern": "object-manipulation",
+      "similarity_type": "exact",
+      "members": [
+        {
+          "file": "src/utils/object-helpers.js",
+          "function": "getConfigKeys",
+          "line_start": 35,
+          "line_end": 37
+        },
+        {
+          "file": "src/utils/object-helpers.js",
+          "function": "extractKeys",
+          "line_start": 39,
+          "line_end": 41
+        }
+      ],
+      "expected_similarity_score": 1.0,
+      "consolidation_recommendation": "local_util"
+    },
+    {
+      "group_id": "group_8",
+      "description": "Exact duplicates - 404 error handler",
+      "pattern": "express-route-handlers",
+      "similarity_type": "exact",
+      "members": [
+        {
+          "file": "src/api/routes.js",
+          "function": "handleNotFound",
+          "line_start": 6,
+          "line_end": 8
+        },
+        {
+          "file": "src/api/routes.js",
+          "function": "sendNotFoundError",
+          "line_start": 10,
+          "line_end": 12
+        },
+        {
+          "file": "src/api/routes.js",
+          "function": "notFoundHandler",
+          "line_start": 14,
+          "line_end": 16
+        }
+      ],
+      "expected_similarity_score": 1.0,
+      "consolidation_recommendation": "local_util"
+    },
+    {
+      "group_id": "group_9",
+      "description": "Structural duplicates - 200 success response",
+      "pattern": "express-route-handlers",
+      "similarity_type": "structural",
+      "members": [
+        {
+          "file": "src/api/routes.js",
+          "function": "sendUserSuccess",
+          "line_start": 21,
+          "line_end": 23
+        },
+        {
+          "file": "src/api/routes.js",
+          "function": "sendProductSuccess",
+          "line_start": 25,
+          "line_end": 27
+        }
+      ],
+      "expected_similarity_score": 0.9,
+      "consolidation_recommendation": "local_util"
+    },
+    {
+      "group_id": "group_10",
+      "description": "Exact duplicates - auth middleware",
+      "pattern": "auth-checks",
+      "similarity_type": "exact",
+      "members": [
+        {
+          "file": "src/api/routes.js",
+          "function": "requireAuth",
+          "line_start": 36,
+          "line_end": 41
+        },
+        {
+          "file": "src/api/routes.js",
+          "function": "checkAuthentication",
+          "line_start": 43,
+          "line_end": 48
+        }
+      ],
+      "expected_similarity_score": 1.0,
+      "consolidation_recommendation": "local_util"
+    },
+    {
+      "group_id": "group_11",
+      "description": "Structural duplicates - Prisma findMany",
+      "pattern": "prisma-operations",
+      "similarity_type": "structural",
+      "members": [
+        {
+          "file": "src/database/queries.js",
+          "function": "getActiveUsers",
+          "line_start": 6,
+          "line_end": 10
+        },
+        {
+          "file": "src/database/queries.js",
+          "function": "fetchActiveUsers",
+          "line_start": 12,
+          "line_end": 16
+        },
+        {
+          "file": "src/database/queries.js",
+          "function": "listActiveUsers",
+          "line_start": 18,
+          "line_end": 22
+        }
+      ],
+      "expected_similarity_score": 1.0,
+      "consolidation_recommendation": "local_util"
+    },
+    {
+      "group_id": "group_12",
+      "description": "Exact duplicates - Prisma count",
+      "pattern": "prisma-operations",
+      "similarity_type": "exact",
+      "members": [
+        {
+          "file": "src/database/queries.js",
+          "function": "countUsers",
+          "line_start": 27,
+          "line_end": 29
+        },
+        {
+          "file": "src/database/queries.js",
+          "function": "getUserCount",
+          "line_start": 31,
+          "line_end": 33
+        }
+      ],
+      "expected_similarity_score": 1.0,
+      "consolidation_recommendation": "local_util"
+    },
+    {
+      "group_id": "group_13",
+      "description": "Exact duplicates - try/catch error handling",
+      "pattern": "await-patterns",
+      "similarity_type": "exact",
+      "members": [
+        {
+          "file": "src/database/queries.js",
+          "function": "safeQuery",
+          "line_start": 43,
+          "line_end": 49
+        },
+        {
+          "file": "src/database/queries.js",
+          "function": "executeQuery",
+          "line_start": 51,
+          "line_end": 57
+        }
+      ],
+      "expected_similarity_score": 1.0,
+      "consolidation_recommendation": "local_util"
+    },
+    {
+      "group_id": "group_14",
+      "description": "Exact duplicates - ENV with default",
+      "pattern": "env-variables",
+      "similarity_type": "exact",
+      "members": [
+        {
+          "file": "src/config/env.js",
+          "function": "getPort",
+          "line_start": 6,
+          "line_end": 8
+        },
+        {
+          "file": "src/config/env.js",
+          "function": "getServerPort",
+          "line_start": 10,
+          "line_end": 12
+        },
+        {
+          "file": "src/config/env.js",
+          "function": "defaultPort",
+          "line_start": 14,
+          "line_end": 16
+        }
+      ],
+      "expected_similarity_score": 1.0,
+      "consolidation_recommendation": "local_util"
+    },
+    {
+      "group_id": "group_15",
+      "description": "Structural duplicates - boolean ENV parsing",
+      "pattern": "env-variables",
+      "similarity_type": "structural",
+      "members": [
+        {
+          "file": "src/config/env.js",
+          "function": "isDebugEnabled",
+          "line_start": 21,
+          "line_end": 23
+        },
+        {
+          "file": "src/config/env.js",
+          "function": "isProductionMode",
+          "line_start": 25,
+          "line_end": 27
+        }
+      ],
+      "expected_similarity_score": 0.85,
+      "consolidation_recommendation": "local_util"
+    },
+    {
+      "group_id": "group_16",
+      "description": "Exact duplicates - config object builder",
+      "pattern": "config-objects",
+      "similarity_type": "exact",
+      "members": [
+        {
+          "file": "src/config/env.js",
+          "function": "buildConfig",
+          "line_start": 35,
+          "line_end": 41
+        },
+        {
+          "file": "src/config/env.js",
+          "function": "getConfiguration",
+          "line_start": 43,
+          "line_end": 49
+        }
+      ],
+      "expected_similarity_score": 1.0,
+      "consolidation_recommendation": "local_util"
+    }
+  ],
+  "false_positives_to_avoid": [
+    {
+      "description": "Different logic - no filter",
+      "file": "src/utils/array-helpers.js",
+      "function": "getAllUserNames",
+      "reason": "Missing filter step - different behavior"
+    },
+    {
+      "description": "Different logic - has reverse",
+      "file": "src/utils/array-helpers.js",
+      "function": "getUserNamesReversed",
+      "reason": "Additional operation changes behavior"
+    },
+    {
+      "description": "Different implementation - Object.assign",
+      "file": "src/utils/object-helpers.js",
+      "function": "deepMerge",
+      "reason": "Different method (Object.assign vs spread)"
+    },
+    {
+      "description": "Different logic - no transformation",
+      "file": "src/utils/object-helpers.js",
+      "function": "listKeys",
+      "reason": "Missing map operation"
+    },
+    {
+      "description": "Different status code",
+      "file": "src/api/routes.js",
+      "function": "sendCreatedResponse",
+      "reason": "201 vs 200 status code - semantically different"
+    },
+    {
+      "description": "Different check - admin role",
+      "file": "src/api/routes.js",
+      "function": "requireAdmin",
+      "reason": "Additional isAdmin check - different authorization"
+    },
+    {
+      "description": "Different query - has where clause",
+      "file": "src/database/queries.js",
+      "function": "countActiveUsers",
+      "reason": "Filtered count vs total count - different query"
+    },
+    {
+      "description": "Different logic - negated condition",
+      "file": "src/config/env.js",
+      "function": "isDevelopment",
+      "reason": "Negated logic - semantically different"
+    }
+  ],
+  "metrics_targets": {
+    "precision": 0.9,
+    "recall": 0.8,
+    "f1_score": 0.85,
+    "false_positive_rate": 0.1
+  },
+  "summary": {
+    "total_duplicate_groups": 16,
+    "total_duplicate_functions": 41,
+    "exact_duplicates": 11,
+    "structural_duplicates": 5,
+    "false_positive_candidates": 8
+  }
+}

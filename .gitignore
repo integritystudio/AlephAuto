@@ -26,3 +26,4 @@ Thumbs.db
 *.swo
 venv/
 output/
+**/__pycache__/

@@ -16,16 +16,79 @@ Outputs JSON to stdout containing:
 import sys
 import json
 import hashlib
+import re
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
-# Add lib/models to Python path
+# Add lib/models and lib/similarity to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from code_block import CodeBlock, SourceLocation, ASTNode
 from duplicate_group import DuplicateGroup
 from consolidation_suggestion import ConsolidationSuggestion, MigrationStep
 from scan_report import ScanReport, RepositoryInfo, ScanConfiguration, ScanMetrics
+from similarity.grouping import group_by_similarity
+
+
+def extract_function_name(source_code: str) -> Optional[str]:
+    """
+    Extract function name from source code using regex patterns.
+
+    Priority 1: Function-Level Extraction
+    This enables proper matching between detected and expected duplicates.
+    """
+    if not source_code:
+        return None
+
+    # Try various patterns to extract function name
+    patterns = [
+        r'function\s+(\w+)\s*\(',          # function name(
+        r'const\s+(\w+)\s*=\s*(?:async\s+)?function',  # const name = function
+        r'const\s+(\w+)\s*=\s*(?:async\s+)?\(',        # const name = ( or const name = async (
+        r'let\s+(\w+)\s*=\s*(?:async\s+)?function',    # let name = function
+        r'let\s+(\w+)\s*=\s*(?:async\s+)?\(',          # let name = (
+        r'var\s+(\w+)\s*=\s*(?:async\s+)?function',    # var name = function
+        r'var\s+(\w+)\s*=\s*(?:async\s+)?\(',          # var name = (
+        r'async\s+function\s+(\w+)\s*\(',  # async function name(
+        r'(\w+)\s*:\s*function',           # name: function
+        r'(\w+)\s*:\s*async\s+function',   # name: async function
+        r'export\s+function\s+(\w+)',      # export function name
+        r'export\s+const\s+(\w+)\s*=',     # export const name =
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, source_code, re.MULTILINE)
+        if match and match.group(1):
+            return match.group(1)
+
+    return None
+
+def deduplicate_blocks(blocks: List[CodeBlock]) -> List[CodeBlock]:
+    """
+    Remove duplicate code blocks from the same location.
+
+    Priority 4: Deduplicate Pattern Matches
+    ast-grep patterns can match the same code multiple times.
+    This removes duplicates based on file:line location.
+    """
+    seen_locations = set()
+    unique_blocks = []
+
+    for block in blocks:
+        # Create location key: file:line_start
+        location_key = f"{block.location.file_path}:{block.location.line_start}"
+
+        if location_key not in seen_locations:
+            seen_locations.add(location_key)
+            unique_blocks.append(block)
+
+    if len(blocks) != len(unique_blocks):
+        removed = len(blocks) - len(unique_blocks)
+        print(f"Deduplication: Removed {removed} duplicate blocks from same locations", file=sys.stderr)
+
+    return unique_blocks
+
 
 def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> List[CodeBlock]:
     """
@@ -62,6 +125,10 @@ def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> L
 
             category = category_map.get(match['rule_id'], 'utility')
 
+            # Extract function name from source code (Priority 1: Function-Level Extraction)
+            source_code = match.get('matched_text', '')
+            function_name = extract_function_name(source_code)
+
             # Create CodeBlock
             # Note: file_path from ast-grep is already relative to repository root
             block = CodeBlock(
@@ -73,11 +140,13 @@ def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> L
                     line_end=match.get('line_end', match['line_start'])
                 ),
                 relative_path=match['file_path'],  # Already relative from ast-grep
-                source_code=match.get('matched_text', ''),
+                source_code=source_code,
                 language='javascript',  # TODO: Detect from file extension
                 category=category,
                 repository_path=repository_info['path'],
-                line_count=match.get('line_end', match['line_start']) - match['line_start'] + 1
+                line_count=match.get('line_end', match['line_start']) - match['line_start'] + 1,
+                # Store function name in semantic_tags for now (until schema updated)
+                semantic_tags=[f"function:{function_name}"] if function_name else []
             )
 
             blocks.append(block)
@@ -93,35 +162,16 @@ def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> L
 
 def group_duplicates(blocks: List[CodeBlock]) -> List[DuplicateGroup]:
     """
-    Group similar code blocks (basic implementation)
+    Group similar code blocks using multi-layer similarity algorithm.
+
+    Priority 2: Structural Similarity
+    Uses the enhanced grouping algorithm that combines:
+    - Layer 1: Exact matching (hash-based)
+    - Layer 2: Structural similarity (AST-based)
+    - Layer 3: Semantic equivalence (TODO)
     """
-    groups = []
-
-    # Group by content hash (exact duplicates)
-    hash_groups = {}
-    for block in blocks:
-        h = block.content_hash
-        if h not in hash_groups:
-            hash_groups[h] = []
-        hash_groups[h].append(block)
-
-    # Create groups for duplicates (2+ blocks with same hash)
-    for h, group_blocks in hash_groups.items():
-        if len(group_blocks) >= 2:
-            group = DuplicateGroup(
-                group_id=f"dg_{h[:12]}",
-                pattern_id=group_blocks[0].pattern_id,
-                member_block_ids=[b.block_id for b in group_blocks],
-                similarity_score=1.0,  # Exact matches
-                similarity_method='exact_match',  # Must match SimilarityMethod enum
-                category=group_blocks[0].category,
-                language=group_blocks[0].language,
-                occurrence_count=len(group_blocks),
-                total_lines=sum(b.line_count for b in group_blocks),
-                affected_files=list(set(b.location.file_path for b in group_blocks)),
-                affected_repositories=[group_blocks[0].repository_path]
-            )
-            groups.append(group)
+    # Use the multi-layer grouping algorithm
+    groups = group_by_similarity(blocks, similarity_threshold=0.85)
 
     return groups
 
@@ -486,6 +536,9 @@ def main():
         # Stage 3: Extract code blocks
         blocks = extract_code_blocks(pattern_matches, repository_info)
 
+        # Stage 3.5: Deduplicate blocks (Priority 4)
+        blocks = deduplicate_blocks(blocks)
+
         # Stage 4: Semantic annotation (TODO: Implement full annotator)
         # For now, blocks already have basic category from extraction
 
@@ -500,8 +553,8 @@ def main():
             'total_code_blocks': len(blocks),
             'total_duplicate_groups': len(groups),
             'exact_duplicates': len([g for g in groups if g.similarity_method == 'exact']),
-            'structural_duplicates': 0,
-            'semantic_duplicates': 0,
+            'structural_duplicates': len([g for g in groups if g.similarity_method == 'structural']),
+            'semantic_duplicates': 0,  # TODO: Implement semantic grouping
             'total_duplicated_lines': sum(g.total_lines for g in groups),
             'potential_loc_reduction': sum(g.total_lines - g.total_lines // g.occurrence_count for g in groups),
             'duplication_percentage': 0.0,  # TODO: Calculate properly
