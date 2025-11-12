@@ -31,13 +31,18 @@ from scan_report import ScanReport, RepositoryInfo, ScanConfiguration, ScanMetri
 from similarity.grouping import group_by_similarity
 
 
-def extract_function_name(source_code: str) -> Optional[str]:
+def extract_function_name(source_code: str, file_path: Optional[str] = None, line_start: Optional[int] = None, repo_path: Optional[str] = None) -> Optional[str]:
     """
     Extract function name from source code using regex patterns.
 
     Priority 1: Function-Level Extraction
     This enables proper matching between detected and expected duplicates.
+
+    If function name can't be found in source_code, reads the actual file
+    to get more context (lines before the match).
     """
+    print(f"DEBUG extract_function_name called: file_path={file_path}, line_start={line_start}, repo_path={repo_path}", file=sys.stderr)
+
     if not source_code:
         return None
 
@@ -61,6 +66,34 @@ def extract_function_name(source_code: str) -> Optional[str]:
         match = re.search(pattern, source_code, re.MULTILINE)
         if match and match.group(1):
             return match.group(1)
+
+    # If not found in matched text, try reading more context from file
+    if file_path and line_start and repo_path:
+        try:
+            full_file_path = Path(repo_path) / file_path
+            print(f"DEBUG: Attempting to read {full_file_path} at line {line_start}", file=sys.stderr)
+
+            if full_file_path.exists():
+                with open(full_file_path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+
+                # Read up to 10 lines before the match to capture function declaration
+                context_start = max(0, line_start - 11)  # line_start is 1-indexed
+                context_end = min(len(lines), line_start + 2)
+                context = ''.join(lines[context_start:context_end])
+
+                # Try patterns again on expanded context
+                for pattern in patterns:
+                    match = re.search(pattern, context, re.MULTILINE)
+                    if match and match.group(1):
+                        print(f"DEBUG: Found function name '{match.group(1)}' in context", file=sys.stderr)
+                        return match.group(1)
+
+                print(f"DEBUG: No function name found in context for {file_path}:{line_start}", file=sys.stderr)
+            else:
+                print(f"DEBUG: File does not exist: {full_file_path}", file=sys.stderr)
+        except Exception as e:
+            print(f"Warning: Could not read file context for {file_path}: {e}", file=sys.stderr)
 
     return None
 
@@ -127,7 +160,12 @@ def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> L
 
             # Extract function name from source code (Priority 1: Function-Level Extraction)
             source_code = match.get('matched_text', '')
-            function_name = extract_function_name(source_code)
+            function_name = extract_function_name(
+                source_code,
+                file_path=match['file_path'],
+                line_start=match['line_start'],
+                repo_path=repository_info['path']
+            )
 
             # Create CodeBlock
             # Note: file_path from ast-grep is already relative to repository root
