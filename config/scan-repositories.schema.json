@@ -1,0 +1,264 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Scan Repositories Configuration",
+  "description": "Configuration for automated duplicate detection scanning",
+  "type": "object",
+  "required": ["version", "scanConfig", "repositories"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Configuration schema version"
+    },
+    "scanConfig": {
+      "type": "object",
+      "required": ["enabled", "schedule"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable/disable automated scanning"
+        },
+        "schedule": {
+          "type": "string",
+          "description": "Cron schedule for automated scans (e.g., '0 2 * * *' for 2 AM daily)",
+          "pattern": "^[0-9*,/-]+ [0-9*,/-]+ [0-9*,/-]+ [0-9*,/-]+ [0-9*,/-]+$"
+        },
+        "maxRepositoriesPerNight": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Maximum number of repositories to scan per scheduled run"
+        },
+        "maxConcurrentScans": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Maximum number of concurrent repository scans"
+        },
+        "scanTimeout": {
+          "type": "number",
+          "minimum": 60000,
+          "description": "Scan timeout in milliseconds"
+        },
+        "retryAttempts": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5,
+          "description": "Number of retry attempts for failed scans"
+        },
+        "retryDelay": {
+          "type": "number",
+          "minimum": 1000,
+          "description": "Delay between retry attempts in milliseconds"
+        }
+      }
+    },
+    "cacheConfig": {
+      "type": "object",
+      "description": "Cache configuration for scan results",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable/disable scan result caching"
+        },
+        "provider": {
+          "type": "string",
+          "enum": ["redis", "memory"],
+          "description": "Cache provider (redis recommended for production)"
+        },
+        "ttl": {
+          "type": "number",
+          "minimum": 3600,
+          "description": "Cache time-to-live in seconds (default: 30 days)"
+        },
+        "invalidateOnChange": {
+          "type": "boolean",
+          "description": "Automatically invalidate cache when repository changes"
+        },
+        "trackGitCommits": {
+          "type": "boolean",
+          "description": "Use Git commit hashes for cache keys"
+        },
+        "trackUncommittedChanges": {
+          "type": "boolean",
+          "description": "Skip cache if repository has uncommitted changes"
+        }
+      }
+    },
+    "repositories": {
+      "type": "array",
+      "description": "List of repositories to scan",
+      "items": {
+        "type": "object",
+        "required": ["name", "path", "priority", "scanFrequency", "enabled"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Repository name (unique identifier)"
+          },
+          "path": {
+            "type": "string",
+            "description": "Absolute or relative path to repository (~ expansion supported)"
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"],
+            "description": "Scan priority (affects scheduling order)"
+          },
+          "scanFrequency": {
+            "type": "string",
+            "enum": ["daily", "weekly", "monthly", "on-demand"],
+            "description": "How frequently to scan this repository"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Enable/disable scanning for this repository"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Tags for categorization and filtering"
+          },
+          "excludePatterns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "File patterns to exclude from scanning (glob patterns)"
+          },
+          "lastScannedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of last successful scan"
+          },
+          "scanHistory": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "timestamp": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["success", "failure", "timeout"]
+                },
+                "duration": {
+                  "type": "number"
+                },
+                "duplicatesFound": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "repositoryGroups": {
+      "type": "array",
+      "description": "Groups of repositories for inter-project scanning",
+      "items": {
+        "type": "object",
+        "required": ["name", "repositories", "scanType", "enabled"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Group name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Group description"
+          },
+          "repositories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Repository names in this group"
+          },
+          "scanType": {
+            "type": "string",
+            "enum": ["inter-project", "intra-project"],
+            "description": "Type of scanning to perform"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Enable/disable this group"
+          }
+        }
+      }
+    },
+    "scanDefaults": {
+      "type": "object",
+      "description": "Default scanning options",
+      "properties": {
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Programming languages to scan"
+        },
+        "includeSourceCode": {
+          "type": "boolean",
+          "description": "Include source code in reports"
+        },
+        "includeCodeBlocks": {
+          "type": "boolean",
+          "description": "Include code blocks in reports"
+        },
+        "generateReports": {
+          "type": "boolean",
+          "description": "Generate reports after scanning"
+        },
+        "reportFormats": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["html", "markdown", "json", "summary"]
+          },
+          "description": "Report formats to generate"
+        }
+      }
+    },
+    "notifications": {
+      "type": "object",
+      "description": "Notification settings",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable/disable notifications"
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["sentry", "log", "email", "slack"]
+          },
+          "description": "Notification channels"
+        },
+        "onSuccess": {
+          "type": "boolean",
+          "description": "Notify on successful scans"
+        },
+        "onFailure": {
+          "type": "boolean",
+          "description": "Notify on failed scans"
+        },
+        "onHighImpactDuplicates": {
+          "type": "boolean",
+          "description": "Notify when high-impact duplicates are found"
+        },
+        "highImpactThreshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Impact score threshold for high-impact notifications"
+        }
+      }
+    }
+  }
+}

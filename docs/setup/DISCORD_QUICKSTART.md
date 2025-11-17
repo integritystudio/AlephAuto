@@ -29,7 +29,7 @@ You should see 3 test messages in Discord! ✅
 ### Step 4: Configure Sentry Alerts (1 minute)
 
 ```bash
-doppler run -- node setup-files/configure-discord-alerts.js
+doppler run -- node ../setup/configure-discord-alerts.js
 ```
 
 This automatically adds Discord to all your Sentry alert rules.
@@ -56,10 +56,10 @@ Follow steps 1-3 above.
 
 ```bash
 # Start with PM2
-pm2 start setup-files/sentry-to-discord.js --name sentry-discord-bridge
+pm2 start ../setup/sentry-to-discord.js --name sentry-discord-bridge
 
 # Or run directly for testing
-doppler run -- node setup-files/sentry-to-discord.js
+doppler run -- node ../setup/sentry-to-discord.js
 ```
 
 This creates a webhook endpoint at `http://localhost:3000/sentry-webhook`
@@ -168,13 +168,13 @@ Error rate exceeded 100 errors/hour threshold
 doppler run -- node test/test-discord-webhook.js
 
 # Configure Sentry alerts
-doppler run -- node setup-files/configure-discord-alerts.js
+doppler run -- node ../setup/configure-discord-alerts.js
 
 # Test end-to-end
 node test/test-sentry-connection.js
 
 # Start middleware (optional)
-pm2 start setup-files/sentry-to-discord.js --name sentry-discord-bridge
+pm2 start ../setup/sentry-to-discord.js --name sentry-discord-bridge
 
 # View middleware logs
 pm2 logs sentry-discord-bridge
@@ -199,4 +199,4 @@ After setup:
 
 **That's it!** You now have Sentry alerts flowing into Discord. 🎉
 
-For detailed documentation, see: `setup-files/DISCORD_SENTRY_INTEGRATION.md`
+For detailed documentation, see: `../setup/DISCORD_SENTRY_INTEGRATION.md`

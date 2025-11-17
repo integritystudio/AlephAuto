@@ -1,312 +1,187 @@
 {
   "summary": {
     "total_expected_groups": 16,
-    "total_detected_groups": 25,
-    "correctly_detected": 0,
-    "missed": 16,
-    "false_alarms": 25,
+    "total_detected_groups": 14,
+    "correctly_detected": 14,
+    "missed": 2,
+    "false_alarms": 0,
     "correctly_ignored": 8
   },
   "metrics": {
     "counts": {
-      "tp": 0,
-      "fp": 25,
-      "fn": 16,
+      "tp": 14,
+      "fp": 0,
+      "fn": 2,
       "tn": 8
     },
     "precision": {
-      "score": 0,
-      "percentage": "0.00%",
-      "interpretation": "Poor"
+      "score": 1,
+      "percentage": "100.00%",
+      "interpretation": "Excellent"
     },
     "recall": {
-      "score": 0,
-      "percentage": "0.00%",
-      "interpretation": "Poor"
+      "score": 0.875,
+      "percentage": "87.50%",
+      "interpretation": "Good"
     },
     "f1Score": {
-      "score": 0,
-      "percentage": "0.00%",
-      "interpretation": "Poor"
+      "score": 0.9333333333333333,
+      "percentage": "93.33%",
+      "interpretation": "Excellent"
     },
     "falsePositiveRate": {
-      "score": 0.7575757575757576,
-      "percentage": "75.76%",
-      "interpretation": "Poor"
+      "score": 0,
+      "percentage": "0.00%",
+      "interpretation": "Excellent"
     }
   },
   "targets": {
     "precision": {
       "target": 0.9,
-      "actual": 0,
-      "met": false,
-      "delta": "-0.900"
+      "actual": 1,
+      "met": true,
+      "delta": "0.100"
     },
     "recall": {
       "target": 0.8,
-      "actual": 0,
-      "met": false,
-      "delta": "-0.800"
+      "actual": 0.875,
+      "met": true,
+      "delta": "0.075"
     },
     "f1_score": {
       "target": 0.85,
-      "actual": 0,
-      "met": false,
-      "delta": "-0.850"
+      "actual": 0.9333333333333333,
+      "met": true,
+      "delta": "0.083"
     },
     "false_positive_rate": {
       "target": 0.1,
-      "actual": 0.7575757575757576,
-      "met": false,
-      "delta": "-0.658"
+      "actual": 0,
+      "met": true,
+      "delta": "0.100"
     }
   },
   "overall_assessment": {
-    "all_targets_met": false,
-    "grade": "F"
+    "all_targets_met": true,
+    "grade": "A"
   },
   "details": {
-    "truePositives": [],
-    "falsePositives": [
+    "truePositives": [
       {
-        "group_id": "dg_fa3fae851465",
-        "members": [
-          "src/api/routes.js:routes.js:37",
-          "src/api/routes.js:routes.js:44"
-        ],
-        "pattern": "validation"
+        "expected": "group_1",
+        "detected": "dg_86858e25f90a",
+        "overlap": 3,
+        "expected_members": 3,
+        "detected_members": 3,
+        "overlap_ratio": 1
       },
       {
-        "group_id": "dg_b3211d94bc77",
-        "members": [
-          "src/api/routes.js:routes.js:6",
-          "src/api/routes.js:routes.js:10",
-          "src/api/routes.js:routes.js:14"
-        ],
-        "pattern": "logger-patterns"
+        "expected": "group_2",
+        "detected": "dg_1ceb63a7aba6",
+        "overlap": 2,
+        "expected_members": 2,
+        "detected_members": 2,
+        "overlap_ratio": 1
       },
       {
-        "group_id": "dg_c233dcbc9a0f",
-        "members": [
-          "src/api/routes.js:routes.js:38",
-          "src/api/routes.js:routes.js:45",
-          "src/api/routes.js:routes.js:53"
-        ],
-        "pattern": "logger-patterns"
+        "expected": "group_3",
+        "detected": "dg_c58e2fe87fd9",
+        "overlap": 2,
+        "expected_members": 2,
+        "detected_members": 2,
+        "overlap_ratio": 1
       },
       {
-        "group_id": "dg_c1539793b83b",
-        "members": [
-          "src/database/queries.js:queries.js:6",
-          "src/database/queries.js:queries.js:12",
-          "src/database/queries.js:queries.js:18"
-        ],
-        "pattern": "prisma-operations"
+        "expected": "group_5",
+        "detected": "dg_2ab8e7cd0a74",
+        "overlap": 3,
+        "expected_members": 3,
+        "detected_members": 3,
+        "overlap_ratio": 1
       },
       {
-        "group_id": "dg_02ce2a61c64b",
-        "members": [
-          "src/database/queries.js:queries.js:27",
-          "src/database/queries.js:queries.js:31"
-        ],
-        "pattern": "prisma-operations"
+        "expected": "group_7",
+        "detected": "dg_dd1583d4a756",
+        "overlap": 2,
+        "expected_members": 2,
+        "detected_members": 2,
+        "overlap_ratio": 1
       },
       {
-        "group_id": "dg_91c195d2c734",
-        "members": [
-          "src/database/queries.js:queries.js:48",
-          "src/database/queries.js:queries.js:57"
-        ],
-        "pattern": "console-statements"
+        "expected": "group_8",
+        "detected": "dg_c5662db20598",
+        "overlap": 3,
+        "expected_members": 3,
+        "detected_members": 3,
+        "overlap_ratio": 1
       },
       {
-        "group_id": "dg_af70353e0b8a",
-        "members": [
-          "src/config/env.js:env.js:6",
-          "src/config/env.js:env.js:10",
-          "src/config/env.js:env.js:14",
-          "src/config/env.js:env.js:38",
-          "src/config/env.js:env.js:46"
-        ],
-        "pattern": "env-variables"
+        "expected": "group_9",
+        "detected": "dg_5d1c2d6617a1",
+        "overlap": 2,
+        "expected_members": 2,
+        "detected_members": 2,
+        "overlap_ratio": 1
       },
       {
-        "group_id": "dg_3f2fec788302",
-        "members": [
-          "src/config/env.js:env.js:21",
-          "src/config/env.js:env.js:40",
-          "src/config/env.js:env.js:48"
-        ],
-        "pattern": "env-variables"
+        "expected": "group_10",
+        "detected": "dg_fa3fae851465",
+        "overlap": 2,
+        "expected_members": 2,
+        "detected_members": 2,
+        "overlap_ratio": 1
       },
       {
-        "group_id": "dg_5457474c941c",
-        "members": [
-          "src/config/env.js:env.js:25",
-          "src/config/env.js:env.js:30"
-        ],
-        "pattern": "env-variables"
+        "expected": "group_11",
+        "detected": "dg_c2be6410d198",
+        "overlap": 3,
+        "expected_members": 3,
+        "detected_members": 3,
+        "overlap_ratio": 1
       },
       {
-        "group_id": "dg_5057c0204b57",
-        "members": [
-          "src/config/env.js:env.js:39",
-          "src/config/env.js:env.js:47"
-        ],
-        "pattern": "env-variables"
+        "expected": "group_12",
+        "detected": "dg_4a490bee38ad",
+        "overlap": 2,
+        "expected_members": 2,
+        "detected_members": 2,
+        "overlap_ratio": 1
       },
       {
-        "group_id": "dg_9d8820e0faae",
-        "members": [
-          "src/utils/object-helpers.js:object-helpers.js:6",
-          "src/utils/object-helpers.js:object-helpers.js:10",
-          "src/utils/object-helpers.js:object-helpers.js:14"
-        ],
-        "pattern": "object-manipulation"
+        "expected": "group_13",
+        "detected": "dg_31c608ca2649",
+        "overlap": 2,
+        "expected_members": 2,
+        "detected_members": 2,
+        "overlap_ratio": 1
       },
       {
-        "group_id": "dg_ab1e7018b61c",
-        "members": [
-          "src/utils/array-helpers.js:array-helpers.js:5",
-          "src/utils/array-helpers.js:array-helpers.js:10",
-          "src/utils/array-helpers.js:array-helpers.js:15",
-          "src/utils/array-helpers.js:array-helpers.js:39"
-        ],
-        "pattern": "array-map-filter"
+        "expected": "group_14",
+        "detected": "dg_dd35717a8b7b",
+        "overlap": 3,
+        "expected_members": 3,
+        "detected_members": 3,
+        "overlap_ratio": 1
       },
       {
-        "group_id": "dg_16032e9eb643",
-        "members": [
-          "src/utils/array-helpers.js:array-helpers.js:48",
-          "src/utils/array-helpers.js:array-helpers.js:54"
-        ],
-        "pattern": "array-map-filter"
+        "expected": "group_15",
+        "detected": "dg_415d437bf62f",
+        "overlap": 2,
+        "expected_members": 2,
+        "detected_members": 2,
+        "overlap_ratio": 1
       },
       {
-        "group_id": "dg_8a81c7bb66cf",
-        "members": [
-          "src/utils/array-helpers.js:array-helpers.js:61",
-          "src/utils/array-helpers.js:array-helpers.js:65"
-        ],
-        "pattern": "array-map-filter"
-      },
-      {
-        "group_id": "dg_6973a5be1688",
-        "members": [
-          "src/utils/edge-cases.js:edge-cases.js:129",
-          "src/utils/edge-cases.js:edge-cases.js:141"
-        ],
-        "pattern": "type-checking"
-      },
-      {
-        "group_id": "dg_00ec9a06115b",
-        "members": [
-          "src/utils/edge-cases.js:edge-cases.js:133",
-          "src/utils/edge-cases.js:edge-cases.js:145"
-        ],
-        "pattern": "type-checking"
-      },
-      {
-        "group_id": "dg_ce48a09a119e",
-        "members": [
-          "src/utils/edge-cases.js:edge-cases.js:71",
-          "src/utils/edge-cases.js:edge-cases.js:77"
-        ],
-        "pattern": "logger-patterns"
-      },
-      {
-        "group_id": "dg_a05d555ce917",
-        "members": [
-          "src/utils/edge-cases.js:edge-cases.js:134",
-          "src/utils/edge-cases.js:edge-cases.js:146"
-        ],
-        "pattern": "logger-patterns"
-      },
-      {
-        "group_id": "dg_d0f02152d711",
-        "members": [
-          "src/utils/edge-cases.js:edge-cases.js:154",
-          "src/utils/edge-cases.js:edge-cases.js:158"
-        ],
-        "pattern": "logger-patterns"
-      },
-      {
-        "group_id": "dg_785c048805ef",
-        "members": [
-          "src/api/routes.js:routes.js:21",
-          "src/api/routes.js:routes.js:25",
-          "src/api/routes.js:routes.js:30"
-        ],
-        "pattern": "logger-patterns"
-      },
-      {
-        "group_id": "dg_0f0173ca6ac5",
-        "members": [
-          "src/utils/object-helpers.js:object-helpers.js:37",
-          "src/utils/object-helpers.js:object-helpers.js:41",
-          "src/utils/object-helpers.js:object-helpers.js:46"
-        ],
-        "pattern": "object-manipulation"
-      },
-      {
-        "group_id": "dg_7c10373d603d",
-        "members": [
-          "src/utils/array-helpers.js:array-helpers.js:23",
-          "src/utils/array-helpers.js:array-helpers.js:28"
-        ],
-        "pattern": "array-map-filter"
-      },
-      {
-        "group_id": "dg_3b9787323cf0",
-        "members": [
-          "src/utils/edge-cases.js:edge-cases.js:3",
-          "src/utils/edge-cases.js:edge-cases.js:6"
-        ],
-        "pattern": "logger-patterns"
-      },
-      {
-        "group_id": "dg_5fac132e3776",
-        "members": [
-          "src/utils/edge-cases.js:edge-cases.js:47",
-          "src/utils/edge-cases.js:edge-cases.js:51"
-        ],
-        "pattern": "logger-patterns"
-      },
-      {
-        "group_id": "dg_5d9ac2df5617",
-        "members": [
-          "src/utils/edge-cases.js:edge-cases.js:87",
-          "src/utils/edge-cases.js:edge-cases.js:96"
-        ],
-        "pattern": "logger-patterns"
+        "expected": "group_16",
+        "detected": "dg_d5d158a26d5a",
+        "overlap": 2,
+        "expected_members": 2,
+        "detected_members": 2,
+        "overlap_ratio": 1
       }
     ],
+    "falsePositives": [],
     "falseNegatives": [
-      {
-        "group_id": "group_1",
-        "description": "Exact duplicates - filter().map() pattern",
-        "members": [
-          "src/utils/array-helpers.js:getUserNames",
-          "src/utils/array-helpers.js:getActiveUserNames",
-          "src/utils/array-helpers.js:filterActiveUsers"
-        ]
-      },
-      {
-        "group_id": "group_2",
-        "description": "Structural duplicates - same pattern, different variables",
-        "members": [
-          "src/utils/array-helpers.js:getAvailableProducts",
-          "src/utils/array-helpers.js:getActiveItems"
-        ]
-      },
-      {
-        "group_id": "group_3",
-        "description": "Exact duplicates - comments ignored",
-        "members": [
-          "src/utils/array-helpers.js:processData",
-          "src/utils/array-helpers.js:transformData"
-        ]
-      },
       {
         "group_id": "group_4",
         "description": "Exact duplicates - whitespace ignored",
@@ -316,103 +191,11 @@
         ]
       },
       {
-        "group_id": "group_5",
-        "description": "Exact duplicates - JSON.stringify",
-        "members": [
-          "src/utils/object-helpers.js:serializeUser",
-          "src/utils/object-helpers.js:formatUserJSON",
-          "src/utils/object-helpers.js:userToJSON"
-        ]
-      },
-      {
         "group_id": "group_6",
         "description": "Structural duplicates - object spread",
         "members": [
           "src/utils/object-helpers.js:mergeConfig",
           "src/utils/object-helpers.js:combineOptions"
-        ]
-      },
-      {
-        "group_id": "group_7",
-        "description": "Exact duplicates - Object.keys().map()",
-        "members": [
-          "src/utils/object-helpers.js:getConfigKeys",
-          "src/utils/object-helpers.js:extractKeys"
-        ]
-      },
-      {
-        "group_id": "group_8",
-        "description": "Exact duplicates - 404 error handler",
-        "members": [
-          "src/api/routes.js:handleNotFound",
-          "src/api/routes.js:sendNotFoundError",
-          "src/api/routes.js:notFoundHandler"
-        ]
-      },
-      {
-        "group_id": "group_9",
-        "description": "Structural duplicates - 200 success response",
-        "members": [
-          "src/api/routes.js:sendUserSuccess",
-          "src/api/routes.js:sendProductSuccess"
-        ]
-      },
-      {
-        "group_id": "group_10",
-        "description": "Exact duplicates - auth middleware",
-        "members": [
-          "src/api/routes.js:requireAuth",
-          "src/api/routes.js:checkAuthentication"
-        ]
-      },
-      {
-        "group_id": "group_11",
-        "description": "Structural duplicates - Prisma findMany",
-        "members": [
-          "src/database/queries.js:getActiveUsers",
-          "src/database/queries.js:fetchActiveUsers",
-          "src/database/queries.js:listActiveUsers"
-        ]
-      },
-      {
-        "group_id": "group_12",
-        "description": "Exact duplicates - Prisma count",
-        "members": [
-          "src/database/queries.js:countUsers",
-          "src/database/queries.js:getUserCount"
-        ]
-      },
-      {
-        "group_id": "group_13",
-        "description": "Exact duplicates - try/catch error handling",
-        "members": [
-          "src/database/queries.js:safeQuery",
-          "src/database/queries.js:executeQuery"
-        ]
-      },
-      {
-        "group_id": "group_14",
-        "description": "Exact duplicates - ENV with default",
-        "members": [
-          "src/config/env.js:getPort",
-          "src/config/env.js:getServerPort",
-          "src/config/env.js:defaultPort"
-        ]
-      },
-      {
-        "group_id": "group_15",
-        "description": "Structural duplicates - boolean ENV parsing",
-        "members": [
-          "src/config/env.js:isDebugEnabled",
-          "src/config/env.js:isProductionMode"
-        ]
-      },
-      {
-        "group_id": "group_16",
-        "description": "Exact duplicates - config object builder",
-        "members": [
-          "src/config/env.js:buildConfig",
-          "src/config/env.js:getConfiguration"
         ]
       }
     ],

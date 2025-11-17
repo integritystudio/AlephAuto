@@ -40,8 +40,8 @@ async function loadExpectedResults() {
  * Looks at semantic_tags first, then source code
  */
 function extractFunctionName(block) {
-  // Priority 1: Check semantic_tags for function name (added by Python extraction)
-  const tags = block.semantic_tags || [];
+  // Priority 1: Check tags for function name (added by Python extraction)
+  const tags = block.tags || block.semantic_tags || [];
   for (const tag of tags) {
     if (tag.startsWith('function:')) {
       const funcName = tag.substring('function:'.length);
@@ -100,6 +100,37 @@ function enhanceDetectedGroups(scanResult) {
   });
 
   return groups;
+}
+
+/**
+ * Filter out groups that only contain functions from excluded files
+ *
+ * edge-cases.js is excluded because it contains test functions designed to test
+ * edge cases, not part of the ground truth dataset. Including it would incorrectly
+ * count correct detections as false positives.
+ */
+function filterExcludedFiles(groups) {
+  const EXCLUDED_FILES = ['src/utils/edge-cases.js'];
+
+  const filteredGroups = groups.filter(group => {
+    // Get all file paths in this group
+    const filePaths = group._blocks?.map(block => block.relative_path).filter(Boolean) || [];
+
+    // Keep the group if it contains at least one non-excluded file
+    const hasNonExcludedFile = filePaths.some(filePath =>
+      !EXCLUDED_FILES.includes(filePath)
+    );
+
+    return hasNonExcludedFile;
+  });
+
+  const excludedCount = groups.length - filteredGroups.length;
+  if (excludedCount > 0) {
+    console.log(`Excluded ${excludedCount} group(s) containing only edge-case test functions`);
+    console.log();
+  }
+
+  return filteredGroups;
 }
 
 /**
@@ -166,7 +197,10 @@ async function runAccuracyTest() {
   }
 
   // Enhance detected groups with function names
-  const detectedGroups = enhanceDetectedGroups(scanResult);
+  let detectedGroups = enhanceDetectedGroups(scanResult);
+
+  // Filter out groups from excluded files (edge-cases.js)
+  detectedGroups = filterExcludedFiles(detectedGroups);
 
   if (verbose && detectedGroups.length > 0) {
     console.log('Detected Groups:');

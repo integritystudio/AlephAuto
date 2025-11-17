@@ -1,0 +1,295 @@
+{
+  "summary": {
+    "total_expected_groups": 16,
+    "total_detected_groups": 22,
+    "correctly_detected": 13,
+    "missed": 3,
+    "false_alarms": 9,
+    "correctly_ignored": 5
+  },
+  "metrics": {
+    "counts": {
+      "tp": 13,
+      "fp": 9,
+      "fn": 3,
+      "tn": 5
+    },
+    "precision": {
+      "score": 0.5909090909090909,
+      "percentage": "59.09%",
+      "interpretation": "Poor"
+    },
+    "recall": {
+      "score": 0.8125,
+      "percentage": "81.25%",
+      "interpretation": "Good"
+    },
+    "f1Score": {
+      "score": 0.6842105263157896,
+      "percentage": "68.42%",
+      "interpretation": "Poor"
+    },
+    "falsePositiveRate": {
+      "score": 0.6428571428571429,
+      "percentage": "64.29%",
+      "interpretation": "Poor"
+    }
+  },
+  "targets": {
+    "precision": {
+      "target": 0.9,
+      "actual": 0.5909090909090909,
+      "met": false,
+      "delta": "-0.309"
+    },
+    "recall": {
+      "target": 0.8,
+      "actual": 0.8125,
+      "met": true,
+      "delta": "0.012"
+    },
+    "f1_score": {
+      "target": 0.85,
+      "actual": 0.6842105263157896,
+      "met": false,
+      "delta": "-0.166"
+    },
+    "false_positive_rate": {
+      "target": 0.1,
+      "actual": 0.6428571428571429,
+      "met": false,
+      "delta": "-0.543"
+    }
+  },
+  "overall_assessment": {
+    "all_targets_met": false,
+    "grade": "D"
+  },
+  "details": {
+    "truePositives": [
+      {
+        "expected": "group_1",
+        "detected": "dg_ab1e7018b61c",
+        "overlap": 3,
+        "expected_members": 3,
+        "detected_members": 4,
+        "overlap_ratio": 0.75
+      },
+      {
+        "expected": "group_2",
+        "detected": "dg_7c10373d603d",
+        "overlap": 2,
+        "expected_members": 2,
+        "detected_members": 2,
+        "overlap_ratio": 1
+      },
+      {
+        "expected": "group_3",
+        "detected": "dg_16032e9eb643",
+        "overlap": 2,
+        "expected_members": 2,
+        "detected_members": 2,
+        "overlap_ratio": 1
+      },
+      {
+        "expected": "group_5",
+        "detected": "dg_9d8820e0faae",
+        "overlap": 3,
+        "expected_members": 3,
+        "detected_members": 3,
+        "overlap_ratio": 1
+      },
+      {
+        "expected": "group_7",
+        "detected": "dg_0b53af296116",
+        "overlap": 2,
+        "expected_members": 2,
+        "detected_members": 2,
+        "overlap_ratio": 1
+      },
+      {
+        "expected": "group_8",
+        "detected": "dg_b3211d94bc77",
+        "overlap": 3,
+        "expected_members": 3,
+        "detected_members": 3,
+        "overlap_ratio": 1
+      },
+      {
+        "expected": "group_9",
+        "detected": "dg_785c048805ef",
+        "overlap": 2,
+        "expected_members": 2,
+        "detected_members": 3,
+        "overlap_ratio": 0.6666666666666666
+      },
+      {
+        "expected": "group_10",
+        "detected": "dg_fa3fae851465",
+        "overlap": 2,
+        "expected_members": 2,
+        "detected_members": 2,
+        "overlap_ratio": 1
+      },
+      {
+        "expected": "group_11",
+        "detected": "dg_c1539793b83b",
+        "overlap": 3,
+        "expected_members": 3,
+        "detected_members": 3,
+        "overlap_ratio": 1
+      },
+      {
+        "expected": "group_12",
+        "detected": "dg_02ce2a61c64b",
+        "overlap": 2,
+        "expected_members": 2,
+        "detected_members": 2,
+        "overlap_ratio": 1
+      },
+      {
+        "expected": "group_13",
+        "detected": "dg_91c195d2c734",
+        "overlap": 2,
+        "expected_members": 2,
+        "detected_members": 2,
+        "overlap_ratio": 1
+      },
+      {
+        "expected": "group_14",
+        "detected": "dg_af70353e0b8a",
+        "overlap": 3,
+        "expected_members": 3,
+        "detected_members": 5,
+        "overlap_ratio": 0.6
+      },
+      {
+        "expected": "group_15",
+        "detected": "dg_5457474c941c",
+        "overlap": 1,
+        "expected_members": 2,
+        "detected_members": 2,
+        "overlap_ratio": 0.5
+      }
+    ],
+    "falsePositives": [
+      {
+        "group_id": "dg_ce48a09a119e",
+        "members": [
+          "src/utils/edge-cases.js:processItems1",
+          "src/utils/edge-cases.js:processItems2"
+        ],
+        "pattern": "logger-patterns"
+      },
+      {
+        "group_id": "dg_d0f02152d711",
+        "members": [
+          "src/utils/edge-cases.js:processString1",
+          "src/utils/edge-cases.js:processString2"
+        ],
+        "pattern": "logger-patterns"
+      },
+      {
+        "group_id": "dg_6973a5be1688",
+        "members": [
+          "src/utils/edge-cases.js:complexValidation1",
+          "src/utils/edge-cases.js:complexValidation2"
+        ],
+        "pattern": "type-checking"
+      },
+      {
+        "group_id": "dg_3b9787323cf0",
+        "members": [
+          "src/utils/edge-cases.js:edge-cases.js:3",
+          "src/utils/edge-cases.js:multiLine"
+        ],
+        "pattern": "logger-patterns"
+      },
+      {
+        "group_id": "dg_5fac132e3776",
+        "members": [
+          "src/utils/edge-cases.js:findMax",
+          "src/utils/edge-cases.js:findMin"
+        ],
+        "pattern": "logger-patterns"
+      },
+      {
+        "group_id": "dg_5d9ac2df5617",
+        "members": [
+          "src/utils/edge-cases.js:fetchData1",
+          "src/utils/edge-cases.js:fetchData2"
+        ],
+        "pattern": "logger-patterns"
+      },
+      {
+        "function": "getUserNamesReversed",
+        "file": "src/utils/array-helpers.js",
+        "reason": "Detected as duplicate but should not be: Additional operation changes behavior"
+      },
+      {
+        "function": "sendCreatedResponse",
+        "file": "src/api/routes.js",
+        "reason": "Detected as duplicate but should not be: 201 vs 200 status code - semantically different"
+      },
+      {
+        "function": "isDevelopment",
+        "file": "src/config/env.js",
+        "reason": "Detected as duplicate but should not be: Negated logic - semantically different"
+      }
+    ],
+    "falseNegatives": [
+      {
+        "group_id": "group_4",
+        "description": "Exact duplicates - whitespace ignored",
+        "members": [
+          "src/utils/array-helpers.js:compact",
+          "src/utils/array-helpers.js:removeEmpty"
+        ]
+      },
+      {
+        "group_id": "group_6",
+        "description": "Structural duplicates - object spread",
+        "members": [
+          "src/utils/object-helpers.js:mergeConfig",
+          "src/utils/object-helpers.js:combineOptions"
+        ]
+      },
+      {
+        "group_id": "group_16",
+        "description": "Exact duplicates - config object builder",
+        "members": [
+          "src/config/env.js:buildConfig",
+          "src/config/env.js:getConfiguration"
+        ]
+      }
+    ],
+    "trueNegatives": [
+      {
+        "function": "getAllUserNames",
+        "file": "src/utils/array-helpers.js",
+        "reason": "Missing filter step - different behavior"
+      },
+      {
+        "function": "deepMerge",
+        "file": "src/utils/object-helpers.js",
+        "reason": "Different method (Object.assign vs spread)"
+      },
+      {
+        "function": "listKeys",
+        "file": "src/utils/object-helpers.js",
+        "reason": "Missing map operation"
+      },
+      {
+        "function": "requireAdmin",
+        "file": "src/api/routes.js",
+        "reason": "Additional isAdmin check - different authorization"
+      },
+      {
+        "function": "countActiveUsers",
+        "file": "src/database/queries.js",
+        "reason": "Filtered count vs total count - different query"
+      }
+    ],
+    "partialMatches": []
+  }
+}

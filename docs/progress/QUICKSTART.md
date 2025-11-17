@@ -69,8 +69,8 @@ du -sh condense/*/
 
 ### View Setup Documentation
 ```bash
-ls setup-files/
-cat setup-files/claude-code-setup.md
+ls ./setup/
+cat ./setup/claude-code-setup.md
 ```
 
 ### Clean Old Logs (if needed)
@@ -105,7 +105,7 @@ git commit -m "docs: add repository documentation and dev tracking"
 |-----------|----------|
 | `condense/` | Archive of 20+ projects |
 | `logs/` | 6000+ operation log files |
-| `setup-files/` | Installation and setup docs |
+| `./setup/` | Installation and setup docs |
 | `dev/` | Development documentation |
 | `directory-scan-reports/` | Automated scan outputs |
 
@@ -151,7 +151,7 @@ Choose based on need:
 **C. New Development**
 - Ask user which project to work on
 - Review project-specific README
-- Check setup-files/ for dependencies
+- Check ./setup/ for dependencies
 
 **D. Exploration**
 - Analyze repository metrics
@@ -170,7 +170,7 @@ If completely lost:
 
 ## Getting Help
 
-- Check `setup-files/` for installation guides
+- Check `./setup/` for installation guides
 - Review `README.md` for project overview
 - Look at `dev/active/*/context.md` for task details
 - Read git commit messages: `git log --oneline -10`

@@ -12,6 +12,7 @@ Combines:
 from typing import List, Dict, Set
 from collections import defaultdict
 import sys
+import os
 
 # Type annotations for imported models
 try:
@@ -21,51 +22,272 @@ try:
 except ImportError:
     pass  # Will be imported properly when used
 
-from .structural import calculate_structural_similarity, calculate_ast_hash
+from .structural import (
+    calculate_structural_similarity,
+    calculate_ast_hash,
+    extract_logical_operators,
+    extract_http_status_codes,
+    extract_semantic_methods,
+    extract_method_chain
+)
+from .semantic import are_semantically_compatible, validate_duplicate_group
+
+# Minimum complexity threshold for duplicate detection
+# IMPORTANT: Keep this low to avoid filtering out genuine duplicates
+MIN_COMPLEXITY_THRESHOLD = {
+    'min_line_count': 1,  # At least 1 line of code (very permissive)
+    'min_unique_tokens': 3,  # At least 3 meaningful tokens (very permissive)
+}
+
+# Minimum quality threshold for duplicate groups
+MIN_GROUP_QUALITY = float(os.getenv('MIN_GROUP_QUALITY', '0.70'))  # Groups must score at least 70% quality
+
+
+def calculate_code_complexity(source_code: str) -> dict:
+    """
+    Calculate basic complexity metrics for code block.
+
+    Returns:
+        {
+            'line_count': int,
+            'unique_tokens': int,
+            'has_control_flow': bool
+        }
+    """
+    import re
+
+    lines = [line.strip() for line in source_code.split('\n') if line.strip()]
+    line_count = len(lines)
+
+    # Count unique tokens (simple tokenization)
+    tokens = re.findall(r'\b\w+\b', source_code)
+    unique_tokens = len(set(tokens))
+
+    # Check for control flow
+    control_flow_keywords = ['if', 'else', 'for', 'while', 'switch', 'case', 'try', 'catch']
+    has_control_flow = any(keyword in source_code for keyword in control_flow_keywords)
+
+    return {
+        'line_count': line_count,
+        'unique_tokens': unique_tokens,
+        'has_control_flow': has_control_flow
+    }
+
+
+def is_complex_enough(block: 'CodeBlock') -> bool:
+    """
+    Check if block meets minimum complexity threshold.
+
+    Trivial code (e.g., `return user.name;`) should not be grouped
+    unless there are many occurrences.
+    """
+    complexity = calculate_code_complexity(block.source_code)
+
+    # Must meet minimum thresholds
+    if complexity['line_count'] < MIN_COMPLEXITY_THRESHOLD['min_line_count']:
+        return False
+
+    if complexity['unique_tokens'] < MIN_COMPLEXITY_THRESHOLD['min_unique_tokens']:
+        # Exception: If has control flow, allow lower token count
+        if not complexity['has_control_flow']:
+            return False
+
+    return True
+
+
+def calculate_group_quality_score(group_blocks: List['CodeBlock'], similarity_score: float) -> float:
+    """
+    Calculate quality score for a duplicate group.
+
+    Factors:
+    - Average similarity score (40%)
+    - Group size (20%)
+    - Code complexity (20%)
+    - Semantic consistency (20%)
+
+    Returns:
+        Quality score 0.0-1.0
+    """
+    if not group_blocks or len(group_blocks) < 2:
+        return 0.0
+
+    # Factor 1: Similarity score (40% weight)
+    similarity_factor = similarity_score * 0.4
+
+    # Factor 2: Group size (20% weight)
+    # Larger groups more likely to be genuine duplicates
+    # 2 members = 0.5, 3 members = 0.75, 4+ members = 1.0
+    size_factor = min(len(group_blocks) / 4.0, 1.0) * 0.2
+
+    # Factor 3: Code complexity (20% weight)
+    # More complex code = higher confidence in duplicate
+    avg_line_count = sum(b.line_count for b in group_blocks) / len(group_blocks)
+    complexity_factor = min(avg_line_count / 10.0, 1.0) * 0.2
+
+    # Factor 4: Semantic consistency (20% weight)
+    # All blocks same category = 1.0, mixed = lower
+    categories = set(b.category for b in group_blocks)
+    pattern_ids = set(b.pattern_id for b in group_blocks)
+
+    semantic_factor = 0.0
+    if len(categories) == 1 and len(pattern_ids) == 1:
+        semantic_factor = 1.0 * 0.2  # Perfect consistency
+    elif len(categories) == 1:
+        semantic_factor = 0.7 * 0.2  # Same category, different patterns
+    elif len(pattern_ids) == 1:
+        semantic_factor = 0.5 * 0.2  # Same pattern, different categories
+    else:
+        semantic_factor = 0.3 * 0.2  # Mixed
+
+    total_quality = similarity_factor + size_factor + complexity_factor + semantic_factor
+
+    return total_quality
+
+
+def validate_exact_group_semantics(group_blocks: List['CodeBlock']) -> tuple:
+    """
+    Validate that exact hash matches don't have semantic differences.
+
+    This prevents Layer 1 from bypassing semantic validation that exists in Layer 2.
+    Checks for:
+    - Method chain differences (e.g., .reverse())
+    - HTTP status code differences (201 vs 200)
+    - Opposite logical operators (!== vs ===)
+    - Semantic method opposites (Math.max vs Math.min)
+
+    Returns:
+        (is_valid, reason) - False if semantic differences detected
+    """
+    if len(group_blocks) < 2:
+        return True, "single_block"
+
+    # Extract function names for logging
+    func_names = []
+    for block in group_blocks:
+        for tag in block.tags:
+            if tag.startswith('function:'):
+                func_names.append(tag[9:])
+                break
+
+    # Check all pairs for semantic differences
+    for i in range(len(group_blocks)):
+        for j in range(i + 1, len(group_blocks)):
+            code1 = group_blocks[i].source_code
+            code2 = group_blocks[j].source_code
+
+            # Check 1: Method chain differences
+            chain1 = extract_method_chain(code1)
+            chain2 = extract_method_chain(code2)
+            if chain1 != chain2:
+                print(f"DEBUG: Layer 1 REJECTED - Method chain mismatch: {func_names}", file=sys.stderr)
+                print(f"       {chain1} vs {chain2}", file=sys.stderr)
+                return False, f"method_chain_mismatch: {chain1} vs {chain2}"
+
+            # Check 2: HTTP status code differences
+            status1 = extract_http_status_codes(code1)
+            status2 = extract_http_status_codes(code2)
+            if status1 and status2 and status1 != status2:
+                print(f"DEBUG: Layer 1 REJECTED - Status code mismatch: {func_names}", file=sys.stderr)
+                print(f"       {status1} vs {status2}", file=sys.stderr)
+                return False, f"status_code_mismatch: {status1} vs {status2}"
+
+            # Check 3: Logical operator opposites
+            ops1 = extract_logical_operators(code1)
+            ops2 = extract_logical_operators(code2)
+            opposite_pairs = [
+                ({'==='}, {'!=='}),
+                ({'=='}, {'!='}),
+            ]
+            for pair1, pair2 in opposite_pairs:
+                if (pair1.issubset(ops1) and pair2.issubset(ops2)) or \
+                   (pair2.issubset(ops1) and pair1.issubset(ops2)):
+                    print(f"DEBUG: Layer 1 REJECTED - Opposite logic: {func_names}", file=sys.stderr)
+                    print(f"       {ops1} vs {ops2}", file=sys.stderr)
+                    return False, f"opposite_logic: {ops1} vs {ops2}"
+
+            # Check 4: Semantic method opposites (Math.max vs Math.min)
+            methods1 = extract_semantic_methods(code1)
+            methods2 = extract_semantic_methods(code2)
+            if methods1 and methods2 and methods1 != methods2:
+                print(f"DEBUG: Layer 1 REJECTED - Semantic method mismatch: {func_names}", file=sys.stderr)
+                print(f"       {methods1} vs {methods2}", file=sys.stderr)
+                return False, f"semantic_method_mismatch: {methods1} vs {methods2}"
+
+    return True, "semantically_compatible"
 
 
 def group_by_similarity(
     blocks: List['CodeBlock'],
-    similarity_threshold: float = 0.85
+    similarity_threshold: float = 0.90
 ) -> List['DuplicateGroup']:
     """
-    Group code blocks using multi-layer similarity algorithm.
+    Group code blocks using multi-layer similarity algorithm with complexity filtering.
 
-    Priority 2: Structural Similarity
-    Implements Layer 1 (exact) and Layer 2 (structural) from Phase 1 design.
+    Implements Layer 0 (complexity), Layer 1 (exact), Layer 2 (structural), and Layer 3 (semantic).
 
     Algorithm:
+    0. Layer 0: Filter trivial blocks (below complexity threshold)
     1. Layer 1: Group by exact content hash (O(n))
     2. Layer 2: Group remaining by structural similarity (O(n*k))
-    3. Layer 3: TODO - Semantic grouping by category + tags
+    3. Layer 3: Semantic validation (pattern, category, tags)
 
     Returns:
         List of DuplicateGroup objects with similarity scores
     """
+    # Layer 0: Filter out trivial blocks before grouping
+    complex_blocks = [b for b in blocks if is_complex_enough(b)]
+    trivial_count = len(blocks) - len(complex_blocks)
+
+    if trivial_count > 0:
+        print(f"Layer 0: Filtered {trivial_count} trivial blocks (below complexity threshold)", file=sys.stderr)
+
     groups = []
     grouped_block_ids = set()
 
     # Layer 1: Exact matching (hash-based)
     print(f"Layer 1: Grouping by exact content hash...", file=sys.stderr)
-    exact_groups = _group_by_exact_hash(blocks)
+    exact_groups = _group_by_exact_hash(complex_blocks)
 
     for hash_val, group_blocks in exact_groups.items():
         if len(group_blocks) >= 2:
-            group = _create_duplicate_group(
-                group_blocks,
-                similarity_score=1.0,
-                similarity_method='exact_match'  # Must match pydantic enum
-            )
-            groups.append(group)
-
-            # Mark these blocks as grouped
+            # Extract function names for debug logging
+            func_names = []
             for block in group_blocks:
-                grouped_block_ids.add(block.block_id)
+                for tag in block.tags:
+                    if tag.startswith('function:'):
+                        func_names.append(tag[9:])
+                        break
+
+            print(f"DEBUG: Layer 1 exact group candidate: {func_names} (hash={hash_val[:8]})", file=sys.stderr)
+
+            # ✅ NEW: Validate semantic compatibility BEFORE accepting group
+            is_valid, reason = validate_exact_group_semantics(group_blocks)
+            if not is_valid:
+                print(f"DEBUG: Layer 1 group REJECTED (semantic): {func_names} - {reason}", file=sys.stderr)
+                continue  # Skip this group - semantic mismatch detected
+
+            # Check group quality
+            quality_score = calculate_group_quality_score(group_blocks, 1.0)
+
+            if quality_score >= MIN_GROUP_QUALITY:
+                group = _create_duplicate_group(
+                    group_blocks,
+                    similarity_score=1.0,
+                    similarity_method='exact_match'  # Must match pydantic enum
+                )
+                groups.append(group)
+                print(f"DEBUG: Layer 1 group ACCEPTED: {func_names} (quality={quality_score:.2f})", file=sys.stderr)
+
+                # Mark these blocks as grouped
+                for block in group_blocks:
+                    grouped_block_ids.add(block.block_id)
+            else:
+                print(f"DEBUG: Layer 1 group REJECTED (quality): {func_names} (quality={quality_score:.2f})", file=sys.stderr)
 
     print(f"Layer 1: Found {len(groups)} exact duplicate groups", file=sys.stderr)
 
     # Layer 2: Structural similarity (for ungrouped blocks)
-    ungrouped_blocks = [b for b in blocks if b.block_id not in grouped_block_ids]
+    ungrouped_blocks = [b for b in complex_blocks if b.block_id not in grouped_block_ids]
     print(f"Layer 2: Checking {len(ungrouped_blocks)} remaining blocks for structural similarity...", file=sys.stderr)
 
     structural_groups = _group_by_structural_similarity(
@@ -75,12 +297,18 @@ def group_by_similarity(
 
     for group_blocks, similarity_score in structural_groups:
         if len(group_blocks) >= 2:
-            group = _create_duplicate_group(
-                group_blocks,
-                similarity_score=similarity_score,
-                similarity_method='structural'
-            )
-            groups.append(group)
+            # Check group quality
+            quality_score = calculate_group_quality_score(group_blocks, similarity_score)
+
+            if quality_score >= MIN_GROUP_QUALITY:
+                group = _create_duplicate_group(
+                    group_blocks,
+                    similarity_score=similarity_score,
+                    similarity_method='structural'
+                )
+                groups.append(group)
+            else:
+                print(f"Warning: Structural group rejected (quality={quality_score:.2f} < {MIN_GROUP_QUALITY}): {[b.block_id for b in group_blocks]}", file=sys.stderr)
 
             # Mark these blocks as grouped
             for block in group_blocks:
@@ -99,9 +327,18 @@ def _group_by_exact_hash(blocks: List['CodeBlock']) -> Dict[str, List['CodeBlock
     """Group blocks by exact content hash."""
     hash_groups = defaultdict(list)
 
-    for block in blocks:
+    for i, block in enumerate(blocks):
         hash_val = block.content_hash
         hash_groups[hash_val].append(block)
+
+        # Debug: Show first 20 blocks and their hashes
+        if i < 20:
+            func_name = None
+            for tag in block.tags:
+                if tag.startswith('function:'):
+                    func_name = tag[9:]
+                    break
+            print(f"Warning: DEBUG hash block {i}: {func_name or 'unknown'} at {block.location.file_path}:{block.location.line_start}, hash={hash_val[:8]}, code_len={len(block.source_code)}", file=sys.stderr)
 
     return hash_groups
 
@@ -140,6 +377,10 @@ def _group_by_structural_similarity(
 
             block2 = blocks[j]
 
+            # Pre-check semantic compatibility
+            if not are_semantically_compatible(block1, block2):
+                continue  # Skip incompatible blocks
+
             # Calculate structural similarity
             similarity, method = calculate_structural_similarity(
                 block1.source_code,
@@ -152,12 +393,17 @@ def _group_by_structural_similarity(
                 similarities.append(similarity)
                 used.add(j)
 
-        # If we found similar blocks, create a group
+        # If we found similar blocks, validate and create a group
         if len(group) >= 2:
-            used.add(i)
-            # Average similarity score for the group
-            avg_similarity = sum(similarities) / len(similarities) if similarities else 1.0
-            groups.append((group, avg_similarity))
+            # Validate complete group
+            if validate_duplicate_group(group):
+                used.add(i)
+                # Average similarity score for the group
+                avg_similarity = sum(similarities) / len(similarities) if similarities else 1.0
+                groups.append((group, avg_similarity))
+            else:
+                # Group failed semantic validation
+                print(f"Warning: Group rejected by semantic validation: {[b.block_id for b in group]}", file=sys.stderr)
 
     return groups
 

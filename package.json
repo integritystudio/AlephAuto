@@ -13,6 +13,9 @@
     "docs:enhance": "node doc-enhancement-pipeline.js",
     "docs:enhance:dry": "node doc-enhancement-pipeline.js --dry-run",
     "docs:test": "node test/test-single-enhancement.js",
+    "git:weekly": "node git-activity-pipeline.js --weekly",
+    "git:monthly": "node git-activity-pipeline.js --monthly",
+    "git:schedule": "node git-activity-pipeline.js",
     "setup:sentry": "node setup-files/setup-sentry.js",
     "typecheck": "tsc --noEmit"
   },
@@ -39,6 +42,7 @@
   "devDependencies": {
     "@types/node": "^24.10.0",
     "chai": "^4.3.10",
+    "supertest": "^7.1.4",
     "typescript": "^5.9.3"
   }
 }

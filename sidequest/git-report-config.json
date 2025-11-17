@@ -1,0 +1,189 @@
+{
+  "description": "Configuration for automated git activity reports",
+  "version": "1.0.0",
+
+  "scanning": {
+    "code_directory": "~/code",
+    "max_depth": 2,
+    "exclude_patterns": [
+      "vim/bundle",
+      "node_modules",
+      ".git",
+      "venv",
+      ".venv",
+      "vendor",
+      "target",
+      "build",
+      "dist"
+    ]
+  },
+
+  "reports": {
+    "weekly": {
+      "enabled": true,
+      "schedule": "Sunday 20:00",
+      "days_back": 7,
+      "auto_commit": false,
+      "output_format": "markdown"
+    },
+    "monthly": {
+      "enabled": true,
+      "schedule": "1st of month 08:00",
+      "days_back": 30,
+      "auto_commit": false,
+      "output_format": "markdown"
+    },
+    "quarterly": {
+      "enabled": false,
+      "schedule": "First Monday of quarter",
+      "days_back": 90,
+      "auto_commit": false,
+      "output_format": "markdown"
+    }
+  },
+
+  "output": {
+    "personalsite_dir": "~/code/PersonalSite",
+    "work_collection": "_work",
+    "visualization_dir": "assets/images/git-activity-{year}",
+    "json_cache_dir": "/tmp",
+    "log_dir": "~/code/jobs/sidequest/logs"
+  },
+
+  "project_categories": {
+    "Data & Analytics": {
+      "keywords": ["scraper", "analytics", "bot", "data"],
+      "description": "Data collection, scraping, analytics pipelines"
+    },
+    "Personal Sites": {
+      "keywords": ["personalsite", "github.io", "portfolio", "blog"],
+      "description": "Personal websites and blogs"
+    },
+    "Infrastructure": {
+      "keywords": ["integrity", "studio", "visualizer", "tool", "dotfiles"],
+      "description": "DevOps, tooling, development infrastructure"
+    },
+    "MCP Servers": {
+      "keywords": ["mcp", "server", "context", "protocol"],
+      "description": "Model Context Protocol server implementations"
+    },
+    "Client Work": {
+      "keywords": ["client", "leora", "jobs"],
+      "description": "Client projects and career tracking"
+    },
+    "Business Apps": {
+      "keywords": ["inventory", "financial", "business"],
+      "description": "Business applications and SaaS products"
+    },
+    "Legacy": {
+      "keywords": ["old", "archive", "deprecated"],
+      "description": "Archived or minimal-maintenance projects",
+      "min_commits": 0,
+      "max_commits": 5
+    }
+  },
+
+  "visualizations": {
+    "enabled": true,
+    "formats": ["svg"],
+    "charts": {
+      "monthly_commits": {
+        "enabled": true,
+        "type": "pie",
+        "filename": "monthly-commits.svg",
+        "width": 800,
+        "height": 600
+      },
+      "project_categories": {
+        "enabled": true,
+        "type": "pie",
+        "filename": "project-categories.svg",
+        "width": 800,
+        "height": 600
+      },
+      "top_repositories": {
+        "enabled": true,
+        "type": "bar",
+        "filename": "top-10-repos.svg",
+        "width": 800,
+        "height": 500,
+        "count": 10
+      },
+      "language_distribution": {
+        "enabled": true,
+        "type": "pie",
+        "filename": "language-distribution.svg",
+        "width": 900,
+        "height": 600
+      }
+    },
+    "color_schemes": {
+      "default": ["#0066cc", "#4da6ff", "#99ccff", "#00994d", "#ffcc00", "#ff6600", "#cc0000", "#9966cc", "#66cc99", "#ff6699"]
+    }
+  },
+
+  "language_mapping": {
+    "Python": [".py", ".pyw"],
+    "JavaScript": [".js", ".mjs", ".cjs"],
+    "TypeScript": [".ts", ".tsx"],
+    "Ruby": [".rb", ".rake", ".gemspec"],
+    "HTML": [".html", ".htm"],
+    "CSS/SCSS": [".css", ".scss", ".sass", ".less"],
+    "Markdown": [".md", ".markdown"],
+    "JSON": [".json"],
+    "YAML": [".yml", ".yaml"],
+    "Shell": [".sh", ".bash", ".zsh"],
+    "SQL": [".sql"],
+    "Go": [".go"],
+    "Rust": [".rs"],
+    "C/C++": [".c", ".cpp", ".cc", ".h", ".hpp"],
+    "Java": [".java"],
+    "PHP": [".php"],
+    "Lock Files": [".lock", "package-lock.json", "Gemfile.lock", "yarn.lock", "pnpm-lock.yaml"],
+    "SVG": [".svg"],
+    "Images": [".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".bmp"],
+    "Data Files": [".csv", ".xml", ".tsv", ".parquet"],
+    "Text Files": [".txt", ".log", ".ini", ".conf"]
+  },
+
+  "notifications": {
+    "enabled": false,
+    "methods": {
+      "email": {
+        "enabled": false,
+        "to": "your-email@example.com",
+        "subject": "Weekly Git Activity Report"
+      },
+      "slack": {
+        "enabled": false,
+        "webhook_url": "",
+        "channel": "#dev-updates"
+      },
+      "discord": {
+        "enabled": false,
+        "webhook_url": ""
+      }
+    }
+  },
+
+  "git": {
+    "auto_commit": false,
+    "commit_message_template": "Add {period} git activity report: {start_date} to {end_date}\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+    "auto_push": false
+  },
+
+  "cron": {
+    "weekly": "0 20 * * 0",
+    "monthly": "0 8 1 * *",
+    "quarterly": "0 8 1 1,4,7,10 *"
+  },
+
+  "notes": [
+    "This configuration file controls the automated git activity report generation.",
+    "Edit the values above to customize the behavior for your workflow.",
+    "The git activity reporter is now integrated with AlephAuto job queue framework.",
+    "Usage: npm run git:weekly (weekly), npm run git:monthly (monthly), npm run git:schedule (scheduled mode)",
+    "For production: pm2 start git-activity-pipeline.js --name git-activity",
+    "Environment variable: GIT_CRON_SCHEDULE='0 20 * * 0' for custom schedule"
+  ]
+}
