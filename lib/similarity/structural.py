@@ -331,6 +331,7 @@ def calculate_structural_similarity(code1: str, code2: str, threshold: float = 0
         if (pair1.issubset(ops1) and pair2.issubset(ops2)) or \
            (pair2.issubset(ops1) and pair1.issubset(ops2)):
             has_opposite_logic = True
+            print(f"DEBUG: Opposite logic detected: {ops1} vs {ops2}", file=sys.stderr)
             break
 
     # Layer 1.6: HTTP status code check
@@ -338,12 +339,16 @@ def calculate_structural_similarity(code1: str, code2: str, threshold: float = 0
     status_codes1 = extract_http_status_codes(code1)
     status_codes2 = extract_http_status_codes(code2)
     has_different_status_codes = (status_codes1 and status_codes2 and status_codes1 != status_codes2)
+    if has_different_status_codes:
+        print(f"DEBUG: Different HTTP status codes: {status_codes1} vs {status_codes2}", file=sys.stderr)
 
     # Layer 1.7: Semantic method check
     # Different semantic methods = different behavior (Math.max vs Math.min)
     semantic_methods1 = extract_semantic_methods(code1)
     semantic_methods2 = extract_semantic_methods(code2)
     has_opposite_semantic_methods = (semantic_methods1 and semantic_methods2 and semantic_methods1 != semantic_methods2)
+    if has_opposite_semantic_methods:
+        print(f"DEBUG: Opposite semantic methods: {semantic_methods1} vs {semantic_methods2}", file=sys.stderr)
 
     # Layer 2: Structural match (normalize and compare)
     normalized1 = normalize_code(code1)
@@ -378,15 +383,21 @@ def calculate_structural_similarity(code1: str, code2: str, threshold: float = 0
 
     # Penalize opposite logic even if structurally similar
     if has_opposite_logic and similarity >= threshold:
+        original_similarity = similarity
         similarity *= 0.8  # 20% penalty → likely falls below threshold
+        print(f"DEBUG: Opposite logic penalty applied: {original_similarity:.3f} -> {similarity:.3f}", file=sys.stderr)
 
     # Penalize different HTTP status codes
     if has_different_status_codes and similarity >= threshold:
+        original_similarity = similarity
         similarity *= 0.7  # 30% penalty → different semantics
+        print(f"DEBUG: Status code penalty applied: {original_similarity:.3f} -> {similarity:.3f}", file=sys.stderr)
 
     # Penalize opposite semantic methods (Math.max vs Math.min)
     if has_opposite_semantic_methods and similarity >= threshold:
+        original_similarity = similarity
         similarity *= 0.85  # 15% penalty → different behavior
+        print(f"DEBUG: Semantic method penalty applied: {original_similarity:.3f} -> {similarity:.3f}", file=sys.stderr)
 
     # Determine method based on similarity score
     if similarity >= threshold:

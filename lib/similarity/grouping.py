@@ -171,6 +171,16 @@ def group_by_similarity(
 
     for hash_val, group_blocks in exact_groups.items():
         if len(group_blocks) >= 2:
+            # Extract function names for debug logging
+            func_names = []
+            for block in group_blocks:
+                for tag in block.tags:
+                    if tag.startswith('function:'):
+                        func_names.append(tag[9:])
+                        break
+
+            print(f"DEBUG: Layer 1 exact group candidate: {func_names} (hash={hash_val[:8]})", file=sys.stderr)
+
             # Check group quality
             quality_score = calculate_group_quality_score(group_blocks, 1.0)
 
@@ -181,12 +191,13 @@ def group_by_similarity(
                     similarity_method='exact_match'  # Must match pydantic enum
                 )
                 groups.append(group)
+                print(f"DEBUG: Layer 1 group ACCEPTED: {func_names} (quality={quality_score:.2f})", file=sys.stderr)
 
                 # Mark these blocks as grouped
                 for block in group_blocks:
                     grouped_block_ids.add(block.block_id)
             else:
-                print(f"Warning: Exact group rejected (quality={quality_score:.2f} < {MIN_GROUP_QUALITY}): {[b.block_id for b in group_blocks]}", file=sys.stderr)
+                print(f"Warning: Exact group rejected (quality={quality_score:.2f} < {MIN_GROUP_QUALITY}): {func_names}", file=sys.stderr)
 
     print(f"Layer 1: Found {len(groups)} exact duplicate groups", file=sys.stderr)
 
