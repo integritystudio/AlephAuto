@@ -1,22 +1,22 @@
 {
   "summary": {
     "total_expected_groups": 16,
-    "total_detected_groups": 19,
+    "total_detected_groups": 21,
     "correctly_detected": 13,
     "missed": 3,
-    "false_alarms": 6,
-    "correctly_ignored": 6
+    "false_alarms": 8,
+    "correctly_ignored": 4
   },
   "metrics": {
     "counts": {
       "tp": 13,
-      "fp": 6,
+      "fp": 8,
       "fn": 3,
-      "tn": 6
+      "tn": 4
     },
     "precision": {
-      "score": 0.6842105263157895,
-      "percentage": "68.42%",
+      "score": 0.6190476190476191,
+      "percentage": "61.90%",
       "interpretation": "Poor"
     },
     "recall": {
@@ -25,22 +25,22 @@
       "interpretation": "Good"
     },
     "f1Score": {
-      "score": 0.742857142857143,
-      "percentage": "74.29%",
+      "score": 0.7027027027027026,
+      "percentage": "70.27%",
       "interpretation": "Fair"
     },
     "falsePositiveRate": {
-      "score": 0.5,
-      "percentage": "50.00%",
+      "score": 0.6666666666666666,
+      "percentage": "66.67%",
       "interpretation": "Poor"
     }
   },
   "targets": {
     "precision": {
       "target": 0.9,
-      "actual": 0.6842105263157895,
+      "actual": 0.6190476190476191,
       "met": false,
-      "delta": "-0.216"
+      "delta": "-0.281"
     },
     "recall": {
       "target": 0.8,
@@ -50,20 +50,20 @@
     },
     "f1_score": {
       "target": 0.85,
-      "actual": 0.742857142857143,
+      "actual": 0.7027027027027026,
       "met": false,
-      "delta": "-0.107"
+      "delta": "-0.147"
     },
     "false_positive_rate": {
       "target": 0.1,
-      "actual": 0.5,
+      "actual": 0.6666666666666666,
       "met": false,
-      "delta": "-0.400"
+      "delta": "-0.567"
     }
   },
   "overall_assessment": {
     "all_targets_met": false,
-    "grade": "C"
+    "grade": "D"
   },
   "details": {
     "truePositives": [
@@ -72,8 +72,8 @@
         "detected": "dg_ab1e7018b61c",
         "overlap": 3,
         "expected_members": 3,
-        "detected_members": 3,
-        "overlap_ratio": 1
+        "detected_members": 4,
+        "overlap_ratio": 0.75
       },
       {
         "expected": "group_2",
@@ -101,11 +101,11 @@
       },
       {
         "expected": "group_7",
-        "detected": "dg_e4a4a8b89326",
+        "detected": "dg_0f0173ca6ac5",
         "overlap": 2,
         "expected_members": 2,
-        "detected_members": 2,
-        "overlap_ratio": 1
+        "detected_members": 3,
+        "overlap_ratio": 0.6666666666666666
       },
       {
         "expected": "group_8",
@@ -174,20 +174,20 @@
     ],
     "falsePositives": [
       {
+        "group_id": "dg_d0f02152d711",
+        "members": [
+          "src/utils/edge-cases.js:processString1",
+          "src/utils/edge-cases.js:processString2"
+        ],
+        "pattern": "string-manipulation"
+      },
+      {
         "group_id": "dg_ce48a09a119e",
         "members": [
           "src/utils/edge-cases.js:processItems1",
           "src/utils/edge-cases.js:processItems2"
         ],
         "pattern": "array-map-filter"
-      },
-      {
-        "group_id": "dg_d0f02152d711",
-        "members": [
-          "src/utils/edge-cases.js:processString1",
-          "src/utils/edge-cases.js:processString2"
-        ],
-        "pattern": "logger-patterns"
       },
       {
         "group_id": "dg_6973a5be1688",
@@ -204,6 +204,16 @@
           "src/utils/edge-cases.js:fetchData2"
         ],
         "pattern": "console-statements"
+      },
+      {
+        "function": "getUserNamesReversed",
+        "file": "src/utils/array-helpers.js",
+        "reason": "Detected as duplicate but should not be: Additional operation changes behavior"
+      },
+      {
+        "function": "listKeys",
+        "file": "src/utils/object-helpers.js",
+        "reason": "Detected as duplicate but should not be: Missing map operation"
       },
       {
         "function": "sendCreatedResponse",
@@ -249,19 +259,9 @@
         "reason": "Missing filter step - different behavior"
       },
       {
-        "function": "getUserNamesReversed",
-        "file": "src/utils/array-helpers.js",
-        "reason": "Additional operation changes behavior"
-      },
-      {
         "function": "deepMerge",
         "file": "src/utils/object-helpers.js",
         "reason": "Different method (Object.assign vs spread)"
-      },
-      {
-        "function": "listKeys",
-        "file": "src/utils/object-helpers.js",
-        "reason": "Missing map operation"
       },
       {
         "function": "requireAdmin",
