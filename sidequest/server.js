@@ -15,7 +15,7 @@ export class SidequestServer extends EventEmitter {
     super();
     this.jobs = new Map();
     this.jobHistory = [];
-    this.maxConcurrent = options.maxConcurrent || 5;
+    this.maxConcurrent = options.maxConcurrent ?? 5;
     this.activeJobs = 0;
     this.queue = [];
     this.logDir = options.logDir || './logs';
