@@ -1,83 +1,83 @@
 {
   "summary": {
     "total_expected_groups": 16,
-    "total_detected_groups": 20,
-    "correctly_detected": 13,
-    "missed": 3,
-    "false_alarms": 7,
-    "correctly_ignored": 5
+    "total_detected_groups": 19,
+    "correctly_detected": 14,
+    "missed": 2,
+    "false_alarms": 5,
+    "correctly_ignored": 7
   },
   "metrics": {
     "counts": {
-      "tp": 13,
-      "fp": 7,
-      "fn": 3,
-      "tn": 5
+      "tp": 14,
+      "fp": 5,
+      "fn": 2,
+      "tn": 7
     },
     "precision": {
-      "score": 0.65,
-      "percentage": "65.00%",
-      "interpretation": "Poor"
+      "score": 0.7368421052631579,
+      "percentage": "73.68%",
+      "interpretation": "Fair"
     },
     "recall": {
-      "score": 0.8125,
-      "percentage": "81.25%",
+      "score": 0.875,
+      "percentage": "87.50%",
       "interpretation": "Good"
     },
     "f1Score": {
-      "score": 0.7222222222222223,
-      "percentage": "72.22%",
+      "score": 0.7999999999999999,
+      "percentage": "80.00%",
       "interpretation": "Fair"
     },
     "falsePositiveRate": {
-      "score": 0.5833333333333334,
-      "percentage": "58.33%",
+      "score": 0.4166666666666667,
+      "percentage": "41.67%",
       "interpretation": "Poor"
     }
   },
   "targets": {
     "precision": {
       "target": 0.9,
-      "actual": 0.65,
+      "actual": 0.7368421052631579,
       "met": false,
-      "delta": "-0.250"
+      "delta": "-0.163"
     },
     "recall": {
       "target": 0.8,
-      "actual": 0.8125,
+      "actual": 0.875,
       "met": true,
-      "delta": "0.012"
+      "delta": "0.075"
     },
     "f1_score": {
       "target": 0.85,
-      "actual": 0.7222222222222223,
+      "actual": 0.7999999999999999,
       "met": false,
-      "delta": "-0.128"
+      "delta": "-0.050"
     },
     "false_positive_rate": {
       "target": 0.1,
-      "actual": 0.5833333333333334,
+      "actual": 0.4166666666666667,
       "met": false,
-      "delta": "-0.483"
+      "delta": "-0.317"
     }
   },
   "overall_assessment": {
     "all_targets_met": false,
-    "grade": "D"
+    "grade": "C+"
   },
   "details": {
     "truePositives": [
       {
         "expected": "group_1",
-        "detected": "dg_ab1e7018b61c",
+        "detected": "dg_86858e25f90a",
         "overlap": 3,
         "expected_members": 3,
-        "detected_members": 4,
-        "overlap_ratio": 0.75
+        "detected_members": 3,
+        "overlap_ratio": 1
       },
       {
         "expected": "group_2",
-        "detected": "dg_7c10373d603d",
+        "detected": "dg_1ceb63a7aba6",
         "overlap": 2,
         "expected_members": 2,
         "detected_members": 2,
@@ -85,7 +85,7 @@
       },
       {
         "expected": "group_3",
-        "detected": "dg_16032e9eb643",
+        "detected": "dg_c58e2fe87fd9",
         "overlap": 2,
         "expected_members": 2,
         "detected_members": 2,
@@ -93,7 +93,7 @@
       },
       {
         "expected": "group_5",
-        "detected": "dg_9d8820e0faae",
+        "detected": "dg_2ab8e7cd0a74",
         "overlap": 3,
         "expected_members": 3,
         "detected_members": 3,
@@ -101,7 +101,7 @@
       },
       {
         "expected": "group_7",
-        "detected": "dg_e4a4a8b89326",
+        "detected": "dg_dd1583d4a756",
         "overlap": 2,
         "expected_members": 2,
         "detected_members": 2,
@@ -109,7 +109,7 @@
       },
       {
         "expected": "group_8",
-        "detected": "dg_b3211d94bc77",
+        "detected": "dg_c5662db20598",
         "overlap": 3,
         "expected_members": 3,
         "detected_members": 3,
@@ -117,7 +117,7 @@
       },
       {
         "expected": "group_9",
-        "detected": "dg_785c048805ef",
+        "detected": "dg_5d1c2d6617a1",
         "overlap": 2,
         "expected_members": 2,
         "detected_members": 3,
@@ -133,7 +133,7 @@
       },
       {
         "expected": "group_11",
-        "detected": "dg_c1539793b83b",
+        "detected": "dg_c2be6410d198",
         "overlap": 3,
         "expected_members": 3,
         "detected_members": 3,
@@ -141,7 +141,7 @@
       },
       {
         "expected": "group_12",
-        "detected": "dg_02ce2a61c64b",
+        "detected": "dg_4a490bee38ad",
         "overlap": 2,
         "expected_members": 2,
         "detected_members": 2,
@@ -149,7 +149,7 @@
       },
       {
         "expected": "group_13",
-        "detected": "dg_91c195d2c734",
+        "detected": "dg_31c608ca2649",
         "overlap": 2,
         "expected_members": 2,
         "detected_members": 2,
@@ -157,40 +157,40 @@
       },
       {
         "expected": "group_14",
-        "detected": "dg_af70353e0b8a",
+        "detected": "dg_dd35717a8b7b",
         "overlap": 3,
         "expected_members": 3,
-        "detected_members": 5,
-        "overlap_ratio": 0.6
+        "detected_members": 3,
+        "overlap_ratio": 1
       },
       {
         "expected": "group_15",
-        "detected": "dg_5457474c941c",
-        "overlap": 1,
+        "detected": "dg_415d437bf62f",
+        "overlap": 2,
         "expected_members": 2,
         "detected_members": 2,
-        "overlap_ratio": 0.5
+        "overlap_ratio": 1
+      },
+      {
+        "expected": "group_16",
+        "detected": "dg_d5d158a26d5a",
+        "overlap": 2,
+        "expected_members": 2,
+        "detected_members": 2,
+        "overlap_ratio": 1
       }
     ],
     "falsePositives": [
       {
-        "group_id": "dg_ce48a09a119e",
+        "group_id": "dg_853b70f7a952",
         "members": [
           "src/utils/edge-cases.js:processItems1",
           "src/utils/edge-cases.js:processItems2"
         ],
-        "pattern": "logger-patterns"
+        "pattern": "array-map-filter"
       },
       {
-        "group_id": "dg_d0f02152d711",
-        "members": [
-          "src/utils/edge-cases.js:processString1",
-          "src/utils/edge-cases.js:processString2"
-        ],
-        "pattern": "logger-patterns"
-      },
-      {
-        "group_id": "dg_6973a5be1688",
+        "group_id": "dg_888e57f9fc6d",
         "members": [
           "src/utils/edge-cases.js:complexValidation1",
           "src/utils/edge-cases.js:complexValidation2"
@@ -198,27 +198,25 @@
         "pattern": "type-checking"
       },
       {
-        "group_id": "dg_5d9ac2df5617",
+        "group_id": "dg_df175e0e86a7",
+        "members": [
+          "src/utils/edge-cases.js:processString1",
+          "src/utils/edge-cases.js:processString2"
+        ],
+        "pattern": "string-manipulation"
+      },
+      {
+        "group_id": "dg_141be16e2aa0",
         "members": [
           "src/utils/edge-cases.js:fetchData1",
           "src/utils/edge-cases.js:fetchData2"
         ],
-        "pattern": "logger-patterns"
-      },
-      {
-        "function": "getUserNamesReversed",
-        "file": "src/utils/array-helpers.js",
-        "reason": "Detected as duplicate but should not be: Additional operation changes behavior"
+        "pattern": "console-statements"
       },
       {
         "function": "sendCreatedResponse",
         "file": "src/api/routes.js",
         "reason": "Detected as duplicate but should not be: 201 vs 200 status code - semantically different"
-      },
-      {
-        "function": "isDevelopment",
-        "file": "src/config/env.js",
-        "reason": "Detected as duplicate but should not be: Negated logic - semantically different"
       }
     ],
     "falseNegatives": [
@@ -237,14 +235,6 @@
           "src/utils/object-helpers.js:mergeConfig",
           "src/utils/object-helpers.js:combineOptions"
         ]
-      },
-      {
-        "group_id": "group_16",
-        "description": "Exact duplicates - config object builder",
-        "members": [
-          "src/config/env.js:buildConfig",
-          "src/config/env.js:getConfiguration"
-        ]
       }
     ],
     "trueNegatives": [
@@ -252,6 +242,11 @@
         "function": "getAllUserNames",
         "file": "src/utils/array-helpers.js",
         "reason": "Missing filter step - different behavior"
+      },
+      {
+        "function": "getUserNamesReversed",
+        "file": "src/utils/array-helpers.js",
+        "reason": "Additional operation changes behavior"
       },
       {
         "function": "deepMerge",
@@ -272,6 +267,11 @@
         "function": "countActiveUsers",
         "file": "src/database/queries.js",
         "reason": "Filtered count vs total count - different query"
+      },
+      {
+        "function": "isDevelopment",
+        "file": "src/config/env.js",
+        "reason": "Negated logic - semantically different"
       }
     ],
     "partialMatches": []
