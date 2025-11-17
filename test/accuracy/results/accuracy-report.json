@@ -72,16 +72,16 @@
         "detected": "dg_ab1e7018b61c",
         "overlap": 3,
         "expected_members": 3,
-        "detected_members": 3,
-        "overlap_ratio": 1
+        "detected_members": 4,
+        "overlap_ratio": 0.75
       },
       {
         "expected": "group_2",
         "detected": "dg_7c10373d603d",
         "overlap": 2,
         "expected_members": 2,
-        "detected_members": 3,
-        "overlap_ratio": 0.6666666666666666
+        "detected_members": 2,
+        "overlap_ratio": 1
       },
       {
         "expected": "group_3",
@@ -174,12 +174,12 @@
     ],
     "falsePositives": [
       {
-        "group_id": "dg_6973a5be1688",
+        "group_id": "dg_ce48a09a119e",
         "members": [
-          "src/utils/edge-cases.js:complexValidation1",
-          "src/utils/edge-cases.js:complexValidation2"
+          "src/utils/edge-cases.js:processItems1",
+          "src/utils/edge-cases.js:processItems2"
         ],
-        "pattern": "type-checking"
+        "pattern": "logger-patterns"
       },
       {
         "group_id": "dg_d0f02152d711",
@@ -187,15 +187,15 @@
           "src/utils/edge-cases.js:processString1",
           "src/utils/edge-cases.js:processString2"
         ],
-        "pattern": "string-manipulation"
+        "pattern": "logger-patterns"
       },
       {
-        "group_id": "dg_ce48a09a119e",
+        "group_id": "dg_6973a5be1688",
         "members": [
-          "src/utils/edge-cases.js:processItems1",
-          "src/utils/edge-cases.js:processItems2"
+          "src/utils/edge-cases.js:complexValidation1",
+          "src/utils/edge-cases.js:complexValidation2"
         ],
-        "pattern": "logger-patterns"
+        "pattern": "type-checking"
       },
       {
         "group_id": "dg_5d9ac2df5617",

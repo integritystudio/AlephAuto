@@ -194,6 +194,100 @@ def extract_semantic_methods(source_code: str) -> set:
     return methods
 
 
+def extract_method_chain(source_code: str) -> list:
+    """
+    Extract method chain structure from code.
+
+    Returns:
+        List of methods in chain order (e.g., ['filter', 'map', 'reverse'])
+    """
+    # Pattern: .method1().method2().method3()
+    # Handles both arr.filter().map() and arr.filter(fn).map(fn)
+
+    chains = []
+
+    # Find chained method calls
+    # Pattern: .method_name( ... ).method_name( ... )
+    pattern = r'\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\('
+    matches = list(re.finditer(pattern, source_code))
+
+    if not matches:
+        return []
+
+    # Build chains by tracking consecutive method calls
+    current_chain = []
+    last_pos = -1
+
+    for i, match in enumerate(matches):
+        method_name = match.group(1)
+
+        # Check if this is part of a chain (close to previous match)
+        # Allow up to 100 characters between methods for complex arguments
+        if current_chain and match.start() - last_pos > 100:
+            # Too far apart, start a new chain
+            if len(current_chain) > 1:  # Only save actual chains (2+ methods)
+                chains.append(current_chain)
+            current_chain = [method_name]
+        else:
+            current_chain.append(method_name)
+
+        # Find end of this method call (rough approximation)
+        # Look for closing paren or next method
+        if i < len(matches) - 1:
+            last_pos = matches[i + 1].start()
+        else:
+            last_pos = len(source_code)
+
+    # Add the last chain if it has multiple methods
+    if len(current_chain) > 1:
+        chains.append(current_chain)
+
+    # Return longest chain (most significant)
+    return max(chains, key=len) if chains else []
+
+
+def compare_method_chains(code1: str, code2: str) -> float:
+    """
+    Compare method chain structure between two code blocks.
+
+    Returns:
+        Similarity score 0.0-1.0 based on chain overlap
+    """
+    chain1 = extract_method_chain(code1)
+    chain2 = extract_method_chain(code2)
+
+    if not chain1 and not chain2:
+        return 1.0  # No chains in either
+
+    if not chain1 or not chain2:
+        return 0.5  # One has chain, other doesn't
+
+    # Exact match
+    if chain1 == chain2:
+        return 1.0
+
+    # Check if one is a subset of the other (additional operation)
+    if len(chain1) != len(chain2):
+        # Different length chains → likely different behavior
+        # e.g., [filter, map] vs [filter, map, reverse]
+
+        # Check if shorter is prefix of longer
+        shorter = chain1 if len(chain1) < len(chain2) else chain2
+        longer = chain1 if len(chain1) > len(chain2) else chain2
+
+        if longer[:len(shorter)] == shorter:
+            # One is extension of other → partial match
+            # Similarity based on overlap ratio
+            return len(shorter) / len(longer)
+        else:
+            # Different chains entirely
+            return 0.0
+
+    # Same length but different methods → check overlap
+    overlap = sum(1 for m1, m2 in zip(chain1, chain2) if m1 == m2)
+    return overlap / len(chain1)
+
+
 def calculate_structural_similarity(code1: str, code2: str, threshold: float = 0.90) -> Tuple[float, str]:
     """
     Calculate structural similarity between two code blocks.
@@ -273,6 +367,14 @@ def calculate_structural_similarity(code1: str, code2: str, threshold: float = 0
 
     # Calculate similarity ratio using Levenshtein
     similarity = calculate_levenshtein_similarity(normalized1, normalized2)
+
+    # Layer 2.5: Method chain validation
+    chain_similarity = compare_method_chains(code1, code2)
+
+    if chain_similarity < 1.0:
+        # Different chain structure → penalize similarity
+        # Weight: 70% Levenshtein + 30% chain similarity
+        similarity = (similarity * 0.7) + (chain_similarity * 0.3)
 
     # Penalize opposite logic even if structurally similar
     if has_opposite_logic and similarity >= threshold:
