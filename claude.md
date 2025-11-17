@@ -902,3 +902,19 @@ Ensure all dependencies installed and Python models importable.
 redis-cli ping  # Should return PONG
 brew services start redis  # Start Redis if needed
 ```
+
+### Porkbun DNS configuration
+Configured via Porkbun MCP server (requires Doppler for API credentials):
+```bash
+# Update MCP configuration in ~/.claude/mcp_config.json
+# Package: @lordofthelake/porkbun-mcp-server
+# Credentials: PORKBUN_API_KEY, PORKBUN_SECRET_API_KEY (in Doppler)
+
+# Example DNS setup script (see setup-github-pages-dns.js)
+doppler run -- node setup-github-pages-dns.js
+```
+
+**Deployed Sites:**
+- **alephcondense.dev** - Duplicate detection report (GitHub Pages)
+  - DNS: 4 A records + www CNAME → aledlie.github.io
+  - Status: ✅ Live at http://alephcondense.dev (HTTPS pending certificate)

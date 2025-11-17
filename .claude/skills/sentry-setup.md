@@ -316,7 +316,7 @@ node test/test-sentry-connection.js
 
 **Pattern**: Create comprehensive documentation.
 
-Document in `setup-files/SENTRY_SETUP.md`:
+Document in `docs/setup/SENTRY_SETUP.md`:
 
 ```markdown
 # Sentry Setup - {Project Name}

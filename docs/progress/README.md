@@ -113,7 +113,7 @@ For detailed repository structure, see `../claude.md`.
 This dev documentation works alongside:
 - Repository README.md
 - Project-specific documentation
-- Setup files in `../setup-files/`
+- Setup files in `.././setup/`
 - Git commit history
 
 ## Questions?

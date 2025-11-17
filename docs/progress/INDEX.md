@@ -18,7 +18,7 @@ Quick reference to all documentation in this repository.
 |----------|----------|---------|
 | Repository Structure | `../claude.md` | Complete file tree and directory overview |
 | Main README | `../README.md` | Project overview and introduction |
-| Setup Files | `../setup-files/` | Installation and configuration guides |
+| Setup Files | `.././setup/` | Installation and configuration guides |
 
 ## Active Tasks
 
@@ -44,7 +44,7 @@ Each active task should have:
 
 ## Setup Documentation
 
-Located in `../setup-files/`:
+Located in `.././setup/`:
 
 | File | Purpose |
 |------|---------|
@@ -110,7 +110,7 @@ Links to external documentation (add as needed):
 3. Update as you work
 
 ### "I need to set something up"
-1. Check `../setup-files/` directory
+1. Check `.././setup/` directory
 2. Look for relevant setup guide
 3. Follow configuration steps
 
@@ -151,7 +151,7 @@ Find documentation quickly:
 find . -name "*.md"
 
 # Find setup guides
-ls setup-files/*.md
+ls ./setup/*.md
 
 # Find active tasks
 ls active/*/

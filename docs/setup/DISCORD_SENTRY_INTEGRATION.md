@@ -156,7 +156,7 @@ Create a middleware service that:
 2. Formats as Discord embed
 3. Posts to Discord
 
-**Create middleware script**: `setup-files/sentry-to-discord.js`
+**Create middleware script**: `../setup/sentry-to-discord.js`
 
 ```javascript
 const https = require('https');
@@ -418,7 +418,7 @@ Deploy middleware service to format messages beautifully.
 
 ```bash
 # Start middleware service
-pm2 start setup-files/sentry-to-discord.js --name sentry-discord-bridge
+pm2 start ../setup/sentry-to-discord.js --name sentry-discord-bridge
 
 # Save configuration
 pm2 save
@@ -573,7 +573,7 @@ If embeds don't render:
 doppler run -- node test/test-discord-webhook.js
 
 # Start middleware service
-pm2 start setup-files/sentry-to-discord.js --name sentry-discord-bridge
+pm2 start ../setup/sentry-to-discord.js --name sentry-discord-bridge
 
 # View Sentry webhooks
 curl -s "https://sentry.io/api/0/projects/integrity-studio/node/plugins/webhooks/" \
