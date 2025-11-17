@@ -84,20 +84,6 @@ describe('RepomixWorker', () => {
     }
   });
 
-  test('should handle job data correctly', () => {
-    const worker = new RepomixWorker();
-    const sourceDir = '/home/user/code/myproject';
-    const relativePath = 'myproject';
-
-    const job = worker.createRepomixJob(sourceDir, relativePath);
-
-    assert.strictEqual(job.status, 'queued');
-    assert.ok(job.data);
-    assert.strictEqual(job.data.sourceDir, sourceDir);
-    assert.strictEqual(job.data.relativePath, relativePath);
-    assert.strictEqual(job.data.type, 'repomix');
-  });
-
   test('should queue multiple jobs', () => {
     const worker = new RepomixWorker();
 

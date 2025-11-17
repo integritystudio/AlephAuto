@@ -1,0 +1,52 @@
+Documentation Architecture
+==========================
+
+/docs/architecture/
+│
+├── README.md (448 lines)
+│   ├── Overview & Navigation
+│   ├── Quick Reference Guide
+│   ├── Critical Implementation Patterns
+│   ├── Troubleshooting Guide
+│   └── File References
+│
+├── pipeline-data-flow.md (1191 lines)
+│   ├── 7-Stage Pipeline Architecture
+│   │   ├── Stage 1: Repository Scanner
+│   │   ├── Stage 2: AST-Grep Detector
+│   │   ├── Stage 3: Block Extraction
+│   │   ├── Stage 3.5: Deduplication
+│   │   ├── Stage 4: Semantic Annotation
+│   │   ├── Stage 5: Duplicate Grouping
+│   │   ├── Stage 6: Suggestion Generation
+│   │   └── Stage 7: Metrics & Reporting
+│   ├── Data Format Specifications
+│   │   ├── CodeBlock Model
+│   │   ├── DuplicateGroup Model
+│   │   └── ConsolidationSuggestion Model
+│   ├── Component Interactions
+│   ├── Error Handling
+│   └── Performance Benchmarks
+│
+└── similarity-algorithm.md (857 lines)
+    ├── Two-Phase Algorithm Architecture
+    │   ├── Phase 1: Extract Features (BEFORE normalization)
+    │   ├── Phase 2: Normalize Code
+    │   └── Phase 3: Apply Penalties
+    ├── Semantic Feature Extraction
+    │   ├── HTTP Status Codes
+    │   ├── Logical Operators
+    │   └── Semantic Methods
+    ├── Code Normalization
+    │   ├── Comment Removal
+    │   ├── Whitespace Normalization
+    │   ├── String/Number Placeholders
+    │   └── Semantic Preservation
+    ├── Penalty System
+    │   ├── HTTP Mismatch (30% penalty)
+    │   ├── Operator Mismatch (20% penalty)
+    │   └── Method Mismatch (25% penalty)
+    ├── Implementation Examples
+    └── Performance & Accuracy Metrics
+
+Total: 2,496 lines of comprehensive documentation
