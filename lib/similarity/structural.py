@@ -6,6 +6,7 @@ Compares code based on AST structure, ignoring variable names and minor differen
 """
 
 import re
+import sys
 import hashlib
 from typing import Tuple
 from difflib import SequenceMatcher
