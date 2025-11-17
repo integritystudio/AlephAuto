@@ -22,7 +22,14 @@ try:
 except ImportError:
     pass  # Will be imported properly when used
 
-from .structural import calculate_structural_similarity, calculate_ast_hash
+from .structural import (
+    calculate_structural_similarity,
+    calculate_ast_hash,
+    extract_logical_operators,
+    extract_http_status_codes,
+    extract_semantic_methods,
+    extract_method_chain
+)
 from .semantic import are_semantically_compatible, validate_duplicate_group
 
 # Minimum complexity threshold for duplicate detection
@@ -137,6 +144,78 @@ def calculate_group_quality_score(group_blocks: List['CodeBlock'], similarity_sc
     return total_quality
 
 
+def validate_exact_group_semantics(group_blocks: List['CodeBlock']) -> tuple:
+    """
+    Validate that exact hash matches don't have semantic differences.
+
+    This prevents Layer 1 from bypassing semantic validation that exists in Layer 2.
+    Checks for:
+    - Method chain differences (e.g., .reverse())
+    - HTTP status code differences (201 vs 200)
+    - Opposite logical operators (!== vs ===)
+    - Semantic method opposites (Math.max vs Math.min)
+
+    Returns:
+        (is_valid, reason) - False if semantic differences detected
+    """
+    if len(group_blocks) < 2:
+        return True, "single_block"
+
+    # Extract function names for logging
+    func_names = []
+    for block in group_blocks:
+        for tag in block.tags:
+            if tag.startswith('function:'):
+                func_names.append(tag[9:])
+                break
+
+    # Check all pairs for semantic differences
+    for i in range(len(group_blocks)):
+        for j in range(i + 1, len(group_blocks)):
+            code1 = group_blocks[i].source_code
+            code2 = group_blocks[j].source_code
+
+            # Check 1: Method chain differences
+            chain1 = extract_method_chain(code1)
+            chain2 = extract_method_chain(code2)
+            if chain1 != chain2:
+                print(f"DEBUG: Layer 1 REJECTED - Method chain mismatch: {func_names}", file=sys.stderr)
+                print(f"       {chain1} vs {chain2}", file=sys.stderr)
+                return False, f"method_chain_mismatch: {chain1} vs {chain2}"
+
+            # Check 2: HTTP status code differences
+            status1 = extract_http_status_codes(code1)
+            status2 = extract_http_status_codes(code2)
+            if status1 and status2 and status1 != status2:
+                print(f"DEBUG: Layer 1 REJECTED - Status code mismatch: {func_names}", file=sys.stderr)
+                print(f"       {status1} vs {status2}", file=sys.stderr)
+                return False, f"status_code_mismatch: {status1} vs {status2}"
+
+            # Check 3: Logical operator opposites
+            ops1 = extract_logical_operators(code1)
+            ops2 = extract_logical_operators(code2)
+            opposite_pairs = [
+                ({'==='}, {'!=='}),
+                ({'=='}, {'!='}),
+            ]
+            for pair1, pair2 in opposite_pairs:
+                if (pair1.issubset(ops1) and pair2.issubset(ops2)) or \
+                   (pair2.issubset(ops1) and pair1.issubset(ops2)):
+                    print(f"DEBUG: Layer 1 REJECTED - Opposite logic: {func_names}", file=sys.stderr)
+                    print(f"       {ops1} vs {ops2}", file=sys.stderr)
+                    return False, f"opposite_logic: {ops1} vs {ops2}"
+
+            # Check 4: Semantic method opposites (Math.max vs Math.min)
+            methods1 = extract_semantic_methods(code1)
+            methods2 = extract_semantic_methods(code2)
+            if methods1 and methods2 and methods1 != methods2:
+                print(f"DEBUG: Layer 1 REJECTED - Semantic method mismatch: {func_names}", file=sys.stderr)
+                print(f"       {methods1} vs {methods2}", file=sys.stderr)
+                return False, f"semantic_method_mismatch: {methods1} vs {methods2}"
+
+    return True, "semantically_compatible"
+
+
 def group_by_similarity(
     blocks: List['CodeBlock'],
     similarity_threshold: float = 0.90
@@ -181,6 +260,12 @@ def group_by_similarity(
 
             print(f"DEBUG: Layer 1 exact group candidate: {func_names} (hash={hash_val[:8]})", file=sys.stderr)
 
+            # ✅ NEW: Validate semantic compatibility BEFORE accepting group
+            is_valid, reason = validate_exact_group_semantics(group_blocks)
+            if not is_valid:
+                print(f"DEBUG: Layer 1 group REJECTED (semantic): {func_names} - {reason}", file=sys.stderr)
+                continue  # Skip this group - semantic mismatch detected
+
             # Check group quality
             quality_score = calculate_group_quality_score(group_blocks, 1.0)
 
@@ -197,7 +282,7 @@ def group_by_similarity(
                 for block in group_blocks:
                     grouped_block_ids.add(block.block_id)
             else:
-                print(f"Warning: Exact group rejected (quality={quality_score:.2f} < {MIN_GROUP_QUALITY}): {func_names}", file=sys.stderr)
+                print(f"DEBUG: Layer 1 group REJECTED (quality): {func_names} (quality={quality_score:.2f})", file=sys.stderr)
 
     print(f"Layer 1: Found {len(groups)} exact duplicate groups", file=sys.stderr)
 
