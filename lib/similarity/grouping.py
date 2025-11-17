@@ -31,6 +31,9 @@ MIN_COMPLEXITY_THRESHOLD = {
     'min_unique_tokens': 3,  # At least 3 meaningful tokens (very permissive)
 }
 
+# Minimum quality threshold for duplicate groups
+MIN_GROUP_QUALITY = 0.70  # Groups must score at least 70% quality
+
 
 def calculate_code_complexity(source_code: str) -> dict:
     """
@@ -84,6 +87,55 @@ def is_complex_enough(block: 'CodeBlock') -> bool:
     return True
 
 
+def calculate_group_quality_score(group_blocks: List['CodeBlock'], similarity_score: float) -> float:
+    """
+    Calculate quality score for a duplicate group.
+
+    Factors:
+    - Average similarity score (40%)
+    - Group size (20%)
+    - Code complexity (20%)
+    - Semantic consistency (20%)
+
+    Returns:
+        Quality score 0.0-1.0
+    """
+    if not group_blocks or len(group_blocks) < 2:
+        return 0.0
+
+    # Factor 1: Similarity score (40% weight)
+    similarity_factor = similarity_score * 0.4
+
+    # Factor 2: Group size (20% weight)
+    # Larger groups more likely to be genuine duplicates
+    # 2 members = 0.5, 3 members = 0.75, 4+ members = 1.0
+    size_factor = min(len(group_blocks) / 4.0, 1.0) * 0.2
+
+    # Factor 3: Code complexity (20% weight)
+    # More complex code = higher confidence in duplicate
+    avg_line_count = sum(b.line_count for b in group_blocks) / len(group_blocks)
+    complexity_factor = min(avg_line_count / 10.0, 1.0) * 0.2
+
+    # Factor 4: Semantic consistency (20% weight)
+    # All blocks same category = 1.0, mixed = lower
+    categories = set(b.category for b in group_blocks)
+    pattern_ids = set(b.pattern_id for b in group_blocks)
+
+    semantic_factor = 0.0
+    if len(categories) == 1 and len(pattern_ids) == 1:
+        semantic_factor = 1.0 * 0.2  # Perfect consistency
+    elif len(categories) == 1:
+        semantic_factor = 0.7 * 0.2  # Same category, different patterns
+    elif len(pattern_ids) == 1:
+        semantic_factor = 0.5 * 0.2  # Same pattern, different categories
+    else:
+        semantic_factor = 0.3 * 0.2  # Mixed
+
+    total_quality = similarity_factor + size_factor + complexity_factor + semantic_factor
+
+    return total_quality
+
+
 def group_by_similarity(
     blocks: List['CodeBlock'],
     similarity_threshold: float = 0.90
@@ -118,16 +170,22 @@ def group_by_similarity(
 
     for hash_val, group_blocks in exact_groups.items():
         if len(group_blocks) >= 2:
-            group = _create_duplicate_group(
-                group_blocks,
-                similarity_score=1.0,
-                similarity_method='exact_match'  # Must match pydantic enum
-            )
-            groups.append(group)
+            # Check group quality
+            quality_score = calculate_group_quality_score(group_blocks, 1.0)
 
-            # Mark these blocks as grouped
-            for block in group_blocks:
-                grouped_block_ids.add(block.block_id)
+            if quality_score >= MIN_GROUP_QUALITY:
+                group = _create_duplicate_group(
+                    group_blocks,
+                    similarity_score=1.0,
+                    similarity_method='exact_match'  # Must match pydantic enum
+                )
+                groups.append(group)
+
+                # Mark these blocks as grouped
+                for block in group_blocks:
+                    grouped_block_ids.add(block.block_id)
+            else:
+                print(f"Warning: Exact group rejected (quality={quality_score:.2f} < {MIN_GROUP_QUALITY}): {[b.block_id for b in group_blocks]}", file=sys.stderr)
 
     print(f"Layer 1: Found {len(groups)} exact duplicate groups", file=sys.stderr)
 
@@ -142,12 +200,18 @@ def group_by_similarity(
 
     for group_blocks, similarity_score in structural_groups:
         if len(group_blocks) >= 2:
-            group = _create_duplicate_group(
-                group_blocks,
-                similarity_score=similarity_score,
-                similarity_method='structural'
-            )
-            groups.append(group)
+            # Check group quality
+            quality_score = calculate_group_quality_score(group_blocks, similarity_score)
+
+            if quality_score >= MIN_GROUP_QUALITY:
+                group = _create_duplicate_group(
+                    group_blocks,
+                    similarity_score=similarity_score,
+                    similarity_method='structural'
+                )
+                groups.append(group)
+            else:
+                print(f"Warning: Structural group rejected (quality={quality_score:.2f} < {MIN_GROUP_QUALITY}): {[b.block_id for b in group_blocks]}", file=sys.stderr)
 
             # Mark these blocks as grouped
             for block in group_blocks:
