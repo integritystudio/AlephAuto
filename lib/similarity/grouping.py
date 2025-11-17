@@ -22,6 +22,66 @@ except ImportError:
     pass  # Will be imported properly when used
 
 from .structural import calculate_structural_similarity, calculate_ast_hash
+from .semantic import are_semantically_compatible, validate_duplicate_group
+
+# Minimum complexity threshold for duplicate detection
+# IMPORTANT: Keep this low to avoid filtering out genuine duplicates
+MIN_COMPLEXITY_THRESHOLD = {
+    'min_line_count': 1,  # At least 1 line of code (very permissive)
+    'min_unique_tokens': 3,  # At least 3 meaningful tokens (very permissive)
+}
+
+
+def calculate_code_complexity(source_code: str) -> dict:
+    """
+    Calculate basic complexity metrics for code block.
+
+    Returns:
+        {
+            'line_count': int,
+            'unique_tokens': int,
+            'has_control_flow': bool
+        }
+    """
+    import re
+
+    lines = [line.strip() for line in source_code.split('\n') if line.strip()]
+    line_count = len(lines)
+
+    # Count unique tokens (simple tokenization)
+    tokens = re.findall(r'\b\w+\b', source_code)
+    unique_tokens = len(set(tokens))
+
+    # Check for control flow
+    control_flow_keywords = ['if', 'else', 'for', 'while', 'switch', 'case', 'try', 'catch']
+    has_control_flow = any(keyword in source_code for keyword in control_flow_keywords)
+
+    return {
+        'line_count': line_count,
+        'unique_tokens': unique_tokens,
+        'has_control_flow': has_control_flow
+    }
+
+
+def is_complex_enough(block: 'CodeBlock') -> bool:
+    """
+    Check if block meets minimum complexity threshold.
+
+    Trivial code (e.g., `return user.name;`) should not be grouped
+    unless there are many occurrences.
+    """
+    complexity = calculate_code_complexity(block.source_code)
+
+    # Must meet minimum thresholds
+    if complexity['line_count'] < MIN_COMPLEXITY_THRESHOLD['min_line_count']:
+        return False
+
+    if complexity['unique_tokens'] < MIN_COMPLEXITY_THRESHOLD['min_unique_tokens']:
+        # Exception: If has control flow, allow lower token count
+        if not complexity['has_control_flow']:
+            return False
+
+    return True
 
 
 def group_by_similarity(
@@ -29,25 +89,32 @@ def group_by_similarity(
     similarity_threshold: float = 0.90
 ) -> List['DuplicateGroup']:
     """
-    Group code blocks using multi-layer similarity algorithm.
+    Group code blocks using multi-layer similarity algorithm with complexity filtering.
 
-    Priority 2: Structural Similarity
-    Implements Layer 1 (exact) and Layer 2 (structural) from Phase 1 design.
+    Implements Layer 0 (complexity), Layer 1 (exact), Layer 2 (structural), and Layer 3 (semantic).
 
     Algorithm:
+    0. Layer 0: Filter trivial blocks (below complexity threshold)
     1. Layer 1: Group by exact content hash (O(n))
     2. Layer 2: Group remaining by structural similarity (O(n*k))
-    3. Layer 3: TODO - Semantic grouping by category + tags
+    3. Layer 3: Semantic validation (pattern, category, tags)
 
     Returns:
         List of DuplicateGroup objects with similarity scores
     """
+    # Layer 0: Filter out trivial blocks before grouping
+    complex_blocks = [b for b in blocks if is_complex_enough(b)]
+    trivial_count = len(blocks) - len(complex_blocks)
+
+    if trivial_count > 0:
+        print(f"Layer 0: Filtered {trivial_count} trivial blocks (below complexity threshold)", file=sys.stderr)
+
     groups = []
     grouped_block_ids = set()
 
     # Layer 1: Exact matching (hash-based)
     print(f"Layer 1: Grouping by exact content hash...", file=sys.stderr)
-    exact_groups = _group_by_exact_hash(blocks)
+    exact_groups = _group_by_exact_hash(complex_blocks)
 
     for hash_val, group_blocks in exact_groups.items():
         if len(group_blocks) >= 2:
@@ -65,7 +132,7 @@ def group_by_similarity(
     print(f"Layer 1: Found {len(groups)} exact duplicate groups", file=sys.stderr)
 
     # Layer 2: Structural similarity (for ungrouped blocks)
-    ungrouped_blocks = [b for b in blocks if b.block_id not in grouped_block_ids]
+    ungrouped_blocks = [b for b in complex_blocks if b.block_id not in grouped_block_ids]
     print(f"Layer 2: Checking {len(ungrouped_blocks)} remaining blocks for structural similarity...", file=sys.stderr)
 
     structural_groups = _group_by_structural_similarity(
@@ -149,6 +216,10 @@ def _group_by_structural_similarity(
 
             block2 = blocks[j]
 
+            # Pre-check semantic compatibility
+            if not are_semantically_compatible(block1, block2):
+                continue  # Skip incompatible blocks
+
             # Calculate structural similarity
             similarity, method = calculate_structural_similarity(
                 block1.source_code,
@@ -161,12 +232,17 @@ def _group_by_structural_similarity(
                 similarities.append(similarity)
                 used.add(j)
 
-        # If we found similar blocks, create a group
+        # If we found similar blocks, validate and create a group
         if len(group) >= 2:
-            used.add(i)
-            # Average similarity score for the group
-            avg_similarity = sum(similarities) / len(similarities) if similarities else 1.0
-            groups.append((group, avg_similarity))
+            # Validate complete group
+            if validate_duplicate_group(group):
+                used.add(i)
+                # Average similarity score for the group
+                avg_similarity = sum(similarities) / len(similarities) if similarities else 1.0
+                groups.append((group, avg_similarity))
+            else:
+                # Group failed semantic validation
+                print(f"Warning: Group rejected by semantic validation: {[b.block_id for b in group]}", file=sys.stderr)
 
     return groups
 
