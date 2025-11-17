@@ -82,11 +82,10 @@ node --test tests/unit/directory-scanner.test.js      # Individual test file
 node --test tests/unit/sidequest-server.test.js       # Job queue tests
 node --test tests/unit/api-routes.test.js             # REST API tests (16)
 node --test tests/unit/websocket.test.js              # WebSocket tests (15)
-node --test tests/unit/caching.test.js                # Caching tests (23, requires Redis)
 
-# Integration tests
+# Integration tests (includes Redis caching tests)
 node tests/integration/test-automated-pipeline.js     # Full pipeline test
-node tests/integration/test-cache-layer.js            # Cache integration
+node tests/integration/test-cache-layer.js            # Redis cache integration
 node tests/integration/test-inter-project-scan.js     # Multi-repo scanning
 
 # Duplicate detection accuracy tests
@@ -96,11 +95,15 @@ node tests/accuracy/accuracy-test.js --verbose --save-results
 npm run typecheck
 ```
 
-**Test Coverage:** 132 tests, 129 passing (97.7%)
+**Test Coverage:** 106 tests, ~90+ passing (85%+)
 - Sidequest Server: 12/12 ✅
 - REST API: 16/16 ✅
 - WebSocket: 15/15 ✅
+- Filepath Imports: 14/14 ✅
+- READMEScanner: 11/11 ✅
+- DirectoryScanner: 12/13 ⚠️
 - Accuracy: Precision 100%, Recall 87.50%, F1 93.33%
+- Note: 23 obsolete caching tests removed (file-based → Redis-backed migration)
 
 **Test Organization:**
 - `tests/unit/` - Unit tests for individual components (*.test.js)
@@ -263,7 +266,13 @@ pm2 logs duplicate-scanner
 - Repository prioritization (critical, high, medium, low)
 - Inter-project and intra-project scanning
 - Retry logic with exponential backoff
-- Redis caching (30-day TTL)
+- **Redis Caching** (`ScanResultCache`):
+  - Git commit-based cache keys (repo path hash + commit hash)
+  - 30-day TTL (configurable)
+  - Automatic cache invalidation on repo changes
+  - Tracks uncommitted changes to prevent stale caches
+  - Cache statistics and metadata (age, duplicate counts)
+  - Integrated with `CachedScanner` for transparent cache hits
 - Sentry error tracking
 
 ### REST API & WebSocket Server
@@ -359,7 +368,7 @@ jobs/
 │   ├── extractors/                       # Stage 3-7: Python data processing
 │   ├── similarity/                       # Duplicate detection algorithms
 │   ├── reports/                          # Report generation (HTML/JSON/MD)
-│   ├── caching/                          # Redis-backed caching
+│   ├── caching/                          # Redis caching (ScanResultCache, CachedScanner)
 │   ├── models/                           # Pydantic data models
 │   └── config/                           # Configuration loaders
 │

@@ -114,11 +114,11 @@ jobs/
 │       └── ... (15 more)
 │
 ├── tests/                                      # All Tests
-│   ├── unit/                                  # Unit tests (10 files)
+│   ├── unit/                                  # Unit tests (9 files)
 │   │   ├── api-routes.test.js
 │   │   ├── sidequest-server.test.js
-│   │   ├── caching.test.js
-│   │   └── ... (7 more)
+│   │   ├── filepath-imports.test.js
+│   │   └── ... (6 more)
 │   ├── integration/                           # Integration tests (8 files)
 │   │   ├── test-automated-pipeline.js
 │   │   ├── test-cache-layer.js
@@ -259,10 +259,14 @@ claude mcp remove <name>
 - Error breadcrumbs for debugging
 
 **Redis MCP** enables:
-- Queue management for BullMQ (if implemented)
-- Task queue operations
+- **Scan Result Caching**: Git commit-based caching via `ScanResultCache` class
+  - Automatic cache key generation using repository path + commit hash
+  - 30-day TTL (configurable)
+  - Cache invalidation on repository changes
+  - Metadata tracking (cached date, duplicate counts, scan type)
+  - Integrated with `CachedScanner` for automatic cache hits/misses
+- Queue management for task processing
 - Session data management
-- Caching layer operations
 
 **TaskQueue MCP** provides:
 - Structured workflow for complex job processing

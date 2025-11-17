@@ -18,7 +18,7 @@ const __dirname = dirname(__filename);
 describe('Filepath Imports Test Suite', () => {
   describe('sidequest/index.js imports', () => {
     it('should have correct import for RepomixWorker', async () => {
-      const filePath = resolve(__dirname, '../sidequest/index.js');
+      const filePath = resolve(__dirname, '../../sidequest/index.js');
       const content = await fs.readFile(filePath, 'utf-8');
 
       // Verify the import statement uses relative path from sidequest/
@@ -30,7 +30,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should have correct import for DirectoryScanner', async () => {
-      const filePath = resolve(__dirname, '../sidequest/index.js');
+      const filePath = resolve(__dirname, '../../sidequest/index.js');
       const content = await fs.readFile(filePath, 'utf-8');
 
       // Verify the import statement uses relative path from sidequest/
@@ -42,7 +42,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should have correct outputBaseDir path', async () => {
-      const filePath = resolve(__dirname, '../sidequest/index.js');
+      const filePath = resolve(__dirname, '../../sidequest/index.js');
       const content = await fs.readFile(filePath, 'utf-8');
 
       // Verify outputBaseDir points to ../condense
@@ -54,7 +54,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should have correct logDir path', async () => {
-      const filePath = resolve(__dirname, '../sidequest/index.js');
+      const filePath = resolve(__dirname, '../../sidequest/index.js');
       const content = await fs.readFile(filePath, 'utf-8');
 
       // Verify logDir points to ../logs (should appear twice)
@@ -66,7 +66,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should have correct outputDir path for DirectoryScanner', async () => {
-      const filePath = resolve(__dirname, '../sidequest/index.js');
+      const filePath = resolve(__dirname, '../../sidequest/index.js');
       const content = await fs.readFile(filePath, 'utf-8');
 
       // Verify outputDir points to ../directory-scan-reports
@@ -78,7 +78,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should have correct path in saveRunSummary', async () => {
-      const filePath = resolve(__dirname, '../sidequest/index.js');
+      const filePath = resolve(__dirname, '../../sidequest/index.js');
       const content = await fs.readFile(filePath, 'utf-8');
 
       // Verify saveRunSummary uses ../logs
@@ -92,7 +92,7 @@ describe('Filepath Imports Test Suite', () => {
 
   describe('sidequest/data-discovery-report-pipeline.js imports', () => {
     it('should have correct import for SchemaEnhancementWorker', async () => {
-      const filePath = resolve(__dirname, '../sidequest/data-discovery-report-pipeline.js');
+      const filePath = resolve(__dirname, '../../sidequest/data-discovery-report-pipeline.js');
       const content = await fs.readFile(filePath, 'utf-8');
 
       // Verify the import statement uses relative path from sidequest/
@@ -104,7 +104,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should have correct import for READMEScanner', async () => {
-      const filePath = resolve(__dirname, '../sidequest/data-discovery-report-pipeline.js');
+      const filePath = resolve(__dirname, '../../sidequest/data-discovery-report-pipeline.js');
       const content = await fs.readFile(filePath, 'utf-8');
 
       // Verify the import statement uses relative path from sidequest/
@@ -116,7 +116,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should have correct outputBaseDir path', async () => {
-      const filePath = resolve(__dirname, '../sidequest/data-discovery-report-pipeline.js');
+      const filePath = resolve(__dirname, '../../sidequest/data-discovery-report-pipeline.js');
       const content = await fs.readFile(filePath, 'utf-8');
 
       // Verify outputBaseDir points to ../document-enhancement-impact-measurement
@@ -128,7 +128,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should have correct logDir path', async () => {
-      const filePath = resolve(__dirname, '../sidequest/data-discovery-report-pipeline.js');
+      const filePath = resolve(__dirname, '../../sidequest/data-discovery-report-pipeline.js');
       const content = await fs.readFile(filePath, 'utf-8');
 
       // Verify logDir points to ../logs
@@ -142,19 +142,19 @@ describe('Filepath Imports Test Suite', () => {
 
   describe('File existence checks', () => {
     it('should verify index.js exists in sidequest/', async () => {
-      const filePath = resolve(__dirname, '../sidequest/index.js');
+      const filePath = resolve(__dirname, '../../sidequest/index.js');
       const stats = await fs.stat(filePath);
       assert.ok(stats.isFile(), 'index.js should exist in sidequest/');
     });
 
     it('should verify data-discovery-report-pipeline.js exists in sidequest/', async () => {
-      const filePath = resolve(__dirname, '../sidequest/data-discovery-report-pipeline.js');
+      const filePath = resolve(__dirname, '../../sidequest/data-discovery-report-pipeline.js');
       const stats = await fs.stat(filePath);
       assert.ok(stats.isFile(), 'data-discovery-report-pipeline.js should exist in sidequest/');
     });
 
     it('should verify index.js was removed from root', async () => {
-      const filePath = resolve(__dirname, '../index.js');
+      const filePath = resolve(__dirname, '../../index.js');
       try {
         await fs.stat(filePath);
         assert.fail('index.js should not exist in root directory');
@@ -164,7 +164,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should verify data-discovery-report-pipeline.js was removed from jobs/data-discovery/', async () => {
-      const filePath = resolve(__dirname, '../jobs/data-discovery/data-discovery-report-pipeline.js');
+      const filePath = resolve(__dirname, '../../jobs/data-discovery/data-discovery-report-pipeline.js');
       try {
         await fs.stat(filePath);
         assert.fail('data-discovery-report-pipeline.js should not exist in jobs/data-discovery/');
@@ -176,19 +176,19 @@ describe('Filepath Imports Test Suite', () => {
 
   describe('Referenced module existence', () => {
     it('should verify repomix-worker.js exists in sidequest/', async () => {
-      const filePath = resolve(__dirname, '../sidequest/repomix-worker.js');
+      const filePath = resolve(__dirname, '../../sidequest/repomix-worker.js');
       const stats = await fs.stat(filePath);
       assert.ok(stats.isFile(), 'repomix-worker.js should exist');
     });
 
     it('should verify directory-scanner.js exists in sidequest/', async () => {
-      const filePath = resolve(__dirname, '../sidequest/directory-scanner.js');
+      const filePath = resolve(__dirname, '../../sidequest/directory-scanner.js');
       const stats = await fs.stat(filePath);
       assert.ok(stats.isFile(), 'directory-scanner.js should exist');
     });
 
     it('should verify schema-enhancement-worker.js exists in sidequest/doc-enhancement/', async () => {
-      const filePath = resolve(__dirname, '../sidequest/doc-enhancement/schema-enhancement-worker.js');
+      const filePath = resolve(__dirname, '../../sidequest/doc-enhancement/schema-enhancement-worker.js');
       try {
         const stats = await fs.stat(filePath);
         assert.ok(stats.isFile(), 'schema-enhancement-worker.js should exist');
@@ -199,7 +199,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should verify readme-scanner.js exists in sidequest/doc-enhancement/', async () => {
-      const filePath = resolve(__dirname, '../sidequest/doc-enhancement/readme-scanner.js');
+      const filePath = resolve(__dirname, '../../sidequest/doc-enhancement/readme-scanner.js');
       try {
         const stats = await fs.stat(filePath);
         assert.ok(stats.isFile(), 'readme-scanner.js should exist');
@@ -212,7 +212,7 @@ describe('Filepath Imports Test Suite', () => {
 
   describe('Output directory paths', () => {
     it('should verify condense/ directory exists', async () => {
-      const dirPath = resolve(__dirname, '../condense');
+      const dirPath = resolve(__dirname, '../../condense');
       try {
         const stats = await fs.stat(dirPath);
         assert.ok(stats.isDirectory(), 'condense/ directory should exist');
@@ -222,7 +222,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should verify logs/ directory exists', async () => {
-      const dirPath = resolve(__dirname, '../logs');
+      const dirPath = resolve(__dirname, '../../logs');
       try {
         const stats = await fs.stat(dirPath);
         assert.ok(stats.isDirectory(), 'logs/ directory should exist');
@@ -232,7 +232,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should verify directory-scan-reports/ directory exists', async () => {
-      const dirPath = resolve(__dirname, '../directory-scan-reports');
+      const dirPath = resolve(__dirname, '../../directory-scan-reports');
       try {
         const stats = await fs.stat(dirPath);
         assert.ok(stats.isDirectory(), 'directory-scan-reports/ directory should exist');
@@ -242,7 +242,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should verify document-enhancement-impact-measurement/ directory exists', async () => {
-      const dirPath = resolve(__dirname, '../document-enhancement-impact-measurement');
+      const dirPath = resolve(__dirname, '../../document-enhancement-impact-measurement');
       try {
         const stats = await fs.stat(dirPath);
         assert.ok(stats.isDirectory(), 'document-enhancement-impact-measurement/ directory should exist');
