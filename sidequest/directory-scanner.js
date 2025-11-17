@@ -38,7 +38,7 @@ export class DirectoryScanner {
   }
 
   /**
-   * Scan all directories recursively
+   * Scan for git repository root directories only
    */
   async scanDirectories() {
     const directories = [];
@@ -47,7 +47,20 @@ export class DirectoryScanner {
   }
 
   /**
-   * Recursively scan a directory
+   * Check if a directory is a git repository root
+   */
+  async isGitRepository(dirPath) {
+    try {
+      const gitPath = path.join(dirPath, '.git');
+      const stat = await fs.stat(gitPath);
+      return stat.isDirectory();
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Recursively scan for git repository root directories
    */
   async scanRecursive(currentPath, relativePath, depth, results) {
     // Check depth limit
@@ -56,6 +69,22 @@ export class DirectoryScanner {
     }
 
     try {
+      // Check if current directory is a git repository
+      const isGitRepo = await this.isGitRepository(currentPath);
+
+      if (isGitRepo) {
+        // This is a git repository root - add it and stop recursing
+        results.push({
+          fullPath: currentPath,
+          relativePath: relativePath || path.basename(currentPath),
+          name: path.basename(currentPath),
+          depth,
+          isGitRepo: true,
+        });
+        logger.info({ path: currentPath, relativePath }, 'Found git repository');
+        return; // Don't scan subdirectories of git repos
+      }
+
       const entries = await fs.readdir(currentPath, { withFileTypes: true });
 
       for (const entry of entries) {
@@ -66,7 +95,7 @@ export class DirectoryScanner {
           continue;
         }
 
-        // Skip hidden directories (except .config, etc. if needed)
+        // Skip hidden directories (except .git is checked separately)
         if (entry.name.startsWith('.')) {
           continue;
         }
@@ -75,14 +104,6 @@ export class DirectoryScanner {
         const newRelativePath = relativePath
           ? path.join(relativePath, entry.name)
           : entry.name;
-
-        // Add this directory to results
-        results.push({
-          fullPath,
-          relativePath: newRelativePath,
-          name: entry.name,
-          depth,
-        });
 
         // Recurse into subdirectories
         await this.scanRecursive(fullPath, newRelativePath, depth + 1, results);
