@@ -1,5 +1,5 @@
 {
-  "test_repository": "test/accuracy/fixtures",
+  "test_repository": "tests/accuracy/fixtures",
   "description": "Ground truth for duplicate detection accuracy testing",
   "created": "2025-11-11",
   "duplicate_groups": [

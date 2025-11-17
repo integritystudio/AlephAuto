@@ -11,6 +11,8 @@ Automation pipelines built on the **AlephAuto** job queue framework:
 3. **Git Activity Reporter** - Weekly/monthly git activity reports with visualizations
 4. **Gitignore Manager** - Batch `.gitignore` updates across git repositories
 5. **Repomix Automation** - Automated repomix file generation for git repository roots only
+6. **Plugin Manager** - Claude Code plugin audit, duplicate detection, and cleanup recommendations
+7. **Claude Health Monitor** - Comprehensive Claude Code environment health checks, monitoring, and optimization
 
 All systems use AlephAuto job queue with Sentry error logging, centralized configuration, and event-driven architecture.
 
@@ -40,6 +42,20 @@ npm run docs:enhance:dry        # Dry run (no modifications)
 npm run git:weekly              # Weekly report (last 7 days)
 RUN_ON_STARTUP=true npm run git:weekly  # Run immediately
 
+# Plugin management
+npm run plugin:audit                    # Run audit immediately
+npm run plugin:audit:detailed           # Run detailed audit
+npm run plugin:schedule                 # Cron mode (Monday 9 AM)
+doppler run -- pm2 start plugin-management-pipeline.js --name plugin-auditor  # PM2 deployment
+./sidequest/plugin-management-audit.sh --detailed  # Manual shell script audit
+
+# Claude environment health
+npm run claude:health                   # Run comprehensive health check
+npm run claude:health:detailed          # Run detailed health check
+npm run claude:health:quick             # Quick check (skip performance/plugins)
+npm run claude:health:schedule          # Cron mode (daily 8 AM)
+doppler run -- pm2 start claude-health-pipeline.js --name claude-health  # PM2 deployment
+
 # Duplicate detection
 doppler run -- node lib/scan-orchestrator.js <repo-path>
 doppler run -- RUN_ON_STARTUP=true node duplicate-detection-pipeline.js
@@ -47,17 +63,25 @@ doppler run -- RUN_ON_STARTUP=true node duplicate-detection-pipeline.js
 
 ### Testing
 ```bash
-# Run all tests (132 tests, 97.7% passing)
-npm test
+# Run all tests (organized by type)
+npm test                                        # Unit tests only (10 files)
+npm run test:integration                        # Integration tests only (8 files)
+npm run test:all                                # All tests (unit + integration)
 
 # Run specific test suites
-node --test test/directory-scanner.test.js     # Individual test file
-npm run test:api                                # REST API tests (16)
-npm run test:websocket                          # WebSocket tests (15)
-npm run test:caching                            # Caching tests (23, requires Redis)
+node --test tests/unit/directory-scanner.test.js      # Individual test file
+node --test tests/unit/sidequest-server.test.js       # Job queue tests
+node --test tests/unit/api-routes.test.js             # REST API tests (16)
+node --test tests/unit/websocket.test.js              # WebSocket tests (15)
+node --test tests/unit/caching.test.js                # Caching tests (23, requires Redis)
+
+# Integration tests
+node tests/integration/test-automated-pipeline.js     # Full pipeline test
+node tests/integration/test-cache-layer.js            # Cache integration
+node tests/integration/test-inter-project-scan.js     # Multi-repo scanning
 
 # Duplicate detection accuracy tests
-node test/accuracy/accuracy-test.js --verbose --save-results
+node tests/accuracy/accuracy-test.js --verbose --save-results
 
 # Type checking
 npm run typecheck
@@ -68,6 +92,12 @@ npm run typecheck
 - REST API: 16/16 ✅
 - WebSocket: 15/15 ✅
 - Accuracy: Precision 100%, Recall 87.50%, F1 93.33%
+
+**Test Organization:**
+- `tests/unit/` - Unit tests for individual components (*.test.js)
+- `tests/integration/` - Integration tests for full workflows (test-*.js)
+- `tests/accuracy/` - Duplicate detection accuracy suite
+- `tests/scripts/` - Test utility scripts
 
 ## Architecture
 
@@ -98,10 +128,10 @@ Stage 3-7 (Python): Block Extraction → Semantic Annotation → Duplicate Group
 │  - Sentry integration               │
 └─────────────────────────────────────┘
               ▲ extends
-    ┌─────────┴──────────┬──────────────┬──────────────┐
-    │                    │              │              │
-RepomixWorker    SchemaEnhancement  GitActivity   Gitignore
-                      Worker          Worker       Manager
+    ┌─────────┴──────────┬──────────────┬──────────────┬──────────────┐
+    │                    │              │              │              │
+RepomixWorker    SchemaEnhancement  GitActivity   Gitignore     PluginManager
+                      Worker          Worker       Manager          Worker
 ```
 
 **Core Pattern:**
@@ -285,7 +315,10 @@ Environment variables:
 - `CRON_SCHEDULE` - Repomix (default: `0 2 * * *` - 2 AM daily)
 - `DOC_CRON_SCHEDULE` - Doc enhancement (default: `0 3 * * *` - 3 AM daily)
 - `GIT_CRON_SCHEDULE` - Git activity (default: `0 20 * * 0` - Sunday 8 PM)
+- `PLUGIN_CRON_SCHEDULE` - Plugin audit (default: `0 9 * * 1` - Monday 9 AM)
+- `CLAUDE_HEALTH_CRON_SCHEDULE` - Claude health check (default: `0 8 * * *` - Daily 8 AM)
 - `RUN_ON_STARTUP=true` - Run immediately on startup
+- `DETAILED=true` - Include detailed component listing (Plugin Manager and Claude Health)
 
 ## MCP Servers
 
@@ -299,11 +332,94 @@ claude mcp list                    # List all servers
 claude mcp tools <server-name>     # View available tools
 ```
 
-## Recent Critical Bug Fixes (2025-11-17)
+## Directory Structure
 
+The project is organized by architectural layer (aligned with dataflow diagrams):
+
+```
+jobs/
+├── api/                    # API Gateway Layer
+│   ├── server.js          # Express app + WebSocket server
+│   ├── routes/            # Scan, repository, report endpoints
+│   ├── middleware/        # Auth, rate limiting, error handling
+│   └── websocket.js       # Real-time event broadcasting
+│
+├── lib/                    # Processing Layer (Core Business Logic)
+│   ├── scan-orchestrator.js              # 7-stage pipeline coordinator
+│   ├── scanners/                         # Stage 1-2: Repository & pattern scanning
+│   ├── extractors/                       # Stage 3-7: Python data processing
+│   ├── similarity/                       # Duplicate detection algorithms
+│   ├── reports/                          # Report generation (HTML/JSON/MD)
+│   ├── caching/                          # Redis-backed caching
+│   ├── models/                           # Pydantic data models
+│   └── config/                           # Configuration loaders
+│
+├── sidequest/              # Job Queue Framework (AlephAuto)
+│   ├── server.js          # Base job queue (extends EventEmitter)
+│   ├── config.js          # Centralized configuration
+│   ├── logger.js          # Sentry-integrated logging
+│   └── doc-enhancement/   # Documentation enhancement workers
+│
+├── config/                 # Configuration Files
+│   └── scan-repositories.json
+│
+├── .ast-grep/              # AST-Grep Pattern Rules
+│   └── rules/             # 18 detection rules (database, api, async, etc.)
+│
+├── tests/                  # All Tests (Organized by Type)
+│   ├── unit/              # Unit tests (10 files, *.test.js)
+│   ├── integration/       # Integration tests (8 files, test-*.js)
+│   ├── accuracy/          # Accuracy test suite
+│   └── scripts/           # Test utility scripts
+│
+├── scripts/                # Utility & Setup Scripts
+├── docs/                   # Documentation
+│   ├── CHEAT_SHEET.md
+│   ├── DATAFLOW_DIAGRAMS.md
+│   └── architecture/
+│
+└── duplicate-detection-pipeline.js  # Main entry point (root)
+```
+
+**Key Files Reference:**
+- `duplicate-detection-pipeline.js` - Main duplicate detection entry point
+- `lib/scan-orchestrator.js` - 7-stage pipeline coordinator
+- `lib/similarity/structural.py` - 2-phase similarity algorithm
+- `sidequest/server.js` - AlephAuto job queue base class
+- `config/scan-repositories.json` - Repository scan configuration
+- `docs/DATAFLOW_DIAGRAMS.md` - Complete architecture diagrams
+
+## Recent Updates (2025-11-17)
+
+### New Features
+1. ✅ **Plugin Management System** - Automated Claude Code plugin auditing and cleanup recommendations
+   - Worker: `sidequest/plugin-manager.js` (extends SidequestServer)
+   - Pipeline: `plugin-management-pipeline.js` (cron scheduling + CLI)
+   - Audit script: `sidequest/plugin-management-audit.sh` (bash analysis)
+   - Commands: `npm run plugin:audit`, `npm run plugin:audit:detailed`, `npm run plugin:schedule`
+   - Features: Duplicate detection, threshold monitoring, actionable recommendations
+   - Schedule: Monday 9 AM (configurable via `PLUGIN_CRON_SCHEDULE`)
+
+2. ✅ **Claude Health Monitor** - Comprehensive Claude Code environment monitoring and health checks
+   - Worker: `sidequest/claude-health-worker.js` (extends SidequestServer)
+   - Pipeline: `claude-health-pipeline.js` (cron scheduling + CLI)
+   - Integration: Works with existing `~/.claude/scripts/health.sh`
+   - Commands: `npm run claude:health`, `npm run claude:health:detailed`, `npm run claude:health:schedule`
+   - Features: Environment validation, config checking, hook analysis, plugin monitoring, performance tracking
+   - Health scoring: 0-100 score with actionable recommendations
+   - Schedule: Daily 8 AM (configurable via `CLAUDE_HEALTH_CRON_SCHEDULE`)
+
+### Critical Bug Fixes
 1. ✅ **Falsy value handling** - Changed `||` to `??` for numeric options (server.js:18)
 2. ✅ **Field name mismatch** - Changed `semantic_tags` → `tags` (extract_blocks.py:231)
 3. ✅ **Function-based deduplication** - Deduplicate by `file:function_name`, not line (extract_blocks.py:108-163)
 4. ✅ **Unified penalty system** - Two-phase architecture: extract features BEFORE normalization (structural.py:16-482)
 
 **Results:** Precision: 100%, Recall: 87.50%, F1: 93.33%, FP Rate: 0%
+
+### Project Organization Improvements
+1. ✅ **Test reorganization** - Separated unit tests (`tests/unit/`) from integration tests (`tests/integration/`)
+2. ✅ **Scripts directory** - Centralized utility scripts in `scripts/`
+3. ✅ **Documentation consolidation** - Moved technical docs to `docs/` (CHEAT_SHEET.md, DATAFLOW_DIAGRAMS.md)
+4. ✅ **Architecture alignment** - Directory structure now matches architectural layers from dataflow diagrams
+5. ✅ **Updated all references** - package.json, .claude/settings.local.json, test imports

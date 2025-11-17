@@ -1,7 +1,7 @@
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert';
 import { spawn } from 'child_process';
-import { createComponentLogger } from '../sidequest/logger.js';
+import { createComponentLogger } from '../../sidequest/logger.js';
 
 const logger = createComponentLogger('MCPServerTest');
 

@@ -1,6 +1,6 @@
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
-import { CachedScanner } from '../lib/cache/cached-scanner.js';
+import { CachedScanner } from '../../lib/cache/cached-scanner.js';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';

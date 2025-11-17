@@ -52,39 +52,101 @@ Four automated systems built on the **AlephAuto** job queue framework with Sentr
 
 ```
 jobs/
-├── index.js                                    # Repomix cron server
-├── doc-enhancement-pipeline.js                 # Documentation enhancement server
-├── git-activity-pipeline.js                    # Git activity report server ⭐ NEW
+├── duplicate-detection-pipeline.js             # Main duplicate detection entry point
+├── git-activity-pipeline.js                    # Git activity report server
 ├── package.json                                # Dependencies
+├── README.md                                   # This file
+├── claude.md                                   # AI assistant context
 ├── .env                                        # Environment configuration
-├── sidequest/                                  # AlephAuto job management system
-│   ├── server.js                              # Base sidequest server (job queue core)
+│
+├── api/                                        # REST API & WebSocket Server
+│   ├── server.js                              # Express app + WebSocket server
+│   ├── routes/                                # API routes
+│   │   ├── scans.js                           # Scan endpoints
+│   │   ├── repositories.js                    # Repository endpoints
+│   │   └── reports.js                         # Report endpoints
+│   ├── middleware/                            # Express middleware
+│   └── websocket.js                           # WebSocket event broadcasting
+│
+├── lib/                                        # Processing Layer (Core Business Logic)
+│   ├── scan-orchestrator.js                   # 7-stage duplicate detection pipeline
+│   ├── inter-project-scanner.js               # Multi-repository scanning
+│   ├── scanners/                              # Stage 1-2: Repository & Pattern scanning
+│   │   ├── repository-scanner.js              # Repository validation & repomix
+│   │   └── ast-grep-detector.js               # AST-Grep pattern detection (18 rules)
+│   ├── extractors/                            # Stage 3-7: Python data processing
+│   │   ├── extract_blocks.py                  # Code block extraction & annotation
+│   │   └── semantic_annotator.py              # Semantic categorization
+│   ├── similarity/                            # Duplicate detection algorithms
+│   │   └── structural.py                      # 2-phase similarity (Levenshtein + penalties)
+│   ├── reports/                               # Report generation
+│   │   └── report-coordinator.js              # HTML/Markdown/JSON reports
+│   ├── caching/                               # Cache layer
+│   │   └── cached-scanner.js                  # Redis-backed scan caching (30-day TTL)
+│   ├── models/                                # Pydantic data models
+│   │   ├── code_block.py                      # CodeBlock model
+│   │   ├── duplicate_group.py                 # DuplicateGroup model
+│   │   └── consolidation_suggestion.py        # ConsolidationSuggestion model
+│   └── config/                                # Configuration management
+│       └── repository-config-loader.js        # Load scan-repositories.json
+│
+├── sidequest/                                  # AlephAuto Job Queue Framework
+│   ├── server.js                              # Base job queue manager (extends EventEmitter)
 │   ├── config.js                              # Centralized configuration
 │   ├── logger.js                              # Sentry-integrated logging
-│   ├── index.js                               # AlephAuto main entry point
 │   ├── repomix-worker.js                      # Repomix job worker
-│   ├── git-activity-worker.js                 # Git activity job worker ⭐ NEW
+│   ├── git-activity-worker.js                 # Git activity job worker
 │   ├── directory-scanner.js                   # Directory scanning utility
-│   ├── data-discovery-report-pipeline.js      # Documentation enhancement pipeline
-│   ├── gitignore-repomix-updater.js           # Gitignore batch updater
-│   ├── collect_git_activity.py                # Git activity data collection (Python backend)
-│   ├── git-report-config.json                 # Git reporter configuration
 │   ├── doc-enhancement/                       # Documentation enhancement
 │   │   ├── readme-scanner.js                  # README file scanner
 │   │   ├── schema-mcp-tools.js                # Schema.org MCP integration
 │   │   └── schema-enhancement-worker.js       # Enhancement job worker
-│   ├── README.md                              # AlephAuto documentation
-│   ├── GITIGNORE_UPDATER_README.md            # Gitignore updater docs
-│   ├── GIT-ACTIVITY-REPORTER-README.md        # Git reporter docs
-│   └── INSTALL.md                             # Installation guide
-├── test/
-│   └── test-single-enhancement.js             # Single README test script
-├── logs/                                       # Job logs and run summaries
-├── condense/                                   # Repomix outputs (mirrors ~/code)
-└── document-enhancement-impact-measurement/    # Documentation enhancement outputs
-    ├── impact-reports/                        # SEO impact analysis reports
-    ├── enhanced-readmes/                      # Enhanced README copies
-    └── enhancement-summary-*.json             # Enhancement run summaries
+│   └── collect_git_activity.py                # Git activity data collection (Python)
+│
+├── config/                                     # Configuration Files
+│   └── scan-repositories.json                 # Repository scan configuration
+│
+├── .ast-grep/                                  # AST-Grep Pattern Rules
+│   └── rules/                                 # 18 pattern detection rules
+│       ├── database-operations.yml
+│       ├── express-route-handlers.yml
+│       ├── async-patterns.yml
+│       └── ... (15 more)
+│
+├── tests/                                      # All Tests
+│   ├── unit/                                  # Unit tests (10 files)
+│   │   ├── api-routes.test.js
+│   │   ├── sidequest-server.test.js
+│   │   ├── caching.test.js
+│   │   └── ... (7 more)
+│   ├── integration/                           # Integration tests (8 files)
+│   │   ├── test-automated-pipeline.js
+│   │   ├── test-cache-layer.js
+│   │   ├── test-inter-project-scan.js
+│   │   └── ... (5 more)
+│   ├── accuracy/                              # Accuracy test suite
+│   │   ├── accuracy-test.js
+│   │   ├── expected-results.json
+│   │   └── fixtures/
+│   └── scripts/                               # Test utility scripts
+│       ├── test-single-job.js
+│       ├── test-sentry-connection.js
+│       └── ... (3 more)
+│
+├── scripts/                                    # Utility & Setup Scripts
+│   └── setup-github-pages-dns.js
+│
+├── docs/                                       # Documentation
+│   ├── CHEAT_SHEET.md                         # Quick reference guide
+│   ├── DATAFLOW_DIAGRAMS.md                   # Mermaid architecture diagrams
+│   ├── architecture/                          # Architecture documentation
+│   ├── components/                            # Component documentation
+│   └── setup/                                 # Setup guides
+│
+├── logs/                                       # Runtime logs (gitignored)
+├── output/                                     # Generated reports (gitignored)
+│   └── reports/                               # Scan reports (HTML/JSON/Markdown)
+└── venv/                                       # Python virtual environment
 ```
 
 ## Installation

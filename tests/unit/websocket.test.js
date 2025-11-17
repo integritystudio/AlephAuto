@@ -2,8 +2,8 @@ import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { createServer } from 'http';
 import { WebSocket } from 'ws';
-import { createWebSocketServer } from '../api/websocket.js';
-import { ScanEventBroadcaster } from '../api/event-broadcaster.js';
+import { createWebSocketServer } from '../../api/websocket.js';
+import { ScanEventBroadcaster } from '../../api/event-broadcaster.js';
 
 describe('WebSocket Server', () => {
   let httpServer;

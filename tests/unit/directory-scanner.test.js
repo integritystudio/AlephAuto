@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import { DirectoryScanner } from '../sidequest/directory-scanner.js';
+import { DirectoryScanner } from '../../sidequest/directory-scanner.js';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';

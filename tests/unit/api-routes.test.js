@@ -2,9 +2,9 @@ import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import request from 'supertest';
 import express from 'express';
-import scanRoutes from '../api/routes/scans.js';
-import repositoryRoutes from '../api/routes/repositories.js';
-import reportRoutes from '../api/routes/reports.js';
+import scanRoutes from '../../api/routes/scans.js';
+import repositoryRoutes from '../../api/routes/repositories.js';
+import reportRoutes from '../../api/routes/reports.js';
 
 describe('API Routes', () => {
   let app;
