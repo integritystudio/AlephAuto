@@ -1,119 +1,175 @@
 # Installation Guide
 
-Quick setup guide for the automated git activity reporting system.
+Quick setup guide for the automated git activity reporting system with **AlephAuto integration**.
 
 ## Prerequisites
 
+- Node.js >= 18.0.0
 - Python 3.7+
 - Git installed and configured
-- Bash shell (macOS/Linux)
-- Jekyll site at `~/code/PersonalSite` (or customize paths)
+- npm (comes with Node.js)
+- Jekyll site at `~/code/PersonalSite` (or customize paths in config)
 
 ## Installation Steps
 
-### 1. Verify Files
+### 1. Install Dependencies
+
+From the project root:
+```bash
+cd ~/code/jobs
+npm install
+```
+
+### 2. Verify Files
 
 Check that all files are in place:
 ```bash
+ls -la ~/code/jobs/
 ls -la ~/code/jobs/sidequest/
 ```
 
 Expected files:
-- `collect_git_activity.py` (executable)
-- `weekly-git-report.sh` (executable)
-- `git-report-config.json`
-- `README.md`
-- `INSTALL.md`
+- `git-activity-pipeline.js` (project root)
+- `sidequest/git-activity-worker.js`
+- `sidequest/collect_git_activity.py` (Python backend)
+- `sidequest/git-report-config.json`
 
-### 2. Set Permissions
+### 3. Set Permissions
 
-Make scripts executable:
+Make Python script executable:
 ```bash
 chmod +x ~/code/jobs/sidequest/collect_git_activity.py
-chmod +x ~/code/jobs/sidequest/weekly-git-report.sh
 ```
 
-### 3. Test Manual Run
+### 4. Test Manual Run
 
-Test the Python script:
+Test the AlephAuto integration:
+```bash
+cd ~/code/jobs
+
+# Test weekly report
+npm run git:weekly
+
+# Test with immediate execution
+RUN_ON_STARTUP=true npm run git:weekly
+
+# Test custom date range
+node git-activity-pipeline.js --since 2025-11-10 --until 2025-11-17
+```
+
+Test the Python script directly (optional):
 ```bash
 cd ~/code/jobs/sidequest
 python3 collect_git_activity.py --days 7
 ```
 
-Test the shell wrapper:
-```bash
-./weekly-git-report.sh --help
-./weekly-git-report.sh --since 2025-11-10 --until 2025-11-17
-```
+### 5. Configure Paths (Optional)
 
-### 4. Configure Paths (Optional)
-
-Edit `collect_git_activity.py` if your code directory is different:
+Edit `sidequest/collect_git_activity.py` if your code directory is different:
 ```python
 CODE_DIR = Path.home() / 'code'  # Change this if needed
 ```
 
-Edit `weekly-git-report.sh` if your PersonalSite is elsewhere:
+Or set environment variables (recommended):
 ```bash
-PERSONALSITE_DIR="$HOME/code/PersonalSite"  # Change this if needed
+# In .env file or environment
+CODE_BASE_DIR=/path/to/your/code
+GIT_CRON_SCHEDULE="0 20 * * 0"  # Sunday 8 PM (default)
 ```
 
-### 5. Set Up Cron (Optional)
+### 6. Set Up Scheduled Mode (Optional)
 
-Edit your crontab:
+#### Option A: Using npm (Simple)
+
+Run in scheduled mode:
 ```bash
-crontab -e
+cd ~/code/jobs
+npm run git:schedule
 ```
 
-Add weekly report (every Sunday at 8 PM):
-```cron
-0 20 * * 0 ~/code/jobs/sidequest/weekly-git-report.sh >> ~/code/jobs/sidequest/logs/git-report.log 2>&1
+#### Option B: Using PM2 (Production)
+
+```bash
+cd ~/code/jobs
+pm2 start git-activity-pipeline.js --name git-activity
+pm2 save
+pm2 startup
 ```
 
-Save and exit. Verify:
+Verify:
 ```bash
-crontab -l
+pm2 status
+pm2 logs git-activity
 ```
 
-### 6. Test Cron Job
+#### Option C: Using systemd (Linux)
 
-Wait for scheduled time, or manually trigger to test:
+Create `/etc/systemd/system/git-activity.service`:
+```ini
+[Unit]
+Description=Git Activity Report Pipeline
+After=network.target
+
+[Service]
+Type=simple
+User=your-user
+WorkingDirectory=/Users/alyshialedlie/code/jobs
+ExecStart=/usr/bin/node git-activity-pipeline.js
+Restart=always
+Environment=NODE_ENV=production
+Environment=GIT_CRON_SCHEDULE="0 20 * * 0"
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
 ```bash
-~/code/jobs/sidequest/weekly-git-report.sh >> ~/code/jobs/sidequest/logs/test.log 2>&1
-cat ~/code/jobs/sidequest/logs/test.log
+sudo systemctl enable git-activity
+sudo systemctl start git-activity
+sudo systemctl status git-activity
 ```
 
 ## Verification
 
 After setup, verify:
 
-1. **Python script runs**: `python3 collect_git_activity.py --days 1`
-2. **Shell script runs**: `./weekly-git-report.sh --help`
-3. **Logs directory exists**: `ls ~/code/jobs/sidequest/logs/`
+1. **Dependencies installed**: `npm list` (from project root)
+2. **AlephAuto pipeline runs**: `npm run git:weekly`
+3. **Logs directory exists**: `ls ~/code/jobs/logs/`
 4. **Visualizations generate**: `ls ~/code/PersonalSite/assets/images/git-activity-2025/`
 5. **JSON data creates**: `ls /tmp/git_activity_*.json`
 
+Check job completion logs:
+```bash
+cat logs/*.json | grep "git-activity"
+```
+
 ## Usage
 
-### Daily
+### Weekly Report
 ```bash
-python3 collect_git_activity.py --days 1
+npm run git:weekly
 ```
 
-### Weekly
+### Monthly Report
 ```bash
-./weekly-git-report.sh
+npm run git:monthly
 ```
 
-### Monthly
+### Custom Date Range
 ```bash
-./weekly-git-report.sh --monthly
+node git-activity-pipeline.js --since 2025-07-07 --until 2025-11-16
 ```
 
-### Custom
+### Scheduled Mode
 ```bash
-./weekly-git-report.sh --since 2025-07-07 --until 2025-11-16
+npm run git:schedule
+```
+
+### Run Immediately
+```bash
+RUN_ON_STARTUP=true npm run git:weekly
 ```
 
 ### With Claude Code
@@ -126,32 +182,58 @@ Just ask:
 
 ## Troubleshooting
 
-### Scripts won't run
+### npm scripts not found
 ```bash
-chmod +x ~/code/jobs/sidequest/*.sh
-chmod +x ~/code/jobs/sidequest/*.py
+cd ~/code/jobs
+npm install  # Ensure dependencies are installed
+```
+
+### Python script won't execute
+```bash
+chmod +x ~/code/jobs/sidequest/collect_git_activity.py
+which python3  # Verify Python is installed
 ```
 
 ### No repositories found
 ```bash
-# Increase scan depth
-python3 collect_git_activity.py --days 7 --max-depth 3
+# Check CODE_BASE_DIR environment variable
+echo $CODE_BASE_DIR
+
+# Or edit collect_git_activity.py directly
 ```
 
-### Cron not working
+### Jobs not completing
 ```bash
-# Use absolute paths in crontab:
-0 20 * * 0 /usr/bin/python3 /Users/alyshialedlie/code/jobs/sidequest/collect_git_activity.py --weekly
+# Check logs
+cat logs/*.json | tail -50
+
+# Or use PM2 logs
+pm2 logs git-activity
+
+# Check Sentry dashboard for errors
+```
+
+### Scheduled mode not working
+```bash
+# Verify cron schedule syntax
+GIT_CRON_SCHEDULE="0 20 * * 0" npm run git:schedule
+
+# Check if process is running
+ps aux | grep git-activity-pipeline
+
+# Or use PM2
+pm2 status
 ```
 
 ## Next Steps
 
-1. Run a test report: `./weekly-git-report.sh`
+1. Run a test report: `npm run git:weekly`
 2. Review JSON output: `cat /tmp/git_activity_*.json | jq .`
 3. Check visualizations: Open SVG files in browser
 4. Ask Claude to create markdown report from data
-5. Set up weekly cron job
-6. Customize project categories in config
+5. Set up scheduled mode: `npm run git:schedule` or use PM2
+6. Customize project categories in `git-report-config.json`
+7. Monitor with Sentry dashboard
 
 ## Support
 

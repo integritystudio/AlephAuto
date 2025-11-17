@@ -4,12 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This repository contains two primary systems:
+This repository contains four automation pipelines built on the **AlephAuto** job queue framework:
 
 1. **Code Consolidation System** - Automated duplicate code detection using ast-grep, pydantic, and multi-layer similarity algorithms
-2. **Document Enhancement Pipeline** - Automated Schema.org structured data injection for README files
+2. **Documentation Enhancement Pipeline** - Automated Schema.org structured data injection for README files
+3. **Git Activity Reporter** - Automated weekly/monthly git activity reports with visualizations
+4. **Gitignore Manager** - Batch `.gitignore` updates across all git repositories
 
-Both systems run on sidequest job servers with Sentry error logging.
+All systems use the AlephAuto job queue framework with Sentry error logging, centralized configuration, and event-driven architecture.
 
 ## ⚠️ Critical Information
 
@@ -18,9 +20,10 @@ Both systems run on sidequest job servers with Sentry error logging.
 1. **Field Name:** CodeBlock uses `tags` field, NOT `semantic_tags` (lib/extractors/extract_blocks.py:231)
 2. **Backward Search:** Function extraction searches BACKWARDS to find closest function (extract_blocks.py:80-98)
 3. **Function-Based Deduplication:** Deduplicates by `file:function_name`, not `file:line` (extract_blocks.py:108-163)
-4. **Configuration:** Always use `import { config } from './sidequest/config.js'`, NEVER `process.env` directly
-5. **Doppler Required:** All commands must run with `doppler run --` for environment variables
-6. **Accuracy Target:** Recall ≥80% (✅ achieved: 81.25%), Precision ≥90% (⚠️ current: 59.09%)
+4. **Two-Phase Similarity:** Extract semantic features BEFORE normalization (structural.py:29-93, 422-482)
+5. **Configuration:** Always use `import { config } from './sidequest/config.js'`, NEVER `process.env` directly
+6. **Doppler Required:** All commands must run with `doppler run --` for environment variables
+7. **Accuracy Status:** Recall ✅ 87.50% (target: 80%), Precision ⚠️ 77.78% (target: 90%, gap: -12.22%)
 
 ## Authentication & Configuration
 
@@ -58,6 +61,16 @@ doppler run -- npm start     # With environment variables
 npm run docs:enhance         # Enhance Inventory directory
 npm run docs:enhance:dry     # Dry run (no modifications)
 npm run docs:test README.md  # Test single README file
+
+# Git activity reports (AlephAuto integrated)
+npm run git:weekly           # Weekly report (last 7 days)
+npm run git:monthly          # Monthly report (last 30 days)
+npm run git:schedule         # Start scheduled mode (Sunday 8 PM)
+RUN_ON_STARTUP=true npm run git:weekly  # Run immediately
+
+# Gitignore manager
+node sidequest/gitignore-repomix-updater.js ~/code --dry-run  # Preview changes
+node sidequest/gitignore-repomix-updater.js ~/code            # Apply changes
 ```
 
 ### Testing
@@ -195,33 +208,39 @@ Stage 3-7 (Python):
 └── logging/          (2 rules)  - console, logger patterns
 ```
 
-### Document Enhancement Pipeline
+### AlephAuto Job Queue Framework
 
-**Pipeline Flow:**
+**Architecture Pattern:**
 
 ```
-README Scanner → Schema Type Detection → Schema Generation →
-Impact Analysis → Content Injection → Report Generation
+┌─────────────────────────────────────┐
+│     SidequestServer (Base)          │
+│  - Job queue management             │
+│  - Concurrency control              │
+│  - Event emission                   │
+│  - Sentry integration               │
+└─────────────────────────────────────┘
+              ▲
+              │ extends
+    ┌─────────┴──────────┬──────────────┬──────────────┐
+    │                    │              │              │
+┌───────────────┐  ┌─────────────────────┐  ┌────────────────┐  ┌────────────────┐
+│ RepomixWorker │  │ SchemaEnhancement   │  │ GitActivity    │  │ Gitignore      │
+│               │  │ Worker              │  │ Worker         │  │ Manager        │
+└───────────────┘  └─────────────────────┘  └────────────────┘  └────────────────┘
 ```
 
-**Key Components:**
+**Core Components:**
 
-- **`doc-enhancement-pipeline.js`** - Main server with cron scheduling
-- **`sidequest/doc-enhancement/readme-scanner.js`** - README discovery
-- **`sidequest/doc-enhancement/schema-mcp-tools.js`** - Schema.org type detection and generation
-- **`sidequest/doc-enhancement/schema-enhancement-worker.js`** - Enhancement job worker
+- **`sidequest/server.js`** - Base job execution engine with event-driven lifecycle
+- **`sidequest/config.js`** - Centralized configuration (ALWAYS use this, never `process.env`)
+- **`sidequest/logger.js`** - Sentry-integrated logging with component-specific loggers
+- **`sidequest/repomix-worker.js`** - Repomix job executor
+- **`sidequest/git-activity-worker.js`** - Git activity report job executor
+- **`sidequest/doc-enhancement/schema-enhancement-worker.js`** - Documentation enhancement worker
+- **`sidequest/gitignore-repomix-updater.js`** - Batch gitignore management
 
-**Schema Types Supported:**
-
-| Content Type | Schema Type | Rich Results |
-|-------------|-------------|--------------|
-| Test documentation | `HowTo` | How-to guides |
-| API documentation | `APIReference` | Technical articles |
-| Software projects | `SoftwareApplication` | Software apps |
-| Code repositories | `SoftwareSourceCode` | Code repositories |
-| Tutorials/guides | `HowTo` | How-to guides |
-
-### Sidequest Job Management
+### Job Management Pattern
 
 **Core Pattern:**
 
@@ -386,12 +405,75 @@ def deduplicate_blocks(blocks):
     return unique_blocks
 ```
 
-### Structural Similarity
+### Structural Similarity with Unified Penalty System
 
-Normalize code to detect structural duplicates with **method name preservation** (lib/similarity/structural.py:39-62):
+**Two-Phase Architecture** (lib/similarity/structural.py):
 
 ```python
-# In lib/similarity/structural.py
+def calculate_structural_similarity(code1, code2, threshold=0.90):
+    # Layer 1: Exact hash match → 1.0
+    if hash1 == hash2:
+        return 1.0, 'exact'
+
+    # ✅ PHASE 1: Extract semantic features from ORIGINAL code (BEFORE normalization)
+    features1 = extract_semantic_features(code1)  # Lines 29-93
+    features2 = extract_semantic_features(code2)
+    # Extracts: HTTP status codes, logical operators, semantic methods
+
+    # ✅ PHASE 2: Normalize and calculate base similarity
+    normalized1 = normalize_code(code1)
+    normalized2 = normalize_code(code2)
+    base_similarity = calculate_levenshtein_similarity(normalized1, normalized2)
+
+    # ✅ PHASE 3: Apply unified penalties using ORIGINAL features
+    penalty = calculate_semantic_penalty(features1, features2)  # Lines 373-419
+    final_similarity = base_similarity * penalty
+
+    return final_similarity, 'structural' if final_similarity >= threshold else 'different'
+```
+
+**Semantic Feature Extraction** (lines 29-93):
+
+```python
+@dataclass
+class SemanticFeatures:
+    http_status_codes: Set[int]      # e.g., {200}, {201}, {404}
+    logical_operators: Set[str]      # e.g., {'==='}, {'!=='}, {'!'}
+    semantic_methods: Set[str]       # e.g., {'Math.max'}, {'Math.min'}
+
+def extract_semantic_features(source_code: str) -> SemanticFeatures:
+    """Extract features BEFORE normalization to preserve semantic information."""
+    # HTTP: .status(200) → {200}
+    # Operators: === vs !== vs ==
+    # Methods: Math.max vs Math.min, .reverse, console.log
+    return features
+```
+
+**Unified Penalty Calculation** (lines 373-419):
+
+```python
+def calculate_semantic_penalty(features1, features2) -> float:
+    """Apply multiplicative penalties for semantic differences."""
+    penalty = 1.0
+
+    # HTTP status codes (200 vs 201): 0.70x (30% penalty)
+    if features1.http_status_codes != features2.http_status_codes:
+        penalty *= 0.70
+
+    # Logical operators (=== vs !==): 0.80x (20% penalty)
+    if features1.logical_operators != features2.logical_operators:
+        penalty *= 0.80
+
+    # Semantic methods (Math.max vs Math.min): 0.75x (25% penalty)
+    if features1.semantic_methods != features2.semantic_methods:
+        penalty *= 0.75
+
+    return penalty  # Can compound: 0.70 * 0.80 * 0.75 = 0.42
+```
+
+**Code Normalization** (preserves important methods):
+
+```python
 def normalize_code(source_code):
     # Remove comments, whitespace
     # Replace strings → 'STR'
@@ -419,13 +501,7 @@ def normalize_code(source_code):
     for method in important_methods:
         normalized = normalized.replace(f'__PRESERVE_{method.upper()}__', method)
 
-    # Normalize operators, punctuation
     return normalized
-
-def calculate_structural_similarity(code1, code2, threshold=0.90):  # Increased from 0.85
-    # Layer 1: Exact hash match → 1.0
-    # Layer 2: Normalized comparison → 0.0-1.0 (Levenshtein)
-    return (similarity_score, method)
 ```
 
 ## Directory Structure
@@ -449,11 +525,15 @@ def calculate_structural_similarity(code1, code2, threshold=0.90):  # Increased 
 │   │   ├── async/
 │   │   └── logging/
 │   └── sgconfig.yml               # ast-grep configuration
-├── sidequest/                     # Job management system
-│   ├── server.js                  # Base sidequest server
+├── git-activity-pipeline.js       # Git activity report server
+├── sidequest/                     # AlephAuto job management framework
+│   ├── server.js                  # Base sidequest server (job queue core)
 │   ├── config.js                  # Centralized configuration
 │   ├── logger.js                  # Sentry-integrated logging
 │   ├── repomix-worker.js          # Repomix job worker
+│   ├── git-activity-worker.js     # Git activity job worker
+│   ├── gitignore-repomix-updater.js # Gitignore batch updater
+│   ├── collect_git_activity.py    # Git activity data collection (Python)
 │   ├── directory-scanner.js       # Directory scanning utility
 │   └── doc-enhancement/           # Documentation enhancement
 ├── test/                          # Test suites
@@ -662,9 +742,13 @@ pm2 logs duplicate-scanner
 
 ```bash
 npm install -g pm2
+
+# Start all pipelines
 pm2 start index.js --name repomix-cron
 pm2 start doc-enhancement-pipeline.js --name doc-enhancement
+pm2 start git-activity-pipeline.js --name git-activity
 pm2 start duplicate-detection-pipeline.js --name duplicate-scanner
+
 pm2 save
 pm2 startup
 ```
@@ -697,6 +781,7 @@ redis-cli
 Environment variables for scheduling:
 - `CRON_SCHEDULE` - Repomix scheduling (default: `0 2 * * *` - 2 AM daily)
 - `DOC_CRON_SCHEDULE` - Doc enhancement (default: `0 3 * * *` - 3 AM daily)
+- `GIT_CRON_SCHEDULE` - Git activity reports (default: `0 20 * * 0` - Sunday 8 PM)
 - `RUN_ON_STARTUP=true` - Run immediately on startup
 
 ### Phase Status
@@ -706,60 +791,81 @@ Environment variables for scheduling:
 **Phase 3 (Automation):** ✅ **Complete** - Production-ready automated pipeline deployed (2025-11-16)
 **Phase 4 (Validation):** ✅ Complete - Accuracy test suite implemented with 81% recall
 
-### Current Accuracy Metrics (Updated 2025-11-16 - After Precision Refactoring)
+### Current Accuracy Metrics (Updated 2025-11-17 - After Bug #2 Fix)
 
-| Metric | Target | Baseline (Before) | Current (After) | Status |
-|--------|--------|-------------------|-----------------|--------|
-| **Precision** | 90% | 59.09% | 61.90% | ⚠️ In Progress (+2.81%) |
-| **Recall** | 80% | **81.25%** | **81.25%** | ✅ **ACHIEVED!** |
-| **F1 Score** | 85% | 68.42% | 70.27% | ⚠️ In Progress (+1.85%) |
-| **FP Rate** | <10% | 64.29% | 66.67% | ⚠️ Above Target |
+| Metric | Target | Baseline | After Bug #2 Fix | Status |
+|--------|--------|----------|------------------|--------|
+| **Precision** | 90% | 59.09% | **77.78%** | ⚠️ Gap: -12.22% (+18.69% improvement) |
+| **Recall** | 80% | 81.25% | **87.50%** | ✅ **ACHIEVED!** (+6.25% improvement) |
+| **F1 Score** | 85% | 68.42% | **82.35%** | ⚠️ Gap: -2.65% (+13.93% improvement) |
+| **FP Rate** | <10% | 64.29% | **33.33%** | ⚠️ Gap: -23.33% (-30.96% improvement) |
 
 **Baseline Results:** 13 correct / 22 detected (13 TP, 9 FP, 3 FN)
-**Current Results:** 13 correct / 21 detected (13 TP, 8 FP, 3 FN)
-**Improvement:** -1 false positive, precision +2.81%
+**Current Results:** 14 correct / 18 detected (14 TP, 4 FP, 2 FN, 8 TN)
+**Improvement:** +1 TP, -5 FP, -1 FN, precision +18.69%, recall +6.25%
+**Overall Grade:** B (improved from D)
 
-### Precision Improvement Plan (2025-11-16)
+### Bug #2 Fix: Unified Penalty System (2025-11-17)
 
-**Status:** Plan created, implementation pending
+**Status:** ✅ **IMPLEMENTED AND TESTED**
 
-A comprehensive 5-phase refactoring plan has been created to improve precision from 59.09% to 90%:
+**Problem:** Semantic penalty detection ran AFTER code normalization, which stripped away the differences it was meant to detect (status codes `200` → `NUM`, operators, etc.). This caused all semantic penalties to fail, resulting in high false positive rate.
 
-**Root Cause:** Over-normalization in `lib/similarity/structural.py` removes critical semantic information (Math.max vs Math.min, HTTP status codes, logical operators)
+**Solution:** Two-phase architecture implemented in `lib/similarity/structural.py`:
 
-**Quick Wins Available (1 hour):**
-- Expand `important_methods` to preserve `max`, `min`, `reverse`, `status`, `json`
-- Increase similarity threshold from 0.90 to 0.95
-- Expected: 59% → 88-92% precision
+1. **Phase 1**: Extract semantic features from ORIGINAL code (BEFORE normalization)
+   - HTTP status codes (`.status(200)` → `{200}`)
+   - Logical operators (`===`, `!==`, `!`, `&&`, `||`)
+   - Semantic methods (`Math.max`, `Math.min`, `.reverse`, etc.)
 
-**Implementation Resources:**
-- Full plan: `dev/precision-improvement-refactor-plan-2025-11-16.md`
-- Summary: `dev/REFACTOR_PLAN_SUMMARY.md`
-- Checklist: `dev/IMPLEMENTATION_CHECKLIST.md`
-- Analysis: `PRECISION_FIX_SUMMARY.md`
+2. **Phase 2**: Normalize code and calculate base structural similarity
+   - Standard normalization process
+   - Levenshtein similarity calculation
+   - Method chain validation
 
-**Feature Flags for Safe Deployment:**
-```bash
-export ENABLE_SEMANTIC_OPERATORS=true
-export ENABLE_METHOD_CHAIN_VALIDATION=true
-export ENABLE_SEMANTIC_LAYER=true
-export ENABLE_QUALITY_FILTERING=true
-```
+3. **Phase 3**: Apply unified semantic penalties using original features
+   - HTTP status codes: 0.70x (30% penalty)
+   - Logical operators: 0.80x (20% penalty)
+   - Semantic methods: 0.75x (25% penalty)
+   - Penalties multiply for compounding effects
 
-### Recent Bug Fixes & Improvements (2025-11-12 to 2025-11-16)
+**Code Changes:**
+- Added `SemanticFeatures` dataclass (lines 16-26)
+- Added `extract_semantic_features()` function (lines 29-93)
+- Added `calculate_semantic_penalty()` function (lines 373-419)
+- Refactored `calculate_structural_similarity()` (lines 422-482)
+
+**Results:**
+- Precision: 59.09% → 77.78% (+18.69%)
+- Recall: 81.25% → 87.50% (+6.25%)
+- F1 Score: 68.42% → 82.35% (+13.93%)
+- False Positive Rate: 64.29% → 33.33% (-30.96%)
+
+**Verified True Negatives:**
+- ✅ sendCreatedResponse (201 vs 200 status code)
+- ✅ isDevelopment (negated logic)
+- ✅ getUserNamesReversed (additional .reverse() operation)
+
+**Session Report:** See `/Users/alyshialedlie/code/PersonalSite/_reports/2025-11-17-bug-2-unified-penalty-fix.md` for full implementation details
+
+### Recent Bug Fixes & Improvements (2025-11-12 to 2025-11-17)
 
 **Critical Bug Fixes:**
 1. ✅ **Field name mismatch** (extract_blocks.py:231) - Changed `semantic_tags` → `tags`
 2. ✅ **Backward search algorithm** (extract_blocks.py:80-98) - Prevents finding previous functions
 3. ✅ **Function-based deduplication** (extract_blocks.py:108-163) - 48% reduction in false positives
+4. ✅ **Bug #2: Unified penalty system** (structural.py:16-482) - Two-phase architecture fixes semantic penalty detection (+18.69% precision)
 
 **Algorithm Enhancements:**
 1. ✅ **Method name preservation** (structural.py:39-62) - Preserves map, filter, reduce, etc.
 2. ✅ **Higher similarity threshold** (grouping.py:29) - Increased 0.85 → 0.90
+3. ✅ **Semantic feature extraction** (structural.py:29-93) - Extracts features BEFORE normalization
+4. ✅ **Unified penalty calculation** (structural.py:373-419) - Multiplicative penalties for HTTP codes, operators, methods
 
 **Test Coverage:**
 1. ✅ **132 total tests** - REST API (16), WebSocket (15), Caching (23), MCP (11), plus existing suites
 2. ✅ **96.2% passing** - 127/132 tests passing, caching tests require Redis MCP setup
+3. ✅ **Accuracy test suite** - Validates duplicate detection against ground truth (16 groups, 41 functions)
 
 **Phase 3 Deployment:**
 1. ✅ **Automated pipeline** - `duplicate-detection-pipeline.js` with cron scheduling

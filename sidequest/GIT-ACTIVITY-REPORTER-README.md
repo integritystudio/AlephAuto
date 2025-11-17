@@ -1,24 +1,31 @@
 # Git Activity Reporter
 
-Automated weekly/monthly git activity reporting with visualizations.
+Automated weekly/monthly git activity reporting with visualizations, **fully integrated with AlephAuto**.
 
 ## Quick Start
 
 ```bash
-# Weekly report (last 7 days)
-./weekly-git-report.sh
+# Weekly report (last 7 days) - from project root
+npm run git:weekly
 
 # Monthly report (last 30 days)
-./weekly-git-report.sh --monthly
+npm run git:monthly
 
 # Custom date range
-./weekly-git-report.sh --since 2025-07-07 --until 2025-11-16
+node git-activity-pipeline.js --since 2025-07-07 --until 2025-11-16
+
+# Run immediately
+RUN_ON_STARTUP=true npm run git:weekly
+
+# Start scheduled mode (Sunday 8 PM)
+npm run git:schedule
 ```
 
 ## Files
 
-- `collect_git_activity.py` - Python data collection script
-- `weekly-git-report.sh` - Shell automation wrapper
+- `../git-activity-pipeline.js` - AlephAuto pipeline orchestrator (project root)
+- `git-activity-worker.js` - AlephAuto job worker
+- `collect_git_activity.py` - Python data collection script (backend)
 - `git-report-config.json` - Configuration file
 - `GIT-ACTIVITY-REPORTER-README.md` - This file
 - `INSTALL.md` - Installation guide
@@ -30,15 +37,34 @@ See [INSTALL.md](INSTALL.md) for complete setup instructions.
 
 Quick install:
 ```bash
-chmod +x collect_git_activity.py weekly-git-report.sh
-./weekly-git-report.sh --help
+# From project root
+npm install
+
+# Make Python script executable
+chmod +x sidequest/collect_git_activity.py
+
+# Test the integration
+npm run git:weekly
 ```
 
-## Cron Setup
+## Scheduled Mode
 
-Weekly reports every Sunday at 8 PM:
-```cron
-0 20 * * 0 ~/code/jobs/sidequest/weekly-git-report.sh >> ~/code/jobs/sidequest/logs/git-report.log 2>&1
+### Using npm (Recommended)
+
+Run in scheduled mode (Sunday 8 PM by default):
+```bash
+npm run git:schedule
+
+# Custom schedule
+GIT_CRON_SCHEDULE="0 20 * * 0" npm run git:schedule
+```
+
+### Using PM2 (Production)
+
+```bash
+pm2 start git-activity-pipeline.js --name git-activity
+pm2 save
+pm2 startup
 ```
 
 ## Output

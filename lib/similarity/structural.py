@@ -8,8 +8,89 @@ Compares code based on AST structure, ignoring variable names and minor differen
 import re
 import sys
 import hashlib
-from typing import Tuple
+from typing import Tuple, Set
 from difflib import SequenceMatcher
+from dataclasses import dataclass, field
+
+
+@dataclass
+class SemanticFeatures:
+    """
+    Semantic features extracted from original code before normalization.
+
+    These features preserve semantic information that would be lost during
+    normalization (e.g., HTTP status codes, logical operators, method names).
+    """
+    http_status_codes: Set[int] = field(default_factory=set)
+    logical_operators: Set[str] = field(default_factory=set)
+    semantic_methods: Set[str] = field(default_factory=set)
+
+
+def extract_semantic_features(source_code: str) -> SemanticFeatures:
+    """
+    Extract all semantic features from ORIGINAL code before normalization.
+
+    This function MUST be called before normalize_code() to preserve semantic
+    information that would otherwise be stripped away.
+
+    Args:
+        source_code: Raw, unnormalized source code
+
+    Returns:
+        SemanticFeatures containing all detected semantic markers
+
+    Example:
+        code = "res.status(201).json({ data: user });"
+        features = extract_semantic_features(code)
+        # features.http_status_codes = {201}
+    """
+    features = SemanticFeatures()
+
+    if not source_code:
+        return features
+
+    # Extract HTTP status codes (e.g., .status(200), .status(404))
+    status_pattern = r'\.status\((\d{3})\)'
+    for match in re.finditer(status_pattern, source_code):
+        status_code = int(match.group(1))
+        features.http_status_codes.add(status_code)
+
+    # Extract logical operators (===, !==, ==, !=, !, &&, ||)
+    # Order matters: match longer operators first to avoid partial matches
+    operator_patterns = [
+        (r'!==', '!=='),   # Strict inequality
+        (r'===', '==='),   # Strict equality
+        (r'!=', '!='),     # Loose inequality
+        (r'==', '=='),     # Loose equality
+        (r'!\s*[^=]', '!'), # Logical NOT (followed by non-=)
+        (r'&&', '&&'),     # Logical AND
+        (r'\|\|', '||'),   # Logical OR
+    ]
+
+    for pattern, operator_name in operator_patterns:
+        if re.search(pattern, source_code):
+            features.logical_operators.add(operator_name)
+
+    # Extract semantic methods (Math.max, Math.min, console.log, etc.)
+    semantic_patterns = {
+        'Math.max': r'Math\.max\s*\(',
+        'Math.min': r'Math\.min\s*\(',
+        'Math.floor': r'Math\.floor\s*\(',
+        'Math.ceil': r'Math\.ceil\s*\(',
+        'Math.round': r'Math\.round\s*\(',
+        'console.log': r'console\.log\s*\(',
+        'console.error': r'console\.error\s*\(',
+        'console.warn': r'console\.warn\s*\(',
+        '.reverse': r'\.reverse\s*\(',
+        '.toUpperCase': r'\.toUpperCase\s*\(',
+        '.toLowerCase': r'\.toLowerCase\s*\(',
+    }
+
+    for method_name, pattern in semantic_patterns.items():
+        if re.search(pattern, source_code):
+            features.semantic_methods.add(method_name)
+
+    return features
 
 
 def normalize_code(source_code: str) -> str:
@@ -289,22 +370,72 @@ def compare_method_chains(code1: str, code2: str) -> float:
     return overlap / len(chain1)
 
 
+def calculate_semantic_penalty(features1: SemanticFeatures, features2: SemanticFeatures) -> float:
+    """
+    Calculate combined semantic penalty based on extracted features.
+
+    Penalties are multiplicative - each mismatch reduces similarity:
+    - HTTP status codes: 0.70x (30% penalty)
+    - Logical operators: 0.80x (20% penalty)
+    - Semantic methods: 0.75x (25% penalty)
+
+    Args:
+        features1: Semantic features from first code block
+        features2: Semantic features from second code block
+
+    Returns:
+        Penalty multiplier (0.0-1.0). Returns 1.0 if no penalties apply.
+
+    Example:
+        Different status codes (200 vs 404) + different operators (=== vs !==)
+        = 0.70 * 0.80 = 0.56x final similarity
+    """
+    penalty = 1.0
+
+    # Penalty 1: HTTP Status Code Mismatch (30% penalty)
+    if features1.http_status_codes and features2.http_status_codes:
+        if features1.http_status_codes != features2.http_status_codes:
+            # Different status codes indicate different semantic intent
+            # (e.g., 200 OK vs 201 Created vs 404 Not Found)
+            penalty *= 0.70
+            print(f"Warning: DEBUG: HTTP status code penalty: {features1.http_status_codes} vs {features2.http_status_codes}, penalty={penalty:.2f}", file=sys.stderr)
+
+    # Penalty 2: Logical Operator Mismatch (20% penalty)
+    if features1.logical_operators and features2.logical_operators:
+        if features1.logical_operators != features2.logical_operators:
+            # Different logical operators indicate different boolean logic
+            # (e.g., === vs !==, && vs ||)
+            penalty *= 0.80
+            print(f"Warning: DEBUG: Logical operator penalty: {features1.logical_operators} vs {features2.logical_operators}, penalty={penalty:.2f}", file=sys.stderr)
+
+    # Penalty 3: Semantic Method Mismatch (25% penalty)
+    if features1.semantic_methods and features2.semantic_methods:
+        if features1.semantic_methods != features2.semantic_methods:
+            # Different semantic methods indicate different operations
+            # (e.g., Math.max vs Math.min, toUpperCase vs toLowerCase)
+            penalty *= 0.75
+            print(f"Warning: DEBUG: Semantic method penalty: {features1.semantic_methods} vs {features2.semantic_methods}, penalty={penalty:.2f}", file=sys.stderr)
+
+    return penalty
+
+
 def calculate_structural_similarity(code1: str, code2: str, threshold: float = 0.90) -> Tuple[float, str]:
     """
-    Calculate structural similarity between two code blocks.
+    Calculate structural similarity between two code blocks using unified penalty system.
 
     Priority 2: Structural Similarity (Layer 2 of 3-layer algorithm)
 
     Returns:
         (similarity_score, method)
         - similarity_score: 0.0 to 1.0
-        - method: 'exact', 'structural', 'structural_opposite_logic', or 'different'
+        - method: 'exact', 'structural', or 'different'
 
-    Algorithm:
+    Algorithm (NEW TWO-PHASE FLOW):
     1. Exact match: Compare hashes → 1.0 similarity
-    2. Logical operator check: Detect opposite logic → penalty applied
-    3. Structural match: Compare normalized code → 0.0-1.0 similarity
-    4. Below threshold: Not similar
+    2. PHASE 1: Extract semantic features from ORIGINAL code (BEFORE normalization)
+    3. PHASE 2: Normalize code and calculate base structural similarity
+    4. PHASE 3: Apply unified semantic penalties using original features
+    5. Return final similarity score and method
     """
     if not code1 or not code2:
         return 0.0, 'different'
@@ -316,95 +447,39 @@ def calculate_structural_similarity(code1: str, code2: str, threshold: float = 0
     if hash1 == hash2:
         return 1.0, 'exact'
 
-    # Layer 1.5: Logical operator check
-    # If operators are opposite, reduce similarity
-    ops1 = extract_logical_operators(code1)
-    ops2 = extract_logical_operators(code2)
+    # ✅ PHASE 1: Extract semantic features from ORIGINAL code
+    # This MUST happen BEFORE normalization to preserve semantic information
+    features1 = extract_semantic_features(code1)
+    features2 = extract_semantic_features(code2)
 
-    # Check for opposite logic (=== vs !==, or presence of ! in one but not other)
-    opposite_pairs = [
-        ({'==='}, {'!=='}),
-        ({'=='}, {'!='}),
-    ]
-
-    has_opposite_logic = False
-    for pair1, pair2 in opposite_pairs:
-        if (pair1.issubset(ops1) and pair2.issubset(ops2)) or \
-           (pair2.issubset(ops1) and pair1.issubset(ops2)):
-            has_opposite_logic = True
-            print(f"DEBUG: Opposite logic detected: {ops1} vs {ops2}", file=sys.stderr)
-            break
-
-    # Layer 1.6: HTTP status code check
-    # Different status codes = different semantics (200 OK vs 201 Created)
-    status_codes1 = extract_http_status_codes(code1)
-    status_codes2 = extract_http_status_codes(code2)
-    has_different_status_codes = (status_codes1 and status_codes2 and status_codes1 != status_codes2)
-    if has_different_status_codes:
-        print(f"DEBUG: Different HTTP status codes: {status_codes1} vs {status_codes2}", file=sys.stderr)
-
-    # Layer 1.7: Semantic method check
-    # Different semantic methods = different behavior (Math.max vs Math.min)
-    semantic_methods1 = extract_semantic_methods(code1)
-    semantic_methods2 = extract_semantic_methods(code2)
-    has_opposite_semantic_methods = (semantic_methods1 and semantic_methods2 and semantic_methods1 != semantic_methods2)
-    if has_opposite_semantic_methods:
-        print(f"DEBUG: Opposite semantic methods: {semantic_methods1} vs {semantic_methods2}", file=sys.stderr)
-
-    # Layer 2: Structural match (normalize and compare)
+    # ✅ PHASE 2: Normalize code for structural comparison
     normalized1 = normalize_code(code1)
     normalized2 = normalize_code(code2)
 
     # Check if normalized versions are identical (structural duplicate)
     if normalized1 == normalized2:
-        # If opposite logic detected, demote to lower similarity
-        if has_opposite_logic:
-            return 0.75, 'structural_opposite_logic'  # Below threshold
-
-        # If different HTTP status codes, also demote
-        if has_different_status_codes:
-            return 0.85, 'structural'  # Below threshold
-
-        # If opposite semantic methods (Math.max vs Math.min), demote
-        if has_opposite_semantic_methods:
-            return 0.85, 'structural'  # Below threshold
-
-        return 0.95, 'structural'  # Slightly less than exact
-
-    # Calculate similarity ratio using Levenshtein
-    similarity = calculate_levenshtein_similarity(normalized1, normalized2)
-
-    # Layer 2.5: Method chain validation
-    chain_similarity = compare_method_chains(code1, code2)
-
-    if chain_similarity < 1.0:
-        # Different chain structure → penalize similarity
-        # Weight: 70% Levenshtein + 30% chain similarity
-        similarity = (similarity * 0.7) + (chain_similarity * 0.3)
-
-    # Penalize opposite logic even if structurally similar
-    if has_opposite_logic and similarity >= threshold:
-        original_similarity = similarity
-        similarity *= 0.8  # 20% penalty → likely falls below threshold
-        print(f"DEBUG: Opposite logic penalty applied: {original_similarity:.3f} -> {similarity:.3f}", file=sys.stderr)
-
-    # Penalize different HTTP status codes
-    if has_different_status_codes and similarity >= threshold:
-        original_similarity = similarity
-        similarity *= 0.7  # 30% penalty → different semantics
-        print(f"DEBUG: Status code penalty applied: {original_similarity:.3f} -> {similarity:.3f}", file=sys.stderr)
-
-    # Penalize opposite semantic methods (Math.max vs Math.min)
-    if has_opposite_semantic_methods and similarity >= threshold:
-        original_similarity = similarity
-        similarity *= 0.85  # 15% penalty → different behavior
-        print(f"DEBUG: Semantic method penalty applied: {original_similarity:.3f} -> {similarity:.3f}", file=sys.stderr)
-
-    # Determine method based on similarity score
-    if similarity >= threshold:
-        return similarity, 'structural'
+        base_similarity = 0.95  # Slightly less than exact match
     else:
-        return similarity, 'different'
+        # Calculate similarity ratio using Levenshtein
+        base_similarity = calculate_levenshtein_similarity(normalized1, normalized2)
+
+        # Layer 2.5: Method chain validation
+        chain_similarity = compare_method_chains(code1, code2)
+
+        if chain_similarity < 1.0:
+            # Different chain structure → penalize similarity
+            # Weight: 70% Levenshtein + 30% chain similarity
+            base_similarity = (base_similarity * 0.7) + (chain_similarity * 0.3)
+
+    # ✅ PHASE 3: Apply unified semantic penalties using ORIGINAL features
+    penalty = calculate_semantic_penalty(features1, features2)
+    final_similarity = base_similarity * penalty
+
+    # Determine method based on final similarity score
+    if final_similarity >= threshold:
+        return final_similarity, 'structural'
+    else:
+        return final_similarity, 'different'
 
 
 def are_structurally_similar(code1: str, code2: str, threshold: float = 0.90) -> bool:

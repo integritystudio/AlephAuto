@@ -13,6 +13,9 @@
     "docs:enhance": "node doc-enhancement-pipeline.js",
     "docs:enhance:dry": "node doc-enhancement-pipeline.js --dry-run",
     "docs:test": "node test/test-single-enhancement.js",
+    "git:weekly": "node git-activity-pipeline.js --weekly",
+    "git:monthly": "node git-activity-pipeline.js --monthly",
+    "git:schedule": "node git-activity-pipeline.js",
     "setup:sentry": "node setup-files/setup-sentry.js",
     "typecheck": "tsc --noEmit"
   },

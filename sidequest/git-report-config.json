@@ -181,7 +181,9 @@
   "notes": [
     "This configuration file controls the automated git activity report generation.",
     "Edit the values above to customize the behavior for your workflow.",
-    "To enable cron jobs, add entries to your crontab using the schedules above.",
-    "Example: crontab -e, then add: 0 20 * * 0 ~/code/jobs/sidequest/weekly-git-report.sh >> ~/code/jobs/sidequest/logs/git-report.log 2>&1"
+    "The git activity reporter is now integrated with AlephAuto job queue framework.",
+    "Usage: npm run git:weekly (weekly), npm run git:monthly (monthly), npm run git:schedule (scheduled mode)",
+    "For production: pm2 start git-activity-pipeline.js --name git-activity",
+    "Environment variable: GIT_CRON_SCHEDULE='0 20 * * 0' for custom schedule"
   ]
 }

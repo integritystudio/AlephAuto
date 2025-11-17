@@ -1,22 +1,22 @@
 {
   "summary": {
     "total_expected_groups": 16,
-    "total_detected_groups": 19,
+    "total_detected_groups": 18,
     "correctly_detected": 14,
     "missed": 2,
-    "false_alarms": 5,
-    "correctly_ignored": 7
+    "false_alarms": 4,
+    "correctly_ignored": 8
   },
   "metrics": {
     "counts": {
       "tp": 14,
-      "fp": 5,
+      "fp": 4,
       "fn": 2,
-      "tn": 7
+      "tn": 8
     },
     "precision": {
-      "score": 0.7368421052631579,
-      "percentage": "73.68%",
+      "score": 0.7777777777777778,
+      "percentage": "77.78%",
       "interpretation": "Fair"
     },
     "recall": {
@@ -25,22 +25,22 @@
       "interpretation": "Good"
     },
     "f1Score": {
-      "score": 0.7999999999999999,
-      "percentage": "80.00%",
-      "interpretation": "Fair"
+      "score": 0.823529411764706,
+      "percentage": "82.35%",
+      "interpretation": "Good"
     },
     "falsePositiveRate": {
-      "score": 0.4166666666666667,
-      "percentage": "41.67%",
+      "score": 0.3333333333333333,
+      "percentage": "33.33%",
       "interpretation": "Poor"
     }
   },
   "targets": {
     "precision": {
       "target": 0.9,
-      "actual": 0.7368421052631579,
+      "actual": 0.7777777777777778,
       "met": false,
-      "delta": "-0.163"
+      "delta": "-0.122"
     },
     "recall": {
       "target": 0.8,
@@ -50,20 +50,20 @@
     },
     "f1_score": {
       "target": 0.85,
-      "actual": 0.7999999999999999,
+      "actual": 0.823529411764706,
       "met": false,
-      "delta": "-0.050"
+      "delta": "-0.026"
     },
     "false_positive_rate": {
       "target": 0.1,
-      "actual": 0.4166666666666667,
+      "actual": 0.3333333333333333,
       "met": false,
-      "delta": "-0.317"
+      "delta": "-0.233"
     }
   },
   "overall_assessment": {
     "all_targets_met": false,
-    "grade": "C+"
+    "grade": "B"
   },
   "details": {
     "truePositives": [
@@ -120,8 +120,8 @@
         "detected": "dg_5d1c2d6617a1",
         "overlap": 2,
         "expected_members": 2,
-        "detected_members": 3,
-        "overlap_ratio": 0.6666666666666666
+        "detected_members": 2,
+        "overlap_ratio": 1
       },
       {
         "expected": "group_10",
@@ -187,7 +187,15 @@
           "src/utils/edge-cases.js:processItems1",
           "src/utils/edge-cases.js:processItems2"
         ],
-        "pattern": "array-map-filter"
+        "pattern": "logger-patterns"
+      },
+      {
+        "group_id": "dg_df175e0e86a7",
+        "members": [
+          "src/utils/edge-cases.js:processString1",
+          "src/utils/edge-cases.js:processString2"
+        ],
+        "pattern": "logger-patterns"
       },
       {
         "group_id": "dg_888e57f9fc6d",
@@ -198,25 +206,12 @@
         "pattern": "type-checking"
       },
       {
-        "group_id": "dg_df175e0e86a7",
-        "members": [
-          "src/utils/edge-cases.js:processString1",
-          "src/utils/edge-cases.js:processString2"
-        ],
-        "pattern": "string-manipulation"
-      },
-      {
         "group_id": "dg_141be16e2aa0",
         "members": [
           "src/utils/edge-cases.js:fetchData1",
           "src/utils/edge-cases.js:fetchData2"
         ],
-        "pattern": "console-statements"
-      },
-      {
-        "function": "sendCreatedResponse",
-        "file": "src/api/routes.js",
-        "reason": "Detected as duplicate but should not be: 201 vs 200 status code - semantically different"
+        "pattern": "logger-patterns"
       }
     ],
     "falseNegatives": [
@@ -257,6 +252,11 @@
         "function": "listKeys",
         "file": "src/utils/object-helpers.js",
         "reason": "Missing map operation"
+      },
+      {
+        "function": "sendCreatedResponse",
+        "file": "src/api/routes.js",
+        "reason": "201 vs 200 status code - semantically different"
       },
       {
         "function": "requireAdmin",

@@ -1,11 +1,21 @@
 # Automated Code & Documentation Pipeline
 
-Two automated systems running on sidequest servers with Sentry error logging:
+Four automated systems built on the **AlephAuto** job queue framework with Sentry error logging:
 
-1. **Repomix Cron Server**: Recursively processes all directories in `~/code` with repomix and stores outputs in a matching directory structure
+1. **Repomix Pipeline**: Recursively processes all directories in `~/code` with repomix and stores outputs in a matching directory structure
 2. **Documentation Enhancement Pipeline**: Automatically adds Schema.org structured data to README files for improved SEO and rich search results
+3. **Git Activity Reporter**: Automated weekly/monthly git activity reports with visualizations (fully integrated with AlephAuto)
+4. **Gitignore Manager**: Batch updates `.gitignore` files across all git repositories
 
 ## Features
+
+### Core Infrastructure (AlephAuto)
+- **Job Queue System**: Process multiple repositories concurrently with configurable limits
+- **Event-Driven Monitoring**: Real-time job status updates and progress tracking
+- **Sentry Integration**: Error tracking and performance monitoring
+- **Cron Scheduling**: Automated execution at scheduled times
+- **Safe Operations**: Dry-run mode for testing before applying changes
+- **Structured Logging**: JSON-formatted logs with multiple severity levels
 
 ### Repomix Automation
 - Recursive directory scanning of `~/code`
@@ -22,11 +32,21 @@ Two automated systems running on sidequest servers with Sentry error logging:
 - Dry run mode for testing
 - Rich search results eligibility tracking
 
-### Shared Infrastructure
-- Sentry integration for error tracking and performance monitoring
-- Comprehensive logging to `logs/` directory
-- Sidequest server job management
-- Event-based monitoring
+### Gitignore Manager
+- Batch `.gitignore` updates across all git repositories
+- Adds `repomix-output.xml` to ignore lists
+- Detects existing entries to avoid duplicates
+- Creates `.gitignore` if it doesn't exist
+- Detailed JSON reporting
+
+### Git Activity Reporter
+- **AlephAuto Integration**: Fully integrated job queue with event tracking
+- Automated weekly/monthly git activity reports
+- Visualizations (SVG charts) for commit history
+- JSON data export for further analysis
+- Configurable date ranges
+- Cron scheduling support
+- Sentry error tracking and performance monitoring
 
 ## Directory Structure
 
@@ -34,16 +54,29 @@ Two automated systems running on sidequest servers with Sentry error logging:
 jobs/
 ├── index.js                                    # Repomix cron server
 ├── doc-enhancement-pipeline.js                 # Documentation enhancement server
+├── git-activity-pipeline.js                    # Git activity report server ⭐ NEW
 ├── package.json                                # Dependencies
 ├── .env                                        # Environment configuration
-├── sidequest/                                  # Job management system
-│   ├── server.js                              # Base sidequest server
+├── sidequest/                                  # AlephAuto job management system
+│   ├── server.js                              # Base sidequest server (job queue core)
+│   ├── config.js                              # Centralized configuration
+│   ├── logger.js                              # Sentry-integrated logging
+│   ├── index.js                               # AlephAuto main entry point
 │   ├── repomix-worker.js                      # Repomix job worker
+│   ├── git-activity-worker.js                 # Git activity job worker ⭐ NEW
 │   ├── directory-scanner.js                   # Directory scanning utility
-│   └── doc-enhancement/                       # Documentation enhancement
-│       ├── readme-scanner.js                  # README file scanner
-│       ├── schema-mcp-tools.js                # Schema.org MCP integration
-│       └── schema-enhancement-worker.js       # Enhancement job worker
+│   ├── data-discovery-report-pipeline.js      # Documentation enhancement pipeline
+│   ├── gitignore-repomix-updater.js           # Gitignore batch updater
+│   ├── collect_git_activity.py                # Git activity data collection (Python backend)
+│   ├── git-report-config.json                 # Git reporter configuration
+│   ├── doc-enhancement/                       # Documentation enhancement
+│   │   ├── readme-scanner.js                  # README file scanner
+│   │   ├── schema-mcp-tools.js                # Schema.org MCP integration
+│   │   └── schema-enhancement-worker.js       # Enhancement job worker
+│   ├── README.md                              # AlephAuto documentation
+│   ├── GITIGNORE_UPDATER_README.md            # Gitignore updater docs
+│   ├── GIT-ACTIVITY-REPORTER-README.md        # Git reporter docs
+│   └── INSTALL.md                             # Installation guide
 ├── test/
 │   └── test-single-enhancement.js             # Single README test script
 ├── logs/                                       # Job logs and run summaries
@@ -318,23 +351,116 @@ All errors and performance metrics are automatically sent to Sentry:
 - Performance transactions for each job
 - Breadcrumbs for debugging
 
-## Job Management
+## Job Management & Architecture
 
-The sidequest server provides:
+### AlephAuto Framework
 
-- Job queuing with configurable concurrency (default: 3)
-- Job status tracking (queued, running, completed, failed)
-- Event emitters for monitoring
-- Automatic retry logic (can be extended)
-- Job history
+All pipelines are built on the **AlephAuto** job queue framework (in `sidequest/`), providing:
+
+- **Job queuing** with configurable concurrency (default: 3)
+- **Job status tracking** (queued, running, completed, failed)
+- **Event emitters** for monitoring
+- **Automatic retry logic** (can be extended)
+- **Job history** and statistics
+- **Sentry integration** for error tracking
+- **Centralized configuration** via `sidequest/config.js`
+- **Structured logging** via `sidequest/logger.js`
+
+### Architecture Pattern
+
+```
+┌─────────────────────────────────────┐
+│     SidequestServer (Base)          │
+│  - Job queue management             │
+│  - Concurrency control              │
+│  - Event emission                   │
+│  - Sentry integration               │
+└─────────────────────────────────────┘
+              ▲
+              │ extends
+    ┌─────────┴──────────┬──────────────┬──────────────┐
+    │                    │              │              │
+┌───────────────┐  ┌─────────────────────┐  ┌────────────────┐  ┌────────────────┐
+│ RepomixWorker │  │ SchemaEnhancement   │  │ GitActivity    │  │ Gitignore      │
+│               │  │ Worker              │  │ Worker ⭐      │  │ Manager        │
+└───────────────┘  └─────────────────────┘  └────────────────┘  └────────────────┘
+```
+
+### Component Roles
+
+**`sidequest/server.js`** - Base job execution engine
+- Event-driven job lifecycle: `created` → `queued` → `running` → `completed/failed`
+- Configurable concurrency limits
+- Sentry error tracking and performance monitoring
+- JSON logging to `./logs/` directory
+
+**`sidequest/config.js`** - Centralized configuration
+- Environment variable management
+- Default values and validation
+- Used by all pipelines
+
+**`sidequest/logger.js`** - Sentry-integrated logging
+- Structured JSON logging with Pino
+- Automatic Sentry error capture
+- Component-specific loggers
+
+**`sidequest/repomix-worker.js`** - Repomix job executor
+- Executes repomix CLI securely (command injection protected)
+- Manages output directory structure
+- 10-minute timeout, 50MB buffer for large outputs
+
+**`sidequest/directory-scanner.js`** - Directory traversal
+- Recursive scanning with depth limits
+- Configurable exclusion patterns
+- Statistical reporting
+
+**`sidequest/data-discovery-report-pipeline.js`** - Documentation enhancement pipeline
+- README file discovery via `READMEScanner`
+- Schema.org markup generation via `SchemaMCPTools`
+- Cron scheduling support
+
+**`sidequest/gitignore-repomix-updater.js`** - Batch gitignore management
+- Git repository detection
+- Safe file modification with dry-run support
+- Detailed reporting
+
+**`sidequest/git-activity-worker.js`** - Git activity report job executor ⭐ NEW
+- Executes Python git activity script with job queue management
+- Manages report generation (weekly, monthly, custom date ranges)
+- Tracks output files (JSON data and SVG visualizations)
+- 5-minute timeout for large repository scans
+- Real-time statistics parsing and reporting
+
+**`sidequest/collect_git_activity.py`** - Git activity data collection (Python backend)
+- Python script for git log parsing
+- Generates JSON data and SVG visualizations
+- Configurable project categories
+- Called by GitActivityWorker
 
 ### Job Events
+
+All workers emit standard job lifecycle events:
 
 ```javascript
 worker.on('job:created', (job) => { /* ... */ });
 worker.on('job:started', (job) => { /* ... */ });
 worker.on('job:completed', (job) => { /* ... */ });
 worker.on('job:failed', (job) => { /* ... */ });
+```
+
+### Configuration
+
+All pipelines use the centralized configuration system:
+
+```javascript
+import { config } from './sidequest/config.js';
+
+// ✅ Correct - Use centralized config
+const maxConcurrent = config.maxConcurrent;
+const sentryDsn = config.sentryDsn;
+
+// ❌ Incorrect - Don't use process.env directly
+const dsn = process.env.SENTRY_DSN;  // WRONG
 ```
 
 ## Excluded Directories
@@ -709,6 +835,201 @@ ls -lht logs/*.error.json | head -5
 
 ---
 
+## Gitignore Manager
+
+Batch update `.gitignore` files across all git repositories to exclude repomix output files.
+
+### Quick Start
+
+#### Preview Changes (Dry Run)
+
+```bash
+node sidequest/gitignore-repomix-updater.js ~/code --dry-run
+```
+
+#### Apply Changes
+
+```bash
+node sidequest/gitignore-repomix-updater.js ~/code
+```
+
+### What It Does
+
+- Recursively finds all git repositories in a directory tree
+- Checks if `repomix-output.xml` is already in `.gitignore`
+- Adds the entry with a descriptive comment if not present
+- Creates `.gitignore` if it doesn't exist
+- Generates detailed JSON report of all changes
+
+### Output
+
+The script generates:
+
+1. **Console output** - Progress and actions taken
+2. **Summary statistics** - Total repos, added, skipped, errors
+3. **JSON report** - `sidequest/gitignore-update-report-{timestamp}.json`
+
+### Example Output
+
+```
+Scanning for git repositories in: /Users/username/code
+Dry run mode: NO
+
+Found 15 git repositories
+
+Processing: /Users/username/code/project1
+  -> added: Entry added successfully
+
+Processing: /Users/username/code/project2
+  -> skipped: Entry already exists
+
+=== SUMMARY ===
+Total repositories found: 15
+Added: 10
+Skipped (already exists): 4
+Errors: 1
+
+Results saved to: gitignore-update-report-1234567890.json
+```
+
+### Programmatic Usage
+
+```javascript
+import { GitignoreRepomixUpdater } from './sidequest/gitignore-repomix-updater.js';
+
+const updater = new GitignoreRepomixUpdater({
+  baseDir: '/path/to/projects',
+  dryRun: true,
+  maxDepth: 10,
+});
+
+const results = await updater.processRepositories();
+console.log(results.summary);
+```
+
+See [sidequest/GITIGNORE_UPDATER_README.md](sidequest/GITIGNORE_UPDATER_README.md) for detailed documentation.
+
+---
+
+## Git Activity Reporter
+
+Automated weekly/monthly git activity reporting with visualizations, **fully integrated with AlephAuto** job queue framework.
+
+### Quick Start
+
+#### Weekly Report (Last 7 Days)
+
+```bash
+# Using npm script
+npm run git:weekly
+
+# Or directly
+node git-activity-pipeline.js --weekly
+
+# Run immediately with RUN_ON_STARTUP
+RUN_ON_STARTUP=true npm run git:weekly
+```
+
+#### Monthly Report (Last 30 Days)
+
+```bash
+npm run git:monthly
+
+# Or directly
+node git-activity-pipeline.js --monthly
+```
+
+#### Custom Date Range
+
+```bash
+node git-activity-pipeline.js --since 2025-07-07 --until 2025-11-16
+```
+
+#### Scheduled Mode (Cron)
+
+```bash
+# Start scheduled weekly reports (Sunday 8 PM by default)
+npm run git:schedule
+
+# Or with custom schedule
+GIT_CRON_SCHEDULE="0 20 * * 0" npm run git:schedule
+```
+
+### Features
+
+- **AlephAuto Integration**: Full job queue with event tracking, concurrency control, and error handling
+- **Sentry Monitoring**: Automatic error tracking and performance monitoring
+- **Data Collection**: Scans all git repositories for commits, additions, deletions
+- **Visualizations**: Generates SVG charts (commit timeline, language breakdown, repository activity)
+- **JSON Export**: Structured data for further analysis
+- **Event-Driven**: Real-time job status updates via event emitters
+- **Configurable**: Project categories, scan depth, date ranges
+
+### Output Files
+
+- **Visualizations**: `~/code/PersonalSite/assets/images/git-activity-{year}/*.svg`
+- **JSON Data**: `/tmp/git_activity_weekly_*.json` or `/tmp/git_activity_monthly_*.json`
+- **Logs**: Job logs in `./logs/` directory (JSON format)
+
+### AlephAuto Job Events
+
+Monitor report generation in real-time:
+
+```javascript
+import { GitActivityPipeline } from './git-activity-pipeline.js';
+
+const pipeline = new GitActivityPipeline();
+
+pipeline.worker.on('job:created', (job) => {
+  console.log(`Report job created: ${job.id}`);
+});
+
+pipeline.worker.on('job:completed', (job) => {
+  console.log(`Report completed!`);
+  console.log(`Total commits: ${job.result.stats.totalCommits}`);
+  console.log(`Repositories scanned: ${job.result.stats.totalRepositories}`);
+  console.log(`Files generated: ${job.result.outputFiles.length}`);
+});
+
+await pipeline.runReport({ reportType: 'weekly' });
+```
+
+### Programmatic Usage
+
+```javascript
+import { GitActivityWorker } from './sidequest/git-activity-worker.js';
+
+const worker = new GitActivityWorker({
+  maxConcurrent: 2,
+  codeBaseDir: '/path/to/code',
+});
+
+// Create and run weekly report
+const job = worker.createWeeklyReportJob();
+await worker.waitForCompletion();
+
+// Or custom report
+const customJob = worker.createReportJob({
+  reportType: 'custom',
+  sinceDate: '2025-07-07',
+  untilDate: '2025-11-16',
+  generateVisualizations: true,
+});
+```
+
+### Claude Code Integration
+
+A skill is available for the git activity reporter. Just ask Claude:
+
+```
+"Create a weekly git activity report"
+"Generate my development summary"
+```
+
+See [sidequest/GIT-ACTIVITY-REPORTER-README.md](sidequest/GIT-ACTIVITY-REPORTER-README.md) for detailed documentation.
+
+---
+
 ## Testing
 
 Comprehensive test suite covering all major features with 95.5% pass rate.
@@ -867,19 +1188,115 @@ These could be fixed with delays or mocking, but the functionality works correct
 
 ---
 
+## Quick Reference
+
+### All Available Pipelines
+
+| Pipeline | Command | Schedule | Output |
+|----------|---------|----------|--------|
+| **Repomix** | `npm start` | 2 AM daily | `./condense/` |
+| **Docs Enhancement** | `npm run docs:enhance` | 3 AM daily | `./document-enhancement-impact-measurement/` |
+| **Git Activity** ⭐ | `npm run git:weekly` | Sunday 8 PM | `/tmp/git_activity_*.json` + SVGs |
+| **Gitignore Manager** | `node sidequest/gitignore-repomix-updater.js ~/code` | On-demand | `./sidequest/gitignore-update-report-*.json` |
+
+### Quick Commands
+
+```bash
+# Repomix - Run immediately
+RUN_ON_STARTUP=true npm start
+
+# Documentation - Enhance all READMEs
+npm run docs:enhance
+
+# Documentation - Dry run first
+npm run docs:enhance:dry
+
+# Documentation - Test single file
+npm run docs:test path/to/README.md
+
+# Gitignore - Preview changes
+node sidequest/gitignore-repomix-updater.js ~/code --dry-run
+
+# Gitignore - Apply changes
+node sidequest/gitignore-repomix-updater.js ~/code
+
+# Git Activity - Weekly report (AlephAuto integrated) ⭐
+npm run git:weekly
+RUN_ON_STARTUP=true npm run git:weekly  # Run immediately
+
+# Git Activity - Monthly report
+npm run git:monthly
+
+# Git Activity - Custom date range
+node git-activity-pipeline.js --since 2025-07-07 --until 2025-11-16
+
+# Git Activity - Scheduled mode (cron)
+npm run git:schedule
+GIT_CRON_SCHEDULE="0 20 * * 0" npm run git:schedule  # Custom schedule
+
+# View all test results
+npm test
+
+# Type checking
+npm run typecheck
+```
+
+### Environment Variables
+
+```bash
+# Core configuration
+CODE_BASE_DIR=/Users/username/code    # Base directory for all operations
+MAX_CONCURRENT=5                      # Max concurrent jobs
+LOG_LEVEL=info                        # Logging level (debug, info, warn, error)
+
+# Cron schedules
+CRON_SCHEDULE="0 2 * * *"            # Repomix (2 AM daily)
+DOC_CRON_SCHEDULE="0 3 * * *"        # Docs (3 AM daily)
+GIT_CRON_SCHEDULE="0 20 * * 0"       # Git Activity (Sunday 8 PM) ⭐
+RUN_ON_STARTUP=true                  # Run immediately on startup
+
+# Sentry monitoring
+SENTRY_DSN=https://...               # Sentry DSN for error tracking
+
+# Documentation enhancement
+FORCE_ENHANCEMENT=true               # Re-enhance files with existing schemas
+```
+
+### Documentation Links
+
+- **AlephAuto Framework**: [sidequest/README.md](sidequest/README.md)
+- **Gitignore Updater**: [sidequest/GITIGNORE_UPDATER_README.md](sidequest/GITIGNORE_UPDATER_README.md)
+- **Git Activity Reporter**: [sidequest/GIT-ACTIVITY-REPORTER-README.md](sidequest/GIT-ACTIVITY-REPORTER-README.md)
+- **Installation Guide**: [sidequest/INSTALL.md](sidequest/INSTALL.md)
+
+---
+
 ## Production Deployment
 
 ### Using PM2
 
-Run both servers:
+Run all scheduled pipelines:
 
 ```bash
+# Install PM2 globally
 npm install -g pm2
+
+# Start all pipelines
 pm2 start index.js --name repomix-cron
 pm2 start doc-enhancement-pipeline.js --name doc-enhancement
+pm2 start git-activity-pipeline.js --name git-activity  # ⭐ NEW
+
+# Start AlephAuto main server (if using sidequest/index.js)
+pm2 start sidequest/index.js --name alephauto
+
+# Save PM2 configuration
 pm2 save
+
+# Enable PM2 startup on boot
 pm2 startup
 ```
+
+**Note**: The Git Activity pipeline runs in scheduled mode via PM2, no need for separate cron configuration.
 
 ### Using systemd
 
@@ -919,15 +1336,35 @@ Environment=NODE_ENV=production
 WantedBy=multi-user.target
 ```
 
-Enable and start both services:
+Create `/etc/systemd/system/git-activity.service`:
+```ini
+[Unit]
+Description=Git Activity Report Pipeline
+After=network.target
+
+[Service]
+Type=simple
+User=your-user
+WorkingDirectory=/Users/alyshialedlie/code/jobs
+ExecStart=/usr/bin/node git-activity-pipeline.js
+Restart=always
+Environment=NODE_ENV=production
+Environment=GIT_CRON_SCHEDULE="0 20 * * 0"
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start all services:
 ```bash
-sudo systemctl enable repomix-cron
-sudo systemctl enable doc-enhancement
-sudo systemctl start repomix-cron
-sudo systemctl start doc-enhancement
+sudo systemctl enable repomix-cron doc-enhancement git-activity
+sudo systemctl start repomix-cron doc-enhancement git-activity
 sudo systemctl status repomix-cron
 sudo systemctl status doc-enhancement
+sudo systemctl status git-activity
 ```
+
+**Note**: Gitignore Manager is an on-demand tool and doesn't require a systemd service.
 
 ## License
 
