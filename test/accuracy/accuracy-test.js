@@ -40,8 +40,8 @@ async function loadExpectedResults() {
  * Looks at semantic_tags first, then source code
  */
 function extractFunctionName(block) {
-  // Priority 1: Check semantic_tags for function name (added by Python extraction)
-  const tags = block.semantic_tags || [];
+  // Priority 1: Check tags for function name (added by Python extraction)
+  const tags = block.tags || block.semantic_tags || [];
   for (const tag of tags) {
     if (tag.startsWith('function:')) {
       const funcName = tag.substring('function:'.length);

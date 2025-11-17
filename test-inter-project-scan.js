@@ -1,12 +1,20 @@
 #!/usr/bin/env node
 
 /**
- * Test script for inter-project duplicate detection
+ * Inter-Project Scanner Test Script
  *
- * Usage: node test-inter-project-scan.js [repo1] [repo2] [...]
+ * Tests the inter-project duplicate detection pipeline by scanning multiple repositories
+ * and generating reports in all formats (HTML, Markdown, JSON).
+ *
+ * Usage:
+ *   node test-inter-project-scan.js [repo1] [repo2] [...]
+ *   node test-inter-project-scan.js ~/code/project1 ~/code/project2
+ *
+ * If no arguments provided, defaults to scanning 'sidequest' and 'lib' directories.
  */
 
 import { InterProjectScanner } from './lib/inter-project-scanner.js';
+import { ReportCoordinator } from './lib/reports/report-coordinator.js';
 import { createComponentLogger } from './sidequest/logger.js';
 import path from 'path';
 
@@ -15,13 +23,23 @@ const logger = createComponentLogger('TestInterProject');
 async function main() {
   const args = process.argv.slice(2);
 
-  // Default: scan sidequest and test directories
+  // Default: scan sidequest and lib directories
   const repoPaths = args.length > 0
-    ? args
+    ? args.map(arg => path.isAbsolute(arg) ? arg : path.resolve(process.cwd(), arg))
     : [
         path.join(process.cwd(), 'sidequest'),
-        path.join(process.cwd(), 'test')
+        path.join(process.cwd(), 'lib')
       ];
+
+  console.log('╔══════════════════════════════════════════════════════════╗');
+  console.log('║     INTER-PROJECT DUPLICATE DETECTION TEST              ║');
+  console.log('╚══════════════════════════════════════════════════════════╝\n');
+
+  console.log('📚 Repositories to scan:');
+  repoPaths.forEach((repoPath, index) => {
+    console.log(`   ${index + 1}. ${repoPath}`);
+  });
+  console.log('');
 
   logger.info({ repositories: repoPaths }, 'Starting inter-project test scan');
 
@@ -43,17 +61,43 @@ async function main() {
     });
 
     // Run inter-project scan
-    logger.info('Running inter-project duplicate detection scan...');
+    console.log('🔍 Starting inter-project scan...\n');
+    const startTime = Date.now();
+
     const result = await scanner.scanRepositories(repoPaths, {
       pattern_config: {
         languages: ['javascript', 'typescript']
       }
     });
 
-    // Display results
-    console.log('\n' + '='.repeat(80));
-    console.log('INTER-PROJECT SCAN RESULTS');
-    console.log('='.repeat(80));
+    const duration = (Date.now() - startTime) / 1000;
+    console.log(`✅ Scan completed in ${duration.toFixed(2)}s\n`);
+
+    // Display quick summary
+    ReportCoordinator.printQuickSummary(result);
+
+    // Generate all report formats
+    console.log('📝 Generating reports...\n');
+
+    const reportCoordinator = new ReportCoordinator();
+    const reportPaths = await reportCoordinator.generateAllReports(result, {
+      title: `Inter-Project Scan: ${repoPaths.length} Repositories`,
+      includeDetails: true,
+      includeSourceCode: true,
+      includeCodeBlocks: true
+    });
+
+    // Display report locations
+    console.log('✅ Reports generated successfully:\n');
+    console.log(`   📄 HTML:     ${reportPaths.html}`);
+    console.log(`   📝 Markdown: ${reportPaths.markdown}`);
+    console.log(`   📊 JSON:     ${reportPaths.json}`);
+    console.log(`   📋 Summary:  ${reportPaths.summary}\n`);
+
+    // Display detailed results
+    console.log('╔══════════════════════════════════════════════════════════╗');
+    console.log('║               DETAILED SCAN RESULTS                      ║');
+    console.log('╚══════════════════════════════════════════════════════════╝\n');
 
     console.log('\nScanned Repositories:');
     for (const repo of result.scanned_repositories) {
@@ -74,46 +118,54 @@ async function main() {
     console.log(`  Avg Repos per Duplicate: ${result.metrics.average_repositories_per_duplicate}`);
 
     if (result.cross_repository_duplicates && result.cross_repository_duplicates.length > 0) {
-      console.log('\nTop Cross-Repository Duplicates:');
+      console.log('🔗 Top Cross-Repository Duplicates:\n');
       const topGroups = result.cross_repository_duplicates
         .sort((a, b) => b.impact_score - a.impact_score)
         .slice(0, 5);
 
-      for (const group of topGroups) {
-        console.log(`\n  Group ${group.group_id}:`);
-        console.log(`    Pattern: ${group.pattern_id}`);
-        console.log(`    Occurrences: ${group.occurrence_count}`);
-        console.log(`    Repositories: ${group.repository_count} (${group.affected_repositories.join(', ')})`);
-        console.log(`    Impact Score: ${group.impact_score.toFixed(2)}/100`);
-        console.log(`    Files: ${group.affected_files.slice(0, 3).join(', ')}${group.affected_files.length > 3 ? '...' : ''}`);
-      }
+      topGroups.forEach((group, index) => {
+        console.log(`   ${index + 1}. ${group.group_id}`);
+        console.log(`      Pattern: ${group.pattern_id}`);
+        console.log(`      Repositories: ${group.repository_count} (${group.affected_repositories.join(', ')})`);
+        console.log(`      Occurrences: ${group.occurrence_count}`);
+        console.log(`      Impact Score: ${group.impact_score.toFixed(1)}/100`);
+        console.log(`      Files: ${group.affected_files.slice(0, 3).join(', ')}${group.affected_files.length > 3 ? '...' : ''}`);
+        console.log('');
+      });
     }
 
     if (result.cross_repository_suggestions && result.cross_repository_suggestions.length > 0) {
-      console.log('\nTop Cross-Repository Suggestions:');
+      console.log('💡 Top Consolidation Suggestions:\n');
       const topSuggestions = result.cross_repository_suggestions
         .sort((a, b) => b.roi_score - a.roi_score)
         .slice(0, 5);
 
-      for (const suggestion of topSuggestions) {
-        console.log(`\n  ${suggestion.suggestion_id}:`);
-        console.log(`    Strategy: ${suggestion.strategy}`);
-        console.log(`    Rationale: ${suggestion.strategy_rationale}`);
-        console.log(`    Target: ${suggestion.target_location}`);
-        console.log(`    Impact: ${suggestion.impact_score.toFixed(2)}/100`);
-        console.log(`    ROI: ${suggestion.roi_score.toFixed(2)}/100`);
-        console.log(`    Complexity: ${suggestion.complexity}`);
-        console.log(`    Risk: ${suggestion.migration_risk}`);
-        console.log(`    Affected Repos: ${suggestion.affected_repositories.join(', ')}`);
-      }
+      topSuggestions.forEach((suggestion, index) => {
+        console.log(`   ${index + 1}. ${suggestion.suggestion_id}`);
+        console.log(`      Strategy: ${suggestion.strategy}`);
+        console.log(`      Target: ${suggestion.target_location}`);
+        console.log(`      ROI Score: ${suggestion.roi_score.toFixed(1)}/100`);
+        console.log(`      Complexity: ${suggestion.complexity}`);
+        console.log(`      Risk: ${suggestion.migration_risk}`);
+        console.log(`      Effort: ${suggestion.estimated_effort_hours}h`);
+        console.log(`      Repos: ${suggestion.affected_repositories.join(', ')}`);
+        console.log('');
+      });
     }
 
-    // Save results
-    const outputPath = await scanner.saveResults(result);
-    console.log(`\n\nFull results saved to: ${outputPath}`);
-    console.log('='.repeat(80) + '\n');
+    // Save full results to JSON
+    const fullResultsPath = await scanner.saveResults(result);
+    console.log(`💾 Full results saved to: ${fullResultsPath}\n`);
 
-    logger.info('Inter-project test scan completed successfully');
+    console.log('╔══════════════════════════════════════════════════════════╗');
+    console.log('║                   TEST COMPLETED                         ║');
+    console.log('╚══════════════════════════════════════════════════════════╝\n');
+
+    logger.info({
+      repositoryCount: repoPaths.length,
+      duration,
+      ...result.metrics
+    }, 'Inter-project test scan completed successfully');
 
   } catch (error) {
     logger.error({ error }, 'Inter-project test scan failed');

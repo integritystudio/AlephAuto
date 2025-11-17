@@ -41,7 +41,7 @@ def extract_function_name(source_code: str, file_path: Optional[str] = None, lin
     If function name can't be found in source_code, reads the actual file
     to get more context (lines before the match).
     """
-    print(f"DEBUG extract_function_name called: file_path={file_path}, line_start={line_start}, repo_path={repo_path}", file=sys.stderr)
+    print(f"Warning: DEBUG extract_function_name called: file_path={file_path}, line_start={line_start}, repo_path={repo_path}", file=sys.stderr)
 
     if not source_code:
         return None
@@ -71,27 +71,35 @@ def extract_function_name(source_code: str, file_path: Optional[str] = None, lin
     if file_path and line_start and repo_path:
         try:
             full_file_path = Path(repo_path) / file_path
-            print(f"DEBUG: Attempting to read {full_file_path} at line {line_start}", file=sys.stderr)
+            print(f"Warning: DEBUG attempting to read {full_file_path} at line {line_start}", file=sys.stderr)
 
             if full_file_path.exists():
                 with open(full_file_path, 'r', encoding='utf-8') as f:
                     lines = f.readlines()
 
-                # Read up to 10 lines before the match to capture function declaration
-                context_start = max(0, line_start - 11)  # line_start is 1-indexed
-                context_end = min(len(lines), line_start + 2)
-                context = ''.join(lines[context_start:context_end])
+                # Search BACKWARDS from match line to find the CLOSEST function declaration
+                # This prevents finding previous functions in the file
+                search_start = max(0, line_start - 11)  # line_start is 1-indexed
+                search_end = line_start  # Don't search past the match
 
-                # Try patterns again on expanded context
-                for pattern in patterns:
-                    match = re.search(pattern, context, re.MULTILINE)
-                    if match and match.group(1):
-                        print(f"DEBUG: Found function name '{match.group(1)}' in context", file=sys.stderr)
-                        return match.group(1)
+                # Iterate backwards through lines to find closest function declaration
+                for i in range(search_end - 1, search_start - 1, -1):
+                    if i < 0 or i >= len(lines):
+                        continue
 
-                print(f"DEBUG: No function name found in context for {file_path}:{line_start}", file=sys.stderr)
+                    line = lines[i]
+
+                    # Try each pattern on this line
+                    for pattern in patterns:
+                        match = re.search(pattern, line)
+                        if match and match.group(1):
+                            func_name = match.group(1)
+                            print(f"Warning: DEBUG found function name '{func_name}' at line {i+1} (match was at {line_start})", file=sys.stderr)
+                            return func_name
+
+                print(f"Warning: DEBUG no function name found in lines {search_start+1}-{search_end} for {file_path}:{line_start}", file=sys.stderr)
             else:
-                print(f"DEBUG: File does not exist: {full_file_path}", file=sys.stderr)
+                print(f"Warning: DEBUG file does not exist: {full_file_path}", file=sys.stderr)
         except Exception as e:
             print(f"Warning: Could not read file context for {file_path}: {e}", file=sys.stderr)
 
@@ -99,26 +107,58 @@ def extract_function_name(source_code: str, file_path: Optional[str] = None, lin
 
 def deduplicate_blocks(blocks: List[CodeBlock]) -> List[CodeBlock]:
     """
-    Remove duplicate code blocks from the same location.
+    Remove duplicate code blocks from the same location and function.
 
     Priority 4: Deduplicate Pattern Matches
-    ast-grep patterns can match the same code multiple times.
-    This removes duplicates based on file:line location.
+    ast-grep patterns can match the same code multiple times within a function.
+    This removes duplicates based on file:function_name, keeping only the earliest match.
     """
     seen_locations = set()
+    seen_functions = {}  # file:function -> earliest block
     unique_blocks = []
 
-    for block in blocks:
-        # Create location key: file:line_start
-        location_key = f"{block.location.file_path}:{block.location.line_start}"
+    for i, block in enumerate(blocks):
+        # Extract function name from tags
+        function_name = None
+        for tag in block.tags:
+            if tag.startswith('function:'):
+                function_name = tag[9:]  # Remove 'function:' prefix
+                break
 
-        if location_key not in seen_locations:
-            seen_locations.add(location_key)
-            unique_blocks.append(block)
+        # Debug: Show first 10 blocks being processed
+        if i < 10:
+            print(f"Warning: DEBUG dedup block {i}: {block.location.file_path}:{block.location.line_start}, func={function_name}, code_len={len(block.source_code)}", file=sys.stderr)
+
+        # Strategy 1: Deduplicate by function name (preferred)
+        if function_name:
+            function_key = f"{block.location.file_path}:{function_name}"
+
+            if function_key not in seen_functions:
+                # First occurrence of this function - keep it
+                seen_functions[function_key] = block
+                unique_blocks.append(block)
+            else:
+                # Already seen this function - check if this is earlier in file
+                existing_block = seen_functions[function_key]
+                if block.location.line_start < existing_block.location.line_start:
+                    # This block is earlier, replace the existing one
+                    unique_blocks.remove(existing_block)
+                    seen_functions[function_key] = block
+                    unique_blocks.append(block)
+                else:
+                    # This is a later occurrence of same function - skip it
+                    print(f"Warning: DEBUG dedup: skipping duplicate {function_name} at line {block.location.line_start} (kept line {existing_block.location.line_start})", file=sys.stderr)
+        else:
+            # Strategy 2: Fall back to line-based deduplication for blocks without function names
+            location_key = f"{block.location.file_path}:{block.location.line_start}"
+
+            if location_key not in seen_locations:
+                seen_locations.add(location_key)
+                unique_blocks.append(block)
 
     if len(blocks) != len(unique_blocks):
         removed = len(blocks) - len(unique_blocks)
-        print(f"Deduplication: Removed {removed} duplicate blocks from same locations", file=sys.stderr)
+        print(f"Deduplication: Removed {removed} duplicate blocks ({len(seen_functions)} unique functions, {len(seen_locations)} unique locations)", file=sys.stderr)
 
     return unique_blocks
 
@@ -127,9 +167,13 @@ def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> L
     """
     Extract CodeBlock models from pattern matches
     """
+    print(f"Warning: DEBUG extract_code_blocks: repository_info={repository_info}", file=sys.stderr)
+    print(f"Warning: DEBUG extract_code_blocks: got {len(pattern_matches)} pattern matches", file=sys.stderr)
     blocks = []
 
     for i, match in enumerate(pattern_matches):
+        if i == 0:  # Debug first match only
+            print(f"Warning: DEBUG first match: file_path={match.get('file_path')}, line_start={match.get('line_start')}", file=sys.stderr)
         try:
             # Generate unique block ID
             block_id = f"cb_{hashlib.sha256(f"{match['file_path']}:{match['line_start']}".encode()).hexdigest()[:12]}"
@@ -183,9 +227,13 @@ def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> L
                 category=category,
                 repository_path=repository_info['path'],
                 line_count=match.get('line_end', match['line_start']) - match['line_start'] + 1,
-                # Store function name in semantic_tags for now (until schema updated)
-                semantic_tags=[f"function:{function_name}"] if function_name else []
+                # Store function name in tags field
+                tags=[f"function:{function_name}"] if function_name else []
             )
+
+            # Debug: confirm tags are set
+            if i < 3:  # Only log first 3 blocks
+                print(f"Warning: DEBUG block created: file={block.relative_path}, line={block.location.line_start}, tags={block.tags}", file=sys.stderr)
 
             blocks.append(block)
 

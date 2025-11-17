@@ -26,7 +26,7 @@ from .structural import calculate_structural_similarity, calculate_ast_hash
 
 def group_by_similarity(
     blocks: List['CodeBlock'],
-    similarity_threshold: float = 0.85
+    similarity_threshold: float = 0.90
 ) -> List['DuplicateGroup']:
     """
     Group code blocks using multi-layer similarity algorithm.
@@ -99,9 +99,18 @@ def _group_by_exact_hash(blocks: List['CodeBlock']) -> Dict[str, List['CodeBlock
     """Group blocks by exact content hash."""
     hash_groups = defaultdict(list)
 
-    for block in blocks:
+    for i, block in enumerate(blocks):
         hash_val = block.content_hash
         hash_groups[hash_val].append(block)
+
+        # Debug: Show first 20 blocks and their hashes
+        if i < 20:
+            func_name = None
+            for tag in block.tags:
+                if tag.startswith('function:'):
+                    func_name = tag[9:]
+                    break
+            print(f"Warning: DEBUG hash block {i}: {func_name or 'unknown'} at {block.location.file_path}:{block.location.line_start}, hash={hash_val[:8]}, code_len={len(block.source_code)}", file=sys.stderr)
 
     return hash_groups
 

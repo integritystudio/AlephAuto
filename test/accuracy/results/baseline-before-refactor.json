@@ -1,22 +1,22 @@
 {
   "summary": {
     "total_expected_groups": 16,
-    "total_detected_groups": 21,
+    "total_detected_groups": 22,
     "correctly_detected": 13,
     "missed": 3,
-    "false_alarms": 8,
+    "false_alarms": 9,
     "correctly_ignored": 5
   },
   "metrics": {
     "counts": {
       "tp": 13,
-      "fp": 8,
+      "fp": 9,
       "fn": 3,
       "tn": 5
     },
     "precision": {
-      "score": 0.6190476190476191,
-      "percentage": "61.90%",
+      "score": 0.5909090909090909,
+      "percentage": "59.09%",
       "interpretation": "Poor"
     },
     "recall": {
@@ -25,22 +25,22 @@
       "interpretation": "Good"
     },
     "f1Score": {
-      "score": 0.7027027027027026,
-      "percentage": "70.27%",
-      "interpretation": "Fair"
+      "score": 0.6842105263157896,
+      "percentage": "68.42%",
+      "interpretation": "Poor"
     },
     "falsePositiveRate": {
-      "score": 0.6153846153846154,
-      "percentage": "61.54%",
+      "score": 0.6428571428571429,
+      "percentage": "64.29%",
       "interpretation": "Poor"
     }
   },
   "targets": {
     "precision": {
       "target": 0.9,
-      "actual": 0.6190476190476191,
+      "actual": 0.5909090909090909,
       "met": false,
-      "delta": "-0.281"
+      "delta": "-0.309"
     },
     "recall": {
       "target": 0.8,
@@ -50,15 +50,15 @@
     },
     "f1_score": {
       "target": 0.85,
-      "actual": 0.7027027027027026,
+      "actual": 0.6842105263157896,
       "met": false,
-      "delta": "-0.147"
+      "delta": "-0.166"
     },
     "false_positive_rate": {
       "target": 0.1,
-      "actual": 0.6153846153846154,
+      "actual": 0.6428571428571429,
       "met": false,
-      "delta": "-0.515"
+      "delta": "-0.543"
     }
   },
   "overall_assessment": {
@@ -72,16 +72,16 @@
         "detected": "dg_ab1e7018b61c",
         "overlap": 3,
         "expected_members": 3,
-        "detected_members": 3,
-        "overlap_ratio": 1
+        "detected_members": 4,
+        "overlap_ratio": 0.75
       },
       {
         "expected": "group_2",
         "detected": "dg_7c10373d603d",
         "overlap": 2,
         "expected_members": 2,
-        "detected_members": 3,
-        "overlap_ratio": 0.6666666666666666
+        "detected_members": 2,
+        "overlap_ratio": 1
       },
       {
         "expected": "group_3",
@@ -101,7 +101,7 @@
       },
       {
         "expected": "group_7",
-        "detected": "dg_e4a4a8b89326",
+        "detected": "dg_0b53af296116",
         "overlap": 2,
         "expected_members": 2,
         "detected_members": 2,
@@ -174,22 +174,6 @@
     ],
     "falsePositives": [
       {
-        "group_id": "dg_6973a5be1688",
-        "members": [
-          "src/utils/edge-cases.js:complexValidation1",
-          "src/utils/edge-cases.js:complexValidation2"
-        ],
-        "pattern": "type-checking"
-      },
-      {
-        "group_id": "dg_d0f02152d711",
-        "members": [
-          "src/utils/edge-cases.js:processString1",
-          "src/utils/edge-cases.js:processString2"
-        ],
-        "pattern": "string-manipulation"
-      },
-      {
         "group_id": "dg_ce48a09a119e",
         "members": [
           "src/utils/edge-cases.js:processItems1",
@@ -198,18 +182,42 @@
         "pattern": "logger-patterns"
       },
       {
-        "group_id": "dg_5d9ac2df5617",
+        "group_id": "dg_d0f02152d711",
         "members": [
-          "src/utils/edge-cases.js:fetchData1",
-          "src/utils/edge-cases.js:fetchData2"
+          "src/utils/edge-cases.js:processString1",
+          "src/utils/edge-cases.js:processString2"
         ],
-        "pattern": "console-statements"
+        "pattern": "logger-patterns"
+      },
+      {
+        "group_id": "dg_6973a5be1688",
+        "members": [
+          "src/utils/edge-cases.js:complexValidation1",
+          "src/utils/edge-cases.js:complexValidation2"
+        ],
+        "pattern": "type-checking"
       },
       {
         "group_id": "dg_3b9787323cf0",
         "members": [
           "src/utils/edge-cases.js:edge-cases.js:3",
           "src/utils/edge-cases.js:multiLine"
+        ],
+        "pattern": "logger-patterns"
+      },
+      {
+        "group_id": "dg_5fac132e3776",
+        "members": [
+          "src/utils/edge-cases.js:findMax",
+          "src/utils/edge-cases.js:findMin"
+        ],
+        "pattern": "logger-patterns"
+      },
+      {
+        "group_id": "dg_5d9ac2df5617",
+        "members": [
+          "src/utils/edge-cases.js:fetchData1",
+          "src/utils/edge-cases.js:fetchData2"
         ],
         "pattern": "logger-patterns"
       },
