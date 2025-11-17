@@ -7,7 +7,7 @@
 import express from 'express';
 import { CachedScanner } from '../../lib/cache/cached-scanner.js';
 import { InterProjectScanner } from '../../lib/inter-project-scanner.js';
-import { DuplicateDetectionWorker } from '../../duplicate-detection-pipeline.js';
+import { DuplicateDetectionWorker } from '../../pipelines/duplicate-detection-pipeline.js';
 import { createComponentLogger } from '../../sidequest/logger.js';
 import { strictRateLimiter } from '../middleware/rate-limit.js';
 import path from 'path';

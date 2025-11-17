@@ -16,6 +16,15 @@ Automation pipelines built on the **AlephAuto** job queue framework:
 
 All systems use AlephAuto job queue with Sentry error logging, centralized configuration, and event-driven architecture.
 
+## 🔍 Quick Decision Guide
+
+**Working on duplicate detection?** → See Critical Patterns #2, #3, #5 (structural.py:29-482, extract_blocks.py:231)
+**Adding a new pipeline?** → Extend SidequestServer (see AlephAuto Job Queue Framework pattern)
+**Configuration changes?** → Always use `import { config } from './sidequest/config.js'` (Critical Pattern #4)
+**Running tests?** → `npm test` (unit) or `npm run test:integration` (integration)
+**Debugging errors?** → Check Sentry dashboard + logs/, use `createComponentLogger`
+**Production deployment?** → Use doppler + PM2 (see Production Deployment section)
+
 ## ⚠️ Critical Patterns
 
 **Before making changes:**
@@ -46,7 +55,7 @@ RUN_ON_STARTUP=true npm run git:weekly  # Run immediately
 npm run plugin:audit                    # Run audit immediately
 npm run plugin:audit:detailed           # Run detailed audit
 npm run plugin:schedule                 # Cron mode (Monday 9 AM)
-doppler run -- pm2 start plugin-management-pipeline.js --name plugin-auditor  # PM2 deployment
+doppler run -- pm2 start pipelines/plugin-management-pipeline.js --name plugin-auditor  # PM2 deployment
 ./sidequest/plugin-management-audit.sh --detailed  # Manual shell script audit
 
 # Claude environment health
@@ -54,11 +63,11 @@ npm run claude:health                   # Run comprehensive health check
 npm run claude:health:detailed          # Run detailed health check
 npm run claude:health:quick             # Quick check (skip performance/plugins)
 npm run claude:health:schedule          # Cron mode (daily 8 AM)
-doppler run -- pm2 start claude-health-pipeline.js --name claude-health  # PM2 deployment
+doppler run -- pm2 start pipelines/claude-health-pipeline.js --name claude-health  # PM2 deployment
 
 # Duplicate detection
 doppler run -- node lib/scan-orchestrator.js <repo-path>
-doppler run -- RUN_ON_STARTUP=true node duplicate-detection-pipeline.js
+doppler run -- RUN_ON_STARTUP=true node pipelines/duplicate-detection-pipeline.js
 ```
 
 ### Testing
@@ -239,10 +248,10 @@ logger.error({ err: error, context }, 'Error message');
 
 ```bash
 # Production deployment with PM2
-doppler run -- pm2 start duplicate-detection-pipeline.js --name duplicate-scanner
+doppler run -- pm2 start pipelines/duplicate-detection-pipeline.js --name duplicate-scanner
 
 # Test immediately
-doppler run -- RUN_ON_STARTUP=true node duplicate-detection-pipeline.js
+doppler run -- RUN_ON_STARTUP=true node pipelines/duplicate-detection-pipeline.js
 
 # Monitor
 pm2 status duplicate-scanner
@@ -261,7 +270,7 @@ pm2 logs duplicate-scanner
 
 ```bash
 # Start API server (default port 3000)
-doppler run -- node duplicate-detection-pipeline.js
+doppler run -- node pipelines/duplicate-detection-pipeline.js
 
 # Test endpoints
 curl http://localhost:3000/health
@@ -378,48 +387,21 @@ jobs/
 │   ├── DATAFLOW_DIAGRAMS.md
 │   └── architecture/
 │
-└── duplicate-detection-pipeline.js  # Main entry point (root)
+└── pipelines/              # Pipeline Entry Points
+    ├── duplicate-detection-pipeline.js
+    ├── git-activity-pipeline.js
+    ├── plugin-management-pipeline.js
+    └── claude-health-pipeline.js
 ```
 
 **Key Files Reference:**
-- `duplicate-detection-pipeline.js` - Main duplicate detection entry point
+- `pipelines/duplicate-detection-pipeline.js` - Main duplicate detection entry point
+- `pipelines/git-activity-pipeline.js` - Git activity report pipeline
+- `pipelines/plugin-management-pipeline.js` - Plugin audit pipeline
+- `pipelines/claude-health-pipeline.js` - Claude health monitor pipeline
 - `lib/scan-orchestrator.js` - 7-stage pipeline coordinator
 - `lib/similarity/structural.py` - 2-phase similarity algorithm
 - `sidequest/server.js` - AlephAuto job queue base class
 - `config/scan-repositories.json` - Repository scan configuration
 - `docs/DATAFLOW_DIAGRAMS.md` - Complete architecture diagrams
-
-## Recent Updates (2025-11-17)
-
-### New Features
-1. ✅ **Plugin Management System** - Automated Claude Code plugin auditing and cleanup recommendations
-   - Worker: `sidequest/plugin-manager.js` (extends SidequestServer)
-   - Pipeline: `plugin-management-pipeline.js` (cron scheduling + CLI)
-   - Audit script: `sidequest/plugin-management-audit.sh` (bash analysis)
-   - Commands: `npm run plugin:audit`, `npm run plugin:audit:detailed`, `npm run plugin:schedule`
-   - Features: Duplicate detection, threshold monitoring, actionable recommendations
-   - Schedule: Monday 9 AM (configurable via `PLUGIN_CRON_SCHEDULE`)
-
-2. ✅ **Claude Health Monitor** - Comprehensive Claude Code environment monitoring and health checks
-   - Worker: `sidequest/claude-health-worker.js` (extends SidequestServer)
-   - Pipeline: `claude-health-pipeline.js` (cron scheduling + CLI)
-   - Integration: Works with existing `~/.claude/scripts/health.sh`
-   - Commands: `npm run claude:health`, `npm run claude:health:detailed`, `npm run claude:health:schedule`
-   - Features: Environment validation, config checking, hook analysis, plugin monitoring, performance tracking
-   - Health scoring: 0-100 score with actionable recommendations
-   - Schedule: Daily 8 AM (configurable via `CLAUDE_HEALTH_CRON_SCHEDULE`)
-
-### Critical Bug Fixes
-1. ✅ **Falsy value handling** - Changed `||` to `??` for numeric options (server.js:18)
-2. ✅ **Field name mismatch** - Changed `semantic_tags` → `tags` (extract_blocks.py:231)
-3. ✅ **Function-based deduplication** - Deduplicate by `file:function_name`, not line (extract_blocks.py:108-163)
-4. ✅ **Unified penalty system** - Two-phase architecture: extract features BEFORE normalization (structural.py:16-482)
-
-**Results:** Precision: 100%, Recall: 87.50%, F1: 93.33%, FP Rate: 0%
-
-### Project Organization Improvements
-1. ✅ **Test reorganization** - Separated unit tests (`tests/unit/`) from integration tests (`tests/integration/`)
-2. ✅ **Scripts directory** - Centralized utility scripts in `scripts/`
-3. ✅ **Documentation consolidation** - Moved technical docs to `docs/` (CHEAT_SHEET.md, DATAFLOW_DIAGRAMS.md)
-4. ✅ **Architecture alignment** - Directory structure now matches architectural layers from dataflow diagrams
-5. ✅ **Updated all references** - package.json, .claude/settings.local.json, test imports
+- `docs/components/` - Component documentation (Plugin Manager, Claude Health, AlephAuto)

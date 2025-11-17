@@ -4,16 +4,29 @@ node_modules/
 # Environment
 .env
 
-# Logs
-logs/
+# Logs (keep directory structure but ignore log files)
+logs/*.json
+logs/*.log
+logs/archive/
+logs/cleanup-logs/
 *.log
 
-# Output
+# Output directories (generated files)
 condense/
 document-enhancement-impact-measurement/
 directory-scan-reports/
+output/
 repomix-output.xml
 repomix-output.txt
+
+# Python
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
 
 # OS
 .DS_Store
@@ -24,6 +37,9 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
-venv/
-output/
-**/__pycache__/
+
+# Temporary and backup files
+*.tmp
+*.bak
+*.old
+*~
