@@ -1,22 +1,22 @@
 {
   "summary": {
     "total_expected_groups": 16,
-    "total_detected_groups": 21,
+    "total_detected_groups": 20,
     "correctly_detected": 13,
     "missed": 3,
-    "false_alarms": 8,
-    "correctly_ignored": 4
+    "false_alarms": 7,
+    "correctly_ignored": 5
   },
   "metrics": {
     "counts": {
       "tp": 13,
-      "fp": 8,
+      "fp": 7,
       "fn": 3,
-      "tn": 4
+      "tn": 5
     },
     "precision": {
-      "score": 0.6190476190476191,
-      "percentage": "61.90%",
+      "score": 0.65,
+      "percentage": "65.00%",
       "interpretation": "Poor"
     },
     "recall": {
@@ -25,22 +25,22 @@
       "interpretation": "Good"
     },
     "f1Score": {
-      "score": 0.7027027027027026,
-      "percentage": "70.27%",
+      "score": 0.7222222222222223,
+      "percentage": "72.22%",
       "interpretation": "Fair"
     },
     "falsePositiveRate": {
-      "score": 0.6666666666666666,
-      "percentage": "66.67%",
+      "score": 0.5833333333333334,
+      "percentage": "58.33%",
       "interpretation": "Poor"
     }
   },
   "targets": {
     "precision": {
       "target": 0.9,
-      "actual": 0.6190476190476191,
+      "actual": 0.65,
       "met": false,
-      "delta": "-0.281"
+      "delta": "-0.250"
     },
     "recall": {
       "target": 0.8,
@@ -50,15 +50,15 @@
     },
     "f1_score": {
       "target": 0.85,
-      "actual": 0.7027027027027026,
+      "actual": 0.7222222222222223,
       "met": false,
-      "delta": "-0.147"
+      "delta": "-0.128"
     },
     "false_positive_rate": {
       "target": 0.1,
-      "actual": 0.6666666666666666,
+      "actual": 0.5833333333333334,
       "met": false,
-      "delta": "-0.567"
+      "delta": "-0.483"
     }
   },
   "overall_assessment": {
@@ -101,11 +101,11 @@
       },
       {
         "expected": "group_7",
-        "detected": "dg_0f0173ca6ac5",
+        "detected": "dg_e4a4a8b89326",
         "overlap": 2,
         "expected_members": 2,
-        "detected_members": 3,
-        "overlap_ratio": 0.6666666666666666
+        "detected_members": 2,
+        "overlap_ratio": 1
       },
       {
         "expected": "group_8",
@@ -174,20 +174,20 @@
     ],
     "falsePositives": [
       {
-        "group_id": "dg_d0f02152d711",
-        "members": [
-          "src/utils/edge-cases.js:processString1",
-          "src/utils/edge-cases.js:processString2"
-        ],
-        "pattern": "string-manipulation"
-      },
-      {
         "group_id": "dg_ce48a09a119e",
         "members": [
           "src/utils/edge-cases.js:processItems1",
           "src/utils/edge-cases.js:processItems2"
         ],
-        "pattern": "array-map-filter"
+        "pattern": "logger-patterns"
+      },
+      {
+        "group_id": "dg_d0f02152d711",
+        "members": [
+          "src/utils/edge-cases.js:processString1",
+          "src/utils/edge-cases.js:processString2"
+        ],
+        "pattern": "logger-patterns"
       },
       {
         "group_id": "dg_6973a5be1688",
@@ -203,17 +203,12 @@
           "src/utils/edge-cases.js:fetchData1",
           "src/utils/edge-cases.js:fetchData2"
         ],
-        "pattern": "console-statements"
+        "pattern": "logger-patterns"
       },
       {
         "function": "getUserNamesReversed",
         "file": "src/utils/array-helpers.js",
         "reason": "Detected as duplicate but should not be: Additional operation changes behavior"
-      },
-      {
-        "function": "listKeys",
-        "file": "src/utils/object-helpers.js",
-        "reason": "Detected as duplicate but should not be: Missing map operation"
       },
       {
         "function": "sendCreatedResponse",
@@ -262,6 +257,11 @@
         "function": "deepMerge",
         "file": "src/utils/object-helpers.js",
         "reason": "Different method (Object.assign vs spread)"
+      },
+      {
+        "function": "listKeys",
+        "file": "src/utils/object-helpers.js",
+        "reason": "Missing map operation"
       },
       {
         "function": "requireAdmin",

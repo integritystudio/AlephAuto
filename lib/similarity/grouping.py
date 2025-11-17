@@ -12,6 +12,7 @@ Combines:
 from typing import List, Dict, Set
 from collections import defaultdict
 import sys
+import os
 
 # Type annotations for imported models
 try:
@@ -32,7 +33,7 @@ MIN_COMPLEXITY_THRESHOLD = {
 }
 
 # Minimum quality threshold for duplicate groups
-MIN_GROUP_QUALITY = 0.70  # Groups must score at least 70% quality
+MIN_GROUP_QUALITY = float(os.getenv('MIN_GROUP_QUALITY', '0.70'))  # Groups must score at least 70% quality
 
 
 def calculate_code_complexity(source_code: str) -> dict:
