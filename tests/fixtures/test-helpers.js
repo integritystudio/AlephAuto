@@ -73,3 +73,85 @@ export async function createMultipleTempRepositories(count = 2) {
 export async function cleanupRepositories(repos) {
   await Promise.all(repos.map(repo => repo.cleanup()));
 }
+
+/**
+ * Wait for a worker's job queue to drain completely
+ * Polls the worker until no jobs are queued or active
+ *
+ * @param {Object} worker - The SidequestServer worker instance
+ * @param {Object} options - Options
+ * @param {number} options.timeout - Maximum wait time in ms (default: 30000)
+ * @param {number} options.pollInterval - Polling interval in ms (default: 100)
+ * @returns {Promise<void>}
+ * @throws {Error} If timeout is exceeded
+ */
+export async function waitForQueueDrain(worker, options = {}) {
+  const { timeout = 30000, pollInterval = 100 } = options;
+  const startTime = Date.now();
+
+  while (true) {
+    const stats = worker.getStats();
+
+    // Queue is drained when no jobs are queued or active
+    if (stats.queued === 0 && stats.active === 0) {
+      return;
+    }
+
+    // Check timeout
+    if (Date.now() - startTime > timeout) {
+      throw new Error(
+        `Queue drain timeout after ${timeout}ms. ` +
+        `Remaining: ${stats.queued} queued, ${stats.active} active`
+      );
+    }
+
+    // Wait before next poll
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+  }
+}
+
+/**
+ * Wait for a specific job to complete
+ * Polls the worker until the job status is 'completed' or 'failed'
+ *
+ * @param {Object} worker - The SidequestServer worker instance
+ * @param {string} jobId - The job ID to wait for
+ * @param {Object} options - Options
+ * @param {number} options.timeout - Maximum wait time in ms (default: 30000)
+ * @param {number} options.pollInterval - Polling interval in ms (default: 100)
+ * @returns {Promise<Object>} The completed job object
+ * @throws {Error} If timeout is exceeded or job fails
+ */
+export async function waitForJobCompletion(worker, jobId, options = {}) {
+  const { timeout = 30000, pollInterval = 100 } = options;
+  const startTime = Date.now();
+
+  while (true) {
+    const job = worker.getJob(jobId);
+
+    if (!job) {
+      throw new Error(`Job ${jobId} not found`);
+    }
+
+    // Job is complete
+    if (job.status === 'completed') {
+      return job;
+    }
+
+    // Job failed
+    if (job.status === 'failed') {
+      throw new Error(`Job ${jobId} failed: ${job.error?.message || 'Unknown error'}`);
+    }
+
+    // Check timeout
+    if (Date.now() - startTime > timeout) {
+      throw new Error(
+        `Job completion timeout after ${timeout}ms. ` +
+        `Job status: ${job.status}`
+      );
+    }
+
+    // Wait before next poll
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+  }
+}

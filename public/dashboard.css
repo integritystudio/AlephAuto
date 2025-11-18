@@ -137,6 +137,30 @@ body {
 .status-error { background-color: var(--color-error); }
 .status-connecting { background-color: var(--color-warning); }
 
+/* Doppler Health Indicator */
+.doppler-health {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-2);
+    background: var(--color-gray-50);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+}
+
+.health-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.health-healthy { background-color: var(--color-success); }
+.health-warning { background-color: var(--color-warning); }
+.health-critical { background-color: #ff5722; } /* Orange-red for critical */
+.health-error { background-color: var(--color-error); }
+.health-checking { background-color: var(--color-gray-400); }
+
 @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }

@@ -22,6 +22,7 @@ import { createServer } from 'http';
 import { createWebSocketServer } from './websocket.js';
 import { ScanEventBroadcaster } from './event-broadcaster.js';
 import { ActivityFeedManager } from './activity-feed.js';
+import { DopplerHealthMonitor } from '../lib/doppler-health-monitor.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -62,6 +63,33 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Doppler health check endpoint (no auth required)
+const dopplerMonitor = new DopplerHealthMonitor();
+app.get('/api/health/doppler', async (req, res) => {
+  try {
+    const health = await dopplerMonitor.checkCacheHealth();
+
+    res.json({
+      status: health.healthy ? 'healthy' : 'degraded',
+      cacheAgeHours: health.cacheAgeHours,
+      cacheAgeMinutes: health.cacheAgeMinutes,
+      maxCacheAgeHours: 24,
+      warningThresholdHours: 12,
+      usingFallback: health.usingFallback,
+      severity: health.severity,
+      lastModified: health.lastModified,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error({ error }, 'Failed to check Doppler health');
+    res.status(500).json({
+      status: 'error',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // System status endpoint (includes retry metrics and activity feed)
 app.get('/api/status', (req, res) => {
   try {
@@ -79,9 +107,9 @@ app.get('/api/status', (req, res) => {
           id: 'duplicate-detection',
           name: 'Duplicate Detection',
           status: queueStats.activeJobs > 0 ? 'running' : 'idle',
-          completedJobs: scanMetrics.totalScanned || 0,
+          completedJobs: scanMetrics.totalScans || 0,
           failedJobs: scanMetrics.failedScans || 0,
-          lastRun: scanMetrics.lastScanTime ? new Date(scanMetrics.lastScanTime).toISOString() : null,
+          lastRun: null, // Not tracked in metrics
           nextRun: null // Cron schedule not exposed here
         }
       ],
@@ -150,18 +178,25 @@ app.get('/ws/status', (req, res) => {
 // Start server
 const PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (default: 8080)
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, async () => {
   logger.info({ port: PORT }, 'API server started');
   console.log(`\n🚀 AlephAuto API Server & Dashboard running on port ${PORT}`);
   console.log(`   📊 Dashboard: http://localhost:${PORT}/`);
   console.log(`   ❤️  Health check: http://localhost:${PORT}/health`);
+  console.log(`   🩺 Doppler health: http://localhost:${PORT}/api/health/doppler`);
   console.log(`   🔌 WebSocket: ws://localhost:${PORT}/ws`);
   console.log(`   📡 API: http://localhost:${PORT}/api/\n`);
+
+  // Start Doppler health monitoring (check every 15 minutes)
+  await dopplerMonitor.startMonitoring(15);
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully');
+
+  // Stop Doppler health monitoring
+  dopplerMonitor.stopMonitoring();
 
   // Close WebSocket server
   wss.close(() => {

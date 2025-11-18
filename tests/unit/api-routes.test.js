@@ -2,10 +2,15 @@ import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import request from 'supertest';
 import express from 'express';
-import scanRoutes from '../../api/routes/scans.js';
+import scanRoutes, { worker } from '../../api/routes/scans.js';
 import repositoryRoutes from '../../api/routes/repositories.js';
 import reportRoutes from '../../api/routes/reports.js';
-import { createTempRepository, createMultipleTempRepositories, cleanupRepositories } from '../fixtures/test-helpers.js';
+import {
+  createTempRepository,
+  createMultipleTempRepositories,
+  cleanupRepositories,
+  waitForQueueDrain
+} from '../fixtures/test-helpers.js';
 
 describe('API Routes', () => {
   let app;
@@ -28,6 +33,11 @@ describe('API Routes', () => {
   });
 
   afterEach(async () => {
+    // Wait for all queued jobs to complete before cleanup
+    // This prevents race conditions where tests clean up temp directories
+    // while workers are still processing jobs
+    await waitForQueueDrain(worker, { timeout: 10000 });
+
     // Cleanup temporary repositories
     if (testRepo) await testRepo.cleanup();
     if (multiRepos) await cleanupRepositories(multiRepos);
