@@ -5,6 +5,9 @@
  * Listens to worker events and broadcasts activity updates via WebSocket.
  */
 
+// @ts-check
+/** @typedef {import('../sidequest/server.js').SidequestServer} SidequestServer */
+
 import { createComponentLogger } from '../sidequest/logger.js';
 import * as Sentry from '@sentry/node';
 import { safeErrorMessage, toErrorObject } from '../lib/utils/error-helpers.js';

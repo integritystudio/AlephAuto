@@ -57,7 +57,7 @@ router.get('/', async (req, res, next) => {
     );
 
     const sortedFiles = filesWithStats
-      .sort((a, b) => b.modified - a.modified)
+      .sort((a, b) => b.modified.getTime() - a.modified.getTime())
       .slice(0, parseInt(limit));
 
     const reports = sortedFiles.map(f => ({

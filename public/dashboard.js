@@ -606,7 +606,7 @@ class DashboardController {
 
         const date = new Date(isoString);
         const now = new Date();
-        const diffMs = now - date;
+        const diffMs = now.getTime() - date.getTime();
         const diffMins = Math.floor(diffMs / 60000);
 
         if (diffMins < 1) return 'Just now';
@@ -630,7 +630,7 @@ class DashboardController {
 
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
-                const targetDoc = tab.dataset.doc;
+                const targetDoc = /** @type {HTMLElement} */ (tab).dataset.doc;
 
                 // Update active tab
                 tabs.forEach(t => t.classList.remove('active'));
@@ -638,7 +638,7 @@ class DashboardController {
 
                 // Update active panel
                 panels.forEach(panel => {
-                    if (panel.dataset.panel === targetDoc) {
+                    if (/** @type {HTMLElement} */ (panel).dataset.panel === targetDoc) {
                         panel.classList.add('active');
                     } else {
                         panel.classList.remove('active');
