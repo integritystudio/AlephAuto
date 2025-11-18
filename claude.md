@@ -22,8 +22,10 @@ All systems use AlephAuto job queue with Sentry error logging, centralized confi
 **Working on duplicate detection?** → See Critical Patterns #2, #3, #5 (structural.py:29-482, extract_blocks.py:231)
 **Adding a new pipeline?** → Extend SidequestServer (see AlephAuto Job Queue Framework pattern)
 **Configuration changes?** → Always use `import { config } from './sidequest/config.js'` (Critical Pattern #4)
-**Running tests?** → `npm test` (unit) or `npm run test:integration` (integration)
-**Debugging errors?** → Check Sentry dashboard + logs/, use `createComponentLogger`
+**Running tests?** → `npm test` (unit) or `npm run test:integration` (integration) - See `tests/README.md` ✨ UPDATED
+**Writing tests?** → Use test fixtures from `tests/fixtures/` (Critical Pattern #7) ✨ NEW
+**Debugging errors?** → Check Sentry dashboard + logs/, use `createComponentLogger` - See `docs/ERROR_HANDLING.md` ✨ UPDATED
+**Understanding retry logic?** → See Critical Pattern #8 and `docs/ERROR_HANDLING.md` ✨ NEW
 **Production deployment?** → Use doppler + PM2 (see Production Deployment section)
 **View dashboard?** → `npm run dashboard` then visit http://localhost:8080 ✨ NEW
 
@@ -37,6 +39,8 @@ All systems use AlephAuto job queue with Sentry error logging, centralized confi
 4. **Doppler Required:** All commands must run with `doppler run --` for environment variables
 5. **Two-Phase Similarity:** Extract semantic features BEFORE normalization (structural.py:29-93, 422-482)
 6. **Port Configuration:** Use `JOBS_API_PORT` (default: 8080), NOT `API_PORT` ✨ NEW
+7. **Test Fixtures:** ALWAYS use `createTempRepository()` in tests, NEVER hardcode `/tmp/` paths (tests/README.md) ✨ NEW
+8. **Error Classification:** Errors are automatically classified as retryable/non-retryable (docs/ERROR_HANDLING.md) ✨ NEW
 
 ## Key Commands
 
@@ -95,6 +99,10 @@ node tests/integration/test-inter-project-scan.js     # Multi-repo scanning
 # Duplicate detection accuracy tests
 node tests/accuracy/accuracy-test.js --verbose --save-results
 
+# Test path validation (pre-commit hook) ✨ NEW
+npm run test:validate-paths              # Scan for hardcoded /tmp paths
+node tests/scripts/validate-test-paths.js  # Direct validation script
+
 # Type checking
 npm run typecheck
 ```
@@ -113,7 +121,11 @@ npm run typecheck
 - `tests/unit/` - Unit tests for individual components (*.test.js)
 - `tests/integration/` - Integration tests for full workflows (test-*.js)
 - `tests/accuracy/` - Duplicate detection accuracy suite
-- `tests/scripts/` - Test utility scripts
+- `tests/scripts/` - Test utility scripts ✨ NEW
+- `tests/fixtures/` - Test fixtures (`createTempRepository`, `createMultipleTempRepositories`) ✨ NEW
+- `.husky/pre-commit` - Pre-commit hook that validates test paths ✨ NEW
+
+**See:** `tests/README.md` for complete test infrastructure guide (500+ lines) ✨ NEW
 
 ## Architecture
 
@@ -171,6 +183,44 @@ worker.on('job:completed', (job) => { /* ... */ });
 worker.on('job:failed', (job) => { /* ... */ });
 ```
 
+### Error Handling & Retry System ✨ NEW
+
+**Intelligent retry logic with circuit breaker pattern** - See `docs/ERROR_HANDLING.md` for complete guide (800+ lines).
+
+**Key Features:**
+- **Automatic Error Classification**: Retryable (ETIMEDOUT, 5xx) vs non-retryable (ENOENT, 4xx)
+- **Circuit Breaker**: Absolute maximum 5 attempts (configurable max: 2 attempts default)
+- **Exponential Backoff**: `baseDelay * Math.pow(2, attempts - 1)`
+- **Error-specific Delays**: 60s for rate limits (429), 10s for server errors (5xx), 5s default
+- **Sentry Integration**: 3 alert levels (Error at 5+ attempts, Warning at 2 and 3+)
+- **Original Job ID Extraction**: Regex `/-retry\d+/g` to strip nested retry suffixes
+
+**Error Classification:**
+```javascript
+// Retryable errors (automatically retried)
+- ETIMEDOUT, ECONNRESET, ECONNREFUSED
+- HTTP 408, 429, 500, 502, 503, 504
+- Network failures, timeout errors
+
+// Non-retryable errors (fail immediately)
+- ENOENT, EACCES, EINVAL
+- HTTP 400, 401, 403, 404, 422
+- ValidationError, TypeError
+- File not found, permission denied
+```
+
+**Retry Metrics Dashboard:**
+- Real-time visualization of retry queue status
+- Distribution bars (attempt 1, 2, 3+)
+- Warning indicators for jobs nearing circuit breaker limit
+- WebSocket updates via `retry:update` events
+
+**Files:**
+- `sidequest/server.js` - Base retry logic in SidequestServer
+- `docs/ERROR_HANDLING.md` - Comprehensive retry documentation
+- `public/dashboard.js` - Retry metrics visualization
+- `api/server.js` - /api/status endpoint with retry metrics
+
 ### RepomixWorker .gitignore Support
 
 **By default, RepomixWorker respects .gitignore files** - any directories or files listed in .gitignore are automatically excluded from processing.
@@ -220,6 +270,7 @@ npm run dashboard               # Start at http://localhost:8080
 - **Real-time Updates**: WebSocket connection for live pipeline and job status
 - **Pipeline Monitoring**: Status cards for all 4 pipelines (Duplicate Detection, Doc Enhancement, Git Activity, Plugin Manager)
 - **Job Queue**: Active/queued job tracking with capacity monitoring
+- **Retry Queue**: Real-time retry metrics with distribution visualization and circuit breaker warnings ✨ NEW
 - **Activity Feed**: Chronological event log (job starts, completions, failures)
 - **Built-in Documentation**: Tabs for getting started, pipelines, API reference, and architecture
 - **Responsive Design**: Works on desktop, tablet, and mobile
@@ -237,10 +288,11 @@ public/
 **WebSocket Events:**
 - `job:created`, `job:started`, `job:completed`, `job:failed`
 - `pipeline:status`, `queue:update`
+- `retry:update` - Real-time retry metrics updates ✨ NEW
 
 **API Endpoints:**
 - `GET /health` - Health check
-- `GET /api/status` - System status with pipeline/queue/activity data
+- `GET /api/status` - System status with pipeline/queue/activity/retry data ✨ UPDATED
 - `POST /api/scans` - Trigger repository scan
 - `GET /ws/status` - WebSocket client count
 
@@ -321,6 +373,86 @@ const logger = createComponentLogger('ComponentName');
 logger.info('Message');
 logger.error({ err: error, context }, 'Error message');
 ```
+
+### 6. Test Fixtures ✨ NEW
+
+**CRITICAL:** Always use test fixtures, NEVER hardcode `/tmp/` paths in tests.
+
+```javascript
+// ✅ CORRECT - Use test fixtures
+import { createTempRepository, createMultipleTempRepositories } from '../fixtures/test-helpers.js';
+
+describe('My Test Suite', () => {
+  let testRepo;
+
+  beforeEach(async () => {
+    testRepo = await createTempRepository('test-repo');
+  });
+
+  afterEach(async () => {
+    await testRepo.cleanup();
+  });
+
+  test('should scan repository', async () => {
+    const result = await scanner.scan(testRepo.path); // ✅ Uses testRepo.path
+  });
+});
+
+// ❌ INCORRECT - Hardcoded paths
+test('should scan repository', async () => {
+  const result = await scanner.scan('/tmp/test-repo'); // ❌ BLOCKED by pre-commit hook
+});
+```
+
+**Pre-commit Hook:** `.husky/pre-commit` runs `npm run test:validate-paths` to block hardcoded path commits.
+
+**Validation Script:** `tests/scripts/validate-test-paths.js` scans for 5 anti-patterns:
+- Hardcoded `/tmp/test*` paths
+- Hardcoded `/tmp/repo*` paths
+- Hardcoded `repositoryPath: '/tmp/...'` in test data
+
+**See:** `tests/README.md` for complete test fixture guide
+
+### 7. Error Classification ✨ NEW
+
+**Automatic error classification determines retry behavior:**
+
+```javascript
+// Retryable errors (automatically retried with exponential backoff)
+const retryableErrors = {
+  codes: ['ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED'],
+  httpStatus: [408, 429, 500, 502, 503, 504],
+  messages: /timeout|network|connection/i
+};
+
+// Non-retryable errors (fail immediately, no retry)
+const nonRetryableErrors = {
+  codes: ['ENOENT', 'EACCES', 'EINVAL'],
+  httpStatus: [400, 401, 403, 404, 422],
+  types: ['ValidationError', 'TypeError']
+};
+
+// Error-specific retry delays
+const retryDelays = {
+  429: 60000,  // Rate limit - wait 60s
+  5xx: 10000,  // Server error - wait 10s
+  default: 5000 // Default - wait 5s
+};
+```
+
+**Circuit Breaker Pattern:**
+- **Configurable Max:** 2 attempts (default, customizable per worker)
+- **Absolute Max:** 5 attempts (hard limit to prevent infinite loops)
+- **Sentry Alerts:** Error at 5+ attempts, Warning at 2 and 3+
+
+**Original Job ID Extraction:**
+```javascript
+// Strip nested retry suffixes to track attempts correctly
+const originalJobId = jobId.replace(/-retry\d+/g, '');
+// "job-123-retry1-retry2-retry3" → "job-123"
+```
+
+**See:** `docs/ERROR_HANDLING.md` for complete retry logic documentation (800+ lines)
 
 ## Production Deployment
 
@@ -532,11 +664,17 @@ jobs/
 ├── .ast-grep/              # AST-Grep Pattern Rules
 │   └── rules/             # 18 detection rules (database, api, async, etc.)
 │
-├── tests/                  # All Tests (Organized by Type)
+├── tests/                  # All Tests (Organized by Type) ✨ UPDATED
 │   ├── unit/              # Unit tests (9 files, *.test.js)
 │   ├── integration/       # Integration tests (8 files, test-*.js)
 │   ├── accuracy/          # Accuracy test suite
-│   └── scripts/           # Test utility scripts
+│   ├── fixtures/          # Test helpers (createTempRepository, etc.) ✨ NEW
+│   ├── scripts/           # Test utility scripts ✨ UPDATED
+│   │   └── validate-test-paths.js  # Pre-commit path validation (213 lines) ✨ NEW
+│   └── README.md          # Test infrastructure guide (500+ lines) ✨ NEW
+│
+├── .husky/                 # Git Hooks ✨ NEW
+│   └── pre-commit         # Validates test paths before commits ✨ NEW
 │
 ├── scripts/                # Utility & Setup Scripts ✨ UPDATED
 │   └── deploy-traditional-server.sh  # Automated VPS deployment
@@ -547,6 +685,7 @@ jobs/
 │   ├── DEPLOYMENT.md           # Complete deployment overview
 │   ├── TRADITIONAL_SERVER_DEPLOYMENT.md  # PM2 + Nginx guide
 │   ├── PORT_MIGRATION.md       # API_PORT → JOBS_API_PORT migration
+│   ├── ERROR_HANDLING.md       # Comprehensive retry logic guide (800+ lines) ✨ NEW
 │   ├── DASHBOARD_*.md          # 6 dashboard design docs
 │   ├── architecture/
 │   ├── components/
@@ -573,12 +712,15 @@ jobs/
 - `pipelines/claude-health-pipeline.js` - Claude health monitor pipeline
 - `lib/scan-orchestrator.js` - 7-stage pipeline coordinator
 - `lib/similarity/structural.py` - 2-phase similarity algorithm
-- `sidequest/server.js` - AlephAuto job queue base class
+- `sidequest/server.js` - AlephAuto job queue base class (with retry logic) ✨ UPDATED
 - `config/scan-repositories.json` - Repository scan configuration
 - `docs/DATAFLOW_DIAGRAMS.md` - Complete architecture diagrams
+- `docs/ERROR_HANDLING.md` - Retry logic and error classification guide (800+ lines) ✨ NEW
 - `docs/components/` - Component documentation (Plugin Manager, Claude Health, AlephAuto)
-- `public/index.html` - Dashboard UI entry point ✨ NEW
-- `api/server.js` - API server + dashboard serving ✨ NEW
+- `tests/README.md` - Test infrastructure guide (500+ lines) ✨ NEW
+- `tests/scripts/validate-test-paths.js` - Pre-commit path validation ✨ NEW
+- `public/index.html` - Dashboard UI entry point with retry metrics ✨ UPDATED
+- `api/server.js` - API server + dashboard + retry metrics endpoint ✨ UPDATED
 
 ## Environment Variables ✨ UPDATED
 
@@ -612,9 +754,86 @@ doppler secrets get JOBS_API_PORT
 
 **See:** `docs/PORT_MIGRATION.md` for complete migration guide
 
-## Recent Updates (Updated: 2025-11-17)
+## Recent Updates (Updated: 2025-11-18)
 
-### 🎨 Dashboard UI Implementation (NEW)
+### 🔄 Retry Logic & Error Handling System (NEW) - v1.2.0
+**Intelligent retry system with circuit breaker pattern**
+
+**Core Features:**
+- **Automatic Error Classification**: Retryable (ETIMEDOUT, 5xx) vs non-retryable (ENOENT, 4xx)
+- **Circuit Breaker**: Configurable max (default: 2), absolute max (5) to prevent infinite loops
+- **Exponential Backoff**: `baseDelay * Math.pow(2, attempts - 1)`
+- **Error-specific Delays**: 60s for rate limits (429), 10s for server errors (5xx), 5s default
+- **Sentry Integration**: 3 alert levels (Error at 5+, Warning at 2 and 3+)
+- **Original Job ID Extraction**: Regex `/-retry\d+/g` strips nested retry suffixes
+
+**Documentation:**
+- Created `docs/ERROR_HANDLING.md` (837 lines) - Comprehensive retry logic guide
+  - Error classification system with examples
+  - Circuit breaker pattern explanation
+  - Retry flow diagrams
+  - Sentry integration details
+  - Best practices and monitoring strategies
+- Added Critical Pattern #8: Error Classification
+
+**Implementation Files:**
+- `sidequest/server.js` - Base retry logic in SidequestServer
+- `api/server.js` - Added `/api/status` endpoint with retry metrics
+- `api/routes/scans.js` - Exported worker for status endpoint access
+- `public/dashboard.js` - Retry metrics rendering (92 lines)
+- `public/dashboard.css` - Retry metrics styling (141 lines)
+- `public/index.html` - Retry queue section (53 lines)
+
+### 🧪 Test Infrastructure Improvements (NEW) - v1.2.0
+**Comprehensive test fixtures and validation system**
+
+**Test Fixtures:**
+- `tests/fixtures/test-helpers.js` - Reusable test repository creators
+- `createTempRepository()` - Single temporary repo with automatic cleanup
+- `createMultipleTempRepositories(n)` - Multiple repos for inter-project scanning
+- Added Critical Pattern #7: Test Fixtures (ALWAYS use fixtures, NEVER hardcode `/tmp/` paths)
+
+**Pre-commit Validation:**
+- Created `.husky/pre-commit` hook (24 lines) - Blocks hardcoded path commits
+- Created `tests/scripts/validate-test-paths.js` (213 lines) - Scans for 5 anti-patterns
+  - Hardcoded `/tmp/test*` paths
+  - Hardcoded `/tmp/repo*` paths
+  - Hardcoded `repositoryPath: '/tmp/...'` in test data
+  - Provides line-level reporting and fix suggestions
+- Added `npm run test:validate-paths` command
+
+**Documentation:**
+- Created `tests/README.md` (612 lines) - Complete test infrastructure guide
+  - Test organization (unit, integration, accuracy, scripts, fixtures)
+  - Running tests and validation workflows
+  - Test fixtures usage patterns
+  - Pre-commit hooks explanation
+  - Writing tests with best practices
+  - Common issues and solutions
+
+### 📊 Dashboard Retry Metrics (NEW) - v1.2.0
+**Real-time retry queue visualization**
+
+**Features:**
+- Retry queue section with 3 key metrics (active retries, total attempts, nearing limit)
+- Distribution bars showing attempt 1, 2, and 3+ with percentage visualization
+- Warning indicators for jobs nearing circuit breaker limit
+- Jobs being retried list with attempt counts and last attempt timestamps
+- WebSocket updates via `retry:update` events
+
+**Implementation:**
+- `public/index.html` - Retry queue HTML structure (53 lines)
+- `public/dashboard.css` - Retry metrics styling (141 lines)
+  - Distribution bar components
+  - Warning state colors
+  - Responsive grid layout
+- `public/dashboard.js` - Rendering logic (92 lines)
+  - `renderRetryMetrics()` method
+  - `updateDistributionBar()` helper
+  - WebSocket event handling for `retry:update`
+- `api/server.js` - `/api/status` endpoint exposing retry metrics (39 lines)
+
+### 🎨 Dashboard UI Implementation - v1.1.0
 - Created real-time web dashboard with vanilla JavaScript (no build step)
 - WebSocket integration for live pipeline and job status updates
 - Built-in documentation with tabbed interface
@@ -622,7 +841,7 @@ doppler secrets get JOBS_API_PORT
 - Files: `public/index.html`, `public/dashboard.css`, `public/dashboard.js`
 - **Access:** `npm run dashboard` → http://localhost:8080
 
-### 🚀 Deployment Infrastructure (NEW)
+### 🚀 Deployment Infrastructure - v1.1.0
 - Complete deployment guides for 5 deployment methods:
   - Platform as a Service (Railway, Render, Heroku)
   - Traditional Server (PM2 + Doppler + Nginx)
@@ -633,7 +852,7 @@ doppler secrets get JOBS_API_PORT
 - Nginx reverse proxy configurations with SSL
 - Files: `docs/DEPLOYMENT.md`, `docs/TRADITIONAL_SERVER_DEPLOYMENT.md`, `.github/workflows/*`, `Dockerfile`, `docker-compose.yml`
 
-### 🔧 Port Migration (BREAKING CHANGE)
+### 🔧 Port Migration (BREAKING CHANGE) - v1.1.0
 - Changed environment variable from `API_PORT` to `JOBS_API_PORT`
 - Changed default port from `3000` to `8080`
 - Integrated with Doppler secrets management
@@ -642,11 +861,12 @@ doppler secrets get JOBS_API_PORT
 - **See:** `docs/PORT_MIGRATION.md` for migration steps
 
 ### 📚 Documentation Expansion
-- Added 6 comprehensive dashboard design documents (`docs/DASHBOARD_*.md`)
+- **v1.2.0**: Added `docs/ERROR_HANDLING.md` (837 lines) and `tests/README.md` (612 lines)
+- **v1.1.0**: Added 6 comprehensive dashboard design documents (`docs/DASHBOARD_*.md`)
 - Created deployment documentation hub (`docs/deployment/`)
 - Added port migration guide
 - Expanded deployment options documentation
-- Total: 15+ new documentation files
+- Total: 17+ new documentation files
 
 ### 🐛 Bug Fixes & Improvements
 - Fixed TypeScript type coverage issues
@@ -657,7 +877,8 @@ doppler secrets get JOBS_API_PORT
 
 ### 🏗️ Repository Reorganization
 - Moved pipeline files to `pipelines/` directory
-- Consolidated test structure under `tests/` (unit, integration, accuracy, scripts)
+- Consolidated test structure under `tests/` (unit, integration, accuracy, scripts, fixtures)
+- Added `.husky/` for Git hooks
 - Cleaned up outdated research and progress documentation
 - Removed ~6,000 lines of obsolete documentation
 - Added `.github/workflows/` for CI/CD
@@ -666,6 +887,7 @@ doppler secrets get JOBS_API_PORT
 - Added `repomix` as npm dependency (no longer requires global install)
 - Updated npm scripts for better organization
 - Added deployment-related dependencies
+- Added pre-commit hook dependencies (husky)
 
 ## Important Notes
 
@@ -703,10 +925,14 @@ doppler secrets get JOBS_API_PORT
 
 ### Breaking Changes
 
-- **Port:** Changed from 3000 to 8080
-- **Environment Variable:** `API_PORT` → `JOBS_API_PORT`
-- **File Paths:** Pipelines moved to `pipelines/` directory
-- **Test Organization:** Tests moved to `tests/` with subdirectories
+- **Port:** Changed from 3000 to 8080 (v1.1.0)
+- **Environment Variable:** `API_PORT` → `JOBS_API_PORT` (v1.1.0)
+- **File Paths:** Pipelines moved to `pipelines/` directory (v1.1.0)
+- **Test Organization:** Tests moved to `tests/` with subdirectories (v1.1.0)
+- **Test Patterns:** Hardcoded `/tmp/` paths now BLOCKED by pre-commit hook - Use test fixtures (v1.2.0) ✨ NEW
+  - **Migration:** Replace `'/tmp/test-repo'` → `testRepo.path` from `createTempRepository()`
+  - **Validation:** Run `npm run test:validate-paths` to scan for hardcoded paths
+  - **See:** `tests/README.md` for migration guide
 
 ### Next Steps
 
@@ -718,7 +944,9 @@ doppler secrets get JOBS_API_PORT
 
 ---
 
-**Last Updated:** 2025-11-17
-**Version:** 1.1.0 (Dashboard Release)
+**Last Updated:** 2025-11-18
+**Version:** 1.2.0 (Retry Logic & Test Infrastructure Release)
 **Documentation Status:** Complete
 **Deployment Ready:** ✅ Yes
+**Test Infrastructure:** ✅ Pre-commit hooks active
+**Error Handling:** ✅ Circuit breaker with retry metrics
