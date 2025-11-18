@@ -42,6 +42,9 @@ class DashboardController {
         // Update Doppler health status every minute
         this.updateDopplerHealth(); // Initial fetch
         setInterval(() => this.updateDopplerHealth(), 60000); // Every 60 seconds
+
+        // Setup pipeline details panel
+        this.setupPipelineDetailsPanel();
     }
 
     /**
@@ -646,6 +649,289 @@ class DashboardController {
                 });
             });
         });
+    }
+
+    /**
+     * Setup pipeline details panel
+     */
+    setupPipelineDetailsPanel() {
+        const panel = document.getElementById('detailsPanel');
+        const overlay = document.getElementById('panelOverlay');
+        const closeBtn = document.getElementById('panelCloseBtn');
+
+        // Current panel state
+        this.currentPipelineId = null;
+        this.currentTab = 'recent';
+
+        // Close panel handlers
+        const closePanel = () => this.closePipelinePanel();
+
+        closeBtn?.addEventListener('click', closePanel);
+        overlay?.addEventListener('click', closePanel);
+
+        // Keyboard navigation - Escape to close
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && panel?.classList.contains('active')) {
+                closePanel();
+            }
+        });
+
+        // Panel tab navigation
+        const tabs = {
+            recent: document.getElementById('recentTab'),
+            failed: document.getElementById('failedTab'),
+            all: document.getElementById('allTab')
+        };
+
+        Object.entries(tabs).forEach(([tabName, tabEl]) => {
+            tabEl?.addEventListener('click', () => {
+                this.switchPanelTab(tabName);
+            });
+        });
+
+        // Make pipeline cards clickable
+        // Use event delegation since cards may be re-rendered
+        document.getElementById('pipelineCards')?.addEventListener('click', (e) => {
+            const card = e.target.closest('.pipeline-card');
+            if (card) {
+                const pipelineId = card.dataset.pipelineId;
+                if (pipelineId) {
+                    this.openPipelinePanel(pipelineId);
+                }
+            }
+        });
+    }
+
+    /**
+     * Open pipeline details panel
+     */
+    async openPipelinePanel(pipelineId) {
+        console.log('Opening pipeline panel:', pipelineId);
+
+        this.currentPipelineId = pipelineId;
+        this.currentTab = 'recent';
+
+        const panel = document.getElementById('detailsPanel');
+        const overlay = document.getElementById('panelOverlay');
+
+        // Show panel with animation
+        overlay?.classList.add('active');
+        panel?.classList.add('active');
+
+        // Update ARIA attributes
+        panel?.setAttribute('aria-hidden', 'false');
+        overlay?.setAttribute('aria-hidden', 'false');
+
+        // Update panel title
+        const title = document.getElementById('panelTitle');
+        if (title) {
+            title.textContent = `${pipelineId} - Job History`;
+        }
+
+        // Focus close button for keyboard navigation
+        document.getElementById('panelCloseBtn')?.focus();
+
+        // Load jobs for all tabs
+        await Promise.all([
+            this.fetchPipelineJobs(pipelineId, { tab: 'recent' }),
+            this.fetchPipelineJobs(pipelineId, { tab: 'failed' }),
+            this.fetchPipelineJobs(pipelineId, { tab: 'all' })
+        ]);
+    }
+
+    /**
+     * Close pipeline details panel
+     */
+    closePipelinePanel() {
+        console.log('Closing pipeline panel');
+
+        const panel = document.getElementById('detailsPanel');
+        const overlay = document.getElementById('panelOverlay');
+
+        // Hide panel with animation
+        overlay?.classList.remove('active');
+        panel?.classList.remove('active');
+
+        // Update ARIA attributes
+        panel?.setAttribute('aria-hidden', 'true');
+        overlay?.setAttribute('aria-hidden', 'true');
+
+        // Reset state
+        this.currentPipelineId = null;
+        this.currentTab = 'recent';
+    }
+
+    /**
+     * Switch panel tab
+     */
+    switchPanelTab(tabName) {
+        console.log('Switching to tab:', tabName);
+
+        this.currentTab = tabName;
+
+        // Update tab active states
+        const tabs = ['recent', 'failed', 'all'];
+        tabs.forEach(tab => {
+            const tabEl = document.getElementById(`${tab}Tab`);
+            const panelEl = document.getElementById(`${tab}Panel`);
+
+            if (tab === tabName) {
+                tabEl?.classList.add('active');
+                tabEl?.setAttribute('aria-selected', 'true');
+                panelEl?.classList.add('active');
+            } else {
+                tabEl?.classList.remove('active');
+                tabEl?.setAttribute('aria-selected', 'false');
+                panelEl?.classList.remove('active');
+            }
+        });
+    }
+
+    /**
+     * Fetch pipeline jobs from API
+     */
+    async fetchPipelineJobs(pipelineId, options = {}) {
+        const { tab = 'recent', status, limit = 10 } = options;
+
+        // Show loading state
+        const loadingEl = document.getElementById(`${tab}Loading`);
+        const listEl = document.getElementById(`${tab}JobsList`);
+        const emptyEl = document.getElementById(`${tab}Empty`);
+
+        if (loadingEl) loadingEl.style.display = 'flex';
+        if (listEl) listEl.innerHTML = '';
+        if (emptyEl) emptyEl.style.display = 'none';
+
+        try {
+            // Build query params
+            const params = new URLSearchParams();
+            if (status) params.append('status', status);
+            if (tab) params.append('tab', tab);
+            params.append('limit', limit.toString());
+
+            const response = await fetch(
+                `${this.apiBaseUrl}/api/pipelines/${pipelineId}/jobs?${params.toString()}`
+            );
+
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // Hide loading state
+            if (loadingEl) loadingEl.style.display = 'none';
+
+            // Update tab counter
+            const countEl = document.getElementById(`${tab}Count`);
+            if (countEl) countEl.textContent = data.total || 0;
+
+            // Render jobs or show empty state
+            if (data.jobs && data.jobs.length > 0) {
+                this.renderPipelineJobs(data.jobs, `${tab}JobsList`);
+            } else {
+                if (emptyEl) emptyEl.style.display = 'block';
+            }
+
+        } catch (error) {
+            console.error('Failed to fetch pipeline jobs:', error);
+
+            // Hide loading state
+            if (loadingEl) loadingEl.style.display = 'none';
+
+            // Show error message
+            if (listEl) {
+                listEl.innerHTML = `
+                    <div class="panel-empty-state">
+                        <p class="panel-empty-message">Failed to load jobs</p>
+                        <p class="panel-empty-hint">${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    /**
+     * Render pipeline jobs
+     */
+    renderPipelineJobs(jobs, containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        container.innerHTML = jobs.map(job => {
+            const hasResult = job.result && (job.result.output || job.result.error);
+            const hasStats = job.result?.stats;
+
+            return `
+                <div class="panel-job-item">
+                    <div class="panel-job-header">
+                        <span class="panel-job-id">${job.id}</span>
+                        <span class="panel-job-status status-${job.status}">${job.status}</span>
+                    </div>
+                    <div class="panel-job-meta">
+                        <div class="panel-job-meta-row">
+                            <span class="meta-label">Started:</span>
+                            <span>${this.formatRelativeTime(job.startTime)}</span>
+                        </div>
+                        ${job.endTime ? `
+                            <div class="panel-job-meta-row">
+                                <span class="meta-label">Duration:</span>
+                                <span>${this.formatJobDuration(job.duration)}</span>
+                            </div>
+                        ` : ''}
+                        ${job.parameters?.repositoryPath ? `
+                            <div class="panel-job-meta-row">
+                                <span class="meta-label">Repository:</span>
+                                <span style="font-size: 11px; word-break: break-all;">${job.parameters.repositoryPath}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                    ${hasResult ? `
+                        <div class="panel-job-result">
+                            ${job.result.output ? `
+                                <div class="result-output">${job.result.output}</div>
+                            ` : ''}
+                            ${job.result.error ? `
+                                <div class="result-error">${job.result.error}</div>
+                            ` : ''}
+                            ${hasStats ? `
+                                <div class="result-stats">
+                                    ${job.result.stats.filesScanned !== undefined ? `
+                                        <div class="result-stat">
+                                            <span class="result-stat-label">Files</span>
+                                            <span class="result-stat-value">${job.result.stats.filesScanned}</span>
+                                        </div>
+                                    ` : ''}
+                                    ${job.result.stats.duplicatesFound !== undefined ? `
+                                        <div class="result-stat">
+                                            <span class="result-stat-label">Duplicates</span>
+                                            <span class="result-stat-value">${job.result.stats.duplicatesFound}</span>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            ` : ''}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Format job duration
+     */
+    formatJobDuration(durationMs) {
+        if (!durationMs) return 'N/A';
+
+        const seconds = Math.floor(durationMs / 1000);
+        const minutes = Math.floor(seconds / 60);
+
+        if (minutes > 0) {
+            const remainingSeconds = seconds % 60;
+            return `${minutes}m ${remainingSeconds}s`;
+        }
+
+        return `${seconds}s`;
     }
 }
 
