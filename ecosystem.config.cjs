@@ -2,10 +2,12 @@
  * PM2 Ecosystem Configuration - macOS Development/Production
  *
  * Usage:
- *   pm2 start ecosystem.config.cjs
- *   pm2 restart ecosystem.config.cjs
- *   pm2 reload ecosystem.config.cjs --update-env
- *   pm2 save  # Save current process list
+ *   doppler run -- pm2 start ecosystem.config.cjs              # Start with Doppler env vars
+ *   doppler run -- pm2 restart ecosystem.config.cjs --update-env  # Restart with updated env
+ *   pm2 save                                                   # Save current process list
+ *
+ * Environment variables are pulled from Doppler at PM2 startup and preserved
+ * across PM2 restarts. All variables have fallback defaults.
  */
 
 module.exports = {
@@ -24,9 +26,14 @@ module.exports = {
       watch: false,  // Set to true for development
       max_memory_restart: '500M',
 
-      // Environment variables (Doppler injects all secrets)
+      // Environment variables (pulled from Doppler at PM2 startup)
       env: {
-        NODE_ENV: 'production'
+        NODE_ENV: process.env.NODE_ENV || 'production',
+        JOBS_API_PORT: process.env.JOBS_API_PORT || '8080',
+        REDIS_HOST: process.env.REDIS_HOST || 'localhost',
+        REDIS_PORT: process.env.REDIS_PORT || '6379',
+        SENTRY_DSN: process.env.SENTRY_DSN || '',
+        SENTRY_ENVIRONMENT: process.env.SENTRY_ENVIRONMENT || 'production'
       },
 
       // Logging
@@ -35,9 +42,8 @@ module.exports = {
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
 
-      // Use Doppler to inject secrets
-      interpreter: 'doppler',
-      interpreter_args: 'run --',
+      // Use node interpreter (environment variables from process.env, set by doppler run)
+      interpreter: 'node',
 
       // Restart behavior
       min_uptime: '10s',
@@ -59,13 +65,23 @@ module.exports = {
       cwd: '/Users/alyshialedlie/code/jobs',
       instances: 1,
       exec_mode: 'fork',
-      autorestart: true,
+      autorestart: false,  // Disable autorestart to debug - worker should run indefinitely with cron
       watch: false,
       max_memory_restart: '1G',
 
-      // Environment variables (Doppler injects all secrets)
+      // Environment variables (pulled from Doppler at PM2 startup)
       env: {
-        NODE_ENV: 'production'
+        NODE_ENV: process.env.NODE_ENV || 'production',
+        JOBS_API_PORT: process.env.JOBS_API_PORT || '8080',
+        REDIS_HOST: process.env.REDIS_HOST || 'localhost',
+        REDIS_PORT: process.env.REDIS_PORT || '6379',
+        SENTRY_DSN: process.env.SENTRY_DSN || '',
+        SENTRY_ENVIRONMENT: process.env.SENTRY_ENVIRONMENT || 'production',
+        CRON_SCHEDULE: process.env.CRON_SCHEDULE || '0 2 * * *',
+        DOC_CRON_SCHEDULE: process.env.DOC_CRON_SCHEDULE || '0 3 * * *',
+        GIT_CRON_SCHEDULE: process.env.GIT_CRON_SCHEDULE || '0 20 * * 0',
+        PLUGIN_CRON_SCHEDULE: process.env.PLUGIN_CRON_SCHEDULE || '0 9 * * 1',
+        CLAUDE_HEALTH_CRON_SCHEDULE: process.env.CLAUDE_HEALTH_CRON_SCHEDULE || '0 8 * * *'
       },
 
       // Logging
@@ -74,9 +90,8 @@ module.exports = {
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
 
-      // Use Doppler to inject secrets
-      interpreter: 'doppler',
-      interpreter_args: 'run --',
+      // Use node interpreter (environment variables from process.env, set by doppler run)
+      interpreter: 'node',
 
       // Restart behavior (more lenient for long-running jobs)
       min_uptime: '60s',
