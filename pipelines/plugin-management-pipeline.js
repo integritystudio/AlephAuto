@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // @ts-nocheck
 import cron from 'node-cron';
 import { PluginManagerWorker } from '../sidequest/plugin-manager.js';

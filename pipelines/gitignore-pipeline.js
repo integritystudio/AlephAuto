@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // @ts-nocheck
 import { GitignoreWorker } from '../sidequest/gitignore-worker.js';
 import { createComponentLogger } from '../sidequest/logger.js';

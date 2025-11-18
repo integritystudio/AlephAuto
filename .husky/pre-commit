@@ -20,5 +20,27 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# Check executable permissions on pipeline files
+echo "Checking executable permissions..."
+MISSING_EXEC=0
+
+# Check each pipeline file
+for file in api/server.js pipelines/*.js; do
+  if [ -f "$file" ] && [ ! -x "$file" ]; then
+    echo "❌ Missing executable permission: $file"
+    MISSING_EXEC=1
+  fi
+done
+
+if [ $MISSING_EXEC -eq 1 ]; then
+  echo ""
+  echo "❌ Pre-commit validation failed!"
+  echo "Pipeline files must be executable for PM2 to run them."
+  echo ""
+  echo "Fix with: chmod +x api/server.js pipelines/*.js"
+  echo ""
+  exit 1
+fi
+
 echo "✅ All pre-commit checks passed!"
 exit 0

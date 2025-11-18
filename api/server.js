@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * REST API Server for Duplicate Detection
  *

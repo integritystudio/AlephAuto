@@ -684,6 +684,12 @@ async function main() {
       });
 
       console.log('🚀 Pipeline is running. Press Ctrl+C to stop.\n');
+
+      // Keep-alive: prevent process from exiting
+      // The cron scheduler keeps the event loop active, but we add this as a safeguard
+      setInterval(() => {
+        logger.debug('Worker keep-alive heartbeat');
+      }, 300000); // 5 minutes
     } else {
       console.log('▶️  Running scan immediately (RUN_ON_STARTUP=true)\n');
       await worker.runNightlyScan();
@@ -716,7 +722,7 @@ async function main() {
 
 // Run the pipeline
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
+  await main();
 }
 
 export { DuplicateDetectionWorker };

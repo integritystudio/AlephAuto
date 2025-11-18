@@ -365,6 +365,16 @@ update_application() {
         log "Setting permissions..."
         chown -R "$DEPLOY_USER:$DEPLOY_USER" "$APP_DIR"
         chmod -R 755 "$APP_DIR"
+        # Make pipeline files and API server executable
+        chmod +x "$APP_DIR/api/server.js" "$APP_DIR"/pipelines/*.js
+    fi
+
+    # Set executable permissions for pipeline files (macOS and Linux)
+    log "Setting executable permissions for pipeline files..."
+    if $IS_MACOS; then
+        chmod +x api/server.js pipelines/*.js
+    else
+        sudo -u "$DEPLOY_USER" chmod +x "$APP_DIR/api/server.js" "$APP_DIR"/pipelines/*.js
     fi
 
     # Restart PM2 processes
