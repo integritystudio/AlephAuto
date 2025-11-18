@@ -6,9 +6,7 @@ Complete guide for deploying the AlephAuto Dashboard and pipelines to production
 
 1. [Deployment Strategy](#deployment-strategy)
 2. [Prerequisites](#prerequisites)
-3. [Deployment Options](#deployment-options)
-   - [Option 1: Platform as a Service (Recommended)](#option-1-platform-as-a-service-recommended)
-   - [Option 2: Traditional Server with PM2](#option-2-traditional-server-with-pm2)
+3. [Deployment: Traditional Server with PM2](#deployment-traditional-server-with-pm2)
 4. [Environment Variables](#environment-variables)
 5. [CI/CD Workflows](#cicd-workflows)
 6. [Post-Deployment](#post-deployment)
@@ -18,10 +16,9 @@ Complete guide for deploying the AlephAuto Dashboard and pipelines to production
 
 ## Deployment Strategy
 
-Following the **environment-setup-analyzer** framework, we prioritize deployment methods by simplicity and reliability:
+**Traditional Server with PM2** - VPS deployment with full control and custom setup.
 
-1. **🥇 Platform as a Service (PaaS)** - Railway, Render, Heroku (Fastest, most reliable)
-2. **🥈 Traditional Server** - VPS with PM2 (More control, requires setup)
+This guide covers deploying AlephAuto to a VPS or dedicated server using PM2 process manager for production-grade reliability.
 
 ## Prerequisites
 
@@ -40,138 +37,7 @@ Following the **environment-setup-analyzer** framework, we prioritize deployment
 
 ---
 
-## Deployment Options
-
-## Option 1: Platform as a Service (Recommended)
-
-✅ **Best for**: Quick deployment, automatic scaling, managed infrastructure
-
-### Railway
-
-**Why Railway?**
-- Zero-config deployment
-- Automatic HTTPS
-- Built-in Redis
-- GitHub integration
-
-**Deploy Steps:**
-
-1. **Connect Repository**
-   ```bash
-   # Install Railway CLI (using package manager - method #1)
-   brew install railway  # macOS
-   # or
-   npm install -g railway
-   ```
-
-2. **Create New Project**
-   ```bash
-   railway login
-   railway init
-   railway link
-   ```
-
-3. **Add Redis Service**
-   ```bash
-   railway add redis
-   ```
-
-4. **Set Environment Variables**
-   ```bash
-   railway variables set NODE_ENV=production
-   railway variables set JOBS_API_PORT=8080
-   railway variables set SENTRY_DSN=your_sentry_dsn
-   ```
-
-5. **Deploy**
-   ```bash
-   railway up
-   ```
-
-**Configuration**: `railway.json` is already configured
-
-**Access**: Railway provides automatic URL: `https://your-app.railway.app`
-
----
-
-### Render
-
-**Why Render?**
-- Automatic deploys from Git
-- Free tier available
-- Built-in load balancing
-- Managed database/Redis
-
-**Deploy Steps:**
-
-1. **Connect Repository**
-   - Go to [render.com](https://render.com)
-   - Click "New" → "Blueprint"
-   - Connect GitHub repository
-
-2. **Configure Blueprint**
-   - File: `render.yaml` (already configured)
-   - Render will create:
-     - Web service (dashboard + API)
-     - Worker service (background jobs)
-     - Redis instance
-
-3. **Set Environment Variables**
-   - In Render dashboard, add:
-     - `SENTRY_DSN`
-     - `DOPPLER_TOKEN` (if using Doppler)
-
-4. **Deploy**
-   - Push to `main` branch
-   - Render deploys automatically
-
-**Access**: `https://your-app.onrender.com`
-
----
-
-### Heroku
-
-**Why Heroku?**
-- Mature platform
-- Excellent documentation
-- Add-on ecosystem
-
-**Deploy Steps:**
-
-1. **Install Heroku CLI**
-   ```bash
-   brew install heroku/brew/heroku  # macOS
-   ```
-
-2. **Create Application**
-   ```bash
-   heroku create aleph-dashboard
-   ```
-
-3. **Add Redis Add-on**
-   ```bash
-   heroku addons:create heroku-redis:mini
-   ```
-
-4. **Configure Environment**
-   ```bash
-   heroku config:set NODE_ENV=production
-   heroku config:set JOBS_API_PORT=8080
-   heroku config:set SENTRY_DSN=your_sentry_dsn
-   ```
-
-5. **Deploy**
-   ```bash
-   git push heroku main
-   ```
-
-**Configuration**: `Procfile` is already configured
-
-**Access**: `https://aleph-dashboard.herokuapp.com`
-
----
-
-## Option 2: Traditional Server with PM2
+## Deployment: Traditional Server with PM2
 
 ✅ **Best for**: Full control, custom infrastructure, existing VPS
 

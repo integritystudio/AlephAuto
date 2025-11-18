@@ -35,19 +35,12 @@ sudo ./scripts/deploy-traditional-server.sh --update
 ```
 
 ### [DEPLOYMENT.md](../DEPLOYMENT.md)
-**Overview of all deployment options**
+**Deployment guide for traditional servers**
 
-- **Platforms:** Railway, Render, Heroku
-- **Traditional:** VPS with PM2
-
-**Quick Comparison:**
-
-| Method | Difficulty | Setup Time | Best For |
-|--------|-----------|------------|----------|
-| Railway | Easy | 5 min | Quick deployment, auto-scaling |
-| Render | Easy | 10 min | Free tier, managed services |
-| Heroku | Easy | 10 min | Mature platform, add-on ecosystem |
-| Traditional | Medium | 1-2 hours | Full control, custom setup |
+- **Method:** VPS with PM2
+- **Difficulty:** Intermediate
+- **Setup Time:** 1-2 hours
+- **Best For:** Full control, custom infrastructure, production deployments
 
 ### [PORT_MIGRATION.md](../PORT_MIGRATION.md)
 **Documentation of API_PORT → JOBS_API_PORT migration**
@@ -128,40 +121,9 @@ doppler secrets set JOBS_API_PORT=8080
 doppler secrets set NODE_ENV=production
 ```
 
-**Platform-specific:**
-```bash
-# Railway
-railway variables set JOBS_API_PORT=8080
+## 🚀 Quick Deployment
 
-# Heroku
-heroku config:set JOBS_API_PORT=8080
-
-# Render - set in dashboard UI
-```
-
-## 🚀 Quick Deployment Paths
-
-### Path 1: Platform as a Service (Fastest)
-
-**Railway:**
-```bash
-railway login
-railway init
-railway add redis
-railway up
-```
-**Time:** 5 minutes
-
-**Render:**
-```bash
-# Push to GitHub
-git push origin main
-# Connect repo in Render dashboard
-# Deploys automatically
-```
-**Time:** 10 minutes
-
-### Path 2: Traditional Server (Full Control)
+### Traditional Server Deployment
 
 ```bash
 # 1. Initial setup (one-time)
