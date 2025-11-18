@@ -80,6 +80,14 @@ class DocEnhancementPipeline {
    * Run enhancement on all README files
    */
   async runEnhancementPipeline() {
+    // Check if documentation enhancement should be skipped
+    if (config.skipDocEnhancement) {
+      logger.info('Documentation enhancement is disabled (SKIP_DOC_ENHANCEMENT=true)');
+      console.log('\n⏭️  README enhancement pipeline skipped (SKIP_DOC_ENHANCEMENT=true)');
+      console.log('To enable: unset SKIP_DOC_ENHANCEMENT or set to false\n');
+      return;
+    }
+
     logger.info({
       targetDir: this.targetDir,
       dryRun: this.dryRun

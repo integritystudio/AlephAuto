@@ -45,9 +45,13 @@ export const config = {
   // Repomix settings
   repomixTimeout: parseInt(process.env.REPOMIX_TIMEOUT || '600000', 10), // 10 minutes
   repomixMaxBuffer: parseInt(process.env.REPOMIX_MAX_BUFFER || '52428800', 10), // 50MB
+  repomixIgnorePatterns: process.env.REPOMIX_IGNORE_PATTERNS
+    ? process.env.REPOMIX_IGNORE_PATTERNS.split(',')
+    : ['**/README.md', '**/README.MD', '**/*.md'], // Skip README and markdown files by default
 
-  // Schema.org MCP integration
+  // Schema.org MCP integration / Documentation Enhancement
   schemaMcpUrl: process.env.SCHEMA_MCP_URL,
+  skipDocEnhancement: process.env.SKIP_DOC_ENHANCEMENT === 'true', // Skip README Schema.org enhancement
 
   // Logging
   logLevel: process.env.LOG_LEVEL || 'info',

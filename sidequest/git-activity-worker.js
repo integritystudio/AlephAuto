@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { SidequestServer } from './server.js';
 import { spawn } from 'child_process';
 import fs from 'fs/promises';

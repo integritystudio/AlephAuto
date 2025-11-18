@@ -19,10 +19,12 @@ Four automated systems built on the **AlephAuto** job queue framework with Sentr
 
 ### Repomix Automation
 - Recursive directory scanning of `~/code`
+- **Respects .gitignore files** - automatically excludes ignored directories and files
 - Parallel job processing with configurable concurrency
 - Job queue management with status tracking
 - Organized output in `condense/` matching source structure
 - Cron-based scheduling (default: 2 AM daily)
+- Supports additional ignore patterns beyond .gitignore
 
 ### Documentation Enhancement
 - Automatic README.md scanning and enhancement
@@ -162,12 +164,12 @@ cp .env.example .env
 # Edit .env and add your Sentry DSN
 ```
 
-3. Ensure repomix is installed globally:
+3. Verify setup (checks all required dependencies):
 ```bash
-npm install -g repomix
-# or
-npx repomix --version
+npm run verify
 ```
+
+**Note**: `repomix` is now included as an npm dependency and will be installed automatically with `npm install`. No global installation is required.
 
 ## MCP Servers
 

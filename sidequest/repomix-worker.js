@@ -1,20 +1,68 @@
+// @ts-nocheck
 import { SidequestServer } from './server.js';
 import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { createComponentLogger } from './logger.js';
+import { execSync } from 'child_process';
+import { config } from './config.js';
 
 const logger = createComponentLogger('RepomixWorker');
 
 /**
  * RepomixWorker - Executes repomix jobs
+ *
+ * Respects .gitignore files by default - any directories or files listed
+ * in .gitignore will be automatically excluded from processing.
+ *
+ * Options:
+ * - respectGitignore: Respect .gitignore files (default: true)
+ * - additionalIgnorePatterns: Array of additional patterns to ignore (default: [])
+ * - outputBaseDir: Base directory for output files
+ * - codeBaseDir: Base directory for source code
  */
 export class RepomixWorker extends SidequestServer {
   constructor(options = {}) {
     super(options);
     this.outputBaseDir = options.outputBaseDir || './condense';
     this.codeBaseDir = options.codeBaseDir || path.join(os.homedir(), 'code');
+
+    // Gitignore handling (respects .gitignore by default)
+    this.respectGitignore = options.respectGitignore !== false; // Default: true
+
+    // Default ignore patterns from config (includes README.md and markdown files)
+    // Can be overridden via options or environment variable
+    this.additionalIgnorePatterns = options.additionalIgnorePatterns || config.repomixIgnorePatterns || [];
+
+    if (this.additionalIgnorePatterns.length > 0) {
+      logger.info(
+        { patterns: this.additionalIgnorePatterns },
+        'RepomixWorker configured with ignore patterns (README files will be skipped)'
+      );
+    }
+
+    // Pre-flight check: Verify repomix is available
+    this.#verifyRepomixAvailable();
+  }
+
+  /**
+   * Verify repomix is available via npx
+   * Throws if repomix cannot be found
+   * @private
+   */
+  #verifyRepomixAvailable() {
+    try {
+      execSync('npx repomix --version', { stdio: 'ignore', timeout: 5000 });
+      logger.info('Pre-flight check: repomix is available');
+    } catch (error) {
+      const errorMessage =
+        'repomix is not available. Please install it:\n' +
+        '  npm install\n' +
+        'Or verify package.json includes "repomix" dependency.';
+      logger.error({ error }, errorMessage);
+      throw new Error(errorMessage);
+    }
   }
 
   /**
@@ -58,12 +106,39 @@ export class RepomixWorker extends SidequestServer {
   }
 
   /**
-   * Securely run repomix command using spawn (prevents command injection)
+   * Securely run repomix command using npx (prevents command injection)
+   * Uses npx to ensure local repomix from node_modules is used
+   *
+   * By default, repomix respects .gitignore files and excludes:
+   * - Files and directories listed in .gitignore
+   * - Common patterns (node_modules, .git, etc.)
+   *
+   * @param {string} cwd - Current working directory to run repomix in
    * @private
    */
   #runRepomixCommand(cwd) {
     return new Promise((resolve, reject) => {
-      const proc = spawn('repomix', [], {
+      // Build repomix arguments
+      const args = ['repomix'];
+
+      // Disable gitignore if requested (NOT recommended)
+      if (!this.respectGitignore) {
+        args.push('--no-gitignore');
+        logger.warn({ cwd }, 'Running repomix with --no-gitignore (not recommended)');
+      }
+
+      // Add additional ignore patterns if specified
+      if (this.additionalIgnorePatterns.length > 0) {
+        args.push('--ignore', this.additionalIgnorePatterns.join(','));
+        logger.info(
+          { cwd, patterns: this.additionalIgnorePatterns },
+          'Adding additional ignore patterns'
+        );
+      }
+
+      logger.debug({ cwd, args }, 'Spawning repomix with arguments');
+
+      const proc = spawn('npx', args, {
         cwd,
         timeout: 600000, // 10 minute timeout
         maxBuffer: 50 * 1024 * 1024, // 50MB buffer

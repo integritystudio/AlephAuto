@@ -9,6 +9,7 @@ logs/*.json
 logs/*.log
 logs/archive/
 logs/cleanup-logs/
+logs/duplicate-detection/
 *.log
 
 # Output directories (generated files)

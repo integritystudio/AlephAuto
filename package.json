@@ -12,6 +12,8 @@
     "test:all": "node --test tests/unit/**/*.test.js tests/integration/*.js",
     "test:single": "node tests/scripts/test-single-job.js",
     "test:scanner": "node tests/scripts/test-directory-scanner.js",
+    "test:gitignore": "node tests/scripts/test-gitignore-respect.js",
+    "test:repomix-fix": "node tests/scripts/test-repomix-fix.js",
     "docs:enhance": "node sidequest/data-discovery-report-pipeline.js",
     "docs:enhance:dry": "node sidequest/data-discovery-report-pipeline.js --dry-run",
     "docs:test": "node tests/scripts/test-single-enhancement.js",
@@ -26,6 +28,7 @@
     "claude:health:schedule": "zsh -c 'source ~/.zshrc && node pipelines/claude-health-pipeline.js --cron'",
     "claude:health:quick": "zsh -c 'source ~/.zshrc && SKIP_PERFORMANCE=true SKIP_PLUGINS=true RUN_ON_STARTUP=true node pipelines/claude-health-pipeline.js'",
     "setup:sentry": "node setup-files/setup-sentry.js",
+    "verify": "node scripts/verify-setup.js",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
@@ -48,11 +51,12 @@
     "node-cron": "^3.0.3",
     "pino": "^9.0.0",
     "pino-pretty": "^11.0.0",
+    "repomix": "^0.2.7",
     "ws": "^8.18.3",
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "@types/node": "^24.10.0",
+    "@types/node": "^20.14.9",
     "chai": "^4.3.10",
     "supertest": "^7.1.4",
     "typescript": "^5.9.3"

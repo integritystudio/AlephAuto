@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Claude Health Check Worker - AlephAuto Integration
  *

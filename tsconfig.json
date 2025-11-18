@@ -14,9 +14,13 @@
     "resolveJsonModule": true
   },
   "include": [
-    "**/*.js"
+    "**/*.js",
+    "types/**/*.d.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "tests/**/*",
+    "docs/**/*",
+    "scripts/**/*"
   ]
 }

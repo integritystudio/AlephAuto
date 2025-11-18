@@ -167,6 +167,42 @@ worker.on('job:completed', (job) => { /* ... */ });
 worker.on('job:failed', (job) => { /* ... */ });
 ```
 
+### RepomixWorker .gitignore Support
+
+**By default, RepomixWorker respects .gitignore files** - any directories or files listed in .gitignore are automatically excluded from processing.
+
+```javascript
+import { RepomixWorker } from './sidequest/repomix-worker.js';
+
+// Default behavior - respects .gitignore automatically
+const worker = new RepomixWorker({
+  outputBaseDir: './condense',
+  maxConcurrent: 5
+});
+
+// With additional ignore patterns
+const workerWithPatterns = new RepomixWorker({
+  outputBaseDir: './condense',
+  additionalIgnorePatterns: [
+    '*.log',           // Ignore all log files
+    'temp/**',         // Ignore temp directory
+    'dist/',           // Ignore dist directory
+    '**/.env.*'        // Ignore all .env files
+  ]
+});
+
+// Disable .gitignore (NOT recommended)
+const workerNoGitignore = new RepomixWorker({
+  respectGitignore: false  // ⚠️ Not recommended
+});
+```
+
+**What gets excluded by default:**
+- All files/directories in `.gitignore`
+- `node_modules/`, `.git/`, `.venv/`, `venv/`
+- Common build artifacts: `dist/`, `build/`, `coverage/`
+- IDE directories: `.idea/`, `.vscode/`
+
 ## Critical Patterns
 
 ### 1. Nullish Coalescing for Numeric Options
@@ -315,8 +351,9 @@ doppler run -- venv/bin/python3 lib/extractors/extract_blocks.py < input.json
 ### Common Issues
 
 ```bash
-# repomix not found
-npm install -g repomix
+# Dependencies missing (including repomix)
+npm install                       # Installs all dependencies including repomix
+npm run verify                    # Verify all dependencies are available
 
 # Redis connection errors
 redis-cli ping                    # Should return PONG
