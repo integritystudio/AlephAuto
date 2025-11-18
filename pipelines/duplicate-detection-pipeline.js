@@ -352,6 +352,41 @@ class DuplicateDetectionWorker extends SidequestServer {
    * Run intra-project scan
    */
   async _runIntraProjectScan(job, repositoryConfig) {
+    // Validate repository config
+    if (!repositoryConfig) {
+      const error = new Error('Repository configuration is undefined');
+      logger.error({ jobId: job.id }, 'No repository configuration provided for intra-project scan');
+      Sentry.captureException(error, {
+        tags: {
+          error_type: 'validation_error',
+          component: 'DuplicateDetectionPipeline',
+          scan_type: 'intra-project'
+        },
+        extra: { jobId: job.id }
+      });
+      throw error;
+    }
+
+    if (!repositoryConfig.path) {
+      const error = new Error(`Repository configuration missing 'path' property. Config: ${JSON.stringify(repositoryConfig)}`);
+      logger.error({
+        jobId: job.id,
+        repositoryConfig
+      }, 'Repository configuration missing path property');
+      Sentry.captureException(error, {
+        tags: {
+          error_type: 'validation_error',
+          component: 'DuplicateDetectionPipeline',
+          scan_type: 'intra-project'
+        },
+        extra: {
+          jobId: job.id,
+          repositoryConfig
+        }
+      });
+      throw error;
+    }
+
     const repoPath = repositoryConfig.path;
 
     logger.info({
