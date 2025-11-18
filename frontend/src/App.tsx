@@ -37,7 +37,6 @@ function App() {
     activeJobs,
     queuedJobs,
     activity,
-    selectedPipeline,
     selectPipeline,
     markActivityRead,
   } = useDashboardStore();
@@ -45,7 +44,7 @@ function App() {
   /**
    * Handle pipeline view action
    */
-  const handleViewPipeline = useCallback((pipelineId: string) => {
+  const handlePipelineView = useCallback((pipelineId: string) => {
     console.log('[App] View pipeline:', pipelineId);
     selectPipeline(pipelineId);
     // TODO: Navigate to pipeline detail view or open modal
@@ -54,23 +53,23 @@ function App() {
   /**
    * Handle pipeline retry action
    */
-  const handleRetryPipeline = useCallback((pipelineId: string) => {
+  const handlePipelineRetry = useCallback((pipelineId: string) => {
     console.log('[App] Retry pipeline:', pipelineId);
     // TODO: Implement retry pipeline logic via API
   }, []);
 
   /**
-   * Handle job view action
+   * Handle job view logs action
    */
-  const handleViewJob = useCallback((jobId: string) => {
-    console.log('[App] View job:', jobId);
-    // TODO: Navigate to job detail view or open modal
+  const handleJobViewLogs = useCallback((jobId: string) => {
+    console.log('[App] View job logs:', jobId);
+    // TODO: Navigate to job logs view or open modal
   }, []);
 
   /**
    * Handle job cancel action
    */
-  const handleCancelJob = useCallback((jobId: string) => {
+  const handleJobCancel = useCallback((jobId: string) => {
     console.log('[App] Cancel job:', jobId);
     // TODO: Implement cancel job logic via API
   }, []);
@@ -78,7 +77,7 @@ function App() {
   /**
    * Handle job retry action
    */
-  const handleRetryJob = useCallback((jobId: string) => {
+  const handleJobRetry = useCallback((jobId: string) => {
     console.log('[App] Retry job:', jobId);
     // TODO: Implement retry job logic via API
   }, []);
@@ -86,7 +85,7 @@ function App() {
   /**
    * Handle activity item click
    */
-  const handleActivityClick = useCallback((activityId: string) => {
+  const handleActivityItemClick = useCallback((activityId: string) => {
     console.log('[App] Activity clicked:', activityId);
     // TODO: Navigate to related job/pipeline
   }, []);
@@ -94,7 +93,7 @@ function App() {
   /**
    * Handle clear activity action
    */
-  const handleClearActivity = useCallback(() => {
+  const handleActivityClear = useCallback(() => {
     console.log('[App] Clear activity');
     markActivityRead();
     // TODO: Optionally clear activity items from store
@@ -108,14 +107,13 @@ function App() {
         activeJobs={activeJobs}
         queuedJobs={queuedJobs}
         activities={activity}
-        selectedPipeline={selectedPipeline}
-        onViewPipeline={handleViewPipeline}
-        onRetryPipeline={handleRetryPipeline}
-        onViewJob={handleViewJob}
-        onCancelJob={handleCancelJob}
-        onRetryJob={handleRetryJob}
-        onActivityClick={handleActivityClick}
-        onClearActivity={handleClearActivity}
+        onPipelineView={handlePipelineView}
+        onPipelineRetry={handlePipelineRetry}
+        onJobViewLogs={handleJobViewLogs}
+        onJobCancel={handleJobCancel}
+        onJobRetry={handleJobRetry}
+        onActivityItemClick={handleActivityItemClick}
+        onActivityClear={handleActivityClear}
       />
     </div>
   );

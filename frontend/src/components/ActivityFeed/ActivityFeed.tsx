@@ -12,7 +12,6 @@
 
 import React from 'react';
 import type { ActivityItem, ActivityType } from '../../types';
-import { Card } from '../ui';
 import './ActivityFeed.css';
 
 interface ActivityFeedProps {
