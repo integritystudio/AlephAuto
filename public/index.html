@@ -65,6 +65,59 @@
             </div>
         </section>
 
+        <!-- Retry Queue Section -->
+        <section class="dashboard-section retry-section">
+            <h2 class="section-title">🔄 Retry Queue</h2>
+            <div class="retry-content">
+                <div class="retry-stats" id="retryStats">
+                    <div class="stat-card">
+                        <span class="stat-label">Active Retries</span>
+                        <span class="stat-value" id="activeRetriesCount">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Total Attempts</span>
+                        <span class="stat-value" id="totalRetryAttempts">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Nearing Limit</span>
+                        <span class="stat-value warning" id="nearingLimitCount">0</span>
+                    </div>
+                </div>
+                <div class="retry-distribution" id="retryDistribution">
+                    <h3 class="subsection-title">Retry Distribution</h3>
+                    <div class="distribution-bars">
+                        <div class="distribution-bar">
+                            <div class="bar-label">Attempt 1</div>
+                            <div class="bar-container">
+                                <div class="bar-fill" id="attempt1Bar" style="width: 0%"></div>
+                                <span class="bar-value" id="attempt1Value">0</span>
+                            </div>
+                        </div>
+                        <div class="distribution-bar">
+                            <div class="bar-label">Attempt 2</div>
+                            <div class="bar-container">
+                                <div class="bar-fill" id="attempt2Bar" style="width: 0%"></div>
+                                <span class="bar-value" id="attempt2Value">0</span>
+                            </div>
+                        </div>
+                        <div class="distribution-bar">
+                            <div class="bar-label">Attempt 3+</div>
+                            <div class="bar-container">
+                                <div class="bar-fill warning" id="attempt3PlusBar" style="width: 0%"></div>
+                                <span class="bar-value" id="attempt3PlusValue">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="retry-jobs" id="retryJobs">
+                    <h3 class="subsection-title">Jobs Being Retried</h3>
+                    <div id="retryJobsList">
+                        <p class="empty-state">No jobs currently being retried</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Activity Feed Section -->
         <section class="dashboard-section activity-section">
             <h2 class="section-title">📝 Recent Activity</h2>

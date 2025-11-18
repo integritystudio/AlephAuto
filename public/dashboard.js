@@ -83,6 +83,9 @@ class DashboardController {
         if (data.queue) {
             this.renderQueue(data.queue);
         }
+        if (data.retryMetrics) {
+            this.renderRetryMetrics(data.retryMetrics);
+        }
         if (data.recentActivity) {
             this.renderActivity(data.recentActivity);
         }
@@ -269,6 +272,9 @@ class DashboardController {
                 case 'queue:update':
                     this.updateQueueStats(event.active, event.queued, event.capacity);
                     break;
+                case 'retry:update':
+                    this.updateRetryMetrics(event.retryMetrics);
+                    break;
             }
         });
     }
@@ -371,6 +377,92 @@ class DashboardController {
         document.getElementById('activeJobsCount').textContent = active;
         document.getElementById('queuedJobsCount').textContent = queued;
         document.getElementById('capacityValue').textContent = `${Math.round(capacity)}%`;
+    }
+
+    /**
+     * Render retry metrics
+     */
+    renderRetryMetrics(retryMetrics) {
+        if (!retryMetrics) {
+            // Show empty state
+            document.getElementById('activeRetriesCount').textContent = '0';
+            document.getElementById('totalRetryAttempts').textContent = '0';
+            document.getElementById('nearingLimitCount').textContent = '0';
+            document.getElementById('retryJobsList').innerHTML = '<p class="empty-state">No jobs currently being retried</p>';
+            return;
+        }
+
+        const {
+            activeRetries = 0,
+            totalRetryAttempts = 0,
+            retryDistribution = {},
+            jobsBeingRetried = []
+        } = retryMetrics;
+
+        // Update stats
+        document.getElementById('activeRetriesCount').textContent = activeRetries;
+        document.getElementById('totalRetryAttempts').textContent = totalRetryAttempts;
+        document.getElementById('nearingLimitCount').textContent = retryDistribution.nearingLimit || 0;
+
+        // Update distribution bars
+        const maxAttempts = Math.max(
+            retryDistribution.attempt1 || 0,
+            retryDistribution.attempt2 || 0,
+            retryDistribution.attempt3Plus || 0,
+            1 // Avoid division by zero
+        );
+
+        this.updateDistributionBar('attempt1', retryDistribution.attempt1 || 0, maxAttempts);
+        this.updateDistributionBar('attempt2', retryDistribution.attempt2 || 0, maxAttempts);
+        this.updateDistributionBar('attempt3Plus', retryDistribution.attempt3Plus || 0, maxAttempts);
+
+        // Update jobs being retried list
+        const container = document.getElementById('retryJobsList');
+
+        if (jobsBeingRetried.length === 0) {
+            container.innerHTML = '<p class="empty-state">No jobs currently being retried</p>';
+            return;
+        }
+
+        container.innerHTML = jobsBeingRetried.map(job => {
+            const isWarning = job.attempts >= 3;
+            return `
+                <div class="retry-job-item ${isWarning ? 'warning' : ''}">
+                    <div class="retry-job-header">
+                        <span class="retry-job-id">${job.jobId}</span>
+                        <span class="retry-attempts ${isWarning ? 'warning' : ''}">
+                            ${job.attempts}/${job.maxAttempts} attempts
+                        </span>
+                    </div>
+                    <div class="retry-job-meta">
+                        Last attempt: ${this.formatRelativeTime(job.lastAttempt)}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Update distribution bar
+     */
+    updateDistributionBar(barId, value, maxValue) {
+        const percentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
+        const barFill = document.getElementById(`${barId}Bar`);
+        const barValue = document.getElementById(`${barId}Value`);
+
+        if (barFill) {
+            barFill.style.width = `${percentage}%`;
+        }
+        if (barValue) {
+            barValue.textContent = value;
+        }
+    }
+
+    /**
+     * Update retry metrics from WebSocket event
+     */
+    updateRetryMetrics(retryMetrics) {
+        this.renderRetryMetrics(retryMetrics);
     }
 
     /**

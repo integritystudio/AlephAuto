@@ -20,6 +20,9 @@ const cachedScanner = new CachedScanner({ cacheEnabled: true });
 const interProjectScanner = new InterProjectScanner();
 const worker = new DuplicateDetectionWorker({ maxConcurrentScans: 3 });
 
+// Export worker for use in status endpoint
+export { worker };
+
 // Initialize worker
 worker.initialize().catch(error => {
   logger.error({ error }, 'Failed to initialize worker');

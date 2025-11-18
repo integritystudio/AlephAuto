@@ -1,0 +1,24 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Pre-commit hook for AlephAuto
+# Validates test files for hardcoded paths before allowing commit
+
+echo "🔍 Running pre-commit checks..."
+
+# Check for hardcoded test paths
+echo "Validating test paths..."
+npm run test:validate-paths
+
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "❌ Pre-commit validation failed!"
+  echo "Fix hardcoded paths in test files before committing."
+  echo ""
+  echo "Run 'npm run test:validate-paths' to see issues."
+  echo ""
+  exit 1
+fi
+
+echo "✅ All pre-commit checks passed!"
+exit 0

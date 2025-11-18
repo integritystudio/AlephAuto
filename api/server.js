@@ -13,7 +13,7 @@ import { config } from '../sidequest/config.js';
 import { authMiddleware } from './middleware/auth.js';
 import { rateLimiter } from './middleware/rate-limit.js';
 import { errorHandler } from './middleware/error-handler.js';
-import scanRoutes from './routes/scans.js';
+import scanRoutes, { worker } from './routes/scans.js';
 import repositoryRoutes from './routes/repositories.js';
 import reportRoutes from './routes/reports.js';
 import * as Sentry from '@sentry/node';
@@ -58,6 +58,43 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     version: '1.0.0'
   });
+});
+
+// System status endpoint (includes retry metrics)
+app.get('/api/status', (req, res) => {
+  try {
+    const scanMetrics = worker.getScanMetrics();
+    const queueStats = worker.getStats();
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      pipelines: [
+        {
+          id: 'duplicate-detection',
+          name: 'Duplicate Detection',
+          status: queueStats.activeJobs > 0 ? 'running' : 'idle',
+          completedJobs: scanMetrics.totalScanned || 0,
+          failedJobs: scanMetrics.failedScans || 0,
+          lastRun: scanMetrics.lastScanTime ? new Date(scanMetrics.lastScanTime).toISOString() : null,
+          nextRun: null // Cron schedule not exposed here
+        }
+      ],
+      queue: {
+        active: queueStats.activeJobs || 0,
+        queued: queueStats.queuedJobs || 0,
+        capacity: queueStats.activeJobs / (queueStats.maxConcurrent || 3) * 100
+      },
+      retryMetrics: scanMetrics.retryMetrics || null,
+      recentActivity: [] // Can be populated from logs if needed
+    });
+  } catch (error) {
+    logger.error({ error }, 'Failed to get system status');
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to retrieve system status',
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // API routes

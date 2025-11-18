@@ -18,6 +18,8 @@
     --color-error-bg: #fee2e2;
     --color-warning: #f59e0b;
     --color-warning-bg: #fef3c7;
+    --color-warning-light: #fef3c7;
+    --color-warning-dark: #b45309;
     --color-info: #3b82f6;
     --color-info-bg: #dbeafe;
     --color-idle: #6b7280;
@@ -322,6 +324,145 @@ body {
 
 .job-meta {
     font-size: 12px;
+    color: var(--color-gray-600);
+}
+
+/* ===== RETRY QUEUE ===== */
+.retry-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.retry-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-2);
+}
+
+.stat-value.warning {
+    color: var(--color-warning);
+}
+
+.subsection-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-gray-700);
+    margin-bottom: var(--space-2);
+}
+
+.retry-distribution {
+    background: var(--color-gray-50);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+}
+
+.distribution-bars {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.distribution-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.bar-label {
+    font-size: 12px;
+    color: var(--color-gray-600);
+    min-width: 80px;
+}
+
+.bar-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    background: var(--color-white);
+    border-radius: var(--radius-sm);
+    height: 24px;
+    padding: 2px;
+    position: relative;
+    overflow: hidden;
+}
+
+.bar-fill {
+    background: var(--color-info);
+    height: 100%;
+    border-radius: var(--radius-sm);
+    transition: width var(--transition-base);
+}
+
+.bar-fill.warning {
+    background: var(--color-warning);
+}
+
+.bar-value {
+    position: absolute;
+    right: var(--space-2);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-gray-700);
+}
+
+.retry-jobs {
+    background: var(--color-gray-50);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+}
+
+#retryJobsList {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.retry-job-item {
+    background: var(--color-white);
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2);
+    margin-bottom: var(--space-2);
+}
+
+.retry-job-item:last-child {
+    margin-bottom: 0;
+}
+
+.retry-job-item.warning {
+    border-left: 3px solid var(--color-warning);
+}
+
+.retry-job-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-1);
+}
+
+.retry-job-id {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-gray-800);
+    font-family: 'Courier New', monospace;
+}
+
+.retry-attempts {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    background: var(--color-gray-100);
+    color: var(--color-gray-700);
+}
+
+.retry-attempts.warning {
+    background: var(--color-warning-light);
+    color: var(--color-warning-dark);
+}
+
+.retry-job-meta {
+    font-size: 11px;
     color: var(--color-gray-600);
 }
 
