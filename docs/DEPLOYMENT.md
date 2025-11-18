@@ -9,7 +9,6 @@ Complete guide for deploying the AlephAuto Dashboard and pipelines to production
 3. [Deployment Options](#deployment-options)
    - [Option 1: Platform as a Service (Recommended)](#option-1-platform-as-a-service-recommended)
    - [Option 2: Traditional Server with PM2](#option-2-traditional-server-with-pm2)
-   - [Option 3: Docker Containers](#option-3-docker-containers)
 4. [Environment Variables](#environment-variables)
 5. [CI/CD Workflows](#cicd-workflows)
 6. [Post-Deployment](#post-deployment)
@@ -23,7 +22,6 @@ Following the **environment-setup-analyzer** framework, we prioritize deployment
 
 1. **🥇 Platform as a Service (PaaS)** - Railway, Render, Heroku (Fastest, most reliable)
 2. **🥈 Traditional Server** - VPS with PM2 (More control, requires setup)
-3. **🥉 Docker Containers** - For isolation or specific requirements
 
 ## Prerequisites
 
@@ -302,77 +300,6 @@ The repository includes `.github/workflows/deploy.yml` for automated deployment.
 
 ---
 
-## Option 3: Docker Containers
-
-✅ **Best for**: Environment isolation, Kubernetes, existing Docker infrastructure
-
-### Local Development
-
-```bash
-# Build and start services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f dashboard
-
-# Stop services
-docker-compose down
-```
-
-**Access**: http://localhost:8080
-
-### Production Deployment
-
-1. **Build Image**
-   ```bash
-   docker build -t aleph-dashboard:latest .
-   ```
-
-2. **Push to Registry**
-   ```bash
-   docker tag aleph-dashboard:latest your-registry/aleph-dashboard:latest
-   docker push your-registry/aleph-dashboard:latest
-   ```
-
-3. **Deploy with Docker Compose**
-   ```bash
-   docker-compose -f docker-compose.yml up -d
-   ```
-
-4. **Or Deploy to Kubernetes**
-   ```yaml
-   apiVersion: apps/v1
-   kind: Deployment
-   metadata:
-     name: aleph-dashboard
-   spec:
-     replicas: 2
-     selector:
-       matchLabels:
-         app: aleph-dashboard
-     template:
-       metadata:
-         labels:
-           app: aleph-dashboard
-       spec:
-         containers:
-         - name: dashboard
-           image: your-registry/aleph-dashboard:latest
-           ports:
-           - containerPort: 8080
-           env:
-           - name: NODE_ENV
-             value: production
-           - name: JOBS_API_PORT
-             value: "8080"
-           - name: REDIS_HOST
-             value: redis-service
-           - name: REDIS_PORT
-             value: "6379"
-   ```
-
----
-
 ## Environment Variables
 
 ### Required
@@ -481,12 +408,6 @@ pm2 logs aleph-dashboard
 pm2 monit
 ```
 
-**Docker**:
-```bash
-docker-compose ps
-docker-compose logs -f dashboard
-```
-
 ### 3. Set Up Monitoring
 
 - **Sentry**: Error tracking (configure `SENTRY_DSN`)
@@ -523,8 +444,6 @@ ls -la public/
 **Check 2**: Check server logs
 ```bash
 pm2 logs aleph-dashboard
-# or
-docker-compose logs dashboard
 ```
 
 **Check 3**: Verify port is open
@@ -638,19 +557,14 @@ npm run dashboard
 # Deploy with PM2
 doppler run -- pm2 start api/server.js --name aleph-dashboard
 
-# Docker
-docker-compose up -d
-
 # Health check
 curl http://localhost:8080/health
 
 # View logs
 pm2 logs aleph-dashboard
-docker-compose logs -f dashboard
 
 # Restart
 pm2 restart aleph-dashboard
-docker-compose restart dashboard
 ```
 
 ### Deployment Checklist

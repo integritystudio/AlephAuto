@@ -38,7 +38,6 @@ sudo ./scripts/deploy-traditional-server.sh --update
 **Overview of all deployment options**
 
 - **Platforms:** Railway, Render, Heroku
-- **Containers:** Docker, docker-compose, Kubernetes
 - **Traditional:** VPS with PM2
 
 **Quick Comparison:**
@@ -48,7 +47,6 @@ sudo ./scripts/deploy-traditional-server.sh --update
 | Railway | Easy | 5 min | Quick deployment, auto-scaling |
 | Render | Easy | 10 min | Free tier, managed services |
 | Heroku | Easy | 10 min | Mature platform, add-on ecosystem |
-| Docker | Medium | 15 min | Consistency, isolation |
 | Traditional | Medium | 1-2 hours | Full control, custom setup |
 
 ### [PORT_MIGRATION.md](../PORT_MIGRATION.md)
@@ -163,19 +161,7 @@ git push origin main
 ```
 **Time:** 10 minutes
 
-### Path 2: Docker (Portability)
-
-```bash
-# Local development
-docker-compose up -d
-
-# Production
-docker build -t aleph-dashboard .
-docker run -p 8080:8080 aleph-dashboard
-```
-**Time:** 15 minutes
-
-### Path 3: Traditional Server (Full Control)
+### Path 2: Traditional Server (Full Control)
 
 ```bash
 # 1. Initial setup (one-time)
