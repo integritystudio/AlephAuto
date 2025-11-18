@@ -521,6 +521,9 @@ class DashboardController {
         const textElement = statusElement.querySelector('.status-text');
 
         indicator.className = `status-indicator status-${status}`;
+        // Add ARIA attributes for accessibility
+        indicator.setAttribute('role', 'img');
+        indicator.setAttribute('aria-label', `Status: ${text}`);
         textElement.textContent = text;
     }
 
