@@ -1,4 +1,4 @@
-import { DirectoryScanner } from './sidequest/directory-scanner.js';
+import { DirectoryScanner } from '../../sidequest/directory-scanner.js';
 import path from 'path';
 import os from 'os';
 

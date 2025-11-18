@@ -44,6 +44,14 @@ router.post('/start', strictRateLimiter, async (req, res, next) => {
       });
     }
 
+    if (typeof repositoryPath !== 'string') {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'repositoryPath must be a string',
+        timestamp: new Date().toISOString()
+      });
+    }
+
     logger.info({ repositoryPath, options }, 'Starting scan via API');
 
     // Start scan asynchronously

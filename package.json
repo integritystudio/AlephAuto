@@ -29,12 +29,18 @@
     "claude:health:detailed": "zsh -c 'source ~/.zshrc && DETAILED=true RUN_ON_STARTUP=true node pipelines/claude-health-pipeline.js'",
     "claude:health:schedule": "zsh -c 'source ~/.zshrc && node pipelines/claude-health-pipeline.js --cron'",
     "claude:health:quick": "zsh -c 'source ~/.zshrc && SKIP_PERFORMANCE=true SKIP_PLUGINS=true RUN_ON_STARTUP=true node pipelines/claude-health-pipeline.js'",
+    "gitignore:update": "RUN_ON_STARTUP=true doppler run -- node pipelines/gitignore-pipeline.js",
+    "gitignore:update:dry": "GITIGNORE_DRY_RUN=true RUN_ON_STARTUP=true doppler run -- node pipelines/gitignore-pipeline.js",
+    "gitignore:schedule": "doppler run -- node pipelines/gitignore-pipeline.js",
     "setup:sentry": "node setup-files/setup-sentry.js",
     "verify": "node scripts/verify-setup.js",
     "typecheck": "tsc --noEmit",
     "logs:cleanup": "node scripts/cleanup-error-logs.js",
     "logs:cleanup:dry": "node scripts/cleanup-error-logs.js --dry-run",
-    "logs:cleanup:verbose": "node scripts/cleanup-error-logs.js --verbose"
+    "logs:cleanup:verbose": "node scripts/cleanup-error-logs.js --verbose",
+    "permissions:check": "node scripts/validate-permissions.js --check-only",
+    "permissions:fix": "node scripts/validate-permissions.js --fix",
+    "prestart": "node scripts/validate-permissions.js --fix"
   },
   "keywords": [
     "repomix",
@@ -63,6 +69,7 @@
   "devDependencies": {
     "@types/node": "^20.14.9",
     "chai": "^4.3.10",
+    "js-yaml": "^4.1.1",
     "supertest": "^7.1.4",
     "typescript": "^5.9.3"
   }

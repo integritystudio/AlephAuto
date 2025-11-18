@@ -25,6 +25,7 @@ import { RepositoryConfigLoader } from '../lib/config/repository-config-loader.j
 import { InterProjectScanner } from '../lib/inter-project-scanner.js';
 import { ScanOrchestrator } from '../lib/scan-orchestrator.js';
 import { ReportCoordinator } from '../lib/reports/report-coordinator.js';
+import { PRCreator } from '../lib/git/pr-creator.js';
 import { createComponentLogger } from '../sidequest/logger.js';
 import { config } from '../sidequest/config.js';
 import { isRetryable, getErrorInfo } from '../lib/errors/error-classifier.js';
@@ -60,6 +61,12 @@ class DuplicateDetectionWorker extends SidequestServer {
     this.reportCoordinator = new ReportCoordinator(
       path.join(process.cwd(), 'output', 'reports')
     );
+    this.prCreator = new PRCreator({
+      baseBranch: options.baseBranch || 'main',
+      branchPrefix: options.branchPrefix || 'consolidate',
+      dryRun: options.dryRun ?? (process.env.PR_DRY_RUN === 'true'),
+      maxSuggestionsPerPR: options.maxSuggestionsPerPR || 5
+    });
 
     this.scanMetrics = {
       totalScans: 0,
@@ -67,8 +74,12 @@ class DuplicateDetectionWorker extends SidequestServer {
       failedScans: 0,
       totalDuplicatesFound: 0,
       totalSuggestionsGenerated: 0,
-      highImpactDuplicates: 0
+      highImpactDuplicates: 0,
+      prsCreated: 0,
+      prCreationErrors: 0
     };
+
+    this.enablePRCreation = options.enablePRCreation ?? (process.env.ENABLE_PR_CREATION === 'true');
 
     this.retryQueue = new Map(); // jobId -> { attempts, lastAttempt, maxAttempts, delay }
   }
@@ -367,12 +378,56 @@ class DuplicateDetectionWorker extends SidequestServer {
     // Check for high-impact duplicates
     await this._checkForHighImpactDuplicates(result);
 
+    // Create PRs if enabled
+    let prResults = null;
+    if (this.enablePRCreation && result.suggestions && result.suggestions.length > 0) {
+      try {
+        logger.info({
+          jobId: job.id,
+          repository: repositoryConfig.name,
+          suggestions: result.suggestions.length
+        }, 'Creating PRs for consolidation suggestions');
+
+        prResults = await this.prCreator.createPRsForSuggestions(result, repoPath);
+
+        this.scanMetrics.prsCreated += prResults.prsCreated;
+
+        if (prResults.errors.length > 0) {
+          this.scanMetrics.prCreationErrors += prResults.errors.length;
+          logger.warn({
+            errors: prResults.errors
+          }, 'Some PRs failed to create');
+        }
+
+        logger.info({
+          prsCreated: prResults.prsCreated,
+          prUrls: prResults.prUrls,
+          errors: prResults.errors.length
+        }, 'PR creation completed');
+
+      } catch (error) {
+        logger.error({ error }, 'Failed to create PRs for suggestions');
+        this.scanMetrics.prCreationErrors++;
+        Sentry.captureException(error, {
+          tags: {
+            component: 'pr-creation',
+            repository: repositoryConfig.name
+          }
+        });
+      }
+    }
+
     return {
       scanType: 'intra-project',
       repository: repositoryConfig.name,
       duplicates: result.metrics.total_duplicate_groups || 0,
       suggestions: result.metrics.total_suggestions || 0,
-      duration: result.scan_metadata?.duration_seconds || 0
+      duration: result.scan_metadata?.duration_seconds || 0,
+      prResults: prResults ? {
+        prsCreated: prResults.prsCreated,
+        prUrls: prResults.prUrls,
+        errors: prResults.errors.length
+      } : null
     };
   }
 
@@ -639,8 +694,15 @@ async function main() {
       console.log(`   Total scans: ${metrics.totalScans}`);
       console.log(`   Duplicates found: ${metrics.totalDuplicatesFound}`);
       console.log(`   Suggestions generated: ${metrics.totalSuggestionsGenerated}`);
-      console.log(`   High-impact duplicates: ${metrics.highImpactDuplicates}\n`);
+      console.log(`   High-impact duplicates: ${metrics.highImpactDuplicates}`);
 
+      if (worker.enablePRCreation) {
+        console.log('\n🔀 PR Creation:');
+        console.log(`   PRs created: ${metrics.prsCreated}`);
+        console.log(`   PR creation errors: ${metrics.prCreationErrors}`);
+      }
+
+      console.log('');
       process.exit(0);
     }
 

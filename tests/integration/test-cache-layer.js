@@ -9,10 +9,10 @@
  *   node test-cache-layer.js
  */
 
-import { CachedScanner } from './lib/cache/cached-scanner.js';
-import { GitCommitTracker } from './lib/cache/git-tracker.js';
-import { ScanResultCache } from './lib/cache/scan-cache.js';
-import { createComponentLogger } from './sidequest/logger.js';
+import { CachedScanner } from '../../lib/cache/cached-scanner.js';
+import { GitCommitTracker } from '../../lib/cache/git-tracker.js';
+import { ScanResultCache } from '../../lib/cache/scan-cache.js';
+import { createComponentLogger } from '../../sidequest/logger.js';
 import path from 'path';
 
 const logger = createComponentLogger('TestCacheLayer');

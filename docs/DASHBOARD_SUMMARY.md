@@ -198,11 +198,19 @@ Batched updates (500ms debounce) + Polling fallback (5s if WebSocket down)
 - [ ] Log viewer
 - [ ] Documentation tabs
 
-### Phase 4: Polish & Deploy (Week 4)
+### Phase 4: Polish & Deploy (Week 4) ✨ UPDATED
+
+**Note:** Phase 4 has been significantly expanded to incorporate v1.2.0-1.2.1 backend improvements. See **`docs/PHASE_4_IMPLEMENTATION.md`** for comprehensive plan (700+ lines).
+
+**Quick Summary:**
+- [ ] Backend feature integration testing (retry metrics, error classification, circuit breaker)
+- [ ] Test infrastructure validation (fixtures, pre-commit hooks)
+- [ ] Gitignore manager deployment validation
+- [ ] Auto-PR creation feature testing
 - [ ] Responsive testing (desktop/tablet/mobile)
 - [ ] Accessibility audit (WCAG AA)
-- [ ] Performance optimization
-- [ ] Deploy to production
+- [ ] Performance optimization (frontend + backend)
+- [ ] Deploy to production (Platform/PM2/Docker)
 
 ---
 

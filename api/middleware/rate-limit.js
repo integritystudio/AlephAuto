@@ -39,11 +39,16 @@ export const rateLimiter = rateLimit({
 });
 
 /**
- * Strict rate limiter for expensive operations: 10 requests per hour
+ * Strict rate limiter for expensive operations: 10 requests per hour (production)
+ * or 100 requests per hour (development/test)
  */
+const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+const strictLimitMax = isDevelopment ? 100 : 10;
+const strictLimitWindow = isDevelopment ? 60 * 60 * 1000 : 60 * 60 * 1000; // 1 hour
+
 export const strictRateLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10,
+  windowMs: strictLimitWindow,
+  max: strictLimitMax,
   message: {
     error: 'Too Many Requests',
     message: 'Rate limit exceeded for scan operations. Please try again later.',
@@ -53,12 +58,13 @@ export const strictRateLimiter = rateLimit({
     logger.warn({
       ip: req.ip,
       path: req.path,
-      limit: 10
+      limit: strictLimitMax,
+      mode: isDevelopment ? 'development' : 'production'
     }, 'Strict rate limit exceeded');
 
     res.status(429).json({
       error: 'Too Many Requests',
-      message: 'Rate limit exceeded for scan operations. Please try again in 1 hour.',
+      message: `Rate limit exceeded for scan operations. Please try again in 1 hour.${isDevelopment ? ' (Development mode: 100/hour)' : ''}`,
       retryAfter: 3600,
       timestamp: new Date().toISOString()
     });

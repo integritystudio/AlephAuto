@@ -1,0 +1,22 @@
+{
+  "version": "1.0.0",
+  "scanConfig": {
+    "enabled": true,
+    "retryAttempts": 2,
+    "retryDelay": 100,
+    "maxConcurrentScans": 1
+  },
+  "cacheConfig": {
+    "enabled": false
+  },
+  "repositories": [],
+  "repositoryGroups": [],
+  "scanDefaults": {
+    "languages": [
+      "javascript"
+    ]
+  },
+  "notifications": {
+    "enabled": false
+  }
+}

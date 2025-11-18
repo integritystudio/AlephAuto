@@ -6,8 +6,8 @@
  * Usage: node test-scan-pipeline.js [repository-path]
  */
 
-import { ScanOrchestrator } from './lib/scan-orchestrator.js';
-import { createComponentLogger } from './sidequest/logger.js';
+import { ScanOrchestrator } from '../../lib/scan-orchestrator.js';
+import { createComponentLogger } from '../../sidequest/logger.js';
 import path from 'path';
 import fs from 'fs/promises';
 

@@ -1,8 +1,31 @@
 # AlephAuto Dashboard Design Documentation Index
 
-**Total Documentation:** 5 comprehensive guides (130+ KB, 10,000+ words)
-**Audience:** UI/UX designers, frontend developers, product managers
-**Status:** Complete and ready for implementation
+**Total Documentation:** 6 comprehensive guides (200+ KB, 18,000+ words)
+**Audience:** UI/UX designers, frontend developers, product managers, DevOps engineers
+**Status:** Complete and ready for implementation + deployment
+
+---
+
+## ✨ NEW: Phase 4 Implementation & Deployment Plan
+
+**PHASE_4_IMPLEMENTATION.md** - Complete deployment roadmap incorporating v1.2.0-1.2.1 backend improvements
+
+**700+ lines | Comprehensive deployment guide**
+
+This NEW document provides a complete Phase 4 implementation plan with:
+- **Backend feature integration testing** (retry metrics, error classification, circuit breaker)
+- **Test infrastructure validation** (fixtures, pre-commit hooks, CI/CD)
+- **Gitignore manager deployment** (cron scheduling, job queue integration)
+- **Auto-PR creation testing** (branch management, batching, dry-run)
+- **Responsive & accessibility testing** (WCAG AA compliance)
+- **Performance optimization** (frontend + backend load testing)
+- **Production deployment** (Platform/PM2/Docker with detailed steps)
+- **Monitoring & alerts** (Sentry, uptime monitoring, log aggregation)
+
+**When to read:** After dashboard is built, before deploying to production
+**Action:** Follow step-by-step deployment checklist with acceptance criteria
+
+**See:** `docs/PHASE_4_IMPLEMENTATION.md` for complete plan
 
 ---
 
@@ -310,7 +333,8 @@ A: DASHBOARD_IMPLEMENTATION_GUIDE.md section 8 (testing strategy) + DASHBOARD_QU
 | IMPLEMENTATION | 31 KB | 4,500 | 10 | Code patterns, examples |
 | VISUAL_MOCKUPS | 39 KB | 4,000 | 21 | ASCII mockups, design tokens |
 | QUICK_REFERENCE | 13 KB | 2,000 | 20 | Cheat sheet, templates |
-| **TOTAL** | **131 KB** | **18,000** | **74** | **Complete design system** |
+| **PHASE_4_IMPLEMENTATION** ✨ | **70 KB** | **10,000** | **27** | **Deployment roadmap with backend integration** |
+| **TOTAL** | **201 KB** | **28,000** | **101** | **Complete design + deployment system** |
 
 ---
 
@@ -338,6 +362,7 @@ A: DASHBOARD_IMPLEMENTATION_GUIDE.md section 8 (testing strategy) + DASHBOARD_QU
 3. **Build:** Follow DASHBOARD_IMPLEMENTATION_GUIDE.md
 4. **Reference:** Keep DASHBOARD_QUICK_REFERENCE.md handy
 5. **Test:** Use checklists in DASHBOARD_QUICK_REFERENCE.md
+6. **Deploy:** Follow PHASE_4_IMPLEMENTATION.md (700+ lines) ✨ **NEW**
 
 ---
 

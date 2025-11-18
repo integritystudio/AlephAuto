@@ -20,6 +20,7 @@ import * as Sentry from '@sentry/node';
 import { createServer } from 'http';
 import { createWebSocketServer } from './websocket.js';
 import { ScanEventBroadcaster } from './event-broadcaster.js';
+import { ActivityFeedManager } from './activity-feed.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -60,11 +61,15 @@ app.get('/health', (req, res) => {
   });
 });
 
-// System status endpoint (includes retry metrics)
+// System status endpoint (includes retry metrics and activity feed)
 app.get('/api/status', (req, res) => {
   try {
     const scanMetrics = worker.getScanMetrics();
     const queueStats = worker.getStats();
+
+    // Get activity feed
+    const activityFeed = req.app.get('activityFeed');
+    const recentActivity = activityFeed ? activityFeed.getRecentActivities(20) : [];
 
     res.json({
       timestamp: new Date().toISOString(),
@@ -85,10 +90,13 @@ app.get('/api/status', (req, res) => {
         capacity: queueStats.activeJobs / (queueStats.maxConcurrent || 3) * 100
       },
       retryMetrics: scanMetrics.retryMetrics || null,
-      recentActivity: [] // Can be populated from logs if needed
+      recentActivity: recentActivity
     });
   } catch (error) {
     logger.error({ error }, 'Failed to get system status');
+    Sentry.captureException(error, {
+      tags: { component: 'APIServer', endpoint: '/api/status' }
+    });
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to retrieve system status',
@@ -118,8 +126,15 @@ app.use(errorHandler);
 const wss = createWebSocketServer(httpServer);
 const broadcaster = new ScanEventBroadcaster(wss);
 
-// Make broadcaster available to routes
+// Initialize activity feed
+const activityFeed = new ActivityFeedManager(broadcaster, { maxActivities: 50 });
+
+// Connect activity feed to worker events
+activityFeed.listenToWorker(worker);
+
+// Make broadcaster and activity feed available to routes
 app.set('broadcaster', broadcaster);
+app.set('activityFeed', activityFeed);
 
 // WebSocket status endpoint (before API routes to avoid conflict)
 app.get('/ws/status', (req, res) => {
@@ -160,4 +175,4 @@ process.on('SIGTERM', () => {
 });
 
 export default app;
-export { broadcaster };
+export { broadcaster, activityFeed };

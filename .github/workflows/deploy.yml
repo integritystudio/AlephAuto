@@ -118,13 +118,13 @@ jobs:
               doppler run -- pm2 start api/server.js --name aleph-dashboard
             fi
 
-            # Restart or start duplicate detection pipeline
-            if pm2 describe duplicate-scanner > /dev/null 2>&1; then
-              echo "Restarting duplicate scanner..."
-              doppler run -- pm2 restart duplicate-scanner
+            # Restart or start duplicate detection worker
+            if pm2 describe aleph-worker > /dev/null 2>&1; then
+              echo "Restarting worker..."
+              doppler run -- pm2 restart aleph-worker
             else
-              echo "Starting duplicate scanner..."
-              doppler run -- pm2 start pipelines/duplicate-detection-pipeline.js --name duplicate-scanner
+              echo "Starting worker..."
+              doppler run -- pm2 start ecosystem.config.cjs
             fi
 
             # Save PM2 configuration
