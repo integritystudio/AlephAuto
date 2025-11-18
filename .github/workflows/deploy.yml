@@ -139,7 +139,7 @@ jobs:
           sleep 10
 
           # Check dashboard health
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.DEPLOY_HOST }}:3000/health)
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.DEPLOY_HOST }}:8080/health)
           if [ "$RESPONSE" -eq 200 ]; then
             echo "✅ Dashboard is healthy"
           else
@@ -151,8 +151,8 @@ jobs:
         if: success()
         run: |
           echo "🚀 Deployment successful!"
-          echo "📊 Dashboard: http://${{ secrets.DEPLOY_HOST }}:3000/"
-          echo "❤️  Health: http://${{ secrets.DEPLOY_HOST }}:3000/health"
+          echo "📊 Dashboard: http://${{ secrets.DEPLOY_HOST }}:8080/"
+          echo "❤️  Health: http://${{ secrets.DEPLOY_HOST }}:8080/health"
 
       - name: Rollback on failure
         if: failure()
