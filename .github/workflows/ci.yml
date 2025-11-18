@@ -1,0 +1,159 @@
+name: CI - Tests and Checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+        python-version: ['3.11', '3.12']
+
+    services:
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify setup
+        run: npm run verify
+
+      - name: Run TypeScript type checking
+        run: npm run typecheck
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Run integration tests
+        env:
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          NODE_ENV: test
+        run: npm run test:integration
+
+      - name: Check dashboard files exist
+        run: |
+          test -f public/index.html || exit 1
+          test -f public/dashboard.css || exit 1
+          test -f public/dashboard.js || exit 1
+          echo "✅ Dashboard files verified"
+
+  lint:
+    name: Lint and Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript type checking
+        run: npm run typecheck
+
+      - name: Check for security vulnerabilities
+        run: npm audit --audit-level=high
+
+  build-validation:
+    name: Validate Build & Static Assets
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate static assets
+        run: |
+          # Check that public directory exists
+          test -d public || (echo "❌ public/ directory not found" && exit 1)
+
+          # Check HTML structure
+          grep -q "AlephAuto Dashboard" public/index.html || (echo "❌ Dashboard title not found" && exit 1)
+
+          # Check CSS file size (should be reasonable)
+          SIZE=$(stat -f%z public/dashboard.css 2>/dev/null || stat -c%s public/dashboard.css)
+          if [ $SIZE -lt 1000 ]; then
+            echo "❌ CSS file too small: $SIZE bytes"
+            exit 1
+          fi
+
+          # Check JS file size
+          SIZE=$(stat -f%z public/dashboard.js 2>/dev/null || stat -c%s public/dashboard.js)
+          if [ $SIZE -lt 5000 ]; then
+            echo "❌ JS file too small: $SIZE bytes"
+            exit 1
+          fi
+
+          echo "✅ Static assets validated"
+
+      - name: Test API server starts
+        run: |
+          # Start server in background
+          timeout 10 node api/server.js &
+          SERVER_PID=$!
+
+          # Wait for server to start
+          sleep 3
+
+          # Test health endpoint
+          curl -f http://localhost:8080/health || (echo "❌ Health check failed" && exit 1)
+
+          # Clean up
+          kill $SERVER_PID 2>/dev/null || true
+
+          echo "✅ API server validated"
+        env:
+          NODE_ENV: test
+          JOBS_API_PORT: 8080

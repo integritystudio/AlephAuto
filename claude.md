@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Automation pipelines built on the **AlephAuto** job queue framework:
+Automation pipelines built on the **AlephAuto** job queue framework with **real-time dashboard UI**:
 
 1. **Code Consolidation System** - Duplicate code detection using ast-grep, pydantic, multi-layer similarity
 2. **Documentation Enhancement** - Schema.org structured data injection for README files
@@ -13,8 +13,9 @@ Automation pipelines built on the **AlephAuto** job queue framework:
 5. **Repomix Automation** - Automated repomix file generation for git repository roots only
 6. **Plugin Manager** - Claude Code plugin audit, duplicate detection, and cleanup recommendations
 7. **Claude Health Monitor** - Comprehensive Claude Code environment health checks, monitoring, and optimization
+8. **Dashboard UI** - Real-time web interface for monitoring pipelines, job queues, and system status ✨ NEW
 
-All systems use AlephAuto job queue with Sentry error logging, centralized configuration, and event-driven architecture.
+All systems use AlephAuto job queue with Sentry error logging, centralized configuration, event-driven architecture, and WebSocket-based real-time updates.
 
 ## 🔍 Quick Decision Guide
 
@@ -24,6 +25,7 @@ All systems use AlephAuto job queue with Sentry error logging, centralized confi
 **Running tests?** → `npm test` (unit) or `npm run test:integration` (integration)
 **Debugging errors?** → Check Sentry dashboard + logs/, use `createComponentLogger`
 **Production deployment?** → Use doppler + PM2 (see Production Deployment section)
+**View dashboard?** → `npm run dashboard` then visit http://localhost:8080 ✨ NEW
 
 ## ⚠️ Critical Patterns
 
@@ -34,6 +36,7 @@ All systems use AlephAuto job queue with Sentry error logging, centralized confi
 3. **Configuration:** Always use `import { config } from './sidequest/config.js'`, NEVER `process.env` directly
 4. **Doppler Required:** All commands must run with `doppler run --` for environment variables
 5. **Two-Phase Similarity:** Extract semantic features BEFORE normalization (structural.py:29-93, 422-482)
+6. **Port Configuration:** Use `JOBS_API_PORT` (default: 8080), NOT `API_PORT` ✨ NEW
 
 ## Key Commands
 
@@ -42,6 +45,7 @@ All systems use AlephAuto job queue with Sentry error logging, centralized confi
 # Start systems
 doppler run -- npm start        # Repomix cron server
 npm run dev                     # Development mode with auto-restart
+npm run dashboard               # Start dashboard UI (http://localhost:8080) ✨ UPDATED
 
 # Documentation enhancement
 npm run docs:enhance            # Enhance Inventory directory
@@ -103,7 +107,7 @@ npm run typecheck
 - READMEScanner: 11/11 ✅
 - DirectoryScanner: 12/13 ⚠️
 - Accuracy: Precision 100%, Recall 87.50%, F1 93.33%
-- Note: 23 obsolete caching tests removed (file-based → Redis-backed migration)
+- Note: Removed 23 obsolete caching tests (file-based → Redis-backed migration)
 
 **Test Organization:**
 - `tests/unit/` - Unit tests for individual components (*.test.js)
@@ -202,6 +206,45 @@ const workerNoGitignore = new RepomixWorker({
 - `node_modules/`, `.git/`, `.venv/`, `venv/`
 - Common build artifacts: `dist/`, `build/`, `coverage/`
 - IDE directories: `.idea/`, `.vscode/`
+
+### Dashboard UI
+
+Real-time web-based monitoring dashboard for pipeline status and job queue management.
+
+**Quick Start:**
+```bash
+npm run dashboard               # Start at http://localhost:8080
+```
+
+**Features:**
+- **Real-time Updates**: WebSocket connection for live pipeline and job status
+- **Pipeline Monitoring**: Status cards for all 4 pipelines (Duplicate Detection, Doc Enhancement, Git Activity, Plugin Manager)
+- **Job Queue**: Active/queued job tracking with capacity monitoring
+- **Activity Feed**: Chronological event log (job starts, completions, failures)
+- **Built-in Documentation**: Tabs for getting started, pipelines, API reference, and architecture
+- **Responsive Design**: Works on desktop, tablet, and mobile
+- **No Build Step**: Vanilla JavaScript with modern CSS
+
+**Architecture:**
+```
+public/
+├── index.html      # Dashboard structure (12 KB)
+├── dashboard.css   # Modern CSS with variables (13 KB)
+├── dashboard.js    # WebSocket client + API integration (17 KB)
+└── README.md       # Complete documentation
+```
+
+**WebSocket Events:**
+- `job:created`, `job:started`, `job:completed`, `job:failed`
+- `pipeline:status`, `queue:update`
+
+**API Endpoints:**
+- `GET /health` - Health check
+- `GET /api/status` - System status with pipeline/queue/activity data
+- `POST /api/scans` - Trigger repository scan
+- `GET /ws/status` - WebSocket client count
+
+**See:** `public/README.md` for complete dashboard documentation
 
 ## Critical Patterns
 
@@ -314,21 +357,77 @@ pm2 logs duplicate-scanner
 ### REST API & WebSocket Server
 
 ```bash
-# Start API server (default port 3000)
-doppler run -- node pipelines/duplicate-detection-pipeline.js
+# Start API server (default port 8080)
+doppler run -- node api/server.js
+# Or use npm script
+npm run dashboard
 
 # Test endpoints
-curl http://localhost:3000/health
-curl http://localhost:3000/api/scan -X POST -H "Content-Type: application/json" \
+curl http://localhost:8080/health
+curl http://localhost:8080/api/scan -X POST -H "Content-Type: application/json" \
   -d '{"repositoryPath": "/path/to/repo"}'
 ```
 
 **Endpoints:**
 - `GET /health` - Health check
 - `GET /api/status` - System status
-- `POST /api/scan` - Trigger repository scan
-- `GET /api/scan/:scanId` - Get scan results
-- `WebSocket /` - Real-time scan updates
+- `POST /api/scans` - Trigger repository scan
+- `GET /api/scans/:scanId` - Get scan results
+- `GET /ws/status` - WebSocket client count
+- `WebSocket /ws` - Real-time scan updates
+
+### Dashboard Deployment ✨ NEW
+
+The dashboard UI can be deployed using multiple strategies (following environment-setup-analyzer framework):
+
+**Option 1: Platform as a Service (Recommended)**
+```bash
+# Railway
+railway up
+
+# Render
+# Push to main branch - auto-deploys via render.yaml
+
+# Heroku
+git push heroku main
+```
+
+**Option 2: Traditional Server with PM2**
+```bash
+# Start dashboard with PM2
+doppler run -- pm2 start api/server.js --name aleph-dashboard
+pm2 save
+pm2 startup
+```
+
+**Option 3: Docker**
+```bash
+# Local development
+docker-compose up -d
+
+# Production
+docker build -t aleph-dashboard .
+docker run -p 8080:8080 aleph-dashboard
+```
+
+**CI/CD Workflows:** ✨ NEW
+- `.github/workflows/ci.yml` - Runs tests on PRs and pushes
+- `.github/workflows/deploy.yml` - Deploys to production server (SSH)
+- `.github/workflows/deploy-platform.yml` - Validates for platform deployment
+
+**Configuration Files:** ✨ NEW
+- `Procfile` - Heroku deployment
+- `railway.json` - Railway deployment
+- `render.yaml` - Render deployment (with Redis)
+- `Dockerfile` - Multi-stage production build
+- `docker-compose.yml` - Local development
+- `ecosystem.config.template.js` - PM2 configuration template
+
+**Deployment Scripts:** ✨ NEW
+- `scripts/deploy-traditional-server.sh` - Automated VPS deployment
+
+**See:** `docs/DEPLOYMENT.md` for complete deployment guide
+**See:** `docs/TRADITIONAL_SERVER_DEPLOYMENT.md` for PM2 + Nginx setup
 
 ## Python Environment
 
@@ -393,8 +492,8 @@ The project is organized by architectural layer (aligned with dataflow diagrams)
 
 ```
 jobs/
-├── api/                    # API Gateway Layer
-│   ├── server.js          # Express app + WebSocket server
+├── api/                    # API Gateway Layer ✨ UPDATED
+│   ├── server.js          # Express app + WebSocket server + Static file serving
 │   ├── routes/            # Scan, repository, report endpoints
 │   ├── middleware/        # Auth, rate limiting, error handling
 │   └── websocket.js       # Real-time event broadcasting
@@ -415,6 +514,18 @@ jobs/
 │   ├── logger.js          # Sentry-integrated logging
 │   └── doc-enhancement/   # Documentation enhancement workers
 │
+├── public/                 # Dashboard UI (Static Files) ✨ NEW
+│   ├── index.html         # Dashboard HTML (12 KB)
+│   ├── dashboard.css      # Modern CSS with variables (13 KB)
+│   ├── dashboard.js       # WebSocket client + API integration (17 KB)
+│   └── README.md          # Complete dashboard documentation
+│
+├── .github/                # CI/CD Workflows ✨ NEW
+│   └── workflows/
+│       ├── ci.yml         # Tests on PRs and pushes
+│       ├── deploy.yml     # SSH deployment to production
+│       └── deploy-platform.yml  # Platform deployment validation
+│
 ├── config/                 # Configuration Files
 │   └── scan-repositories.json
 │
@@ -422,22 +533,37 @@ jobs/
 │   └── rules/             # 18 detection rules (database, api, async, etc.)
 │
 ├── tests/                  # All Tests (Organized by Type)
-│   ├── unit/              # Unit tests (10 files, *.test.js)
+│   ├── unit/              # Unit tests (9 files, *.test.js)
 │   ├── integration/       # Integration tests (8 files, test-*.js)
 │   ├── accuracy/          # Accuracy test suite
 │   └── scripts/           # Test utility scripts
 │
-├── scripts/                # Utility & Setup Scripts
-├── docs/                   # Documentation
+├── scripts/                # Utility & Setup Scripts ✨ UPDATED
+│   └── deploy-traditional-server.sh  # Automated VPS deployment
+│
+├── docs/                   # Documentation ✨ EXPANDED
 │   ├── CHEAT_SHEET.md
 │   ├── DATAFLOW_DIAGRAMS.md
-│   └── architecture/
+│   ├── DEPLOYMENT.md           # Complete deployment overview
+│   ├── TRADITIONAL_SERVER_DEPLOYMENT.md  # PM2 + Nginx guide
+│   ├── PORT_MIGRATION.md       # API_PORT → JOBS_API_PORT migration
+│   ├── DASHBOARD_*.md          # 6 dashboard design docs
+│   ├── architecture/
+│   ├── components/
+│   └── deployment/             # Deployment documentation hub
 │
-└── pipelines/              # Pipeline Entry Points
-    ├── duplicate-detection-pipeline.js
-    ├── git-activity-pipeline.js
-    ├── plugin-management-pipeline.js
-    └── claude-health-pipeline.js
+├── pipelines/              # Pipeline Entry Points
+│   ├── duplicate-detection-pipeline.js
+│   ├── git-activity-pipeline.js
+│   ├── plugin-management-pipeline.js
+│   └── claude-health-pipeline.js
+│
+├── Dockerfile              # Multi-stage production build ✨ NEW
+├── docker-compose.yml      # Local development setup ✨ NEW
+├── Procfile                # Heroku deployment ✨ NEW
+├── railway.json            # Railway configuration ✨ NEW
+├── render.yaml             # Render blueprint ✨ NEW
+└── ecosystem.config.template.js  # PM2 template ✨ NEW
 ```
 
 **Key Files Reference:**
@@ -451,3 +577,148 @@ jobs/
 - `config/scan-repositories.json` - Repository scan configuration
 - `docs/DATAFLOW_DIAGRAMS.md` - Complete architecture diagrams
 - `docs/components/` - Component documentation (Plugin Manager, Claude Health, AlephAuto)
+- `public/index.html` - Dashboard UI entry point ✨ NEW
+- `api/server.js` - API server + dashboard serving ✨ NEW
+
+## Environment Variables ✨ UPDATED
+
+**Port Configuration Change:**
+- **Old:** `API_PORT` (default: 3000)
+- **New:** `JOBS_API_PORT` (default: 8080) - Managed via Doppler
+
+**Required:**
+```bash
+NODE_ENV=production
+JOBS_API_PORT=8080          # ✨ CHANGED from API_PORT
+REDIS_HOST=localhost
+REDIS_PORT=6379
+```
+
+**Optional:**
+```bash
+SENTRY_DSN=https://...
+CRON_SCHEDULE="0 2 * * *"
+DOC_CRON_SCHEDULE="0 3 * * *"
+GIT_CRON_SCHEDULE="0 20 * * 0"
+PLUGIN_CRON_SCHEDULE="0 9 * * 1"
+CLAUDE_HEALTH_CRON_SCHEDULE="0 8 * * *"
+```
+
+**Setting in Doppler:**
+```bash
+doppler secrets set JOBS_API_PORT=8080
+doppler secrets get JOBS_API_PORT
+```
+
+**See:** `docs/PORT_MIGRATION.md` for complete migration guide
+
+## Recent Updates (Updated: 2025-11-17)
+
+### 🎨 Dashboard UI Implementation (NEW)
+- Created real-time web dashboard with vanilla JavaScript (no build step)
+- WebSocket integration for live pipeline and job status updates
+- Built-in documentation with tabbed interface
+- Responsive design for desktop/tablet/mobile
+- Files: `public/index.html`, `public/dashboard.css`, `public/dashboard.js`
+- **Access:** `npm run dashboard` → http://localhost:8080
+
+### 🚀 Deployment Infrastructure (NEW)
+- Complete deployment guides for 5 deployment methods:
+  - Platform as a Service (Railway, Render, Heroku)
+  - Traditional Server (PM2 + Doppler + Nginx)
+  - Docker/docker-compose
+- CI/CD workflows with GitHub Actions
+- Automated deployment script for VPS
+- PM2 ecosystem configuration template
+- Nginx reverse proxy configurations with SSL
+- Files: `docs/DEPLOYMENT.md`, `docs/TRADITIONAL_SERVER_DEPLOYMENT.md`, `.github/workflows/*`, `Dockerfile`, `docker-compose.yml`
+
+### 🔧 Port Migration (BREAKING CHANGE)
+- Changed environment variable from `API_PORT` to `JOBS_API_PORT`
+- Changed default port from `3000` to `8080`
+- Integrated with Doppler secrets management
+- Updated all configuration files and documentation
+- Files: `sidequest/config.js`, `api/server.js`, deployment configs
+- **See:** `docs/PORT_MIGRATION.md` for migration steps
+
+### 📚 Documentation Expansion
+- Added 6 comprehensive dashboard design documents (`docs/DASHBOARD_*.md`)
+- Created deployment documentation hub (`docs/deployment/`)
+- Added port migration guide
+- Expanded deployment options documentation
+- Total: 15+ new documentation files
+
+### 🐛 Bug Fixes & Improvements
+- Fixed TypeScript type coverage issues
+- Improved test organization (moved `test/` → `tests/`)
+- Removed 23 obsolete caching tests (file-based → Redis migration)
+- Added verification script (`scripts/verify-setup.js`)
+- Fixed import paths for relocated pipeline files
+
+### 🏗️ Repository Reorganization
+- Moved pipeline files to `pipelines/` directory
+- Consolidated test structure under `tests/` (unit, integration, accuracy, scripts)
+- Cleaned up outdated research and progress documentation
+- Removed ~6,000 lines of obsolete documentation
+- Added `.github/workflows/` for CI/CD
+
+### 📦 Dependency Updates
+- Added `repomix` as npm dependency (no longer requires global install)
+- Updated npm scripts for better organization
+- Added deployment-related dependencies
+
+## Important Notes
+
+### For Developers
+
+1. **Dashboard Access:** Run `npm run dashboard` to start the UI at http://localhost:8080
+2. **Port Change:** All references to port 3000 have been updated to 8080
+3. **Environment Variables:** Use `JOBS_API_PORT` instead of `API_PORT`
+4. **Deployment:** Multiple options available - see `docs/DEPLOYMENT.md`
+5. **Tests:** Organized by type - unit tests, integration tests, accuracy tests
+6. **Doppler Required:** All production commands need Doppler for secrets
+
+### For Production Deployment
+
+1. **Choose Deployment Method:**
+   - **Fastest:** Railway (5 minutes) - `railway up`
+   - **Managed:** Render (10 minutes) - push to main, auto-deploys
+   - **Control:** Traditional Server (1-2 hours) - PM2 + Nginx setup
+
+2. **Required Environment Variables:**
+   - `NODE_ENV=production`
+   - `JOBS_API_PORT=8080`
+   - `REDIS_HOST` and `REDIS_PORT`
+   - Optional: `SENTRY_DSN`
+
+3. **Deployment Scripts:**
+   - `scripts/deploy-traditional-server.sh` for VPS deployment
+   - `.github/workflows/deploy.yml` for CI/CD
+
+4. **Documentation:**
+   - General overview: `docs/DEPLOYMENT.md`
+   - Traditional server: `docs/TRADITIONAL_SERVER_DEPLOYMENT.md`
+   - Port migration: `docs/PORT_MIGRATION.md`
+   - Dashboard: `public/README.md`
+
+### Breaking Changes
+
+- **Port:** Changed from 3000 to 8080
+- **Environment Variable:** `API_PORT` → `JOBS_API_PORT`
+- **File Paths:** Pipelines moved to `pipelines/` directory
+- **Test Organization:** Tests moved to `tests/` with subdirectories
+
+### Next Steps
+
+1. Deploy dashboard to production (choose deployment method from docs)
+2. Configure domain and SSL (if using traditional server)
+3. Set up monitoring and alerts
+4. Configure automated backups
+5. Review security checklist in deployment docs
+
+---
+
+**Last Updated:** 2025-11-17
+**Version:** 1.1.0 (Dashboard Release)
+**Documentation Status:** Complete
+**Deployment Ready:** ✅ Yes

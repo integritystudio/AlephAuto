@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlephAuto Dashboard - Pipeline Monitoring</title>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="header-left">
+                <h1 class="header-title">⚡ AlephAuto Dashboard</h1>
+                <p class="header-subtitle">Pipeline Monitoring & Job Queue Management</p>
+            </div>
+            <div class="header-right">
+                <div class="system-status" id="systemStatus">
+                    <span class="status-indicator status-connecting"></span>
+                    <span class="status-text">Connecting...</span>
+                </div>
+                <div class="last-update" id="lastUpdate">
+                    <span class="update-label">Last update:</span>
+                    <span class="update-time">--:--:--</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard -->
+    <main class="dashboard">
+        <!-- Pipeline Status Section -->
+        <section class="dashboard-section pipelines-section">
+            <h2 class="section-title">📊 Pipeline Status</h2>
+            <div class="pipeline-cards" id="pipelineCards">
+                <!-- Pipeline cards will be dynamically inserted here -->
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Loading pipelines...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Job Queue Section -->
+        <section class="dashboard-section queue-section">
+            <h2 class="section-title">📋 Job Queue</h2>
+            <div class="queue-content">
+                <div class="queue-stats" id="queueStats">
+                    <div class="stat-card">
+                        <span class="stat-label">Active</span>
+                        <span class="stat-value" id="activeJobsCount">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Queued</span>
+                        <span class="stat-value" id="queuedJobsCount">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Capacity</span>
+                        <span class="stat-value" id="capacityValue">0%</span>
+                    </div>
+                </div>
+                <div class="queue-jobs" id="queueJobs">
+                    <p class="empty-state">No active or queued jobs</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Activity Feed Section -->
+        <section class="dashboard-section activity-section">
+            <h2 class="section-title">📝 Recent Activity</h2>
+            <div class="activity-feed" id="activityFeed">
+                <p class="empty-state">No recent activity</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Documentation Section -->
+    <section class="documentation-section">
+        <div class="documentation-header">
+            <h2 class="section-title">📚 Documentation</h2>
+            <div class="doc-tabs" id="docTabs">
+                <button class="doc-tab active" data-doc="getting-started">Getting Started</button>
+                <button class="doc-tab" data-doc="pipelines">Pipelines</button>
+                <button class="doc-tab" data-doc="api">API Reference</button>
+                <button class="doc-tab" data-doc="architecture">Architecture</button>
+            </div>
+        </div>
+        <div class="documentation-content" id="docContent">
+            <div class="doc-panel active" data-panel="getting-started">
+                <h3>Getting Started with AlephAuto</h3>
+                <p>AlephAuto is a job queue framework for automation pipelines. This dashboard provides real-time monitoring of:</p>
+                <ul>
+                    <li><strong>Pipeline Status:</strong> Track all active pipelines and their health</li>
+                    <li><strong>Job Queue:</strong> Monitor active and queued jobs with capacity tracking</li>
+                    <li><strong>Real-time Updates:</strong> WebSocket connection provides live status updates</li>
+                    <li><strong>Activity Feed:</strong> Recent events, completions, and errors</li>
+                </ul>
+                <h4>Quick Actions</h4>
+                <ul>
+                    <li>View pipeline details by clicking on any pipeline card</li>
+                    <li>Check job queue capacity and active jobs</li>
+                    <li>Monitor recent activity in the activity feed</li>
+                    <li>Switch documentation tabs for detailed information</li>
+                </ul>
+            </div>
+            <div class="doc-panel" data-panel="pipelines">
+                <h3>Available Pipelines</h3>
+                <div class="pipeline-docs">
+                    <div class="pipeline-doc">
+                        <h4>🔍 Duplicate Detection Pipeline</h4>
+                        <p><strong>Purpose:</strong> Scans repositories for duplicate code using AST-grep and similarity algorithms</p>
+                        <p><strong>Schedule:</strong> Daily at 2 AM (configurable via CRON_SCHEDULE)</p>
+                        <p><strong>Key Features:</strong></p>
+                        <ul>
+                            <li>7-stage processing pipeline (JS → Python)</li>
+                            <li>Multi-layer similarity detection</li>
+                            <li>Redis caching with Git commit-based invalidation</li>
+                            <li>HTML/JSON/Markdown report generation</li>
+                        </ul>
+                    </div>
+                    <div class="pipeline-doc">
+                        <h4>📄 Documentation Enhancement Pipeline</h4>
+                        <p><strong>Purpose:</strong> Injects Schema.org structured data into README files</p>
+                        <p><strong>Schedule:</strong> Daily at 3 AM (DOC_CRON_SCHEDULE)</p>
+                        <p><strong>Key Features:</strong></p>
+                        <ul>
+                            <li>Automatic Schema.org JSON-LD generation</li>
+                            <li>SEO impact scoring</li>
+                            <li>Batch processing with dry-run mode</li>
+                        </ul>
+                    </div>
+                    <div class="pipeline-doc">
+                        <h4>📊 Git Activity Pipeline</h4>
+                        <p><strong>Purpose:</strong> Generates weekly/monthly git activity reports</p>
+                        <p><strong>Schedule:</strong> Sunday at 8 PM (GIT_CRON_SCHEDULE)</p>
+                        <p><strong>Key Features:</strong></p>
+                        <ul>
+                            <li>Commit statistics and visualizations</li>
+                            <li>Author contribution tracking</li>
+                            <li>Markdown report generation</li>
+                        </ul>
+                    </div>
+                    <div class="pipeline-doc">
+                        <h4>🔌 Plugin Management Pipeline</h4>
+                        <p><strong>Purpose:</strong> Audits Claude Code plugins for duplicates and issues</p>
+                        <p><strong>Schedule:</strong> Monday at 9 AM (PLUGIN_CRON_SCHEDULE)</p>
+                        <p><strong>Key Features:</strong></p>
+                        <ul>
+                            <li>Duplicate plugin detection</li>
+                            <li>Version conflict identification</li>
+                            <li>Cleanup recommendations</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="doc-panel" data-panel="api">
+                <h3>API Reference</h3>
+                <h4>Endpoints</h4>
+                <div class="api-endpoints">
+                    <div class="api-endpoint">
+                        <code class="http-method">GET</code>
+                        <code class="endpoint-path">/health</code>
+                        <p>Health check endpoint - returns server status</p>
+                    </div>
+                    <div class="api-endpoint">
+                        <code class="http-method">GET</code>
+                        <code class="endpoint-path">/api/status</code>
+                        <p>System status including pipeline states and job queue</p>
+                    </div>
+                    <div class="api-endpoint">
+                        <code class="http-method">POST</code>
+                        <code class="endpoint-path">/api/scans</code>
+                        <p>Trigger a new repository scan</p>
+                        <pre>{ "repositoryPath": "/path/to/repo" }</pre>
+                    </div>
+                    <div class="api-endpoint">
+                        <code class="http-method">GET</code>
+                        <code class="endpoint-path">/api/scans/:scanId</code>
+                        <p>Get scan results by ID</p>
+                    </div>
+                    <div class="api-endpoint">
+                        <code class="http-method">GET</code>
+                        <code class="endpoint-path">/ws/status</code>
+                        <p>WebSocket connection status and client count</p>
+                    </div>
+                </div>
+                <h4>WebSocket Events</h4>
+                <ul>
+                    <li><code>job:created</code> - New job added to queue</li>
+                    <li><code>job:started</code> - Job execution started</li>
+                    <li><code>job:completed</code> - Job finished successfully</li>
+                    <li><code>job:failed</code> - Job execution failed</li>
+                    <li><code>pipeline:status</code> - Pipeline status update</li>
+                </ul>
+            </div>
+            <div class="doc-panel" data-panel="architecture">
+                <h3>System Architecture</h3>
+                <h4>AlephAuto Job Queue Framework</h4>
+                <pre class="architecture-diagram">
+┌─────────────────────────────────────┐
+│     SidequestServer (Base)          │
+│  - Job queue management             │
+│  - Concurrency control              │
+│  - Event emission                   │
+│  - Sentry integration               │
+└─────────────────────────────────────┘
+              ▲ extends
+    ┌─────────┴──────────┬──────────────┬──────────────┐
+    │                    │              │              │
+RepomixWorker    SchemaEnhancement  GitActivity   PluginManager
+                      Worker          Worker          Worker
+                </pre>
+                <h4>Duplicate Detection Pipeline (7 Stages)</h4>
+                <pre class="architecture-diagram">
+Stage 1-2 (JavaScript): Repository Scanner → AST-Grep Detector
+      ↓ JSON via stdin/stdout
+Stage 3-7 (Python): Block Extraction → Semantic Annotation
+                  → Duplicate Grouping → Suggestions → Reports
+                </pre>
+                <h4>Key Components</h4>
+                <ul>
+                    <li><strong>API Server:</strong> Express REST API with WebSocket support</li>
+                    <li><strong>Job Queue:</strong> AlephAuto framework with concurrency control</li>
+                    <li><strong>Redis Cache:</strong> Git commit-based result caching (30-day TTL)</li>
+                    <li><strong>Sentry:</strong> Error tracking and performance monitoring</li>
+                    <li><strong>Event Broadcasting:</strong> WebSocket real-time updates</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; 2025 AlephAuto Dashboard | <a href="https://github.com/anthropics/claude-code" target="_blank">Built with Claude Code</a></p>
+    </footer>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,172 @@
+name: CD - Production Deployment
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Node.js dependencies
+        run: npm ci --production
+
+      - name: Install Python dependencies
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Doppler CLI
+        run: |
+          # Follow environment-setup-analyzer: Use package manager first
+          curl -sLf --retry 3 --tlsv1.2 --proto "=https" 'https://packages.doppler.com/public/cli/gpg.DE2A7741.key' | sudo apt-key add -
+          echo "deb https://packages.doppler.com/public/cli/deb/debian any-version main" | sudo tee /etc/apt/sources.list.d/doppler-cli.list
+          sudo apt-get update && sudo apt-get install doppler
+
+      - name: Install PM2 globally
+        run: npm install -g pm2
+
+      - name: Validate deployment files
+        run: |
+          echo "Validating deployment artifacts..."
+
+          # Check critical files exist
+          test -f api/server.js || (echo "❌ API server not found" && exit 1)
+          test -d public || (echo "❌ Public directory not found" && exit 1)
+          test -f public/index.html || (echo "❌ Dashboard HTML not found" && exit 1)
+          test -f public/dashboard.css || (echo "❌ Dashboard CSS not found" && exit 1)
+          test -f public/dashboard.js || (echo "❌ Dashboard JS not found" && exit 1)
+
+          # Check package.json has dashboard script
+          grep -q '"dashboard"' package.json || (echo "❌ Dashboard script not found" && exit 1)
+
+          echo "✅ All deployment files validated"
+
+      - name: Configure Doppler
+        run: |
+          echo "${{ secrets.DOPPLER_TOKEN }}" | doppler configure set token --scope / --silent
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+
+      - name: Deploy with rsync
+        uses: burnett01/rsync-deployments@6.0.0
+        with:
+          switches: -avzr --delete --exclude='.git*' --exclude='node_modules' --exclude='venv' --exclude='tests'
+          path: ./
+          remote_path: ${{ secrets.DEPLOY_PATH }}
+          remote_host: ${{ secrets.DEPLOY_HOST }}
+          remote_user: ${{ secrets.DEPLOY_USER }}
+          remote_key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Install dependencies on server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+
+            # Install Node.js dependencies
+            npm ci --production
+
+            # Install Python dependencies
+            python3 -m venv venv
+            source venv/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt
+
+      - name: Restart services with PM2
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+
+            # Load Doppler environment
+            eval $(doppler secrets download --no-file --format env-no-quotes)
+
+            # Restart or start dashboard
+            if pm2 describe aleph-dashboard > /dev/null 2>&1; then
+              echo "Restarting dashboard..."
+              doppler run -- pm2 restart aleph-dashboard
+            else
+              echo "Starting dashboard..."
+              doppler run -- pm2 start api/server.js --name aleph-dashboard
+            fi
+
+            # Restart or start duplicate detection pipeline
+            if pm2 describe duplicate-scanner > /dev/null 2>&1; then
+              echo "Restarting duplicate scanner..."
+              doppler run -- pm2 restart duplicate-scanner
+            else
+              echo "Starting duplicate scanner..."
+              doppler run -- pm2 start pipelines/duplicate-detection-pipeline.js --name duplicate-scanner
+            fi
+
+            # Save PM2 configuration
+            pm2 save
+
+            # Show status
+            pm2 status
+
+      - name: Health check
+        run: |
+          echo "Waiting for services to start..."
+          sleep 10
+
+          # Check dashboard health
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.DEPLOY_HOST }}:3000/health)
+          if [ "$RESPONSE" -eq 200 ]; then
+            echo "✅ Dashboard is healthy"
+          else
+            echo "❌ Dashboard health check failed (HTTP $RESPONSE)"
+            exit 1
+          fi
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "🚀 Deployment successful!"
+          echo "📊 Dashboard: http://${{ secrets.DEPLOY_HOST }}:3000/"
+          echo "❤️  Health: http://${{ secrets.DEPLOY_HOST }}:3000/health"
+
+      - name: Rollback on failure
+        if: failure()
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+
+            echo "⚠️ Deployment failed, attempting rollback..."
+
+            # Restore previous PM2 configuration
+            pm2 resurrect
+
+            echo "Rollback complete. Please check logs with: pm2 logs"

@@ -82,6 +82,9 @@ export const config = {
   // Health check server
   healthCheckPort: parseInt(process.env.HEALTH_CHECK_PORT || '3000', 10),
 
+  // API server port
+  apiPort: parseInt(process.env.JOBS_API_PORT || '8080', 10),
+
   // Project root directory
   projectRoot: __dirname,
 };

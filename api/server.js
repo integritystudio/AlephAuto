@@ -6,6 +6,8 @@
 
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { createComponentLogger } from '../sidequest/logger.js';
 import { config } from '../sidequest/config.js';
 import { authMiddleware } from './middleware/auth.js';
@@ -19,6 +21,9 @@ import { createServer } from 'http';
 import { createWebSocketServer } from './websocket.js';
 import { ScanEventBroadcaster } from './event-broadcaster.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const logger = createComponentLogger('APIServer');
 
 const app = express();
@@ -27,6 +32,9 @@ const httpServer = createServer(app);
 // Middleware
 app.use(express.json());
 app.use(cors());
+
+// Serve static files from public directory (dashboard)
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Logging middleware
 app.use((req, res, next) => {
@@ -87,14 +95,15 @@ app.get('/ws/status', (req, res) => {
 });
 
 // Start server
-const PORT = config.apiPort || process.env.API_PORT || 3000;
+const PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (default: 8080)
 
 httpServer.listen(PORT, () => {
   logger.info({ port: PORT }, 'API server started');
-  console.log(`\n🚀 Duplicate Detection API Server running on port ${PORT}`);
-  console.log(`   Health check: http://localhost:${PORT}/health`);
-  console.log(`   WebSocket: ws://localhost:${PORT}/ws`);
-  console.log(`   API docs: http://localhost:${PORT}/api/docs\n`);
+  console.log(`\n🚀 AlephAuto API Server & Dashboard running on port ${PORT}`);
+  console.log(`   📊 Dashboard: http://localhost:${PORT}/`);
+  console.log(`   ❤️  Health check: http://localhost:${PORT}/health`);
+  console.log(`   🔌 WebSocket: ws://localhost:${PORT}/ws`);
+  console.log(`   📡 API: http://localhost:${PORT}/api/\n`);
 });
 
 // Graceful shutdown
