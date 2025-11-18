@@ -107,9 +107,9 @@ app.get('/api/status', (req, res) => {
           id: 'duplicate-detection',
           name: 'Duplicate Detection',
           status: queueStats.activeJobs > 0 ? 'running' : 'idle',
-          completedJobs: scanMetrics.totalScanned || 0,
+          completedJobs: scanMetrics.totalScans || 0,
           failedJobs: scanMetrics.failedScans || 0,
-          lastRun: scanMetrics.lastScanTime ? new Date(scanMetrics.lastScanTime).toISOString() : null,
+          lastRun: null, // Not tracked in metrics
           nextRun: null // Cron schedule not exposed here
         }
       ],
