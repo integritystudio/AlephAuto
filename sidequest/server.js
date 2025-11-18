@@ -4,6 +4,7 @@ import { config } from './config.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { createComponentLogger } from './logger.js';
+import { safeErrorMessage } from '../lib/utils/error-helpers.js';
 
 const logger = createComponentLogger('SidequestServer');
 
@@ -121,9 +122,9 @@ export class SidequestServer extends EventEmitter {
       } catch (error) {
         job.status = 'failed';
         job.completedAt = new Date();
-        job.error = error.message;
+        job.error = safeErrorMessage(error);
 
-        this.emit('job:failed', job);
+        this.emit('job:failed', job, error);
         this.jobHistory.push({ ...job });
 
         // Log error to Sentry

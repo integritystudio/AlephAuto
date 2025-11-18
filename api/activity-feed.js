@@ -7,6 +7,7 @@
 
 import { createComponentLogger } from '../sidequest/logger.js';
 import * as Sentry from '@sentry/node';
+import { safeErrorMessage, toErrorObject } from '../lib/utils/error-helpers.js';
 
 const logger = createComponentLogger('ActivityFeed');
 
@@ -213,40 +214,46 @@ export class ActivityFeedManager {
       // Job failed
       worker.on('job:failed', (job, error) => {
         try {
+          const errorObj = toErrorObject(error, {
+            fallbackMessage: 'Unknown error',
+            metadata: { jobId: job.id }
+          });
+
           this.addActivity({
             type: 'job:failed',
             event: 'Job Failed',
-            message: `Job ${job.id} failed: ${error.message}`,
+            message: `Job ${job.id} failed: ${errorObj.message}`,
             jobId: job.id,
             jobType: job.data?.type || 'unknown',
             status: 'failed',
             error: {
-              message: error.message,
-              code: error.code,
-              retryable: error.retryable || false
+              message: errorObj.message,
+              code: error?.code,
+              retryable: error?.retryable || false
             },
             icon: '❌'
           });
 
           // Capture job failure in Sentry
-          Sentry.captureException(error, {
+          Sentry.captureException(error || new Error(errorObj.message), {
             tags: {
               component: 'ActivityFeed',
               event: 'job:failed',
               jobId: job.id,
               jobType: job.data?.type || 'unknown',
-              retryable: error.retryable || false
+              retryable: error?.retryable || false
             },
             extra: {
               jobData: job.data,
-              errorCode: error.code
+              errorCode: error?.code,
+              errorType: errorObj.type
             }
           });
         } catch (activityError) {
           logger.error({ error: activityError, job }, 'Failed to add job:failed activity');
           Sentry.captureException(activityError, {
             tags: { component: 'ActivityFeed', event: 'job:failed:activity-error' },
-            extra: { jobId: job.id, originalError: error.message }
+            extra: { jobId: job.id, originalError: safeErrorMessage(error) }
           });
         }
       });
@@ -254,6 +261,8 @@ export class ActivityFeedManager {
       // Retry created
       worker.on('retry:created', (jobId, attempt, error) => {
         try {
+          const errorMessage = safeErrorMessage(error);
+
           this.addActivity({
             type: 'retry:created',
             event: 'Retry Scheduled',
@@ -262,8 +271,8 @@ export class ActivityFeedManager {
             attempt,
             status: 'retry',
             error: {
-              message: error.message,
-              code: error.code
+              message: errorMessage,
+              code: error?.code
             },
             icon: '🔄'
           });
@@ -273,7 +282,7 @@ export class ActivityFeedManager {
             category: 'retry',
             message: `Job ${jobId} retry attempt ${attempt}`,
             level: 'warning',
-            data: { jobId, attempt, errorCode: error.code }
+            data: { jobId, attempt, errorCode: error?.code }
           });
         } catch (activityError) {
           logger.error({ error: activityError, jobId }, 'Failed to add retry:created activity');
