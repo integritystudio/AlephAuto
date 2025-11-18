@@ -8,11 +8,16 @@ import { RepomixWorker } from '../../sidequest/repomix-worker.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { execSync } from 'child_process';
+import { createTempRepository } from '../fixtures/test-helpers.js';
+import os from 'os';
 
 async function testGitignoreRespect() {
   console.log('🔍 Testing .gitignore Respect...\n');
 
-  const testDir = '/tmp/repomix-gitignore-test';
+  // Create temporary test directory
+  const testRepo = await createTempRepository('gitignore-test');
+  const testDir = testRepo.path;
+  const outputDir = await fs.mkdtemp(path.join(os.tmpdir(), 'repomix-output-'));
 
   try {
     // Setup: Create test directory structure
@@ -47,7 +52,7 @@ async function testGitignoreRespect() {
     // Test 1: Default behavior (respects .gitignore)
     console.log('Test 1: RepomixWorker with default settings (respects .gitignore)...');
     const worker1 = new RepomixWorker({
-      outputBaseDir: '/tmp/repomix-test-output',
+      outputBaseDir: outputDir,
       maxConcurrent: 1,
     });
 
@@ -87,7 +92,7 @@ async function testGitignoreRespect() {
 
     console.log('\nTest 2: RepomixWorker with additional ignore patterns...');
     const worker2 = new RepomixWorker({
-      outputBaseDir: '/tmp/repomix-test-output',
+      outputBaseDir: outputDir,
       maxConcurrent: 1,
       additionalIgnorePatterns: ['*.log', 'temp/**'],
     });
@@ -95,9 +100,9 @@ async function testGitignoreRespect() {
     console.log('  ✅ Worker created with additional patterns: *.log, temp/**');
 
     // Cleanup
-    console.log('\nCleanup: Removing test directory...');
-    await fs.rm(testDir, { recursive: true, force: true });
-    await fs.rm('/tmp/repomix-test-output', { recursive: true, force: true });
+    console.log('\nCleanup: Removing test directories...');
+    await testRepo.cleanup();
+    await fs.rm(outputDir, { recursive: true, force: true });
     console.log('✅ Cleanup complete\n');
 
     console.log('=' .repeat(50));
@@ -118,8 +123,8 @@ async function testGitignoreRespect() {
 
     // Cleanup on error
     try {
-      await fs.rm(testDir, { recursive: true, force: true });
-      await fs.rm('/tmp/repomix-test-output', { recursive: true, force: true });
+      await testRepo.cleanup();
+      await fs.rm(outputDir, { recursive: true, force: true });
     } catch (cleanupError) {
       // Ignore cleanup errors
     }

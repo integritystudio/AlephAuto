@@ -1,12 +1,24 @@
-import { test, describe, beforeEach } from 'node:test';
+import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { spawn } from 'child_process';
 import { createComponentLogger } from '../../sidequest/logger.js';
+import { createTempRepository } from '../fixtures/test-helpers.js';
 
 const logger = createComponentLogger('MCPServerTest');
 
 describe('MCP Server', () => {
   let serverProcess;
+  let testRepo;
+
+  beforeEach(async () => {
+    // Create temporary test repository
+    testRepo = await createTempRepository('test-repo');
+  });
+
+  afterEach(async () => {
+    // Cleanup temporary repository
+    if (testRepo) await testRepo.cleanup();
+  });
 
   // Helper function to send JSONRPC request to MCP server
   async function sendMCPRequest(method, params = {}) {
@@ -245,7 +257,7 @@ describe('MCP Server', () => {
         const responses = await sendMCPRequest('tools/call', {
           name: 'scan_repository',
           arguments: {
-            repositoryPath: '/tmp/test-repo'
+            repositoryPath: testRepo.path
           }
         });
 

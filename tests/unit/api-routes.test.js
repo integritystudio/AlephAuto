@@ -5,11 +5,14 @@ import express from 'express';
 import scanRoutes from '../../api/routes/scans.js';
 import repositoryRoutes from '../../api/routes/repositories.js';
 import reportRoutes from '../../api/routes/reports.js';
+import { createTempRepository, createMultipleTempRepositories, cleanupRepositories } from '../fixtures/test-helpers.js';
 
 describe('API Routes', () => {
   let app;
+  let testRepo;
+  let multiRepos;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Create fresh Express app for each test
     app = express();
     app.use(express.json());
@@ -18,6 +21,16 @@ describe('API Routes', () => {
     app.use('/api/scans', scanRoutes);
     app.use('/api/repositories', repositoryRoutes);
     app.use('/api/reports', reportRoutes);
+
+    // Create temporary test repositories
+    testRepo = await createTempRepository('test');
+    multiRepos = await createMultipleTempRepositories(2);
+  });
+
+  afterEach(async () => {
+    // Cleanup temporary repositories
+    if (testRepo) await testRepo.cleanup();
+    if (multiRepos) await cleanupRepositories(multiRepos);
   });
 
   describe('Scan Routes', () => {
@@ -36,7 +49,7 @@ describe('API Routes', () => {
         const response = await request(app)
           .post('/api/scans/start')
           .send({
-            repositoryPath: '/tmp/test-repo',
+            repositoryPath: testRepo.path,
             options: {}
           });
 
@@ -50,7 +63,7 @@ describe('API Routes', () => {
       test('should include timestamp in response', async () => {
         const response = await request(app)
           .post('/api/scans/start')
-          .send({ repositoryPath: '/tmp/test' });
+          .send({ repositoryPath: testRepo.path });
 
         assert.ok(response.body.timestamp);
         const timestamp = new Date(response.body.timestamp);
@@ -72,7 +85,7 @@ describe('API Routes', () => {
         const response = await request(app)
           .post('/api/scans/start-multi')
           .send({
-            repositoryPaths: ['/tmp/repo1']
+            repositoryPaths: [multiRepos[0].path]
           });
 
         assert.strictEqual(response.status, 400);
@@ -83,7 +96,7 @@ describe('API Routes', () => {
         const response = await request(app)
           .post('/api/scans/start-multi')
           .send({
-            repositoryPaths: ['/tmp/repo1', '/tmp/repo2'],
+            repositoryPaths: [multiRepos[0].path, multiRepos[1].path],
             groupName: 'test-group'
           });
 

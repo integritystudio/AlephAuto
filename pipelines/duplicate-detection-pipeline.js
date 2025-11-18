@@ -27,11 +27,15 @@ import { ScanOrchestrator } from '../lib/scan-orchestrator.js';
 import { ReportCoordinator } from '../lib/reports/report-coordinator.js';
 import { createComponentLogger } from '../sidequest/logger.js';
 import { config } from '../sidequest/config.js';
+import { isRetryable, getErrorInfo } from '../lib/errors/error-classifier.js';
 import cron from 'node-cron';
 import path from 'path';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('DuplicateDetectionPipeline');
+
+// Circuit breaker: Absolute maximum retry attempts to prevent infinite loops
+const MAX_ABSOLUTE_RETRIES = 5;
 
 /**
  * Duplicate Detection Worker
@@ -129,6 +133,18 @@ class DuplicateDetectionWorker extends SidequestServer {
   }
 
   /**
+   * Extract original job ID by stripping all retry suffixes
+   * @param {string} jobId - Job ID (may contain retry suffixes)
+   * @returns {string} Original job ID without retry suffixes
+   * @private
+   */
+  _getOriginalJobId(jobId) {
+    // Strip all -retryN suffixes to get the original job ID
+    // Example: "scan-intra-project-123-retry1-retry1-retry1" -> "scan-intra-project-123"
+    return jobId.replace(/-retry\d+/g, '');
+  }
+
+  /**
    * Handle retry logic with exponential backoff
    */
   async _handleRetry(job, error) {
@@ -136,9 +152,28 @@ class DuplicateDetectionWorker extends SidequestServer {
     const maxRetries = scanConfig.retryAttempts || 0;
     const baseDelay = scanConfig.retryDelay || 60000;
 
-    if (!this.retryQueue.has(job.id)) {
+    // Get original job ID to track retries correctly
+    const originalJobId = this._getOriginalJobId(job.id);
+
+    // Classify error to determine if retry is appropriate
+    const errorInfo = getErrorInfo(error);
+
+    if (!errorInfo.retryable) {
+      logger.warn({
+        jobId: job.id,
+        originalJobId,
+        errorCode: errorInfo.code,
+        errorMessage: errorInfo.message,
+        classification: errorInfo.category,
+        reason: errorInfo.reason
+      }, 'Error is non-retryable - skipping retry');
+      this.retryQueue.delete(originalJobId);
+      return false;
+    }
+
+    if (!this.retryQueue.has(originalJobId)) {
       // First failure - initialize retry tracking
-      this.retryQueue.set(job.id, {
+      this.retryQueue.set(originalJobId, {
         attempts: 0,
         lastAttempt: Date.now(),
         maxAttempts: maxRetries,
@@ -146,30 +181,118 @@ class DuplicateDetectionWorker extends SidequestServer {
       });
     }
 
-    const retryInfo = this.retryQueue.get(job.id);
+    const retryInfo = this.retryQueue.get(originalJobId);
     retryInfo.attempts++;
 
-    if (retryInfo.attempts >= retryInfo.maxAttempts) {
-      // Max retries reached
-      this.retryQueue.delete(job.id);
+    // Circuit breaker: Check against absolute maximum
+    if (retryInfo.attempts >= MAX_ABSOLUTE_RETRIES) {
+      logger.error({
+        jobId: job.id,
+        originalJobId,
+        attempts: retryInfo.attempts,
+        maxAbsolute: MAX_ABSOLUTE_RETRIES
+      }, 'Circuit breaker triggered: Maximum absolute retry attempts reached');
+
+      // Send Sentry alert for circuit breaker
+      Sentry.captureMessage('Circuit breaker triggered: Excessive retry attempts', {
+        level: 'error',
+        tags: {
+          component: 'retry-logic',
+          jobId: originalJobId,
+          errorType: error.code || error.name
+        },
+        extra: {
+          jobId: job.id,
+          originalJobId,
+          attempts: retryInfo.attempts,
+          maxAbsolute: MAX_ABSOLUTE_RETRIES,
+          errorMessage: error.message,
+          errorCode: errorInfo.code,
+          errorClassification: errorInfo.category
+        }
+      });
+
+      this.retryQueue.delete(originalJobId);
       return false;
     }
 
+    // Check against configured maximum
+    if (retryInfo.attempts >= retryInfo.maxAttempts) {
+      logger.warn({
+        jobId: job.id,
+        originalJobId,
+        attempts: retryInfo.attempts,
+        maxConfigured: retryInfo.maxAttempts
+      }, 'Maximum configured retry attempts reached');
+
+      // Send Sentry alert for max retries reached
+      Sentry.captureMessage('Maximum configured retry attempts reached', {
+        level: 'warning',
+        tags: {
+          component: 'retry-logic',
+          jobId: originalJobId,
+          errorType: error.code || error.name
+        },
+        extra: {
+          jobId: job.id,
+          originalJobId,
+          attempts: retryInfo.attempts,
+          maxConfigured: retryInfo.maxAttempts,
+          errorMessage: error.message,
+          errorCode: errorInfo.code,
+          errorClassification: errorInfo.category
+        }
+      });
+
+      this.retryQueue.delete(originalJobId);
+      return false;
+    }
+
+    // Alert when approaching circuit breaker (3+ attempts)
+    if (retryInfo.attempts >= 3) {
+      Sentry.captureMessage('Warning: Approaching retry limit', {
+        level: 'warning',
+        tags: {
+          component: 'retry-logic',
+          jobId: originalJobId,
+          errorType: error.code || error.name
+        },
+        extra: {
+          jobId: job.id,
+          originalJobId,
+          attempts: retryInfo.attempts,
+          maxAttempts: retryInfo.maxAttempts,
+          maxAbsolute: MAX_ABSOLUTE_RETRIES,
+          errorMessage: error.message,
+          errorCode: errorInfo.code,
+          errorClassification: errorInfo.category
+        }
+      });
+    }
+
     // Calculate exponential backoff delay
-    const delay = retryInfo.delay * Math.pow(2, retryInfo.attempts - 1);
+    // Use suggested delay from error classifier as base
+    const baseRetryDelay = errorInfo.suggestedDelay || retryInfo.delay;
+    const delay = baseRetryDelay * Math.pow(2, retryInfo.attempts - 1);
 
     logger.info({
       jobId: job.id,
+      originalJobId,
       attempt: retryInfo.attempts,
       maxAttempts: retryInfo.maxAttempts,
+      maxAbsolute: MAX_ABSOLUTE_RETRIES,
       delayMs: delay,
-      error: error.message
+      error: error.message,
+      errorClassification: errorInfo.category,
+      errorReason: errorInfo.reason,
+      suggestedDelay: errorInfo.suggestedDelay
     }, 'Scheduling retry with exponential backoff');
 
     // Schedule retry
     setTimeout(() => {
-      logger.info({ jobId: job.id }, 'Retrying failed job');
-      this.createJob(job.id + `-retry${retryInfo.attempts}`, job.data);
+      logger.info({ jobId: job.id, originalJobId, attempt: retryInfo.attempts }, 'Retrying failed job');
+      // Use original job ID + retry count for new job ID
+      this.createJob(`${originalJobId}-retry${retryInfo.attempts}`, job.data);
     }, delay);
 
     return true;
@@ -411,12 +534,55 @@ class DuplicateDetectionWorker extends SidequestServer {
   }
 
   /**
+   * Get retry metrics
+   */
+  getRetryMetrics() {
+    const retryStats = {
+      activeRetries: this.retryQueue.size,
+      totalRetryAttempts: 0,
+      jobsBeingRetried: [],
+      retryDistribution: {
+        attempt1: 0,
+        attempt2: 0,
+        attempt3Plus: 0,
+        nearingLimit: 0  // 3+ attempts
+      }
+    };
+
+    for (const [jobId, retryInfo] of this.retryQueue.entries()) {
+      retryStats.totalRetryAttempts += retryInfo.attempts;
+      retryStats.jobsBeingRetried.push({
+        jobId,
+        attempts: retryInfo.attempts,
+        maxAttempts: retryInfo.maxAttempts,
+        lastAttempt: new Date(retryInfo.lastAttempt).toISOString()
+      });
+
+      // Distribution
+      if (retryInfo.attempts === 1) {
+        retryStats.retryDistribution.attempt1++;
+      } else if (retryInfo.attempts === 2) {
+        retryStats.retryDistribution.attempt2++;
+      } else {
+        retryStats.retryDistribution.attempt3Plus++;
+      }
+
+      if (retryInfo.attempts >= 3) {
+        retryStats.retryDistribution.nearingLimit++;
+      }
+    }
+
+    return retryStats;
+  }
+
+  /**
    * Get scan metrics
    */
   getScanMetrics() {
     return {
       ...this.scanMetrics,
-      queueStats: this.getStats()
+      queueStats: this.getStats(),
+      retryMetrics: this.getRetryMetrics()
     };
   }
 }
