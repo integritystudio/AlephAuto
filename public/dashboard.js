@@ -38,6 +38,10 @@ class DashboardController {
 
         // Update timestamp every second
         setInterval(() => this.updateTimestamp(), 1000);
+
+        // Update Doppler health status every minute
+        this.updateDopplerHealth(); // Initial fetch
+        setInterval(() => this.updateDopplerHealth(), 60000); // Every 60 seconds
     }
 
     /**
@@ -535,6 +539,62 @@ class DashboardController {
         if (timeElement) {
             const now = new Date();
             timeElement.textContent = now.toLocaleTimeString();
+        }
+    }
+
+    /**
+     * Update Doppler health status
+     */
+    async updateDopplerHealth() {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/health/doppler`);
+            const health = await response.json();
+
+            const container = document.getElementById('dopplerHealth');
+            const indicator = container.querySelector('.health-indicator');
+            const text = container.querySelector('.health-text');
+
+            if (!container || !indicator || !text) return;
+
+            // Remove all existing classes
+            indicator.className = 'health-indicator';
+
+            // Add appropriate class based on severity
+            if (health.status === 'error') {
+                indicator.classList.add('health-error');
+                indicator.setAttribute('aria-label', 'Doppler: Error');
+                text.textContent = `Doppler: Error`;
+            } else if (health.severity === 'critical') {
+                indicator.classList.add('health-critical');
+                indicator.setAttribute('aria-label', 'Doppler: Critical');
+                text.textContent = `Doppler: Stale ${health.cacheAgeHours}h`;
+            } else if (health.severity === 'warning') {
+                indicator.classList.add('health-warning');
+                indicator.setAttribute('aria-label', 'Doppler: Warning');
+                text.textContent = `Doppler: Cache ${health.cacheAgeHours}h`;
+            } else if (health.usingFallback) {
+                indicator.classList.add('health-healthy');
+                indicator.setAttribute('aria-label', 'Doppler: Using Cache');
+                text.textContent = `Doppler: Cache ${health.cacheAgeHours}h`;
+            } else {
+                indicator.classList.add('health-healthy');
+                indicator.setAttribute('aria-label', 'Doppler: Live');
+                text.textContent = 'Doppler: Live';
+            }
+        } catch (error) {
+            console.error('Failed to fetch Doppler health:', error);
+
+            const container = document.getElementById('dopplerHealth');
+            if (container) {
+                const indicator = container.querySelector('.health-indicator');
+                const text = container.querySelector('.health-text');
+
+                if (indicator && text) {
+                    indicator.className = 'health-indicator health-error';
+                    indicator.setAttribute('aria-label', 'Doppler: Unknown');
+                    text.textContent = 'Doppler: Unknown';
+                }
+            }
         }
     }
 

@@ -1,0 +1,259 @@
+/**
+ * PipelineCard Styles
+ * Pipeline status display with expandable details
+ */
+
+.pipeline-card {
+  transition: all 0.2s ease;
+}
+
+/* Header */
+.pipeline-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  cursor: pointer;
+  padding: 0.5rem 0;
+}
+
+.pipeline-header:hover {
+  opacity: 0.8;
+}
+
+.pipeline-header:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+
+.pipeline-header-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.pipeline-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  margin-top: 0.125rem;
+}
+
+.pipeline-info {
+  flex: 1;
+}
+
+.pipeline-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 0.25rem 0;
+}
+
+.pipeline-description {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.pipeline-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.expand-icon {
+  font-size: 0.875rem;
+  color: #9ca3af;
+  transition: transform 0.2s ease;
+}
+
+/* Progress Section */
+.pipeline-progress {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.progress-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.progress-percentage {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 0.5rem;
+  background-color: #e5e7eb;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: #3b82f6;
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}
+
+.progress-job {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.progress-job-label {
+  font-weight: 500;
+}
+
+.progress-job-id {
+  font-family: 'Monaco', 'Courier New', monospace;
+  color: #111827;
+  margin-left: 0.25rem;
+}
+
+/* Details Section */
+.pipeline-details {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.details-section {
+  margin-bottom: 1.5rem;
+}
+
+.details-section:last-child {
+  margin-bottom: 0;
+}
+
+.details-section-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 0.75rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+/* Details Grid */
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.detail-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.detail-value {
+  font-size: 0.875rem;
+  color: #111827;
+}
+
+.detail-value-mono {
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 0.8125rem;
+}
+
+/* Metrics Grid */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+}
+
+.metric-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background-color: #f9fafb;
+  border-radius: 0.5rem;
+}
+
+.metric-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.metric-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+/* Error Section */
+.error-section {
+  padding: 1rem;
+  background-color: #fef2f2;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.error-section .details-section-title {
+  color: #991b1b;
+}
+
+.error-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.error-icon {
+  font-size: 1.125rem;
+  flex-shrink: 0;
+}
+
+.error-text {
+  font-size: 0.875rem;
+  color: #7f1d1d;
+  line-height: 1.5;
+}
+
+/* Actions */
+.details-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}

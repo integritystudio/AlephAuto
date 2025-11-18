@@ -98,6 +98,11 @@ module.exports = {
       max_restarts: 5,
       restart_delay: 10000,
 
+      // Wait for ready signal from process
+      // TEMPORARILY DISABLED for debugging
+      // wait_ready: true,
+      // listen_timeout: 10000,  // Wait up to 10s for ready signal
+
       // Cron-based restart (optional - restart daily at 2 AM)
       cron_restart: '0 2 * * *'
     }

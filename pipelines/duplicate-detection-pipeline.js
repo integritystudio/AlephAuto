@@ -685,6 +685,12 @@ async function main() {
 
       console.log('🚀 Pipeline is running. Press Ctrl+C to stop.\n');
 
+      // Notify PM2 that process is ready (fork mode)
+      if (process.send) {
+        process.send('ready');
+        logger.info('Sent ready signal to PM2');
+      }
+
       // Keep-alive: prevent process from exiting
       // The cron scheduler keeps the event loop active, but we add this as a safeguard
       setInterval(() => {
