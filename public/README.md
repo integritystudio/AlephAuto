@@ -145,6 +145,27 @@ public/
 └── README.md       # This file
 ```
 
+### AlephAuto Worker Architecture
+
+All pipelines extend the SidequestServer base class following a unified architecture:
+
+```
+SidequestServer (Base) - Job queue, concurrency, events, Sentry
+  ▲ extends
+  ├── DuplicateDetectionWorker (sidequest/duplicate-detection-worker.js)
+  ├── RepomixWorker (sidequest/repomix-worker.js)
+  ├── SchemaEnhancementWorker (sidequest/schema-enhancement-worker.js)
+  ├── GitActivityWorker (sidequest/git-activity-worker.js)
+  ├── GitignoreWorker (sidequest/gitignore-worker.js)
+  └── PluginManagerWorker (sidequest/plugin-manager-worker.js)
+```
+
+Each worker implements:
+- `processJob(job)` - Core job execution logic
+- Event emission for real-time dashboard updates
+- Retry logic with exponential backoff
+- Sentry error tracking integration
+
 ### Key Technologies
 - **Frontend**: Vanilla JavaScript (no build step required)
 - **Styling**: Modern CSS with CSS Grid and Flexbox

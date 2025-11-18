@@ -271,12 +271,13 @@
 │  - Concurrency control              │
 │  - Event emission                   │
 │  - Sentry integration               │
+│  - Retry logic & circuit breaker    │
 └─────────────────────────────────────┘
               ▲ extends
-    ┌─────────┴──────────┬──────────────┬──────────────┬──────────────┐
-    │                    │              │              │              │
-RepomixWorker    SchemaEnhancement  GitActivity   PluginManager  GitignoreWorker
-                      Worker          Worker          Worker
+    ┌─────────┴──────────┬──────────────┬──────────────┬──────────────┬──────────────┐
+    │                    │              │              │              │              │
+DuplicateDetection   Repomix    SchemaEnhancement GitActivity  PluginManager GitignoreWorker
+    Worker           Worker          Worker        Worker         Worker
                 </pre>
                 <h4>Duplicate Detection Pipeline (7 Stages)</h4>
                 <pre class="architecture-diagram">
