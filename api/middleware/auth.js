@@ -15,7 +15,8 @@ const PUBLIC_PATHS = [
   '/health',
   '/api/docs',
   '/api/status',  // Dashboard needs access to system status
-  '/api/scans'    // Phase 4 testing (TODO: Re-enable auth after testing)
+  '/api/scans',    // Phase 4 testing (TODO: Re-enable auth after testing)
+  '/api/pipelines' // Pipeline details panel testing (TODO: Re-enable auth after testing)
 ];
 
 /**

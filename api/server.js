@@ -17,6 +17,7 @@ import { errorHandler } from './middleware/error-handler.js';
 import scanRoutes, { worker } from './routes/scans.js';
 import repositoryRoutes from './routes/repositories.js';
 import reportRoutes from './routes/reports.js';
+import pipelineRoutes from './routes/pipelines.js';
 import * as Sentry from '@sentry/node';
 import { createServer } from 'http';
 import { createWebSocketServer } from './websocket.js';
@@ -138,6 +139,7 @@ app.get('/api/status', (req, res) => {
 app.use('/api/scans', scanRoutes);
 app.use('/api/repositories', repositoryRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/pipelines', pipelineRoutes);
 
 // 404 handler
 app.use((req, res) => {
