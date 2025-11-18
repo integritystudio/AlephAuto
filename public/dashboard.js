@@ -263,15 +263,19 @@ class DashboardController {
             switch (event.type) {
                 case 'job:created':
                     this.addActivity('info', `Job created: ${event.job.name || event.job.id}`);
+                    this.handleJobEvent(event);
                     break;
                 case 'job:started':
                     this.addActivity('info', `Job started: ${event.job.name || event.job.id}`);
+                    this.handleJobEvent(event);
                     break;
                 case 'job:completed':
                     this.addActivity('success', `Job completed: ${event.job.name || event.job.id}`);
+                    this.handleJobEvent(event);
                     break;
                 case 'job:failed':
                     this.addActivity('error', `Job failed: ${event.job.name || event.job.id}`);
+                    this.handleJobEvent(event);
                     break;
                 case 'pipeline:status':
                     this.updatePipelineStatus(event.pipeline);
@@ -284,6 +288,49 @@ class DashboardController {
                     break;
             }
         });
+    }
+
+    /**
+     * Handle job events for real-time panel updates
+     */
+    handleJobEvent(event) {
+        // Only update if panel is open for this pipeline
+        if (!this.currentPipelineId) return;
+
+        const job = event.job;
+        const pipelineId = job.pipelineId || this.extractPipelineFromJobId(job.id);
+
+        // Check if this job belongs to the currently viewed pipeline
+        if (pipelineId === this.currentPipelineId) {
+            console.log('Refreshing panel jobs due to job event:', event.type, job.id);
+
+            // Refresh the current tab's jobs
+            this.fetchPipelineJobs(this.currentPipelineId, { tab: this.currentTab });
+
+            // Also refresh other tabs to keep counts accurate
+            const otherTabs = ['recent', 'failed', 'all'].filter(tab => tab !== this.currentTab);
+            otherTabs.forEach(tab => {
+                this.fetchPipelineJobs(this.currentPipelineId, { tab });
+            });
+        }
+    }
+
+    /**
+     * Extract pipeline ID from job ID
+     * Job IDs typically start with pipeline name (e.g., "duplicate-detection-job-123")
+     */
+    extractPipelineFromJobId(jobId) {
+        // Simple heuristic: job ID might contain pipeline name
+        // This is a fallback if pipelineId is not in the event
+        const knownPipelines = ['duplicate-detection', 'doc-enhancement', 'git-activity', 'plugin-manager', 'gitignore'];
+
+        for (const pipeline of knownPipelines) {
+            if (jobId.includes(pipeline)) {
+                return pipeline;
+            }
+        }
+
+        return null;
     }
 
     /**
