@@ -3,8 +3,6 @@
  *
  * Validates request bodies using Zod schemas and returns detailed error messages.
  */
-
-// @ts-nocheck
 import { ZodError } from 'zod';
 import { createComponentLogger } from '../../sidequest/logger.js';
 const logger = createComponentLogger('ValidationMiddleware');

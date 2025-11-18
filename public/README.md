@@ -57,6 +57,7 @@ Monitor all automation pipelines at a glance:
 - **Documentation Enhancement**: Schema.org structured data injection
 - **Git Activity Reporter**: Weekly/monthly git statistics
 - **Plugin Manager**: Claude Code plugin auditing
+- **Gitignore Manager**: Batch .gitignore updates across repositories
 
 Each pipeline card shows:
 - Current status (idle, running, error, completed)
