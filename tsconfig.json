@@ -5,7 +5,7 @@
     "noEmit": true,
     "target": "ES2022",
     "module": "ES2022",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "strict": false,
     "esModuleInterop": true,
@@ -15,12 +15,14 @@
   },
   "include": [
     "**/*.js",
+    "**/*.ts",
     "types/**/*.d.ts"
   ],
   "exclude": [
     "node_modules",
     "tests/**/*",
     "docs/**/*",
-    "scripts/**/*"
+    "scripts/**/*",
+    "frontend/**/*"
   ]
 }
