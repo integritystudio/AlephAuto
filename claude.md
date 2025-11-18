@@ -6,45 +6,215 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Automation pipelines built on **AlephAuto** job queue framework with real-time dashboard:
 
-1. **Code Consolidation** - Duplicate detection (ast-grep, pydantic, multi-layer similarity)
+1. **Duplicate Detection** - 7-stage pipeline (JS stages 1-2, Python stages 3-7) using ast-grep + structural similarity
 2. **Doc Enhancement** - Schema.org structured data injection
 3. **Git Activity Reporter** - Weekly/monthly reports with visualizations
-4. **Gitignore Manager** - Batch `.gitignore` updates ✨ INTEGRATED
+4. **Gitignore Manager** - Batch `.gitignore` updates
 5. **Repomix Automation** - Automated repomix file generation
-6. **Plugin Manager** - Claude Code plugin audit and cleanup
+6. **Plugin Manager** - Claude Code plugin audit
 7. **Claude Health Monitor** - Environment health checks
-8. **Dashboard UI** - Real-time monitoring interface
-
-All systems use AlephAuto job queue with Sentry logging, centralized config, event-driven architecture, and WebSocket updates.
+8. **Dashboard UI** - Real-time monitoring (WebSocket + REST API)
 
 ## Quick Reference
 
 | Task | Solution |
 |------|----------|
-| Duplicate detection | See Patterns #2, #3, #5 (structural.py, extract_blocks.py:231) |
-| New pipeline | Extend SidequestServer |
-| Configuration | Always `import { config }` from './sidequest/config.js' |
-| Tests | `npm test` (unit), `npm run test:integration` - See tests/README.md |
-| Test fixtures | ALWAYS use `createTempRepository()`, NEVER `/tmp/` paths |
-| Debugging | Sentry + logs/, `createComponentLogger` - See docs/ERROR_HANDLING.md |
-| Retry logic | Pattern #8, docs/ERROR_HANDLING.md |
-| **Type validation** | **Zod + TypeScript - See docs/TYPE_SYSTEM.md** ✨ **NEW** |
-| **Fix type errors** | **Use TypeScript Type Validator skill (auto-activates)** ✨ **NEW** |
-| Deploy | doppler + PM2 (see Production Deployment) |
+| Run duplicate detection | `doppler run -- RUN_ON_STARTUP=true node pipelines/duplicate-detection-pipeline.js` |
+| Test routes | `npm run test:integration` - See tests/README.md |
+| Fix type errors | Use TypeScript Type Validator skill (auto-activates) |
+| Debug issues | Check Sentry dashboard + `logs/` directory |
+| Type validation | Zod schemas in `api/types/` - See docs/TYPE_SYSTEM.md |
+| Error handling | See docs/ERROR_HANDLING.md (auto-retry with circuit breaker) |
+| Deploy | `./scripts/deploy-traditional-server.sh --update` (PM2 + Doppler) |
 | Dashboard | `npm run dashboard` → http://localhost:8080 |
-| **Phase 4 Plan** | **See docs/PHASE_4_IMPLEMENTATION.md (700+ lines)** ✨ **NEW** |
 
-## Critical Patterns
+## Critical Patterns & Gotchas
 
-1. **Nullish Coalescing:** Use `??` not `||` for numeric options
-2. **Field Name:** CodeBlock uses `tags`, NOT `semantic_tags`
-3. **Configuration:** Always `import { config }`, NEVER `process.env`
-4. **Doppler Required:** All commands need `doppler run --`
-5. **Two-Phase Similarity:** Extract features BEFORE normalization
-6. **Port:** Use `JOBS_API_PORT` (8080), NOT `API_PORT`
-7. **Test Fixtures:** Use `createTempRepository()`, NEVER hardcode `/tmp/`
-8. **Error Classification:** Auto-classified as retryable/non-retryable
-9. **Type Validation:** Use Zod schemas + TypeScript inference (`z.infer<>`), NEVER manual type checking ✨ **NEW**
+### 1. Doppler Required for ALL Commands
+```bash
+# ✅ Correct
+doppler run -- node api/server.js
+
+# ❌ Wrong - secrets won't load
+node api/server.js
+```
+
+### 2. Configuration: NEVER use process.env directly
+```javascript
+// ✅ Correct
+import { config } from './sidequest/config.js';
+const port = config.jobsApiPort;
+
+// ❌ Wrong
+const port = process.env.JOBS_API_PORT;
+```
+
+### 3. Test Fixtures: NEVER hardcode /tmp/ paths
+```javascript
+// ✅ Correct
+import { createTempRepository } from '../tests/fixtures/test-helpers.js';
+const testRepo = await createTempRepository({ name: 'test-repo' });
+const repoPath = testRepo.path; // Use this
+
+// ❌ Wrong - blocked by pre-commit hook
+const repoPath = '/tmp/test-repo';
+```
+
+### 4. Nullish Coalescing for Numeric Options
+```javascript
+// ✅ Correct - preserves 0 as valid value
+const limit = options.limit ?? 10;
+
+// ❌ Wrong - 0 becomes 10
+const limit = options.limit || 10;
+```
+
+### 5. Field Names: CodeBlock uses `tags`, NOT `semantic_tags`
+```python
+# ✅ Correct
+block = CodeBlock(tags=["database"], ...)
+
+# ❌ Wrong
+block = CodeBlock(semantic_tags=["database"], ...)
+```
+
+### 6. Two-Phase Similarity: Extract features BEFORE normalization
+See `lib/similarity/structural.py:231` - feature extraction must happen on original code.
+
+### 7. Port: Use JOBS_API_PORT (8080), NOT API_PORT
+Migration complete but docs may reference old `API_PORT` variable.
+
+### 8. Type Validation: Use Zod + TypeScript inference
+```typescript
+// ✅ Correct
+export const MySchema = z.object({ ... });
+export type MyType = z.infer<typeof MySchema>;
+
+// ❌ Wrong - manual duplication
+export const MySchema = z.object({ ... });
+export type MyType = { ... }; // Duplicates schema
+```
+
+## Architecture: Big Picture
+
+### Multi-Language Pipeline (JavaScript ↔ Python)
+
+The duplicate detection pipeline crosses language boundaries via stdin/stdout:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ JavaScript (Stages 1-2)                                 │
+│  - Repository scanning (repomix)                        │
+│  - Pattern detection (ast-grep)                         │
+│  - Output: candidates.json → stdout                     │
+└───────────────────┬─────────────────────────────────────┘
+                    │ JSON via stdin/stdout
+┌───────────────────▼─────────────────────────────────────┐
+│ Python (Stages 3-7)                                     │
+│  - Code block extraction (Pydantic models)              │
+│  - Semantic annotation                                  │
+│  - 2-phase similarity (Levenshtein + structural)        │
+│  - Duplicate grouping                                   │
+│  - Consolidation suggestions                            │
+│  - Report generation                                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Key Files:**
+- `lib/scan-orchestrator.js` - Coordinates entire pipeline
+- `lib/extractors/extract_blocks.py` - Python entry point
+- `lib/similarity/structural.py` - Similarity algorithm (line 231 critical)
+
+### AlephAuto Job Queue Framework
+
+All pipelines extend `SidequestServer` base class:
+
+```
+SidequestServer (Base)
+├── Event-driven job lifecycle: created → queued → running → completed/failed
+├── Concurrency control (default: 3 concurrent jobs)
+├── Sentry integration (error tracking + performance)
+├── Automatic retry with circuit breaker
+│   ├── Retryable: ETIMEDOUT, 5xx, network issues
+│   ├── Non-retryable: ENOENT, 4xx, permission errors
+│   └── Max 2 attempts (configurable), exponential backoff
+└── Centralized config via sidequest/config.js
+
+Workers (extend SidequestServer):
+├── RepomixWorker
+├── SchemaEnhancementWorker
+├── GitActivityWorker
+├── GitignoreWorker
+├── PluginManagerWorker
+└── DuplicateDetectionWorker
+```
+
+**Why this matters:**
+- All workers share retry logic - understand `SidequestServer` to understand error handling everywhere
+- Event emitters enable real-time dashboard updates
+- Sentry captures errors at 3 severity levels (see docs/ERROR_HANDLING.md)
+
+### Type System: Zod → TypeScript Flow
+
+```
+┌──────────────────────────────────────┐
+│ api/types/*.ts                       │
+│ - Define Zod schemas                 │
+│ - Infer TypeScript types             │
+│ - Export both                        │
+└────────────┬─────────────────────────┘
+             │
+             ▼
+┌──────────────────────────────────────┐
+│ api/middleware/validation.js         │
+│ - validateRequest(schema)            │
+│ - Returns 400 on validation error    │
+│ - Attaches validated data to req.*   │
+└────────────┬─────────────────────────┘
+             │
+             ▼
+┌──────────────────────────────────────┐
+│ api/routes/*.ts                      │
+│ - Type-safe handlers                 │
+│ - req.validatedQuery, req.body       │
+│ - No manual validation needed        │
+└──────────────────────────────────────┘
+```
+
+**Pattern:**
+1. Define schema once in `api/types/`
+2. Use `z.infer<>` to get TypeScript type (no duplication)
+3. Middleware validates automatically
+4. Route handlers get type-safe data
+
+### Dashboard: WebSocket + REST API
+
+```
+┌──────────────────────────────────────┐
+│ Client (public/dashboard.js)         │
+└────────┬──────────────┬──────────────┘
+         │              │
+         │ WebSocket    │ REST API
+         │ (real-time)  │ (polling/actions)
+         │              │
+┌────────▼──────────────▼──────────────┐
+│ api/server.js                        │
+│ - Express routes (REST)              │
+│ - WebSocket server (real-time)       │
+│ - Broadcasts job events              │
+└────────┬─────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────┐
+│ Workers (emit events)                │
+│ - job:created, job:completed, etc.   │
+│ - Server broadcasts to all clients   │
+└──────────────────────────────────────┘
+```
+
+**Why WebSocket + REST?**
+- WebSocket: Real-time job updates without polling
+- REST: Initial data fetch, manual actions (trigger pipeline)
 
 ## Commands
 
@@ -52,311 +222,167 @@ All systems use AlephAuto job queue with Sentry logging, centralized config, eve
 ```bash
 doppler run -- npm start        # Repomix cron server
 npm run dev                     # Dev with auto-restart
-npm run dashboard               # Dashboard (http://localhost:8080)
+npm run dashboard               # Dashboard UI (port 8080)
 
-# Pipelines
-npm run docs:enhance            # Enhance docs
+# Pipelines (on-demand)
+npm run docs:enhance            # Doc enhancement
 npm run git:weekly              # Git activity
 npm run plugin:audit            # Plugin audit
 npm run claude:health           # Health check
-npm run gitignore:update        # Update .gitignore ✨ NEW
-npm run gitignore:update:dry    # Dry run ✨ NEW
-
-# Duplicate detection + Auto-PR
-doppler run -- RUN_ON_STARTUP=true node pipelines/duplicate-detection-pipeline.js
-ENABLE_PR_CREATION=true doppler run -- RUN_ON_STARTUP=true node pipelines/duplicate-detection-pipeline.js
+npm run gitignore:update        # Gitignore updates
 ```
 
 ### Testing
 ```bash
 npm test                        # Unit tests
 npm run test:integration        # Integration tests
-npm run test:validate-paths     # Validate test paths
-npm run typecheck               # TypeScript
+npm run test:validate-paths     # Validate no hardcoded /tmp/ paths
+npm run typecheck               # TypeScript checks
 ```
 
-## Architecture
-
-### Duplicate Detection (7 stages)
-```
-Stage 1-2 (JS): Repository Scanner → AST-Grep Detector
-      ↓ JSON via stdin/stdout
-Stage 3-7 (Python): Block Extraction → Semantic → Grouping → Suggestions → Reports
-```
-
-### AlephAuto Framework
-```
-SidequestServer (Base) - Job queue, concurrency, events, Sentry
-  ▲ extends
-  ├── RepomixWorker
-  ├── SchemaEnhancementWorker
-  ├── GitActivityWorker
-  ├── GitignoreWorker ✨ NEW
-  └── PluginManagerWorker
-```
-
-### Error Handling ✨ NEW
-- **Auto-classification**: Retryable (ETIMEDOUT, 5xx) vs non-retryable (ENOENT, 4xx)
-- **Circuit Breaker**: Max 2 attempts (configurable), absolute max 5
-- **Exponential Backoff**: Progressive delay between retries
-- **Sentry Integration**: 3 alert levels
-- **See**: docs/ERROR_HANDLING.md (837 lines)
-
-### Dashboard
-- **Real-time**: WebSocket updates for pipelines/jobs/retries
-- **Retry Metrics**: Distribution bars, circuit breaker warnings
-- **API**: `/health`, `/api/status` (includes retry metrics)
-- **See**: public/README.md, docs/DASHBOARD.md
-
-## Environment Variables
-
-**Managed via Doppler** (Project: `bottleneck`)
-
-**Development** (`dev` environment):
+### Production Deployment
 ```bash
-NODE_ENV=development
-JOBS_API_PORT=8080
-REDIS_HOST=localhost
-REDIS_PORT=6379
-SENTRY_DSN=https://...
-SENTRY_ENVIRONMENT=development
+# Using PM2 + Doppler
+doppler run -- pm2 start ecosystem.config.cjs
+pm2 save
+pm2 status
+
+# Using deployment script
+./scripts/deploy-traditional-server.sh --setup    # Initial
+./scripts/deploy-traditional-server.sh --update   # Updates
+./scripts/deploy-traditional-server.sh --rollback # Rollback
 ```
 
-**Production** (`prd` environment) ✨ **CONFIGURED**:
-```bash
-NODE_ENV=production
-JOBS_API_PORT=8080
-REDIS_HOST=localhost
-REDIS_PORT=6379
-SENTRY_DSN=https://...
-SENTRY_ENVIRONMENT=production
-BOTTLENECK_TOKEN=dp.st.dev.***  # Doppler dev token
-PROD_TOKEN=dp.st.prd.***         # Doppler prd token
+## Environment Variables (Doppler)
 
-# Cron Schedules
-CRON_SCHEDULE="0 2 * * *"                # Duplicate Detection
-DOC_CRON_SCHEDULE="0 3 * * *"            # Doc Enhancement
-GIT_CRON_SCHEDULE="0 20 * * 0"           # Git Activity
-PLUGIN_CRON_SCHEDULE="0 9 * * 1"         # Plugin Audit
-CLAUDE_HEALTH_CRON_SCHEDULE="0 8 * * *"  # Claude Health
-GITIGNORE_CRON_SCHEDULE="0 4 * * *"      # Gitignore
+**Project:** `bottleneck`
 
-# Auto-PR
-ENABLE_PR_CREATION=false
-PR_DRY_RUN=false
-PR_BASE_BRANCH=main
-```
-
-**Switch Environments**:
+**Switch environments:**
 ```bash
 doppler setup --project bottleneck --config dev   # Development
 doppler setup --project bottleneck --config prd   # Production
 ```
 
-## Production Deployment ✨ **DEPLOYED**
+**Key variables:**
+- `NODE_ENV` - development/production
+- `JOBS_API_PORT` - API server port (8080)
+- `REDIS_HOST` / `REDIS_PORT` - Redis connection
+- `SENTRY_DSN` / `SENTRY_ENVIRONMENT` - Error tracking
+- `CRON_SCHEDULE` - Duplicate detection (default: 0 2 * * *)
+- `ENABLE_PR_CREATION` - Auto-PR for duplicates (false by default)
 
-**Traditional Server** with PM2 + Doppler + macOS/Linux support.
+See ecosystem.config.cjs for full list with defaults.
 
-### PM2 Ecosystem Configuration
-```bash
-# Use ecosystem.config.cjs for production
-doppler run -- pm2 start ecosystem.config.cjs
-pm2 save
-pm2 status
-```
-
-**Two PM2 Apps**:
-1. **aleph-dashboard** - API + WebSocket + Static files (cluster mode, 2 instances)
-2. **aleph-worker** - Duplicate detection pipeline (fork mode, cron: 2 AM daily)
-
-### Deployment Commands
-```bash
-# Initial setup
-./scripts/deploy-traditional-server.sh --setup
-
-# Updates (creates backup, pulls code, restarts)
-./scripts/deploy-traditional-server.sh --update
-
-# Status check
-./scripts/deploy-traditional-server.sh --status
-
-# Rollback
-./scripts/deploy-traditional-server.sh --rollback
-
-# Manual PM2 control
-pm2 start ecosystem.config.cjs   # Start all services
-pm2 restart all                   # Restart all services
-pm2 stop all                      # Stop all services
-pm2 logs                          # View logs
-pm2 monit                         # Monitor resources
-```
-
-### GitHub Actions CI/CD
-- **CI**: `.github/workflows/ci.yml` - Tests on PRs/pushes
-- **CD**: `.github/workflows/deploy.yml` - SSH deployment to production
-
-**Production Ready**: ✅
-- Doppler `prd` environment configured (16 secrets)
-- PM2 ecosystem configuration created
-- Deployment script tested and working
-- Health checks passing
-- Services deployed and verified
-
-**See**:
-- `ecosystem.config.cjs` - PM2 process configuration
-- `scripts/deploy-traditional-server.sh` - 590-line deployment script
-- `docs/DEPLOYMENT.md` - General deployment guide
-- `docs/TRADITIONAL_SERVER_DEPLOYMENT.md` - PM2 + Nginx setup
-
-## Directory Structure
+## Directory Structure (Key Paths)
 
 ```
 jobs/
-├── api/                    # API + WebSocket + Static files
-├── lib/                    # Core business logic
-│   ├── scan-orchestrator.js
-│   ├── similarity/         # Duplicate detection algorithms
-│   ├── git/               # PR creation ✨ NEW
-│   └── caching/           # Redis caching
-├── sidequest/             # AlephAuto framework
-│   ├── server.js         # Base job queue
-│   ├── gitignore-worker.js  # ✨ NEW
-│   └── config.js         # Centralized config
-├── public/                # Dashboard UI
-├── pipelines/             # Pipeline entry points
-│   └── gitignore-pipeline.js  # ✨ NEW
-├── tests/                 # Tests (unit, integration, accuracy)
-│   ├── fixtures/         # Test helpers ✨ NEW
-│   └── scripts/          # Validation ✨ NEW
-├── .husky/               # Git hooks (pre-commit path validation)
+├── api/                    # REST API + WebSocket + Static files
+│   ├── server.js          # Main server entry point
+│   ├── routes/            # API route handlers
+│   ├── types/             # Zod schemas + TypeScript types
+│   └── middleware/        # Validation, auth, etc.
+├── lib/                   # Core business logic
+│   ├── scan-orchestrator.js    # 7-stage pipeline coordinator
+│   ├── similarity/        # Duplicate detection algorithms (Python)
+│   ├── git/              # PR creation
+│   └── caching/          # Redis caching
+├── sidequest/            # AlephAuto framework
+│   ├── server.js        # Base job queue (ALL workers extend this)
+│   ├── config.js        # Centralized configuration
+│   └── *-worker.js      # Specific worker implementations
+├── pipelines/            # Pipeline entry points
+├── public/               # Dashboard UI (HTML/CSS/JS)
+├── tests/                # Tests (unit, integration, accuracy)
+│   ├── fixtures/        # Test helpers (createTempRepository)
+│   └── README.md        # Test infrastructure guide
 ├── docs/                 # Documentation
-│   ├── ERROR_HANDLING.md    # Retry logic (837 lines) ✨ NEW
-│   ├── DASHBOARD.md         # Dashboard guide
-│   └── DEPLOYMENT.md        # Deployment guide
-└── .github/workflows/    # CI/CD
+│   ├── ERROR_HANDLING.md  # Retry logic (837 lines)
+│   ├── TYPE_SYSTEM.md     # Type validation (600+ lines)
+│   └── SESSION_HISTORY.md # Development log
+└── ecosystem.config.cjs  # PM2 production config
 ```
 
-## Key Files
-- `ecosystem.config.cjs` - PM2 production configuration ✨ **PRODUCTION**
-- `lib/scan-orchestrator.js` - Pipeline coordinator
-- `lib/similarity/structural.py` - Similarity algorithm
-- `lib/git/pr-creator.js` - Auto-PR creation
-- `sidequest/server.js` - AlephAuto base (with retry)
-- `sidequest/gitignore-worker.js` - Gitignore worker
-- `pipelines/gitignore-pipeline.js` - Gitignore pipeline
-- `api/types/scan-requests.ts` - Zod schemas + TypeScript types
-- `api/middleware/validation.ts` - Validation middleware
-- `api/routes/scans.ts` - Type-safe route handlers
-- `scripts/deploy-traditional-server.sh` - Deployment automation (590 lines)
-- `docs/ERROR_HANDLING.md` - Retry documentation (837 lines)
-- `docs/TYPE_SYSTEM.md` - Type system guide (600+ lines)
-- `docs/PHASE_4_IMPLEMENTATION.md` - Phase 4 plan (700+ lines)
-- `docs/PHASE_4_4_COMPLETION.md` - Performance optimization (700+ lines)
-- `docs/PHASE_4_5_COMPLETION.md` - Deployment readiness (35KB)
-- `tests/README.md` - Test infrastructure (612 lines)
-- `tests/scripts/validate-test-paths.js` - Path validation
+## Key Implementation Files
 
-## Recent Updates (2025-11-18)
+**Pipeline Coordination:**
+- `lib/scan-orchestrator.js` - Orchestrates 7-stage duplicate detection
+- `lib/similarity/structural.py:231` - Critical feature extraction point
 
-### v1.3.0 - Production Deployment Release (CURRENT) ✨ **DEPLOYED**
-**Traditional server deployment with PM2 + Doppler on macOS.**
+**Type Safety:**
+- `api/types/scan-requests.ts` - Scan endpoint schemas
+- `api/types/pipeline-requests.ts` - Pipeline endpoint schemas
+- `api/middleware/validation.js` - Request validation middleware
 
-**Phase 4 Completion**:
-- ✅ **Phase 4.3**: High-priority accessibility fixes (WCAG AA compliance, ARIA labels)
-- ✅ **Phase 4.4**: Performance optimization (CLS improvement, Lighthouse audit)
-- ✅ **Phase 4.5**: Production deployment readiness certification
+**Job Queue:**
+- `sidequest/server.js` - Base job queue (retry logic, events)
+- `sidequest/config.js` - Centralized configuration
+- `lib/errors/error-classifier.js` - Auto-classify retryable errors
 
-**Production Infrastructure**:
-- **PM2 Configuration**: `ecosystem.config.cjs` created (2 apps: dashboard + worker)
-- **Doppler `prd` Environment**: 16 secrets configured, switched from `dev`
-- **Deployment Script**: `scripts/deploy-traditional-server.sh` tested and working
-- **GitHub Actions**: Updated `.github/workflows/deploy.yml` to use `aleph-worker`
-- **Health Checks**: All endpoints passing, services verified
+**Dashboard:**
+- `public/dashboard.js` - Client-side controller
+- `api/websocket.js` - WebSocket event broadcasting
+- `public/index.html` - UI with pipeline details panel
 
-**Deployment Features**:
-- Automated backup before updates (timestamped tar.gz)
-- PM2 cluster mode for dashboard (2 instances)
-- PM2 fork mode for worker (cron: 2 AM daily)
-- Doppler integration via PM2 interpreter
-- Health check validation
-- Rollback capability
+**Testing:**
+- `tests/fixtures/test-helpers.js` - createTempRepository() and utilities
+- `tests/README.md` - Test infrastructure guide
+- `.husky/pre-commit` - Validates no hardcoded /tmp/ paths
 
-**Accessibility & Performance** (Phase 4.3-4.4):
-- WCAG AA compliance: 6.8:1 contrast ratios (was <4.5:1)
-- ARIA labels added to all status indicators
-- CLS improved 6% (0.323 → 0.303, target <0.1 in roadmap)
-- Min-heights added to 4 dynamic containers
+**Deployment:**
+- `ecosystem.config.cjs` - PM2 configuration (2 apps)
+- `scripts/deploy-traditional-server.sh` - Deployment automation
 
-**Documentation** (3 completion reports, 36KB+):
-- `docs/PHASE_4_4_COMPLETION.md` - Performance optimization (700+ lines)
-- `docs/PHASE_4_5_COMPLETION.md` - Deployment readiness (35KB)
-- `ecosystem.config.cjs` - PM2 configuration (90 lines)
+## Breaking Changes & Migrations
 
-**Repository Cleanup**:
-- Removed platform-specific configs: `railway.json`, `render.yaml`, `Procfile`, `Dockerfile`, `docker-compose.yml`
-- Retained traditional server focus: PM2, deployment script, CI/CD workflows
+**v1.2.0 - Test Path Migration**
+- **Old:** Hardcoded `/tmp/test-repo` paths
+- **New:** Use `createTempRepository()` from `tests/fixtures/test-helpers.js`
+- **Enforcement:** Pre-commit hook blocks `/tmp/` in tests
 
-**Production Status**: ✅ Deployed and Verified
-- Services: Both PM2 apps running successfully
-- Dashboard: Accessible at http://localhost:8080
-- Health: All checks passing
-- Logs: Clean, no errors since deployment
+**v1.1.0 - Port Migration**
+- **Old:** `API_PORT` env variable
+- **New:** `JOBS_API_PORT` (default: 8080)
+- **Impact:** Update all environment configurations
 
-### v1.2.2 - Phase 4 Testing & Type System
-**Phase 4.1.1-4.1.2 Complete: Retry Metrics & Error Classification Validation**
+## Documentation
 
-- Test suite expansion (19 new tests, 432+ lines)
-- Type safety infrastructure (Zod + TypeScript)
-- Universal TypeScript Type Validator skill created (600+ lines)
-- API improvements (type validation, error handling)
+**Comprehensive guides:**
+- `docs/ERROR_HANDLING.md` - Retry logic, circuit breaker, Sentry integration
+- `docs/TYPE_SYSTEM.md` - Zod + TypeScript validation patterns
+- `tests/README.md` - Test infrastructure, fixtures, pre-commit hooks
+- `docs/DEPLOYMENT.md` - Deployment options
+- `docs/TRADITIONAL_SERVER_DEPLOYMENT.md` - PM2 + Nginx setup
+- `docs/DASHBOARD.md` - Dashboard features and API
+- `docs/SESSION_HISTORY.md` - Development changelog
 
-### v1.2.1 - Gitignore Manager Integration
-- Integrated GitignoreRepomixUpdater into AlephAuto
-- Created `GitignoreWorker` and `gitignore-pipeline.js`
-- Added npm scripts: `gitignore:update`, `gitignore:update:dry`
-- Test: 29 repos scanned, 1 would update, 0 errors
+**Quick references:**
+- `docs/CHEAT_SHEET.md` - Command reference
+- `docs/DATAFLOW_DIAGRAMS.md` - Mermaid architecture diagrams
 
-### v1.2.0 - Retry Logic & Test Infrastructure
-- Intelligent retry with circuit breaker (docs/ERROR_HANDLING.md)
-- Test fixtures system (tests/fixtures/test-helpers.js)
-- Pre-commit path validation (.husky/pre-commit)
-- Retry metrics dashboard (retry queue visualization)
-- Auto-PR creation for consolidation suggestions
+## Recent Major Changes
 
-### v1.1.0 - Dashboard & Deployment
-- Real-time dashboard UI (public/)
-- 5 deployment methods documented
-- CI/CD workflows (GitHub Actions)
-- Port migration: API_PORT → JOBS_API_PORT (8080)
+**v1.4.0 (Current) - Pipeline Details Panel**
+- Interactive job details panel with WebSocket updates
+- Type-safe API endpoints (`GET /api/pipelines/:id/jobs`)
+- WCAG 2.1 Level AA compliant UI
+- 19/19 type validation tests passing
 
-**See**: Full changelog in git history, docs/ERROR_HANDLING.md, tests/README.md, docs/TYPE_SYSTEM.md
+**v1.3.0 - Production Deployment**
+- PM2 ecosystem configuration (2 apps: dashboard + worker)
+- Doppler `prd` environment configured
+- Traditional server deployment (no Docker/Railway)
+- GitHub Actions CI/CD
 
-## Important Notes
-
-**Breaking Changes**:
-- Port: 3000 → 8080 (v1.1.0)
-- Environment: `API_PORT` → `JOBS_API_PORT` (v1.1.0)
-- Test paths: Hardcoded `/tmp/` BLOCKED by pre-commit (v1.2.0)
-
-**Migration**:
-- Update port references to 8080
-- Use `JOBS_API_PORT` in env configs
-- Replace `/tmp/test-repo` → `testRepo.path` from fixtures
-- Run `npm run test:validate-paths` to scan for issues
-
-**Documentation**:
-- Deployment: docs/DEPLOYMENT.md, docs/TRADITIONAL_SERVER_DEPLOYMENT.md
-- Error handling: docs/ERROR_HANDLING.md (837 lines)
-- Type system: docs/TYPE_SYSTEM.md (600+ lines) ✨ **NEW**
-- Testing: tests/README.md (612 lines)
-- Dashboard: docs/DASHBOARD.md
-- Port migration: docs/PORT_MIGRATION.md
-- Phase 4 plan: docs/PHASE_4_IMPLEMENTATION.md (700+ lines)
+**v1.2.0 - Retry Logic & Test Infrastructure**
+- Intelligent retry with circuit breaker
+- Test fixtures system (createTempRepository)
+- Pre-commit path validation
+- Auto-PR creation for duplicates
 
 ---
 
-**Version**: 1.3.0 - Production Deployment Release
-**Last Updated**: 2025-11-18
-**Status**: ✅ **DEPLOYED TO PRODUCTION**
-**Environment**: macOS with PM2 + Doppler (`prd` environment configured)
-**Latest**: Phase 4.3-4.5 Complete - Accessibility, Performance, Production Deployment
+**Version:** 1.4.0
+**Last Updated:** 2025-11-18
+**Status:** Production Ready (PM2 + Doppler deployment)
+**Environment:** macOS with traditional server stack
