@@ -189,6 +189,7 @@ body {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: var(--space-2);
+    min-height: 200px; /* Prevent layout shift during loading */
 }
 
 .pipeline-card {
@@ -298,6 +299,7 @@ body {
 
 .queue-jobs {
     max-height: 400px;
+    min-height: 150px; /* Prevent layout shift during loading */
     overflow-y: auto;
 }
 
@@ -419,6 +421,7 @@ body {
 
 #retryJobsList {
     max-height: 300px;
+    min-height: 150px; /* Prevent layout shift during loading */
     overflow-y: auto;
 }
 
@@ -473,6 +476,7 @@ body {
 /* ===== ACTIVITY FEED ===== */
 .activity-feed {
     max-height: 500px;
+    min-height: 200px; /* Prevent layout shift during loading */
     overflow-y: auto;
 }
 
