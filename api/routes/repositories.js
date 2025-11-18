@@ -9,6 +9,8 @@ import { RepositoryConfigLoader } from '../../lib/config/repository-config-loade
 import { CachedScanner } from '../../lib/cache/cached-scanner.js';
 import { createComponentLogger } from '../../sidequest/logger.js';
 import { strictRateLimiter } from '../middleware/rate-limit.js';
+import { validateQuery } from '../middleware/validation.js';
+import { RepositoryQuerySchema, RepositoryGroupQuerySchema } from '../types/repository-requests.js';
 
 const router = express.Router();
 const logger = createComponentLogger('RepositoryRoutes');
@@ -26,8 +28,9 @@ configLoader.load().catch(error => {
  * GET /api/repositories
  * List all repositories
  */
-router.get('/', async (req, res, next) => {
+router.get('/', validateQuery(RepositoryQuerySchema), async (req, res, next) => {
   try {
+    // Query params are now validated by Zod
     const { enabled, priority, tag } = req.query;
 
     logger.debug({ enabled, priority, tag }, 'Listing repositories');
@@ -214,8 +217,9 @@ router.delete('/:name/cache', async (req, res, next) => {
  * GET /api/repositories/groups
  * List repository groups
  */
-router.get('/groups/list', async (req, res, next) => {
+router.get('/groups/list', validateQuery(RepositoryGroupQuerySchema), async (req, res, next) => {
   try {
+    // Query params are now validated by Zod
     const { enabled } = req.query;
 
     logger.debug({ enabled }, 'Listing repository groups');

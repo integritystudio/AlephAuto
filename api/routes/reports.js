@@ -6,6 +6,8 @@
 
 import express from 'express';
 import { createComponentLogger } from '../../sidequest/logger.js';
+import { validateQuery } from '../middleware/validation.js';
+import { ReportQuerySchema } from '../types/report-requests.js';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -18,8 +20,9 @@ const REPORTS_DIR = path.join(process.cwd(), 'output', 'reports');
  * GET /api/reports
  * List available reports
  */
-router.get('/', async (req, res, next) => {
+router.get('/', validateQuery(ReportQuerySchema), async (req, res, next) => {
   try {
+    // Query params are now validated by Zod
     const { limit = 20, format, type } = req.query;
 
     logger.debug({ limit, format, type }, 'Listing reports');
