@@ -207,6 +207,18 @@
                             <li>Cleanup recommendations</li>
                         </ul>
                     </div>
+                    <div class="pipeline-doc">
+                        <h4>📝 Gitignore Management Pipeline</h4>
+                        <p><strong>Purpose:</strong> Batch updates .gitignore files across repositories with repomix-output.xml entry</p>
+                        <p><strong>Schedule:</strong> Daily at 4 AM (GITIGNORE_CRON_SCHEDULE)</p>
+                        <p><strong>Key Features:</strong></p>
+                        <ul>
+                            <li>Automatic .gitignore file creation and updates</li>
+                            <li>Dry-run mode for preview</li>
+                            <li>Repository scanning with exclusion rules</li>
+                            <li>Integration with AlephAuto job queue</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
             <div class="doc-panel" data-panel="api">
@@ -261,9 +273,9 @@
 │  - Sentry integration               │
 └─────────────────────────────────────┘
               ▲ extends
-    ┌─────────┴──────────┬──────────────┬──────────────┐
-    │                    │              │              │
-RepomixWorker    SchemaEnhancement  GitActivity   PluginManager
+    ┌─────────┴──────────┬──────────────┬──────────────┬──────────────┐
+    │                    │              │              │              │
+RepomixWorker    SchemaEnhancement  GitActivity   PluginManager  GitignoreWorker
                       Worker          Worker          Worker
                 </pre>
                 <h4>Duplicate Detection Pipeline (7 Stages)</h4>
@@ -289,6 +301,111 @@ Stage 3-7 (Python): Block Extraction → Semantic Annotation
     <footer class="footer">
         <p>&copy; 2025 AlephAuto Dashboard | <a href="https://github.com/anthropics/claude-code" target="_blank">Built with Claude Code</a></p>
     </footer>
+
+    <!-- Pipeline Details Panel -->
+    <div class="panel-overlay" id="panelOverlay" aria-hidden="true"></div>
+
+    <aside class="details-panel" id="detailsPanel" role="dialog" aria-labelledby="panelTitle" aria-hidden="true">
+        <!-- Panel Header -->
+        <div class="panel-header">
+            <h2 class="panel-title" id="panelTitle">Pipeline Details</h2>
+            <button
+                class="panel-close"
+                id="panelCloseBtn"
+                aria-label="Close panel"
+                type="button"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Panel Tabs -->
+        <div class="panel-tabs" role="tablist">
+            <button
+                class="panel-tab active"
+                id="recentTab"
+                role="tab"
+                aria-selected="true"
+                aria-controls="recentPanel"
+                type="button"
+            >
+                Recent <span class="panel-tab-count" id="recentCount">0</span>
+            </button>
+            <button
+                class="panel-tab"
+                id="failedTab"
+                role="tab"
+                aria-selected="false"
+                aria-controls="failedPanel"
+                type="button"
+            >
+                Failed <span class="panel-tab-count" id="failedCount">0</span>
+            </button>
+            <button
+                class="panel-tab"
+                id="allTab"
+                role="tab"
+                aria-selected="false"
+                aria-controls="allPanel"
+                type="button"
+            >
+                All <span class="panel-tab-count" id="allCount">0</span>
+            </button>
+        </div>
+
+        <!-- Panel Content -->
+        <div class="panel-content">
+            <!-- Recent Jobs Section -->
+            <div class="panel-section active" id="recentPanel" role="tabpanel" aria-labelledby="recentTab">
+                <div class="panel-loading" id="recentLoading">
+                    <div class="panel-spinner"></div>
+                    <p>Loading recent jobs...</p>
+                </div>
+                <div class="panel-job-list" id="recentJobsList"></div>
+                <div class="panel-empty-state" id="recentEmpty" style="display: none;">
+                    <svg class="panel-empty-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p class="panel-empty-message">No recent jobs</p>
+                    <p class="panel-empty-hint">Jobs will appear here when the pipeline runs</p>
+                </div>
+            </div>
+
+            <!-- Failed Jobs Section -->
+            <div class="panel-section" id="failedPanel" role="tabpanel" aria-labelledby="failedTab">
+                <div class="panel-loading" id="failedLoading">
+                    <div class="panel-spinner"></div>
+                    <p>Loading failed jobs...</p>
+                </div>
+                <div class="panel-job-list" id="failedJobsList"></div>
+                <div class="panel-empty-state" id="failedEmpty" style="display: none;">
+                    <svg class="panel-empty-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p class="panel-empty-message">No failed jobs</p>
+                    <p class="panel-empty-hint">All jobs completed successfully</p>
+                </div>
+            </div>
+
+            <!-- All Jobs Section -->
+            <div class="panel-section" id="allPanel" role="tabpanel" aria-labelledby="allTab">
+                <div class="panel-loading" id="allLoading">
+                    <div class="panel-spinner"></div>
+                    <p>Loading all jobs...</p>
+                </div>
+                <div class="panel-job-list" id="allJobsList"></div>
+                <div class="panel-empty-state" id="allEmpty" style="display: none;">
+                    <svg class="panel-empty-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p class="panel-empty-message">No jobs found</p>
+                    <p class="panel-empty-hint">Jobs will appear here when the pipeline runs</p>
+                </div>
+            </div>
+        </div>
+    </aside>
 
     <script src="dashboard.js"></script>
 </body>
