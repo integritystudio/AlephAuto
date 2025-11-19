@@ -4,6 +4,9 @@
  * Real-time scan progress updates via WebSocket connections.
  */
 
+// @ts-check
+/** @typedef {import('http').Server} HttpServer */
+
 import { WebSocketServer } from 'ws';
 import { createComponentLogger } from '../sidequest/logger.js';
 import crypto from 'crypto';
@@ -12,7 +15,7 @@ const logger = createComponentLogger('WebSocketServer');
 
 /**
  * Create WebSocket server
- * @param {http.Server} httpServer - HTTP server instance
+ * @param {HttpServer} httpServer - HTTP server instance
  * @returns {WebSocketServer} - WebSocket server
  */
 export function createWebSocketServer(httpServer) {

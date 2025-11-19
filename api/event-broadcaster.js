@@ -4,6 +4,9 @@
  * Broadcasts duplicate detection events to WebSocket clients.
  */
 
+// @ts-check
+/** @typedef {import('../lib/errors/error-types').ExtendedError} ExtendedError */
+
 import { createComponentLogger } from '../sidequest/logger.js';
 
 const logger = createComponentLogger('EventBroadcaster');
@@ -94,12 +97,13 @@ export class ScanEventBroadcaster {
    * @param {Error} error - Error details
    */
   broadcastScanFailed(scanId, error) {
+    const extError = /** @type {ExtendedError} */ (error);
     this.broadcast({
       type: 'scan:failed',
       scan_id: scanId,
       error: {
         message: error.message,
-        code: error.code
+        code: extError.code
       },
       timestamp: new Date().toISOString()
     }, 'scans');

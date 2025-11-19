@@ -739,7 +739,8 @@ class DashboardController {
         // Make pipeline cards clickable
         // Use event delegation since cards may be re-rendered
         document.getElementById('pipelineCards')?.addEventListener('click', (e) => {
-            const card = e.target.closest('.pipeline-card');
+            const target = /** @type {HTMLElement} */ (e.target);
+            const card = /** @type {HTMLElement | null} */ (target.closest('.pipeline-card'));
             if (card) {
                 const pipelineId = card.dataset.pipelineId;
                 if (pipelineId) {
