@@ -1,9 +1,9 @@
 name: CD - Production Deployment
 
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:  # Allow manual trigger
+  # push:
+  #   branches: [main]
+  workflow_dispatch:  # Manual trigger only (configure secrets before enabling auto-deploy)
 
 jobs:
   deploy:
