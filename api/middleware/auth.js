@@ -13,6 +13,7 @@ const logger = createComponentLogger('AuthMiddleware');
 // Public paths that don't require authentication
 const PUBLIC_PATHS = [
   '/health',
+  '/api/health/doppler', // Dashboard Doppler health indicator
   '/api/docs',
   '/api/status',  // Dashboard needs access to system status
   '/api/scans',    // Phase 4 testing (TODO: Re-enable auth after testing)
