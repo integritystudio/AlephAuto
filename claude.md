@@ -27,6 +27,7 @@ Automation pipelines built on **AlephAuto** job queue framework with real-time d
 | Error handling | See docs/ERROR_HANDLING.md (auto-retry with circuit breaker) |
 | Deploy | `./scripts/deploy-traditional-server.sh --update` (PM2 + Doppler) |
 | Dashboard | `npm run dashboard` → http://localhost:8080 |
+| Enable auto PRs | Set `ENABLE_GIT_WORKFLOW=true` in Doppler - See Git Workflow section |
 
 ## Critical Patterns & Gotchas
 
@@ -142,17 +143,158 @@ SidequestServer (Base)
 
 Workers (extend SidequestServer):
 ├── RepomixWorker
-├── SchemaEnhancementWorker
+├── SchemaEnhancementWorker (✓ Git workflow enabled)
 ├── GitActivityWorker
-├── GitignoreWorker
+├── GitignoreWorker (⚠️ Git workflow not supported - batch operations)
 ├── PluginManagerWorker
-└── DuplicateDetectionWorker
+└── DuplicateDetectionWorker (✓ Has custom PR creator)
 ```
 
 **Why this matters:**
 - All workers share retry logic - understand `SidequestServer` to understand error handling everywhere
 - Event emitters enable real-time dashboard updates
 - Sentry captures errors at 3 severity levels (see docs/ERROR_HANDLING.md)
+
+### Git Workflow Automation
+
+The AlephAuto framework supports automated branch creation and PR generation for workers that modify code:
+
+```
+Job Execution with Git Workflow:
+
+1. Job Created (queued)
+2. Job Started (running)
+   ↓
+3. Create Branch (automated/<job-type>/<description>-<timestamp>)
+   ↓
+4. Execute Job Handler (worker-specific logic)
+   ↓
+5. Detect Changes (git status)
+   ├─ No changes → Cleanup branch, complete job
+   └─ Changes detected ↓
+6. Commit Changes (with job context)
+   ↓
+7. Push Branch (to origin)
+   ↓
+8. Create Pull Request (with detailed description)
+   ↓
+9. Job Completed (PR URL in job.git.prUrl)
+
+On Error: Cleanup branch, return to original branch
+```
+
+**Configuration:**
+
+```bash
+# Enable git workflow (default: false)
+ENABLE_GIT_WORKFLOW=true
+
+# Base branch for PRs (default: main)
+GIT_BASE_BRANCH=main
+
+# Branch prefix (default: automated)
+GIT_BRANCH_PREFIX=automated
+
+# Dry run mode - create branches but skip push/PR (default: false)
+GIT_DRY_RUN=true
+```
+
+**Implementation Pattern:**
+
+```javascript
+// Enable git workflow in worker constructor
+export class MyWorker extends SidequestServer {
+  constructor(options = {}) {
+    super({
+      ...options,
+      jobType: 'my-worker',
+      gitWorkflowEnabled: config.enableGitWorkflow,
+      gitBranchPrefix: 'feature',
+      gitBaseBranch: config.gitBaseBranch,
+      gitDryRun: config.gitDryRun
+    });
+  }
+
+  // Customize commit message (optional)
+  async _generateCommitMessage(job) {
+    return {
+      title: 'feat: automated improvements',
+      body: 'Detailed description of changes'
+    };
+  }
+
+  // Customize PR description (optional)
+  async _generatePRContext(job) {
+    return {
+      branchName: job.git.branchName,
+      title: 'PR title',
+      body: '## Summary\n\nDetailed PR description',
+      labels: ['automated', 'enhancement']
+    };
+  }
+}
+```
+
+**Job Metadata (job.git):**
+
+```javascript
+{
+  branchName: 'automated/schema-enhancement-README-1234567890',
+  originalBranch: 'main',
+  commitSha: 'abc123...',
+  prUrl: 'https://github.com/user/repo/pull/42',
+  changedFiles: ['README.md', 'package.json']
+}
+```
+
+**Workers with Git Workflow:**
+
+1. **SchemaEnhancementWorker** ✓
+   - Branch prefix: `docs`
+   - Commits: Schema.org structured data additions
+   - PR labels: `documentation`, `seo`, `schema-org`, `automated`
+   - Includes impact analysis in PR description
+
+2. **DuplicateDetectionWorker** ⚠️
+   - Has custom `PRCreator` (lib/git/pr-creator.js)
+   - Uses `ENABLE_PR_CREATION` env variable
+   - Creates PRs for consolidation suggestions
+   - Not using base class git workflow (legacy implementation)
+
+3. **GitignoreWorker** ⚠️
+   - Not supported - processes multiple repositories per job
+   - Each repository would need individual PRs
+   - Consider refactoring to one-repo-per-job pattern
+
+**Customization:**
+
+Override these methods in your worker:
+
+```javascript
+// Commit message generation
+async _generateCommitMessage(job) {
+  return {
+    title: 'commit title',
+    body: 'commit description'
+  };
+}
+
+// PR context generation
+async _generatePRContext(job) {
+  return {
+    branchName: job.git.branchName,
+    title: 'PR title',
+    body: 'PR description (supports markdown)',
+    labels: ['label1', 'label2']
+  };
+}
+```
+
+**Key Files:**
+
+- `lib/git/branch-manager.js` - Git operations (branch, commit, push, PR)
+- `sidequest/server.js` - Base class with git workflow integration
+- `sidequest/config.js` - Git workflow configuration
 
 ### Type System: Zod → TypeScript Flow
 
@@ -271,6 +413,12 @@ doppler setup --project bottleneck --config prd   # Production
 - `CRON_SCHEDULE` - Duplicate detection (default: 0 2 * * *)
 - `ENABLE_PR_CREATION` - Auto-PR for duplicates (false by default)
 
+**Git Workflow variables:**
+- `ENABLE_GIT_WORKFLOW` - Enable automated branch/PR creation (false by default)
+- `GIT_BASE_BRANCH` - Base branch for PRs (default: main)
+- `GIT_BRANCH_PREFIX` - Branch prefix (default: automated)
+- `GIT_DRY_RUN` - Skip push/PR creation (false by default)
+
 See ecosystem.config.cjs for full list with defaults.
 
 ## Directory Structure (Key Paths)
@@ -315,9 +463,14 @@ jobs/
 - `api/middleware/validation.js` - Request validation middleware
 
 **Job Queue:**
-- `sidequest/server.js` - Base job queue (retry logic, events)
+- `sidequest/server.js` - Base job queue (retry logic, events, git workflow)
 - `sidequest/config.js` - Centralized configuration
 - `lib/errors/error-classifier.js` - Auto-classify retryable errors
+
+**Git Workflow:**
+- `lib/git/branch-manager.js` - Branch creation, commit, push, PR creation
+- `lib/git/pr-creator.js` - Legacy PR creator for duplicate detection
+- `sidequest/doc-enhancement/schema-enhancement-worker.js` - Example with git workflow
 
 **Dashboard:**
 - `public/dashboard.js` - Client-side controller
@@ -362,7 +515,16 @@ jobs/
 
 ## Recent Major Changes
 
-**v1.4.0 (Current) - Pipeline Details Panel**
+**v1.5.0 (Current) - Git Workflow Automation**
+- Automated branch creation and PR generation for workers
+- BranchManager utility for git operations (branch, commit, push, PR)
+- Integrated into SidequestServer base class
+- SchemaEnhancementWorker enabled with custom commit/PR messages
+- Configuration via `ENABLE_GIT_WORKFLOW`, `GIT_BASE_BRANCH`, `GIT_BRANCH_PREFIX`
+- Job metadata tracking (branchName, commitSha, prUrl, changedFiles)
+- Dry run mode for testing without push/PR
+
+**v1.4.0 - Pipeline Details Panel**
 - Interactive job details panel with WebSocket updates
 - Type-safe API endpoints (`GET /api/pipelines/:id/jobs`)
 - WCAG 2.1 Level AA compliant UI
@@ -382,7 +544,7 @@ jobs/
 
 ---
 
-**Version:** 1.4.0
-**Last Updated:** 2025-11-18
+**Version:** 1.5.0
+**Last Updated:** 2025-11-19
 **Status:** Production Ready (PM2 + Doppler deployment)
 **Environment:** macOS with traditional server stack

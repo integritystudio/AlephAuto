@@ -42,6 +42,12 @@ export const config = {
   runOnStartup: process.env.RUN_ON_STARTUP === 'true',
   forceEnhancement: process.env.FORCE_ENHANCEMENT === 'true',
 
+  // Git workflow feature flags
+  enableGitWorkflow: process.env.ENABLE_GIT_WORKFLOW === 'true',
+  gitBaseBranch: process.env.GIT_BASE_BRANCH || 'main',
+  gitBranchPrefix: process.env.GIT_BRANCH_PREFIX || 'automated',
+  gitDryRun: process.env.GIT_DRY_RUN === 'true', // Skip push/PR in dry run mode
+
   // Repomix settings
   repomixTimeout: parseInt(process.env.REPOMIX_TIMEOUT || '600000', 10), // 10 minutes
   repomixMaxBuffer: parseInt(process.env.REPOMIX_MAX_BUFFER || '52428800', 10), // 50MB

@@ -129,8 +129,8 @@ class DocEnhancementPipeline {
         // Gather context for this README
         const context = await this.scanner.gatherContext(readme.dirPath);
 
-        // Create enhancement job
-        this.worker.createEnhancementJob(readme, context);
+        // Create enhancement job (now async to find git root)
+        await this.worker.createEnhancementJob(readme, context);
       }
 
       // Wait for all jobs to complete

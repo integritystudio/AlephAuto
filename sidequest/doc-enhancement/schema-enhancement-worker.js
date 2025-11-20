@@ -2,6 +2,7 @@ import { SidequestServer } from '../server.js';
 import { SchemaMCPTools } from './schema-mcp-tools.js';
 import { READMEScanner } from './readme-scanner.js';
 import { createComponentLogger } from '../logger.js';
+import { config } from '../config.js';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -12,7 +13,16 @@ const logger = createComponentLogger('SchemaEnhancementWorker');
  */
 export class SchemaEnhancementWorker extends SidequestServer {
   constructor(options = {}) {
-    super(options);
+    // Enable git workflow with schema-specific settings
+    super({
+      ...options,
+      jobType: 'schema-enhancement',
+      gitWorkflowEnabled: options.gitWorkflowEnabled ?? config.enableGitWorkflow,
+      gitBranchPrefix: options.gitBranchPrefix || config.gitBranchPrefix || 'docs',
+      gitBaseBranch: options.gitBaseBranch || config.gitBaseBranch,
+      gitDryRun: options.gitDryRun ?? config.gitDryRun
+    });
+
     this.outputBaseDir = options.outputBaseDir || './document-enhancement-impact-measurement';
     this.mcpTools = new SchemaMCPTools(options);
     this.scanner = new READMEScanner(options);
@@ -172,17 +182,160 @@ export class SchemaEnhancementWorker extends SidequestServer {
   }
 
   /**
+   * Find git repository root from a directory path
+   * Walks up the directory tree until .git is found
+   * @private
+   */
+  async findGitRoot(startPath) {
+    let currentPath = startPath;
+    const root = path.parse(currentPath).root;
+
+    while (currentPath !== root) {
+      try {
+        const gitPath = path.join(currentPath, '.git');
+        const stats = await fs.stat(gitPath);
+
+        if (stats.isDirectory()) {
+          return currentPath;
+        }
+      } catch (error) {
+        // .git not found, continue up
+      }
+
+      currentPath = path.dirname(currentPath);
+    }
+
+    // No git repository found
+    return null;
+  }
+
+  /**
    * Create an enhancement job for a README
    */
-  createEnhancementJob(readme, context) {
+  async createEnhancementJob(readme, context) {
     const jobId = `schema-${readme.relativePath.replace(/\//g, '-')}-${Date.now()}`;
+
+    // Find git repository root for this README
+    const repositoryPath = await this.findGitRoot(readme.dirPath);
 
     return this.createJob(jobId, {
       readmePath: readme.fullPath,
       relativePath: readme.relativePath,
+      repositoryPath, // Add repository path for git workflow
+      repository: repositoryPath ? path.basename(repositoryPath) : null,
       context,
       type: 'schema-enhancement',
     });
+  }
+
+  /**
+   * Generate commit message for schema enhancement
+   * @override
+   * @protected
+   */
+  async _generateCommitMessage(job) {
+    const { relativePath, context } = job.data;
+    const impact = job.result?.impact;
+
+    const title = `docs: add Schema.org structured data to ${path.basename(relativePath)}`;
+
+    const bodyParts = [
+      'Added Schema.org JSON-LD markup to enhance SEO and enable rich results.',
+      ''
+    ];
+
+    if (job.result?.schemaType) {
+      bodyParts.push(`- Schema type: ${job.result.schemaType}`);
+    }
+
+    if (impact) {
+      bodyParts.push(
+        `- Impact score: ${impact.impactScore}/100 (${impact.rating})`,
+        `- ${impact.seoImprovements.length} SEO improvements: ${impact.seoImprovements.slice(0, 3).join(', ')}${impact.seoImprovements.length > 3 ? '...' : ''}`
+      );
+
+      if (impact.richResultsEligibility.length > 0) {
+        bodyParts.push(`- Eligible for ${impact.richResultsEligibility.join(', ')} rich results in search engines`);
+      }
+    }
+
+    return {
+      title,
+      body: bodyParts.join('\n')
+    };
+  }
+
+  /**
+   * Generate PR context for schema enhancement
+   * @override
+   * @protected
+   */
+  async _generatePRContext(job) {
+    const commitMessage = await this._generateCommitMessage(job);
+    const { relativePath, repository } = job.data;
+    const impact = job.result?.impact;
+    const schema = job.result?.schema;
+
+    const bodyParts = [
+      '## Summary',
+      '',
+      `This PR adds Schema.org structured data to \`${relativePath}\` to improve SEO and enable rich search results.`,
+      ''
+    ];
+
+    if (impact) {
+      bodyParts.push(
+        '## Impact Analysis',
+        '',
+        `- **Impact Score**: ${impact.impactScore}/100 (${impact.rating})`,
+        `- **SEO Improvements**: ${impact.seoImprovements.length}`,
+        ''
+      );
+
+      if (impact.seoImprovements.length > 0) {
+        bodyParts.push(
+          '### SEO Enhancements',
+          ...impact.seoImprovements.map(imp => `- ${imp}`),
+          ''
+        );
+      }
+
+      if (impact.richResultsEligibility.length > 0) {
+        bodyParts.push(
+          '### Rich Results Eligibility',
+          ...impact.richResultsEligibility.map(result => `- ${result}`),
+          ''
+        );
+      }
+    }
+
+    if (schema) {
+      bodyParts.push(
+        '## Schema Details',
+        '',
+        `- **Type**: \`${schema['@type']}\``,
+        `- **Properties**: ${Object.keys(schema).length} properties defined`,
+        ''
+      );
+    }
+
+    bodyParts.push(
+      '## Testing',
+      '',
+      '- [ ] Validate schema markup using [Google Rich Results Test](https://search.google.com/test/rich-results)',
+      '- [ ] Verify structured data using [Schema.org validator](https://validator.schema.org/)',
+      '',
+      '---',
+      '',
+      '🤖 Generated with [Claude Code](https://claude.com/claude-code)'
+    );
+
+    return {
+      branchName: job.git.branchName,
+      title: commitMessage.title,
+      body: bodyParts.join('\n'),
+      labels: ['documentation', 'seo', 'schema-org', 'automated']
+    };
   }
 
   /**
