@@ -53,13 +53,18 @@ export class RepomixWorker extends SidequestServer {
    */
   #verifyRepomixAvailable() {
     try {
-      execSync('npx repomix --version', { stdio: 'ignore', timeout: 5000 });
+      execSync('npx repomix --version', {
+        stdio: 'ignore',
+        timeout: 5000,
+        env: process.env, // Inherit full PATH from parent
+      });
       logger.info('Pre-flight check: repomix is available');
     } catch (error) {
       const errorMessage =
         'repomix is not available. Please install it:\n' +
         '  npm install\n' +
-        'Or verify package.json includes "repomix" dependency.';
+        'Or verify package.json includes "repomix" dependency.\n' +
+        `PATH: ${process.env.PATH}`;
       logger.error({ error }, errorMessage);
       throw new Error(errorMessage);
     }
@@ -142,6 +147,7 @@ export class RepomixWorker extends SidequestServer {
         cwd,
         timeout: 600000, // 10 minute timeout
         maxBuffer: 50 * 1024 * 1024, // 50MB buffer
+        env: process.env, // Inherit full PATH from parent to locate npx
       });
 
       let stdout = '';
