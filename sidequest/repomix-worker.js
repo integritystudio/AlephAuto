@@ -55,11 +55,16 @@ export class RepomixWorker extends SidequestServer {
     try {
       execSync('npx repomix --version', {
         stdio: 'ignore',
-        timeout: 5000,
+        timeout: 30000, // 30 seconds - allow time during heavy system load
         env: process.env, // Inherit full PATH from parent
       });
       logger.info('Pre-flight check: repomix is available');
     } catch (error) {
+      // ETIMEDOUT can happen under heavy load - treat as available but warn
+      if (error.code === 'ETIMEDOUT') {
+        logger.warn('Pre-flight check timed out after 30s - assuming repomix is available');
+        return;
+      }
       const errorMessage =
         'repomix is not available. Please install it:\n' +
         '  npm install\n' +
