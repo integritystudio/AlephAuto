@@ -217,9 +217,20 @@ export class ActivityFeedManager {
       // Job failed
       worker.on('job:failed', (job, error) => {
         try {
+          // Defensive: validate error parameter FIRST (before any usage)
+          if (error === undefined || error === null) {
+            logger.warn({
+              jobId: job?.id || 'unknown',
+              errorType: typeof error
+            }, 'job:failed event received with undefined/null error');
+            error = new Error('Job failed with no error details');
+          }
+
           // Defensive: ensure job object exists
           if (!job) {
-            logger.warn('job:failed event received with no job object');
+            logger.warn({
+              error: safeErrorMessage(error)
+            }, 'job:failed event received with no job object');
             return;
           }
 

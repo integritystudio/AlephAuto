@@ -85,7 +85,7 @@ describe('ActivityFeedManager - Error Handling', () => {
 
       const activities = activityFeed.getRecentActivities(1);
       assert.strictEqual(activities.length, 1);
-      assert.strictEqual(activities[0].error.message, 'Unknown error');
+      assert.strictEqual(activities[0].error.message, 'Job failed with no error details');
     });
 
     it('should handle null error', () => {
@@ -101,7 +101,7 @@ describe('ActivityFeedManager - Error Handling', () => {
 
       const activities = activityFeed.getRecentActivities(1);
       assert.strictEqual(activities.length, 1);
-      assert.strictEqual(activities[0].error.message, 'Unknown error');
+      assert.strictEqual(activities[0].error.message, 'Job failed with no error details');
     });
 
     it('should handle error objects without message property', () => {
@@ -437,7 +437,7 @@ describe('ActivityFeedManager - Error Handling', () => {
       const activities = activityFeed.getRecentActivities(3);
       assert.strictEqual(activities.length, 3);
       // Should be in reverse chronological order (newest first)
-      assert.strictEqual(activities[0].error.message, 'Unknown error');
+      assert.strictEqual(activities[0].error.message, 'Job failed with no error details');
       assert.strictEqual(activities[1].error.message, 'Error 2');
       assert.strictEqual(activities[2].error.message, 'Error 1');
     });
