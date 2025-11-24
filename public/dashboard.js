@@ -53,6 +53,17 @@ class DashboardController {
     async fetchInitialStatus() {
         try {
             const response = await fetch(`${this.apiBaseUrl}/health`);
+
+            // Check if response is OK and is JSON
+            if (!response.ok) {
+                throw new Error(`Health endpoint returned ${response.status}`);
+            }
+
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('Health endpoint returned non-JSON response');
+            }
+
             const data = await response.json();
 
             if (data.status === 'healthy') {
@@ -63,8 +74,13 @@ class DashboardController {
             try {
                 const statusResponse = await fetch(`${this.apiBaseUrl}/api/status`);
                 if (statusResponse.ok) {
-                    const statusData = await statusResponse.json();
-                    this.renderInitialStatus(statusData);
+                    const statusContentType = statusResponse.headers.get('content-type');
+                    if (statusContentType && statusContentType.includes('application/json')) {
+                        const statusData = await statusResponse.json();
+                        this.renderInitialStatus(statusData);
+                    } else {
+                        this.showMockData();
+                    }
                 } else {
                     this.showMockData();
                 }
@@ -168,7 +184,8 @@ class DashboardController {
      * Connect to WebSocket server
      */
     connectWebSocket() {
-        const wsUrl = `ws://${window.location.host}/ws`;
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
         console.log('Connecting to WebSocket:', wsUrl);
 
         this.updateSystemStatus('connecting', 'Connecting...');
@@ -598,6 +615,17 @@ class DashboardController {
     async updateDopplerHealth() {
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/health/doppler`);
+
+            // Check if response is OK and is JSON
+            if (!response.ok) {
+                throw new Error(`Doppler health endpoint returned ${response.status}`);
+            }
+
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('Doppler health endpoint returned non-JSON response');
+            }
+
             const health = await response.json();
 
             const container = document.getElementById('dopplerHealth');

@@ -219,6 +219,30 @@
                             <li>Integration with AlephAuto job queue</li>
                         </ul>
                     </div>
+                    <div class="pipeline-doc">
+                        <h4>🏥 Claude Health Pipeline</h4>
+                        <p><strong>Purpose:</strong> Monitors Claude Code environment health and configuration status</p>
+                        <p><strong>Schedule:</strong> Daily at 6 AM (HEALTH_CRON_SCHEDULE)</p>
+                        <p><strong>Key Features:</strong></p>
+                        <ul>
+                            <li>Environment variable validation</li>
+                            <li>Dependency health checks</li>
+                            <li>Configuration integrity verification</li>
+                            <li>Health report generation</li>
+                        </ul>
+                    </div>
+                    <div class="pipeline-doc">
+                        <h4>🧪 Test Refactor Pipeline</h4>
+                        <p><strong>Purpose:</strong> Scans test suites and generates modular utility files</p>
+                        <p><strong>Schedule:</strong> Sunday at 4 AM (TEST_REFACTOR_CRON)</p>
+                        <p><strong>Key Features:</strong></p>
+                        <ul>
+                            <li>Test pattern detection (renderWaitFor, form interactions)</li>
+                            <li>Hardcoded string extraction</li>
+                            <li>Duplicate assertion identification</li>
+                            <li>Utility file generation with recommendations</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
             <div class="doc-panel" data-panel="api">
@@ -274,10 +298,10 @@
 │  - Retry logic & circuit breaker    │
 └─────────────────────────────────────┘
               ▲ extends
-    ┌─────────┴──────────┬──────────────┬──────────────┬──────────────┬──────────────┐
-    │                    │              │              │              │              │
-DuplicateDetection   Repomix    SchemaEnhancement GitActivity  PluginManager GitignoreWorker
-    Worker           Worker          Worker        Worker         Worker
+    ┌─────────┴──────────┬──────────────┬──────────────┬──────────────┬──────────────┬──────────────┐
+    │                    │              │              │              │              │              │
+DuplicateDetection   Repomix    SchemaEnhancement GitActivity  PluginManager Gitignore  TestRefactor
+    Worker           Worker          Worker        Worker         Worker     Worker       Worker
                 </pre>
                 <h4>Duplicate Detection Pipeline (7 Stages)</h4>
                 <pre class="architecture-diagram">
