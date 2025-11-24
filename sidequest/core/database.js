@@ -198,15 +198,15 @@ export function getLastJob(pipelineId) {
  * Import existing reports into the database
  */
 export async function importReportsToDatabase(reportsDir) {
-  const fs = await import('fs');
+  const fsModule = await import('fs');
   const db = getDatabase();
 
-  if (!fs.existsSync(reportsDir)) {
+  if (!fsModule.existsSync(reportsDir)) {
     logger.warn({ reportsDir }, 'Reports directory not found');
     return 0;
   }
 
-  const files = fs.readdirSync(reportsDir)
+  const files = fsModule.readdirSync(reportsDir)
     .filter(f => f.endsWith('-summary.json'));
 
   let imported = 0;
@@ -214,8 +214,8 @@ export async function importReportsToDatabase(reportsDir) {
   for (const file of files) {
     try {
       const filePath = path.join(reportsDir, file);
-      const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-      const stats = fs.statSync(filePath);
+      const content = JSON.parse(fsModule.readFileSync(filePath, 'utf8'));
+      const stats = fsModule.statSync(filePath);
 
       // Extract date from filename (e.g., inter-project-scan-2repos-2025-11-24-summary.json)
       const dateMatch = file.match(/(\d{4}-\d{2}-\d{2})/);
@@ -259,6 +259,81 @@ export async function importReportsToDatabase(reportsDir) {
 }
 
 /**
+ * Import job logs from sidequest/logs directory
+ */
+export async function importLogsToDatabase(logsDir) {
+  const fsModule = await import('fs');
+  const db = getDatabase();
+
+  if (!fsModule.existsSync(logsDir)) {
+    logger.warn({ logsDir }, 'Logs directory not found');
+    return 0;
+  }
+
+  const files = fsModule.readdirSync(logsDir)
+    .filter(f => f.endsWith('.json'));
+
+  let imported = 0;
+
+  // Map filename prefixes to pipeline IDs
+  const pipelineMap = {
+    'git-activity': 'git-activity',
+    'claude-health': 'claude-health',
+    'plugin-audit': 'plugin-manager',
+    'gitignore': 'gitignore-manager',
+    'doc-enhancement': 'doc-enhancement',
+    'repomix': 'repomix'
+  };
+
+  for (const file of files) {
+    try {
+      const filePath = path.join(logsDir, file);
+      const content = JSON.parse(fsModule.readFileSync(filePath, 'utf8'));
+      const stats = fsModule.statSync(filePath);
+
+      // Extract pipeline type from filename
+      let pipelineId = 'unknown';
+      for (const [prefix, id] of Object.entries(pipelineMap)) {
+        if (file.startsWith(prefix)) {
+          pipelineId = id;
+          break;
+        }
+      }
+
+      // Create job ID from filename
+      const jobId = file.replace('.json', '');
+
+      // Check if already imported
+      const existing = db.prepare('SELECT id FROM jobs WHERE id = ?').get(jobId);
+      if (existing) continue;
+
+      // Determine status from content
+      const status = content.error ? 'failed' : 'completed';
+
+      // Import job
+      saveJob({
+        id: jobId,
+        pipelineId,
+        status,
+        createdAt: content.startTime || stats.mtime.toISOString(),
+        startedAt: content.startTime || stats.mtime.toISOString(),
+        completedAt: content.endTime || stats.mtime.toISOString(),
+        data: content.parameters || content.config || {},
+        result: content.result || content.summary || content,
+        error: content.error || null
+      });
+
+      imported++;
+    } catch (err) {
+      logger.error({ file, error: err.message }, 'Failed to import log');
+    }
+  }
+
+  logger.info({ imported, total: files.length }, 'Imported existing logs');
+  return imported;
+}
+
+/**
  * Close the database connection
  */
 export function closeDatabase() {
@@ -277,5 +352,6 @@ export default {
   getJobCounts,
   getLastJob,
   importReportsToDatabase,
+  importLogsToDatabase,
   closeDatabase
 };
