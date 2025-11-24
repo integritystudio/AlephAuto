@@ -1259,8 +1259,8 @@ class DashboardController {
 // Initialize dashboard when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        new DashboardController();
+        window.dashboardController = new DashboardController();
     });
 } else {
-    new DashboardController();
+    window.dashboardController = new DashboardController();
 }
