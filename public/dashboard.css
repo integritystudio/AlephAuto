@@ -2233,3 +2233,495 @@ pre {
         max-height: 300px;
     }
 }
+/* ===== DARK MODE ===== */
+@media (prefers-color-scheme: dark) {
+    :root {
+        /* Inverted gray scale */
+        --color-white: #1f1f1f;
+        --color-gray-50: #2a2a2a;
+        --color-gray-100: #333333;
+        --color-gray-200: #4a4a4a;
+        --color-gray-300: #6a6a6a;
+        --color-gray-600: #a0a0a0;
+        --color-gray-700: #c0c0c0;
+        --color-gray-800: #e0e0e0;
+        --color-gray-900: #f5f5f5;
+
+        /* Adjusted semantic colors for dark backgrounds */
+        --color-success: #34d399;
+        --color-success-bg: #064e3b;
+        --color-success-dark: #6ee7b7;
+        --color-error: #f87171;
+        --color-error-bg: #7f1d1d;
+        --color-error-dark: #fca5a5;
+        --color-warning: #fbbf24;
+        --color-warning-bg: #78350f;
+        --color-warning-light: #78350f;
+        --color-warning-dark: #fde047;
+        --color-info: #60a5fa;
+        --color-info-bg: #1e3a8a;
+        --color-info-dark: #93c5fd;
+        --color-idle: #9ca3af;
+        --color-idle-bg: #374151;
+        --color-idle-dark: #d1d5db;
+
+        /* Adjusted shadows for dark mode */
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+
+        /* Status backgrounds for dark mode */
+        --status-completed-bg: color-mix(in srgb, var(--color-success) 15%, #1f1f1f);
+        --status-failed-bg: color-mix(in srgb, var(--color-error) 15%, #1f1f1f);
+        --status-running-bg: color-mix(in srgb, var(--color-info) 15%, #1f1f1f);
+        --status-queued-bg: var(--color-warning-bg);
+    }
+
+    /* Global adjustments */
+    body {
+        background-color: #1a1a1a;
+        color: var(--color-gray-800);
+    }
+
+    /* Modal backdrop */
+    .job-details-modal::backdrop {
+        background: rgba(0, 0, 0, 0.8);
+    }
+
+    /* Modal container */
+    .job-details-modal {
+        background: var(--color-gray-50);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .job-details-content {
+        background: var(--color-gray-50);
+    }
+
+    /* Modal header */
+    .job-details-header {
+        background: var(--color-gray-100);
+        border-bottom-color: var(--color-gray-200);
+    }
+
+    .job-details-header h3 {
+        color: var(--color-gray-900);
+    }
+
+    .job-details-close {
+        color: var(--color-gray-700);
+    }
+
+    .job-details-close:hover {
+        background: var(--color-gray-200);
+        color: var(--color-gray-900);
+    }
+
+    /* Hero zone - dark gradients */
+    .job-details-hero {
+        background: linear-gradient(135deg, var(--color-gray-100) 0%, var(--color-gray-50) 100%);
+    }
+
+    .job-details-hero.status-completed {
+        background: linear-gradient(135deg, var(--status-completed-bg) 0%, var(--color-gray-50) 100%);
+    }
+
+    .job-details-hero.status-failed {
+        background: linear-gradient(135deg, var(--status-failed-bg) 0%, var(--color-gray-50) 100%);
+    }
+
+    .job-details-hero.status-running {
+        background: linear-gradient(135deg, var(--status-running-bg) 0%, var(--color-gray-50) 100%);
+    }
+
+    .job-details-hero.status-queued {
+        background: linear-gradient(135deg, var(--status-queued-bg) 0%, var(--color-gray-50) 100%);
+    }
+
+    .hero-job-id {
+        color: var(--color-gray-700);
+    }
+
+    .hero-pipeline-name {
+        color: var(--color-gray-900);
+    }
+
+    .hero-status {
+        background: var(--color-gray-50);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Metric cards */
+    .metric-card {
+        background: var(--color-gray-100);
+        border-color: var(--color-gray-200);
+    }
+
+    .metric-label {
+        color: var(--color-gray-600);
+    }
+
+    .metric-value {
+        color: var(--color-gray-900);
+    }
+
+    /* Timeline */
+    .timeline-marker {
+        background: var(--color-gray-50);
+        border-color: var(--color-gray-300);
+    }
+
+    .timeline-marker::after {
+        background: var(--color-gray-200);
+    }
+
+    .timeline-label {
+        color: var(--color-gray-700);
+    }
+
+    .timeline-time {
+        color: var(--color-gray-600);
+    }
+
+    /* Collapsible sections */
+    .collapsible-section {
+        border-color: var(--color-gray-200);
+    }
+
+    .collapsible-header {
+        background: var(--color-gray-100);
+    }
+
+    .collapsible-header:hover {
+        background: var(--color-gray-200);
+    }
+
+    .collapsible-title {
+        color: var(--color-gray-800);
+    }
+
+    .collapsible-toggle {
+        color: var(--color-gray-600);
+    }
+
+    .collapsible-content {
+        background: var(--color-gray-50);
+    }
+
+    /* Error section - maintain prominence */
+    .error-section {
+        background: var(--color-error-bg);
+        border-color: var(--color-error);
+    }
+
+    .error-title {
+        color: var(--color-error-dark);
+    }
+
+    .error-message {
+        color: var(--color-error-dark);
+    }
+
+    .error-stack {
+        color: var(--color-error-dark);
+        background: rgba(0, 0, 0, 0.3);
+    }
+
+    .error-stack-toggle {
+        color: var(--color-error-dark);
+    }
+
+    /* Copyable fields */
+    .copyable-field {
+        background: var(--color-gray-100);
+    }
+
+    .copyable-value {
+        color: var(--color-gray-800);
+    }
+
+    /* Copy buttons */
+    .copy-btn {
+        background: var(--color-gray-100);
+        border-color: var(--color-gray-300);
+        color: var(--color-gray-800);
+    }
+
+    .copy-btn:hover {
+        background: var(--color-gray-200);
+        border-color: var(--color-gray-400);
+    }
+
+    .copy-btn.copied {
+        background: var(--color-success-bg);
+        border-color: var(--color-success);
+        color: var(--color-success-dark);
+    }
+
+    /* Full results button */
+    .full-results-btn {
+        background: var(--color-info);
+        color: var(--color-white);
+        border-color: var(--color-info);
+    }
+
+    .full-results-btn:hover {
+        background: var(--color-info-dark);
+        border-color: var(--color-info-dark);
+    }
+
+    /* PR links */
+    .pr-link {
+        background: var(--color-info-bg);
+        border-color: var(--color-info);
+        color: var(--color-info-dark);
+    }
+
+    .pr-link:hover {
+        background: var(--color-info);
+        color: var(--color-white);
+    }
+
+    /* Changed files */
+    .changed-file {
+        background: var(--color-gray-100);
+        color: var(--color-gray-700);
+    }
+
+    /* Result highlights */
+    .result-highlight {
+        background: linear-gradient(135deg, var(--color-gray-100) 0%, var(--color-gray-50) 100%);
+        border-color: var(--color-gray-200);
+    }
+
+    .result-highlight-label {
+        color: var(--color-gray-600);
+    }
+
+    .result-highlight-value {
+        color: var(--color-gray-900);
+    }
+
+    .result-highlight-value.success {
+        color: var(--color-success);
+    }
+
+    .result-highlight-value.warning {
+        color: var(--color-warning);
+    }
+
+    .result-highlight-value.error {
+        color: var(--color-error);
+    }
+
+    /* Keyboard shortcuts */
+    .keyboard-shortcut-notification {
+        background: var(--color-gray-100);
+        color: var(--color-gray-900);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .keyboard-shortcuts-help {
+        background: rgba(0, 0, 0, 0.85);
+    }
+
+    .keyboard-shortcuts-content {
+        background: var(--color-gray-50);
+    }
+
+    .keyboard-shortcuts-content h4 {
+        color: var(--color-gray-900);
+    }
+
+    .keyboard-shortcuts-list dt {
+        color: var(--color-gray-900);
+    }
+
+    .keyboard-shortcuts-list dd {
+        color: var(--color-gray-600);
+    }
+
+    .keyboard-shortcuts-list kbd {
+        background: var(--color-gray-100);
+        border-color: var(--color-gray-300);
+        color: var(--color-gray-800);
+        box-shadow: 0 1px 0 0 var(--color-gray-400);
+    }
+
+    .keyboard-shortcuts-close {
+        background: var(--color-gray-100);
+        color: var(--color-gray-900);
+    }
+
+    .keyboard-shortcuts-close:hover {
+        background: var(--color-gray-200);
+    }
+
+    /* Report viewer */
+    .report-viewer {
+        border-color: var(--color-gray-200);
+        background: var(--color-gray-50);
+    }
+
+    .report-viewer-header {
+        background: var(--color-gray-100);
+        border-bottom-color: var(--color-gray-200);
+    }
+
+    .report-viewer-label {
+        color: var(--color-gray-900);
+    }
+
+    .report-viewer-filepath {
+        color: var(--color-gray-600);
+    }
+
+    .report-btn {
+        background: var(--color-gray-50);
+        border-color: var(--color-gray-200);
+        color: var(--color-gray-600);
+    }
+
+    .report-btn:hover {
+        background: var(--color-gray-100);
+        border-color: var(--color-gray-300);
+        color: var(--color-gray-900);
+    }
+
+    .report-btn.copied {
+        background: var(--color-success-bg);
+        border-color: var(--color-success);
+        color: var(--color-success-dark);
+    }
+
+    .report-viewer-body {
+        background: var(--color-gray-50);
+    }
+
+    .report-loading {
+        color: var(--color-gray-600);
+    }
+
+    .report-loading-text {
+        color: var(--color-gray-600);
+    }
+
+    .report-error {
+        background: var(--color-error-bg);
+        border-left-color: var(--color-error);
+    }
+
+    .report-error-title {
+        color: var(--color-error-dark);
+    }
+
+    .report-error-message {
+        color: var(--color-error-dark);
+    }
+
+    .report-error-filepath {
+        color: var(--color-error-dark);
+    }
+
+    .report-retry-btn {
+        background: var(--color-error-dark);
+    }
+
+    .report-retry-btn:hover {
+        background: #ff8080;
+    }
+
+    /* JSON syntax highlighting for dark mode */
+    .json-content {
+        color: var(--color-gray-900);
+        background: var(--color-gray-50);
+    }
+
+    .json-brace,
+    .json-bracket {
+        color: var(--color-gray-700);
+    }
+
+    .json-key {
+        color: var(--color-info-dark);
+    }
+
+    .json-string {
+        color: var(--color-success-dark);
+    }
+
+    .json-number {
+        color: var(--color-warning-dark);
+    }
+
+    .json-boolean {
+        color: var(--color-gray-600);
+    }
+
+    .json-null {
+        color: var(--color-gray-600);
+    }
+
+    .json-comma {
+        color: var(--color-gray-700);
+    }
+
+    .json-colon {
+        color: var(--color-gray-700);
+    }
+
+    /* Job details fields */
+    .job-details-field {
+        background: var(--color-gray-100);
+    }
+
+    .job-details-field label {
+        color: var(--color-gray-600);
+    }
+
+    .job-details-field span {
+        color: var(--color-gray-900);
+    }
+
+    .job-details-field pre {
+        background: var(--color-gray-200);
+    }
+
+    .job-details-section h4 {
+        color: var(--color-gray-600);
+    }
+
+    /* Focus indicators - ensure visibility */
+    :focus-visible {
+        outline-color: var(--color-info);
+    }
+
+    /* Code elements */
+    code {
+        background: var(--color-gray-100);
+        color: var(--color-gray-800);
+    }
+
+    pre {
+        background: var(--color-gray-100);
+    }
+
+    /* Job details body */
+    .job-details-body {
+        background: var(--color-gray-50);
+    }
+
+    /* Job details sections */
+    .job-details-section {
+        border-color: var(--color-gray-200);
+    }
+
+    /* Field labels and values */
+    .field-label {
+        color: var(--color-gray-600);
+    }
+
+    .field-value {
+        color: var(--color-gray-900);
+    }
+}
