@@ -29,6 +29,7 @@ Automation pipelines built on **AlephAuto** job queue framework with real-time d
 | Deploy | `./scripts/deploy-traditional-server.sh --update` (PM2 + Doppler) |
 | Dashboard | `npm run dashboard` → http://localhost:8080 |
 | Enable auto PRs | Set `ENABLE_GIT_WORKFLOW=true` in Doppler - See Git Workflow section |
+| API Reference | See `docs/API_REFERENCE.md` for complete endpoint documentation |
 
 ## Critical Patterns & Gotchas
 
@@ -509,6 +510,9 @@ jobs/
 - `docs/architecture/CHEAT_SHEET.md` - Command reference
 - `docs/architecture/CACHE_TESTING.md` - Redis cache testing
 
+**API Documentation:**
+- `docs/API_REFERENCE.md` - Complete REST API reference (22 endpoints)
+
 **Dashboard documentation:**
 - `docs/dashboard_ui/DASHBOARD.md` - Dashboard features and API
 - `docs/dashboard_ui/DATAFLOW_DIAGRAMS.md` - Mermaid architecture diagrams
@@ -520,7 +524,21 @@ jobs/
 
 ## Recent Major Changes
 
-**v1.6.0 (Current) - Test Refactor Pipeline & Documentation Reorganization**
+**v1.6.2 (Current) - API Documentation & n0ai-proxy Worker**
+- Added comprehensive API documentation (`docs/API_REFERENCE.md`) with 22 endpoints
+- New Cloudflare Worker `n0ai-proxy` for sidequest integration
+- Compiled scan-orchestrator.ts to .js/.d.ts for runtime
+- Cleaned up obsolete documentation and build artifacts
+- Removed readme-scanner module and data-discovery pipeline
+
+**v1.6.1 - Pipeline Core Reorganization & TypeScript Migrations**
+- Moved `lib/` to `sidequest/pipeline-core/` for better organization
+- Migrated test-refactor-pipeline.js and test-refactor-worker.js to TypeScript with full type definitions
+- Extended frontend types for test-refactor job results (patterns, recommendations, generated files)
+- Updated JobItem component to render test-refactor metrics and analysis
+- Fixed TypeScript errors across dashboard.js, BugfixAuditWorker, DirectoryScanner
+
+**v1.6.0 - Test Refactor Pipeline & Documentation Reorganization**
 - New test refactoring pipeline for automated test suite modularization
 - Reorganized documentation into categorical directories (architecture/, dashboard_ui/, deployment/, runbooks/)
 - Updated condense output directory to sidequest/output/condense/
@@ -557,7 +575,7 @@ jobs/
 
 ---
 
-**Version:** 1.6.0
-**Last Updated:** 2025-11-23
+**Version:** 1.6.2
+**Last Updated:** 2025-11-24
 **Status:** Production Ready (PM2 + Doppler deployment)
 **Environment:** macOS with traditional server stack
