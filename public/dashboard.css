@@ -1311,3 +1311,276 @@ pre {
         grid-template-columns: 1fr;
     }
 }
+
+/* ===== JSON REPORT VIEWER ===== */
+
+.report-viewer {
+    border: 1px solid var(--color-gray-200);
+    background: var(--color-white);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    margin-top: var(--space-2);
+}
+
+.report-viewer-header {
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--color-gray-200);
+    background: var(--color-gray-50);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.report-viewer-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-gray-900);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.report-viewer-filepath {
+    font-size: 12px;
+    color: var(--color-gray-600);
+    font-family: var(--font-mono);
+    word-break: break-all;
+    flex: 1;
+    min-width: 200px;
+    max-width: 100%;
+}
+
+.report-viewer-controls {
+    display: flex;
+    gap: var(--space-1);
+    align-items: center;
+}
+
+.report-btn {
+    background: var(--color-white);
+    border: 1px solid var(--color-gray-200);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    color: var(--color-gray-600);
+    font-size: 16px;
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.report-btn:hover {
+    background: var(--color-gray-100);
+    border-color: var(--color-gray-300);
+    color: var(--color-gray-900);
+}
+
+.report-btn:active {
+    background: var(--color-gray-200);
+    transform: scale(0.95);
+}
+
+.report-btn:focus-visible {
+    outline: 2px solid var(--color-info);
+    outline-offset: 2px;
+}
+
+.report-btn.copied {
+    background: var(--color-success-bg);
+    border-color: var(--color-success);
+    color: var(--color-success-dark);
+}
+
+.report-viewer-body {
+    max-height: 400px;
+    overflow-y: auto;
+    overflow-x: auto;
+    background: var(--color-white);
+}
+
+/* Loading State */
+.report-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    gap: var(--space-2);
+    min-height: 150px;
+}
+
+.report-loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--color-gray-200);
+    border-top-color: var(--color-info);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.report-loading-text {
+    font-size: 13px;
+    color: var(--color-gray-600);
+}
+
+/* Error State */
+.report-error {
+    padding: var(--space-3);
+    background: var(--color-error-bg);
+    border-left: 4px solid var(--color-error);
+    display: flex;
+    gap: var(--space-2);
+    align-items: flex-start;
+    min-height: 120px;
+}
+
+.report-error-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.report-error-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.report-error-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-error-dark);
+    margin: 0;
+}
+
+.report-error-message {
+    font-size: 12px;
+    color: var(--color-error-dark);
+    margin: 0;
+    opacity: 0.9;
+}
+
+.report-error-filepath {
+    font-size: 11px;
+    color: var(--color-error-dark);
+    font-family: var(--font-mono);
+    margin: 0;
+    opacity: 0.8;
+    word-break: break-all;
+}
+
+.report-retry-btn {
+    background: var(--color-error-dark);
+    color: var(--color-white);
+    border: none;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+    margin-top: var(--space-1);
+    width: fit-content;
+}
+
+.report-retry-btn:hover {
+    background: #a71515;
+    transform: translateY(-1px);
+}
+
+.report-retry-btn:focus-visible {
+    outline: 2px solid var(--color-info);
+    outline-offset: 2px;
+}
+
+/* JSON Content */
+.json-content {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--color-gray-900);
+    padding: var(--space-3);
+    background: var(--color-white);
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-x: auto;
+    margin: 0;
+}
+
+/* JSON Syntax Highlighting */
+.json-brace,
+.json-bracket {
+    color: var(--color-gray-700);
+    font-weight: 500;
+}
+
+.json-key {
+    color: var(--color-info-dark);
+    font-weight: 500;
+}
+
+.json-string {
+    color: var(--color-success-dark);
+}
+
+.json-number {
+    color: var(--color-warning-dark);
+    font-weight: 500;
+}
+
+.json-boolean {
+    color: var(--color-gray-600);
+    font-weight: 600;
+}
+
+.json-null {
+    color: var(--color-gray-600);
+    font-weight: 600;
+}
+
+.json-comma {
+    color: var(--color-gray-700);
+}
+
+.json-colon {
+    color: var(--color-gray-700);
+    margin: 0 4px;
+}
+
+/* Size indicator for large files */
+.report-size-indicator {
+    font-size: 11px;
+    color: var(--color-gray-600);
+    background: var(--color-gray-100);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    margin: var(--space-2);
+}
+
+/* Mobile responsive adjustments for report viewer */
+@media (max-width: 768px) {
+    .report-viewer-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .report-viewer-controls {
+        align-self: flex-end;
+        margin-top: var(--space-1);
+    }
+
+    .json-content {
+        font-size: 11px;
+        padding: var(--space-2);
+    }
+
+    .report-viewer-body {
+        max-height: 300px;
+    }
+}

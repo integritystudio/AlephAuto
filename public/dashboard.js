@@ -8,6 +8,263 @@
  * - Event batching to prevent UI flicker
  */
 
+/**
+ * JSONReportViewer - Fetchable JSON report display component
+ */
+class JSONReportViewer {
+    constructor(reportPath, container, options = {}) {
+        this.reportPath = reportPath;
+        this.container = container;
+        this.options = {
+            expandByDefault: true,
+            maxCharSize: 50000,
+            ...options
+        };
+
+        this.state = {
+            isExpanded: this.options.expandByDefault,
+            isLoading: false,
+            error: null,
+            jsonData: null
+        };
+
+        this.init();
+    }
+
+    async init() {
+        this.render();
+        this.attachEventListeners();
+
+        if (this.state.isExpanded) {
+            await this.loadReport();
+        }
+    }
+
+    render() {
+        this.container.innerHTML = `
+            <div class="report-viewer">
+                <div class="report-viewer-header">
+                    <div>
+                        <span class="report-viewer-label">Report Content</span>
+                        <div class="report-viewer-filepath">${this.escapeHtml(this.reportPath)}</div>
+                    </div>
+                    <div class="report-viewer-controls">
+                        <button class="report-btn report-copy-btn" aria-label="Copy JSON to clipboard" title="Copy to clipboard">
+                            📋
+                        </button>
+                    </div>
+                </div>
+                <div class="report-viewer-body">
+                    <div class="report-content-placeholder"></div>
+                </div>
+            </div>
+        `;
+    }
+
+    attachEventListeners() {
+        const copyBtn = this.container.querySelector('.report-copy-btn');
+
+        if (copyBtn) {
+            copyBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.handleCopy();
+            });
+        }
+    }
+
+    async loadReport() {
+        if (this.state.isLoading) return;
+
+        this.state.isLoading = true;
+        this.renderLoading();
+
+        try {
+            // Convert file path to API endpoint
+            const apiPath = this.reportPath.replace(/^.*\/output\//, '/api/reports/');
+            const response = await fetch(apiPath);
+
+            if (!response.ok) {
+                throw new Error(`Failed to load report: ${response.status} ${response.statusText}`);
+            }
+
+            const text = await response.text();
+            this.state.jsonData = JSON.parse(text);
+            this.state.error = null;
+            this.renderJSON(this.state.jsonData);
+
+        } catch (error) {
+            this.state.error = error;
+            this.renderError();
+        } finally {
+            this.state.isLoading = false;
+        }
+    }
+
+    renderLoading() {
+        const body = this.container.querySelector('.report-viewer-body');
+        body.innerHTML = `
+            <div class="report-loading">
+                <div class="report-loading-spinner"></div>
+                <span class="report-loading-text">Loading report...</span>
+            </div>
+        `;
+    }
+
+    renderError() {
+        const body = this.container.querySelector('.report-viewer-body');
+        body.innerHTML = `
+            <div class="report-error">
+                <span class="report-error-icon">⚠️</span>
+                <div class="report-error-content">
+                    <p class="report-error-title">Unable to Load Report</p>
+                    <p class="report-error-message">${this.escapeHtml(this.state.error.message)}</p>
+                    <p class="report-error-filepath">Path: ${this.escapeHtml(this.reportPath)}</p>
+                    <button class="report-retry-btn">Retry</button>
+                </div>
+            </div>
+        `;
+
+        const retryBtn = body.querySelector('.report-retry-btn');
+        if (retryBtn) {
+            retryBtn.addEventListener('click', () => this.loadReport());
+        }
+    }
+
+    renderJSON(data) {
+        const body = this.container.querySelector('.report-viewer-body');
+        const jsonStr = JSON.stringify(data, null, 2);
+
+        if (jsonStr.length > this.options.maxCharSize) {
+            body.innerHTML = `
+                <pre class="json-content">${this.highlightJSON(jsonStr.slice(0, this.options.maxCharSize))}</pre>
+                <div class="report-size-indicator">
+                    Showing preview (${this.formatBytes(this.options.maxCharSize)} of ${this.formatBytes(jsonStr.length)})
+                </div>
+            `;
+        } else {
+            body.innerHTML = `
+                <pre class="json-content">${this.highlightJSON(jsonStr)}</pre>
+            `;
+        }
+    }
+
+    highlightJSON(jsonStr) {
+        let html = '';
+        let i = 0;
+
+        while (i < jsonStr.length) {
+            const char = jsonStr[i];
+            const nextChars = jsonStr.slice(i, i + 6);
+
+            // String (key or value)
+            if (char === '"') {
+                const endQuote = jsonStr.indexOf('"', i + 1);
+                if (endQuote !== -1) {
+                    const str = jsonStr.slice(i, endQuote + 1);
+                    const isKey = jsonStr.slice(endQuote + 1).match(/^\s*:/);
+                    const cls = isKey ? 'json-key' : 'json-string';
+                    html += `<span class="${cls}">${this.escapeHtml(str)}</span>`;
+                    i = endQuote + 1;
+                    continue;
+                }
+            }
+
+            // Number
+            if (/\d|-/.test(char)) {
+                const match = jsonStr.slice(i).match(/^-?\d+\.?\d*([eE][+-]?\d+)?/);
+                if (match) {
+                    html += `<span class="json-number">${match[0]}</span>`;
+                    i += match[0].length;
+                    continue;
+                }
+            }
+
+            // Boolean
+            if (nextChars.startsWith('true') || nextChars.startsWith('false')) {
+                const bool = nextChars.startsWith('true') ? 'true' : 'false';
+                html += `<span class="json-boolean">${bool}</span>`;
+                i += bool.length;
+                continue;
+            }
+
+            // Null
+            if (nextChars.startsWith('null')) {
+                html += `<span class="json-null">null</span>`;
+                i += 4;
+                continue;
+            }
+
+            // Brackets and braces
+            if (char === '{' || char === '}' || char === '[' || char === ']') {
+                const cls = (char === '{' || char === '}') ? 'json-brace' : 'json-bracket';
+                html += `<span class="${cls}">${char}</span>`;
+                i++;
+                continue;
+            }
+
+            // Comma and colon
+            if (char === ',') {
+                html += `<span class="json-comma">,</span>`;
+                i++;
+                continue;
+            }
+
+            if (char === ':') {
+                html += `<span class="json-colon">:</span>`;
+                i++;
+                continue;
+            }
+
+            // Whitespace or default
+            html += char === '<' ? '&lt;' : char === '>' ? '&gt;' : char === '&' ? '&amp;' : char;
+            i++;
+        }
+
+        return html;
+    }
+
+    async handleCopy() {
+        const copyBtn = this.container.querySelector('.report-copy-btn');
+
+        if (!this.state.jsonData) {
+            try {
+                await this.loadReport();
+            } catch {
+                return;
+            }
+        }
+
+        try {
+            const jsonStr = JSON.stringify(this.state.jsonData, null, 2);
+            await navigator.clipboard.writeText(jsonStr);
+
+            copyBtn.classList.add('copied');
+            copyBtn.setAttribute('aria-label', 'Copied!');
+
+            setTimeout(() => {
+                copyBtn.classList.remove('copied');
+                copyBtn.setAttribute('aria-label', 'Copy JSON to clipboard');
+            }, 2000);
+        } catch (err) {
+            console.error('Failed to copy:', err);
+        }
+    }
+
+    escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    formatBytes(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+}
+
 class DashboardController {
     constructor() {
         this.ws = null;
@@ -1173,9 +1430,6 @@ class DashboardController {
         let html = '<div class="job-result-data">';
 
         // Handle different result types
-        if (result.reportPath) {
-            html += `<div class="result-field"><span class="field-label">Report Path</span><span class="field-value" style="word-break: break-all;">${result.reportPath}</span></div>`;
-        }
         if (result.totalDuplicates !== undefined) {
             html += `<div class="result-field"><span class="field-label">Total Duplicates</span><span class="field-value">${result.totalDuplicates}</span></div>`;
         }
@@ -1187,6 +1441,20 @@ class DashboardController {
         }
         if (result.output) {
             html += `<div class="result-field"><span class="field-label">Output</span><pre class="field-value">${result.output}</pre></div>`;
+        }
+
+        // JSON Report Viewer for report files
+        if (result.reportPath) {
+            const viewerId = `report-viewer-${job.id}`;
+            html += `<div id="${viewerId}" class="report-viewer-container"></div>`;
+
+            // Schedule viewer initialization after DOM update
+            setTimeout(() => {
+                const container = document.getElementById(viewerId);
+                if (container) {
+                    new JSONReportViewer(result.reportPath, container);
+                }
+            }, 0);
         }
 
         // Show raw result if no specific fields matched
