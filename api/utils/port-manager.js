@@ -1,0 +1,262 @@
+/**
+ * Port Manager Utility
+ *
+ * Provides port availability checking, dynamic port allocation, and graceful shutdown handling.
+ * Prevents EADDRINUSE errors by detecting occupied ports and trying fallback ports.
+ */
+
+import net from 'net';
+import { createComponentLogger } from '../../sidequest/utils/logger.js';
+
+const logger = createComponentLogger('PortManager');
+
+/**
+ * Check if a port is available for binding
+ *
+ * @param {number} port - Port to check
+ * @param {string} host - Host address (default: '0.0.0.0')
+ * @returns {Promise<boolean>} - True if port is available
+ */
+export async function isPortAvailable(port, host = '0.0.0.0') {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+
+    // Enable SO_REUSEADDR to allow quick restarts
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        logger.debug({ port, host }, 'Port is already in use');
+        resolve(false);
+      } else {
+        logger.warn({ port, host, error: err.message }, 'Error checking port availability');
+        resolve(false);
+      }
+    });
+
+    server.on('listening', () => {
+      server.close(() => {
+        logger.debug({ port, host }, 'Port is available');
+        resolve(true);
+      });
+    });
+
+    server.listen(port, host);
+  });
+}
+
+/**
+ * Find an available port within a range
+ *
+ * @param {number} startPort - Starting port number
+ * @param {number} endPort - Ending port number (inclusive)
+ * @param {string} host - Host address (default: '0.0.0.0')
+ * @returns {Promise<number|null>} - Available port or null if none found
+ */
+export async function findAvailablePort(startPort, endPort, host = '0.0.0.0') {
+  logger.info({ startPort, endPort, host }, 'Searching for available port');
+
+  for (let port = startPort; port <= endPort; port++) {
+    const available = await isPortAvailable(port, host);
+    if (available) {
+      logger.info({ port, host }, 'Found available port');
+      return port;
+    }
+  }
+
+  logger.error({ startPort, endPort, host }, 'No available ports found in range');
+  return null;
+}
+
+/**
+ * Kill processes using a specific port (macOS/Linux)
+ *
+ * @param {number} port - Port to free up
+ * @returns {Promise<boolean>} - True if successful
+ */
+export async function killProcessOnPort(port) {
+  try {
+    const { exec } = await import('child_process');
+    const { promisify } = await import('util');
+    const execAsync = promisify(exec);
+
+    // Find process using the port
+    const { stdout } = await execAsync(`lsof -ti:${port}`);
+    const pids = stdout.trim().split('\n').filter(Boolean);
+
+    if (pids.length === 0) {
+      logger.info({ port }, 'No processes found on port');
+      return true;
+    }
+
+    logger.info({ port, pids }, 'Killing processes on port');
+
+    // Kill all processes
+    for (const pid of pids) {
+      await execAsync(`kill -9 ${pid}`);
+      logger.info({ port, pid }, 'Killed process');
+    }
+
+    // Wait for port to be released
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    return true;
+  } catch (error) {
+    logger.error({ port, error: error.message }, 'Failed to kill process on port');
+    return false;
+  }
+}
+
+/**
+ * Setup graceful shutdown handlers for a server
+ *
+ * @param {import('http').Server} httpServer - HTTP server instance
+ * @param {object} options - Additional cleanup options
+ * @param {Function} options.onShutdown - Custom shutdown handler
+ * @param {number} options.timeout - Shutdown timeout in ms (default: 10000)
+ */
+export function setupGracefulShutdown(httpServer, options = {}) {
+  const {
+    onShutdown = () => {},
+    timeout = 10000
+  } = options;
+
+  let isShuttingDown = false;
+
+  const shutdown = async (signal) => {
+    if (isShuttingDown) {
+      logger.warn({ signal }, 'Shutdown already in progress');
+      return;
+    }
+
+    isShuttingDown = true;
+    logger.info({ signal }, 'Graceful shutdown initiated');
+
+    // Set shutdown timeout
+    const shutdownTimeout = setTimeout(() => {
+      logger.error({ timeout }, 'Shutdown timeout exceeded, forcing exit');
+      process.exit(1);
+    }, timeout);
+
+    try {
+      // Run custom shutdown handler
+      await onShutdown(signal);
+
+      // Close HTTP server
+      httpServer.close((err) => {
+        clearTimeout(shutdownTimeout);
+
+        if (err) {
+          logger.error({ error: err.message }, 'Error during HTTP server shutdown');
+          process.exit(1);
+        } else {
+          logger.info('HTTP server closed successfully');
+          process.exit(0);
+        }
+      });
+
+      // Stop accepting new connections immediately
+      httpServer.closeAllConnections?.();
+    } catch (error) {
+      clearTimeout(shutdownTimeout);
+      logger.error({ error: error.message }, 'Error during graceful shutdown');
+      process.exit(1);
+    }
+  };
+
+  // Register shutdown handlers
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGHUP', () => shutdown('SIGHUP'));
+
+  // Handle uncaught errors
+  process.on('uncaughtException', (error) => {
+    logger.error({ error: error.message, stack: error.stack }, 'Uncaught exception');
+    shutdown('uncaughtException');
+  });
+
+  process.on('unhandledRejection', (reason, promise) => {
+    logger.error({ reason, promise }, 'Unhandled promise rejection');
+    shutdown('unhandledRejection');
+  });
+
+  logger.info('Graceful shutdown handlers registered');
+}
+
+/**
+ * Setup server with automatic port fallback
+ *
+ * @param {import('http').Server} httpServer - HTTP server instance
+ * @param {object} options - Configuration options
+ * @param {number} options.preferredPort - Preferred port to use
+ * @param {number} options.maxPort - Maximum port to try (default: preferredPort + 10)
+ * @param {string} options.host - Host to bind to (default: '0.0.0.0')
+ * @param {boolean} options.killExisting - Kill existing process on port (default: false)
+ * @returns {Promise<number>} - The port the server is listening on
+ */
+export async function setupServerWithPortFallback(httpServer, options = {}) {
+  const {
+    preferredPort,
+    maxPort = preferredPort + 10,
+    host = '0.0.0.0',
+    killExisting = false
+  } = options;
+
+  if (!preferredPort) {
+    throw new Error('preferredPort is required');
+  }
+
+  logger.info({ preferredPort, maxPort, host, killExisting }, 'Setting up server with port fallback');
+
+  // Check if preferred port is available
+  const preferredAvailable = await isPortAvailable(preferredPort, host);
+
+  if (preferredAvailable) {
+    return new Promise((resolve, reject) => {
+      httpServer.listen(preferredPort, host, () => {
+        logger.info({ port: preferredPort, host }, 'Server listening on preferred port');
+        resolve(preferredPort);
+      });
+
+      httpServer.on('error', reject);
+    });
+  }
+
+  // Preferred port not available
+  logger.warn({ port: preferredPort }, 'Preferred port is not available');
+
+  if (killExisting) {
+    logger.info({ port: preferredPort }, 'Attempting to kill existing process');
+    const killed = await killProcessOnPort(preferredPort);
+
+    if (killed) {
+      const nowAvailable = await isPortAvailable(preferredPort, host);
+      if (nowAvailable) {
+        return new Promise((resolve, reject) => {
+          httpServer.listen(preferredPort, host, () => {
+            logger.info({ port: preferredPort, host }, 'Server listening on preferred port after cleanup');
+            resolve(preferredPort);
+          });
+
+          httpServer.on('error', reject);
+        });
+      }
+    }
+  }
+
+  // Find fallback port
+  const fallbackPort = await findAvailablePort(preferredPort + 1, maxPort, host);
+
+  if (!fallbackPort) {
+    throw new Error(`No available ports found between ${preferredPort} and ${maxPort}`);
+  }
+
+  logger.warn({ preferredPort, fallbackPort }, 'Using fallback port');
+
+  return new Promise((resolve, reject) => {
+    httpServer.listen(fallbackPort, host, () => {
+      logger.info({ port: fallbackPort, host }, 'Server listening on fallback port');
+      resolve(fallbackPort);
+    });
+
+    httpServer.on('error', reject);
+  });
+}

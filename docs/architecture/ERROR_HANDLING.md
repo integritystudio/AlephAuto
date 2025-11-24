@@ -821,6 +821,550 @@ npm run logs:cleanup:verbose
 
 Archived logs are compressed with gzip and deleted after 30 days.
 
+## Doppler Circuit Breaker Pattern
+
+### Overview
+
+The Doppler health monitor implements a circuit breaker pattern to detect and alert on stale Doppler cache, preventing production failures from outdated secrets.
+
+**Location:** `sidequest/pipeline-core/doppler-health-monitor.js`
+
+### How It Works
+
+```javascript
+// Monitor Doppler fallback cache age
+const monitor = new DopplerHealthMonitor({
+  maxCacheAge: 24 * 60 * 60 * 1000,      // 24 hours - critical threshold
+  warningThreshold: 12 * 60 * 60 * 1000  // 12 hours - warning threshold
+});
+
+// Start periodic monitoring (checks every 15 minutes)
+await monitor.startMonitoring(15);
+
+// Or check on-demand
+const health = await monitor.checkCacheHealth();
+```
+
+### Cache Health States
+
+```javascript
+{
+  healthy: true/false,        // Cache age within 24 hour threshold
+  cacheAgeMs: 43200000,       // Age in milliseconds
+  cacheAgeHours: 12,          // Age in hours
+  cacheAgeMinutes: 0,         // Remaining minutes
+  lastModified: '2025-11-24T10:00:00Z',
+  usingFallback: true,        // Using cached secrets vs live API
+  severity: 'healthy' | 'warning' | 'critical' | 'error'
+}
+```
+
+### Severity Thresholds
+
+1. **Healthy** (0-12 hours)
+   - Cache age below warning threshold
+   - Normal operation
+   - No alerts
+
+2. **Warning** (12-24 hours)
+   - Cache approaching staleness
+   - Sentry warning level alert
+   - Review Doppler connectivity
+
+3. **Critical** (24+ hours)
+   - Cache critically stale
+   - Sentry error level alert
+   - Secrets may be outdated
+   - **Action required:** Update Doppler cache
+
+### Integration Pattern
+
+```javascript
+// In api/server.js
+import { DopplerHealthMonitor } from '../sidequest/pipeline-core/doppler-health-monitor.js';
+
+const dopplerMonitor = new DopplerHealthMonitor();
+
+// Health check endpoint
+app.get('/api/health/doppler', async (req, res) => {
+  const health = await dopplerMonitor.checkCacheHealth();
+  res.json({
+    status: health.healthy ? 'healthy' : 'degraded',
+    cacheAgeHours: health.cacheAgeHours,
+    severity: health.severity,
+    lastModified: health.lastModified
+  });
+});
+
+// Start monitoring on server startup
+httpServer.listen(PORT, async () => {
+  await dopplerMonitor.startMonitoring(15); // Check every 15 minutes
+});
+
+// Stop monitoring on graceful shutdown
+process.on('SIGTERM', () => {
+  dopplerMonitor.stopMonitoring();
+});
+```
+
+### Why This Matters
+
+**Problem:** Doppler fallback cache can become stale during API outages
+- Services continue running with cached secrets
+- Rotated secrets not updated
+- Production failures from expired API keys/tokens
+
+**Solution:** Circuit breaker pattern with proactive monitoring
+- Detect cache staleness before failures occur
+- Alert operators when cache exceeds thresholds
+- Enable manual intervention before production impact
+
+### Error Handling in Doppler Monitor
+
+```javascript
+try {
+  const stats = await fs.stat(this.cacheFile);
+  const cacheAge = Date.now() - stats.mtime.getTime();
+
+  if (cacheAge > this.maxCacheAge) {
+    // Critical alert
+    Sentry.captureMessage('Doppler cache critically stale', {
+      level: 'error',
+      extra: { cacheAgeHours, threshold: 24 },
+      tags: { component: 'doppler-health-monitor', severity: 'critical' }
+    });
+  }
+} catch (error) {
+  if (error.code === 'ENOENT') {
+    // No cache file - using live Doppler API (healthy state)
+    return { healthy: true, usingFallback: false };
+  }
+
+  // Other errors captured to Sentry
+  Sentry.captureException(error, {
+    tags: { component: 'doppler-health-monitor', operation: 'check-cache-health' }
+  });
+}
+```
+
+## Port Conflict Resolution Strategy
+
+### Overview
+
+The port manager utility provides automatic port conflict detection and resolution, preventing EADDRINUSE errors during server startup.
+
+**Location:** `api/utils/port-manager.js`
+
+### Key Features
+
+1. **Port Availability Check** - Test if port is free before binding
+2. **Automatic Fallback** - Try alternative ports if preferred port unavailable
+3. **Process Cleanup** - Kill existing processes on port (optional)
+4. **Graceful Shutdown** - Handle SIGTERM/SIGINT cleanly
+
+### Port Availability Check
+
+```javascript
+import { isPortAvailable } from './api/utils/port-manager.js';
+
+// Check if port 8080 is available
+const available = await isPortAvailable(8080, '0.0.0.0');
+
+if (!available) {
+  logger.warn({ port: 8080 }, 'Port is already in use');
+}
+```
+
+**How it works:**
+- Creates temporary TCP server on target port
+- Listens for `EADDRINUSE` error
+- Closes test server immediately if successful
+- Returns boolean availability status
+
+### Automatic Port Fallback
+
+```javascript
+import { setupServerWithPortFallback } from './api/utils/port-manager.js';
+
+const actualPort = await setupServerWithPortFallback(httpServer, {
+  preferredPort: 8080,
+  maxPort: 8090,           // Try ports 8080-8090
+  host: '0.0.0.0',
+  killExisting: false      // Don't kill existing processes
+});
+
+logger.info({ actualPort }, 'Server started on port');
+```
+
+**Fallback sequence:**
+1. Try preferred port (8080)
+2. If unavailable, try 8081, 8082, 8083... up to maxPort
+3. Log warning if using fallback port
+4. Throw error if no ports available in range
+
+### Process Cleanup (Optional)
+
+```javascript
+import { killProcessOnPort } from './api/utils/port-manager.js';
+
+// Kill existing process on port 8080
+const killed = await killProcessOnPort(8080);
+
+if (killed) {
+  logger.info({ port: 8080 }, 'Freed up port');
+}
+```
+
+**Use with caution:**
+- Uses `lsof -ti:PORT` to find processes
+- Sends SIGKILL (-9) to all processes on port
+- Only works on macOS/Linux
+- Can disrupt running services
+
+### Graceful Shutdown
+
+```javascript
+import { setupGracefulShutdown } from './api/utils/port-manager.js';
+
+setupGracefulShutdown(httpServer, {
+  onShutdown: async (signal) => {
+    logger.info({ signal }, 'Cleaning up resources');
+
+    // Stop Doppler monitoring
+    dopplerMonitor.stopMonitoring();
+
+    // Close WebSocket connections
+    wss.close();
+
+    // Close database connections
+    await db.close();
+  },
+  timeout: 10000  // Force exit after 10 seconds
+});
+```
+
+**Handles signals:**
+- `SIGTERM` - Graceful shutdown (PM2, Docker)
+- `SIGINT` - Ctrl+C in terminal
+- `SIGHUP` - Terminal closed
+- `uncaughtException` - Unhandled errors
+- `unhandledRejection` - Unhandled promise rejections
+
+**Shutdown sequence:**
+1. Set `isShuttingDown` flag to prevent duplicate shutdown
+2. Run custom `onShutdown` handler
+3. Close HTTP server and stop accepting connections
+4. Wait for active connections to complete
+5. Exit process with code 0 (success)
+6. Force exit after timeout (default: 10s)
+
+### Real-World Example
+
+```javascript
+// api/server.js - Production pattern
+import { setupServerWithPortFallback, setupGracefulShutdown } from './api/utils/port-manager.js';
+
+const PORT = config.apiPort || 8080;
+
+// Setup server with automatic fallback
+const actualPort = await setupServerWithPortFallback(httpServer, {
+  preferredPort: PORT,
+  maxPort: PORT + 10,
+  host: '0.0.0.0',
+  killExisting: false  // Don't kill existing processes in production
+});
+
+// Setup graceful shutdown
+setupGracefulShutdown(httpServer, {
+  onShutdown: async (signal) => {
+    logger.info({ signal }, 'Shutting down gracefully');
+    dopplerMonitor.stopMonitoring();
+    wss.close();
+  },
+  timeout: 10000
+});
+
+logger.info({ port: actualPort }, 'Server ready');
+```
+
+### Error Prevention
+
+**Without port manager:**
+```
+Error: listen EADDRINUSE: address already in use :::8080
+    at Server.setupListenHandle [as _listen2]
+```
+
+**With port manager:**
+```
+[INFO] Port 8080 is already in use
+[WARN] Using fallback port 8081
+[INFO] Server listening on fallback port 8081
+```
+
+## Null-Safe Error Handling Patterns
+
+### Overview
+
+Null-safe error handling prevents TypeError crashes when error objects are undefined, null, or missing expected properties.
+
+**Common scenario:** Event handlers receiving errors from async operations where error format is unpredictable.
+
+### Safe Error Message Extraction
+
+```javascript
+/**
+ * Safely extract error message from various error formats
+ *
+ * @param {Error|string|object|null|undefined} error - Error to extract message from
+ * @returns {string} Safe error message
+ */
+function safeErrorMessage(error) {
+  if (!error) {
+    return 'Unknown error (null or undefined)';
+  }
+
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === 'object') {
+    return error.message || error.error || JSON.stringify(error);
+  }
+
+  return String(error);
+}
+
+// Usage in event handlers
+worker.on('job:failed', (job, error) => {
+  const errorMessage = safeErrorMessage(error);
+
+  logger.error({
+    jobId: job.id,
+    error: errorMessage,
+    errorCode: error?.code  // Optional chaining for safety
+  }, 'Job failed');
+});
+```
+
+### Safe Error Property Access
+
+```javascript
+// ❌ Unsafe - throws TypeError if error is null
+const errorCode = error.code;
+const errorMessage = error.message;
+
+// ✅ Safe - uses optional chaining
+const errorCode = error?.code;
+const errorMessage = error?.message || 'Unknown error';
+
+// ✅ Safe - uses nullish coalescing
+const errorCode = error?.code ?? 'UNKNOWN';
+const isRetryable = error?.retryable ?? false;
+```
+
+### Activity Feed Error Handling
+
+**Location:** `api/activity-feed.js`
+
+The Activity Feed Manager implements comprehensive null-safe error handling:
+
+```javascript
+// Safe error extraction in job:failed event
+worker.on('job:failed', (job, error) => {
+  try {
+    const errorObj = error instanceof Error
+      ? { message: error.message, type: error.constructor.name }
+      : { message: safeErrorMessage(error), type: 'GenericError' };
+
+    this.addActivity({
+      type: 'job:failed',
+      event: 'Job Failed',
+      message: `Job ${job.id} failed: ${errorObj.message}`,
+      jobId: job.id,
+      jobType: job.data?.type || 'unknown',  // Safe property access
+      status: 'failed',
+      error: {
+        message: errorObj.message,
+        code: error?.code,                   // Optional chaining
+        retryable: error?.retryable || false // Logical OR fallback
+      },
+      icon: '❌'
+    });
+
+    // Capture to Sentry with safe context
+    Sentry.captureException(error || new Error(errorObj.message), {
+      tags: {
+        component: 'ActivityFeed',
+        event: 'job:failed',
+        jobId: job.id,
+        jobType: job.data?.type || 'unknown',
+        retryable: error?.retryable || false
+      },
+      extra: {
+        jobData: job.data,
+        errorCode: error?.code,           // Safe undefined access
+        errorType: errorObj.type
+      }
+    });
+  } catch (activityError) {
+    // Nested error handling - catch errors in error handler
+    logger.error({ error: activityError, job }, 'Failed to add job:failed activity');
+    Sentry.captureException(activityError, {
+      tags: { component: 'ActivityFeed', event: 'job:failed:activity-error' },
+      extra: { jobId: job.id, originalError: safeErrorMessage(error) }
+    });
+  }
+});
+```
+
+### Nested Try-Catch Pattern
+
+When error handlers themselves can fail, use nested try-catch:
+
+```javascript
+worker.on('job:failed', (job, error) => {
+  try {
+    // Primary error handling logic
+    const errorMessage = safeErrorMessage(error);
+    this.addActivity({ ... });
+    Sentry.captureException(error);
+  } catch (activityError) {
+    // Error handler failed - log and report separately
+    logger.error({
+      error: activityError,
+      job,
+      originalError: safeErrorMessage(error)
+    }, 'Failed to handle job:failed event');
+
+    Sentry.captureException(activityError, {
+      tags: {
+        component: 'ActivityFeed',
+        event: 'handler-failure'
+      },
+      extra: {
+        jobId: job.id,
+        originalError: safeErrorMessage(error)
+      }
+    });
+  }
+});
+```
+
+### Type Guards for Error Objects
+
+```javascript
+/**
+ * Type guard to check if value is an Error instance
+ */
+function isError(value) {
+  return value instanceof Error;
+}
+
+/**
+ * Type guard to check if error has a code property
+ */
+function hasErrorCode(error) {
+  return error && typeof error === 'object' && 'code' in error;
+}
+
+// Usage
+if (isError(error)) {
+  logger.error({ stack: error.stack }, error.message);
+}
+
+if (hasErrorCode(error)) {
+  if (error.code === 'ENOENT') {
+    // Handle file not found
+  }
+}
+```
+
+### Safe Sentry Context
+
+```javascript
+// ❌ Unsafe - throws if error is null/undefined
+Sentry.captureException(error, {
+  extra: {
+    errorCode: error.code,      // TypeError if error is null
+    errorMessage: error.message
+  }
+});
+
+// ✅ Safe - guards against null/undefined
+Sentry.captureException(error || new Error('Unknown error'), {
+  extra: {
+    errorCode: error?.code ?? 'UNKNOWN',
+    errorMessage: error?.message ?? 'No error message',
+    errorType: error?.constructor?.name ?? 'Unknown',
+    rawError: safeErrorMessage(error)
+  }
+});
+```
+
+### Real-World Null-Safe Pattern
+
+```javascript
+// api/activity-feed.js - Production-ready error handling
+export class ActivityFeedManager {
+  listenToWorker(worker) {
+    worker.on('retry:created', (jobId, attempt, error) => {
+      try {
+        // Safe error extraction
+        const errorMessage = safeErrorMessage(error);
+
+        this.addActivity({
+          type: 'retry:created',
+          event: 'Retry Scheduled',
+          message: `Job ${jobId} scheduled for retry (attempt ${attempt})`,
+          jobId,
+          attempt,
+          status: 'retry',
+          error: {
+            message: errorMessage,
+            code: error?.code  // Safe property access
+          },
+          icon: '🔄'
+        });
+
+        // Safe Sentry breadcrumb
+        Sentry.addBreadcrumb({
+          category: 'retry',
+          message: `Job ${jobId} retry attempt ${attempt}`,
+          level: 'warning',
+          data: {
+            jobId,
+            attempt,
+            errorCode: error?.code ?? 'UNKNOWN'
+          }
+        });
+      } catch (activityError) {
+        // Nested error handling
+        logger.error({ error: activityError, jobId }, 'Failed to add retry:created activity');
+        Sentry.captureException(activityError, {
+          tags: { component: 'ActivityFeed', event: 'retry:created' },
+          extra: { jobId, attempt, originalError: safeErrorMessage(error) }
+        });
+      }
+    });
+  }
+}
+```
+
+### Best Practices Summary
+
+1. **Always use optional chaining** for error properties: `error?.code`
+2. **Provide fallback values** with nullish coalescing: `error?.message ?? 'Unknown'`
+3. **Use safeErrorMessage()** for consistent error extraction
+4. **Wrap error handlers in try-catch** to prevent handler failures
+5. **Guard Sentry calls** with `error || new Error('fallback')`
+6. **Type check errors** before accessing Error-specific properties
+7. **Log original error** in nested catch blocks for debugging
+
 ## Additional Resources
 
 - Error classifier source: `lib/errors/error-classifier.js`
@@ -828,10 +1372,15 @@ Archived logs are compressed with gzip and deleted after 30 days.
 - Retry metrics: `sidequest/pipeline-runners/duplicate-detection-pipeline.js` (lines 539-585)
 - Dashboard UI: `public/index.html` (retry section)
 - Sentry setup: `sidequest/logger.js`
+- Doppler health monitor: `sidequest/pipeline-core/doppler-health-monitor.js`
+- Port manager: `api/utils/port-manager.js`
+- Activity feed: `api/activity-feed.js`
 
 ---
 
-**Last Updated:** 2025-11-17
+**Last Updated:** 2025-11-24
 **Circuit Breaker Limit:** 5 attempts
 **Default Max Retries:** 2 attempts
 **Default Base Delay:** 5 seconds
+**Doppler Cache Warning:** 12 hours
+**Doppler Cache Critical:** 24 hours

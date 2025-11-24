@@ -217,46 +217,66 @@ export class ActivityFeedManager {
       // Job failed
       worker.on('job:failed', (job, error) => {
         try {
+          // Defensive: ensure job object exists
+          if (!job) {
+            logger.warn('job:failed event received with no job object');
+            return;
+          }
+
           const errorObj = toErrorObject(error, {
             fallbackMessage: 'Unknown error',
             metadata: { jobId: job.id }
           });
 
+          // Defensive: ensure errorObj has required properties
+          const errorMessage = errorObj?.message || 'Unknown error';
+          const errorCode = error?.code;
+          const errorRetryable = error?.retryable || false;
+
           this.addActivity({
             type: 'job:failed',
             event: 'Job Failed',
-            message: `Job ${job.id} failed: ${errorObj.message}`,
+            message: `Job ${job.id} failed: ${errorMessage}`,
             jobId: job.id,
             jobType: job.data?.type || 'unknown',
             status: 'failed',
             error: {
-              message: errorObj.message,
-              code: error?.code,
-              retryable: error?.retryable || false
+              message: errorMessage,
+              code: errorCode,
+              retryable: errorRetryable
             },
             icon: '❌'
           });
 
           // Capture job failure in Sentry
-          Sentry.captureException(error || new Error(errorObj.message), {
+          // Defensive: ensure we always pass an Error object to Sentry
+          const sentryError = error instanceof Error
+            ? error
+            : new Error(errorMessage);
+
+          Sentry.captureException(sentryError, {
             tags: {
               component: 'ActivityFeed',
               event: 'job:failed',
               jobId: job.id,
               jobType: job.data?.type || 'unknown',
-              retryable: error?.retryable || false
+              retryable: errorRetryable
             },
             extra: {
               jobData: job.data,
-              errorCode: error?.code,
-              errorType: errorObj.type
+              errorCode: errorCode,
+              errorType: errorObj?.type || 'unknown',
+              errorMessage: errorMessage
             }
           });
         } catch (activityError) {
           logger.error({ error: activityError, job }, 'Failed to add job:failed activity');
           Sentry.captureException(activityError, {
             tags: { component: 'ActivityFeed', event: 'job:failed:activity-error' },
-            extra: { jobId: job.id, originalError: safeErrorMessage(error) }
+            extra: {
+              jobId: job?.id || 'unknown',
+              originalError: safeErrorMessage(error)
+            }
           });
         }
       });
@@ -264,7 +284,14 @@ export class ActivityFeedManager {
       // Retry created
       worker.on('retry:created', (jobId, attempt, error) => {
         try {
+          // Defensive: ensure required parameters exist
+          if (!jobId) {
+            logger.warn('retry:created event received with no jobId');
+            return;
+          }
+
           const errorMessage = safeErrorMessage(error);
+          const errorCode = error?.code;
 
           this.addActivity({
             type: 'retry:created',
@@ -275,7 +302,7 @@ export class ActivityFeedManager {
             status: 'retry',
             error: {
               message: errorMessage,
-              code: error?.code
+              code: errorCode
             },
             icon: '🔄'
           });
@@ -285,13 +312,22 @@ export class ActivityFeedManager {
             category: 'retry',
             message: `Job ${jobId} retry attempt ${attempt}`,
             level: 'warning',
-            data: { jobId, attempt, errorCode: error?.code }
+            data: {
+              jobId,
+              attempt: attempt || 'unknown',
+              errorCode: errorCode,
+              errorMessage: errorMessage
+            }
           });
         } catch (activityError) {
           logger.error({ error: activityError, jobId }, 'Failed to add retry:created activity');
           Sentry.captureException(activityError, {
             tags: { component: 'ActivityFeed', event: 'retry:created' },
-            extra: { jobId, attempt }
+            extra: {
+              jobId: jobId || 'unknown',
+              attempt: attempt || 'unknown',
+              originalError: safeErrorMessage(error)
+            }
           });
         }
       });

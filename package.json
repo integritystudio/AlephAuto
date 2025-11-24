@@ -33,6 +33,9 @@
     "gitignore:update": "RUN_ON_STARTUP=true doppler run -- node sidequest/pipeline-runners/gitignore-pipeline.js",
     "gitignore:update:dry": "GITIGNORE_DRY_RUN=true RUN_ON_STARTUP=true doppler run -- node sidequest/pipeline-runners/gitignore-pipeline.js",
     "gitignore:schedule": "doppler run -- node sidequest/pipeline-runners/gitignore-pipeline.js",
+    "cleanup:once": "RUN_ON_STARTUP=true doppler run -- node sidequest/pipeline-runners/repo-cleanup-pipeline.js",
+    "cleanup:dryrun": "CLEANUP_DRY_RUN=true RUN_ON_STARTUP=true doppler run -- node sidequest/pipeline-runners/repo-cleanup-pipeline.js",
+    "cleanup:schedule": "doppler run -- node sidequest/pipeline-runners/repo-cleanup-pipeline.js",
     "setup:sentry": "node setup-files/setup-sentry.js",
     "verify": "node scripts/verify-setup.js",
     "typecheck": "tsc --noEmit",
@@ -41,7 +44,12 @@
     "logs:cleanup:verbose": "node scripts/cleanup-error-logs.js --verbose",
     "permissions:check": "node scripts/validate-permissions.js --check-only",
     "permissions:fix": "node scripts/validate-permissions.js --fix",
-    "prestart": "node scripts/validate-permissions.js --fix"
+    "prestart": "node scripts/validate-permissions.js --fix",
+    "verify:bugfixes": "./scripts/verify-bugfixes.sh",
+    "verify:bugfixes:pre": "./scripts/verify-bugfixes.sh --pre",
+    "verify:bugfixes:post": "./scripts/verify-bugfixes.sh --post",
+    "verify:bugfixes:health": "./scripts/verify-bugfixes.sh --health",
+    "verify:bugfixes:smoke": "./scripts/verify-bugfixes.sh --smoke"
   },
   "keywords": [
     "repomix",

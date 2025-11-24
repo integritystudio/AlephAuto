@@ -1,8 +1,9 @@
 #!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
 
 # Pre-commit hook for AlephAuto
 # Validates test files for hardcoded paths before allowing commit
+#
+# Note: This hook works standalone without husky.sh dependency
 
 echo "🔍 Running pre-commit checks..."
 
@@ -20,24 +21,47 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# Check executable permissions on pipeline files
-echo "Checking executable permissions..."
+# Check executable permissions and shebangs on pipeline files
+echo "Checking executable permissions and shebangs..."
 MISSING_EXEC=0
+MISSING_SHEBANG=0
 
 # Check each pipeline file
 for file in api/server.js sidequest/pipeline-runners/*.js; do
-  if [ -f "$file" ] && [ ! -x "$file" ]; then
-    echo "❌ Missing executable permission: $file"
-    MISSING_EXEC=1
+  if [ -f "$file" ]; then
+    # Check executable permissions
+    if [ ! -x "$file" ]; then
+      echo "❌ Missing executable permission: $file"
+      MISSING_EXEC=1
+    fi
+
+    # Check shebang
+    FIRST_LINE=$(head -n 1 "$file")
+    if [ "$FIRST_LINE" != "#!/usr/bin/env node" ]; then
+      echo "❌ Missing or incorrect shebang in: $file"
+      echo "   Expected: #!/usr/bin/env node"
+      echo "   Found: $FIRST_LINE"
+      MISSING_SHEBANG=1
+    fi
   fi
 done
 
 if [ $MISSING_EXEC -eq 1 ]; then
   echo ""
   echo "❌ Pre-commit validation failed!"
-  echo "Pipeline files must be executable for PM2 to run them."
+  echo "Pipeline files must be executable for PM2/Doppler to run them."
   echo ""
   echo "Fix with: chmod +x api/server.js sidequest/pipeline-runners/*.js"
+  echo ""
+  exit 1
+fi
+
+if [ $MISSING_SHEBANG -eq 1 ]; then
+  echo ""
+  echo "❌ Pre-commit validation failed!"
+  echo "All pipeline runner files must have shebang: #!/usr/bin/env node"
+  echo ""
+  echo "This ensures they can be executed directly by Doppler/PM2."
   echo ""
   exit 1
 fi

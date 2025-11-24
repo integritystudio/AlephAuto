@@ -14,14 +14,15 @@ module.exports = {
   apps: [
     /**
      * Dashboard & API Server
-     * Runs in cluster mode for load balancing
+     * Runs in fork mode (single instance) to prevent port conflicts
+     * Note: Cluster mode disabled due to EADDRINUSE errors with WebSocket server
      */
     {
       name: 'aleph-dashboard',
       script: 'api/server.js',
       cwd: '/Users/alyshialedlie/code/jobs',
-      instances: 2,  // Or 'max' to use all CPU cores
-      exec_mode: 'cluster',
+      instances: 1,  // CHANGED: Single instance to prevent port conflicts (was 2)
+      exec_mode: 'fork',  // CHANGED: Fork mode instead of cluster to prevent EADDRINUSE (was 'cluster')
       autorestart: true,
       watch: false,  // Set to true for development
       max_memory_restart: '500M',
@@ -42,17 +43,27 @@ module.exports = {
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
 
-      // Use node interpreter (environment variables from process.env, set by doppler run)
+      // CRITICAL: Use node interpreter explicitly to prevent "fork/exec permission denied" errors
+      // This tells PM2 to run: node api/server.js
+      // NOT: ./api/server.js (which would require shebang + executable permissions)
+      // Environment variables from process.env, set by doppler run
       interpreter: 'node',
 
-      // Restart behavior
-      min_uptime: '10s',
-      max_restarts: 10,
-      restart_delay: 4000,
+      // Restart behavior - ENHANCED to prevent restart loops
+      min_uptime: '30s',  // CHANGED: Process must stay up 30s to be considered stable (was 10s)
+      max_restarts: 5,  // CHANGED: Reduced from 10 to prevent infinite loops
+      restart_delay: 8000,  // CHANGED: Increased from 4s to 8s to allow port cleanup
+      exp_backoff_restart_delay: 100,  // NEW: Enable exponential backoff on restarts
 
-      // Monitoring
-      listen_timeout: 3000,
-      kill_timeout: 5000
+      // Monitoring - ENHANCED for better error detection
+      listen_timeout: 10000,  // CHANGED: Increased from 3s to 10s for slower startups
+      kill_timeout: 10000,  // CHANGED: Increased from 5s to 10s for graceful shutdown
+
+      // NEW: Stop restarting if it crashes within min_uptime 3 times in a row
+      stop_exit_codes: [0],  // Only stop on clean exit (code 0)
+
+      // NEW: Throttle restarts to prevent rapid crash loops
+      vizion: false  // Disable git integration for faster restarts
     },
 
     /**
@@ -90,7 +101,10 @@ module.exports = {
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
 
-      // Use node interpreter (environment variables from process.env, set by doppler run)
+      // CRITICAL: Use node interpreter explicitly to prevent "fork/exec permission denied" errors
+      // This tells PM2 to run: node sidequest/pipeline-runners/duplicate-detection-pipeline.js
+      // NOT: ./sidequest/pipeline-runners/duplicate-detection-pipeline.js
+      // Environment variables from process.env, set by doppler run
       interpreter: 'node',
 
       // Restart behavior (more lenient for long-running jobs)

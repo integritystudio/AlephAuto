@@ -14,7 +14,8 @@ Automation pipelines built on **AlephAuto** job queue framework with real-time d
 6. **Plugin Manager** - Claude Code plugin audit
 7. **Claude Health Monitor** - Environment health checks
 8. **Test Refactor Pipeline** - Automated test suite modularization and utility generation
-9. **Dashboard UI** - Real-time monitoring (WebSocket + REST API)
+9. **Repository Cleanup** - Automated cleanup of Python venvs, build artifacts, temp files
+10. **Dashboard UI** - Real-time monitoring (WebSocket + REST API)
 
 ## Quick Reference
 
@@ -27,9 +28,11 @@ Automation pipelines built on **AlephAuto** job queue framework with real-time d
 | Type validation | Zod schemas in `api/types/` - See docs/architecture/TYPE_SYSTEM.md |
 | Error handling | See docs/architecture/ERROR_HANDLING.md (auto-retry with circuit breaker) |
 | Deploy | `./scripts/deploy-traditional-server.sh --update` (PM2 + Doppler) |
+| Verify deployment | `npm run verify:bugfixes` - See docs/deployment/BUGFIX_VERIFICATION.md |
 | Dashboard | `npm run dashboard` → http://localhost:8080 |
 | Enable auto PRs | Set `ENABLE_GIT_WORKFLOW=true` in Doppler - See Git Workflow section |
 | API Reference | See `docs/API_REFERENCE.md` for complete endpoint documentation |
+| Cleanup repository | `npm run cleanup:once` (run now), `npm run cleanup:dryrun` (preview) |
 
 ## Critical Patterns & Gotchas
 
@@ -96,6 +99,65 @@ export type MyType = z.infer<typeof MySchema>;
 // ❌ Wrong - manual duplication
 export const MySchema = z.object({ ... });
 export type MyType = { ... }; // Duplicates schema
+```
+
+### 9. Pipeline Execution: Doppler + Explicit Node.js Interpreter
+```bash
+# ✅ Correct - explicit interpreter prevents "fork/exec permission denied"
+doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
+
+# ✅ Correct - PM2 with interpreter: 'node' in ecosystem.config.cjs
+doppler run -- pm2 start ecosystem.config.cjs
+
+# ❌ Wrong - Doppler cannot execute JS files directly (permission denied)
+doppler run -- sidequest/pipeline-runners/duplicate-detection-pipeline.js
+
+# ❌ Wrong - missing secrets, will fail
+node sidequest/pipeline-runners/duplicate-detection-pipeline.js
+```
+**Critical:** Always use `doppler run -- node <script>` NOT `doppler run -- <script>`.
+See `docs/runbooks/pipeline-execution.md` for troubleshooting guide.
+
+### 10. Port Conflicts: Use Port Manager Utility
+```javascript
+// ✅ Correct - automatic fallback to 8081-8090
+import { setupServerWithPortFallback } from './api/utils/port-manager.js';
+const actualPort = await setupServerWithPortFallback(httpServer, {
+  preferredPort: 8080,
+  maxPort: 8090
+});
+
+// ❌ Wrong - crashes on EADDRINUSE
+httpServer.listen(8080);
+```
+
+### 11. Null-Safe Error Handling: Always Use Optional Chaining
+```javascript
+// ✅ Correct - safe against null/undefined
+const errorCode = error?.code ?? 'UNKNOWN';
+const errorMessage = error?.message || 'Unknown error';
+
+// ❌ Wrong - throws TypeError if error is null
+const errorCode = error.code;
+const errorMessage = error.message;
+```
+
+### 12. Activity Feed: Nested Try-Catch for Error Handlers
+```javascript
+// ✅ Correct - error handler failures are caught
+worker.on('job:failed', (job, error) => {
+  try {
+    this.addActivity({ ... });
+  } catch (activityError) {
+    logger.error({ activityError }, 'Failed to handle job:failed');
+    Sentry.captureException(activityError);
+  }
+});
+
+// ❌ Wrong - error handler failure crashes application
+worker.on('job:failed', (job, error) => {
+  this.addActivity({ ... }); // If this throws, event handler fails
+});
 ```
 
 ## Architecture: Big Picture
@@ -374,6 +436,8 @@ npm run git:weekly              # Git activity
 npm run plugin:audit            # Plugin audit
 npm run claude:health           # Health check
 npm run gitignore:update        # Gitignore updates
+npm run cleanup:once            # Repository cleanup (run now)
+npm run cleanup:dryrun          # Repository cleanup preview
 ```
 
 ### Testing
@@ -395,6 +459,25 @@ pm2 status
 ./scripts/deploy-traditional-server.sh --setup    # Initial
 ./scripts/deploy-traditional-server.sh --update   # Updates
 ./scripts/deploy-traditional-server.sh --rollback # Rollback
+```
+
+### Deployment Verification
+```bash
+# Full verification suite (all checks)
+npm run verify:bugfixes
+
+# Individual check suites
+npm run verify:bugfixes:pre      # Pre-deployment checks (before deploy)
+npm run verify:bugfixes:post     # Post-deployment verification (after deploy)
+npm run verify:bugfixes:health   # Health checks (endpoints, dependencies)
+npm run verify:bugfixes:smoke    # Smoke tests (end-to-end)
+
+# Create rollback script
+./scripts/verify-bugfixes.sh --rollback
+
+# See full guide
+# docs/deployment/BUGFIX_VERIFICATION.md
+# docs/deployment/VERIFICATION_QUICK_REFERENCE.md
 ```
 
 ## Environment Variables (Doppler)
@@ -420,6 +503,11 @@ doppler setup --project bottleneck --config prd   # Production
 - `GIT_BASE_BRANCH` - Base branch for PRs (default: main)
 - `GIT_BRANCH_PREFIX` - Branch prefix (default: automated)
 - `GIT_DRY_RUN` - Skip push/PR creation (false by default)
+
+**Repository Cleanup variables:**
+- `CLEANUP_CRON_SCHEDULE` - Cleanup schedule (default: "0 3 * * 0" - Weekly Sunday 3 AM)
+- `CLEANUP_TARGET_DIR` - Directory to clean (default: ~/code)
+- `CLEANUP_DRY_RUN` - Preview mode without actual deletion (false by default)
 
 See ecosystem.config.cjs for full list with defaults.
 
@@ -471,6 +559,11 @@ jobs/
 - `sidequest/config.js` - Centralized configuration
 - `sidequest/pipeline-core/errors/error-classifier.js` - Auto-classify retryable errors
 
+**Error Handling & Resilience:**
+- `sidequest/pipeline-core/doppler-health-monitor.js` - Circuit breaker for Doppler cache staleness
+- `api/utils/port-manager.js` - Port conflict resolution and graceful shutdown
+- `api/activity-feed.js` - Null-safe error handling in event handlers
+
 **Git Workflow:**
 - `sidequest/pipeline-core/git/branch-manager.js` - Branch creation, commit, push, PR creation
 - `sidequest/pipeline-core/git/pr-creator.js` - Legacy PR creator for duplicate detection
@@ -505,7 +598,7 @@ jobs/
 ## Documentation
 
 **Architecture guides:**
-- `docs/architecture/ERROR_HANDLING.md` - Retry logic, circuit breaker, Sentry integration
+- `docs/architecture/ERROR_HANDLING.md` - Retry logic, circuit breaker, Sentry integration, Doppler monitoring, port management, null-safe patterns
 - `docs/architecture/TYPE_SYSTEM.md` - Zod + TypeScript validation patterns
 - `docs/architecture/CHEAT_SHEET.md` - Command reference
 - `docs/architecture/CACHE_TESTING.md` - Redis cache testing
@@ -519,12 +612,44 @@ jobs/
 
 **Deployment & Operations:**
 - `docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md` - PM2 + Nginx setup
-- `docs/runbooks/` - Operational runbooks and skills
+- `docs/runbooks/troubleshooting.md` - Doppler failures, port conflicts, Activity Feed errors, WebSocket issues
+- `docs/runbooks/pipeline-execution.md` - Pipeline patterns, Doppler integration, permission troubleshooting
+- `docs/runbooks/DOPPLER_OUTAGE.md` - Doppler API outage response
 - `tests/README.md` - Test infrastructure, fixtures, pre-commit hooks
 
 ## Recent Major Changes
 
-**v1.6.2 (Current) - API Documentation & n0ai-proxy Worker**
+**v1.6.4 (Current) - Production Error Handling Improvements**
+- **Doppler Health Monitor** - Circuit breaker pattern for stale cache detection
+  - Monitors fallback cache age every 15 minutes
+  - Warning threshold: 12 hours, critical threshold: 24 hours
+  - Health endpoint: `/api/health/doppler`
+  - Location: `sidequest/pipeline-core/doppler-health-monitor.js`
+- **Port Manager Utility** - Automatic port conflict resolution
+  - Port availability checking before binding
+  - Automatic fallback ports (8080 → 8081 → 8082 → ...)
+  - Process cleanup utilities (killProcessOnPort)
+  - Graceful shutdown handling (SIGTERM/SIGINT/SIGHUP)
+  - Location: `api/utils/port-manager.js`
+- **Null-Safe Error Handling** - Activity Feed error resilience
+  - Safe error message extraction (handles null/undefined/string/Error)
+  - Optional chaining for all error property access
+  - Nested try-catch in event handlers
+  - Comprehensive Sentry context with fallbacks
+  - Location: `api/activity-feed.js`
+- **Documentation Updates**
+  - Enhanced `docs/architecture/ERROR_HANDLING.md` with new patterns
+  - New `docs/runbooks/troubleshooting.md` with Doppler/port/Activity Feed debugging
+  - Enhanced `docs/runbooks/pipeline-execution.md` already comprehensive
+
+**v1.6.3 - Repository Cleanup Pipeline**
+- New repository cleanup pipeline integrated into AlephAuto framework
+- RepoCleanupWorker for automated cleanup of Python venvs, build artifacts, temp files
+- Moved universal-repo-cleanup.sh to pipeline-runners/
+- Added npm scripts: `cleanup:once`, `cleanup:dryrun`, `cleanup:schedule`
+- Scheduled weekly cleanup (Sunday 3 AM by default)
+
+**v1.6.2 - API Documentation & n0ai-proxy Worker**
 - Added comprehensive API documentation (`docs/API_REFERENCE.md`) with 22 endpoints
 - New Cloudflare Worker `n0ai-proxy` for sidequest integration
 - Compiled scan-orchestrator.ts to .js/.d.ts for runtime
@@ -575,7 +700,7 @@ jobs/
 
 ---
 
-**Version:** 1.6.2
+**Version:** 1.6.4
 **Last Updated:** 2025-11-24
 **Status:** Production Ready (PM2 + Doppler deployment)
 **Environment:** macOS with traditional server stack

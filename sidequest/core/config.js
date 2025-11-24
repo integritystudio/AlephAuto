@@ -91,6 +91,22 @@ export const config = {
   // API server port
   apiPort: parseInt(process.env.JOBS_API_PORT || '8080', 10),
 
+  // Doppler resilience configuration
+  doppler: {
+    // Circuit breaker settings
+    failureThreshold: parseInt(process.env.DOPPLER_FAILURE_THRESHOLD || '3', 10),
+    successThreshold: parseInt(process.env.DOPPLER_SUCCESS_THRESHOLD || '2', 10),
+    timeout: parseInt(process.env.DOPPLER_TIMEOUT || '5000', 10), // 5s before attempting recovery
+
+    // Exponential backoff settings
+    baseDelayMs: parseInt(process.env.DOPPLER_BASE_DELAY_MS || '1000', 10), // 1s
+    backoffMultiplier: parseFloat(process.env.DOPPLER_BACKOFF_MULTIPLIER || '2.0'),
+    maxBackoffMs: parseInt(process.env.DOPPLER_MAX_BACKOFF_MS || '10000', 10), // 10s
+
+    // Cache settings
+    cacheFile: process.env.DOPPLER_CACHE_FILE || path.join(os.homedir(), '.doppler', '.fallback.json')
+  },
+
   // Project root directory
   projectRoot: __dirname,
 };
@@ -111,6 +127,31 @@ function validateConfig() {
 
   if (config.repomixMaxBuffer < 1024) {
     errors.push('REPOMIX_MAX_BUFFER must be at least 1024 bytes');
+  }
+
+  // Doppler resilience validation
+  if (config.doppler.failureThreshold < 1 || config.doppler.failureThreshold > 10) {
+    errors.push('DOPPLER_FAILURE_THRESHOLD must be between 1 and 10');
+  }
+
+  if (config.doppler.successThreshold < 1 || config.doppler.successThreshold > 10) {
+    errors.push('DOPPLER_SUCCESS_THRESHOLD must be between 1 and 10');
+  }
+
+  if (config.doppler.timeout < 1000) {
+    errors.push('DOPPLER_TIMEOUT must be at least 1000ms');
+  }
+
+  if (config.doppler.baseDelayMs < 100) {
+    errors.push('DOPPLER_BASE_DELAY_MS must be at least 100ms');
+  }
+
+  if (config.doppler.backoffMultiplier < 1.0 || config.doppler.backoffMultiplier > 5.0) {
+    errors.push('DOPPLER_BACKOFF_MULTIPLIER must be between 1.0 and 5.0');
+  }
+
+  if (config.doppler.maxBackoffMs < 1000) {
+    errors.push('DOPPLER_MAX_BACKOFF_MS must be at least 1000ms');
   }
 
   if (errors.length > 0) {
