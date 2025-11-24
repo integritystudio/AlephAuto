@@ -1,5 +1,5 @@
 import pino from 'pino';
-import { config } from './config.js';
+import { config } from '../core/config.js';
 
 /**
  * Create a structured logger instance using Pino

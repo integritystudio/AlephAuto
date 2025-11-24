@@ -867,7 +867,7 @@ class DashboardController {
             params.append('limit', limit.toString());
 
             const response = await fetch(
-                `${this.apiBaseUrl}/api/pipelines/${pipelineId}/jobs?${params.toString()}`
+                `${this.apiBaseUrl}/api/sidequest/pipeline-runners/${pipelineId}/jobs?${params.toString()}`
             );
 
             if (!response.ok) {

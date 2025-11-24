@@ -1,10 +1,10 @@
 // @ts-nocheck
-import { SidequestServer } from './server.js';
+import { SidequestServer } from '../core/server.js';
 import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { createComponentLogger } from './logger.js';
+import { createComponentLogger } from '../utils/logger.js';
 
 const logger = createComponentLogger('GitActivityWorker');
 

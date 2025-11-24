@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/node';
 import { config } from './config.js';
 import fs from 'fs/promises';
 import path from 'path';
-import { createComponentLogger } from './logger.js';
+import { createComponentLogger } from '../utils/logger.js';
 import { safeErrorMessage } from '../lib/utils/error-helpers.js';
 import { BranchManager } from '../lib/git/branch-manager.js';
 

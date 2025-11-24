@@ -144,13 +144,13 @@ Analyzes test suites for duplication patterns and generates modular utility file
 
 ```bash
 # Refactor all test suites in your code directory
-node pipelines/test-refactor-pipeline.js
+node sidequest/pipeline-runners/test-refactor-pipeline.js
 
 # Refactor a single project
-node pipelines/test-refactor-pipeline.js /path/to/project
+node sidequest/pipeline-runners/test-refactor-pipeline.js /path/to/project
 
 # Analysis only (dry-run mode)
-DRY_RUN=true node pipelines/test-refactor-pipeline.js
+DRY_RUN=true node sidequest/pipeline-runners/test-refactor-pipeline.js
 ```
 
 **Scheduled execution**: By default, runs at 4 AM every Sunday. Configure via `TEST_REFACTOR_CRON`.

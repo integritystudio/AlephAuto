@@ -15,7 +15,7 @@ import { RepositoryScanner } from './scanners/repository-scanner.js';
 import { AstGrepPatternDetector } from './scanners/ast-grep-detector.js';
 import { HTMLReportGenerator } from './reports/html-report-generator.js';
 import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
-import { createComponentLogger } from '../sidequest/logger.js';
+import { createComponentLogger } from '../sidequest/utils/logger.js';
 import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';

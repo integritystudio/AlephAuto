@@ -4,7 +4,7 @@ import { DirectoryScanner } from './directory-scanner.js';
 import { config } from './config.js';
 import path from 'path';
 import fs from 'fs/promises';
-import { createComponentLogger } from './logger.js';
+import { createComponentLogger } from '../utils/logger.js';
 
 const logger = createComponentLogger('RepomixCronApp');
 

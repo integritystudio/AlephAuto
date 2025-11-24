@@ -1,7 +1,7 @@
 // @ts-nocheck
-import { SidequestServer } from './server.js';
+import { SidequestServer } from '../core/server.js';
 import { GitignoreRepomixUpdater } from './gitignore-repomix-updater.js';
-import { createComponentLogger } from './logger.js';
+import { createComponentLogger } from '../utils/logger.js';
 import * as Sentry from '@sentry/node';
 import path from 'path';
 import os from 'os';

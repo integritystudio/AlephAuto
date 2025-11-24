@@ -8,7 +8,7 @@
 /** @typedef {import('http').Server} HttpServer */
 
 import { WebSocketServer } from 'ws';
-import { createComponentLogger } from '../sidequest/logger.js';
+import { createComponentLogger } from '../sidequest/utils/logger.js';
 import crypto from 'crypto';
 
 const logger = createComponentLogger('WebSocketServer');

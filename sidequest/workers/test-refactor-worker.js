@@ -13,8 +13,8 @@
  * - Comprehensive metrics tracking
  */
 
-import { SidequestServer } from './server.js';
-import { createComponentLogger } from './logger.js';
+import { SidequestServer } from '../core/server.js';
+import { createComponentLogger } from '../utils/logger.js';
 import { glob } from 'glob';
 import path from 'path';
 import fs from 'fs/promises';

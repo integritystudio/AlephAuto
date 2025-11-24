@@ -26,7 +26,7 @@ const router = express.Router();
 const logger = createComponentLogger('PipelineRoutes');
 
 /**
- * GET /api/pipelines/:pipelineId/jobs
+ * GET /api/sidequest/pipeline-runners/:pipelineId/jobs
  * Fetch job history for a specific pipeline
  *
  * Query Parameters:
@@ -91,7 +91,7 @@ router.get(
       Sentry.captureException(error, {
         tags: {
           component: 'PipelineAPI',
-          endpoint: '/api/pipelines/:id/jobs',
+          endpoint: '/api/sidequest/pipeline-runners/:id/jobs',
           pipelineId
         },
         extra: {
@@ -105,7 +105,7 @@ router.get(
 );
 
 /**
- * POST /api/pipelines/:pipelineId/trigger
+ * POST /api/sidequest/pipeline-runners/:pipelineId/trigger
  * Manually trigger a pipeline job
  *
  * Request Body:
@@ -156,7 +156,7 @@ router.post(
       Sentry.captureException(error, {
         tags: {
           component: 'PipelineAPI',
-          endpoint: '/api/pipelines/:id/trigger',
+          endpoint: '/api/sidequest/pipeline-runners/:id/trigger',
           pipelineId
         },
         extra: {

@@ -20,7 +20,7 @@ Automation pipelines built on **AlephAuto** job queue framework with real-time d
 
 | Task | Solution |
 |------|----------|
-| Run duplicate detection | `doppler run -- RUN_ON_STARTUP=true node pipelines/duplicate-detection-pipeline.js` |
+| Run duplicate detection | `doppler run -- RUN_ON_STARTUP=true node sidequest/pipeline-runners/duplicate-detection-pipeline.js` |
 | Test routes | `npm run test:integration` - See tests/README.md |
 | Fix type errors | Use TypeScript Type Validator skill (auto-activates) |
 | Debug issues | Check Sentry dashboard + `logs/` directory |
@@ -437,10 +437,11 @@ jobs/
 │   ├── git/              # PR creation
 │   └── caching/          # Redis caching
 ├── sidequest/            # AlephAuto framework
-│   ├── server.js        # Base job queue (ALL workers extend this)
-│   ├── config.js        # Centralized configuration
-│   └── *-worker.js      # Specific worker implementations
-├── pipelines/            # Pipeline entry points
+│   ├── core/            # Framework core (server.js, config.js, index.js)
+│   ├── workers/         # Worker implementations (*-worker.js)
+│   ├── utils/           # Utilities (logger, directory-scanner, plugin-manager)
+│   ├── pipeline-runners/  # Pipeline entry points
+│   └── doc-enhancement/ # Schema.org enhancement worker
 ├── public/               # Dashboard UI (HTML/CSS/JS)
 ├── tests/                # Tests (unit, integration, accuracy)
 │   ├── fixtures/        # Test helpers (createTempRepository)

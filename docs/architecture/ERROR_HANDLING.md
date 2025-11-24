@@ -166,7 +166,7 @@ setTimeout(() => retry(), delay);
 
 ### Overview
 
-Located in `pipelines/duplicate-detection-pipeline.js` (lines 150-235), the retry logic implements exponential backoff with circuit breaker protection.
+Located in `sidequest/pipeline-runners/duplicate-detection-pipeline.js` (lines 150-235), the retry logic implements exponential backoff with circuit breaker protection.
 
 ### Key Concepts
 
@@ -824,8 +824,8 @@ Archived logs are compressed with gzip and deleted after 30 days.
 ## Additional Resources
 
 - Error classifier source: `lib/errors/error-classifier.js`
-- Retry logic: `pipelines/duplicate-detection-pipeline.js` (lines 150-235)
-- Retry metrics: `pipelines/duplicate-detection-pipeline.js` (lines 539-585)
+- Retry logic: `sidequest/pipeline-runners/duplicate-detection-pipeline.js` (lines 150-235)
+- Retry metrics: `sidequest/pipeline-runners/duplicate-detection-pipeline.js` (lines 539-585)
 - Dashboard UI: `public/index.html` (retry section)
 - Sentry setup: `sidequest/logger.js`
 

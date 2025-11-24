@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import cron from 'node-cron';
-import { GitActivityWorker } from '../sidequest/git-activity-worker.js';
-import { config } from '../sidequest/config.js';
-import { createComponentLogger } from '../sidequest/logger.js';
+import { GitActivityWorker } from '../sidequest/workers/git-activity-worker.js';
+import { config } from '../sidequest/core/config.js';
+import { createComponentLogger } from '../sidequest/utils/logger.js';
 
 const logger = createComponentLogger('GitActivityPipeline');
 

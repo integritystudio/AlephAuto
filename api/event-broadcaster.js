@@ -7,7 +7,7 @@
 // @ts-check
 /** @typedef {import('../lib/errors/error-types').ExtendedError} ExtendedError */
 
-import { createComponentLogger } from '../sidequest/logger.js';
+import { createComponentLogger } from '../sidequest/utils/logger.js';
 
 const logger = createComponentLogger('EventBroadcaster');
 

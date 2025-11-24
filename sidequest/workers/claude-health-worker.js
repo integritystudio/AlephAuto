@@ -14,9 +14,9 @@
  * @extends SidequestServer
  */
 
-import { SidequestServer } from './server.js';
-import { config } from './config.js';
-import { createComponentLogger } from './logger.js';
+import { SidequestServer } from '../core/server.js';
+import { config } from '../core/config.js';
+import { createComponentLogger } from '../utils/logger.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';

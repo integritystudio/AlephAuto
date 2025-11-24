@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // @ts-nocheck
 import cron from 'node-cron';
-import { PluginManagerWorker } from '../sidequest/plugin-manager.js';
-import { config } from '../sidequest/config.js';
-import { createComponentLogger } from '../sidequest/logger.js';
+import { PluginManagerWorker } from '../sidequest/utils/plugin-manager.js';
+import { config } from '../sidequest/core/config.js';
+import { createComponentLogger } from '../sidequest/utils/logger.js';
 
 const logger = createComponentLogger('PluginPipeline');
 

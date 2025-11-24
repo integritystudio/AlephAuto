@@ -61,7 +61,7 @@ module.exports = {
      */
     {
       name: 'aleph-worker',
-      script: 'pipelines/duplicate-detection-pipeline.js',
+      script: 'sidequest/pipeline-runners/duplicate-detection-pipeline.js',
       cwd: '/Users/alyshialedlie/code/jobs',
       instances: 1,
       exec_mode: 'fork',

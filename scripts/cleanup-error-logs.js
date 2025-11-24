@@ -28,7 +28,7 @@ import path from 'path';
 import { createGzip } from 'zlib';
 import { pipeline } from 'stream/promises';
 import { createReadStream, createWriteStream } from 'fs';
-import { createComponentLogger } from '../sidequest/logger.js';
+import { createComponentLogger } from '../sidequest/utils/logger.js';
 
 const logger = createComponentLogger('ErrorLogCleanup');
 

@@ -1,12 +1,12 @@
 // @ts-nocheck
-import { SidequestServer } from './server.js';
+import { SidequestServer } from '../core/server.js';
 import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { createComponentLogger } from './logger.js';
+import { createComponentLogger } from '../utils/logger.js';
 import { execSync } from 'child_process';
-import { config } from './config.js';
+import { config } from '../core/config.js';
 
 const logger = createComponentLogger('RepomixWorker');
 

@@ -57,7 +57,7 @@ module.exports = {
      */
     {
       name: 'aleph-worker',
-      script: 'pipelines/duplicate-detection-pipeline.js',
+      script: 'sidequest/pipeline-runners/duplicate-detection-pipeline.js',
       cwd: '/var/www/aleph-dashboard',
       instances: 1,
       exec_mode: 'fork',

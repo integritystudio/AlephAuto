@@ -302,7 +302,7 @@ function formatRelativeTime(date: Date): string {
 GET  /health                        System health
 GET  /api/status                    System status (active, queued, etc)
 GET  /api/pipelines                 List all pipelines
-GET  /api/pipelines/:id             Get pipeline details
+GET  /api/sidequest/pipeline-runners/:id             Get pipeline details
 GET  /api/jobs?status=running       Get active jobs
 GET  /api/jobs?status=queued        Get queued jobs
 GET  /api/jobs/:id                  Get job details

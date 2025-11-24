@@ -11,10 +11,10 @@
  *   DRY_RUN=true node pipelines/test-refactor-pipeline.js       # Analysis only
  */
 
-import { TestRefactorWorker } from '../sidequest/test-refactor-worker.js';
-import { DirectoryScanner } from '../sidequest/directory-scanner.js';
-import { createComponentLogger } from '../sidequest/logger.js';
-import { config } from '../sidequest/config.js';
+import { TestRefactorWorker } from '../sidequest/workers/test-refactor-worker.js';
+import { DirectoryScanner } from '../sidequest/utils/directory-scanner.js';
+import { createComponentLogger } from '../sidequest/utils/logger.js';
+import { config } from '../sidequest/core/config.js';
 import cron from 'node-cron';
 import path from 'path';
 

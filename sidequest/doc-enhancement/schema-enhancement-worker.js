@@ -1,7 +1,7 @@
-import { SidequestServer } from '../server.js';
+import { SidequestServer } from '../core/server.js';
 import { SchemaMCPTools } from './schema-mcp-tools.js';
-import { createComponentLogger } from '../logger.js';
-import { config } from '../config.js';
+import { createComponentLogger } from '../utils/logger.js';
+import { config } from '../core/config.js';
 import fs from 'fs/promises';
 import path from 'path';
 
