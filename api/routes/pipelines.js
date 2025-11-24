@@ -40,8 +40,8 @@ async (req, res, next) => {
             offset,
             tab
         }, 'Fetching pipeline jobs');
-        // Fetch jobs from data source
-        const jobs = await fetchJobsForPipeline(pipelineId, {
+        // Fetch jobs from data source (now returns {jobs, total})
+        const result = await fetchJobsForPipeline(pipelineId, {
             status,
             limit,
             offset,
@@ -49,14 +49,15 @@ async (req, res, next) => {
         });
         const response = {
             pipelineId,
-            jobs,
-            total: jobs.length,
-            hasMore: jobs.length === limit,
+            jobs: result.jobs,
+            total: result.total,  // FIXED E6: Use database total, not page size
+            hasMore: result.jobs.length === limit,
             timestamp: new Date().toISOString()
         };
         logger.info({
             pipelineId,
-            jobCount: jobs.length,
+            jobCount: result.jobs.length,
+            totalCount: result.total,
             hasMore: response.hasMore
         }, 'Successfully fetched pipeline jobs');
         res.json(response);
@@ -142,8 +143,18 @@ async function fetchJobsForPipeline(pipelineId, options) {
     const { status, limit, offset, tab } = options;
 
     try {
-        // Query SQLite database for persisted jobs
-        const dbJobs = getJobs(pipelineId, { status, limit, offset, tab });
+        // Query SQLite database with total count (FIXED E6: Now includes actual DB count)
+        const dbResult = getJobs(pipelineId, {
+            status,
+            limit,
+            offset,
+            tab,
+            includeTotal: true  // Request total count from database
+        });
+
+        // Extract jobs and total from database result
+        const dbJobs = dbResult.jobs || [];
+        const totalCount = dbResult.total || 0;
 
         // Also get current in-memory jobs (not yet persisted)
         const currentJobs = worker.getAllJobs();
@@ -185,10 +196,12 @@ async function fetchJobsForPipeline(pipelineId, options) {
             pipelineId,
             dbJobs: dbJobs.length,
             memoryJobs: currentJobs.length,
+            totalCount,
             returned: paginatedJobs.length
         }, 'Job query results');
 
-        return paginatedJobs;
+        // Return both jobs and total count
+        return { jobs: paginatedJobs, total: totalCount };
     } catch (err) {
         logger.error({ error: err.message, pipelineId }, 'Failed to fetch jobs from database, falling back to memory');
 
@@ -200,7 +213,10 @@ async function fetchJobsForPipeline(pipelineId, options) {
             .map(job => formatJob(job, pipelineId))
             .sort((a, b) => new Date(b.startTime || b.createdAt) - new Date(a.startTime || a.createdAt));
 
-        return allJobs.slice(offset, offset + limit);
+        const paginatedJobs = allJobs.slice(offset, offset + limit);
+
+        // Return with total count (use all jobs length as estimate)
+        return { jobs: paginatedJobs, total: allJobs.length };
     }
 }
 

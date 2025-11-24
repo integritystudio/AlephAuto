@@ -24,6 +24,9 @@ import { createWebSocketServer } from './websocket.js';
 import { ScanEventBroadcaster } from './event-broadcaster.js';
 import { ActivityFeedManager } from './activity-feed.js';
 import { DopplerHealthMonitor } from '../sidequest/pipeline-core/doppler-health-monitor.js';
+import { setupServerWithPortFallback, setupGracefulShutdown } from './utils/port-manager.js';
+import { getAllPipelineStats } from '../sidequest/core/database.js';
+import { getPipelineName } from '../sidequest/utils/pipeline-names.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -95,35 +98,49 @@ app.get('/api/health/doppler', async (req, res) => {
 });
 
 // System status endpoint (includes retry metrics and activity feed)
+// FIXED: Now queries database for ALL pipelines instead of single hardcoded worker
 app.get('/api/status', (req, res) => {
   try {
+    // Get all pipelines from database (persistent, survives restarts)
+    const pipelineStats = getAllPipelineStats();
+
+    // Get in-memory queue stats from duplicate-detection worker
+    // (Other workers not imported, so we can't check their real-time status)
+    const workerStats = worker.getStats();
     const scanMetrics = worker.getScanMetrics();
-    const queueStats = worker.getStats();
 
     // Get activity feed
     const activityFeed = req.app.get('activityFeed');
     const recentActivity = activityFeed ? activityFeed.getRecentActivities(20) : [];
 
+    // Map database stats to API response format
+    const pipelines = pipelineStats.map(stats => ({
+      id: stats.pipeline_id,
+      name: getPipelineName(stats.pipeline_id),
+      // Show "running" status accurately only for duplicate-detection (we have worker access)
+      // For other pipelines, use database running count as fallback
+      status: (stats.pipeline_id === 'duplicate-detection' && workerStats.activeJobs > 0)
+        ? 'running'
+        : (stats.running > 0 ? 'running' : 'idle'),
+      completedJobs: stats.completed || 0,
+      failedJobs: stats.failed || 0,
+      lastRun: stats.last_run, // ISO timestamp from database
+      nextRun: null // Cron schedule not tracked in database
+    }));
+
+    // Calculate queue stats (only from duplicate-detection worker)
+    const queueStats = {
+      active: workerStats.activeJobs || 0,
+      queued: workerStats.queuedJobs || 0,
+      capacity: workerStats.activeJobs / (workerStats.maxConcurrent || 3) * 100
+    };
+
     res.json({
       timestamp: new Date().toISOString(),
-      pipelines: [
-        {
-          id: 'duplicate-detection',
-          name: 'Duplicate Detection',
-          status: queueStats.activeJobs > 0 ? 'running' : 'idle',
-          completedJobs: scanMetrics.totalScans || 0,
-          failedJobs: scanMetrics.failedScans || 0,
-          lastRun: null, // Not tracked in metrics
-          nextRun: null // Cron schedule not exposed here
-        }
-      ],
-      queue: {
-        active: queueStats.activeJobs || 0,
-        queued: queueStats.queuedJobs || 0,
-        capacity: queueStats.activeJobs / (queueStats.maxConcurrent || 3) * 100
-      },
+      pipelines,
+      queue: queueStats,
       retryMetrics: scanMetrics.retryMetrics || null,
-      recentActivity: recentActivity
+      recentActivity
     });
   } catch (error) {
     logger.error({ error }, 'Failed to get system status');
@@ -174,47 +191,67 @@ app.set('activityFeed', activityFeed);
 // WebSocket status endpoint (before API routes to avoid conflict)
 app.get('/ws/status', (req, res) => {
   const clientInfo = wss.getClientInfo();
+  const actualPort = httpServer.address()?.port || config.apiPort;
   res.json({
     ...clientInfo,
-    websocket_url: `ws://localhost:${PORT}/ws`,
+    websocket_url: `ws://localhost:${actualPort}/ws`,
     timestamp: new Date().toISOString()
   });
 });
 
-// Start server
-const PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (default: 8080)
+// Start server with port fallback
+const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (default: 8080)
 
-httpServer.listen(PORT, async () => {
-  logger.info({ port: PORT }, 'API server started');
-  console.log(`\n🚀 AlephAuto API Server & Dashboard running on port ${PORT}`);
-  console.log(`   📊 Dashboard: http://localhost:${PORT}/`);
-  console.log(`   ❤️  Health check: http://localhost:${PORT}/health`);
-  console.log(`   🩺 Doppler health: http://localhost:${PORT}/api/health/doppler`);
-  console.log(`   🔌 WebSocket: ws://localhost:${PORT}/ws`);
-  console.log(`   📡 API: http://localhost:${PORT}/api/\n`);
-
-  // Start Doppler health monitoring (check every 15 minutes)
-  await dopplerMonitor.startMonitoring(15);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received, shutting down gracefully');
-
-  // Stop Doppler health monitoring
-  dopplerMonitor.stopMonitoring();
-
-  // Close WebSocket server
-  wss.close(() => {
-    logger.info('WebSocket server closed');
-
-    // Close HTTP server
-    httpServer.close(() => {
-      logger.info('HTTP server closed');
-      process.exit(0);
+(async () => {
+  try {
+    // Setup server with automatic port fallback
+    const actualPort = await setupServerWithPortFallback(httpServer, {
+      preferredPort: PREFERRED_PORT,
+      maxPort: PREFERRED_PORT + 10,
+      host: '0.0.0.0',
+      killExisting: false // Set to true in development if needed
     });
-  });
-});
+
+    logger.info({ port: actualPort }, 'API server started');
+    console.log(`\n🚀 AlephAuto API Server & Dashboard running on port ${actualPort}`);
+    if (actualPort !== PREFERRED_PORT) {
+      console.log(`   ⚠️  Using fallback port ${actualPort} (preferred ${PREFERRED_PORT} was in use)`);
+    }
+    console.log(`   📊 Dashboard: http://localhost:${actualPort}/`);
+    console.log(`   ❤️  Health check: http://localhost:${actualPort}/health`);
+    console.log(`   🩺 Doppler health: http://localhost:${actualPort}/api/health/doppler`);
+    console.log(`   🔌 WebSocket: ws://localhost:${actualPort}/ws`);
+    console.log(`   📡 API: http://localhost:${actualPort}/api/\n`);
+
+    // Start Doppler health monitoring (check every 15 minutes)
+    await dopplerMonitor.startMonitoring(15);
+
+    // Setup graceful shutdown handlers
+    setupGracefulShutdown(httpServer, {
+      timeout: 10000,
+      onShutdown: async (signal) => {
+        logger.info({ signal }, 'Running custom shutdown handlers');
+
+        // Stop Doppler health monitoring
+        dopplerMonitor.stopMonitoring();
+
+        // Close WebSocket server
+        await new Promise((resolve) => {
+          wss.close(() => {
+            logger.info('WebSocket server closed');
+            resolve();
+          });
+        });
+      }
+    });
+  } catch (error) {
+    logger.error({ error: error.message, stack: error.stack }, 'Failed to start server');
+    Sentry.captureException(error, {
+      tags: { component: 'APIServer', phase: 'startup' }
+    });
+    process.exit(1);
+  }
+})();
 
 export default app;
 export { broadcaster, activityFeed };
