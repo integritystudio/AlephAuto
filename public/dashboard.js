@@ -1,3 +1,5 @@
+// @ts-check
+
 /**
  * AlephAuto Dashboard - Real-time Pipeline Monitoring
  *
@@ -7,6 +9,15 @@
  * - Automatic reconnection with exponential backoff
  * - Event batching to prevent UI flicker
  */
+
+/**
+ * Global type declarations for window extensions
+ * @typedef {Object} DashboardGlobals
+ * @property {DashboardController} [dashboardController]
+ */
+
+/** @type {Window & typeof globalThis & DashboardGlobals} */
+const win = window;
 
 /**
  * JSONReportViewer - Fetchable JSON report display component
@@ -80,7 +91,7 @@ class JSONReportViewer {
 
         try {
             // Convert file path to API endpoint
-            const apiPath = this.reportPath.replace(/^.*\/output\//, '/api/reports/');
+            const apiPath = this.reportPath.replace(/^.*\/output\/reports\//, '/api/reports/');
             const response = await fetch(apiPath);
 
             if (!response.ok) {
@@ -357,7 +368,9 @@ class DashboardController {
      * Render initial status data
      */
     renderInitialStatus(data) {
+        console.log('renderInitialStatus called with:', data);
         if (data.pipelines) {
+            console.log('Rendering pipelines from API:', data.pipelines);
             this.renderPipelines(data.pipelines);
         }
         if (data.queue) {
@@ -375,6 +388,7 @@ class DashboardController {
      * Show mock data for demonstration
      */
     showMockData() {
+        console.warn('showMockData() called - falling back to demo data');
         // Mock pipeline data - all AlephAuto workers
         const mockPipelines = [
             {
@@ -676,6 +690,7 @@ class DashboardController {
      * Render pipelines
      */
     renderPipelines(pipelines) {
+        console.log('renderPipelines called with:', pipelines);
         const container = document.getElementById('pipelineCards');
 
         if (!pipelines || pipelines.length === 0) {
@@ -1294,130 +1309,683 @@ class DashboardController {
     }
 
     /**
-     * Show job details modal
+     * Show job details modal with enhanced UX
      */
     showJobDetails(index) {
         const job = this.currentJobs[index];
         if (!job) return;
 
-        // Create or get modal
+        // Store current focus to restore later
+        this.previousFocus = document.activeElement;
+
+        // Create or get modal as semantic <dialog> element
         let modal = document.getElementById('job-details-modal');
         if (!modal) {
-            modal = document.createElement('div');
+            modal = document.createElement('dialog');
             modal.id = 'job-details-modal';
             modal.className = 'job-details-modal';
+            modal.setAttribute('aria-labelledby', 'job-details-title');
+            modal.setAttribute('aria-modal', 'true');
             document.body.appendChild(modal);
         }
 
-        // Format result data
-        const resultHtml = this.formatJobResult(job);
+        // Generate content sections with enhanced formatting
+        const heroHtml = this.formatHeroSection(job);
+        const errorHtml = job.error ? this.formatErrorSection(job.error) : '';
+        const resultHtml = job.result ? this.formatEnhancedJobResult(job) : '';
+        const timelineHtml = this.formatTimeline(job);
+        const gitHtml = job.git ? this.formatEnhancedGitInfo(job.git) : '';
         const parametersHtml = this.formatJobParameters(job.parameters);
-        const gitHtml = job.git ? this.formatGitInfo(job.git) : '';
 
         modal.innerHTML = `
             <div class="job-details-content">
-                <div class="job-details-header">
-                    <h3>Job Details</h3>
-                    <button class="job-details-close" onclick="window.dashboardController.closeJobDetails()">&times;</button>
-                </div>
-                <div class="job-details-body">
-                    <div class="job-details-section">
-                        <h4>Overview</h4>
-                        <div class="job-details-grid">
-                            <div class="job-details-field">
-                                <span class="field-label">Job ID</span>
-                                <span class="field-value">${job.id}</span>
-                            </div>
-                            <div class="job-details-field">
-                                <span class="field-label">Status</span>
-                                <span class="field-value status-${job.status}">${job.status}</span>
-                            </div>
-                            <div class="job-details-field">
-                                <span class="field-label">Pipeline</span>
-                                <span class="field-value">${job.pipelineId}</span>
-                            </div>
-                            <div class="job-details-field">
-                                <span class="field-label">Duration</span>
-                                <span class="field-value">${this.formatJobDuration(job.duration)}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="job-details-section">
-                        <h4>Timestamps</h4>
-                        <div class="job-details-grid">
-                            <div class="job-details-field">
-                                <span class="field-label">Created</span>
-                                <span class="field-value">${job.createdAt ? new Date(job.createdAt).toLocaleString() : 'N/A'}</span>
-                            </div>
-                            <div class="job-details-field">
-                                <span class="field-label">Started</span>
-                                <span class="field-value">${job.startTime ? new Date(job.startTime).toLocaleString() : 'N/A'}</span>
-                            </div>
-                            <div class="job-details-field">
-                                <span class="field-label">Completed</span>
-                                <span class="field-value">${job.endTime ? new Date(job.endTime).toLocaleString() : 'N/A'}</span>
-                            </div>
-                        </div>
-                    </div>
-                    ${parametersHtml ? `
-                        <div class="job-details-section">
-                            <h4>Parameters</h4>
-                            ${parametersHtml}
-                        </div>
+                <header class="job-details-header">
+                    <h3 id="job-details-title">Job Details</h3>
+                    <button class="job-details-close"
+                            aria-label="Close job details dialog"
+                            onclick="window.dashboardController.closeJobDetails()">&times;</button>
+                </header>
+                <main class="job-details-body">
+                    <section aria-labelledby="job-status-heading">
+                        <h4 id="job-status-heading" class="sr-only">Job Status</h4>
+                        ${heroHtml}
+                    </section>
+                    ${errorHtml ? `
+                        <section aria-labelledby="job-error-heading" role="alert" aria-live="assertive">
+                            <h4 id="job-error-heading" class="sr-only">Job Error</h4>
+                            ${errorHtml}
+                        </section>
                     ` : ''}
                     ${resultHtml ? `
-                        <div class="job-details-section">
-                            <h4>Result</h4>
+                        <section aria-labelledby="job-result-heading">
+                            <h4 id="job-result-heading" class="sr-only">Job Result</h4>
                             ${resultHtml}
-                        </div>
+                        </section>
                     ` : ''}
-                    ${job.error ? `
-                        <div class="job-details-section error-section">
-                            <h4>Error</h4>
-                            <pre class="error-output">${typeof job.error === 'string' ? job.error : JSON.stringify(job.error, null, 2)}</pre>
-                        </div>
-                    ` : ''}
+                    <section aria-labelledby="job-timeline-heading">
+                        <h4 id="job-timeline-heading" class="sr-only">Job Timeline</h4>
+                        ${timelineHtml}
+                    </section>
                     ${gitHtml ? `
-                        <div class="job-details-section">
-                            <h4>Git Workflow</h4>
+                        <section aria-labelledby="job-git-heading">
+                            <h4 id="job-git-heading" class="sr-only">Git Information</h4>
                             ${gitHtml}
+                        </section>
+                    ` : ''}
+                    ${parametersHtml ? `
+                        <section aria-labelledby="job-parameters-heading">
+                            <div class="collapsible-section collapsed" id="parameters-section">
+                                <div class="collapsible-header"
+                                     role="button"
+                                     aria-expanded="false"
+                                     aria-controls="parameters-content"
+                                     tabindex="0"
+                                     onclick="window.dashboardController.toggleSection('parameters-section')"
+                                     onkeydown="window.dashboardController.handleCollapsibleKeydown(event, 'parameters-section')">
+                                    <span class="collapsible-title">
+                                        <span class="collapsible-toggle" aria-hidden="true">▼</span>
+                                        <h4 id="job-parameters-heading" class="collapsible-heading">Parameters</h4>
+                                    </span>
+                                </div>
+                                <div id="parameters-content" class="collapsible-content" role="region" aria-labelledby="job-parameters-heading">
+                                    ${parametersHtml}
+                                </div>
+                            </div>
+                        </section>
+                    ` : ''}
+                </main>
+            </div>
+        `;
+
+        // Show modal using native dialog API
+        /** @type {HTMLDialogElement} */ (modal).showModal();
+
+        // Initialize copy buttons
+        this.initializeCopyButtons();
+
+        // Set up focus trap
+        this.setupFocusTrap(modal);
+
+        // Set up keyboard shortcuts
+        this.setupKeyboardShortcuts(modal, job);
+
+        // Handle Escape key (native dialog handles this, but we add custom handler)
+        modal.addEventListener('cancel', (e) => {
+            e.preventDefault();
+            this.closeJobDetails();
+        });
+
+        // Close on backdrop click (clicks outside dialog content)
+        modal.addEventListener('click', (e) => {
+            const rect = modal.getBoundingClientRect();
+            const isInDialog = (
+                rect.top <= e.clientY &&
+                e.clientY <= rect.top + rect.height &&
+                rect.left <= e.clientX &&
+                e.clientX <= rect.left + rect.width
+            );
+            if (!isInDialog) {
+                this.closeJobDetails();
+            }
+        });
+
+        // Focus the close button
+        const closeButton = /** @type {HTMLElement | null} */ (modal.querySelector('.job-details-close'));
+        if (closeButton) {
+            closeButton.focus();
+        }
+    }
+
+    /**
+     * Close job details modal and restore focus
+     */
+    closeJobDetails() {
+        const modal = /** @type {HTMLDialogElement | null} */ (document.getElementById('job-details-modal'));
+        if (modal && modal.open) {
+            modal.close();
+
+            // Restore focus to previously focused element
+            const prevFocus = /** @type {HTMLElement | null} */ (this.previousFocus);
+            if (prevFocus && typeof prevFocus.focus === 'function') {
+                prevFocus.focus();
+            }
+            this.previousFocus = null;
+        }
+    }
+
+    /**
+     * Set up focus trap within modal
+     */
+    setupFocusTrap(modal) {
+        const focusableElements = modal.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+
+        if (focusableElements.length === 0) return;
+
+        const firstFocusable = /** @type {HTMLElement} */ (focusableElements[0]);
+        const lastFocusable = /** @type {HTMLElement} */ (focusableElements[focusableElements.length - 1]);
+
+        const handleTabKey = (e) => {
+            if (e.key !== 'Tab') return;
+
+            if (e.shiftKey) {
+                // Shift + Tab
+                if (document.activeElement === firstFocusable) {
+                    e.preventDefault();
+                    lastFocusable.focus();
+                }
+            } else {
+                // Tab
+                if (document.activeElement === lastFocusable) {
+                    e.preventDefault();
+                    firstFocusable.focus();
+                }
+            }
+        };
+
+        modal.addEventListener('keydown', handleTabKey);
+    }
+
+    /**
+     * Handle keyboard navigation for collapsible sections
+     */
+    handleCollapsibleKeydown(event, sectionId) {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            this.toggleSection(sectionId);
+        }
+    }
+
+    /**
+     * Set up keyboard shortcuts for modal
+     */
+    setupKeyboardShortcuts(modal, job) {
+        const handleKeyboardShortcut = (e) => {
+            // Cmd+C or Ctrl+C - Copy Job ID
+            if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
+                // Only trigger if not inside an input or textarea
+                if (document.activeElement.tagName !== 'INPUT' &&
+                    document.activeElement.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+
+                    // Copy job ID
+                    navigator.clipboard.writeText(job.id).then(() => {
+                        // Show visual feedback
+                        const notification = document.createElement('div');
+                        notification.className = 'keyboard-shortcut-notification';
+                        notification.textContent = `Job ID copied: ${job.id}`;
+                        modal.appendChild(notification);
+
+                        setTimeout(() => {
+                            notification.classList.add('fade-out');
+                            setTimeout(() => notification.remove(), 300);
+                        }, 2000);
+                    }).catch(err => {
+                        console.error('Failed to copy:', err);
+                    });
+                }
+            }
+
+            // ? - Show keyboard shortcuts help
+            if (e.key === '?' && !e.shiftKey) {
+                e.preventDefault();
+                this.showKeyboardShortcutsHelp(modal);
+            }
+        };
+
+        modal.addEventListener('keydown', handleKeyboardShortcut);
+    }
+
+    /**
+     * Show keyboard shortcuts help overlay
+     */
+    showKeyboardShortcutsHelp(modal) {
+        // Check if help is already shown
+        if (modal.querySelector('.keyboard-shortcuts-help')) {
+            return;
+        }
+
+        const helpOverlay = document.createElement('div');
+        helpOverlay.className = 'keyboard-shortcuts-help';
+        helpOverlay.setAttribute('role', 'dialog');
+        helpOverlay.setAttribute('aria-label', 'Keyboard shortcuts');
+        helpOverlay.innerHTML = `
+            <div class="keyboard-shortcuts-content">
+                <h4>Keyboard Shortcuts</h4>
+                <dl class="keyboard-shortcuts-list">
+                    <dt><kbd>Cmd/Ctrl</kbd> + <kbd>C</kbd></dt>
+                    <dd>Copy Job ID to clipboard</dd>
+
+                    <dt><kbd>Esc</kbd></dt>
+                    <dd>Close modal</dd>
+
+                    <dt><kbd>Tab</kbd></dt>
+                    <dd>Navigate through interactive elements</dd>
+
+                    <dt><kbd>Enter</kbd> / <kbd>Space</kbd></dt>
+                    <dd>Expand/collapse sections</dd>
+
+                    <dt><kbd>?</kbd></dt>
+                    <dd>Show this help</dd>
+                </dl>
+                <button class="keyboard-shortcuts-close" onclick="this.parentElement.parentElement.remove()">
+                    Close <span class="keyboard-hint">(Esc)</span>
+                </button>
+            </div>
+        `;
+
+        modal.appendChild(helpOverlay);
+
+        // Close on Escape
+        const closeHelp = (e) => {
+            if (e.key === 'Escape') {
+                helpOverlay.remove();
+            }
+        };
+        helpOverlay.addEventListener('keydown', closeHelp);
+
+        // Focus the close button
+        const closeBtn = /** @type {HTMLElement | null} */ (helpOverlay.querySelector('.keyboard-shortcuts-close'));
+        if (closeBtn) {
+            closeBtn.focus();
+        }
+    }
+
+    /**
+     * Copy text to clipboard with visual feedback
+     */
+    copyToClipboard(text, button) {
+        navigator.clipboard.writeText(text).then(() => {
+            const originalText = button.textContent;
+            button.classList.add('copied');
+            button.textContent = 'Copied!';
+            setTimeout(() => {
+                button.classList.remove('copied');
+                button.textContent = originalText;
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+        });
+    }
+
+    /**
+     * Toggle collapsible section
+     */
+    toggleSection(sectionId) {
+        const section = document.getElementById(sectionId);
+        if (section) {
+            const isCollapsed = section.classList.toggle('collapsed');
+            const header = section.querySelector('.collapsible-header');
+            if (header) {
+                header.setAttribute('aria-expanded', String(!isCollapsed));
+            }
+        }
+    }
+
+    /**
+     * Format timeline for job events
+     */
+    formatTimeline(job) {
+        const events = [];
+
+        if (job.createdAt) {
+            events.push({
+                label: 'Created',
+                time: job.createdAt,
+                status: 'completed'
+            });
+        }
+
+        if (job.startTime) {
+            events.push({
+                label: 'Started',
+                time: job.startTime,
+                status: 'completed'
+            });
+        }
+
+        if (job.status === 'running') {
+            events.push({
+                label: 'Running',
+                time: new Date().toISOString(),
+                status: 'active'
+            });
+        }
+
+        if (job.endTime) {
+            events.push({
+                label: job.status === 'completed' ? 'Completed' : 'Failed',
+                time: job.endTime,
+                status: job.status === 'completed' ? 'completed' : 'failed'
+            });
+        }
+
+        if (events.length === 0) return '';
+
+        return `
+            <div class="job-details-section">
+                <h4>Timeline</h4>
+                <div class="job-timeline">
+                    ${events.map((event, index) => `
+                        <div class="timeline-item">
+                            <div class="timeline-marker ${event.status}"></div>
+                            <div class="timeline-content">
+                                <div class="timeline-label">${event.label}</div>
+                                <div class="timeline-time">${new Date(event.time).toLocaleString()}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Format hero section with status and metrics
+     */
+    formatHeroSection(job) {
+        const pipelineName = this.getPipelineDisplayName(job.pipelineId);
+        const statusIcon = this.getStatusIcon(job.status);
+
+        // Get HTML report path if available
+        const htmlReportPath = this.getHtmlReportPath(job);
+
+        return `
+            <div class="job-details-hero status-${job.status}">
+                <div class="hero-header">
+                    <div class="hero-title">
+                        <div class="hero-job-id">
+                            <div class="copyable-field">
+                                <span class="copyable-value">${job.id}</span>
+                                ${htmlReportPath ? `
+                                    <a href="${htmlReportPath}" target="_blank" class="full-results-btn">
+                                        Full Results →
+                                    </a>
+                                ` : `
+                                    <button class="copy-btn" onclick="window.dashboardController.copyToClipboard('${job.id}', this)">Copy ID</button>
+                                `}
+                            </div>
+                        </div>
+                        <div class="hero-pipeline-name">${pipelineName}</div>
+                    </div>
+                    <div class="hero-status status-${job.status}">
+                        <span class="hero-status-icon">${statusIcon}</span>
+                        ${job.status}
+                    </div>
+                </div>
+                <div class="metric-cards">
+                    ${job.duration ? `
+                        <div class="metric-card">
+                            <span class="metric-label">Duration</span>
+                            <span class="metric-value ${job.duration > 60000 ? 'small' : ''}">${this.formatJobDuration(job.duration)}</span>
+                        </div>
+                    ` : ''}
+                    ${job.attempts ? `
+                        <div class="metric-card">
+                            <span class="metric-label">Attempts</span>
+                            <span class="metric-value">${job.attempts}</span>
+                        </div>
+                    ` : ''}
+                    ${job.progress ? `
+                        <div class="metric-card">
+                            <span class="metric-label">Progress</span>
+                            <span class="metric-value">${job.progress}%</span>
                         </div>
                     ` : ''}
                 </div>
             </div>
         `;
+    }
 
-        modal.style.display = 'flex';
+    /**
+     * Format prominent error section
+     */
+    formatErrorSection(error) {
+        const errorMessage = typeof error === 'string' ? error : (error.message || JSON.stringify(error));
+        const errorStack = typeof error === 'object' && error.stack ? error.stack : '';
 
-        // Close on backdrop click
-        modal.onclick = (e) => {
-            if (e.target === modal) {
-                this.closeJobDetails();
-            }
+        return `
+            <div class="error-section">
+                <div class="error-title">
+                    <span class="error-icon">⚠️</span>
+                    Job Failed
+                </div>
+                <div class="error-message">${this.escapeHtml(errorMessage)}</div>
+                ${errorStack ? `
+                    <a class="error-stack-toggle" onclick="window.dashboardController.toggleSection('error-stack')">Show Stack Trace</a>
+                    <div class="collapsible-section collapsed" id="error-stack" style="border: none; margin: 0;">
+                        <pre class="error-stack">${this.escapeHtml(errorStack)}</pre>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    /**
+     * Format enhanced job result with highlights
+     */
+    formatEnhancedJobResult(job) {
+        if (!job.result) return '';
+
+        const result = job.result;
+        let highlightsHtml = '';
+        let detailsHtml = '';
+
+        // Extract key metrics for highlights
+        const highlights = [];
+
+        // Support both direct result fields and fields from job result
+        const duplicates = result.totalDuplicates ?? result.crossRepoDuplicates ?? result.duplicates ?? result.suggestions;
+        const blocks = result.totalBlocks ?? result.repositories;
+        const duration = result.scanDuration ?? result.duration;
+
+        if (duplicates !== undefined) {
+            highlights.push({
+                label: 'Duplicates Found',
+                value: duplicates,
+                type: duplicates > 0 ? 'warning' : 'success'
+            });
+        }
+
+        // Show repositories for inter-project scans
+        if (result.scanType === 'inter-project' && result.repositories !== undefined) {
+            highlights.push({
+                label: 'Repositories',
+                value: result.repositories,
+                type: 'default'
+            });
+        }
+
+        // Show suggestions for all scan types
+        if (result.suggestions !== undefined && result.suggestions !== duplicates) {
+            highlights.push({
+                label: 'Suggestions',
+                value: result.suggestions,
+                type: 'default'
+            });
+        }
+
+        // Show code blocks for intra-project or if available
+        if (blocks !== undefined && result.scanType !== 'inter-project') {
+            highlights.push({
+                label: 'Code Blocks',
+                value: blocks,
+                type: 'default'
+            });
+        }
+
+        if (result.filesProcessed !== undefined) {
+            highlights.push({
+                label: 'Files Processed',
+                value: result.filesProcessed,
+                type: 'default'
+            });
+        }
+
+        if (duration !== undefined) {
+            const seconds = duration >= 1000 ? (duration / 1000).toFixed(2) : duration.toFixed(2);
+            highlights.push({
+                label: 'Scan Time',
+                value: `${seconds}s`,
+                type: 'default'
+            });
+        }
+
+        // Format highlights
+        if (highlights.length > 0) {
+            highlightsHtml = `
+                <div class="result-highlights">
+                    ${highlights.map(h => `
+                        <div class="result-highlight">
+                            <span class="result-highlight-label">${h.label}</span>
+                            <span class="result-highlight-value ${h.type}">${h.value}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // Add report viewer if available
+        if (result.reportPath) {
+            const viewerId = `report-viewer-${job.id}`;
+            detailsHtml = `<div id="${viewerId}" class="report-viewer-container"></div>`;
+
+            // Schedule viewer initialization
+            setTimeout(() => {
+                const container = document.getElementById(viewerId);
+                if (container) {
+                    new JSONReportViewer(result.reportPath, container);
+                }
+            }, 0);
+        } else if (result.output) {
+            detailsHtml = `<pre class="result-output">${this.escapeHtml(result.output)}</pre>`;
+        }
+
+        return `
+            <div class="job-details-section">
+                <h4>Result</h4>
+                ${highlightsHtml}
+                ${detailsHtml}
+            </div>
+        `;
+    }
+
+    /**
+     * Format enhanced git workflow information
+     */
+    formatEnhancedGitInfo(git) {
+        if (!git) return '';
+
+        return `
+            <div class="job-details-section">
+                <h4>Git Workflow</h4>
+                ${git.branchName ? `
+                    <div class="copyable-field">
+                        <span class="copyable-value">${git.branchName}</span>
+                        <button class="copy-btn" onclick="window.dashboardController.copyToClipboard('${git.branchName}', this)">Copy Branch</button>
+                    </div>
+                ` : ''}
+                ${git.commitSha ? `
+                    <div class="copyable-field">
+                        <span class="copyable-value">${git.commitSha}</span>
+                        <button class="copy-btn" onclick="window.dashboardController.copyToClipboard('${git.commitSha}', this)">Copy SHA</button>
+                    </div>
+                ` : ''}
+                ${git.prUrl ? `
+                    <a href="${git.prUrl}" target="_blank" class="pr-link">
+                        <span class="pr-badge">PR</span>
+                        View Pull Request →
+                    </a>
+                ` : ''}
+                ${git.changedFiles && git.changedFiles.length > 0 ? `
+                    <div style="margin-top: var(--space-2);">
+                        <div style="font-size: 12px; font-weight: 600; color: var(--color-gray-700); margin-bottom: var(--space-1);">
+                            Changed Files (${git.changedFiles.length})
+                        </div>
+                        <div class="changed-files-list">
+                            ${git.changedFiles.map(file => `
+                                <div class="changed-file">${file}</div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    /**
+     * Initialize copy buttons in the modal
+     */
+    initializeCopyButtons() {
+        // Copy buttons are already wired with onclick handlers
+        // This method is for future enhancements if needed
+    }
+
+    /**
+     * Get HTML report path from job result
+     */
+    getHtmlReportPath(job) {
+        if (!job.result) return null;
+
+        // Check if reportPath exists (legacy format)
+        if (job.result.reportPath && job.result.reportPath.endsWith('.html')) {
+            return job.result.reportPath.replace(/^.*\/output\/reports\//, '/api/reports/');
+        }
+
+        // Check for report_paths.html (new format from scan orchestrator)
+        if (job.result.report_paths && job.result.report_paths.html) {
+            return job.result.report_paths.html.replace(/^.*\/output\/reports\//, '/api/reports/');
+        }
+
+        // Try to construct from reportPath by changing extension
+        if (job.result.reportPath) {
+            const htmlPath = job.result.reportPath.replace(/\.(json|md)$/, '.html');
+            return htmlPath.replace(/^.*\/output\/reports\//, '/api/reports/');
+        }
+
+        return null;
+    }
+
+    /**
+     * Get pipeline display name
+     */
+    getPipelineDisplayName(pipelineId) {
+        const names = {
+            'duplicate-detection': 'Duplicate Detection',
+            'doc-enhancement': 'Schema Enhancement',
+            'git-activity': 'Git Activity Reporter',
+            'plugin-manager': 'Plugin Manager',
+            'repomix': 'Repomix Generator',
+            'gitignore-manager': 'Gitignore Manager',
+            'claude-health': 'Claude Health Monitor',
+            'test-refactor': 'Test Refactor Pipeline',
+            'bugfix-audit': 'Bugfix Audit'
         };
-
-        // Close on Escape key
-        document.addEventListener('keydown', this.handleModalEscape);
+        return names[pipelineId] || pipelineId;
     }
 
     /**
-     * Close job details modal
+     * Get status icon
      */
-    closeJobDetails() {
-        const modal = document.getElementById('job-details-modal');
-        if (modal) {
-            modal.style.display = 'none';
-        }
-        document.removeEventListener('keydown', this.handleModalEscape);
+    getStatusIcon(status) {
+        const icons = {
+            'completed': '✅',
+            'failed': '❌',
+            'running': '⚡',
+            'queued': '⏳',
+            'cancelled': '🚫'
+        };
+        return icons[status] || '❓';
     }
 
     /**
-     * Handle Escape key for modal
+     * Escape HTML for safe display
      */
-    handleModalEscape = (e) => {
-        if (e.key === 'Escape') {
-            this.closeJobDetails();
-        }
+    escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
     }
 
     /**
@@ -1527,8 +2095,8 @@ class DashboardController {
 // Initialize dashboard when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        window.dashboardController = new DashboardController();
+        win.dashboardController = new DashboardController();
     });
 } else {
-    window.dashboardController = new DashboardController();
+    win.dashboardController = new DashboardController();
 }
