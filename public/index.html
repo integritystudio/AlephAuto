@@ -175,14 +175,25 @@
                         </ul>
                     </div>
                     <div class="pipeline-doc">
-                        <h4>🏥 Claude Health Monitor Pipeline</h4>
-                        <p><strong>Purpose:</strong> Monitors Claude Code environment health and configuration</p>
-                        <p><strong>Schedule:</strong> Every 6 hours (HEALTH_CRON_SCHEDULE)</p>
+                        <h4>📄 Schema Enhancement Pipeline</h4>
+                        <p><strong>Purpose:</strong> Injects Schema.org structured data into README files</p>
+                        <p><strong>Schedule:</strong> Daily at 3 AM (DOC_CRON_SCHEDULE)</p>
                         <p><strong>Key Features:</strong></p>
                         <ul>
-                            <li>Environment variable validation</li>
-                            <li>Plugin configuration checks</li>
-                            <li>Disk space and resource monitoring</li>
+                            <li>Automatic Schema.org JSON-LD generation</li>
+                            <li>SEO impact scoring</li>
+                            <li>Git workflow with auto-PR creation</li>
+                        </ul>
+                    </div>
+                    <div class="pipeline-doc">
+                        <h4>📦 Repomix Generator Pipeline</h4>
+                        <p><strong>Purpose:</strong> Generates repomix output files for repositories</p>
+                        <p><strong>Schedule:</strong> Daily at 2 AM (CRON_SCHEDULE)</p>
+                        <p><strong>Key Features:</strong></p>
+                        <ul>
+                            <li>Automated repomix file generation</li>
+                            <li>Configurable timeout and buffer size</li>
+                            <li>Ignore pattern support</li>
                         </ul>
                     </div>
                     <div class="pipeline-doc">
@@ -241,6 +252,18 @@
                             <li>Hardcoded string extraction</li>
                             <li>Duplicate assertion identification</li>
                             <li>Utility file generation with recommendations</li>
+                        </ul>
+                    </div>
+                    <div class="pipeline-doc">
+                        <h4>🐛 Bugfix Audit Pipeline</h4>
+                        <p><strong>Purpose:</strong> Audits repositories for bugfix opportunities and technical debt</p>
+                        <p><strong>Schedule:</strong> On-demand (manual trigger)</p>
+                        <p><strong>Key Features:</strong></p>
+                        <ul>
+                            <li>Sentry error aggregation</li>
+                            <li>Prioritized bugfix recommendations</li>
+                            <li>Technical debt analysis</li>
+                            <li>Integration with issue tracking</li>
                         </ul>
                     </div>
                 </div>

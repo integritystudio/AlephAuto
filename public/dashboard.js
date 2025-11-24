@@ -118,7 +118,7 @@ class DashboardController {
      * Show mock data for demonstration
      */
     showMockData() {
-        // Mock pipeline data
+        // Mock pipeline data - all AlephAuto workers
         const mockPipelines = [
             {
                 id: 'duplicate-detection',
@@ -130,12 +130,12 @@ class DashboardController {
                 failedJobs: 2
             },
             {
-                id: 'claude-health',
-                name: 'Claude Health Monitor',
+                id: 'doc-enhancement',
+                name: 'Schema Enhancement',
                 status: 'idle',
                 lastRun: new Date(Date.now() - 7200000).toISOString(),
                 nextRun: new Date(Date.now() + 3600000).toISOString(),
-                completedJobs: 7,
+                completedJobs: 156,
                 failedJobs: 0
             },
             {
@@ -155,6 +155,51 @@ class DashboardController {
                 nextRun: new Date(Date.now() + 259200000).toISOString(),
                 completedJobs: 12,
                 failedJobs: 1
+            },
+            {
+                id: 'repomix',
+                name: 'Repomix Generator',
+                status: 'idle',
+                lastRun: new Date(Date.now() - 43200000).toISOString(),
+                nextRun: new Date(Date.now() + 86400000).toISOString(),
+                completedJobs: 24,
+                failedJobs: 0
+            },
+            {
+                id: 'gitignore-manager',
+                name: 'Gitignore Manager',
+                status: 'idle',
+                lastRun: new Date(Date.now() - 604800000).toISOString(),
+                nextRun: null,
+                completedJobs: 5,
+                failedJobs: 0
+            },
+            {
+                id: 'claude-health',
+                name: 'Claude Health Monitor',
+                status: 'idle',
+                lastRun: new Date(Date.now() - 21600000).toISOString(),
+                nextRun: new Date(Date.now() + 21600000).toISOString(),
+                completedJobs: 7,
+                failedJobs: 0
+            },
+            {
+                id: 'test-refactor',
+                name: 'Test Refactor Pipeline',
+                status: 'idle',
+                lastRun: new Date(Date.now() - 259200000).toISOString(),
+                nextRun: null,
+                completedJobs: 3,
+                failedJobs: 1
+            },
+            {
+                id: 'bugfix-audit',
+                name: 'Bugfix Audit',
+                status: 'idle',
+                lastRun: new Date(Date.now() - 432000000).toISOString(),
+                nextRun: null,
+                completedJobs: 2,
+                failedJobs: 0
             }
         ];
 
