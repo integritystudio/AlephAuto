@@ -5,6 +5,8 @@
  * Fetches full HTML content and API data from the AlephAuto dashboard
  */
 
+import type { ExecutionContext } from '@cloudflare/workers-types';
+
 export interface Env {
   TARGET_URL: string;
   ALLOWED_ORIGINS: string;
@@ -71,7 +73,7 @@ async function fetchContent(url: string, acceptType: string = 'text/html'): Prom
 }
 
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: any): Promise<Response> {
     const url = new URL(request.url);
     const origin = request.headers.get('Origin') || '';
     const allowedOrigins = env.ALLOWED_ORIGINS.split(',').map((o) => o.trim());
@@ -109,7 +111,7 @@ export default {
 
       // Root path - fetch full HTML from n0ai.app
       if (path === '/' || path === '/html') {
-        const cache = caches.default;
+        const cache = await (caches as any).open('default');
         const cacheKey = new Request(`${env.TARGET_URL}/html`, request);
         let cachedResponse = await cache.match(cacheKey);
 
@@ -156,7 +158,7 @@ export default {
 
       // API status endpoint - proxy to n0ai.app/api/status
       if (path === '/api/status' || path === '/status') {
-        const cache = caches.default;
+        const cache = await (caches as any).open('default');
         const apiUrl = `${env.TARGET_URL}/api/status`;
         const cacheKey = new Request(apiUrl, request);
         let cachedResponse = await cache.match(cacheKey);

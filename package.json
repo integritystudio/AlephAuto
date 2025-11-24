@@ -79,7 +79,7 @@
   "devDependencies": {
     "@sentry/vite-plugin": "^4.6.1",
     "@types/glob": "^9.0.0",
-    "@types/node": "^20.14.9",
+    "@types/node": "^20.19.25",
     "chai": "^4.3.10",
     "glob": "^13.0.0",
     "js-yaml": "^4.1.1",

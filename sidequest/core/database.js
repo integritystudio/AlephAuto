@@ -136,6 +136,7 @@ export function getJobs(pipelineId, options = {}) {
 
   // Build data query
   let query = 'SELECT * FROM jobs WHERE pipeline_id = ?';
+  /** @type {Array<string|number>} */
   const params = [pipelineId];
 
   // Filter by status
@@ -152,7 +153,7 @@ export function getJobs(pipelineId, options = {}) {
 
   // Apply pagination
   query += ' LIMIT ? OFFSET ?';
-  params.push(limit, offset);
+  params.push(String(limit), String(offset));
 
   const stmt = db.prepare(query);
   const rows = stmt.all(...params);
@@ -236,14 +237,7 @@ export function getLastJob(pipelineId) {
  * Returns statistics for ALL pipelines in the database, including job counts
  * by status and last run timestamp.
  *
- * @returns {Array<Object>} Array of pipeline statistics
- * @returns {string} returns[].pipeline_id - Pipeline identifier
- * @returns {number} returns[].total - Total jobs for this pipeline
- * @returns {number} returns[].completed - Completed jobs count
- * @returns {number} returns[].failed - Failed jobs count
- * @returns {number} returns[].running - Currently running jobs count
- * @returns {number} returns[].queued - Queued jobs count
- * @returns {string|null} returns[].last_run - ISO timestamp of most recent completion
+ * @returns {Array<{pipeline_id: string, total: number, completed: number, failed: number, running: number, queued: number, last_run: string|null}>} Array of pipeline statistics with pipeline_id, total, completed, failed, running, queued job counts, and last_run ISO timestamp
  *
  * @example
  * const stats = getAllPipelineStats();
