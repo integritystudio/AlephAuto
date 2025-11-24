@@ -6,6 +6,7 @@ import path from 'path';
 import { createComponentLogger } from '../utils/logger.js';
 import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.js';
 import { BranchManager } from '../pipeline-core/git/branch-manager.js';
+import { saveJob, getJobCounts, getLastJob, initDatabase } from './database.js';
 
 const logger = createComponentLogger('SidequestServer');
 
@@ -42,6 +43,14 @@ export class SidequestServer extends EventEmitter {
         branchPrefix: this.gitBranchPrefix,
         dryRun: this.gitDryRun
       }, 'Git workflow enabled');
+    }
+
+    // Initialize SQLite database for job persistence
+    try {
+      initDatabase();
+      logger.info('Job history database initialized');
+    } catch (err) {
+      logger.error({ error: err.message }, 'Failed to initialize database');
     }
 
     // Initialize Sentry
@@ -194,6 +203,24 @@ export class SidequestServer extends EventEmitter {
         this.emit('job:completed', job);
         this.jobHistory.push({ ...job });
 
+        // Persist to SQLite
+        try {
+          saveJob({
+            id: job.id,
+            pipelineId: this.jobType,
+            status: job.status,
+            createdAt: job.createdAt?.toISOString?.() || job.createdAt,
+            startedAt: job.startedAt?.toISOString?.() || job.startedAt,
+            completedAt: job.completedAt?.toISOString?.() || job.completedAt,
+            data: job.data,
+            result: job.result,
+            error: job.error,
+            git: job.git
+          });
+        } catch (dbErr) {
+          logger.error({ error: dbErr.message, jobId }, 'Failed to persist job to database');
+        }
+
         // Log to file
         await this.logJobCompletion(job);
 
@@ -224,6 +251,24 @@ export class SidequestServer extends EventEmitter {
 
         this.emit('job:failed', job, error);
         this.jobHistory.push({ ...job });
+
+        // Persist to SQLite
+        try {
+          saveJob({
+            id: job.id,
+            pipelineId: this.jobType,
+            status: job.status,
+            createdAt: job.createdAt?.toISOString?.() || job.createdAt,
+            startedAt: job.startedAt?.toISOString?.() || job.startedAt,
+            completedAt: job.completedAt?.toISOString?.() || job.completedAt,
+            data: job.data,
+            result: job.result,
+            error: job.error,
+            git: job.git
+          });
+        } catch (dbErr) {
+          logger.error({ error: dbErr.message, jobId }, 'Failed to persist job to database');
+        }
 
         // Log error to Sentry
         Sentry.captureException(error, {
