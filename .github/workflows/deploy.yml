@@ -106,9 +106,6 @@ jobs:
           script: |
             cd ${{ secrets.DEPLOY_PATH }}
 
-            # Load Doppler environment
-            eval $(doppler secrets download --no-file --format env-no-quotes)
-
             # Restart or start dashboard
             if pm2 describe aleph-dashboard > /dev/null 2>&1; then
               echo "Restarting dashboard..."
@@ -134,18 +131,30 @@ jobs:
             pm2 status
 
       - name: Health check
-        run: |
-          echo "Waiting for services to start..."
-          sleep 10
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            echo "Waiting for services to start..."
+            sleep 10
 
-          # Check dashboard health
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.DEPLOY_HOST }}:8080/health)
-          if [ "$RESPONSE" -eq 200 ]; then
-            echo "✅ Dashboard is healthy"
-          else
-            echo "❌ Dashboard health check failed (HTTP $RESPONSE)"
-            exit 1
-          fi
+            # Check Redis connectivity (used for scan caching)
+            if redis-cli ping | grep -q "PONG"; then
+              echo "✅ Redis is healthy"
+            else
+              echo "⚠️ Redis not available (caching disabled)"
+            fi
+
+            # Check dashboard health
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health)
+            if [ "$RESPONSE" -eq 200 ]; then
+              echo "✅ Dashboard is healthy"
+            else
+              echo "❌ Dashboard health check failed (HTTP $RESPONSE)"
+              exit 1
+            fi
 
       - name: Notify deployment success
         if: success()
