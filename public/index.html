@@ -270,42 +270,183 @@
             </div>
             <div class="doc-panel" data-panel="api">
                 <h3>API Reference</h3>
-                <h4>Endpoints</h4>
+                <p class="api-intro">All endpoints return JSON. Authentication is required for most endpoints via <code>X-API-Key</code> header.</p>
+
+                <h4>System Status</h4>
                 <div class="api-endpoints">
                     <div class="api-endpoint">
                         <code class="http-method">GET</code>
                         <code class="endpoint-path">/health</code>
                         <p>Health check endpoint - returns server status</p>
+                        <p class="auth-badge">🔓 No auth required</p>
                     </div>
                     <div class="api-endpoint">
                         <code class="http-method">GET</code>
                         <code class="endpoint-path">/api/status</code>
-                        <p>System status including pipeline states and job queue</p>
-                    </div>
-                    <div class="api-endpoint">
-                        <code class="http-method">POST</code>
-                        <code class="endpoint-path">/api/scans</code>
-                        <p>Trigger a new repository scan</p>
-                        <pre>{ "repositoryPath": "/path/to/repo" }</pre>
-                    </div>
-                    <div class="api-endpoint">
-                        <code class="http-method">GET</code>
-                        <code class="endpoint-path">/api/scans/:scanId</code>
-                        <p>Get scan results by ID</p>
+                        <p>System status with ALL pipelines from database, job queue stats, and activity feed</p>
+                        <p class="auth-badge">🔓 No auth required</p>
+                        <details>
+                            <summary>Response Example</summary>
+                            <pre>{
+  "timestamp": "2025-11-24T18:12:45.749Z",
+  "pipelines": [
+    {
+      "id": "duplicate-detection",
+      "name": "Duplicate Detection",
+      "status": "idle",
+      "completedJobs": 10,
+      "failedJobs": 2,
+      "lastRun": "2025-11-24T02:00:00.000Z",
+      "nextRun": null
+    },
+    // ... all 8 pipelines from database
+  ],
+  "queue": {
+    "active": 0,
+    "queued": 0,
+    "capacity": 0
+  },
+  "recentActivity": [ /* 20 recent events */ ]
+}</pre>
+                        </details>
+                        <p class="api-note">✨ <strong>Updated:</strong> Now returns all pipelines from database (8+) instead of just duplicate-detection</p>
                     </div>
                     <div class="api-endpoint">
                         <code class="http-method">GET</code>
                         <code class="endpoint-path">/ws/status</code>
                         <p>WebSocket connection status and client count</p>
+                        <p class="auth-badge">🔓 No auth required</p>
                     </div>
                 </div>
+
+                <h4>Pipeline Management</h4>
+                <div class="api-endpoints">
+                    <div class="api-endpoint">
+                        <code class="http-method">GET</code>
+                        <code class="endpoint-path">/api/sidequest/pipeline-runners/:pipelineId/jobs</code>
+                        <p>Fetch job history for a specific pipeline with pagination</p>
+                        <p class="auth-badge">🔓 No auth required</p>
+                        <details>
+                            <summary>Query Parameters</summary>
+                            <ul>
+                                <li><code>status</code> (optional): Filter by status (queued, running, completed, failed)</li>
+                                <li><code>limit</code> (optional): Max jobs per page (default: 10, max: 100)</li>
+                                <li><code>offset</code> (optional): Pagination offset (default: 0)</li>
+                                <li><code>tab</code> (optional): UI tab context (recent, failed, all)</li>
+                            </ul>
+                        </details>
+                        <details>
+                            <summary>Response Example</summary>
+                            <pre>{
+  "pipelineId": "repomix",
+  "jobs": [ /* array of job objects */ ],
+  "total": 201,
+  "hasMore": true,
+  "timestamp": "2025-11-24T18:12:45.749Z"
+}</pre>
+                        </details>
+                        <p class="api-note">✨ <strong>Updated:</strong> <code>total</code> now shows actual database count (e.g., 201) instead of page size (e.g., 50)</p>
+                    </div>
+                    <div class="api-endpoint">
+                        <code class="http-method">POST</code>
+                        <code class="endpoint-path">/api/sidequest/pipeline-runners/:pipelineId/trigger</code>
+                        <p>Manually trigger a pipeline job</p>
+                        <p class="auth-badge">🔓 No auth required</p>
+                        <details>
+                            <summary>Request Body</summary>
+                            <pre>{
+  "parameters": {
+    "repositoryPath": "/path/to/repo"
+    // or
+    "repositoryPaths": ["/path/1", "/path/2"]
+  }
+}</pre>
+                        </details>
+                    </div>
+                </div>
+
+                <h4>Scan Operations</h4>
+                <div class="api-endpoints">
+                    <div class="api-endpoint">
+                        <code class="http-method">POST</code>
+                        <code class="endpoint-path">/api/scans</code>
+                        <p>Trigger a new repository scan (duplicate detection)</p>
+                        <p class="auth-badge">🔓 No auth required</p>
+                        <details>
+                            <summary>Request Body</summary>
+                            <pre>{
+  "scanType": "intra-project",
+  "repositoryPath": "/path/to/repo"
+}
+// or
+{
+  "scanType": "inter-project",
+  "repositoryPaths": ["/path/1", "/path/2"]
+}</pre>
+                        </details>
+                    </div>
+                    <div class="api-endpoint">
+                        <code class="http-method">GET</code>
+                        <code class="endpoint-path">/api/scans/:scanId</code>
+                        <p>Get scan results by ID</p>
+                        <p class="auth-badge">🔓 No auth required</p>
+                    </div>
+                </div>
+
+                <h4>Reports</h4>
+                <div class="api-endpoints">
+                    <div class="api-endpoint">
+                        <code class="http-method">GET</code>
+                        <code class="endpoint-path">/api/reports</code>
+                        <p>List available scan reports with filtering and pagination</p>
+                        <p class="auth-badge">🔓 No auth required</p>
+                        <details>
+                            <summary>Query Parameters</summary>
+                            <ul>
+                                <li><code>limit</code> (optional): Max reports to return (default: 20)</li>
+                                <li><code>format</code> (optional): Filter by format (html, markdown, json)</li>
+                                <li><code>type</code> (optional): Filter by type (summary, full)</li>
+                            </ul>
+                        </details>
+                    </div>
+                    <div class="api-endpoint">
+                        <code class="http-method">GET</code>
+                        <code class="endpoint-path">/api/reports/:filename</code>
+                        <p>Get a specific report file (HTML, JSON, or Markdown)</p>
+                        <p class="auth-badge">🔓 No auth required</p>
+                        <p class="api-note">🔒 Directory traversal protection enabled (rejects "../" in filenames)</p>
+                    </div>
+                    <div class="api-endpoint">
+                        <code class="http-method">DELETE</code>
+                        <code class="endpoint-path">/api/reports/:filename</code>
+                        <p>Delete a report file</p>
+                        <p class="auth-badge">🔓 No auth required</p>
+                    </div>
+                </div>
+
                 <h4>WebSocket Events</h4>
+                <p>Connect to <code>ws://localhost:8080</code> for real-time updates</p>
                 <ul>
-                    <li><code>job:created</code> - New job added to queue</li>
-                    <li><code>job:started</code> - Job execution started</li>
-                    <li><code>job:completed</code> - Job finished successfully</li>
-                    <li><code>job:failed</code> - Job execution failed</li>
-                    <li><code>pipeline:status</code> - Pipeline status update</li>
+                    <li><code>job:created</code> - New job added to queue with job details</li>
+                    <li><code>job:started</code> - Job execution started with timestamp</li>
+                    <li><code>job:completed</code> - Job finished successfully with results</li>
+                    <li><code>job:failed</code> - Job execution failed with error details</li>
+                    <li><code>pipeline:status</code> - Pipeline status update (idle/running)</li>
+                    <li><code>activity</code> - Activity feed event (scan complete, error, etc.)</li>
+                </ul>
+
+                <h4>Available Pipeline IDs</h4>
+                <ul>
+                    <li><code>duplicate-detection</code> - Duplicate code detection</li>
+                    <li><code>repomix</code> - Repomix file generation</li>
+                    <li><code>git-activity</code> - Git activity reports</li>
+                    <li><code>claude-health</code> - Claude Code health monitoring</li>
+                    <li><code>gitignore-manager</code> - Gitignore batch updates</li>
+                    <li><code>plugin-manager</code> - Plugin audit and cleanup</li>
+                    <li><code>schema-enhancement</code> - Schema.org structured data injection</li>
+                    <li><code>test-refactor</code> - Test suite refactoring analysis</li>
+                    <li><code>bugfix-audit</code> - Bugfix opportunity identification</li>
+                    <li><code>repo-cleanup</code> - Repository cleanup automation</li>
                 </ul>
             </div>
             <div class="doc-panel" data-panel="architecture">

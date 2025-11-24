@@ -653,6 +653,15 @@ body {
     padding: var(--space-2);
 }
 
+.api-intro {
+    font-size: 14px;
+    color: var(--color-gray-700);
+    background: var(--color-blue-50);
+    padding: var(--space-2);
+    border-radius: var(--radius-md);
+    border-left: 3px solid var(--color-info);
+}
+
 .http-method {
     display: inline-block;
     background: var(--color-info);
@@ -668,6 +677,68 @@ body {
     font-family: var(--font-mono);
     font-size: 13px;
     color: var(--color-gray-800);
+}
+
+.auth-badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    background: var(--color-green-50);
+    color: var(--color-success);
+    border-radius: var(--radius-sm);
+    margin-top: var(--space-1);
+    font-weight: 500;
+}
+
+.api-note {
+    font-size: 12px;
+    color: var(--color-gray-600);
+    background: var(--color-yellow-50);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--color-warning);
+    margin-top: var(--space-1);
+}
+
+.api-endpoint details {
+    margin-top: var(--space-2);
+}
+
+.api-endpoint summary {
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-info);
+    padding: var(--space-1);
+    border-radius: var(--radius-sm);
+    user-select: none;
+}
+
+.api-endpoint summary:hover {
+    background: var(--color-gray-100);
+}
+
+.api-endpoint details[open] summary {
+    margin-bottom: var(--space-2);
+}
+
+.api-endpoint details pre {
+    background: var(--color-gray-900);
+    color: var(--color-gray-100);
+    padding: var(--space-2);
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.api-endpoint details ul {
+    margin-left: var(--space-3);
+    font-size: 13px;
+}
+
+.api-endpoint details li {
+    margin-bottom: var(--space-1);
 }
 
 .architecture-diagram {
