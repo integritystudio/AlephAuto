@@ -98,8 +98,8 @@
       ]
     },
     {
-      "name": "lib",
-      "path": "/Users/alyshialedlie/code/jobs/lib",
+      "name": "pipeline-core",
+      "path": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-core",
       "priority": "high",
       "scanFrequency": "daily",
       "enabled": true,
@@ -110,63 +110,6 @@
       "excludePatterns": [
         "*.test.js",
         "*.spec.js"
-      ],
-      "lastScannedAt": "2025-11-18T13:31:52.219Z",
-      "scanHistory": [
-        {
-          "timestamp": "2025-11-18T13:31:52.219Z",
-          "status": "success",
-          "duration": 10.768,
-          "duplicatesFound": 11
-        },
-        {
-          "timestamp": "2025-11-18T13:31:48.668Z",
-          "status": "success",
-          "duration": 7.221,
-          "duplicatesFound": 101
-        },
-        {
-          "timestamp": "2025-11-18T13:21:36.672Z",
-          "status": "success",
-          "duration": 11.055,
-          "duplicatesFound": 11
-        },
-        {
-          "timestamp": "2025-11-18T13:21:33.225Z",
-          "status": "success",
-          "duration": 7.609,
-          "duplicatesFound": 99
-        },
-        {
-          "timestamp": "2025-11-18T13:21:17.259Z",
-          "status": "success",
-          "duration": 10.423,
-          "duplicatesFound": 11
-        },
-        {
-          "timestamp": "2025-11-18T13:21:14.803Z",
-          "status": "success",
-          "duration": 7.969,
-          "duplicatesFound": 102
-        },
-        {
-          "timestamp": "2025-11-18T13:20:28.075Z",
-          "status": "success",
-          "duration": 9.548,
-          "duplicatesFound": 11
-        },
-        {
-          "timestamp": "2025-11-18T13:20:24.096Z",
-          "status": "success",
-          "duration": 5.57,
-          "duplicatesFound": 105
-        },
-        {
-          "timestamp": "2025-11-12T09:02:40.513Z",
-          "status": "success",
-          "duration": 0.171,
-          "duplicatesFound": 0
-        }
       ]
     },
     {
@@ -188,7 +131,7 @@
       "description": "Internal job management and duplicate detection tools",
       "repositories": [
         "sidequest",
-        "lib"
+        "pipeline-core"
       ],
       "scanType": "inter-project",
       "enabled": true
