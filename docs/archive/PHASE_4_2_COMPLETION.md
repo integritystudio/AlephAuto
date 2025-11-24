@@ -280,7 +280,6 @@ tests/
 │   ├── directory-scanner.test.js
 │   ├── filepath-imports.test.js
 │   ├── mcp-server.test.js
-│   ├── readme-scanner.test.js
 │   ├── repomix-worker.test.js
 │   ├── retry-logic.test.js
 │   ├── schema-mcp-tools.test.js

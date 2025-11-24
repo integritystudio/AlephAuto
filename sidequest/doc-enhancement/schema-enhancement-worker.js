@@ -1,6 +1,5 @@
 import { SidequestServer } from '../server.js';
 import { SchemaMCPTools } from './schema-mcp-tools.js';
-import { READMEScanner } from './readme-scanner.js';
 import { createComponentLogger } from '../logger.js';
 import { config } from '../config.js';
 import fs from 'fs/promises';
@@ -25,7 +24,6 @@ export class SchemaEnhancementWorker extends SidequestServer {
 
     this.outputBaseDir = options.outputBaseDir || './document-enhancement-impact-measurement';
     this.mcpTools = new SchemaMCPTools(options);
-    this.scanner = new READMEScanner(options);
     this.dryRun = options.dryRun || false;
     this.stats = {
       enhanced: 0,

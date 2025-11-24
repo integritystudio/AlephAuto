@@ -22,7 +22,6 @@ tests/
 │   ├── api-routes.test.js
 │   ├── directory-scanner.test.js
 │   ├── filepath-imports.test.js
-│   ├── readme-scanner.test.js
 │   ├── retry-logic.test.js
 │   ├── sidequest-server.test.js
 │   └── websocket.test.js

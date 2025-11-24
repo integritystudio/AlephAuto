@@ -90,67 +90,11 @@ describe('Filepath Imports Test Suite', () => {
     });
   });
 
-  describe('sidequest/data-discovery-report-pipeline.js imports', () => {
-    it('should have correct import for SchemaEnhancementWorker', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/data-discovery-report-pipeline.js');
-      const content = await fs.readFile(filePath, 'utf-8');
-
-      // Verify the import statement uses relative path from sidequest/
-      assert.match(
-        content,
-        /import\s+{\s*SchemaEnhancementWorker\s*}\s+from\s+['"]\.\/doc-enhancement\/schema-enhancement-worker\.js['"]/,
-        'SchemaEnhancementWorker import should use ./doc-enhancement/schema-enhancement-worker.js'
-      );
-    });
-
-    it('should have correct import for READMEScanner', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/data-discovery-report-pipeline.js');
-      const content = await fs.readFile(filePath, 'utf-8');
-
-      // Verify the import statement uses relative path from sidequest/
-      assert.match(
-        content,
-        /import\s+{\s*READMEScanner\s*}\s+from\s+['"]\.\/doc-enhancement\/readme-scanner\.js['"]/,
-        'READMEScanner import should use ./doc-enhancement/readme-scanner.js'
-      );
-    });
-
-    it('should have correct outputBaseDir path', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/data-discovery-report-pipeline.js');
-      const content = await fs.readFile(filePath, 'utf-8');
-
-      // Verify outputBaseDir points to ../document-enhancement-impact-measurement
-      assert.match(
-        content,
-        /outputBaseDir:\s*['"]\.\.\/document-enhancement-impact-measurement['"]/,
-        'outputBaseDir should be ../document-enhancement-impact-measurement'
-      );
-    });
-
-    it('should have correct logDir path', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/data-discovery-report-pipeline.js');
-      const content = await fs.readFile(filePath, 'utf-8');
-
-      // Verify logDir points to ../logs
-      assert.match(
-        content,
-        /logDir:\s*['"]\.\.\/logs['"]/,
-        'logDir should be ../logs'
-      );
-    });
-  });
-
   describe('File existence checks', () => {
     it('should verify index.js exists in sidequest/', async () => {
       const filePath = resolve(__dirname, '../../sidequest/index.js');
       const stats = await fs.stat(filePath);
       assert.ok(stats.isFile(), 'index.js should exist in sidequest/');
-    });
-
-    it('should verify data-discovery-report-pipeline.js exists in sidequest/', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/data-discovery-report-pipeline.js');
-      const stats = await fs.stat(filePath);
-      assert.ok(stats.isFile(), 'data-discovery-report-pipeline.js should exist in sidequest/');
     });
 
     it('should verify index.js was removed from root', async () => {
@@ -163,15 +107,6 @@ describe('Filepath Imports Test Suite', () => {
       }
     });
 
-    it('should verify data-discovery-report-pipeline.js was removed from jobs/data-discovery/', async () => {
-      const filePath = resolve(__dirname, '../../jobs/data-discovery/data-discovery-report-pipeline.js');
-      try {
-        await fs.stat(filePath);
-        assert.fail('data-discovery-report-pipeline.js should not exist in jobs/data-discovery/');
-      } catch (error) {
-        assert.strictEqual(error.code, 'ENOENT', 'data-discovery-report-pipeline.js should not exist in jobs/data-discovery/');
-      }
-    });
   });
 
   describe('Referenced module existence', () => {
@@ -198,16 +133,6 @@ describe('Filepath Imports Test Suite', () => {
       }
     });
 
-    it('should verify readme-scanner.js exists in sidequest/doc-enhancement/', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/doc-enhancement/readme-scanner.js');
-      try {
-        const stats = await fs.stat(filePath);
-        assert.ok(stats.isFile(), 'readme-scanner.js should exist');
-      } catch (error) {
-        // This file may not exist yet, so we'll just log a warning
-        console.warn('⚠️  readme-scanner.js not found - may need to be created');
-      }
-    });
   });
 
   describe('Output directory paths', () => {

@@ -1,11 +1,12 @@
 # Automated Code & Documentation Pipeline
 
-Four automated systems built on the **AlephAuto** job queue framework with Sentry error logging:
+Five automated systems built on the **AlephAuto** job queue framework with Sentry error logging:
 
 1. **Repomix Pipeline**: Recursively processes all directories in `~/code` with repomix and stores outputs in a matching directory structure
 2. **Documentation Enhancement Pipeline**: Automatically adds Schema.org structured data to README files for improved SEO and rich search results
 3. **Git Activity Reporter**: Automated weekly/monthly git activity reports with visualizations (fully integrated with AlephAuto)
 4. **Gitignore Manager**: Batch updates `.gitignore` files across all git repositories
+5. **Codebase Health Scanners**: Detect timeout patterns and analyze root directory clutter for code quality improvements
 
 ## Features
 
@@ -50,6 +51,13 @@ Four automated systems built on the **AlephAuto** job queue framework with Sentr
 - Cron scheduling support
 - Sentry error tracking and performance monitoring
 
+### Codebase Health Scanners
+- **Timeout Pattern Detection**: Find `Promise.race()` without timeout, missing `finally` blocks
+- **Root Directory Analysis**: Identify clutter and generate zero-breakage migration plans
+- **AST-Grep Integration**: Uses structural code analysis for accurate detection
+- **Python Alternative**: Regex-based scanner for environments without ast-grep
+- CLI and programmatic usage supported
+
 ## Directory Structure
 
 ```
@@ -75,7 +83,11 @@ jobs/
 │   ├── inter-project-scanner.js               # Multi-repository scanning
 │   ├── scanners/                              # Stage 1-2: Repository & Pattern scanning
 │   │   ├── repository-scanner.js              # Repository validation & repomix
-│   │   └── ast-grep-detector.js               # AST-Grep pattern detection (18 rules)
+│   │   ├── ast-grep-detector.js               # AST-Grep pattern detection (18 rules)
+│   │   ├── codebase-health-scanner.js         # CLI wrapper for health scanners
+│   │   ├── timeout-pattern-detector.js        # Detect infinite loading bugs
+│   │   ├── root-directory-analyzer.js         # Analyze root directory clutter
+│   │   └── timeout_detector.py                # Python timeout scanner (no ast-grep)
 │   ├── extractors/                            # Stage 3-7: Python data processing
 │   │   ├── extract_blocks.py                  # Code block extraction & annotation
 │   │   └── semantic_annotator.py              # Semantic categorization
@@ -100,7 +112,6 @@ jobs/
 │   ├── git-activity-worker.js                 # Git activity job worker
 │   ├── directory-scanner.js                   # Directory scanning utility
 │   ├── doc-enhancement/                       # Documentation enhancement
-│   │   ├── readme-scanner.js                  # README file scanner
 │   │   ├── schema-mcp-tools.js                # Schema.org MCP integration
 │   │   └── schema-enhancement-worker.js       # Enhancement job worker
 │   └── collect_git_activity.py                # Git activity data collection (Python)
@@ -851,19 +862,6 @@ Re-enhance files that already have schemas:
 FORCE_ENHANCEMENT=true npm run docs:enhance
 ```
 
-#### Custom Exclusions
-
-Edit `sidequest/doc-enhancement/readme-scanner.js`:
-
-```javascript
-this.excludeDirs = new Set([
-  'node_modules',
-  '.git',
-  'custom_exclude_dir',
-  // Add your exclusions
-]);
-```
-
 #### Custom Schema Logic
 
 Edit `sidequest/doc-enhancement/schema-mcp-tools.js` to customize:
@@ -1123,7 +1121,6 @@ npm run test:single         # Single enhancement tests
 
 # Run individual test files
 node --test test/directory-scanner.test.js
-node --test test/readme-scanner.test.js
 node --test test/schema-mcp-tools.test.js
 node --test test/repomix-worker.test.js
 node --test test/sidequest-server.test.js
@@ -1266,6 +1263,7 @@ These could be fixed with delays or mocking, but the functionality works correct
 | **Docs Enhancement** | `npm run docs:enhance` | 3 AM daily | `./document-enhancement-impact-measurement/` |
 | **Git Activity** ⭐ | `npm run git:weekly` | Sunday 8 PM | `/tmp/git_activity_*.json` + SVGs |
 | **Gitignore Manager** | `node sidequest/gitignore-repomix-updater.js ~/code` | On-demand | `./sidequest/gitignore-update-report-*.json` |
+| **Health Scanners** | `./lib/scanners/codebase-health-scanner.js <path>` | On-demand | Markdown/JSON reports |
 
 ### Quick Commands
 
@@ -1301,6 +1299,15 @@ node git-activity-pipeline.js --since 2025-07-07 --until 2025-11-16
 # Git Activity - Scheduled mode (cron)
 npm run git:schedule
 GIT_CRON_SCHEDULE="0 20 * * 0" npm run git:schedule  # Custom schedule
+
+# Health Scanners - Timeout patterns
+./lib/scanners/codebase-health-scanner.js ~/code/myproject --scan timeout
+
+# Health Scanners - Root directory analysis
+./lib/scanners/codebase-health-scanner.js ~/code/myproject --scan root
+
+# Health Scanners - All scans
+./lib/scanners/codebase-health-scanner.js ~/code/myproject --scan all --output report.md
 
 # View all test results
 npm test
@@ -1433,6 +1440,63 @@ sudo systemctl status git-activity
 ```
 
 **Note**: Gitignore Manager is an on-demand tool and doesn't require a systemd service.
+
+---
+
+## Codebase Health Scanners
+
+Detect infinite loading bugs and analyze root directory clutter for code quality improvements.
+
+### Quick Start
+
+```bash
+# Install ast-grep (required for JS scanners)
+npm install -g @ast-grep/cli
+
+# Run timeout pattern scan
+./lib/scanners/codebase-health-scanner.js ~/code/myproject --scan timeout
+
+# Run root directory analysis
+./lib/scanners/codebase-health-scanner.js ~/code/myproject --scan root
+
+# Run all scans with report output
+./lib/scanners/codebase-health-scanner.js ~/code/myproject --scan all --output report.md
+
+# Python version (no ast-grep required)
+python3 lib/scanners/timeout_detector.py ~/code/myproject
+```
+
+### Patterns Detected
+
+**Timeout Issues (HIGH severity):**
+- `Promise.race()` without timeout wrapper
+- `setLoading(true)` without `finally` block
+- Async functions without error handling
+
+**Root Directory Clutter:**
+- Excessive files in project root
+- Categorizes by type (Python, JS, configs, data)
+- Generates migration plan with exact import updates
+
+### Integration Options
+
+**Pre-commit hook:**
+```bash
+node ~/code/jobs/lib/scanners/codebase-health-scanner.js . --scan timeout --json
+```
+
+**PM2 scheduled job:**
+```javascript
+{
+  name: 'health-scanner',
+  script: './lib/scanners/codebase-health-scanner.js',
+  args: '~/code/myproject --scan all --output output/health.md',
+  cron_restart: '0 2 * * *',
+  autorestart: false
+}
+```
+
+See `lib/scanners/README.md` for detailed documentation.
 
 ## License
 
