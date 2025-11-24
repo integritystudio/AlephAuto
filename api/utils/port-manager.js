@@ -23,6 +23,7 @@ export async function isPortAvailable(port, host = '0.0.0.0') {
 
     // Enable SO_REUSEADDR to allow quick restarts
     server.on('error', (err) => {
+      // @ts-ignore - Node.js error objects have code property
       if (err.code === 'EADDRINUSE') {
         logger.debug({ port, host }, 'Port is already in use');
         resolve(false);
@@ -109,9 +110,9 @@ export async function killProcessOnPort(port) {
  * Setup graceful shutdown handlers for a server
  *
  * @param {import('http').Server} httpServer - HTTP server instance
- * @param {object} options - Additional cleanup options
- * @param {Function} options.onShutdown - Custom shutdown handler
- * @param {number} options.timeout - Shutdown timeout in ms (default: 10000)
+ * @param {object} [options] - Additional cleanup options
+ * @param {Function} [options.onShutdown] - Custom shutdown handler
+ * @param {number} [options.timeout] - Shutdown timeout in ms (default: 10000)
  */
 export function setupGracefulShutdown(httpServer, options = {}) {
   const {
@@ -187,12 +188,12 @@ export function setupGracefulShutdown(httpServer, options = {}) {
  * @param {import('http').Server} httpServer - HTTP server instance
  * @param {object} options - Configuration options
  * @param {number} options.preferredPort - Preferred port to use
- * @param {number} options.maxPort - Maximum port to try (default: preferredPort + 10)
- * @param {string} options.host - Host to bind to (default: '0.0.0.0')
- * @param {boolean} options.killExisting - Kill existing process on port (default: false)
+ * @param {number} [options.maxPort] - Maximum port to try (default: preferredPort + 10)
+ * @param {string} [options.host] - Host to bind to (default: '0.0.0.0')
+ * @param {boolean} [options.killExisting] - Kill existing process on port (default: false)
  * @returns {Promise<number>} - The port the server is listening on
  */
-export async function setupServerWithPortFallback(httpServer, options = {}) {
+export async function setupServerWithPortFallback(httpServer, options) {
   const {
     preferredPort,
     maxPort = preferredPort + 10,

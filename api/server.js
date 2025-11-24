@@ -5,6 +5,10 @@
  * Provides programmatic access to duplicate detection scanning and results.
  */
 
+// Increase EventEmitter listener limit to prevent memory leak warnings
+// Multiple components (Sentry, WebSocket, ActivityFeed, Workers, etc.) add listeners
+process.setMaxListeners(20);
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -191,7 +195,8 @@ app.set('activityFeed', activityFeed);
 // WebSocket status endpoint (before API routes to avoid conflict)
 app.get('/ws/status', (req, res) => {
   const clientInfo = wss.getClientInfo();
-  const actualPort = httpServer.address()?.port || config.apiPort;
+  const address = httpServer.address();
+  const actualPort = (typeof address === 'string' ? config.apiPort : address?.port) || config.apiPort;
   res.json({
     ...clientInfo,
     websocket_url: `ws://localhost:${actualPort}/ws`,
