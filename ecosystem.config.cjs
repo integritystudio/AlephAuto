@@ -27,6 +27,9 @@ module.exports = {
       watch: false,  // Set to true for development
       max_memory_restart: '500M',
 
+      // Node.js arguments - preload script to set EventEmitter max listeners before any imports
+      node_args: '--require ./api/preload.js --max-old-space-size=512',
+
       // Environment variables (pulled from Doppler at PM2 startup)
       env: {
         NODE_ENV: process.env.NODE_ENV || 'production',

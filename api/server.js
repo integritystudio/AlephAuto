@@ -1,13 +1,14 @@
 #!/usr/bin/env node
+
+// MUST be first: Increase EventEmitter listener limit before any imports
+// Multiple components (Sentry, WebSocket, ActivityFeed, Workers, etc.) add listeners during import
+process.setMaxListeners(20);
+
 /**
  * REST API Server for Duplicate Detection
  *
  * Provides programmatic access to duplicate detection scanning and results.
  */
-
-// Increase EventEmitter listener limit to prevent memory leak warnings
-// Multiple components (Sentry, WebSocket, ActivityFeed, Workers, etc.) add listeners
-process.setMaxListeners(20);
 
 import express from 'express';
 import cors from 'cors';
