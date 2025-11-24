@@ -527,8 +527,9 @@ jobs/
 **v1.4.0 - Pipeline Details Panel**
 - Interactive job details panel with WebSocket updates
 - Type-safe API endpoints (`GET /api/pipelines/:id/jobs`)
-- WCAG 2.1 Level AA compliant UI
+- WCAG 2.1 Level AA compliant UI (focus return, aria-live on job lists)
 - 19/19 type validation tests passing
+- Sentry v8 span.setStatus() API compatibility fixes
 
 **v1.3.0 - Production Deployment**
 - PM2 ecosystem configuration (2 apps: dashboard + worker)
@@ -544,7 +545,7 @@ jobs/
 
 ---
 
-**Version:** 1.5.0
-**Last Updated:** 2025-11-19
+**Version:** 1.5.1
+**Last Updated:** 2025-11-23
 **Status:** Production Ready (PM2 + Doppler deployment)
 **Environment:** macOS with traditional server stack
