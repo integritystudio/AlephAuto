@@ -50,34 +50,6 @@ For a fully functional dashboard, you need to deploy the complete application:
 
 **See:** `docs/TRADITIONAL_SERVER_DEPLOYMENT.md`
 
-### Option 2: Platform as a Service
-
-Deploy to Railway, Render, or Heroku for full backend support:
-
-```bash
-# Railway
-railway up
-
-# Render
-# Push to main - auto-deploys via render.yaml
-
-# Heroku
-git push heroku main
-```
-
-**See:** `docs/DEPLOYMENT.md`
-
-### Option 3: Docker
-
-```bash
-# Local
-docker-compose up -d
-
-# Production
-docker build -t aleph-dashboard .
-docker run -p 8080:8080 aleph-dashboard
-```
-
 ## Configuration
 
 ### API URL Override
