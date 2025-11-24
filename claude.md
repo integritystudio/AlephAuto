@@ -13,7 +13,8 @@ Automation pipelines built on **AlephAuto** job queue framework with real-time d
 5. **Repomix Automation** - Automated repomix file generation
 6. **Plugin Manager** - Claude Code plugin audit
 7. **Claude Health Monitor** - Environment health checks
-8. **Dashboard UI** - Real-time monitoring (WebSocket + REST API)
+8. **Test Refactor Pipeline** - Automated test suite modularization and utility generation
+9. **Dashboard UI** - Real-time monitoring (WebSocket + REST API)
 
 ## Quick Reference
 
@@ -23,8 +24,8 @@ Automation pipelines built on **AlephAuto** job queue framework with real-time d
 | Test routes | `npm run test:integration` - See tests/README.md |
 | Fix type errors | Use TypeScript Type Validator skill (auto-activates) |
 | Debug issues | Check Sentry dashboard + `logs/` directory |
-| Type validation | Zod schemas in `api/types/` - See docs/TYPE_SYSTEM.md |
-| Error handling | See docs/ERROR_HANDLING.md (auto-retry with circuit breaker) |
+| Type validation | Zod schemas in `api/types/` - See docs/architecture/TYPE_SYSTEM.md |
+| Error handling | See docs/architecture/ERROR_HANDLING.md (auto-retry with circuit breaker) |
 | Deploy | `./scripts/deploy-traditional-server.sh --update` (PM2 + Doppler) |
 | Dashboard | `npm run dashboard` → http://localhost:8080 |
 | Enable auto PRs | Set `ENABLE_GIT_WORKFLOW=true` in Doppler - See Git Workflow section |
@@ -153,7 +154,7 @@ Workers (extend SidequestServer):
 **Why this matters:**
 - All workers share retry logic - understand `SidequestServer` to understand error handling everywhere
 - Event emitters enable real-time dashboard updates
-- Sentry captures errors at 3 severity levels (see docs/ERROR_HANDLING.md)
+- Sentry captures errors at 3 severity levels (see docs/architecture/ERROR_HANDLING.md)
 
 ### Git Workflow Automation
 
@@ -445,9 +446,10 @@ jobs/
 │   ├── fixtures/        # Test helpers (createTempRepository)
 │   └── README.md        # Test infrastructure guide
 ├── docs/                 # Documentation
-│   ├── ERROR_HANDLING.md  # Retry logic (837 lines)
-│   ├── TYPE_SYSTEM.md     # Type validation (600+ lines)
-│   └── SESSION_HISTORY.md # Development log
+│   ├── architecture/     # Architecture docs (ERROR_HANDLING.md, TYPE_SYSTEM.md)
+│   ├── dashboard_ui/     # Dashboard docs (DASHBOARD.md, DATAFLOW_DIAGRAMS.md)
+│   ├── deployment/       # Deployment guides
+│   └── runbooks/         # Operational runbooks
 └── ecosystem.config.cjs  # PM2 production config
 ```
 
@@ -500,22 +502,31 @@ jobs/
 
 ## Documentation
 
-**Comprehensive guides:**
-- `docs/ERROR_HANDLING.md` - Retry logic, circuit breaker, Sentry integration
-- `docs/TYPE_SYSTEM.md` - Zod + TypeScript validation patterns
-- `tests/README.md` - Test infrastructure, fixtures, pre-commit hooks
-- `docs/DEPLOYMENT.md` - Deployment options
-- `docs/TRADITIONAL_SERVER_DEPLOYMENT.md` - PM2 + Nginx setup
-- `docs/DASHBOARD.md` - Dashboard features and API
-- `docs/SESSION_HISTORY.md` - Development changelog
+**Architecture guides:**
+- `docs/architecture/ERROR_HANDLING.md` - Retry logic, circuit breaker, Sentry integration
+- `docs/architecture/TYPE_SYSTEM.md` - Zod + TypeScript validation patterns
+- `docs/architecture/CHEAT_SHEET.md` - Command reference
+- `docs/architecture/CACHE_TESTING.md` - Redis cache testing
 
-**Quick references:**
-- `docs/CHEAT_SHEET.md` - Command reference
-- `docs/DATAFLOW_DIAGRAMS.md` - Mermaid architecture diagrams
+**Dashboard documentation:**
+- `docs/dashboard_ui/DASHBOARD.md` - Dashboard features and API
+- `docs/dashboard_ui/DATAFLOW_DIAGRAMS.md` - Mermaid architecture diagrams
+
+**Deployment & Operations:**
+- `docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md` - PM2 + Nginx setup
+- `docs/runbooks/` - Operational runbooks and skills
+- `tests/README.md` - Test infrastructure, fixtures, pre-commit hooks
 
 ## Recent Major Changes
 
-**v1.5.0 (Current) - Git Workflow Automation**
+**v1.6.0 (Current) - Test Refactor Pipeline & Documentation Reorganization**
+- New test refactoring pipeline for automated test suite modularization
+- Reorganized documentation into categorical directories (architecture/, dashboard_ui/, deployment/, runbooks/)
+- Updated condense output directory to sidequest/output/condense/
+- Added pnpm lockfile support
+- Added multi-channel Discord integration test
+
+**v1.5.0 - Git Workflow Automation**
 - Automated branch creation and PR generation for workers
 - BranchManager utility for git operations (branch, commit, push, PR)
 - Integrated into SidequestServer base class
@@ -545,7 +556,7 @@ jobs/
 
 ---
 
-**Version:** 1.5.1
+**Version:** 1.6.0
 **Last Updated:** 2025-11-23
 **Status:** Production Ready (PM2 + Doppler deployment)
 **Environment:** macOS with traditional server stack
