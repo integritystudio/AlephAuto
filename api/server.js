@@ -143,6 +143,7 @@ app.use('/api/scans', scanRoutes);
 app.use('/api/repositories', repositoryRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/pipelines', pipelineRoutes);
+app.use('/api/sidequest/pipeline-runners', pipelineRoutes); // Dashboard compatibility
 
 // 404 handler
 app.use((req, res) => {

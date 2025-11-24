@@ -12,6 +12,7 @@ import { JobQueryParamsSchema, ManualTriggerRequestSchema } from '../types/pipel
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import { worker } from './scans.js';
 import * as Sentry from '@sentry/node';
+import { getJobs, getJobCounts } from '../../sidequest/core/database.js';
 const router = express.Router();
 const logger = createComponentLogger('PipelineRoutes');
 /**
@@ -140,51 +141,90 @@ async (req, res, next) => {
 async function fetchJobsForPipeline(pipelineId, options) {
     const { status, limit, offset, tab } = options;
 
-    // Get real jobs from worker
-    const currentJobs = worker.getAllJobs();
-    const historyJobs = worker.jobHistory || [];
+    try {
+        // Query SQLite database for persisted jobs
+        const dbJobs = getJobs(pipelineId, { status, limit, offset, tab });
 
-    // Combine current and historical jobs, avoiding duplicates
-    const allJobsMap = new Map();
+        // Also get current in-memory jobs (not yet persisted)
+        const currentJobs = worker.getAllJobs();
 
-    // Add history jobs first (older)
-    for (const job of historyJobs) {
-        allJobsMap.set(job.id, formatJob(job, pipelineId));
+        // Combine: in-memory jobs take precedence (newer state)
+        const allJobsMap = new Map();
+
+        // Add database jobs first
+        for (const job of dbJobs) {
+            allJobsMap.set(job.id, formatJobFromDb(job));
+        }
+
+        // Add/update with current in-memory jobs
+        for (const job of currentJobs) {
+            allJobsMap.set(job.id, formatJob(job, pipelineId));
+        }
+
+        // Convert to array and sort by creation time (newest first)
+        let allJobs = Array.from(allJobsMap.values())
+            .sort((a, b) => new Date(b.startTime || b.createdAt) - new Date(a.startTime || a.createdAt));
+
+        // Filter by status if provided (for in-memory jobs)
+        let filteredJobs = status
+            ? allJobs.filter(job => job.status === status)
+            : allJobs;
+
+        // Filter by tab context
+        if (tab === 'failed') {
+            filteredJobs = filteredJobs.filter(job => job.status === 'failed');
+        }
+        else if (tab === 'recent') {
+            filteredJobs = filteredJobs.slice(0, 10);
+        }
+
+        // Apply pagination (limit already applied in DB query, but need for combined results)
+        const paginatedJobs = filteredJobs.slice(0, limit);
+
+        logger.debug({
+            pipelineId,
+            dbJobs: dbJobs.length,
+            memoryJobs: currentJobs.length,
+            returned: paginatedJobs.length
+        }, 'Job query results');
+
+        return paginatedJobs;
+    } catch (err) {
+        logger.error({ error: err.message, pipelineId }, 'Failed to fetch jobs from database, falling back to memory');
+
+        // Fallback to in-memory only
+        const currentJobs = worker.getAllJobs();
+        const historyJobs = worker.jobHistory || [];
+
+        const allJobs = [...historyJobs, ...currentJobs]
+            .map(job => formatJob(job, pipelineId))
+            .sort((a, b) => new Date(b.startTime || b.createdAt) - new Date(a.startTime || a.createdAt));
+
+        return allJobs.slice(offset, offset + limit);
     }
+}
 
-    // Add/update with current jobs (newer state)
-    for (const job of currentJobs) {
-        allJobsMap.set(job.id, formatJob(job, pipelineId));
-    }
+/**
+ * Format a job from database for API response
+ */
+function formatJobFromDb(job) {
+    const duration = job.completedAt && job.startedAt
+        ? new Date(job.completedAt) - new Date(job.startedAt)
+        : null;
 
-    // Convert to array and sort by creation time (newest first)
-    let allJobs = Array.from(allJobsMap.values())
-        .sort((a, b) => new Date(b.startTime || b.createdAt) - new Date(a.startTime || a.createdAt));
-
-    // Filter by status if provided
-    let filteredJobs = status
-        ? allJobs.filter(job => job.status === status)
-        : allJobs;
-
-    // Filter by tab context
-    if (tab === 'failed') {
-        filteredJobs = filteredJobs.filter(job => job.status === 'failed');
-    }
-    else if (tab === 'recent') {
-        filteredJobs = filteredJobs.slice(0, 10);
-    }
-
-    // Apply pagination
-    const paginatedJobs = filteredJobs.slice(offset, offset + limit);
-
-    logger.debug({
-        pipelineId,
-        total: allJobs.length,
-        filtered: filteredJobs.length,
-        returned: paginatedJobs.length
-    }, 'Job query results');
-
-    return paginatedJobs;
+    return {
+        id: job.id,
+        pipelineId: job.pipelineId,
+        status: job.status,
+        startTime: job.startedAt,
+        endTime: job.completedAt,
+        createdAt: job.createdAt,
+        duration,
+        parameters: job.data || {},
+        result: job.result || null,
+        error: job.error || null,
+        git: job.git || null
+    };
 }
 
 /**
