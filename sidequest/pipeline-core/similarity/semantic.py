@@ -6,14 +6,14 @@ Validates that structurally similar code blocks are also semantically equivalent
 """
 
 from typing import List, Optional
+from pathlib import Path
 import sys
 
-# Import models
-try:
-    sys.path.insert(0, '.')
-    from lib.models.code_block import CodeBlock, SemanticCategory
-except ImportError:
-    pass
+# Import models from correct path (relative to pipeline-core)
+sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from code_block import CodeBlock, SemanticCategory
 
 
 def are_semantically_compatible(block1: 'CodeBlock', block2: 'CodeBlock') -> bool:

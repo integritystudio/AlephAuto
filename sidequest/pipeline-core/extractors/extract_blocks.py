@@ -17,8 +17,12 @@ import sys
 import json
 import hashlib
 import re
+import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+
+# Debug mode - set PIPELINE_DEBUG=1 to enable verbose output
+DEBUG = os.environ.get('PIPELINE_DEBUG', '').lower() in ('1', 'true', 'yes')
 
 # Add lib/models and lib/similarity to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
@@ -41,7 +45,8 @@ def extract_function_name(source_code: str, file_path: Optional[str] = None, lin
     If function name can't be found in source_code, reads the actual file
     to get more context (lines before the match).
     """
-    print(f"Warning: DEBUG extract_function_name called: file_path={file_path}, line_start={line_start}, repo_path={repo_path}", file=sys.stderr)
+    if DEBUG:
+        print(f"DEBUG extract_function_name called: file_path={file_path}, line_start={line_start}, repo_path={repo_path}", file=sys.stderr)
 
     if not source_code:
         return None
@@ -71,7 +76,8 @@ def extract_function_name(source_code: str, file_path: Optional[str] = None, lin
     if file_path and line_start and repo_path:
         try:
             full_file_path = Path(repo_path) / file_path
-            print(f"Warning: DEBUG attempting to read {full_file_path} at line {line_start}", file=sys.stderr)
+            if DEBUG:
+                print(f"DEBUG attempting to read {full_file_path} at line {line_start}", file=sys.stderr)
 
             if full_file_path.exists():
                 with open(full_file_path, 'r', encoding='utf-8') as f:
@@ -94,12 +100,15 @@ def extract_function_name(source_code: str, file_path: Optional[str] = None, lin
                         match = re.search(pattern, line)
                         if match and match.group(1):
                             func_name = match.group(1)
-                            print(f"Warning: DEBUG found function name '{func_name}' at line {i+1} (match was at {line_start})", file=sys.stderr)
+                            if DEBUG:
+                                print(f"DEBUG found function name '{func_name}' at line {i+1} (match was at {line_start})", file=sys.stderr)
                             return func_name
 
-                print(f"Warning: DEBUG no function name found in lines {search_start+1}-{search_end} for {file_path}:{line_start}", file=sys.stderr)
+                if DEBUG:
+                    print(f"DEBUG no function name found in lines {search_start+1}-{search_end} for {file_path}:{line_start}", file=sys.stderr)
             else:
-                print(f"Warning: DEBUG file does not exist: {full_file_path}", file=sys.stderr)
+                if DEBUG:
+                    print(f"DEBUG file does not exist: {full_file_path}", file=sys.stderr)
         except Exception as e:
             print(f"Warning: Could not read file context for {file_path}: {e}", file=sys.stderr)
 
@@ -126,8 +135,8 @@ def deduplicate_blocks(blocks: List[CodeBlock]) -> List[CodeBlock]:
                 break
 
         # Debug: Show first 10 blocks being processed
-        if i < 10:
-            print(f"Warning: DEBUG dedup block {i}: {block.location.file_path}:{block.location.line_start}, func={function_name}, code_len={len(block.source_code)}", file=sys.stderr)
+        if DEBUG and i < 10:
+            print(f"DEBUG dedup block {i}: {block.location.file_path}:{block.location.line_start}, func={function_name}, code_len={len(block.source_code)}", file=sys.stderr)
 
         # Strategy 1: Deduplicate by function name (preferred)
         if function_name:
@@ -147,7 +156,8 @@ def deduplicate_blocks(blocks: List[CodeBlock]) -> List[CodeBlock]:
                     unique_blocks.append(block)
                 else:
                     # This is a later occurrence of same function - skip it
-                    print(f"Warning: DEBUG dedup: skipping duplicate {function_name} at line {block.location.line_start} (kept line {existing_block.location.line_start})", file=sys.stderr)
+                    if DEBUG:
+                        print(f"DEBUG dedup: skipping duplicate {function_name} at line {block.location.line_start} (kept line {existing_block.location.line_start})", file=sys.stderr)
         else:
             # Strategy 2: Fall back to line-based deduplication for blocks without function names
             location_key = f"{block.location.file_path}:{block.location.line_start}"
@@ -167,13 +177,14 @@ def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> L
     """
     Extract CodeBlock models from pattern matches
     """
-    print(f"Warning: DEBUG extract_code_blocks: repository_info={repository_info}", file=sys.stderr)
-    print(f"Warning: DEBUG extract_code_blocks: got {len(pattern_matches)} pattern matches", file=sys.stderr)
+    if DEBUG:
+        print(f"DEBUG extract_code_blocks: repository_info={repository_info}", file=sys.stderr)
+        print(f"DEBUG extract_code_blocks: got {len(pattern_matches)} pattern matches", file=sys.stderr)
     blocks = []
 
     for i, match in enumerate(pattern_matches):
-        if i == 0:  # Debug first match only
-            print(f"Warning: DEBUG first match: file_path={match.get('file_path')}, line_start={match.get('line_start')}", file=sys.stderr)
+        if DEBUG and i == 0:  # Debug first match only
+            print(f"DEBUG first match: file_path={match.get('file_path')}, line_start={match.get('line_start')}", file=sys.stderr)
         try:
             # Generate unique block ID
             block_id = f"cb_{hashlib.sha256(f"{match['file_path']}:{match['line_start']}".encode()).hexdigest()[:12]}"
@@ -232,8 +243,8 @@ def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> L
             )
 
             # Debug: confirm tags are set
-            if i < 3:  # Only log first 3 blocks
-                print(f"Warning: DEBUG block created: file={block.relative_path}, line={block.location.line_start}, tags={block.tags}", file=sys.stderr)
+            if DEBUG and i < 3:  # Only log first 3 blocks
+                print(f"DEBUG block created: file={block.relative_path}, line={block.location.line_start}, tags={block.tags}", file=sys.stderr)
 
             blocks.append(block)
 

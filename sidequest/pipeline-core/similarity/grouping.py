@@ -11,16 +11,19 @@ Combines:
 
 from typing import List, Dict, Set
 from collections import defaultdict
+from pathlib import Path
 import sys
 import os
 
-# Type annotations for imported models
-try:
-    sys.path.insert(0, '.')
-    from lib.models.code_block import CodeBlock
-    from lib.models.duplicate_group import DuplicateGroup
-except ImportError:
-    pass  # Will be imported properly when used
+# Debug mode - set PIPELINE_DEBUG=1 to enable verbose output
+DEBUG = os.environ.get('PIPELINE_DEBUG', '').lower() in ('1', 'true', 'yes')
+
+# Import models from correct path (relative to pipeline-core)
+sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from code_block import CodeBlock
+from duplicate_group import DuplicateGroup
 
 from .structural import (
     calculate_structural_similarity,
