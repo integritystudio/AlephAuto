@@ -50,6 +50,14 @@ function getCorsHeaders(origin: string, allowedOrigins: string[]): Headers {
   return headers;
 }
 
+function headersToObject(headers: Headers): Record<string, string> {
+  const obj: Record<string, string> = {};
+  headers.forEach((value, key) => {
+    obj[key] = value;
+  });
+  return obj;
+}
+
 async function fetchContent(url: string, acceptType: string = 'text/html'): Promise<{
   content: string;
   contentType: string;
@@ -88,7 +96,7 @@ export default {
     if (request.method !== 'GET') {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {
         status: 405,
-        headers: { ...Object.fromEntries(corsHeaders), 'Content-Type': 'application/json' },
+        headers: { ...headersToObject(corsHeaders), 'Content-Type': 'application/json' },
       });
     }
 
@@ -104,7 +112,7 @@ export default {
             targetUrl: env.TARGET_URL,
           }),
           {
-            headers: { ...Object.fromEntries(corsHeaders), 'Content-Type': 'application/json' },
+            headers: { ...headersToObject(corsHeaders), 'Content-Type': 'application/json' },
           }
         );
       }
@@ -121,7 +129,7 @@ export default {
 
           return new Response(JSON.stringify(cachedData), {
             headers: {
-              ...Object.fromEntries(corsHeaders),
+              ...headersToObject(corsHeaders),
               'Content-Type': 'application/json',
               'Cache-Control': `public, max-age=${HTML_CACHE_TTL}`,
               'X-Cache': 'HIT',
@@ -143,7 +151,7 @@ export default {
 
         const response = new Response(JSON.stringify(responseData), {
           headers: {
-            ...Object.fromEntries(corsHeaders),
+            ...headersToObject(corsHeaders),
             'Content-Type': 'application/json',
             'Cache-Control': `public, max-age=${HTML_CACHE_TTL}`,
             'X-Cache': 'MISS',
@@ -167,7 +175,7 @@ export default {
           const cachedData = await cachedResponse.json();
           return new Response(JSON.stringify({ ...cachedData, cached: true }), {
             headers: {
-              ...Object.fromEntries(corsHeaders),
+              ...headersToObject(corsHeaders),
               'Content-Type': 'application/json',
               'Cache-Control': `public, max-age=${API_CACHE_TTL}`,
               'X-Cache': 'HIT',
@@ -192,7 +200,7 @@ export default {
 
         const response = new Response(JSON.stringify(responseData), {
           headers: {
-            ...Object.fromEntries(corsHeaders),
+            ...headersToObject(corsHeaders),
             'Content-Type': 'application/json',
             'Cache-Control': `public, max-age=${API_CACHE_TTL}`,
             'X-Cache': 'MISS',
@@ -212,7 +220,7 @@ export default {
         return new Response(result.content, {
           status: result.status,
           headers: {
-            ...Object.fromEntries(corsHeaders),
+            ...headersToObject(corsHeaders),
             'Content-Type': 'application/json',
           },
         });
@@ -236,7 +244,7 @@ export default {
 
         return new Response(JSON.stringify(responseData), {
           headers: {
-            ...Object.fromEntries(corsHeaders),
+            ...headersToObject(corsHeaders),
             'Content-Type': 'application/json',
           },
         });
@@ -251,7 +259,7 @@ export default {
         }),
         {
           status: 404,
-          headers: { ...Object.fromEntries(corsHeaders), 'Content-Type': 'application/json' },
+          headers: { ...headersToObject(corsHeaders), 'Content-Type': 'application/json' },
         }
       );
     } catch (error) {
@@ -266,7 +274,7 @@ export default {
         }),
         {
           status: 500,
-          headers: { ...Object.fromEntries(corsHeaders), 'Content-Type': 'application/json' },
+          headers: { ...headersToObject(corsHeaders), 'Content-Type': 'application/json' },
         }
       );
     }
