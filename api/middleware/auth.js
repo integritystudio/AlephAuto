@@ -19,6 +19,7 @@ const PUBLIC_PATHS = [
   '/api/scans',    // Phase 4 testing (TODO: Re-enable auth after testing)
   '/api/pipelines', // Pipeline details panel testing (TODO: Re-enable auth after testing)
   '/api/sidequest/pipeline-runners', // Dashboard pipeline jobs API
+  '/api/reports',  // Dashboard needs access to scan reports
   '/favicon.ico' // Static asset
 ];
 
