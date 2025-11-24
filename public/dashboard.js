@@ -130,12 +130,12 @@ class DashboardController {
                 failedJobs: 2
             },
             {
-                id: 'doc-enhancement',
-                name: 'Documentation Enhancement',
+                id: 'claude-health',
+                name: 'Claude Health Monitor',
                 status: 'idle',
                 lastRun: new Date(Date.now() - 7200000).toISOString(),
                 nextRun: new Date(Date.now() + 3600000).toISOString(),
-                completedJobs: 156,
+                completedJobs: 7,
                 failedJobs: 0
             },
             {
@@ -172,7 +172,7 @@ class DashboardController {
             },
             {
                 type: 'info',
-                message: 'Documentation Enhancement job queued',
+                message: 'Claude Health Monitor job queued',
                 timestamp: new Date(Date.now() - 7200000).toISOString()
             }
         ];
