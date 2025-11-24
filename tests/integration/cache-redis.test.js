@@ -7,9 +7,9 @@
 
 import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
-import { ScanResultCache } from '../../lib/cache/scan-cache.js';
-import { CachedScanner } from '../../lib/cache/cached-scanner.js';
-import { GitCommitTracker } from '../../lib/cache/git-tracker.js';
+import { ScanResultCache } from '../../sidequest/pipeline-core/cache/scan-cache.js';
+import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.js';
+import { GitCommitTracker } from '../../sidequest/pipeline-core/cache/git-tracker.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';

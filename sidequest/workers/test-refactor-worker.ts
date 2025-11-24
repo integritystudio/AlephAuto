@@ -22,6 +22,78 @@ import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('TestRefactorWorker');
 
+// Type definitions
+interface TestRefactorWorkerOptions {
+  maxConcurrent?: number;
+  logDir?: string;
+  gitWorkflowEnabled?: boolean;
+  gitBranchPrefix?: string;
+  testsDir?: string;
+  utilsDir?: string;
+  e2eDir?: string;
+  framework?: 'vitest' | 'jest' | 'playwright';
+  dryRun?: boolean;
+  sentryDsn?: string;
+}
+
+interface JobData {
+  repositoryPath: string;
+  repository: string;
+  testsDir: string;
+  utilsDir: string;
+  e2eDir: string;
+  framework: string;
+  dryRun: boolean;
+}
+
+interface Job {
+  id: string;
+  data: JobData;
+  result?: JobResult;
+}
+
+interface AnalysisPatterns {
+  renderWaitFor: number;
+  linkValidation: number;
+  semanticChecks: number;
+  formInteractions: number;
+  hardcodedStrings: string[];
+  duplicateAssertions: string[];
+}
+
+interface Analysis {
+  testFiles: string[];
+  patterns: AnalysisPatterns;
+  recommendations: string[];
+}
+
+interface JobResult {
+  status: string;
+  reason?: string;
+  analysis?: Analysis;
+  testFiles?: number;
+  generatedFiles?: string[];
+  recommendations?: string[];
+}
+
+interface Metrics {
+  totalProjects: number;
+  successfulRefactors: number;
+  failedRefactors: number;
+  filesGenerated: number;
+  patternsDetected: number;
+  stringsExtracted: number;
+  recommendationsGenerated: number;
+}
+
+interface Stats {
+  total: number;
+  queued: number;
+  active: number;
+  completed: number;
+  failed: number;
+}
+
 /**
  * TestRefactorWorker
  *
@@ -29,7 +101,15 @@ const logger = createComponentLogger('TestRefactorWorker');
  * utility generation, and comprehensive reporting.
  */
 export class TestRefactorWorker extends SidequestServer {
-  constructor(options = {}) {
+  testsDir: string;
+  utilsDir: string;
+  e2eDir: string;
+  framework: string;
+  dryRun: boolean;
+  metrics: Metrics;
+  declare queue: string[];
+
+  constructor(options: TestRefactorWorkerOptions = {}) {
     super({
       maxConcurrent: options.maxConcurrent || 3,
       logDir: path.join(process.cwd(), 'logs', 'test-refactor'),
@@ -44,6 +124,7 @@ export class TestRefactorWorker extends SidequestServer {
     this.e2eDir = options.e2eDir || 'tests/e2e';
     this.framework = options.framework || 'vitest';
     this.dryRun = options.dryRun ?? false;
+    this.queue = [];
 
     this.metrics = {
       totalProjects: 0,
@@ -59,7 +140,7 @@ export class TestRefactorWorker extends SidequestServer {
   /**
    * Queue a project for test refactoring
    */
-  queueProject(projectPath, options = {}) {
+  queueProject(projectPath: string, options: Partial<JobData> = {}): Job {
     const jobId = `refactor-${path.basename(projectPath)}-${Date.now()}`;
 
     return this.createJob(jobId, {
@@ -76,7 +157,7 @@ export class TestRefactorWorker extends SidequestServer {
   /**
    * Detect test framework from package.json
    */
-  detectFramework(projectPath) {
+  detectFramework(projectPath: string): string {
     try {
       const packageJsonPath = path.join(projectPath, 'package.json');
       const packageJson = JSON.parse(require('fs').readFileSync(packageJsonPath, 'utf-8'));
@@ -93,7 +174,7 @@ export class TestRefactorWorker extends SidequestServer {
   /**
    * Execute the refactoring job
    */
-  async runJobHandler(job) {
+  async runJobHandler(job: Job): Promise<JobResult> {
     const { repositoryPath, testsDir, utilsDir, e2eDir, framework, dryRun } = job.data;
     this.metrics.totalProjects++;
 
@@ -114,8 +195,8 @@ export class TestRefactorWorker extends SidequestServer {
 
       // Analyze test files
       const analysis = await this.analyzeTestFiles(repositoryPath, testFiles);
-      this.metrics.patternsDetected += Object.values(analysis.patterns).reduce((a, b) =>
-        typeof b === 'number' ? a + b : a, 0);
+      this.metrics.patternsDetected += Object.values(analysis.patterns).reduce(
+        (a: number, b) => typeof b === 'number' ? a + b : a, 0);
       this.metrics.stringsExtracted += analysis.patterns.hardcodedStrings.length;
       this.metrics.recommendationsGenerated += analysis.recommendations.length;
 
@@ -159,7 +240,7 @@ export class TestRefactorWorker extends SidequestServer {
   /**
    * Find all test files in the project
    */
-  async findTestFiles(projectPath, testsDir) {
+  async findTestFiles(projectPath: string, testsDir: string): Promise<string[]> {
     const patterns = [
       `${testsDir}/**/*.test.{ts,tsx,js,jsx}`,
       `${testsDir}/**/*.spec.{ts,tsx,js,jsx}`,
@@ -167,7 +248,7 @@ export class TestRefactorWorker extends SidequestServer {
       `src/**/*.spec.{ts,tsx,js,jsx}`
     ];
 
-    const files = [];
+    const files: string[] = [];
 
     for (const pattern of patterns) {
       const matches = await glob(pattern, {
@@ -183,8 +264,8 @@ export class TestRefactorWorker extends SidequestServer {
   /**
    * Analyze test files for refactoring opportunities
    */
-  async analyzeTestFiles(projectPath, testFiles) {
-    const result = {
+  async analyzeTestFiles(projectPath: string, testFiles: string[]): Promise<Analysis> {
+    const result: Analysis = {
       testFiles,
       patterns: {
         renderWaitFor: 0,
@@ -197,8 +278,8 @@ export class TestRefactorWorker extends SidequestServer {
       recommendations: []
     };
 
-    const stringCounts = new Map();
-    const assertionCounts = new Map();
+    const stringCounts = new Map<string, number>();
+    const assertionCounts = new Map<string, number>();
 
     for (const file of testFiles) {
       const filePath = path.join(projectPath, file);
@@ -272,9 +353,15 @@ export class TestRefactorWorker extends SidequestServer {
   /**
    * Generate utility files based on analysis
    */
-  async generateUtilityFiles(projectPath, utilsDir, e2eDir, framework, analysis) {
+  async generateUtilityFiles(
+    projectPath: string,
+    utilsDir: string,
+    e2eDir: string,
+    framework: string,
+    analysis: Analysis
+  ): Promise<string[]> {
     const utilsPath = path.join(projectPath, utilsDir);
-    const generatedFiles = [];
+    const generatedFiles: string[] = [];
 
     // Ensure utils directory exists
     await fs.mkdir(utilsPath, { recursive: true });
@@ -341,7 +428,7 @@ export class TestRefactorWorker extends SidequestServer {
   /**
    * Check if file exists
    */
-  async fileExists(filePath) {
+  async fileExists(filePath: string): Promise<boolean> {
     try {
       await fs.access(filePath);
       return true;
@@ -353,7 +440,7 @@ export class TestRefactorWorker extends SidequestServer {
   /**
    * Generate assertions.ts content
    */
-  generateAssertionsContent(framework) {
+  generateAssertionsContent(framework: string): string {
     const importStatement = framework === 'vitest'
       ? "import { expect } from 'vitest';"
       : "import { expect } from '@jest/globals';";
@@ -395,7 +482,7 @@ export function expectAriaLabel(element: HTMLElement, label: string) {
   /**
    * Generate semantic-validators.ts content
    */
-  generateSemanticValidatorsContent(framework) {
+  generateSemanticValidatorsContent(framework: string): string {
     const importStatement = framework === 'vitest'
       ? "import { expect } from 'vitest';"
       : "import { expect } from '@jest/globals';";
@@ -455,7 +542,7 @@ export function expectImageWithAlt(altText: string) {
   /**
    * Generate form-helpers.ts content
    */
-  generateFormHelpersContent() {
+  generateFormHelpersContent(): string {
     return `/**
  * Form Testing Utilities
  * Generated by AlephAuto TestRefactorWorker
@@ -511,7 +598,7 @@ export async function waitForForm() {
   /**
    * Generate test-constants.ts content
    */
-  generateConstantsContent(hardcodedStrings) {
+  generateConstantsContent(hardcodedStrings: string[]): string {
     const uniqueStrings = [...new Set(hardcodedStrings)].slice(0, 20);
 
     return `/**
@@ -547,7 +634,7 @@ export const A11Y_LABELS = {
   /**
    * Generate index.ts content
    */
-  generateIndexContent(generatedFiles) {
+  generateIndexContent(generatedFiles: string[]): string {
     const exports = generatedFiles
       .filter(f => f !== 'index.ts' && !f.includes('/'))
       .map(f => `export * from './${f.replace('.ts', '')}';`)
@@ -565,7 +652,7 @@ ${exports}
   /**
    * Generate E2E fixtures content
    */
-  generateE2EFixturesContent() {
+  generateE2EFixturesContent(): string {
     return `/**
  * E2E Navigation Fixtures
  * Generated by AlephAuto TestRefactorWorker
@@ -622,29 +709,36 @@ export async function clickExternalLink(page: Page, linkText: string) {
   /**
    * Override commit message generation
    */
-  async _generateCommitMessage(job) {
+  async _generateCommitMessage(job: Job): Promise<{ title: string; body: string }> {
     const result = job.result;
     return {
       title: `refactor(tests): add modular test utilities`,
       body: `Automated test refactoring to reduce duplication and improve maintainability.
 
 ## Changes
-- Generated ${result.generatedFiles?.length || 0} utility files
-- Analyzed ${result.testFiles || 0} test files
+- Generated ${result?.generatedFiles?.length || 0} utility files
+- Analyzed ${result?.testFiles || 0} test files
 - Detected ${this.metrics.patternsDetected} refactoring opportunities
 
 ## Recommendations
-${result.recommendations?.map(r => `- ${r}`).join('\n') || 'None'}
+${result?.recommendations?.map(r => `- ${r}`).join('\n') || 'None'}
 
-Files generated: ${result.generatedFiles?.join(', ') || 'None'}`
+Files generated: ${result?.generatedFiles?.join(', ') || 'None'}`
     };
   }
 
   /**
    * Get metrics
    */
-  getMetrics() {
+  getMetrics(): Metrics {
     return { ...this.metrics };
+  }
+
+  /**
+   * Get stats - inherited from SidequestServer
+   */
+  getStats(): Stats {
+    return super.getStats();
   }
 }
 

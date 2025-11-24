@@ -5,7 +5,7 @@
  */
 
 // @ts-check
-/** @typedef {import('../lib/errors/error-types').ExtendedError} ExtendedError */
+/** @typedef {import('../sidequest/pipeline-core/errors/error-types').ExtendedError} ExtendedError */
 
 import { createComponentLogger } from '../sidequest/utils/logger.js';
 

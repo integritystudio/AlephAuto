@@ -1,6 +1,6 @@
 import cron from 'node-cron';
-import { RepomixWorker } from './repomix-worker.js';
-import { DirectoryScanner } from './directory-scanner.js';
+import { RepomixWorker } from '../workers/repomix-worker.js';
+import { DirectoryScanner } from '../utils/directory-scanner.js';
 import { config } from './config.js';
 import path from 'path';
 import fs from 'fs/promises';

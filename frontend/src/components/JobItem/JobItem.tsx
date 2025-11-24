@@ -249,9 +249,91 @@ export const JobItem: React.FC<JobItemProps> = ({
                     <span className="result-label">Updated</span>
                   </div>
                 )}
+                {/* Test Refactor specific results */}
+                {job.results.testFiles !== undefined && (
+                  <div className="result-item">
+                    <span className="result-value">{job.results.testFiles}</span>
+                    <span className="result-label">Test Files Analyzed</span>
+                  </div>
+                )}
+                {job.results.generatedFiles && job.results.generatedFiles.length > 0 && (
+                  <div className="result-item">
+                    <span className="result-value">{job.results.generatedFiles.length}</span>
+                    <span className="result-label">Files Generated</span>
+                  </div>
+                )}
               </div>
               {job.results.summary && (
                 <p className="results-summary">{job.results.summary}</p>
+              )}
+
+              {/* Test Refactor Generated Files */}
+              {job.results.generatedFiles && job.results.generatedFiles.length > 0 && (
+                <div className="generated-files-section">
+                  <h5 className="subsection-title">Generated Files</h5>
+                  <ul className="generated-files-list">
+                    {job.results.generatedFiles.map((file, index) => (
+                      <li key={index} className="generated-file">{file}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Test Refactor Recommendations */}
+              {job.results.recommendations && job.results.recommendations.length > 0 && (
+                <div className="recommendations-section">
+                  <h5 className="subsection-title">Recommendations</h5>
+                  <ul className="recommendations-list">
+                    {job.results.recommendations.map((rec, index) => (
+                      <li key={index} className="recommendation">{rec}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Test Refactor Pattern Analysis */}
+              {job.results.analysis?.patterns && (
+                <div className="patterns-section">
+                  <h5 className="subsection-title">Pattern Analysis</h5>
+                  <div className="patterns-grid">
+                    {job.results.analysis.patterns.renderWaitFor > 0 && (
+                      <div className="pattern-item">
+                        <span className="pattern-value">{job.results.analysis.patterns.renderWaitFor}</span>
+                        <span className="pattern-label">Render + WaitFor</span>
+                      </div>
+                    )}
+                    {job.results.analysis.patterns.linkValidation > 0 && (
+                      <div className="pattern-item">
+                        <span className="pattern-value">{job.results.analysis.patterns.linkValidation}</span>
+                        <span className="pattern-label">Link Validations</span>
+                      </div>
+                    )}
+                    {job.results.analysis.patterns.semanticChecks > 0 && (
+                      <div className="pattern-item">
+                        <span className="pattern-value">{job.results.analysis.patterns.semanticChecks}</span>
+                        <span className="pattern-label">Semantic Checks</span>
+                      </div>
+                    )}
+                    {job.results.analysis.patterns.formInteractions > 0 && (
+                      <div className="pattern-item">
+                        <span className="pattern-value">{job.results.analysis.patterns.formInteractions}</span>
+                        <span className="pattern-label">Form Interactions</span>
+                      </div>
+                    )}
+                    {job.results.analysis.patterns.hardcodedStrings.length > 0 && (
+                      <div className="pattern-item">
+                        <span className="pattern-value">{job.results.analysis.patterns.hardcodedStrings.length}</span>
+                        <span className="pattern-label">Hardcoded Strings</span>
+                      </div>
+                    )}
+                    {job.results.analysis.patterns.duplicateAssertions.length > 0 && (
+                      <div className="pattern-item">
+                        <span className="pattern-value">{job.results.analysis.patterns.duplicateAssertions.length}</span>
+                        <span className="pattern-label">Duplicate Assertions</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           )}

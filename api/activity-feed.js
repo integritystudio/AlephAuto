@@ -6,11 +6,11 @@
  */
 
 // @ts-check
-/** @typedef {import('../sidequest/server.js').SidequestServer} SidequestServer */
+/** @typedef {import('../sidequest/core/server.js').SidequestServer} SidequestServer */
 
 import { createComponentLogger } from '../sidequest/utils/logger.js';
 import * as Sentry from '@sentry/node';
-import { safeErrorMessage, toErrorObject } from '../lib/utils/error-helpers.js';
+import { safeErrorMessage, toErrorObject } from '../sidequest/pipeline-core/utils/error-helpers.js';
 
 const logger = createComponentLogger('ActivityFeed');
 

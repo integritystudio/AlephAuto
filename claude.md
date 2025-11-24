@@ -81,7 +81,7 @@ block = CodeBlock(semantic_tags=["database"], ...)
 ```
 
 ### 6. Two-Phase Similarity: Extract features BEFORE normalization
-See `lib/similarity/structural.py:231` - feature extraction must happen on original code.
+See `sidequest/pipeline-core/similarity/structural.py:231` - feature extraction must happen on original code.
 
 ### 7. Port: Use JOBS_API_PORT (8080), NOT API_PORT
 Migration complete but docs may reference old `API_PORT` variable.
@@ -123,9 +123,9 @@ The duplicate detection pipeline crosses language boundaries via stdin/stdout:
 ```
 
 **Key Files:**
-- `lib/scan-orchestrator.js` - Coordinates entire pipeline
-- `lib/extractors/extract_blocks.py` - Python entry point
-- `lib/similarity/structural.py` - Similarity algorithm (line 231 critical)
+- `sidequest/pipeline-core/scan-orchestrator.ts` - Coordinates entire pipeline
+- `sidequest/pipeline-core/extractors/extract_blocks.py` - Python entry point
+- `sidequest/pipeline-core/similarity/structural.py` - Similarity algorithm (line 231 critical)
 
 ### AlephAuto Job Queue Framework
 
@@ -257,7 +257,7 @@ export class MyWorker extends SidequestServer {
    - Includes impact analysis in PR description
 
 2. **DuplicateDetectionWorker** ⚠️
-   - Has custom `PRCreator` (lib/git/pr-creator.js)
+   - Has custom `PRCreator` (sidequest/pipeline-core/git/pr-creator.js)
    - Uses `ENABLE_PR_CREATION` env variable
    - Creates PRs for consolidation suggestions
    - Not using base class git workflow (legacy implementation)
@@ -293,7 +293,7 @@ async _generatePRContext(job) {
 
 **Key Files:**
 
-- `lib/git/branch-manager.js` - Git operations (branch, commit, push, PR)
+- `sidequest/pipeline-core/git/branch-manager.js` - Git operations (branch, commit, push, PR)
 - `sidequest/server.js` - Base class with git workflow integration
 - `sidequest/config.js` - Git workflow configuration
 
@@ -431,17 +431,17 @@ jobs/
 │   ├── routes/            # API route handlers
 │   ├── types/             # Zod schemas + TypeScript types
 │   └── middleware/        # Validation, auth, etc.
-├── lib/                   # Core business logic
-│   ├── scan-orchestrator.js    # 7-stage pipeline coordinator
-│   ├── similarity/        # Duplicate detection algorithms (Python)
-│   ├── git/              # PR creation
-│   └── caching/          # Redis caching
-├── sidequest/            # AlephAuto framework
+├── sidequest/            # AlephAuto framework + pipeline core
 │   ├── core/            # Framework core (server.js, config.js, index.js)
 │   ├── workers/         # Worker implementations (*-worker.js)
 │   ├── utils/           # Utilities (logger, directory-scanner, plugin-manager)
 │   ├── pipeline-runners/  # Pipeline entry points
-│   └── doc-enhancement/ # Schema.org enhancement worker
+│   ├── doc-enhancement/ # Schema.org enhancement worker
+│   └── pipeline-core/   # Core business logic
+│       ├── scan-orchestrator.ts  # 7-stage pipeline coordinator
+│       ├── similarity/    # Duplicate detection algorithms (Python)
+│       ├── git/          # PR creation, branch management
+│       └── cache/        # Redis caching
 ├── public/               # Dashboard UI (HTML/CSS/JS)
 ├── tests/                # Tests (unit, integration, accuracy)
 │   ├── fixtures/        # Test helpers (createTempRepository)
@@ -457,8 +457,8 @@ jobs/
 ## Key Implementation Files
 
 **Pipeline Coordination:**
-- `lib/scan-orchestrator.js` - Orchestrates 7-stage duplicate detection
-- `lib/similarity/structural.py:231` - Critical feature extraction point
+- `sidequest/pipeline-core/scan-orchestrator.ts` - Orchestrates 7-stage duplicate detection
+- `sidequest/pipeline-core/similarity/structural.py:231` - Critical feature extraction point
 
 **Type Safety:**
 - `api/types/scan-requests.ts` - Scan endpoint schemas
@@ -468,11 +468,11 @@ jobs/
 **Job Queue:**
 - `sidequest/server.js` - Base job queue (retry logic, events, git workflow)
 - `sidequest/config.js` - Centralized configuration
-- `lib/errors/error-classifier.js` - Auto-classify retryable errors
+- `sidequest/pipeline-core/errors/error-classifier.js` - Auto-classify retryable errors
 
 **Git Workflow:**
-- `lib/git/branch-manager.js` - Branch creation, commit, push, PR creation
-- `lib/git/pr-creator.js` - Legacy PR creator for duplicate detection
+- `sidequest/pipeline-core/git/branch-manager.js` - Branch creation, commit, push, PR creation
+- `sidequest/pipeline-core/git/pr-creator.js` - Legacy PR creator for duplicate detection
 - `sidequest/doc-enhancement/schema-enhancement-worker.js` - Example with git workflow
 
 **Dashboard:**

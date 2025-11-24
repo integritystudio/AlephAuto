@@ -5,7 +5,7 @@
  * Provides fast retrieval of scan results for unchanged repositories.
  */
 
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { createComponentLogger } from '../../utils/logger.js';
 import crypto from 'crypto';
 
 const logger = createComponentLogger('ScanResultCache');

@@ -1,9 +1,10 @@
+// @ts-nocheck
 import cron from 'node-cron';
 import { BugfixAuditWorker } from './bugfix-audit-worker.js';
-import { config } from '../config.js';
+import { config } from '../core/config.js';
 import path from 'path';
 import fs from 'fs/promises';
-import { createComponentLogger } from '../logger.js';
+import { createComponentLogger } from '../utils/logger.js';
 
 const logger = createComponentLogger('BugfixAuditApp');
 

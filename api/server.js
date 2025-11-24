@@ -23,7 +23,7 @@ import { createServer } from 'http';
 import { createWebSocketServer } from './websocket.js';
 import { ScanEventBroadcaster } from './event-broadcaster.js';
 import { ActivityFeedManager } from './activity-feed.js';
-import { DopplerHealthMonitor } from '../lib/doppler-health-monitor.js';
+import { DopplerHealthMonitor } from '../sidequest/pipeline-core/doppler-health-monitor.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

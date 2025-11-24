@@ -16,11 +16,11 @@ import {
   ReadResourceRequestSchema
 } from '@modelcontextprotocol/sdk/types.js';
 
-import { CachedScanner } from '../../lib/cache/cached-scanner.js';
-import { InterProjectScanner } from '../../lib/inter-project-scanner.js';
-import { RepositoryConfigLoader } from '../../lib/config/repository-config-loader.js';
-import { ReportCoordinator } from '../../lib/reports/report-coordinator.js';
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.js';
+import { InterProjectScanner } from '../../sidequest/pipeline-core/inter-project-scanner.js';
+import { RepositoryConfigLoader } from '../../sidequest/pipeline-core/config/repository-config-loader.js';
+import { ReportCoordinator } from '../../sidequest/pipeline-core/reports/report-coordinator.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import path from 'path';
 import fs from 'fs/promises';
 

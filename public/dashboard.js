@@ -808,8 +808,8 @@ class DashboardController {
         overlay?.setAttribute('aria-hidden', 'true');
 
         // Return focus to triggering element
-        if (this.panelTriggerElement && this.panelTriggerElement.focus) {
-            this.panelTriggerElement.focus();
+        if (this.panelTriggerElement && /** @type {HTMLElement} */ (this.panelTriggerElement).focus) {
+            /** @type {HTMLElement} */ (this.panelTriggerElement).focus();
         }
 
         // Reset state

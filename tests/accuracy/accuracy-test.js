@@ -9,7 +9,7 @@
  * Usage: node test/accuracy/accuracy-test.js [--verbose] [--save-results]
  */
 
-import { ScanOrchestrator } from '../../lib/scan-orchestrator.js';
+import { ScanOrchestrator } from '../../sidequest/pipeline-core/scan-orchestrator.js';
 import { compareResults, calculateAllMetrics, generateAccuracyReport } from './metrics.js';
 import { readFile, writeFile } from 'fs/promises';
 import { createComponentLogger } from '../../sidequest/logger.js';

@@ -20,9 +20,9 @@
  *   RUN_ON_STARTUP=true node duplicate-detection-pipeline.js # Run immediately
  */
 
-import { DuplicateDetectionWorker } from '../sidequest/workers/duplicate-detection-worker.js';
-import { createComponentLogger } from '../sidequest/utils/logger.js';
-import { config } from '../sidequest/core/config.js';
+import { DuplicateDetectionWorker } from '../workers/duplicate-detection-worker.js';
+import { createComponentLogger } from '../utils/logger.js';
+import { config } from '../core/config.js';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
 

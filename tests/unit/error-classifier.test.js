@@ -7,7 +7,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { classifyError, isRetryable, ErrorCategory } from '../../lib/errors/error-classifier.js';
+import { classifyError, isRetryable, ErrorCategory } from '../../sidequest/pipeline-core/errors/error-classifier.js';
 
 describe('Error Classifier', () => {
   describe('Non-Retryable Errors', () => {

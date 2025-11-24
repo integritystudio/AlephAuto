@@ -13,8 +13,8 @@
  * If no arguments provided, defaults to scanning 'sidequest' and 'lib' directories.
  */
 
-import { InterProjectScanner } from '../../lib/inter-project-scanner.js';
-import { ReportCoordinator } from '../../lib/reports/report-coordinator.js';
+import { InterProjectScanner } from '../../sidequest/pipeline-core/inter-project-scanner.js';
+import { ReportCoordinator } from '../../sidequest/pipeline-core/reports/report-coordinator.js';
 import { createComponentLogger } from '../../sidequest/logger.js';
 import path from 'path';
 

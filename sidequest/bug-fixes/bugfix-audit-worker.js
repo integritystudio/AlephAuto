@@ -1,10 +1,10 @@
 // @ts-nocheck
-import { SidequestServer } from '../server.js';
+import { SidequestServer } from '../core/server.js';
 import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
-import { createComponentLogger } from '../logger.js';
-import { config } from '../config.js';
+import { createComponentLogger } from '../utils/logger.js';
+import { config } from '../core/config.js';
 
 const logger = createComponentLogger('BugfixAuditWorker');
 

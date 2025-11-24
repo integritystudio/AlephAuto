@@ -19,7 +19,7 @@ import {
   type ManualTriggerResponse,
   createErrorResponse
 } from '../types/pipeline-requests.js';
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import * as Sentry from '@sentry/node';
 
 const router = express.Router();

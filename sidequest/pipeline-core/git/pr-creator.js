@@ -19,7 +19,7 @@
 import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { createComponentLogger } from '../../utils/logger.js';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('PRCreator');

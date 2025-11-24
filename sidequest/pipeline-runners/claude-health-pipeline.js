@@ -28,9 +28,9 @@
  *   SKIP_PLUGINS - Skip plugin analysis (default: false)
  */
 
-import { ClaudeHealthWorker } from '../sidequest/workers/claude-health-worker.js';
-import { createComponentLogger } from '../sidequest/utils/logger.js';
-import { config } from '../sidequest/core/config.js';
+import { ClaudeHealthWorker } from '../workers/claude-health-worker.js';
+import { createComponentLogger } from '../utils/logger.js';
+import { config } from '../core/config.js';
 import cron from 'node-cron';
 
 const logger = createComponentLogger('ClaudeHealthPipeline');

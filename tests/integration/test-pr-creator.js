@@ -11,7 +11,7 @@
  * - Error handling and cleanup
  */
 
-import { PRCreator } from '../../lib/git/pr-creator.js';
+import { PRCreator } from '../../sidequest/pipeline-core/git/pr-creator.js';
 import { createComponentLogger } from '../../sidequest/logger.js';
 import { createTempRepository } from '../fixtures/test-helpers.js';
 import fs from 'fs/promises';
@@ -50,7 +50,7 @@ function createMockSuggestions(count, options = {}) {
           affected_files: [`src/file${i}.js`]
         }
       ],
-      usage_example: `import { consolidatedUtil${i} } from './lib/utils/consolidated-util-${i}';\n\nconst result = consolidatedUtil${i}();`
+      usage_example: `import { consolidatedUtil${i} } from './sidequest/pipeline-core/utils/consolidated-util-${i}';\n\nconst result = consolidatedUtil${i}();`
     });
   }
 

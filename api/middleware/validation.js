@@ -5,7 +5,7 @@
  */
 
 import { ZodError } from 'zod';
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.js';
 
 const logger = createComponentLogger('ValidationMiddleware');
 

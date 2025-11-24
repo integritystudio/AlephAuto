@@ -62,7 +62,8 @@ export enum PipelineType {
   PLUGIN_AUDIT = 'plugin_audit',
   CLAUDE_HEALTH = 'claude_health',
   GITIGNORE_MANAGER = 'gitignore_manager',
-  REPOMIX_AUTOMATION = 'repomix_automation'
+  REPOMIX_AUTOMATION = 'repomix_automation',
+  TEST_REFACTOR = 'test_refactor'
 }
 
 // ============================================================================
@@ -178,6 +179,20 @@ export interface Job {
     itemsUpdated?: number;
     itemsDeleted?: number;
     summary?: string;
+    // Test refactor specific results
+    testFiles?: number;
+    generatedFiles?: string[];
+    recommendations?: string[];
+    analysis?: {
+      patterns: {
+        renderWaitFor: number;
+        linkValidation: number;
+        semanticChecks: number;
+        formInteractions: number;
+        hardcodedStrings: string[];
+        duplicateAssertions: string[];
+      };
+    };
   };
 }
 

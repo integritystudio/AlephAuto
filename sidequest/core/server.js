@@ -4,8 +4,8 @@ import { config } from './config.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { createComponentLogger } from '../utils/logger.js';
-import { safeErrorMessage } from '../lib/utils/error-helpers.js';
-import { BranchManager } from '../lib/git/branch-manager.js';
+import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.js';
+import { BranchManager } from '../pipeline-core/git/branch-manager.js';
 
 const logger = createComponentLogger('SidequestServer');
 

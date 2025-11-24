@@ -10,7 +10,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { createComponentLogger } from '../../utils/logger.js';
 
 // @ts-ignore - Promisified exec has correct signature
 const execPromise = promisify(exec);

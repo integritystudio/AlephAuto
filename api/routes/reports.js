@@ -5,7 +5,7 @@
  */
 
 import express from 'express';
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import { validateQuery } from '../middleware/validation.js';
 import { ReportQuerySchema } from '../types/report-requests.js';
 import fs from 'fs/promises';

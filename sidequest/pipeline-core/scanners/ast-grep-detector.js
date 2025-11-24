@@ -3,7 +3,7 @@
 /** @typedef {import('../errors/error-types').NodeError} NodeError */
 
 import { spawn } from 'child_process';
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { createComponentLogger } from '../../utils/logger.js';
 import fs from 'fs/promises';
 import path from 'path';
 

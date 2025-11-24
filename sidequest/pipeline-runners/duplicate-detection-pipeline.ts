@@ -20,15 +20,15 @@
  *   RUN_ON_STARTUP=true tsx duplicate-detection-pipeline.ts # Run immediately
  */
 
-import { SidequestServer } from '../sidequest/core/server.js';
-import { RepositoryConfigLoader } from '../lib/config/repository-config-loader.js';
-import { InterProjectScanner } from '../lib/inter-project-scanner.js';
-import { ScanOrchestrator } from '../lib/scan-orchestrator.js';
-import { ReportCoordinator } from '../lib/reports/report-coordinator.js';
-import { PRCreator } from '../lib/git/pr-creator.js';
-import { createComponentLogger } from '../sidequest/utils/logger.js';
-import { config } from '../sidequest/core/config.js';
-import { isRetryable, getErrorInfo } from '../lib/errors/error-classifier.js';
+import { SidequestServer } from '../core/server.js';
+import { RepositoryConfigLoader } from '../pipeline-core/config/repository-config-loader.js';
+import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.js';
+import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.js';
+import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.js';
+import { PRCreator } from '../pipeline-core/git/pr-creator.js';
+import { createComponentLogger } from '../utils/logger.js';
+import { config } from '../core/config.js';
+import { isRetryable, getErrorInfo } from '../pipeline-core/errors/error-classifier.js';
 import * as cron from 'node-cron';
 import * as path from 'path';
 import * as Sentry from '@sentry/node';

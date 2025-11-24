@@ -7,8 +7,8 @@
  * Usage: node test-report-generation.js [scan-results.json]
  */
 
-import { HTMLReportGenerator } from '../../lib/reports/html-report-generator.js';
-import { MarkdownReportGenerator } from '../../lib/reports/markdown-report-generator.js';
+import { HTMLReportGenerator } from '../../sidequest/pipeline-core/reports/html-report-generator.js';
+import { MarkdownReportGenerator } from '../../sidequest/pipeline-core/reports/markdown-report-generator.js';
 import { createComponentLogger } from '../../sidequest/logger.js';
 import fs from 'fs/promises';
 import path from 'path';

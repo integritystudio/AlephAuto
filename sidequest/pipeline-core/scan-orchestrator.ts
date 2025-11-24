@@ -1,17 +1,5 @@
-import { RepositoryScanner } from './scanners/repository-scanner.js';
-import { AstGrepPatternDetector } from './scanners/ast-grep-detector.js';
-import { HTMLReportGenerator } from './reports/html-report-generator.js';
-import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
-import { createComponentLogger } from '../sidequest/utils/logger.js';
-import { spawn } from 'child_process';
-import path from 'path';
-import fs from 'fs/promises';
-import * as Sentry from '@sentry/node';
-
-const logger = createComponentLogger('ScanOrchestrator');
-
 /**
- * Scan Orchestrator
+ * Scan Orchestrator - TypeScript version
  *
  * Coordinates the entire duplicate detection pipeline:
  * 1. Repository scanning (repomix)
@@ -22,8 +10,269 @@ const logger = createComponentLogger('ScanOrchestrator');
  * 6. Suggestion generation (Python)
  * 7. Report generation (Python)
  */
+
+import { RepositoryScanner } from './scanners/repository-scanner.js';
+import { AstGrepPatternDetector } from './scanners/ast-grep-detector.js';
+import { HTMLReportGenerator } from './reports/html-report-generator.js';
+import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
+import { createComponentLogger } from '../utils/logger.js';
+import { spawn, ChildProcess } from 'child_process';
+import * as path from 'path';
+import * as fs from 'fs/promises';
+import * as Sentry from '@sentry/node';
+
+const logger = createComponentLogger('ScanOrchestrator');
+
+// ============================================================================
+// Type Definitions
+// ============================================================================
+
+/**
+ * Repository information from scanner
+ */
+export interface RepositoryInfo {
+  path: string;
+  name: string;
+  gitRemote?: string;
+  gitBranch?: string;
+  gitCommit?: string;
+  totalFiles: number;
+  totalLines: number;
+  languages: string[];
+}
+
+/**
+ * Pattern match from ast-grep
+ */
+export interface PatternMatch {
+  file_path: string;
+  rule_id: string;
+  matched_text: string;
+  line_start: number;
+  line_end: number;
+  column_start?: number;
+  column_end?: number;
+  severity?: string;
+  confidence?: number;
+}
+
+/**
+ * Scan configuration options
+ */
+export interface ScanConfig {
+  scan_config?: {
+    includeTests?: boolean;
+    maxDepth?: number;
+    excludePaths?: string[];
+    [key: string]: any;
+  };
+  pattern_config?: {
+    rulesDirectory?: string;
+    configPath?: string;
+    [key: string]: any;
+  };
+  generateReports?: boolean;
+  [key: string]: any;
+}
+
+/**
+ * Python pipeline input data structure
+ */
+export interface PythonPipelineInput {
+  repository_info: RepositoryInfo;
+  pattern_matches: PatternMatch[];
+  scan_config: ScanConfig;
+}
+
+/**
+ * Code block from Python pipeline
+ */
+export interface CodeBlock {
+  block_id: string;
+  file_path: string;
+  line_start: number;
+  line_end: number;
+  source_code: string;
+  language: string;
+  semantic_category?: string;
+  tags: string[];
+  complexity_metrics?: {
+    cyclomatic: number;
+    cognitive: number;
+    halstead: Record<string, number>;
+  };
+}
+
+/**
+ * Duplicate group from Python pipeline
+ */
+export interface DuplicateGroup {
+  group_id: string;
+  block_ids: string[];
+  similarity_score: number;
+  group_type: 'exact' | 'structural' | 'semantic';
+  total_lines: number;
+  potential_reduction: number;
+  impact_score?: number;
+}
+
+/**
+ * Consolidation suggestion from Python pipeline
+ */
+export interface ConsolidationSuggestion {
+  suggestion_id: string;
+  group_id: string;
+  suggestion_type: string;
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  estimated_effort: 'minimal' | 'low' | 'medium' | 'high';
+  potential_reduction: number;
+  implementation_notes?: string;
+  migration_steps?: Array<{
+    order: number;
+    description: string;
+    code_snippet?: string;
+  }>;
+}
+
+/**
+ * Scan metrics from Python pipeline
+ */
+export interface ScanMetrics {
+  total_code_blocks: number;
+  code_blocks_by_category?: Record<string, number>;
+  code_blocks_by_language?: Record<string, number>;
+  total_duplicate_groups: number;
+  exact_duplicates: number;
+  structural_duplicates: number;
+  semantic_duplicates: number;
+  total_duplicated_lines: number;
+  potential_loc_reduction: number;
+  duplication_percentage: number;
+  total_suggestions: number;
+  quick_wins?: number;
+  high_priority_suggestions?: number;
+}
+
+/**
+ * Python pipeline output structure
+ */
+export interface PythonPipelineOutput {
+  code_blocks: CodeBlock[];
+  duplicate_groups: DuplicateGroup[];
+  suggestions: ConsolidationSuggestion[];
+  metrics: ScanMetrics;
+  repository_info: RepositoryInfo;
+  scan_type?: 'single-project' | 'inter-project';
+  error?: string;
+  warnings?: string[];
+}
+
+/**
+ * Scan result with metadata
+ */
+export interface ScanResult extends PythonPipelineOutput {
+  scan_metadata: {
+    duration_seconds: number;
+    scanned_at: string;
+    repository_path: string;
+  };
+  report_paths?: ReportPaths;
+}
+
+/**
+ * Report generation paths
+ */
+export interface ReportPaths {
+  html?: string;
+  markdown?: string;
+  summary?: string;
+  json?: string;
+}
+
+/**
+ * Report generation options
+ */
+export interface ReportOptions {
+  outputDir?: string;
+  baseName?: string;
+  title?: string;
+  html?: boolean;
+  markdown?: boolean;
+  summary?: boolean;
+  json?: boolean;
+  includeDetails?: boolean;
+  maxDuplicates?: number;
+  maxSuggestions?: number;
+}
+
+/**
+ * Scan orchestrator constructor options
+ */
+export interface ScanOrchestratorOptions {
+  scanner?: Record<string, any>;
+  detector?: Record<string, any>;
+  pythonPath?: string;
+  extractorScript?: string;
+  reports?: ReportOptions;
+  outputDir?: string;
+  autoGenerateReports?: boolean;
+  config?: Record<string, any>;
+}
+
+/**
+ * Multi-repository scan result
+ */
+export interface MultiRepositoryScanResult {
+  repositories: Array<ScanResult | { error: string; repository_path: string }>;
+  total_scanned: number;
+  successful: number;
+  failed: number;
+}
+
+/**
+ * Repository scan output from RepositoryScanner
+ */
+interface RepositoryScanOutput {
+  repository_info: RepositoryInfo;
+  metadata?: {
+    totalFiles: number;
+    totalLines: number;
+    languages: string[];
+  };
+  repomix_output?: any;
+}
+
+/**
+ * Pattern detection output from AstGrepPatternDetector
+ */
+interface PatternDetectionOutput {
+  matches: PatternMatch[];
+  statistics: {
+    total_matches: number;
+    rules_applied: number;
+    files_scanned: number;
+    scan_duration_ms: number;
+  };
+}
+
+// ============================================================================
+// Main ScanOrchestrator Class
+// ============================================================================
+
+/**
+ * Scan Orchestrator - Coordinates the duplicate detection pipeline
+ */
 export class ScanOrchestrator {
-  constructor(options = {}) {
+  private readonly repositoryScanner: RepositoryScanner;
+  private readonly patternDetector: AstGrepPatternDetector;
+  private readonly pythonPath: string;
+  private readonly extractorScript: string;
+  private readonly reportConfig: ReportOptions;
+  private readonly outputDir: string;
+  private readonly autoGenerateReports: boolean;
+  private readonly config: Record<string, any>;
+
+  constructor(options: ScanOrchestratorOptions = {}) {
     // JavaScript components
     this.repositoryScanner = new RepositoryScanner(options.scanner || {});
     this.patternDetector = new AstGrepPatternDetector(options.detector || {});
@@ -45,12 +294,8 @@ export class ScanOrchestrator {
 
   /**
    * Scan a single repository for duplicates
-   *
-   * @param {string} repoPath - Absolute path to repository
-   * @param {object} scanConfig - Scan configuration
-   * @returns {Promise<object>}
    */
-  async scanRepository(repoPath, scanConfig = {}) {
+  async scanRepository(repoPath: string, scanConfig: ScanConfig = {}): Promise<ScanResult> {
     const startTime = Date.now();
 
     // Validate repoPath
@@ -79,14 +324,14 @@ export class ScanOrchestrator {
     try {
       // Stage 1: Repository scanning
       logger.info('Stage 1/7: Scanning repository with repomix');
-      const repoScan = await this.repositoryScanner.scanRepository(
+      const repoScan: RepositoryScanOutput = await this.repositoryScanner.scanRepository(
         repoPath,
         scanConfig.scan_config || {}
       );
 
       // Stage 2: Pattern detection
       logger.info('Stage 2/7: Detecting patterns with ast-grep');
-      const patterns = await this.patternDetector.detectPatterns(
+      const patterns: PatternDetectionOutput = await this.patternDetector.detectPatterns(
         repoPath,
         scanConfig.pattern_config || {}
       );
@@ -109,7 +354,7 @@ export class ScanOrchestrator {
         suggestions: pythonResult.metrics?.total_suggestions || 0
       }, 'Repository scan completed successfully');
 
-      const scanResult = {
+      const scanResult: ScanResult = {
         ...pythonResult,
         scan_metadata: {
           duration_seconds: duration,
@@ -134,7 +379,7 @@ export class ScanOrchestrator {
 
     } catch (error) {
       logger.error({ repoPath, error }, 'Repository scan failed');
-      throw new ScanError(`Scan failed for ${repoPath}: ${error.message}`, {
+      throw new ScanError(`Scan failed for ${repoPath}: ${(error as Error).message}`, {
         cause: error
       });
     }
@@ -143,11 +388,11 @@ export class ScanOrchestrator {
   /**
    * Run Python pipeline for extraction, grouping, and reporting
    */
-  async runPythonPipeline(data) {
-    return new Promise((resolve, reject) => {
+  private async runPythonPipeline(data: PythonPipelineInput): Promise<PythonPipelineOutput> {
+    return new Promise<PythonPipelineOutput>((resolve, reject) => {
       logger.debug('Launching Python extraction pipeline');
 
-      const proc = spawn(this.pythonPath, [this.extractorScript], {
+      const proc: ChildProcess = spawn(this.pythonPath, [this.extractorScript], {
         timeout: 600000, // 10 minute timeout
       });
 
@@ -160,14 +405,15 @@ export class ScanOrchestrator {
         patternMatchCount: data.pattern_matches?.length,
         repoPath: data.repository_info?.path
       }, 'Sending data to Python pipeline');
-      proc.stdin.write(jsonData);
-      proc.stdin.end();
 
-      proc.stdout.on('data', (data) => {
+      proc.stdin?.write(jsonData);
+      proc.stdin?.end();
+
+      proc.stdout?.on('data', (data: Buffer) => {
         stdout += data.toString();
       });
 
-      proc.stderr.on('data', (data) => {
+      proc.stderr?.on('data', (data: Buffer) => {
         const stderrText = data.toString();
         stderr += stderrText;
         // Log warnings at warn level so they're visible
@@ -178,14 +424,14 @@ export class ScanOrchestrator {
         }
       });
 
-      proc.on('close', (code) => {
+      proc.on('close', (code: number | null) => {
         if (code === 0) {
           try {
-            const result = JSON.parse(stdout);
+            const result: PythonPipelineOutput = JSON.parse(stdout);
             resolve(result);
           } catch (error) {
             logger.error({ stdout, stderr }, 'Failed to parse Python pipeline output');
-            reject(new Error(`Failed to parse Python output: ${error.message}`));
+            reject(new Error(`Failed to parse Python output: ${(error as Error).message}`));
           }
         } else {
           logger.error({ code, stderr }, 'Python pipeline failed');
@@ -193,7 +439,7 @@ export class ScanOrchestrator {
         }
       });
 
-      proc.on('error', (error) => {
+      proc.on('error', (error: NodeJS.ErrnoException) => {
         if (error.code === 'ENOENT') {
           reject(new Error(`Python not found at: ${this.pythonPath}`));
         } else {
@@ -205,13 +451,9 @@ export class ScanOrchestrator {
 
   /**
    * Generate reports from scan results
-   *
-   * @param {Object} scanResult - Scan result data
-   * @param {Object} options - Report generation options
-   * @returns {Promise<Object>} - Generated report paths
    */
-  async generateReports(scanResult, options = {}) {
-    const repoInfo = scanResult.repository_info || {};
+  async generateReports(scanResult: ScanResult, options: ReportOptions = {}): Promise<ReportPaths> {
+    const repoInfo = scanResult.repository_info || {} as RepositoryInfo;
     const repoName = repoInfo.name || 'scan';
     const isInterProject = scanResult.scan_type === 'inter-project';
 
@@ -221,7 +463,7 @@ export class ScanOrchestrator {
     const outputDir = options.outputDir || this.outputDir;
     await fs.mkdir(outputDir, { recursive: true });
 
-    const reportPaths = {};
+    const reportPaths: ReportPaths = {};
 
     try {
       // Generate HTML report
@@ -269,7 +511,7 @@ export class ScanOrchestrator {
 
     } catch (error) {
       logger.error({ error }, 'Report generation failed');
-      throw new ScanError(`Report generation failed: ${error.message}`, {
+      throw new ScanError(`Report generation failed: ${(error as Error).message}`, {
         cause: error
       });
     }
@@ -277,15 +519,14 @@ export class ScanOrchestrator {
 
   /**
    * Scan multiple repositories (inter-project analysis)
-   *
-   * @param {string[]} repoPaths - Array of repository paths
-   * @param {object} scanConfig - Scan configuration
-   * @returns {Promise<object>}
    */
-  async scanMultipleRepositories(repoPaths, scanConfig = {}) {
+  async scanMultipleRepositories(
+    repoPaths: string[],
+    scanConfig: ScanConfig = {}
+  ): Promise<MultiRepositoryScanResult> {
     logger.info({ count: repoPaths.length }, 'Starting multi-repository scan');
 
-    const results = [];
+    const results: Array<ScanResult | { error: string; repository_path: string }> = [];
 
     for (const repoPath of repoPaths) {
       try {
@@ -294,7 +535,7 @@ export class ScanOrchestrator {
       } catch (error) {
         logger.warn({ repoPath, error }, 'Repository scan failed, continuing');
         results.push({
-          error: error.message,
+          error: (error as Error).message,
           repository_path: repoPath
         });
       }
@@ -306,18 +547,25 @@ export class ScanOrchestrator {
     return {
       repositories: results,
       total_scanned: repoPaths.length,
-      successful: results.filter(r => !r.error).length,
-      failed: results.filter(r => r.error).length
+      successful: results.filter(r => !('error' in r)).length,
+      failed: results.filter(r => 'error' in r).length
     };
   }
 }
+
+// ============================================================================
+// Error Class
+// ============================================================================
 
 /**
  * Custom error class for scan orchestration errors
  */
 export class ScanError extends Error {
-  constructor(message, options) {
-    super(message, options);
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message);
+    if (options?.cause) {
+      (this as any).cause = options.cause;
+    }
     this.name = 'ScanError';
   }
 }

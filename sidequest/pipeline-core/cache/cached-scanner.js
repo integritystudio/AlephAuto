@@ -8,7 +8,7 @@
 import { GitCommitTracker } from './git-tracker.js';
 import { ScanResultCache } from './scan-cache.js';
 import { ScanOrchestrator } from '../scan-orchestrator.js';
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { createComponentLogger } from '../../utils/logger.js';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('CachedScanner');

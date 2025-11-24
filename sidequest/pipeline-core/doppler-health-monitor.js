@@ -4,7 +4,7 @@
  * Monitors Doppler cache age and alerts when secrets may be stale.
  *
  * Usage:
- *   import { DopplerHealthMonitor } from './lib/doppler-health-monitor.js';
+ *   import { DopplerHealthMonitor } from './sidequest/pipeline-core/doppler-health-monitor.js';
  *
  *   const monitor = new DopplerHealthMonitor();
  *   await monitor.startMonitoring(15); // Check every 15 minutes
@@ -13,7 +13,7 @@
  *   const health = await monitor.checkCacheHealth();
  */
 
-import { createComponentLogger } from '../sidequest/utils/logger.js';
+import { createComponentLogger } from '../utils/logger.js';
 import Sentry from '@sentry/node';
 import fs from 'fs/promises';
 import path from 'path';

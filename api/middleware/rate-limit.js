@@ -5,7 +5,7 @@
  */
 
 import rateLimit from 'express-rate-limit';
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.js';
 
 const logger = createComponentLogger('RateLimiter');
 

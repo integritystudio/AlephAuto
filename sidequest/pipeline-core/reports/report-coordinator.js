@@ -8,7 +8,7 @@
 import { HTMLReportGenerator } from './html-report-generator.js';
 import { MarkdownReportGenerator } from './markdown-report-generator.js';
 import { JSONReportGenerator } from './json-report-generator.js';
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { createComponentLogger } from '../../utils/logger.js';
 import path from 'path';
 import fs from 'fs/promises';
 

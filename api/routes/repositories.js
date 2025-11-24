@@ -5,9 +5,9 @@
  */
 
 import express from 'express';
-import { RepositoryConfigLoader } from '../../lib/config/repository-config-loader.js';
-import { CachedScanner } from '../../lib/cache/cached-scanner.js';
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { RepositoryConfigLoader } from '../../sidequest/pipeline-core/config/repository-config-loader.js';
+import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import { strictRateLimiter } from '../middleware/rate-limit.js';
 import { validateQuery } from '../middleware/validation.js';
 import { RepositoryQuerySchema, RepositoryGroupQuerySchema } from '../types/repository-requests.js';

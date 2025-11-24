@@ -11,10 +11,10 @@
  *   DRY_RUN=true node pipelines/test-refactor-pipeline.js       # Analysis only
  */
 
-import { TestRefactorWorker } from '../sidequest/workers/test-refactor-worker.js';
-import { DirectoryScanner } from '../sidequest/utils/directory-scanner.js';
-import { createComponentLogger } from '../sidequest/utils/logger.js';
-import { config } from '../sidequest/core/config.js';
+import { TestRefactorWorker } from '../workers/test-refactor-worker.js';
+import { DirectoryScanner } from '../utils/directory-scanner.js';
+import { createComponentLogger } from '../utils/logger.js';
+import { config } from '../core/config.js';
 import cron from 'node-cron';
 import path from 'path';
 
@@ -27,10 +27,38 @@ const RUN_ON_STARTUP = process.env.RUN_ON_STARTUP !== 'false';
 const DRY_RUN = process.env.DRY_RUN === 'true';
 const ENABLE_GIT_WORKFLOW = process.env.ENABLE_GIT_WORKFLOW === 'true';
 
+interface DirectoryInfo {
+  path: string;
+  name: string;
+}
+
+interface PipelineMetrics {
+  totalProjects: number;
+  successfulRefactors: number;
+  failedRefactors: number;
+  filesGenerated: number;
+  patternsDetected: number;
+  stringsExtracted: number;
+  recommendationsGenerated: number;
+}
+
+interface PipelineStats {
+  total: number;
+  queued: number;
+  active: number;
+  completed: number;
+  failed: number;
+}
+
+interface PipelineResult {
+  metrics: PipelineMetrics;
+  stats: PipelineStats;
+}
+
 /**
  * Run the test refactoring pipeline
  */
-async function runPipeline(targetPath = null) {
+async function runPipeline(targetPath: string | null = null): Promise<PipelineResult> {
   logger.info({
     codeBaseDir: CODE_BASE_DIR,
     targetPath,
@@ -44,15 +72,15 @@ async function runPipeline(targetPath = null) {
   });
 
   // Set up event handlers
-  worker.on('job:created', (job) => {
+  worker.on('job:created', (job: { id: string; data: { repository: string } }) => {
     logger.debug({ jobId: job.id, project: job.data.repository }, 'Job created');
   });
 
-  worker.on('job:started', (job) => {
+  worker.on('job:started', (job: { id: string; data: { repository: string } }) => {
     logger.info({ jobId: job.id, project: job.data.repository }, 'Job started');
   });
 
-  worker.on('job:completed', (job) => {
+  worker.on('job:completed', (job: { id: string; data: { repository: string }; result: { generatedFiles?: string[]; recommendations?: string[] } }) => {
     const result = job.result;
     logger.info({
       jobId: job.id,
@@ -62,7 +90,7 @@ async function runPipeline(targetPath = null) {
     }, 'Job completed');
   });
 
-  worker.on('job:failed', (job, error) => {
+  worker.on('job:failed', (job: { id: string; data: { repository: string } }, error: Error) => {
     logger.error({
       jobId: job.id,
       project: job.data.repository,
@@ -92,7 +120,7 @@ async function runPipeline(targetPath = null) {
         ]
       });
 
-      const directories = await scanner.scan();
+      const directories: DirectoryInfo[] = await scanner.scanDirectories();
 
       // Filter to directories that have test files
       for (const dir of directories) {
@@ -130,7 +158,7 @@ async function runPipeline(targetPath = null) {
 /**
  * Check if directory has test files
  */
-async function hasTestDirectory(dirPath) {
+async function hasTestDirectory(dirPath: string): Promise<boolean> {
   const { glob } = await import('glob');
 
   const testFiles = await glob('**/*.{test,spec}.{ts,tsx,js,jsx}', {
@@ -145,7 +173,7 @@ async function hasTestDirectory(dirPath) {
 /**
  * Wait for all jobs to complete
  */
-function waitForCompletion(worker) {
+function waitForCompletion(worker: TestRefactorWorker): Promise<void> {
   return new Promise((resolve) => {
     const checkCompletion = () => {
       const stats = worker.getStats();
@@ -160,7 +188,7 @@ function waitForCompletion(worker) {
 }
 
 // Main execution
-async function main() {
+async function main(): Promise<void> {
   const targetPath = process.argv[2];
 
   if (targetPath) {

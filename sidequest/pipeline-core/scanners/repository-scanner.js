@@ -1,6 +1,6 @@
-import { RepomixWorker } from '../../sidequest/repomix-worker.js';
-import { createComponentLogger } from '../../sidequest/logger.js';
-import { config } from '../../sidequest/config.js';
+import { RepomixWorker } from '../../workers/repomix-worker.js';
+import { createComponentLogger } from '../../utils/logger.js';
+import { config } from '../../core/config.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { execSync } from 'child_process';

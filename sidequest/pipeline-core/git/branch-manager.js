@@ -18,7 +18,7 @@
 /** @typedef {import('../errors/error-types').ProcessError} ProcessError */
 
 import { spawn } from 'child_process';
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { createComponentLogger } from '../../utils/logger.js';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('BranchManager');
