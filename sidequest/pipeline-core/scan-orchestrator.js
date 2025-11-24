@@ -43,7 +43,7 @@ export class ScanOrchestrator {
         // Use venv python by default if it exists, otherwise fall back to system python3
         const venvPython = path.join(process.cwd(), 'venv/bin/python3');
         this.pythonPath = options.pythonPath || venvPython;
-        this.extractorScript = options.extractorScript || path.join(process.cwd(), 'lib/extractors/extract_blocks.py');
+        this.extractorScript = options.extractorScript || path.join(process.cwd(), 'sidequest/pipeline-core/extractors/extract_blocks.py');
         // Report generation configuration
         this.reportConfig = options.reports || {};
         this.outputDir = options.outputDir || path.join(process.cwd(), 'output', 'reports');

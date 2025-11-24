@@ -10,6 +10,7 @@ import express from 'express';
 import { validateQuery, validateRequest } from '../middleware/validation.js';
 import { JobQueryParamsSchema, ManualTriggerRequestSchema } from '../types/pipeline-requests.js';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { worker } from './scans.js';
 import * as Sentry from '@sentry/node';
 const router = express.Router();
 const logger = createComponentLogger('PipelineRoutes');
@@ -138,60 +139,33 @@ async (req, res, next) => {
  */
 async function fetchJobsForPipeline(pipelineId, options) {
     const { status, limit, offset, tab } = options;
-    // TODO: Implement actual job fetching from database/memory
-    // For now, return mock data for development
-    // Mock job data
-    const mockJobs = [
-        {
-            id: 'job-123',
-            pipelineId,
-            status: 'completed',
-            startTime: new Date(Date.now() - 3600000).toISOString(),
-            endTime: new Date(Date.now() - 3400000).toISOString(),
-            duration: 200000,
-            parameters: {
-                repositoryPath: '/Users/example/code/test-repo'
-            },
-            result: {
-                output: 'Scan completed successfully',
-                stats: {
-                    filesScanned: 42,
-                    duplicatesFound: 3,
-                    reportGenerated: true
-                }
-            }
-        },
-        {
-            id: 'job-122',
-            pipelineId,
-            status: 'failed',
-            startTime: new Date(Date.now() - 7200000).toISOString(),
-            endTime: new Date(Date.now() - 7100000).toISOString(),
-            duration: 100000,
-            parameters: {
-                repositoryPath: '/Users/example/code/another-repo'
-            },
-            result: {
-                error: 'Repository not found: /Users/example/code/another-repo',
-                stats: {
-                    filesScanned: 0
-                }
-            }
-        },
-        {
-            id: 'job-121',
-            pipelineId,
-            status: 'running',
-            startTime: new Date(Date.now() - 600000).toISOString(),
-            parameters: {
-                repositoryPath: '/Users/example/code/active-repo'
-            }
-        }
-    ];
+
+    // Get real jobs from worker
+    const currentJobs = worker.getAllJobs();
+    const historyJobs = worker.jobHistory || [];
+
+    // Combine current and historical jobs, avoiding duplicates
+    const allJobsMap = new Map();
+
+    // Add history jobs first (older)
+    for (const job of historyJobs) {
+        allJobsMap.set(job.id, formatJob(job, pipelineId));
+    }
+
+    // Add/update with current jobs (newer state)
+    for (const job of currentJobs) {
+        allJobsMap.set(job.id, formatJob(job, pipelineId));
+    }
+
+    // Convert to array and sort by creation time (newest first)
+    let allJobs = Array.from(allJobsMap.values())
+        .sort((a, b) => new Date(b.startTime || b.createdAt) - new Date(a.startTime || a.createdAt));
+
     // Filter by status if provided
     let filteredJobs = status
-        ? mockJobs.filter(job => job.status === status)
-        : mockJobs;
+        ? allJobs.filter(job => job.status === status)
+        : allJobs;
+
     // Filter by tab context
     if (tab === 'failed') {
         filteredJobs = filteredJobs.filter(job => job.status === 'failed');
@@ -199,15 +173,41 @@ async function fetchJobsForPipeline(pipelineId, options) {
     else if (tab === 'recent') {
         filteredJobs = filteredJobs.slice(0, 10);
     }
+
     // Apply pagination
     const paginatedJobs = filteredJobs.slice(offset, offset + limit);
+
     logger.debug({
         pipelineId,
-        total: mockJobs.length,
+        total: allJobs.length,
         filtered: filteredJobs.length,
         returned: paginatedJobs.length
     }, 'Job query results');
+
     return paginatedJobs;
+}
+
+/**
+ * Format a job object for API response
+ */
+function formatJob(job, pipelineId) {
+    const duration = job.completedAt && job.startedAt
+        ? new Date(job.completedAt) - new Date(job.startedAt)
+        : null;
+
+    return {
+        id: job.id,
+        pipelineId,
+        status: job.status,
+        startTime: job.startedAt ? new Date(job.startedAt).toISOString() : null,
+        endTime: job.completedAt ? new Date(job.completedAt).toISOString() : null,
+        createdAt: job.createdAt ? new Date(job.createdAt).toISOString() : null,
+        duration,
+        parameters: job.data || {},
+        result: job.result || null,
+        error: job.error || null,
+        git: job.git || null
+    };
 }
 /**
  * Helper: Trigger a manual job for a pipeline
@@ -217,19 +217,37 @@ async function fetchJobsForPipeline(pipelineId, options) {
  * @returns New job ID
  */
 async function triggerPipelineJob(pipelineId, parameters) {
-    // TODO: Implement actual job triggering with worker
-    // For now, generate a mock job ID
-    const jobId = `job-${Date.now()}`;
-    logger.debug({
+    if (pipelineId !== 'duplicate-detection') {
+        throw new Error(`Unknown pipeline: ${pipelineId}`);
+    }
+
+    // Create job via worker
+    const jobId = `manual-${Date.now()}`;
+
+    // Schedule scan with the worker
+    if (parameters.repositoryPath) {
+        const path = await import('path');
+        worker.scheduleScan('intra-project', [{
+            name: path.basename(parameters.repositoryPath),
+            path: parameters.repositoryPath
+        }]);
+    } else if (parameters.repositoryPaths && Array.isArray(parameters.repositoryPaths)) {
+        const path = await import('path');
+        const repositories = parameters.repositoryPaths.map(repoPath => ({
+            name: path.basename(repoPath),
+            path: repoPath
+        }));
+        worker.scheduleScan('inter-project', repositories);
+    } else {
+        throw new Error('Either repositoryPath or repositoryPaths is required');
+    }
+
+    logger.info({
         pipelineId,
         jobId,
         parameters
-    }, 'Generated new job ID');
-    // In production, this would:
-    // 1. Validate pipeline exists
-    // 2. Create job in queue/database
-    // 3. Notify worker to start processing
-    // 4. Emit WebSocket event for real-time updates
+    }, 'Triggered pipeline job');
+
     return jobId;
 }
 export default router;
