@@ -756,6 +756,9 @@ class DashboardController {
     async openPipelinePanel(pipelineId) {
         console.log('Opening pipeline panel:', pipelineId);
 
+        // Store the triggering element for focus return
+        this.panelTriggerElement = document.activeElement;
+
         this.currentPipelineId = pipelineId;
         this.currentTab = 'recent';
 
@@ -804,9 +807,15 @@ class DashboardController {
         panel?.setAttribute('aria-hidden', 'true');
         overlay?.setAttribute('aria-hidden', 'true');
 
+        // Return focus to triggering element
+        if (this.panelTriggerElement && this.panelTriggerElement.focus) {
+            this.panelTriggerElement.focus();
+        }
+
         // Reset state
         this.currentPipelineId = null;
         this.currentTab = 'recent';
+        this.panelTriggerElement = null;
     }
 
     /**
