@@ -101,11 +101,40 @@ export function saveJob(job) {
 
 /**
  * Get jobs for a pipeline with filtering and pagination
+ *
+ * @param {string} pipelineId - Pipeline identifier
+ * @param {Object} options - Query options
+ * @param {string} [options.status] - Filter by status
+ * @param {number} [options.limit=10] - Max results per page
+ * @param {number} [options.offset=0] - Pagination offset
+ * @param {string} [options.tab] - Tab context (failed, recent, all)
+ * @param {boolean} [options.includeTotal=false] - Include total count in response
+ * @returns {Array|Object} Array of jobs, or {jobs: Array, total: number} if includeTotal=true
  */
 export function getJobs(pipelineId, options = {}) {
   const db = getDatabase();
-  const { status, limit = 10, offset = 0, tab } = options;
+  const { status, limit = 10, offset = 0, tab, includeTotal = false } = options;
 
+  // Build count query (only if includeTotal requested)
+  let totalCount = null;
+  if (includeTotal) {
+    let countQuery = 'SELECT COUNT(*) as count FROM jobs WHERE pipeline_id = ?';
+    const countParams = [pipelineId];
+
+    if (status) {
+      countQuery += ' AND status = ?';
+      countParams.push(status);
+    } else if (tab === 'failed') {
+      countQuery += ' AND status = ?';
+      countParams.push('failed');
+    }
+
+    const countStmt = db.prepare(countQuery);
+    const countResult = countStmt.get(...countParams);
+    totalCount = countResult.count;
+  }
+
+  // Build data query
   let query = 'SELECT * FROM jobs WHERE pipeline_id = ?';
   const params = [pipelineId];
 
@@ -129,7 +158,7 @@ export function getJobs(pipelineId, options = {}) {
   const rows = stmt.all(...params);
 
   // Parse JSON fields
-  return rows.map(row => ({
+  const jobs = rows.map(row => ({
     id: row.id,
     pipelineId: row.pipeline_id,
     status: row.status,
@@ -141,6 +170,13 @@ export function getJobs(pipelineId, options = {}) {
     error: row.error ? JSON.parse(row.error) : null,
     git: row.git ? JSON.parse(row.git) : null
   }));
+
+  // Return with or without total count based on includeTotal option
+  if (includeTotal) {
+    return { jobs, total: totalCount };
+  } else {
+    return jobs;  // Backward compatible - just return array
+  }
 }
 
 /**
@@ -192,6 +228,49 @@ export function getLastJob(pipelineId) {
     error: row.error ? JSON.parse(row.error) : null,
     git: row.git ? JSON.parse(row.git) : null
   };
+}
+
+/**
+ * Get all pipelines with job statistics
+ *
+ * Returns statistics for ALL pipelines in the database, including job counts
+ * by status and last run timestamp.
+ *
+ * @returns {Array<Object>} Array of pipeline statistics
+ * @returns {string} returns[].pipeline_id - Pipeline identifier
+ * @returns {number} returns[].total - Total jobs for this pipeline
+ * @returns {number} returns[].completed - Completed jobs count
+ * @returns {number} returns[].failed - Failed jobs count
+ * @returns {number} returns[].running - Currently running jobs count
+ * @returns {number} returns[].queued - Queued jobs count
+ * @returns {string|null} returns[].last_run - ISO timestamp of most recent completion
+ *
+ * @example
+ * const stats = getAllPipelineStats();
+ * // Returns: [
+ * //   { pipeline_id: 'duplicate-detection', total: 10, completed: 8, failed: 2, ... },
+ * //   { pipeline_id: 'repomix', total: 201, completed: 80, failed: 121, ... },
+ * //   ...
+ * // ]
+ */
+export function getAllPipelineStats() {
+  const db = getDatabase();
+
+  const stmt = db.prepare(`
+    SELECT
+      pipeline_id,
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+      SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+      SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) as running,
+      SUM(CASE WHEN status = 'queued' THEN 1 ELSE 0 END) as queued,
+      MAX(completed_at) as last_run
+    FROM jobs
+    GROUP BY pipeline_id
+    ORDER BY pipeline_id
+  `);
+
+  return stmt.all();
 }
 
 /**
