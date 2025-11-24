@@ -1008,12 +1008,12 @@ class DashboardController {
         const container = document.getElementById(containerId);
         if (!container) return;
 
-        container.innerHTML = jobs.map(job => {
-            const hasResult = job.result && (job.result.output || job.result.error);
-            const hasStats = job.result?.stats;
+        // Store jobs for click handler
+        this.currentJobs = jobs;
 
+        container.innerHTML = jobs.map((job, index) => {
             return `
-                <div class="panel-job-item">
+                <div class="panel-job-item clickable" data-job-index="${index}" onclick="window.dashboardController.showJobDetails(${index})">
                     <div class="panel-job-header">
                         <span class="panel-job-id">${job.id}</span>
                         <span class="panel-job-status status-${job.status}">${job.status}</span>
@@ -1029,42 +1029,213 @@ class DashboardController {
                                 <span>${this.formatJobDuration(job.duration)}</span>
                             </div>
                         ` : ''}
-                        ${job.parameters?.repositoryPath ? `
-                            <div class="panel-job-meta-row">
-                                <span class="meta-label">Repository:</span>
-                                <span style="font-size: 11px; word-break: break-all;">${job.parameters.repositoryPath}</span>
-                            </div>
-                        ` : ''}
                     </div>
-                    ${hasResult ? `
-                        <div class="panel-job-result">
-                            ${job.result.output ? `
-                                <div class="result-output">${job.result.output}</div>
-                            ` : ''}
-                            ${job.result.error ? `
-                                <div class="result-error">${job.result.error}</div>
-                            ` : ''}
-                            ${hasStats ? `
-                                <div class="result-stats">
-                                    ${job.result.stats.filesScanned !== undefined ? `
-                                        <div class="result-stat">
-                                            <span class="result-stat-label">Files</span>
-                                            <span class="result-stat-value">${job.result.stats.filesScanned}</span>
-                                        </div>
-                                    ` : ''}
-                                    ${job.result.stats.duplicatesFound !== undefined ? `
-                                        <div class="result-stat">
-                                            <span class="result-stat-label">Duplicates</span>
-                                            <span class="result-stat-value">${job.result.stats.duplicatesFound}</span>
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            ` : ''}
-                        </div>
-                    ` : ''}
+                    <div class="panel-job-click-hint">Click for details</div>
                 </div>
             `;
         }).join('');
+    }
+
+    /**
+     * Show job details modal
+     */
+    showJobDetails(index) {
+        const job = this.currentJobs[index];
+        if (!job) return;
+
+        // Create or get modal
+        let modal = document.getElementById('job-details-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'job-details-modal';
+            modal.className = 'job-details-modal';
+            document.body.appendChild(modal);
+        }
+
+        // Format result data
+        const resultHtml = this.formatJobResult(job);
+        const parametersHtml = this.formatJobParameters(job.parameters);
+        const gitHtml = job.git ? this.formatGitInfo(job.git) : '';
+
+        modal.innerHTML = `
+            <div class="job-details-content">
+                <div class="job-details-header">
+                    <h3>Job Details</h3>
+                    <button class="job-details-close" onclick="window.dashboardController.closeJobDetails()">&times;</button>
+                </div>
+                <div class="job-details-body">
+                    <div class="job-details-section">
+                        <h4>Overview</h4>
+                        <div class="job-details-grid">
+                            <div class="job-details-field">
+                                <span class="field-label">Job ID</span>
+                                <span class="field-value">${job.id}</span>
+                            </div>
+                            <div class="job-details-field">
+                                <span class="field-label">Status</span>
+                                <span class="field-value status-${job.status}">${job.status}</span>
+                            </div>
+                            <div class="job-details-field">
+                                <span class="field-label">Pipeline</span>
+                                <span class="field-value">${job.pipelineId}</span>
+                            </div>
+                            <div class="job-details-field">
+                                <span class="field-label">Duration</span>
+                                <span class="field-value">${this.formatJobDuration(job.duration)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="job-details-section">
+                        <h4>Timestamps</h4>
+                        <div class="job-details-grid">
+                            <div class="job-details-field">
+                                <span class="field-label">Created</span>
+                                <span class="field-value">${job.createdAt ? new Date(job.createdAt).toLocaleString() : 'N/A'}</span>
+                            </div>
+                            <div class="job-details-field">
+                                <span class="field-label">Started</span>
+                                <span class="field-value">${job.startTime ? new Date(job.startTime).toLocaleString() : 'N/A'}</span>
+                            </div>
+                            <div class="job-details-field">
+                                <span class="field-label">Completed</span>
+                                <span class="field-value">${job.endTime ? new Date(job.endTime).toLocaleString() : 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    ${parametersHtml ? `
+                        <div class="job-details-section">
+                            <h4>Parameters</h4>
+                            ${parametersHtml}
+                        </div>
+                    ` : ''}
+                    ${resultHtml ? `
+                        <div class="job-details-section">
+                            <h4>Result</h4>
+                            ${resultHtml}
+                        </div>
+                    ` : ''}
+                    ${job.error ? `
+                        <div class="job-details-section error-section">
+                            <h4>Error</h4>
+                            <pre class="error-output">${typeof job.error === 'string' ? job.error : JSON.stringify(job.error, null, 2)}</pre>
+                        </div>
+                    ` : ''}
+                    ${gitHtml ? `
+                        <div class="job-details-section">
+                            <h4>Git Workflow</h4>
+                            ${gitHtml}
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+
+        modal.style.display = 'flex';
+
+        // Close on backdrop click
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                this.closeJobDetails();
+            }
+        };
+
+        // Close on Escape key
+        document.addEventListener('keydown', this.handleModalEscape);
+    }
+
+    /**
+     * Close job details modal
+     */
+    closeJobDetails() {
+        const modal = document.getElementById('job-details-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        document.removeEventListener('keydown', this.handleModalEscape);
+    }
+
+    /**
+     * Handle Escape key for modal
+     */
+    handleModalEscape = (e) => {
+        if (e.key === 'Escape') {
+            this.closeJobDetails();
+        }
+    }
+
+    /**
+     * Format job result for display
+     */
+    formatJobResult(job) {
+        if (!job.result) return '';
+
+        const result = job.result;
+        let html = '<div class="job-result-data">';
+
+        // Handle different result types
+        if (result.reportPath) {
+            html += `<div class="result-field"><span class="field-label">Report Path</span><span class="field-value" style="word-break: break-all;">${result.reportPath}</span></div>`;
+        }
+        if (result.totalDuplicates !== undefined) {
+            html += `<div class="result-field"><span class="field-label">Total Duplicates</span><span class="field-value">${result.totalDuplicates}</span></div>`;
+        }
+        if (result.totalBlocks !== undefined) {
+            html += `<div class="result-field"><span class="field-label">Total Blocks</span><span class="field-value">${result.totalBlocks}</span></div>`;
+        }
+        if (result.scanDuration) {
+            html += `<div class="result-field"><span class="field-label">Scan Duration</span><span class="field-value">${result.scanDuration}ms</span></div>`;
+        }
+        if (result.output) {
+            html += `<div class="result-field"><span class="field-label">Output</span><pre class="field-value">${result.output}</pre></div>`;
+        }
+
+        // Show raw result if no specific fields matched
+        if (html === '<div class="job-result-data">') {
+            html += `<pre class="raw-result">${JSON.stringify(result, null, 2)}</pre>`;
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    /**
+     * Format job parameters for display
+     */
+    formatJobParameters(parameters) {
+        if (!parameters || Object.keys(parameters).length === 0) return '';
+
+        let html = '<div class="job-params-data">';
+
+        for (const [key, value] of Object.entries(parameters)) {
+            const displayValue = typeof value === 'object' ? JSON.stringify(value, null, 2) : value;
+            html += `<div class="result-field"><span class="field-label">${key}</span><span class="field-value">${displayValue}</span></div>`;
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    /**
+     * Format git workflow info
+     */
+    formatGitInfo(git) {
+        let html = '<div class="job-git-data">';
+
+        if (git.branchName) {
+            html += `<div class="result-field"><span class="field-label">Branch</span><span class="field-value">${git.branchName}</span></div>`;
+        }
+        if (git.commitSha) {
+            html += `<div class="result-field"><span class="field-label">Commit</span><span class="field-value">${git.commitSha}</span></div>`;
+        }
+        if (git.prUrl) {
+            html += `<div class="result-field"><span class="field-label">PR URL</span><a href="${git.prUrl}" target="_blank" class="field-value">${git.prUrl}</a></div>`;
+        }
+        if (git.changedFiles && git.changedFiles.length > 0) {
+            html += `<div class="result-field"><span class="field-label">Changed Files</span><span class="field-value">${git.changedFiles.join(', ')}</span></div>`;
+        }
+
+        html += '</div>';
+        return html;
     }
 
     /**
