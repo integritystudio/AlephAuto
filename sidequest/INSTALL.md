@@ -31,14 +31,14 @@ ls -la ~/code/jobs/sidequest/
 Expected files:
 - `git-activity-pipeline.js` (project root)
 - `sidequest/git-activity-worker.js`
-- `sidequest/collect_git_activity.py` (Python backend)
+- `sidequest/pipeline-runners/collect_git_activity.py` (Python backend)
 - `sidequest/git-report-config.json`
 
 ### 3. Set Permissions
 
 Make Python script executable:
 ```bash
-chmod +x ~/code/jobs/sidequest/collect_git_activity.py
+chmod +x ~/code/jobs/sidequest/pipeline-runners/collect_git_activity.py
 ```
 
 ### 4. Test Manual Run
@@ -59,13 +59,13 @@ node git-activity-pipeline.js --since 2025-11-10 --until 2025-11-17
 
 Test the Python script directly (optional):
 ```bash
-cd ~/code/jobs/sidequest
+cd ~/code/jobs/sidequest/pipeline-runners
 python3 collect_git_activity.py --days 7
 ```
 
 ### 5. Configure Paths (Optional)
 
-Edit `sidequest/collect_git_activity.py` if your code directory is different:
+Edit `sidequest/pipeline-runners/collect_git_activity.py` if your code directory is different:
 ```python
 CODE_DIR = Path.home() / 'code'  # Change this if needed
 ```
@@ -190,7 +190,7 @@ npm install  # Ensure dependencies are installed
 
 ### Python script won't execute
 ```bash
-chmod +x ~/code/jobs/sidequest/collect_git_activity.py
+chmod +x ~/code/jobs/sidequest/pipeline-runners/collect_git_activity.py
 which python3  # Verify Python is installed
 ```
 
@@ -199,7 +199,7 @@ which python3  # Verify Python is installed
 # Check CODE_BASE_DIR environment variable
 echo $CODE_BASE_DIR
 
-# Or edit collect_git_activity.py directly
+# Or edit pipeline-runners/collect_git_activity.py directly
 ```
 
 ### Jobs not completing

@@ -23,17 +23,17 @@ npm run git:schedule
 
 ## Files
 
-- `../git-activity-pipeline.js` - AlephAuto pipeline orchestrator (project root)
-- `git-activity-worker.js` - AlephAuto job worker
-- `collect_git_activity.py` - Python data collection script (backend)
-- `git-report-config.json` - Configuration file
+- `../../../git-activity-pipeline.js` - AlephAuto pipeline orchestrator (project root)
+- `../../workers/git-activity-worker.js` - AlephAuto job worker
+- `../collect_git_activity.py` - Python data collection script (backend)
+- `../../git-report-config.json` - Configuration file
 - `GIT-ACTIVITY-REPORTER-README.md` - This file
-- `INSTALL.md` - Installation guide
-- `logs/` - Log directory
+- `../../INSTALL.md` - Installation guide
+- `../../logs/` - Log directory
 
 ## Installation
 
-See [INSTALL.md](INSTALL.md) for complete setup instructions.
+See [INSTALL.md](../../INSTALL.md) for complete setup instructions.
 
 Quick install:
 ```bash
@@ -41,7 +41,7 @@ Quick install:
 npm install
 
 # Make Python script executable
-chmod +x sidequest/collect_git_activity.py
+chmod +x sidequest/pipeline-runners/collect_git_activity.py
 
 # Test the integration
 npm run git:weekly

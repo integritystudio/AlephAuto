@@ -340,20 +340,29 @@ class DashboardController {
 
             // Try to fetch detailed status if available
             try {
-                const statusResponse = await fetch(`${this.apiBaseUrl}/api/status`);
+                const statusResponse = await fetch(`${this.apiBaseUrl}/api/status`, {
+                    cache: 'no-store' // Prevent caching
+                });
+                console.log('Status response:', statusResponse.status, statusResponse.ok);
                 if (statusResponse.ok) {
                     const statusContentType = statusResponse.headers.get('content-type');
+                    console.log('Content-Type:', statusContentType);
                     if (statusContentType && statusContentType.includes('application/json')) {
                         const statusData = await statusResponse.json();
+                        console.log('Status data received:', statusData);
                         this.renderInitialStatus(statusData);
+                        // Success - don't show mock data
+                        return;
                     } else {
+                        console.warn('Non-JSON response from /api/status');
                         this.showMockData();
                     }
                 } else {
+                    console.warn('Status response not OK:', statusResponse.status);
                     this.showMockData();
                 }
             } catch (err) {
-                console.warn('Detailed status not available, showing mock data');
+                console.error('Error fetching detailed status:', err);
                 this.showMockData();
             }
 
@@ -691,13 +700,18 @@ class DashboardController {
      */
     renderPipelines(pipelines) {
         console.log('renderPipelines called with:', pipelines);
+        console.log('Pipelines array length:', pipelines ? pipelines.length : 'null');
+        console.log('Is array?', Array.isArray(pipelines));
         const container = document.getElementById('pipelineCards');
+        console.log('Container element:', container);
 
         if (!pipelines || pipelines.length === 0) {
+            console.warn('No pipelines to render, showing empty state');
             container.innerHTML = '<p class="empty-state">No pipelines configured</p>';
             return;
         }
 
+        console.log('Rendering', pipelines.length, 'pipeline cards');
         container.innerHTML = pipelines.map((pipeline, index) => {
             const statusClass = pipeline.status || 'idle';
             const pipelineColor = `pipeline-${(index % 4) + 1}`;
@@ -753,7 +767,14 @@ class DashboardController {
      * Render job queue
      */
     renderQueue(queue) {
-        const { active = [], queued = [], capacity = 0 } = queue;
+        // Handle both array format and numeric format from API
+        let active = queue.active || [];
+        let queued = queue.queued || [];
+        const capacity = queue.capacity || 0;
+
+        // If active/queued are numbers, convert to empty arrays
+        if (typeof active === 'number') active = [];
+        if (typeof queued === 'number') queued = [];
 
         this.updateQueueStats(active.length, queued.length, capacity);
 

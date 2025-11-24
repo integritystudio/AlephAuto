@@ -20,6 +20,8 @@ export class GitActivityWorker extends SidequestServer {
     this.codeBaseDir = options.codeBaseDir || path.join(os.homedir(), 'code');
     this.pythonScript = options.pythonScript || path.join(
       path.dirname(new URL(import.meta.url).pathname),
+      '..',
+      'pipeline-runners',
       'collect_git_activity.py'
     );
     this.personalSiteDir = options.personalSiteDir || path.join(

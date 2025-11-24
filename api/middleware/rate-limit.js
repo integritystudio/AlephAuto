@@ -10,11 +10,12 @@ import { createComponentLogger } from '../../sidequest/utils/logger.js';
 const logger = createComponentLogger('RateLimiter');
 
 /**
- * Standard rate limiter: 100 requests per 15 minutes
+ * Standard rate limiter: 500 requests per 15 minutes
+ * Higher limit for dashboard UI that makes multiple parallel requests
  */
 export const rateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per window
+  max: 500, // Limit each IP to 500 requests per window (increased for dashboard)
   message: {
     error: 'Too Many Requests',
     message: 'Rate limit exceeded. Please try again later.',
@@ -22,11 +23,21 @@ export const rateLimiter = rateLimit({
   },
   standardHeaders: true, // Return rate limit info in RateLimit-* headers
   legacyHeaders: false, // Disable X-RateLimit-* headers
+  // Skip rate limiting for dashboard read endpoints
+  skip: (req) => {
+    const dashboardReadPaths = [
+      '/api/status',
+      '/api/pipelines',
+      '/api/sidequest/pipeline-runners',
+      '/api/reports'
+    ];
+    return dashboardReadPaths.some(path => req.path.startsWith(path) && req.method === 'GET');
+  },
   handler: (req, res) => {
     logger.warn({
       ip: req.ip,
       path: req.path,
-      limit: 100
+      limit: 500
     }, 'Rate limit exceeded');
 
     res.status(429).json({
