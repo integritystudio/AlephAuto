@@ -29,12 +29,12 @@ async function testSingleJob() {
   }
 
   console.log(`Relative path: ${relativePath}`);
-  console.log(`Output will be saved to: ./condense/${relativePath}/repomix-output.txt\n`);
+  console.log(`Output will be saved to: ./sidequest/output/condense/${relativePath}/repomix-output.txt\n`);
 
   // Create worker
   const worker = new RepomixWorker({
     maxConcurrent: 1,
-    outputBaseDir: './condense',
+    outputBaseDir: './sidequest/output/condense',
     codeBaseDir: codeBase,
     logDir: './logs',
     sentryDsn: process.env.SENTRY_DSN,

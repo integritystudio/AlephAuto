@@ -41,15 +41,15 @@ describe('Filepath Imports Test Suite', () => {
       );
     });
 
-    it('should have correct outputBaseDir path', async () => {
+    it('should have correct outputBaseDir from config', async () => {
       const filePath = resolve(__dirname, '../../sidequest/index.js');
       const content = await fs.readFile(filePath, 'utf-8');
 
-      // Verify outputBaseDir points to ../condense
+      // Verify outputBaseDir is sourced from config
       assert.match(
         content,
-        /outputBaseDir:\s*['"]\.\.\/condense['"]/,
-        'outputBaseDir should be ../condense'
+        /outputBaseDir:\s*config\.outputBaseDir/,
+        'outputBaseDir should use config.outputBaseDir'
       );
     });
 
@@ -211,13 +211,13 @@ describe('Filepath Imports Test Suite', () => {
   });
 
   describe('Output directory paths', () => {
-    it('should verify condense/ directory exists', async () => {
-      const dirPath = resolve(__dirname, '../../condense');
+    it('should verify sidequest/output/condense/ directory exists', async () => {
+      const dirPath = resolve(__dirname, '../../sidequest/output/condense');
       try {
         const stats = await fs.stat(dirPath);
-        assert.ok(stats.isDirectory(), 'condense/ directory should exist');
+        assert.ok(stats.isDirectory(), 'sidequest/output/condense/ directory should exist');
       } catch (error) {
-        console.warn('⚠️  condense/ directory not found - may need to be created');
+        console.warn('⚠️  sidequest/output/condense/ directory not found - may need to be created');
       }
     });
 

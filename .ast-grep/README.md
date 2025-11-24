@@ -100,7 +100,7 @@ ast-grep scan sidequest/
 ast-grep scan -r .ast-grep/rules/config/env-variables.yml sidequest/
 
 # Scan multiple directories
-ast-grep scan sidequest/ condense/ directory-scan-reports/
+ast-grep scan sidequest/ sidequest/output/condense/ directory-scan-reports/
 ```
 
 ### Scan by Category

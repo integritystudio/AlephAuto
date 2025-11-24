@@ -22,7 +22,7 @@ Four automated systems built on the **AlephAuto** job queue framework with Sentr
 - **Respects .gitignore files** - automatically excludes ignored directories and files
 - Parallel job processing with configurable concurrency
 - Job queue management with status tracking
-- Organized output in `condense/` matching source structure
+- Organized output in `sidequest/output/condense/` matching source structure
 - Cron-based scheduling (default: 2 AM daily)
 - Supports additional ignore patterns beyond .gitignore
 

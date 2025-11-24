@@ -10,7 +10,6 @@ yarn-error.log*
 
 # Output artifacts
 output/
-condense/
 directory-scan-reports/
 gitignore-update-report-*.json
 repomix-output.xml

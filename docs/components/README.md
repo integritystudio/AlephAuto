@@ -91,7 +91,7 @@ CODE_BASE_DIR=/custom/path MAX_CONCURRENT=3 node index.js
 
 **Scheduled execution**: By default, runs at 2 AM daily. Configure via `CRON_SCHEDULE` environment variable.
 
-**Output location**: `./output/condense/` (configurable via `OUTPUT_BASE_DIR`)
+**Output location**: `./sidequest/output/condense/` (configurable via `OUTPUT_BASE_DIR`)
 
 ### Documentation Enhancement Pipeline
 

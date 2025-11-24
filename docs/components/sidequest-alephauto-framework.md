@@ -4,11 +4,12 @@ Node.js automation toolkit for managing code repositories at scale.
 
 ## Overview
 
-AlephAuto provides three production-ready automation pipelines for managing multiple code repositories:
+AlephAuto provides four production-ready automation pipelines for managing multiple code repositories:
 
 1. **Repomix Pipeline** - Automated code condensation across all repositories
 2. **Documentation Enhancement Pipeline** - Schema.org markup injection for better SEO
 3. **Gitignore Manager** - Batch `.gitignore` updates across multiple repos
+4. **Test Refactor Pipeline** - Automated test suite modularization and utility generation
 
 Built on a robust job queue architecture with Sentry error tracking, event-driven monitoring, and configurable concurrency.
 
@@ -91,7 +92,7 @@ CODE_BASE_DIR=/custom/path MAX_CONCURRENT=3 node index.js
 
 **Scheduled execution**: By default, runs at 2 AM daily. Configure via `CRON_SCHEDULE` environment variable.
 
-**Output location**: `./output/condense/` (configurable via `OUTPUT_BASE_DIR`)
+**Output location**: `./sidequest/output/condense/` (configurable via `OUTPUT_BASE_DIR`)
 
 ### Documentation Enhancement Pipeline
 
@@ -137,6 +138,35 @@ node gitignore-repomix-updater.js /path/to/repos
 
 See [GITIGNORE_UPDATER_README.md](./GITIGNORE_UPDATER_README.md) for detailed documentation.
 
+### Test Refactor Pipeline
+
+Analyzes test suites for duplication patterns and generates modular utility files.
+
+```bash
+# Refactor all test suites in your code directory
+node pipelines/test-refactor-pipeline.js
+
+# Refactor a single project
+node pipelines/test-refactor-pipeline.js /path/to/project
+
+# Analysis only (dry-run mode)
+DRY_RUN=true node pipelines/test-refactor-pipeline.js
+```
+
+**Scheduled execution**: By default, runs at 4 AM every Sunday. Configure via `TEST_REFACTOR_CRON`.
+
+**What it generates**:
+- `assertions.ts` - Link validation helpers (expectExternalLink, expectMailtoLink, etc.)
+- `semantic-validators.ts` - HTML structure validators (expectSectionWithId, expectHeadingLevel, etc.)
+- `form-helpers.ts` - Form testing utilities (fillContactForm, expectFormAccessibility, etc.)
+- `test-constants.ts` - Extracted hardcoded strings
+- `e2e/fixtures/navigation.ts` - Playwright helpers
+
+**Features**:
+- Automatic framework detection (Vitest, Jest, Playwright)
+- Pattern analysis for refactoring recommendations
+- Optional Git workflow with automatic PR creation
+
 ## Architecture
 
 ### Job Queue Pattern
@@ -153,10 +183,10 @@ See [GITIGNORE_UPDATER_README.md](./GITIGNORE_UPDATER_README.md) for detailed do
               │ extends
     ┌─────────┴──────────┐
     │                    │
-┌───────────────┐  ┌─────────────────────┐
-│ RepomixWorker │  │ SchemaEnhancement   │
-│               │  │ Worker              │
-└───────────────┘  └─────────────────────┘
+┌───────────────┐  ┌─────────────────────┐  ┌──────────────────┐
+│ RepomixWorker │  │ SchemaEnhancement   │  │ TestRefactor     │
+│               │  │ Worker              │  │ Worker           │
+└───────────────┘  └─────────────────────┘  └──────────────────┘
 ```
 
 ### Component Overview
@@ -191,6 +221,12 @@ See [GITIGNORE_UPDATER_README.md](./GITIGNORE_UPDATER_README.md) for detailed do
 - Git repository detection
 - Safe file modification
 - Detailed reporting
+
+**`test-refactor-worker.js`** - Test suite refactoring
+- Pattern detection for duplication
+- Utility file generation
+- Framework auto-detection (Vitest/Jest/Playwright)
+- Metrics tracking
 
 ## Development
 

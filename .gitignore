@@ -13,7 +13,7 @@ logs/duplicate-detection/
 *.log
 
 # Output directories (generated files)
-condense/
+sidequest/output/
 document-enhancement-impact-measurement/
 directory-scan-reports/
 output/
