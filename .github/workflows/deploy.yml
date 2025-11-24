@@ -28,7 +28,7 @@ jobs:
           cache: 'pip'
 
       - name: Install Node.js dependencies
-        run: npm ci --production
+        run: npm ci --production --omit=optional
 
       - name: Install Python dependencies
         run: |
@@ -89,7 +89,7 @@ jobs:
             cd ${{ secrets.DEPLOY_PATH }}
 
             # Install Node.js dependencies
-            npm ci --production
+            npm ci --production --omit=optional
 
             # Install Python dependencies
             python3 -m venv venv
