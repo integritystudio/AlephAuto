@@ -33,6 +33,9 @@ const logger = createComponentLogger('APIServer');
 const app = express();
 const httpServer = createServer(app);
 
+// Trust proxy for nginx reverse proxy (required for express-rate-limit and correct IP detection)
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(express.json());
 app.use(cors());
