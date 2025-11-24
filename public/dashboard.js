@@ -184,11 +184,19 @@ class DashboardController {
      * Connect to WebSocket server
      */
     connectWebSocket() {
+        // Skip WebSocket if already using polling fallback
+        if (this.usingPolling) {
+            return;
+        }
+
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
-        console.log('Connecting to WebSocket:', wsUrl);
 
-        this.updateSystemStatus('connecting', 'Connecting...');
+        // Only log on first attempt
+        if (this.reconnectAttempts === 0) {
+            console.log('Connecting to WebSocket:', wsUrl);
+            this.updateSystemStatus('connecting', 'Connecting...');
+        }
 
         try {
             this.ws = new WebSocket(wsUrl);
@@ -210,20 +218,16 @@ class DashboardController {
                 }
             };
 
-            this.ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                this.updateSystemStatus('error', 'Connection Error');
+            this.ws.onerror = () => {
+                // Suppress error logging - onclose will handle reconnection
             };
 
             this.ws.onclose = () => {
-                console.log('WebSocket closed');
-                this.updateSystemStatus('connecting', 'Reconnecting...');
                 this.scheduleReconnect();
             };
 
         } catch (error) {
             console.error('Failed to create WebSocket:', error);
-            this.updateSystemStatus('error', 'Connection Failed');
             this.scheduleReconnect();
         }
     }
@@ -233,20 +237,36 @@ class DashboardController {
      */
     scheduleReconnect() {
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            console.error('Max reconnection attempts reached');
-            this.updateSystemStatus('error', 'Connection Lost');
-            this.addActivity('error', 'WebSocket connection lost after multiple attempts');
+            // Fall back to polling mode instead of showing error
+            console.log('WebSocket unavailable, switching to polling mode');
+            this.usingPolling = true;
+            this.updateSystemStatus('healthy', 'Polling');
+            this.startPolling();
             return;
         }
 
         this.reconnectAttempts++;
         const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), 30000);
 
-        console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-
         setTimeout(() => {
             this.connectWebSocket();
         }, delay);
+    }
+
+    /**
+     * Start polling for updates (fallback when WebSocket unavailable)
+     */
+    startPolling() {
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+        }
+
+        // Poll every 30 seconds
+        this.pollingInterval = setInterval(() => {
+            this.fetchInitialStatus();
+        }, 30000);
+
+        console.log('Polling mode active (30s interval)');
     }
 
     /**
