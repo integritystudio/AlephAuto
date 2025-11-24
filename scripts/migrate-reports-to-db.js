@@ -12,7 +12,8 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPORTS_DIR = path.join(__dirname, '../output/reports');
-const LOGS_DIR = path.join(__dirname, '../sidequest/logs');
+const SIDEQUEST_LOGS_DIR = path.join(__dirname, '../sidequest/logs');
+const ROOT_LOGS_DIR = path.join(__dirname, '../logs');
 
 async function main() {
   console.log('Initializing database...');
@@ -21,13 +22,17 @@ async function main() {
   console.log(`\nImporting scan reports from: ${REPORTS_DIR}`);
   const reportsImported = await importReportsToDatabase(REPORTS_DIR);
 
-  console.log(`\nImporting job logs from: ${LOGS_DIR}`);
-  const logsImported = await importLogsToDatabase(LOGS_DIR);
+  console.log(`\nImporting sidequest logs from: ${SIDEQUEST_LOGS_DIR}`);
+  const sidequestLogsImported = await importLogsToDatabase(SIDEQUEST_LOGS_DIR);
+
+  console.log(`\nImporting root logs from: ${ROOT_LOGS_DIR}`);
+  const rootLogsImported = await importLogsToDatabase(ROOT_LOGS_DIR);
 
   console.log(`\nMigration complete:`);
   console.log(`  - Scan reports: ${reportsImported} jobs`);
-  console.log(`  - Job logs: ${logsImported} jobs`);
-  console.log(`  - Total: ${reportsImported + logsImported} jobs`);
+  console.log(`  - Sidequest logs: ${sidequestLogsImported} jobs`);
+  console.log(`  - Root logs: ${rootLogsImported} jobs`);
+  console.log(`  - Total: ${reportsImported + sidequestLogsImported + rootLogsImported} jobs`);
 }
 
 main().catch(err => {
