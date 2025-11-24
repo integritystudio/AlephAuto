@@ -44,3 +44,7 @@ Thumbs.db
 *.bak
 *.old
 *~
+# Database files (runtime state, not committed)
+data/*.db
+data/*.db-shm
+data/*.db-wal
