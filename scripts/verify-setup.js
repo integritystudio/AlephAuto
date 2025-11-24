@@ -106,12 +106,33 @@ check('Python virtual environment exists', () => {
 });
 
 check('ast-grep available', () => {
-  try {
-    execSync('ast-grep --version', {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-  } catch (error) {
+  // Check for ast-grep in common locations
+  const possiblePaths = [
+    'ast-grep',  // In PATH
+    '/opt/homebrew/bin/ast-grep',  // Apple Silicon Homebrew
+    '/usr/local/bin/ast-grep',  // Intel Mac Homebrew
+    'sg',  // Alternative command name
+  ];
+
+  let found = false;
+  let version = '';
+
+  for (const astGrepPath of possiblePaths) {
+    try {
+      version = execSync(`${astGrepPath} --version`, {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 2000,
+      }).trim();
+      found = true;
+      console.log(`   ${version} (found at: ${astGrepPath})`);
+      break;
+    } catch {
+      // Try next path
+    }
+  }
+
+  if (!found) {
     throw new Error('ast-grep not found. Install: npm install -g @ast-grep/cli or brew install ast-grep');
   }
 });
