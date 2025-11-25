@@ -17,9 +17,10 @@ import { HTMLReportGenerator } from './reports/html-report-generator.js';
 import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
 import { InterProjectScanner } from './inter-project-scanner.js';
 import { createComponentLogger } from '../utils/logger.js';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess, execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { existsSync } from 'fs';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('ScanOrchestrator');
@@ -326,9 +327,44 @@ export class ScanOrchestrator {
     this.patternDetector = new AstGrepPatternDetector(options.detector || {});
 
     // Python components (called via subprocess)
-    // Use venv python by default if it exists, otherwise fall back to system python3
-    const venvPython = path.join(process.cwd(), 'venv/bin/python3');
-    this.pythonPath = options.pythonPath || venvPython;
+    // Intelligent Python path detection:
+    // 1. Use explicitly provided pythonPath if given
+    // 2. Try venv Python (local development)
+    // 3. Fall back to system Python (CI/production)
+    if (options.pythonPath) {
+      this.pythonPath = options.pythonPath;
+    } else {
+      const venvPython = path.join(process.cwd(), 'venv/bin/python3');
+      const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+
+      if (existsSync(venvPython) && !isCI) {
+        // Local development: use venv Python
+        this.pythonPath = venvPython;
+        logger.info({ pythonPath: venvPython }, 'Using venv Python');
+      } else {
+        // CI/production: use system Python
+        try {
+          // Verify system Python is available and has required packages
+          execSync('python3 -c "import pydantic"', {
+            stdio: 'ignore',
+            timeout: 3000
+          });
+          this.pythonPath = 'python3';
+          logger.info({
+            pythonPath: 'python3',
+            isCI,
+            reason: existsSync(venvPython) ? 'CI environment detected' : 'venv not found'
+          }, 'Using system Python');
+        } catch (error) {
+          logger.error({ error }, 'Python validation failed');
+          throw new Error(
+            'Python not available. Please install Python 3.11+ with pydantic package, ' +
+            'or run in an environment with venv/bin/python3'
+          );
+        }
+      }
+    }
+
     this.extractorScript = options.extractorScript || path.join(process.cwd(), 'sidequest/pipeline-core/extractors/extract_blocks.py');
 
     // Report generation configuration
