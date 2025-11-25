@@ -7,6 +7,20 @@
 
 echo "🔍 Running pre-commit checks..."
 
+# Check Cloudflare tunnel files are in sync
+echo "Checking Cloudflare tunnel files sync..."
+node scripts/sync-cloudflare-tunnel-files.js --check-only
+
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "❌ Pre-commit validation failed!"
+  echo "Cloudflare tunnel files are out of sync."
+  echo ""
+  echo "Run 'node scripts/sync-cloudflare-tunnel-files.js' to sync them."
+  echo ""
+  exit 1
+fi
+
 # Check for hardcoded test paths
 echo "Validating test paths..."
 npm run test:validate-paths
