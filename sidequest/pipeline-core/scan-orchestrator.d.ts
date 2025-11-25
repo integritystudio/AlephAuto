@@ -190,6 +190,43 @@ export interface ScanOrchestratorOptions {
     config?: Record<string, any>;
 }
 /**
+ * Cross-repository duplicate group
+ */
+export interface CrossRepositoryDuplicate {
+    group_id: string;
+    pattern_id: string;
+    content_hash: string;
+    member_blocks: CodeBlock[];
+    occurrence_count: number;
+    repository_count: number;
+    affected_repositories: string[];
+    affected_files: string[];
+    category: string;
+    language: string;
+    total_lines: number;
+    similarity_score: number;
+    similarity_method: string;
+    impact_score: number;
+}
+/**
+ * Cross-repository consolidation suggestion
+ */
+export interface CrossRepositorySuggestion {
+    suggestion_id: string;
+    group_id: string;
+    suggestion_type: string;
+    priority: 'critical' | 'high' | 'medium' | 'low';
+    estimated_effort: 'minimal' | 'low' | 'medium' | 'high';
+    potential_reduction: number;
+    affected_repositories: string[];
+    implementation_notes?: string;
+    migration_steps?: Array<{
+        order: number;
+        description: string;
+        code_snippet?: string;
+    }>;
+}
+/**
  * Multi-repository scan result
  */
 export interface MultiRepositoryScanResult {
@@ -200,6 +237,14 @@ export interface MultiRepositoryScanResult {
     total_scanned: number;
     successful: number;
     failed: number;
+    cross_repository_duplicates?: CrossRepositoryDuplicate[];
+    cross_repository_suggestions?: CrossRepositorySuggestion[];
+    scan_type?: 'single-project' | 'inter-project';
+    metrics?: ScanMetrics & {
+        total_cross_repository_groups?: number;
+        cross_repository_occurrences?: number;
+        cross_repository_duplicated_lines?: number;
+    };
 }
 /**
  * Scan Orchestrator - Coordinates the duplicate detection pipeline

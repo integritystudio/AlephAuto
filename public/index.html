@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AlephAuto Dashboard - Pipeline Monitoring</title>
     <link rel="stylesheet" href="dashboard.css">
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'dark',
+            securityLevel: 'loose'
+        });
+        window.mermaid = mermaid;
+    </script>
 </head>
 <body>
     <!-- Header -->

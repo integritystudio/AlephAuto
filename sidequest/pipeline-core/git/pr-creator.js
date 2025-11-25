@@ -21,6 +21,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { createComponentLogger } from '../../utils/logger.js';
 import * as Sentry from '@sentry/node';
+import { MigrationTransformer } from './migration-transformer.js';
 
 const logger = createComponentLogger('PRCreator');
 
@@ -33,6 +34,9 @@ export class PRCreator {
     this.branchPrefix = options.branchPrefix || 'consolidate';
     this.dryRun = options.dryRun ?? false;
     this.maxSuggestionsPerPR = options.maxSuggestionsPerPR || 5;
+    this.migrationTransformer = new MigrationTransformer({
+      dryRun: this.dryRun
+    });
   }
 
   /**
@@ -244,9 +248,56 @@ export class PRCreator {
           }, 'Created consolidated file');
         }
 
-        // TODO: Apply migration steps to affected files
-        // This would require parsing migration steps and applying transformations
-        // For now, we create the consolidated file and rely on manual migration
+        // Apply migration steps to affected files
+        if (suggestion.migration_steps && suggestion.migration_steps.length > 0) {
+          try {
+            const migrationResult = await this.migrationTransformer.applyMigrationSteps(
+              suggestion,
+              repositoryPath
+            );
+
+            // Add migrated files to modified list
+            for (const file of migrationResult.filesModified) {
+              if (!filesModified.includes(file)) {
+                filesModified.push(file);
+              }
+            }
+
+            logger.info({
+              suggestionId: suggestion.suggestion_id,
+              filesModified: migrationResult.filesModified.length,
+              transformations: migrationResult.transformations.length,
+              errors: migrationResult.errors.length,
+              backupPath: migrationResult.backupPath
+            }, 'Applied migration steps');
+
+            // Log any transformation errors
+            if (migrationResult.errors.length > 0) {
+              logger.warn({
+                errors: migrationResult.errors
+              }, 'Some migration transformations failed');
+            }
+
+          } catch (migrationError) {
+            // Log migration error but don't fail the entire suggestion
+            // The consolidated file has still been created
+            logger.error({
+              error: migrationError,
+              suggestionId: suggestion.suggestion_id
+            }, 'Failed to apply migration steps');
+
+            Sentry.captureException(migrationError, {
+              tags: {
+                component: 'pr-creator',
+                operation: 'apply-migration-steps'
+              },
+              extra: {
+                suggestionId: suggestion.suggestion_id,
+                repositoryPath
+              }
+            });
+          }
+        }
 
       } catch (error) {
         logger.error({

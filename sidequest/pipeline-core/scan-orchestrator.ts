@@ -15,6 +15,7 @@ import { RepositoryScanner } from './scanners/repository-scanner.js';
 import { AstGrepPatternDetector } from './scanners/ast-grep-detector.js';
 import { HTMLReportGenerator } from './reports/html-report-generator.js';
 import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
+import { InterProjectScanner } from './inter-project-scanner.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
@@ -220,6 +221,45 @@ export interface ScanOrchestratorOptions {
 }
 
 /**
+ * Cross-repository duplicate group
+ */
+export interface CrossRepositoryDuplicate {
+  group_id: string;
+  pattern_id: string;
+  content_hash: string;
+  member_blocks: CodeBlock[];
+  occurrence_count: number;
+  repository_count: number;
+  affected_repositories: string[];
+  affected_files: string[];
+  category: string;
+  language: string;
+  total_lines: number;
+  similarity_score: number;
+  similarity_method: string;
+  impact_score: number;
+}
+
+/**
+ * Cross-repository consolidation suggestion
+ */
+export interface CrossRepositorySuggestion {
+  suggestion_id: string;
+  group_id: string;
+  suggestion_type: string;
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  estimated_effort: 'minimal' | 'low' | 'medium' | 'high';
+  potential_reduction: number;
+  affected_repositories: string[];
+  implementation_notes?: string;
+  migration_steps?: Array<{
+    order: number;
+    description: string;
+    code_snippet?: string;
+  }>;
+}
+
+/**
  * Multi-repository scan result
  */
 export interface MultiRepositoryScanResult {
@@ -227,6 +267,14 @@ export interface MultiRepositoryScanResult {
   total_scanned: number;
   successful: number;
   failed: number;
+  cross_repository_duplicates?: CrossRepositoryDuplicate[];
+  cross_repository_suggestions?: CrossRepositorySuggestion[];
+  scan_type?: 'single-project' | 'inter-project';
+  metrics?: ScanMetrics & {
+    total_cross_repository_groups?: number;
+    cross_repository_occurrences?: number;
+    cross_repository_duplicated_lines?: number;
+  };
 }
 
 /**
@@ -526,30 +574,77 @@ export class ScanOrchestrator {
   ): Promise<MultiRepositoryScanResult> {
     logger.info({ count: repoPaths.length }, 'Starting multi-repository scan');
 
-    const results: Array<ScanResult | { error: string; repository_path: string }> = [];
+    // Use InterProjectScanner for cross-repository analysis
+    const interProjectScanner = new InterProjectScanner({
+      orchestrator: {
+        scanner: {},
+        detector: {},
+        pythonPath: this.pythonPath,
+        extractorScript: this.extractorScript,
+        outputDir: this.outputDir,
+        autoGenerateReports: this.autoGenerateReports,
+        reports: this.reportConfig
+      },
+      outputDir: this.outputDir
+    });
 
-    for (const repoPath of repoPaths) {
-      try {
-        const result = await this.scanRepository(repoPath, scanConfig);
-        results.push(result);
-      } catch (error) {
-        logger.warn({ repoPath, error }, 'Repository scan failed, continuing');
-        results.push({
-          error: (error as Error).message,
-          repository_path: repoPath
-        });
+    try {
+      // Delegate to InterProjectScanner for full cross-repository analysis
+      const interProjectResult = await interProjectScanner.scanRepositories(repoPaths, scanConfig);
+
+      // Transform InterProjectScanner result to MultiRepositoryScanResult
+      const results: Array<ScanResult | { error: string; repository_path: string }> = [];
+
+      for (const repoScan of interProjectResult.repository_scans) {
+        if (repoScan.error) {
+          results.push({
+            error: repoScan.error,
+            repository_path: repoScan.repository_path
+          });
+        } else if (repoScan.scan_result) {
+          results.push(repoScan.scan_result);
+        }
       }
+
+      return {
+        repositories: results,
+        total_scanned: repoPaths.length,
+        successful: results.filter(r => !('error' in r)).length,
+        failed: results.filter(r => 'error' in r).length,
+        cross_repository_duplicates: interProjectResult.cross_repository_duplicates,
+        cross_repository_suggestions: interProjectResult.cross_repository_suggestions,
+        scan_type: 'inter-project',
+        metrics: interProjectResult.metrics
+      };
+    } catch (error) {
+      logger.error({ error }, 'Multi-repository scan failed');
+
+      // Fallback: scan each repository individually without cross-repo analysis
+      logger.warn('Falling back to individual repository scans without cross-repository analysis');
+
+      const results: Array<ScanResult | { error: string; repository_path: string }> = [];
+
+      for (const repoPath of repoPaths) {
+        try {
+          const result = await this.scanRepository(repoPath, scanConfig);
+          results.push(result);
+        } catch (scanError) {
+          logger.warn({ repoPath, error: scanError }, 'Repository scan failed, continuing');
+          results.push({
+            error: (scanError as Error).message,
+            repository_path: repoPath
+          });
+        }
+      }
+
+      return {
+        repositories: results,
+        total_scanned: repoPaths.length,
+        successful: results.filter(r => !('error' in r)).length,
+        failed: results.filter(r => 'error' in r).length,
+        scan_type: 'single-project'
+      };
     }
-
-    // TODO: Cross-repository duplicate analysis
-    // For now, return individual results
-
-    return {
-      repositories: results,
-      total_scanned: repoPaths.length,
-      successful: results.filter(r => !('error' in r)).length,
-      failed: results.filter(r => 'error' in r).length
-    };
   }
 }
 

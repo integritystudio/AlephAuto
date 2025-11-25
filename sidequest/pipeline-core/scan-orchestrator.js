@@ -14,6 +14,7 @@ import { RepositoryScanner } from './scanners/repository-scanner.js';
 import { AstGrepPatternDetector } from './scanners/ast-grep-detector.js';
 import { HTMLReportGenerator } from './reports/html-report-generator.js';
 import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
+import { InterProjectScanner } from './inter-project-scanner.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { spawn } from 'child_process';
 import * as path from 'path';
@@ -244,28 +245,72 @@ export class ScanOrchestrator {
      */
     async scanMultipleRepositories(repoPaths, scanConfig = {}) {
         logger.info({ count: repoPaths.length }, 'Starting multi-repository scan');
-        const results = [];
-        for (const repoPath of repoPaths) {
-            try {
-                const result = await this.scanRepository(repoPath, scanConfig);
-                results.push(result);
+        // Use InterProjectScanner for cross-repository analysis
+        const interProjectScanner = new InterProjectScanner({
+            orchestrator: {
+                scanner: {},
+                detector: {},
+                pythonPath: this.pythonPath,
+                extractorScript: this.extractorScript,
+                outputDir: this.outputDir,
+                autoGenerateReports: this.autoGenerateReports,
+                reports: this.reportConfig
+            },
+            outputDir: this.outputDir
+        });
+        try {
+            // Delegate to InterProjectScanner for full cross-repository analysis
+            const interProjectResult = await interProjectScanner.scanRepositories(repoPaths, scanConfig);
+            // Transform InterProjectScanner result to MultiRepositoryScanResult
+            const results = [];
+            for (const repoScan of interProjectResult.repository_scans) {
+                if (repoScan.error) {
+                    results.push({
+                        error: repoScan.error,
+                        repository_path: repoScan.repository_path
+                    });
+                }
+                else if (repoScan.scan_result) {
+                    results.push(repoScan.scan_result);
+                }
             }
-            catch (error) {
-                logger.warn({ repoPath, error }, 'Repository scan failed, continuing');
-                results.push({
-                    error: error.message,
-                    repository_path: repoPath
-                });
-            }
+            return {
+                repositories: results,
+                total_scanned: repoPaths.length,
+                successful: results.filter(r => !('error' in r)).length,
+                failed: results.filter(r => 'error' in r).length,
+                cross_repository_duplicates: interProjectResult.cross_repository_duplicates,
+                cross_repository_suggestions: interProjectResult.cross_repository_suggestions,
+                scan_type: 'inter-project',
+                metrics: interProjectResult.metrics
+            };
         }
-        // TODO: Cross-repository duplicate analysis
-        // For now, return individual results
-        return {
-            repositories: results,
-            total_scanned: repoPaths.length,
-            successful: results.filter(r => !('error' in r)).length,
-            failed: results.filter(r => 'error' in r).length
-        };
+        catch (error) {
+            logger.error({ error }, 'Multi-repository scan failed');
+            // Fallback: scan each repository individually without cross-repo analysis
+            logger.warn('Falling back to individual repository scans without cross-repository analysis');
+            const results = [];
+            for (const repoPath of repoPaths) {
+                try {
+                    const result = await this.scanRepository(repoPath, scanConfig);
+                    results.push(result);
+                }
+                catch (scanError) {
+                    logger.warn({ repoPath, error: scanError }, 'Repository scan failed, continuing');
+                    results.push({
+                        error: scanError.message,
+                        repository_path: repoPath
+                    });
+                }
+            }
+            return {
+                repositories: results,
+                total_scanned: repoPaths.length,
+                successful: results.filter(r => !('error' in r)).length,
+                failed: results.filter(r => 'error' in r).length,
+                scan_type: 'single-project'
+            };
+        }
     }
 }
 // ============================================================================

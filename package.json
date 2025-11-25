@@ -66,12 +66,19 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/generator": "^7.26.0",
+    "@babel/traverse": "^7.26.0",
+    "@babel/types": "^7.26.0",
     "@sentry/node": "^7.120.4",
     "better-sqlite3": "^12.4.6",
     "cors": "^2.8.5",
+    "dompurify": "^3.3.0",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "express-rate-limit": "^8.2.1",
+    "jsdom": "^27.2.0",
+    "marked": "^17.0.1",
     "node-cron": "^3.0.3",
     "pino": "^9.0.0",
     "pino-pretty": "^11.0.0",
@@ -80,6 +87,7 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@babel/parser": "^7.28.5",
     "@sentry/vite-plugin": "^4.6.1",
     "@types/glob": "^9.0.0",
     "@types/node": "^20.19.25",

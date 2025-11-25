@@ -101,6 +101,39 @@ export function createValidationError(
 }
 
 /**
+ * Scan Results Schema
+ */
+export const ScanResultsSchema = z.object({
+  scanId: z.string(),
+  status: z.enum(['queued', 'running', 'completed', 'failed']),
+  results: z.object({
+    scanType: z.string().optional(),
+    totalDuplicates: z.number().optional(),
+    duplicates: z.number().optional(),
+    crossRepoDuplicates: z.number().optional(),
+    totalBlocks: z.number().optional(),
+    scanDuration: z.number().optional(),
+    suggestions: z.number().optional(),
+    repositories: z.array(z.object({
+      name: z.string(),
+      path: z.string()
+    })).optional(),
+    reportPath: z.string().optional(),
+    prResults: z.any().optional()
+  }).optional(),
+  error: z.object({
+    message: z.string(),
+    code: z.string().optional(),
+    stack: z.string().optional()
+  }).optional(),
+  startTime: z.string().datetime().optional(),
+  endTime: z.string().datetime().optional(),
+  timestamp: z.string().datetime()
+});
+
+export type ScanResults = z.infer<typeof ScanResultsSchema>;
+
+/**
  * Helper function to create error response
  */
 export function createErrorResponse(

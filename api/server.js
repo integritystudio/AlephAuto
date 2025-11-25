@@ -14,6 +14,9 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
+import { JSDOM } from 'jsdom';
 import { createComponentLogger } from '../sidequest/utils/logger.js';
 import { config } from '../sidequest/core/config.js';
 import { authMiddleware } from './middleware/auth.js';
@@ -32,6 +35,7 @@ import { DopplerHealthMonitor } from '../sidequest/pipeline-core/doppler-health-
 import { setupServerWithPortFallback, setupGracefulShutdown } from './utils/port-manager.js';
 import { getAllPipelineStats } from '../sidequest/core/database.js';
 import { getPipelineName } from '../sidequest/utils/pipeline-names.js';
+import { workerRegistry } from './utils/worker-registry.js';
 import fs from 'fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -167,12 +171,28 @@ app.get('/api/pipeline-data-flow', async (req, res) => {
     const docPath = path.join(__dirname, '../docs/architecture/pipeline-data-flow.md');
     const markdown = await fs.readFile(docPath, 'utf-8');
 
-    // Convert markdown to HTML with basic formatting
-    // For now, wrap in pre tags to preserve formatting
-    // TODO: Add proper markdown parser (marked.js) for full rendering
+    // Configure marked for GitHub-flavored markdown with mermaid support
+    marked.setOptions({
+      gfm: true,
+      breaks: true,
+      mangle: false
+    });
+
+    // Parse markdown to HTML
+    const rawHtml = await marked.parse(markdown);
+
+    // Sanitize HTML to prevent XSS (allow mermaid code blocks)
+    const window = new JSDOM('').window;
+    const purify = DOMPurify(window);
+    const cleanHtml = purify.sanitize(rawHtml, {
+      ADD_TAGS: ['pre', 'code'],
+      ADD_ATTR: ['class', 'data-lang']
+    });
+
+    // Wrap in container with proper CSS classes
     const html = `
       <div class="markdown-content">
-        <pre class="markdown-raw">${markdown.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+        ${cleanHtml}
       </div>
     `;
 
@@ -271,6 +291,9 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
 
         // Stop Doppler health monitoring
         dopplerMonitor.stopMonitoring();
+
+        // Shutdown all workers
+        await workerRegistry.shutdown();
 
         // Close WebSocket server
         await new Promise((resolve) => {

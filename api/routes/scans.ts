@@ -14,8 +14,10 @@ import { validateRequest } from '../middleware/validation.js';
 import {
   StartScanRequestSchema,
   type StartScanRequest,
-  type ScanResponse
+  type ScanResponse,
+  type ScanResults
 } from '../types/scan-requests.js';
+import { getJobs } from '../../sidequest/core/database.js';
 import path from 'path';
 
 const router = express.Router();
@@ -49,15 +51,14 @@ router.post(
 
       logger.info({ repositoryPath, options }, 'Starting scan via API');
 
-      // Start scan asynchronously
-      const jobId = `api-scan-${Date.now()}`;
+      // Start scan asynchronously - use the actual job ID from scheduleScan
       const job = worker.scheduleScan('intra-project', [{
         name: path.basename(repositoryPath),
         path: repositoryPath
       }]);
 
       const response: ScanResponse = {
-        scanId: jobId,
+        scanId: job.id, // Use the actual job ID for consistency
         repositoryPath,
         status: 'queued',
         timestamp: new Date().toISOString()
@@ -89,7 +90,6 @@ router.post('/start-multi', strictRateLimiter, async (req, res, next) => {
     logger.info({ repositoryPaths, groupName }, 'Starting inter-project scan via API');
 
     // Start inter-project scan
-    const jobId = `api-inter-scan-${Date.now()}`;
     const repositories = repositoryPaths.map(repoPath => ({
       name: path.basename(repoPath),
       path: repoPath
@@ -99,11 +99,11 @@ router.post('/start-multi', strictRateLimiter, async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      job_id: jobId,
+      job_id: job.id, // Use the actual job ID from scheduleScan
       group_name: groupName || 'unnamed-group',
       repository_count: repositoryPaths.length,
-      status_url: `/api/scans/${jobId}/status`,
-      results_url: `/api/scans/${jobId}/results`,
+      status_url: `/api/scans/${job.id}/status`,
+      results_url: `/api/scans/${job.id}/results`,
       message: 'Inter-project scan started successfully',
       timestamp: new Date().toISOString()
     });
@@ -139,20 +139,79 @@ router.get('/:scanId/status', async (req, res, next) => {
 
 /**
  * GET /api/scans/:scanId/results
- * Get scan results
+ * Get scan results from database
  */
 router.get('/:scanId/results', async (req, res, next) => {
   try {
     const { scanId } = req.params;
 
-    // TODO: Implement result storage and retrieval
-    res.json({
-      scan_id: scanId,
-      status: 'completed',
-      results: [],
-      message: 'Result storage not yet implemented',
+    logger.debug({ scanId }, 'Fetching scan results');
+
+    // Query database for the scan job
+    // First try duplicate-detection pipeline (most scans)
+    let jobs = getJobs('duplicate-detection', { limit: 1000 });
+    let job = jobs.find(j => j.id === scanId);
+
+    // If not found, check all pipeline types in the database
+    if (!job) {
+      const allPipelines = ['repomix', 'schema-enhancement', 'git-activity', 'gitignore-manager', 'plugin-manager', 'claude-health'];
+      for (const pipelineId of allPipelines) {
+        jobs = getJobs(pipelineId, { limit: 1000 });
+        job = jobs.find(j => j.id === scanId);
+        if (job) break;
+      }
+    }
+
+    // Return 404 if scan not found
+    if (!job) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: `Scan with ID '${scanId}' not found`,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Format results based on job status
+    const response: ScanResults = {
+      scanId: job.id,
+      status: job.status as 'queued' | 'running' | 'completed' | 'failed',
       timestamp: new Date().toISOString()
-    });
+    };
+
+    // Add timing information if available
+    if (job.startedAt) {
+      response.startTime = job.startedAt;
+    }
+    if (job.completedAt) {
+      response.endTime = job.completedAt;
+    }
+
+    // Add results for completed jobs
+    if (job.status === 'completed' && job.result) {
+      response.results = {
+        scanType: job.data?.scanType,
+        totalDuplicates: job.result.totalDuplicates ?? job.result.duplicates ?? job.result.crossRepoDuplicates,
+        duplicates: job.result.duplicates,
+        crossRepoDuplicates: job.result.crossRepoDuplicates,
+        totalBlocks: job.result.totalBlocks,
+        scanDuration: job.result.duration ?? job.result.scanDuration,
+        suggestions: job.result.suggestions,
+        repositories: job.data?.repositories,
+        reportPath: job.result.reportPath,
+        prResults: job.result.prResults
+      };
+    }
+
+    // Add error for failed jobs
+    if (job.status === 'failed' && job.error) {
+      response.error = {
+        message: typeof job.error === 'string' ? job.error : job.error.message,
+        code: typeof job.error === 'object' ? job.error.code : undefined,
+        stack: typeof job.error === 'object' ? job.error.stack : undefined
+      };
+    }
+
+    res.json(response);
   } catch (error) {
     next(error);
   }

@@ -22,6 +22,7 @@ import {
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import * as Sentry from '@sentry/node';
 import { getJobs } from '../../sidequest/core/database.js';
+import { workerRegistry } from '../utils/worker-registry.js';
 
 const router = express.Router();
 const logger = createComponentLogger('PipelineRoutes');
@@ -252,29 +253,46 @@ async function fetchJobsForPipeline(
  * @param pipelineId - Pipeline identifier
  * @param parameters - Job parameters
  * @returns New job ID
+ * @throws {Error} If pipeline is unknown or worker creation fails
  */
 async function triggerPipelineJob(
   pipelineId: string,
   parameters: Record<string, unknown>
 ): Promise<string> {
-  // TODO: Implement actual job triggering with worker
-  // For now, generate a mock job ID
+  // Validate pipeline is supported
+  if (!workerRegistry.isSupported(pipelineId)) {
+    throw new Error(
+      `Unknown pipeline: ${pipelineId}. ` +
+      `Supported pipelines: ${workerRegistry.getSupportedPipelines().join(', ')}`
+    );
+  }
 
-  const jobId = `job-${Date.now()}`;
+  logger.info({
+    pipelineId,
+    parameters
+  }, 'Triggering pipeline job');
 
-  logger.debug({
+  // Get or create worker instance
+  const worker = await workerRegistry.getWorker(pipelineId);
+
+  // Generate job ID with pipeline prefix
+  const timestamp = Date.now();
+  const jobId = `${pipelineId}-manual-${timestamp}`;
+
+  // Create job with worker
+  const job = worker.createJob(jobId, {
+    ...parameters,
+    triggeredBy: 'api',
+    triggeredAt: new Date().toISOString()
+  });
+
+  logger.info({
     pipelineId,
     jobId,
-    parameters
-  }, 'Generated new job ID');
+    status: job.status
+  }, 'Pipeline job created successfully');
 
-  // In production, this would:
-  // 1. Validate pipeline exists
-  // 2. Create job in queue/database
-  // 3. Notify worker to start processing
-  // 4. Emit WebSocket event for real-time updates
-
-  return jobId;
+  return job.id;
 }
 
 export default router;

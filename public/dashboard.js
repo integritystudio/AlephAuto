@@ -1108,6 +1108,20 @@ class DashboardController {
             const html = await response.text();
             container.innerHTML = html;
             container.dataset.loaded = 'true';
+
+            // Initialize mermaid diagrams after content is loaded
+            if (window.mermaid) {
+                // Wait for next tick to ensure DOM is ready
+                setTimeout(async () => {
+                    try {
+                        await window.mermaid.run({
+                            querySelector: '.markdown-content pre.language-mermaid, .markdown-content code.language-mermaid'
+                        });
+                    } catch (mermaidError) {
+                        console.warn('Failed to render mermaid diagrams:', mermaidError);
+                    }
+                }, 100);
+            }
         } catch (error) {
             console.error('Failed to load pipeline data flow documentation:', error);
             container.innerHTML = `
