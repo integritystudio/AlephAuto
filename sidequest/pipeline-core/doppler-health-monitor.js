@@ -23,8 +23,9 @@ const logger = createComponentLogger('DopplerHealthMonitor');
 
 export class DopplerHealthMonitor {
   constructor(options = {}) {
-    // Doppler fallback cache location
-    this.cacheFile = options.cacheFile || path.join(os.homedir(), '.doppler', '.fallback.json');
+    // Doppler fallback cache directory (not a single file)
+    // Doppler CLI stores secrets in ~/.doppler/fallback/ as individual JSON files
+    this.cacheDir = options.cacheDir || path.join(os.homedir(), '.doppler', 'fallback');
 
     // Max cache age before triggering alerts (default: 24 hours)
     this.maxCacheAge = options.maxCacheAge || 24 * 60 * 60 * 1000;
@@ -42,8 +43,45 @@ export class DopplerHealthMonitor {
    */
   async checkCacheHealth() {
     try {
-      const stats = await fs.stat(this.cacheFile);
-      const cacheAge = Date.now() - stats.mtime.getTime();
+      // Check if fallback directory exists
+      const dirStats = await fs.stat(this.cacheDir);
+      if (!dirStats.isDirectory()) {
+        throw new Error('Fallback path exists but is not a directory');
+      }
+
+      // Find all secret files (not metadata)
+      const files = await fs.readdir(this.cacheDir);
+      const secretFiles = files.filter(f => f.startsWith('.secrets-') && f.endsWith('.json'));
+
+      if (secretFiles.length === 0) {
+        logger.warn({ cacheDir: this.cacheDir }, 'Doppler fallback directory exists but contains no secret files');
+
+        return {
+          healthy: false,
+          cacheAgeMs: 0,
+          cacheAgeHours: 0,
+          cacheAgeMinutes: 0,
+          lastModified: null,
+          usingFallback: false,
+          fileCount: 0,
+          severity: 'warning'
+        };
+      }
+
+      // Find the most recently modified secret file
+      let newestFile = null;
+      let newestMtime = 0;
+
+      for (const file of secretFiles) {
+        const filePath = path.join(this.cacheDir, file);
+        const stats = await fs.stat(filePath);
+        if (stats.mtime.getTime() > newestMtime) {
+          newestMtime = stats.mtime.getTime();
+          newestFile = file;
+        }
+      }
+
+      const cacheAge = Date.now() - newestMtime;
       const cacheAgeHours = Math.floor(cacheAge / (60 * 60 * 1000));
       const cacheAgeMinutes = Math.floor((cacheAge % (60 * 60 * 1000)) / (60 * 1000));
 
@@ -52,15 +90,19 @@ export class DopplerHealthMonitor {
         cacheAgeMs: cacheAge,
         cacheAgeHours,
         cacheAgeMinutes,
-        lastModified: stats.mtime.toISOString(),
-        usingFallback: true, // If cache file exists and has age, we're using fallback
+        lastModified: new Date(newestMtime).toISOString(),
+        newestFile,
+        fileCount: secretFiles.length,
+        usingFallback: true,
         severity: this.getSeverity(cacheAge)
       };
 
       if (cacheAge > this.maxCacheAge) {
         logger.error({
           cacheAgeHours,
-          lastModified: stats.mtime
+          lastModified: new Date(newestMtime),
+          newestFile,
+          fileCount: secretFiles.length
         }, 'Doppler cache is critically stale - secrets may be outdated');
 
         Sentry.captureMessage('Doppler cache critically stale', {
@@ -68,8 +110,10 @@ export class DopplerHealthMonitor {
           extra: {
             cacheAgeHours,
             cacheAgeMinutes,
-            lastModified: stats.mtime.toISOString(),
-            threshold: this.maxCacheAge / (60 * 60 * 1000)
+            lastModified: new Date(newestMtime).toISOString(),
+            threshold: this.maxCacheAge / (60 * 60 * 1000),
+            newestFile,
+            fileCount: secretFiles.length
           },
           tags: {
             component: 'doppler-health-monitor',
@@ -79,7 +123,8 @@ export class DopplerHealthMonitor {
       } else if (cacheAge > this.warningThreshold) {
         logger.warn({
           cacheAgeHours,
-          lastModified: stats.mtime
+          lastModified: new Date(newestMtime),
+          newestFile
         }, 'Doppler cache is aging - approaching staleness threshold');
 
         Sentry.captureMessage('Doppler cache aging', {
@@ -87,8 +132,10 @@ export class DopplerHealthMonitor {
           extra: {
             cacheAgeHours,
             cacheAgeMinutes,
-            lastModified: stats.mtime.toISOString(),
-            threshold: this.warningThreshold / (60 * 60 * 1000)
+            lastModified: new Date(newestMtime).toISOString(),
+            threshold: this.warningThreshold / (60 * 60 * 1000),
+            newestFile,
+            fileCount: secretFiles.length
           },
           tags: {
             component: 'doppler-health-monitor',
@@ -98,15 +145,16 @@ export class DopplerHealthMonitor {
       } else {
         logger.debug({
           cacheAgeHours,
-          cacheAgeMinutes
+          cacheAgeMinutes,
+          fileCount: secretFiles.length
         }, 'Doppler cache health check - within thresholds');
       }
 
       return status;
     } catch (error) {
       if (error.code === 'ENOENT') {
-        // Cache file doesn't exist - probably using live Doppler
-        logger.debug('No Doppler fallback cache found - likely using live API');
+        // Cache directory doesn't exist - probably using live Doppler only
+        logger.debug({ cacheDir: this.cacheDir }, 'No Doppler fallback cache found - likely using live API only');
 
         return {
           healthy: true,
@@ -115,11 +163,12 @@ export class DopplerHealthMonitor {
           cacheAgeMinutes: 0,
           lastModified: null,
           usingFallback: false,
+          fileCount: 0,
           severity: 'healthy'
         };
       }
 
-      logger.error({ error }, 'Failed to check Doppler cache health');
+      logger.error({ error, cacheDir: this.cacheDir }, 'Failed to check Doppler cache health');
 
       Sentry.captureException(error, {
         tags: {
@@ -195,12 +244,12 @@ export class DopplerHealthMonitor {
   }
 
   /**
-   * Get cache file path (for testing/debugging)
+   * Get cache directory path (for testing/debugging)
    *
-   * @returns {string} Cache file path
+   * @returns {string} Cache directory path
    */
-  getCacheFilePath() {
-    return this.cacheFile;
+  getCacheDirectoryPath() {
+    return this.cacheDir;
   }
 }
 

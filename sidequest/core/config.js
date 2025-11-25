@@ -103,8 +103,8 @@ export const config = {
     backoffMultiplier: parseFloat(process.env.DOPPLER_BACKOFF_MULTIPLIER || '2.0'),
     maxBackoffMs: parseInt(process.env.DOPPLER_MAX_BACKOFF_MS || '10000', 10), // 10s
 
-    // Cache settings
-    cacheFile: process.env.DOPPLER_CACHE_FILE || path.join(os.homedir(), '.doppler', '.fallback.json')
+    // Cache settings - Doppler CLI uses a fallback directory, not a single file
+    cacheDir: process.env.DOPPLER_CACHE_DIR || path.join(os.homedir(), '.doppler', 'fallback')
   },
 
   // Project root directory
