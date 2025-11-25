@@ -23,7 +23,6 @@ import scanRoutes, { worker } from './routes/scans.js';
 import repositoryRoutes from './routes/repositories.js';
 import reportRoutes from './routes/reports.js';
 import pipelineRoutes from './routes/pipelines.js';
-import inventoryRoutes from './routes/inventory.js';
 import * as Sentry from '@sentry/node';
 import { createServer } from 'http';
 import { createWebSocketServer } from './websocket.js';
@@ -198,7 +197,6 @@ app.use('/api/repositories', repositoryRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/pipelines', pipelineRoutes);
 app.use('/api/sidequest/pipeline-runners', pipelineRoutes); // Dashboard compatibility
-app.use('/api/inventory', inventoryRoutes);
 
 // 404 handler
 app.use((req, res) => {

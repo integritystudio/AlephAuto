@@ -17,8 +17,6 @@ const PUBLIC_PATHS = [
   '/api/docs',
   '/api/status',  // Dashboard needs access to system status
   '/api/pipeline-data-flow', // Dashboard documentation tab
-  '/api/inventory/stats', // Code inventory statistics
-  '/api/inventory/projects', // Code inventory project list
   '/api/scans',    // Phase 4 testing (TODO: Re-enable auth after testing)
   '/api/pipelines', // Pipeline details panel testing (TODO: Re-enable auth after testing)
   '/api/sidequest/pipeline-runners', // Dashboard pipeline jobs API
