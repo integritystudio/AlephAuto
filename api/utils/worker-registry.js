@@ -14,7 +14,7 @@ import { GitignoreWorker } from '../../sidequest/workers/gitignore-worker.js';
 import { RepomixWorker } from '../../sidequest/workers/repomix-worker.js';
 import { ClaudeHealthWorker } from '../../sidequest/workers/claude-health-worker.js';
 import { RepoCleanupWorker } from '../../sidequest/workers/repo-cleanup-worker.js';
-import { TestRefactorWorker } from '../../sidequest/workers/test-refactor-worker.ts';
+// import { TestRefactorWorker } from '../../sidequest/workers/test-refactor-worker.ts'; // Disabled: TypeScript file cannot be imported directly
 import { config } from '../../sidequest/core/config.js';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
 
@@ -142,12 +142,14 @@ class WorkerRegistry {
         break;
 
       case 'test-refactor':
-        worker = new TestRefactorWorker({
-          maxConcurrent: config.maxConcurrent || 3,
-          logDir: config.logDir,
-          sentryDsn: config.sentryDsn
-        });
-        break;
+        // Temporarily disabled: TypeScript worker needs compilation
+        throw new Error('test-refactor pipeline is temporarily disabled (TypeScript compilation required)');
+        // worker = new TestRefactorWorker({
+        //   maxConcurrent: config.maxConcurrent || 3,
+        //   logDir: config.logDir,
+        //   sentryDsn: config.sentryDsn
+        // });
+        // break;
 
       default:
         throw new Error(`Unknown pipeline ID: ${pipelineId}`);
