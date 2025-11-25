@@ -181,7 +181,7 @@ async function fetchJobsForPipeline(pipelineId, options) {
 
         // Convert to array and sort by creation time (newest first)
         let allJobs = Array.from(allJobsMap.values())
-            .sort((a, b) => new Date(b.startTime || b.createdAt) - new Date(a.startTime || a.createdAt));
+            .sort((a, b) => new Date(b.startTime || b.createdAt).getTime() - new Date(a.startTime || a.createdAt).getTime());
 
         // Filter by status if provided (for in-memory jobs)
         let filteredJobs = status
@@ -218,7 +218,7 @@ async function fetchJobsForPipeline(pipelineId, options) {
 
         const allJobs = [...historyJobs, ...currentJobs]
             .map(job => formatJob(job, pipelineId))
-            .sort((a, b) => new Date(b.startTime || b.createdAt) - new Date(a.startTime || a.createdAt));
+            .sort((a, b) => new Date(b.startTime || b.createdAt).getTime() - new Date(a.startTime || a.createdAt).getTime());
 
         const paginatedJobs = allJobs.slice(offset, offset + limit);
 
@@ -233,7 +233,7 @@ async function fetchJobsForPipeline(pipelineId, options) {
  */
 function formatJobFromDb(job) {
     const duration = job.completedAt && job.startedAt
-        ? new Date(job.completedAt) - new Date(job.startedAt)
+        ? new Date(job.completedAt).getTime() - new Date(job.startedAt).getTime()
         : null;
 
     const formatted = {
@@ -283,7 +283,7 @@ function formatJobFromDb(job) {
  */
 function formatJob(job, pipelineId) {
     const duration = job.completedAt && job.startedAt
-        ? new Date(job.completedAt) - new Date(job.startedAt)
+        ? new Date(job.completedAt).getTime() - new Date(job.startedAt).getTime()
         : null;
 
     return {
