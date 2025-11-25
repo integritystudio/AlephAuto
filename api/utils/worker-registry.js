@@ -14,7 +14,7 @@ import { GitignoreWorker } from '../../sidequest/workers/gitignore-worker.js';
 import { RepomixWorker } from '../../sidequest/workers/repomix-worker.js';
 import { ClaudeHealthWorker } from '../../sidequest/workers/claude-health-worker.js';
 import { RepoCleanupWorker } from '../../sidequest/workers/repo-cleanup-worker.js';
-import { TestRefactorWorker } from '../../sidequest/workers/test-refactor-worker.js';
+import { TestRefactorWorker } from '../../sidequest/workers/test-refactor-worker.ts';
 import { config } from '../../sidequest/core/config.js';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
 
