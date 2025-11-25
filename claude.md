@@ -215,6 +215,71 @@ function formatJobFromDb(job) {
 }
 ```
 
+### 15. WorkerRegistry: Use Singleton for Job Triggering
+```javascript
+// ✅ Correct - use WorkerRegistry singleton
+import { workerRegistry } from '../utils/worker-registry.js';
+
+async function triggerPipelineJob(pipelineId, parameters) {
+  // Validate pipeline is supported
+  if (!workerRegistry.isSupported(pipelineId)) {
+    throw new Error(`Unknown pipeline: ${pipelineId}`);
+  }
+
+  // Get or create worker instance (cached)
+  const worker = await workerRegistry.getWorker(pipelineId);
+
+  // Create job with real worker
+  const jobId = `${pipelineId}-manual-${Date.now()}`;
+  const job = worker.createJob(jobId, {
+    ...parameters,
+    triggeredBy: 'api',
+    triggeredAt: new Date().toISOString()
+  });
+
+  return job.id;
+}
+
+// ❌ Wrong - hardcoded mock job IDs
+async function triggerPipelineJob(pipelineId, parameters) {
+  return `job-${Date.now()}`; // No real job created
+}
+```
+
+### 16. CI/CD Environment Detection: Check Package Availability, Not Directories
+```javascript
+// ✅ Correct - check if packages are importable
+const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+const venvPython = join(projectRoot, 'venv', 'bin', 'python3');
+
+let found = false;
+let location = '';
+
+// Try venv Python first (local dev)
+if (existsSync(venvPython)) {
+  try {
+    execSync(`"${venvPython}" -c "import pydantic"`, { timeout: 3000 });
+    found = true;
+    location = 'venv';
+  } catch {}
+}
+
+// Fallback to system Python (CI)
+if (!found) {
+  try {
+    execSync('python3 -c "import pydantic"', { timeout: 3000 });
+    found = true;
+    location = isCI ? 'CI global' : 'system';
+  } catch {}
+}
+
+// ❌ Wrong - only checks directory existence
+const venvPath = join(projectRoot, 'venv');
+if (!existsSync(venvPath)) {
+  throw new Error('venv not found'); // Fails in CI with global packages
+}
+```
+
 ## Architecture: Big Picture
 
 ### Multi-Language Pipeline (JavaScript ↔ Python)
@@ -621,6 +686,7 @@ jobs/
 - `sidequest/core/server.js` - Base job queue (retry logic, events, git workflow)
 - `sidequest/core/config.js` - Centralized configuration
 - `sidequest/pipeline-core/errors/error-classifier.js` - Auto-classify retryable errors
+- `api/utils/worker-registry.js` - Singleton registry for worker instances with lazy initialization
 
 **Error Handling & Resilience:**
 - `sidequest/pipeline-core/doppler-health-monitor.js` - Circuit breaker for Doppler cache staleness
@@ -630,6 +696,7 @@ jobs/
 **Git Workflow:**
 - `sidequest/pipeline-core/git/branch-manager.js` - Branch creation, commit, push, PR creation
 - `sidequest/pipeline-core/git/pr-creator.js` - Legacy PR creator for duplicate detection
+- `sidequest/pipeline-core/git/migration-transformer.js` - AST-based code transformation with backup/rollback
 - `sidequest/doc-enhancement/schema-enhancement-worker.js` - Example with git workflow
 
 **Dashboard:**
@@ -795,9 +862,41 @@ jobs/
 - Pre-commit path validation
 - Auto-PR creation for duplicates
 
+## Recent Updates (Updated: 2025-11-25)
+
+**v1.6.6 - TODO Resolution & CI/CD Enhancements**
+- **Parallel TODO Resolution** - Resolved 6 major TODO comments
+  - Implemented WorkerRegistry singleton for real job triggering (api/utils/worker-registry.js)
+  - Added database-backed scan result storage with Zod validation
+  - Integrated marked.js markdown parser with mermaid support
+  - Implemented cross-repository duplicate analysis
+  - Created AST-based MigrationTransformer for safe code migrations
+  - Documented public auth endpoints decision (scans, pipelines remain public for dashboard)
+- **Cross-Platform CI/CD Improvements** - Environment-aware dependency verification
+  - Enhanced scripts/verify-setup.js with CI detection (`process.env.CI === 'true'`)
+  - Python package detection: venv first, fallback to system Python
+  - CLI tool detection: node_modules/.bin priority, multiple fallback locations
+  - Added .mise.toml for unified tool version management (Node 20, Python 3.12)
+  - 10/10 verification checks passing in both local and CI environments
+- **Report Endpoint Pattern Matching** - Improved report file resolution
+  - Pattern matching for report filenames: `{jobType}-{timestamp}.{ext}`
+  - Automatic fallback to most recent report for job type
+  - Location: api/routes/reports.js
+- **CloudFlare Tunnel Sync** - Automated file synchronization
+  - Pre-commit hook validates tunnel files are in sync
+  - Auto-adjusts import paths for nested directory structure
+  - npm scripts: `sync:cloudflare`, `sync:cloudflare:check`
+- **TypeScript Build Fixes**
+  - Excluded cloudflare-workers from main TypeScript compilation
+  - Fixed test fixture paths (using createTempRepository())
+- **New Documentation**
+  - docs/architecture/MIGRATION_TRANSFORMER.md - AST-based code transformation
+  - docs/architecture/WORKER_REGISTRY.md - WorkerRegistry singleton pattern
+  - scripts/generate-retroactive-reports.js - Retroactive report generation
+
 ---
 
-**Version:** 1.6.5
-**Last Updated:** 2025-11-24
+**Version:** 1.6.6
+**Last Updated:** 2025-11-25
 **Status:** Production Ready (PM2 + Doppler deployment)
 **Environment:** macOS with traditional server stack
