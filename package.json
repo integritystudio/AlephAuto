@@ -8,7 +8,7 @@
     "start": "node index.js",
     "dev": "node --watch index.js",
     "dashboard": "doppler run -- node api/server.js",
-    "test": "node --test 'tests/unit/**/*.test.js'",
+    "test": "node --test --test-name-pattern='.' tests/unit/*.test.js",
     "test:integration": "node --test tests/integration/*.js",
     "test:cache": "node --test tests/integration/cache-redis.test.js",
     "test:all": "node --test tests/unit/**/*.test.js tests/integration/*.js",
