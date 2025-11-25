@@ -35,6 +35,11 @@ jobs:
       - name: Install Node.js dependencies
         run: npm ci --omit=optional
 
+      - name: Setup ast-grep
+        uses: ast-grep/action@main
+        with:
+          version: latest
+
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
@@ -78,6 +83,11 @@ jobs:
       - name: Install dependencies
         run: npm ci --omit=optional
 
+      - name: Setup ast-grep
+        uses: ast-grep/action@main
+        with:
+          version: latest
+
       - name: TypeScript type checking
         run: npm run typecheck
 
@@ -100,6 +110,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --omit=optional
+
+      - name: Setup ast-grep
+        uses: ast-grep/action@main
+        with:
+          version: latest
 
       - name: Validate static assets
         run: |
