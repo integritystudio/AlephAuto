@@ -8,12 +8,20 @@
  */
 import express from 'express';
 import { validateQuery, validateRequest } from '../middleware/validation.js';
-import { JobQueryParamsSchema, ManualTriggerRequestSchema } from '../types/pipeline-requests.js';
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { JobQueryParamsSchema, ManualTriggerRequestSchema, PipelineDocsParamsSchema, PipelineHtmlParamsSchema } from '../../types/pipeline-requests.js';
+import { createComponentLogger } from '../../../sidequest/utils/logger.js';
+import { worker } from '../scans.js';
 import * as Sentry from '@sentry/node';
-import { getJobs } from '../../sidequest/core/database.js';
+import { getJobs, getJobCounts } from '../../../sidequest/core/database.js';
+import { getPipelineName } from '../../../sidequest/utils/pipeline-names.js';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
 const router = express.Router();
 const logger = createComponentLogger('PipelineRoutes');
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 /**
  * GET /api/sidequest/pipeline-runners/:pipelineId/jobs
  * Fetch job history for a specific pipeline
@@ -39,8 +47,8 @@ async (req, res, next) => {
             offset,
             tab
         }, 'Fetching pipeline jobs');
-        // Fetch jobs from data source
-        const jobs = await fetchJobsForPipeline(pipelineId, {
+        // Fetch jobs from data source (now returns {jobs, total})
+        const result = await fetchJobsForPipeline(pipelineId, {
             status,
             limit,
             offset,
@@ -48,14 +56,15 @@ async (req, res, next) => {
         });
         const response = {
             pipelineId,
-            jobs,
-            total: jobs.length,
-            hasMore: jobs.length === limit,
+            jobs: result.jobs,
+            total: result.total,  // FIXED E6: Use database total, not page size
+            hasMore: result.jobs.length === limit,
             timestamp: new Date().toISOString()
         };
         logger.info({
             pipelineId,
-            jobCount: jobs.length,
+            jobCount: result.jobs.length,
+            totalCount: result.total,
             hasMore: response.hasMore
         }, 'Successfully fetched pipeline jobs');
         res.json(response);
@@ -139,58 +148,157 @@ async (req, res, next) => {
  */
 async function fetchJobsForPipeline(pipelineId, options) {
     const { status, limit, offset, tab } = options;
-    // Fetch jobs from SQLite database
-    const dbJobs = getJobs(pipelineId, {
-        status,
-        limit: limit ?? 10,
-        offset: offset ?? 0,
-        tab
-    });
-    // Map database schema to API response schema
-    // Only include fields defined in JobDetailsSchema to pass strict validation
-    const jobs = dbJobs.map(dbJob => {
-        const job = {
-            id: dbJob.id,
-            pipelineId: dbJob.pipelineId,
-            status: dbJob.status,
-            startTime: dbJob.startedAt || dbJob.createdAt,
-        };
-        // Add optional fields only if they exist
-        if (dbJob.data) {
-            job.parameters = dbJob.data;
+
+    try {
+        // Query SQLite database with total count (FIXED E6: Now includes actual DB count)
+        const dbResult = getJobs(pipelineId, {
+            status,
+            limit,
+            offset,
+            tab,
+            includeTotal: true  // Request total count from database
+        });
+
+        // Extract jobs and total from database result
+        const dbJobs = dbResult.jobs || [];
+        const totalCount = dbResult.total || 0;
+
+        // Also get current in-memory jobs (not yet persisted)
+        const currentJobs = worker.getAllJobs();
+
+        // Combine: in-memory jobs take precedence (newer state)
+        const allJobsMap = new Map();
+
+        // Add database jobs first
+        for (const job of dbJobs) {
+            allJobsMap.set(job.id, formatJobFromDb(job));
         }
-        // Add endTime and duration if job is completed
-        if (dbJob.completedAt) {
-            job.endTime = dbJob.completedAt;
-            // Calculate duration in milliseconds
-            const start = new Date(dbJob.startedAt || dbJob.createdAt).getTime();
-            const end = new Date(dbJob.completedAt).getTime();
-            job.duration = end - start;
+
+        // Add/update with current in-memory jobs
+        for (const job of currentJobs) {
+            allJobsMap.set(job.id, formatJob(job, pipelineId));
         }
-        // Build result object from dbJob.result and dbJob.error
-        if (dbJob.result || dbJob.error) {
-            job.result = {};
-            // Merge result data
-            if (dbJob.result) {
-                Object.assign(job.result, dbJob.result);
-            }
-            // Add error message if job failed
-            if (dbJob.error && typeof dbJob.error === 'object' && 'message' in dbJob.error) {
-                job.result.error = dbJob.error.message;
-            }
-            else if (dbJob.error && typeof dbJob.error === 'string') {
-                job.result.error = dbJob.error;
+
+        // Convert to array and sort by creation time (newest first)
+        let allJobs = Array.from(allJobsMap.values())
+            .sort((a, b) => new Date(b.startTime || b.createdAt).getTime() - new Date(a.startTime || a.createdAt).getTime());
+
+        // Filter by status if provided (for in-memory jobs)
+        let filteredJobs = status
+            ? allJobs.filter(job => job.status === status)
+            : allJobs;
+
+        // Filter by tab context
+        if (tab === 'failed') {
+            filteredJobs = filteredJobs.filter(job => job.status === 'failed');
+        }
+        else if (tab === 'recent') {
+            filteredJobs = filteredJobs.slice(0, 10);
+        }
+
+        // Apply pagination (limit already applied in DB query, but need for combined results)
+        const paginatedJobs = filteredJobs.slice(0, limit);
+
+        logger.debug({
+            pipelineId,
+            dbJobs: dbJobs.length,
+            memoryJobs: currentJobs.length,
+            totalCount,
+            returned: paginatedJobs.length
+        }, 'Job query results');
+
+        // Return both jobs and total count
+        return { jobs: paginatedJobs, total: totalCount };
+    } catch (err) {
+        logger.error({ error: err.message, pipelineId }, 'Failed to fetch jobs from database, falling back to memory');
+
+        // Fallback to in-memory only
+        const currentJobs = worker.getAllJobs();
+        const historyJobs = worker.jobHistory || [];
+
+        const allJobs = [...historyJobs, ...currentJobs]
+            .map(job => formatJob(job, pipelineId))
+            .sort((a, b) => new Date(b.startTime || b.createdAt).getTime() - new Date(a.startTime || a.createdAt).getTime());
+
+        const paginatedJobs = allJobs.slice(offset, offset + limit);
+
+        // Return with total count (use all jobs length as estimate)
+        return { jobs: paginatedJobs, total: allJobs.length };
+    }
+}
+
+/**
+ * Format a job from database for API response
+ * Only includes fields defined in JobDetailsSchema to pass strict validation
+ */
+function formatJobFromDb(job) {
+    const duration = job.completedAt && job.startedAt
+        ? new Date(job.completedAt).getTime() - new Date(job.startedAt).getTime()
+        : null;
+
+    const formatted = {
+        id: job.id,
+        pipelineId: job.pipelineId,
+        status: job.status,
+        startTime: job.startedAt || job.createdAt
+    };
+
+    // Add optional fields only if they exist
+    if (job.completedAt) {
+        formatted.endTime = job.completedAt;
+    }
+
+    if (duration !== null) {
+        formatted.duration = duration;
+    }
+
+    if (job.data) {
+        formatted.parameters = job.data;
+    }
+
+    // Build result object from job.result and job.error
+    if (job.result || job.error) {
+        formatted.result = {};
+
+        // Merge result data
+        if (job.result) {
+            Object.assign(formatted.result, job.result);
+        }
+
+        // Add error message if job failed
+        if (job.error) {
+            if (typeof job.error === 'object' && job.error.message) {
+                formatted.result.error = job.error.message;
+            } else if (typeof job.error === 'string') {
+                formatted.result.error = job.error;
             }
         }
-        return job;
-    });
-    logger.debug({
+    }
+
+    return formatted;
+}
+
+/**
+ * Format a job object for API response
+ */
+function formatJob(job, pipelineId) {
+    const duration = job.completedAt && job.startedAt
+        ? new Date(job.completedAt).getTime() - new Date(job.startedAt).getTime()
+        : null;
+
+    return {
+        id: job.id,
         pipelineId,
-        returned: jobs.length,
-        status,
-        tab
-    }, 'Job query results from database');
-    return jobs;
+        status: job.status,
+        startTime: job.startedAt ? new Date(job.startedAt).toISOString() : null,
+        endTime: job.completedAt ? new Date(job.completedAt).toISOString() : null,
+        createdAt: job.createdAt ? new Date(job.createdAt).toISOString() : null,
+        duration,
+        parameters: job.data || {},
+        result: job.result || null,
+        error: job.error || null,
+        git: job.git || null
+    };
 }
 /**
  * Helper: Trigger a manual job for a pipeline
@@ -200,19 +308,207 @@ async function fetchJobsForPipeline(pipelineId, options) {
  * @returns New job ID
  */
 async function triggerPipelineJob(pipelineId, parameters) {
-    // TODO: Implement actual job triggering with worker
-    // For now, generate a mock job ID
-    const jobId = `job-${Date.now()}`;
-    logger.debug({
+    if (pipelineId !== 'duplicate-detection') {
+        throw new Error(`Unknown pipeline: ${pipelineId}`);
+    }
+
+    // Create job via worker
+    const jobId = `manual-${Date.now()}`;
+
+    // Schedule scan with the worker
+    if (parameters.repositoryPath) {
+        const path = await import('path');
+        worker.scheduleScan('intra-project', [{
+            name: path.basename(parameters.repositoryPath),
+            path: parameters.repositoryPath
+        }]);
+    } else if (parameters.repositoryPaths && Array.isArray(parameters.repositoryPaths)) {
+        const path = await import('path');
+        const repositories = parameters.repositoryPaths.map(repoPath => ({
+            name: path.basename(repoPath),
+            path: repoPath
+        }));
+        worker.scheduleScan('inter-project', repositories);
+    } else {
+        throw new Error('Either repositoryPath or repositoryPaths is required');
+    }
+
+    logger.info({
         pipelineId,
         jobId,
         parameters
-    }, 'Generated new job ID');
-    // In production, this would:
-    // 1. Validate pipeline exists
-    // 2. Create job in queue/database
-    // 3. Notify worker to start processing
-    // 4. Emit WebSocket event for real-time updates
+    }, 'Triggered pipeline job');
+
     return jobId;
 }
+
+/**
+ * GET /api/pipelines/:pipelineId/docs
+ * Fetch documentation for a specific pipeline
+ *
+ * Response: PipelineDocsResponse with markdown content
+ */
+router.get('/:pipelineId/docs', async (req, res, next) => {
+    const { pipelineId } = req.params;
+
+    try {
+        // Validate pipelineId
+        const validatedParams = PipelineDocsParamsSchema.parse({ pipelineId });
+
+        logger.info({ pipelineId }, 'Fetching pipeline documentation');
+
+        // Get pipeline name
+        const pipelineName = getPipelineName(pipelineId);
+
+        // Read documentation file
+        const docPath = path.join(__dirname, '../../docs/architecture/pipeline-data-flow.md');
+
+        let markdown;
+        try {
+            markdown = await fs.readFile(docPath, 'utf-8');
+        } catch (err) {
+            logger.warn({ pipelineId, docPath, error: err.message }, 'Documentation file not found');
+
+            // Return fallback documentation
+            markdown = `# ${pipelineName}\n\nDocumentation not yet available for this pipeline.\n\nPipeline ID: ${pipelineId}`;
+        }
+
+        const response = {
+            pipelineId,
+            name: pipelineName,
+            markdown,
+            timestamp: new Date().toISOString()
+        };
+
+        logger.info({ pipelineId, markdownLength: markdown.length }, 'Successfully fetched pipeline documentation');
+
+        res.json(response);
+    } catch (error) {
+        logger.error({ error, pipelineId }, 'Failed to fetch pipeline documentation');
+
+        Sentry.captureException(error, {
+            tags: {
+                component: 'PipelineAPI',
+                endpoint: '/api/pipelines/:id/docs',
+                pipelineId
+            }
+        });
+
+        // Handle validation errors
+        if (error.name === 'ZodError') {
+            return res.status(400).json({
+                error: 'Bad Request',
+                message: 'Invalid pipeline ID',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        next(error);
+    }
+});
+
+/**
+ * GET /api/pipelines/:pipelineId/html
+ * Serve HTML report for a specific pipeline job
+ *
+ * This endpoint resolves the HTML report path for a pipeline job and serves it.
+ * It looks for the most recent HTML report matching the pipelineId pattern.
+ *
+ * Response: HTML file content or 404 if not found
+ */
+router.get('/:pipelineId/html', async (req, res, next) => {
+    const { pipelineId } = req.params;
+
+    try {
+        // Validate pipelineId
+        const validatedParams = PipelineHtmlParamsSchema.parse({ pipelineId });
+
+        logger.info({ pipelineId }, 'Fetching HTML report for pipeline');
+
+        // Construct HTML report path
+        // Pattern: output/reports/{pipelineId}.html or output/reports/{pipelineId}-{date}.html
+        const reportsDir = path.join(__dirname, '../../output/reports');
+
+        // Try exact match first
+        let htmlPath = path.join(reportsDir, `${pipelineId}.html`);
+
+        try {
+            await fs.access(htmlPath);
+            logger.info({ pipelineId, htmlPath }, 'Found exact HTML report match');
+        } catch (err) {
+            // Try to find most recent report matching pattern
+            try {
+                const files = await fs.readdir(reportsDir);
+
+                // Filter files matching the pipelineId pattern
+                const matchingFiles = files.filter(f =>
+                    f.startsWith(pipelineId) && f.endsWith('.html')
+                ).sort().reverse(); // Most recent first (alphabetical sort works for ISO dates)
+
+                if (matchingFiles.length > 0) {
+                    htmlPath = path.join(reportsDir, matchingFiles[0]);
+                    logger.info({ pipelineId, htmlPath, matchingFiles: matchingFiles.length }, 'Found matching HTML report');
+                } else {
+                    logger.warn({ pipelineId, reportsDir }, 'No HTML reports found for pipeline');
+                    return res.status(404).json({
+                        error: 'Not Found',
+                        message: `No HTML report found for pipeline: ${pipelineId}`,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            } catch (readErr) {
+                logger.error({ error: readErr, reportsDir }, 'Failed to read reports directory');
+                throw readErr;
+            }
+        }
+
+        // Serve the HTML file
+        res.sendFile(htmlPath, (err) => {
+            if (err) {
+                logger.error({ error: err, htmlPath }, 'Failed to send HTML file');
+
+                Sentry.captureException(err, {
+                    tags: {
+                        component: 'PipelineAPI',
+                        endpoint: '/api/pipelines/:id/html',
+                        pipelineId
+                    }
+                });
+
+                if (!res.headersSent) {
+                    res.status(500).json({
+                        error: 'Internal Server Error',
+                        message: 'Failed to serve HTML report',
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            } else {
+                logger.info({ pipelineId, htmlPath }, 'Successfully served HTML report');
+            }
+        });
+
+    } catch (error) {
+        logger.error({ error, pipelineId }, 'Failed to fetch HTML report');
+
+        Sentry.captureException(error, {
+            tags: {
+                component: 'PipelineAPI',
+                endpoint: '/api/pipelines/:id/html',
+                pipelineId
+            }
+        });
+
+        // Handle validation errors
+        if (error.name === 'ZodError') {
+            return res.status(400).json({
+                error: 'Bad Request',
+                message: 'Invalid pipeline ID',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        next(error);
+    }
+});
+
 export default router;
