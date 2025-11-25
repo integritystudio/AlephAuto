@@ -60,8 +60,8 @@ router.get(
         tab
       }, 'Fetching pipeline jobs');
 
-      // Fetch jobs from data source
-      const jobs = await fetchJobsForPipeline(pipelineId, {
+      // Fetch jobs from data source (now returns {jobs, total})
+      const result = await fetchJobsForPipeline(pipelineId, {
         status,
         limit,
         offset,
@@ -70,15 +70,16 @@ router.get(
 
       const response: JobsListResponse = {
         pipelineId,
-        jobs,
-        total: jobs.length,
-        hasMore: jobs.length === limit,
+        jobs: result.jobs,
+        total: result.total, // FIXED: Use database total, not page size
+        hasMore: result.jobs.length === limit,
         timestamp: new Date().toISOString()
       };
 
       logger.info({
         pipelineId,
-        jobCount: jobs.length,
+        jobCount: result.jobs.length,
+        totalCount: result.total,
         hasMore: response.hasMore
       }, 'Successfully fetched pipeline jobs');
 
@@ -172,29 +173,34 @@ router.post(
 );
 
 /**
- * Helper: Fetch jobs for a pipeline
+ * Helper: Fetch jobs for a pipeline with total count
  *
  * @param pipelineId - Pipeline identifier
  * @param options - Query options (status, limit, offset, tab)
- * @returns Array of job details
+ * @returns Object with jobs array and total count
  */
 async function fetchJobsForPipeline(
   pipelineId: string,
   options: JobQueryParams
-): Promise<JobDetails[]> {
+): Promise<{ jobs: JobDetails[]; total: number }> {
   const { status, limit, offset, tab } = options;
 
-  // Fetch jobs from SQLite database
-  const dbJobs = getJobs(pipelineId, {
+  // Query SQLite database with total count (FIXED: Now includes actual DB count)
+  const dbResult = getJobs(pipelineId, {
     status,
     limit: limit ?? 10,
     offset: offset ?? 0,
-    tab
+    tab,
+    includeTotal: true // Request total count from database
   });
+
+  // Extract jobs and total from database result
+  const dbJobs = dbResult.jobs || [];
+  const totalCount = dbResult.total || 0;
 
   // Map database schema to API response schema
   // Only include fields defined in JobDetailsSchema to pass strict validation
-  const jobs: JobDetails[] = dbJobs.map(dbJob => {
+  const jobs: JobDetails[] = dbJobs.map((dbJob: any) => {
     const job: JobDetails = {
       id: dbJob.id,
       pipelineId: dbJob.pipelineId,
@@ -240,11 +246,12 @@ async function fetchJobsForPipeline(
   logger.debug({
     pipelineId,
     returned: jobs.length,
+    total: totalCount,
     status,
     tab
   }, 'Job query results from database');
 
-  return jobs;
+  return { jobs, total: totalCount };
 }
 
 /**
