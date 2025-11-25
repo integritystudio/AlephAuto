@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import { SchemaMCPTools } from '../../sidequest/doc-enhancement/schema-mcp-tools.js';
+import { SchemaMCPTools } from '../../sidequest/utils/schema-mcp-tools.js';
 
 describe('SchemaMCPTools', () => {
   test('should initialize with default options', () => {
