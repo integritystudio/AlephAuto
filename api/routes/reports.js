@@ -103,24 +103,62 @@ router.get('/:filename', async (req, res, next) => {
       });
     }
 
-    const reportPath = path.join(REPORTS_DIR, filename);
+    let reportPath = path.join(REPORTS_DIR, filename);
 
-    // Check if file exists
+    // Check if exact file exists
     try {
       await fs.access(reportPath);
+      logger.debug({ filename, reportPath }, 'Found exact report match');
     } catch {
-      return res.status(404).json({
-        error: 'Not Found',
-        message: `Report '${filename}' not found`,
-        timestamp: new Date().toISOString()
-      });
+      // Try pattern matching: extract job type and extension
+      // Pattern: {jobType}-{jobId}.{ext} or {jobType}-{timestamp}.{ext}
+      const match = filename.match(/^([a-z]+-[a-z]+)-.*\.(html|json|md)$/);
+
+      if (match) {
+        const [, jobType, ext] = match;
+
+        try {
+          const files = await fs.readdir(REPORTS_DIR);
+
+          // Find files matching the job type and extension
+          const matchingFiles = files.filter(f =>
+            f.startsWith(`${jobType}-`) && f.endsWith(`.${ext}`)
+          ).sort().reverse(); // Most recent first
+
+          if (matchingFiles.length > 0) {
+            reportPath = path.join(REPORTS_DIR, matchingFiles[0]);
+            logger.info({
+              filename,
+              resolvedTo: matchingFiles[0],
+              totalMatches: matchingFiles.length
+            }, 'Resolved report via pattern matching');
+          } else {
+            logger.warn({ filename, jobType, ext }, 'No matching reports found');
+            return res.status(404).json({
+              error: 'Not Found',
+              message: `Report '${filename}' not found`,
+              timestamp: new Date().toISOString()
+            });
+          }
+        } catch (readErr) {
+          logger.error({ error: readErr }, 'Failed to read reports directory');
+          throw readErr;
+        }
+      } else {
+        logger.warn({ filename }, 'Invalid filename pattern');
+        return res.status(404).json({
+          error: 'Not Found',
+          message: `Report '${filename}' not found`,
+          timestamp: new Date().toISOString()
+        });
+      }
     }
 
     // Determine content type
     let contentType = 'application/json';
-    if (filename.endsWith('.html')) {
+    if (reportPath.endsWith('.html')) {
       contentType = 'text/html';
-    } else if (filename.endsWith('.md')) {
+    } else if (reportPath.endsWith('.md')) {
       contentType = 'text/markdown';
     }
 

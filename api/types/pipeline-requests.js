@@ -163,3 +163,10 @@ export const PipelineDocsResponseSchema = z.object({
     markdown: z.string(),
     timestamp: z.string().datetime()
 }).strict();
+/**
+ * Pipeline HTML Report Request Schema
+ * Path parameters for GET /api/pipelines/:pipelineId/html
+ */
+export const PipelineHtmlParamsSchema = z.object({
+    pipelineId: z.string().min(1)
+}).strict();
