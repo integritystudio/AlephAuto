@@ -32,7 +32,7 @@
 
     <!-- Main Dashboard -->
     <main class="dashboard">
-        <!-- Pipeline Status Section -->
+        <!-- Pipeline Status Section (Left Column) -->
         <section class="dashboard-section pipelines-section">
             <h2 class="section-title">📊 Pipeline Status</h2>
             <div class="pipeline-cards" id="pipelineCards">
@@ -44,32 +44,34 @@
             </div>
         </section>
 
-        <!-- Job Queue Section -->
-        <section class="dashboard-section queue-section">
-            <h2 class="section-title">📋 Job Queue</h2>
-            <div class="queue-content">
-                <div class="queue-stats" id="queueStats">
-                    <div class="stat-card">
-                        <span class="stat-label">Active</span>
-                        <span class="stat-value" id="activeJobsCount">0</span>
+        <!-- Right Column Container -->
+        <div class="right-column">
+            <!-- Job Queue Section (Right Column, Top) -->
+            <section class="dashboard-section queue-section">
+                <h2 class="section-title">📋 Job Queue</h2>
+                <div class="queue-content">
+                    <div class="queue-stats" id="queueStats">
+                        <div class="stat-card">
+                            <span class="stat-label">Active</span>
+                            <span class="stat-value" id="activeJobsCount">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Queued</span>
+                            <span class="stat-value" id="queuedJobsCount">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Capacity</span>
+                            <span class="stat-value" id="capacityValue">0%</span>
+                        </div>
                     </div>
-                    <div class="stat-card">
-                        <span class="stat-label">Queued</span>
-                        <span class="stat-value" id="queuedJobsCount">0</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-label">Capacity</span>
-                        <span class="stat-value" id="capacityValue">0%</span>
+                    <div class="queue-jobs" id="queueJobs">
+                        <p class="empty-state">No active or queued jobs</p>
                     </div>
                 </div>
-                <div class="queue-jobs" id="queueJobs">
-                    <p class="empty-state">No active or queued jobs</p>
-                </div>
-            </div>
-        </section>
+            </section>
 
-        <!-- Retry Queue Section -->
-        <section class="dashboard-section retry-section">
+            <!-- Retry Queue Section (Right Column, Bottom) -->
+            <section class="dashboard-section retry-section">
             <h2 class="section-title">🔄 Retry Queue</h2>
             <div class="retry-content">
                 <div class="retry-stats" id="retryStats">
