@@ -560,6 +560,12 @@ export class DuplicateDetectionWorker extends SidequestServer {
 
     for (const repoConfig of repositoryConfigs) {
       try {
+        // Skip config updates for temporary test repositories
+        if (repoConfig.name.startsWith('alephauto-test-')) {
+          logger.debug({ repository: repoConfig.name }, 'Skipping config update for test repository');
+          continue;
+        }
+
         // Update last scanned timestamp
         await this.configLoader.updateLastScanned(repoConfig.name);
 

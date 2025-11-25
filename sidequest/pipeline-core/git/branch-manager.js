@@ -189,7 +189,7 @@ export class BranchManager {
 
       throw error;
     } finally {
-      span.end();
+      if (span) span.end();
     }
   }
 
@@ -259,7 +259,7 @@ export class BranchManager {
 
       throw error;
     } finally {
-      span.end();
+      if (span) span.end();
     }
   }
 
@@ -310,7 +310,7 @@ export class BranchManager {
       // Don't throw - PR creation can still fail gracefully
       return false;
     } finally {
-      span.end();
+      if (span) span.end();
     }
   }
 
@@ -383,7 +383,7 @@ export class BranchManager {
 
       return null;
     } finally {
-      span.end();
+      if (span) span.end();
     }
   }
 

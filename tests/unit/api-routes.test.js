@@ -52,7 +52,12 @@ describe('API Routes', () => {
 
         assert.strictEqual(response.status, 400);
         assert.strictEqual(response.body.error, 'Bad Request');
-        assert.ok(response.body.message.includes('repositoryPath'));
+        // Validation middleware returns errors in errors array with field names
+        assert.ok(
+          response.body.message.includes('repositoryPath') ||
+          (response.body.errors && response.body.errors.some(e => e.field === 'repositoryPath')),
+          'Error should mention repositoryPath field'
+        );
       });
 
       test('should accept valid scan request', async () => {

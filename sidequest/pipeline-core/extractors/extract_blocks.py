@@ -187,7 +187,10 @@ def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> L
             print(f"DEBUG first match: file_path={match.get('file_path')}, line_start={match.get('line_start')}", file=sys.stderr)
         try:
             # Generate unique block ID
-            block_id = f"cb_{hashlib.sha256(f"{match['file_path']}:{match['line_start']}".encode()).hexdigest()[:12]}"
+            # Python 3.11 doesn't support nested f-strings, so construct the string first
+            block_key = f"{match['file_path']}:{match['line_start']}"
+            block_hash = hashlib.sha256(block_key.encode()).hexdigest()[:12]
+            block_id = f"cb_{block_hash}"
 
             # Map pattern_id to category (must match SemanticCategory enum)
             category_map = {

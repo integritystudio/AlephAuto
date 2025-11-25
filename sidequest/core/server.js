@@ -421,14 +421,22 @@ export class SidequestServer extends EventEmitter {
    * Log job failure to file
    */
   async logJobFailure(job, error) {
-    const logPath = path.join(this.logDir, `${job.id}.error.json`);
-    await fs.writeFile(logPath, JSON.stringify({
-      ...job,
-      error: {
-        message: error.message,
-        stack: error.stack,
-      },
-    }, null, 2));
+    try {
+      // Ensure log directory exists
+      await fs.mkdir(this.logDir, { recursive: true });
+
+      const logPath = path.join(this.logDir, `${job.id}.error.json`);
+      await fs.writeFile(logPath, JSON.stringify({
+        ...job,
+        error: {
+          message: error.message,
+          stack: error.stack,
+        },
+      }, null, 2));
+    } catch (logError) {
+      // If we can't write logs, at least log to console
+      logger.error({ logError, jobId: job.id }, 'Failed to write error log file');
+    }
   }
 
   /**
