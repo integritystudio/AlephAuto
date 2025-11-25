@@ -200,7 +200,14 @@ body {
     margin: 0 auto;
     padding: var(--space-4);
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--space-3);
+}
+
+/* Right column container for Job Queue and Retry Queue */
+.right-column {
+    display: flex;
+    flex-direction: column;
     gap: var(--space-3);
 }
 
@@ -860,7 +867,7 @@ pre {
 /* ===== RESPONSIVE ===== */
 @media (max-width: 1200px) {
     .dashboard {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
     }
 
     .activity-section {
@@ -872,6 +879,10 @@ pre {
     .dashboard {
         grid-template-columns: 1fr;
         padding: var(--space-2);
+    }
+
+    .right-column {
+        gap: var(--space-2);
     }
 
     .header-content {
