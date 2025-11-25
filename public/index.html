@@ -32,7 +32,7 @@
 
     <!-- Main Dashboard -->
     <main class="dashboard">
-        <!-- Pipeline Status Section -->
+        <!-- Pipeline Status Section (Left Column) -->
         <section class="dashboard-section pipelines-section">
             <h2 class="section-title">📊 Pipeline Status</h2>
             <div class="pipeline-cards" id="pipelineCards">
@@ -44,32 +44,34 @@
             </div>
         </section>
 
-        <!-- Job Queue Section -->
-        <section class="dashboard-section queue-section">
-            <h2 class="section-title">📋 Job Queue</h2>
-            <div class="queue-content">
-                <div class="queue-stats" id="queueStats">
-                    <div class="stat-card">
-                        <span class="stat-label">Active</span>
-                        <span class="stat-value" id="activeJobsCount">0</span>
+        <!-- Right Column Container -->
+        <div class="right-column">
+            <!-- Job Queue Section (Right Column, Top) -->
+            <section class="dashboard-section queue-section">
+                <h2 class="section-title">📋 Job Queue</h2>
+                <div class="queue-content">
+                    <div class="queue-stats" id="queueStats">
+                        <div class="stat-card">
+                            <span class="stat-label">Active</span>
+                            <span class="stat-value" id="activeJobsCount">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Queued</span>
+                            <span class="stat-value" id="queuedJobsCount">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Capacity</span>
+                            <span class="stat-value" id="capacityValue">0%</span>
+                        </div>
                     </div>
-                    <div class="stat-card">
-                        <span class="stat-label">Queued</span>
-                        <span class="stat-value" id="queuedJobsCount">0</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-label">Capacity</span>
-                        <span class="stat-value" id="capacityValue">0%</span>
+                    <div class="queue-jobs" id="queueJobs">
+                        <p class="empty-state">No active or queued jobs</p>
                     </div>
                 </div>
-                <div class="queue-jobs" id="queueJobs">
-                    <p class="empty-state">No active or queued jobs</p>
-                </div>
-            </div>
-        </section>
+            </section>
 
-        <!-- Retry Queue Section -->
-        <section class="dashboard-section retry-section">
+            <!-- Retry Queue Section (Right Column, Bottom) -->
+            <section class="dashboard-section retry-section">
             <h2 class="section-title">🔄 Retry Queue</h2>
             <div class="retry-content">
                 <div class="retry-stats" id="retryStats">
@@ -120,12 +122,29 @@
                 </div>
             </div>
         </section>
+        </div><!-- End Right Column -->
 
         <!-- Activity Feed Section -->
         <section class="dashboard-section activity-section">
             <h2 class="section-title">📝 Recent Activity</h2>
             <div class="activity-feed" id="activityFeed">
                 <p class="empty-state">No recent activity</p>
+            </div>
+        </section>
+
+        <!-- Code Inventory Section -->
+        <section class="dashboard-section inventory-section">
+            <h2 class="section-title">📦 Code Inventory</h2>
+            <div class="inventory-content">
+                <div class="inventory-stats" id="inventoryStats">
+                    <div class="loading-state">
+                        <div class="spinner"></div>
+                        <p>Loading repository inventory...</p>
+                    </div>
+                </div>
+                <div class="inventory-projects" id="inventoryProjects">
+                    <!-- Projects will be loaded here -->
+                </div>
             </div>
         </section>
     </main>
@@ -139,6 +158,7 @@
                 <button class="doc-tab" data-doc="pipelines">Pipelines</button>
                 <button class="doc-tab" data-doc="api">API Reference</button>
                 <button class="doc-tab" data-doc="architecture">Architecture</button>
+                <button class="doc-tab" data-doc="data-flow">Pipeline Data Flow</button>
             </div>
         </div>
         <div class="documentation-content" id="docContent">
@@ -161,7 +181,7 @@
             </div>
             <div class="doc-panel" data-panel="pipelines">
                 <h3>Available Pipelines</h3>
-                <div class="pipeline-docs">
+                <div class="pipeline-docs-grid">
                     <div class="pipeline-doc">
                         <h4>🔍 Duplicate Detection Pipeline</h4>
                         <p><strong>Purpose:</strong> Scans repositories for duplicate code using AST-grep and similarity algorithms</p>
@@ -273,7 +293,7 @@
                 <p class="api-intro">All endpoints return JSON. Authentication is required for most endpoints via <code>X-API-Key</code> header.</p>
 
                 <h4>System Status</h4>
-                <div class="api-endpoints">
+                <div class="api-endpoints-grid">
                     <div class="api-endpoint">
                         <code class="http-method">GET</code>
                         <code class="endpoint-path">/health</code>
@@ -320,7 +340,7 @@
                 </div>
 
                 <h4>Pipeline Management</h4>
-                <div class="api-endpoints">
+                <div class="api-endpoints-grid">
                     <div class="api-endpoint">
                         <code class="http-method">GET</code>
                         <code class="endpoint-path">/api/sidequest/pipeline-runners/:pipelineId/jobs</code>
@@ -366,7 +386,7 @@
                 </div>
 
                 <h4>Scan Operations</h4>
-                <div class="api-endpoints">
+                <div class="api-endpoints-grid">
                     <div class="api-endpoint">
                         <code class="http-method">POST</code>
                         <code class="endpoint-path">/api/scans</code>
@@ -394,7 +414,7 @@
                 </div>
 
                 <h4>Reports</h4>
-                <div class="api-endpoints">
+                <div class="api-endpoints-grid">
                     <div class="api-endpoint">
                         <code class="http-method">GET</code>
                         <code class="endpoint-path">/api/reports</code>
@@ -482,6 +502,17 @@ Stage 3-7 (Python): Block Extraction → Semantic Annotation
                     <li><strong>Sentry:</strong> Error tracking and performance monitoring</li>
                     <li><strong>Event Broadcasting:</strong> WebSocket real-time updates</li>
                 </ul>
+            </div>
+            <div class="doc-panel" data-panel="data-flow">
+                <h3>Pipeline Data Flow Documentation</h3>
+                <p class="doc-intro">Comprehensive data flow diagrams and architectural documentation for all 9 AlephAuto pipelines.</p>
+
+                <div id="pipelineDataFlowContent">
+                    <div class="loading-state">
+                        <div class="spinner"></div>
+                        <p>Loading pipeline data flow documentation...</p>
+                    </div>
+                </div>
             </div>
         </div>
     </section>

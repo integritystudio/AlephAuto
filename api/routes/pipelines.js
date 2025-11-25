@@ -8,13 +8,20 @@
  */
 import express from 'express';
 import { validateQuery, validateRequest } from '../middleware/validation.js';
-import { JobQueryParamsSchema, ManualTriggerRequestSchema } from '../types/pipeline-requests.js';
+import { JobQueryParamsSchema, ManualTriggerRequestSchema, PipelineDocsParamsSchema, PipelineHtmlParamsSchema } from '../types/pipeline-requests.js';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import { worker } from './scans.js';
 import * as Sentry from '@sentry/node';
 import { getJobs, getJobCounts } from '../../sidequest/core/database.js';
+import { getPipelineName } from '../../sidequest/utils/pipeline-names.js';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
 const router = express.Router();
 const logger = createComponentLogger('PipelineRoutes');
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 /**
  * GET /api/sidequest/pipeline-runners/:pipelineId/jobs
  * Fetch job history for a specific pipeline
@@ -222,25 +229,53 @@ async function fetchJobsForPipeline(pipelineId, options) {
 
 /**
  * Format a job from database for API response
+ * Only includes fields defined in JobDetailsSchema to pass strict validation
  */
 function formatJobFromDb(job) {
     const duration = job.completedAt && job.startedAt
         ? new Date(job.completedAt) - new Date(job.startedAt)
         : null;
 
-    return {
+    const formatted = {
         id: job.id,
         pipelineId: job.pipelineId,
         status: job.status,
-        startTime: job.startedAt,
-        endTime: job.completedAt,
-        createdAt: job.createdAt,
-        duration,
-        parameters: job.data || {},
-        result: job.result || null,
-        error: job.error || null,
-        git: job.git || null
+        startTime: job.startedAt || job.createdAt
     };
+
+    // Add optional fields only if they exist
+    if (job.completedAt) {
+        formatted.endTime = job.completedAt;
+    }
+
+    if (duration !== null) {
+        formatted.duration = duration;
+    }
+
+    if (job.data) {
+        formatted.parameters = job.data;
+    }
+
+    // Build result object from job.result and job.error
+    if (job.result || job.error) {
+        formatted.result = {};
+
+        // Merge result data
+        if (job.result) {
+            Object.assign(formatted.result, job.result);
+        }
+
+        // Add error message if job failed
+        if (job.error) {
+            if (typeof job.error === 'object' && job.error.message) {
+                formatted.result.error = job.error.message;
+            } else if (typeof job.error === 'string') {
+                formatted.result.error = job.error;
+            }
+        }
+    }
+
+    return formatted;
 }
 
 /**
@@ -306,4 +341,174 @@ async function triggerPipelineJob(pipelineId, parameters) {
 
     return jobId;
 }
+
+/**
+ * GET /api/pipelines/:pipelineId/docs
+ * Fetch documentation for a specific pipeline
+ *
+ * Response: PipelineDocsResponse with markdown content
+ */
+router.get('/:pipelineId/docs', async (req, res, next) => {
+    const { pipelineId } = req.params;
+
+    try {
+        // Validate pipelineId
+        const validatedParams = PipelineDocsParamsSchema.parse({ pipelineId });
+
+        logger.info({ pipelineId }, 'Fetching pipeline documentation');
+
+        // Get pipeline name
+        const pipelineName = getPipelineName(pipelineId);
+
+        // Read documentation file
+        const docPath = path.join(__dirname, '../../docs/architecture/pipeline-data-flow.md');
+
+        let markdown;
+        try {
+            markdown = await fs.readFile(docPath, 'utf-8');
+        } catch (err) {
+            logger.warn({ pipelineId, docPath, error: err.message }, 'Documentation file not found');
+
+            // Return fallback documentation
+            markdown = `# ${pipelineName}\n\nDocumentation not yet available for this pipeline.\n\nPipeline ID: ${pipelineId}`;
+        }
+
+        const response = {
+            pipelineId,
+            name: pipelineName,
+            markdown,
+            timestamp: new Date().toISOString()
+        };
+
+        logger.info({ pipelineId, markdownLength: markdown.length }, 'Successfully fetched pipeline documentation');
+
+        res.json(response);
+    } catch (error) {
+        logger.error({ error, pipelineId }, 'Failed to fetch pipeline documentation');
+
+        Sentry.captureException(error, {
+            tags: {
+                component: 'PipelineAPI',
+                endpoint: '/api/pipelines/:id/docs',
+                pipelineId
+            }
+        });
+
+        // Handle validation errors
+        if (error.name === 'ZodError') {
+            return res.status(400).json({
+                error: 'Bad Request',
+                message: 'Invalid pipeline ID',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        next(error);
+    }
+});
+
+/**
+ * GET /api/pipelines/:pipelineId/html
+ * Serve HTML report for a specific pipeline job
+ *
+ * This endpoint resolves the HTML report path for a pipeline job and serves it.
+ * It looks for the most recent HTML report matching the pipelineId pattern.
+ *
+ * Response: HTML file content or 404 if not found
+ */
+router.get('/:pipelineId/html', async (req, res, next) => {
+    const { pipelineId } = req.params;
+
+    try {
+        // Validate pipelineId
+        const validatedParams = PipelineHtmlParamsSchema.parse({ pipelineId });
+
+        logger.info({ pipelineId }, 'Fetching HTML report for pipeline');
+
+        // Construct HTML report path
+        // Pattern: output/reports/{pipelineId}.html or output/reports/{pipelineId}-{date}.html
+        const reportsDir = path.join(__dirname, '../../output/reports');
+
+        // Try exact match first
+        let htmlPath = path.join(reportsDir, `${pipelineId}.html`);
+
+        try {
+            await fs.access(htmlPath);
+            logger.info({ pipelineId, htmlPath }, 'Found exact HTML report match');
+        } catch (err) {
+            // Try to find most recent report matching pattern
+            try {
+                const files = await fs.readdir(reportsDir);
+
+                // Filter files matching the pipelineId pattern
+                const matchingFiles = files.filter(f =>
+                    f.startsWith(pipelineId) && f.endsWith('.html')
+                ).sort().reverse(); // Most recent first (alphabetical sort works for ISO dates)
+
+                if (matchingFiles.length > 0) {
+                    htmlPath = path.join(reportsDir, matchingFiles[0]);
+                    logger.info({ pipelineId, htmlPath, matchingFiles: matchingFiles.length }, 'Found matching HTML report');
+                } else {
+                    logger.warn({ pipelineId, reportsDir }, 'No HTML reports found for pipeline');
+                    return res.status(404).json({
+                        error: 'Not Found',
+                        message: `No HTML report found for pipeline: ${pipelineId}`,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            } catch (readErr) {
+                logger.error({ error: readErr, reportsDir }, 'Failed to read reports directory');
+                throw readErr;
+            }
+        }
+
+        // Serve the HTML file
+        res.sendFile(htmlPath, (err) => {
+            if (err) {
+                logger.error({ error: err, htmlPath }, 'Failed to send HTML file');
+
+                Sentry.captureException(err, {
+                    tags: {
+                        component: 'PipelineAPI',
+                        endpoint: '/api/pipelines/:id/html',
+                        pipelineId
+                    }
+                });
+
+                if (!res.headersSent) {
+                    res.status(500).json({
+                        error: 'Internal Server Error',
+                        message: 'Failed to serve HTML report',
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            } else {
+                logger.info({ pipelineId, htmlPath }, 'Successfully served HTML report');
+            }
+        });
+
+    } catch (error) {
+        logger.error({ error, pipelineId }, 'Failed to fetch HTML report');
+
+        Sentry.captureException(error, {
+            tags: {
+                component: 'PipelineAPI',
+                endpoint: '/api/pipelines/:id/html',
+                pipelineId
+            }
+        });
+
+        // Handle validation errors
+        if (error.name === 'ZodError') {
+            return res.status(400).json({
+                error: 'Bad Request',
+                message: 'Invalid pipeline ID',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        next(error);
+    }
+});
+
 export default router;

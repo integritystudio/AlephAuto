@@ -301,6 +301,9 @@ class DashboardController {
         // Fetch initial status from API
         await this.fetchInitialStatus();
 
+        // Load code inventory
+        this.loadInventory();
+
         // Connect to WebSocket for real-time updates
         this.connectWebSocket();
 
@@ -1080,8 +1083,44 @@ class DashboardController {
                         panel.classList.remove('active');
                     }
                 });
+
+                // Load pipeline data flow documentation if that tab is clicked
+                if (targetDoc === 'data-flow') {
+                    this.loadPipelineDataFlow();
+                }
             });
         });
+    }
+
+    /**
+     * Load pipeline data flow documentation from markdown file
+     */
+    async loadPipelineDataFlow() {
+        const container = document.getElementById('pipelineDataFlowContent');
+        if (!container) return;
+
+        // Check if already loaded
+        if (container.dataset.loaded === 'true') return;
+
+        try {
+            const response = await fetch('/api/pipeline-data-flow');
+            if (!response.ok) {
+                throw new Error(`Failed to fetch documentation: ${response.statusText}`);
+            }
+
+            const html = await response.text();
+            container.innerHTML = html;
+            container.dataset.loaded = 'true';
+        } catch (error) {
+            console.error('Failed to load pipeline data flow documentation:', error);
+            container.innerHTML = `
+                <div class="error-state">
+                    <p class="error-message">Failed to load pipeline data flow documentation</p>
+                    <p class="error-details">${error.message}</p>
+                    <button class="btn btn-secondary" onclick="dashboard.loadPipelineDataFlow()">Retry</button>
+                </div>
+            `;
+        }
     }
 
     /**
@@ -1709,7 +1748,7 @@ class DashboardController {
         const pipelineName = this.getPipelineDisplayName(job.pipelineId);
         const statusIcon = this.getStatusIcon(job.status);
 
-        // Get HTML report path if available
+        // Get HTML report path (always returns a path, either from result or constructed from job ID)
         const htmlReportPath = this.getHtmlReportPath(job);
 
         return `
@@ -1719,13 +1758,9 @@ class DashboardController {
                         <div class="hero-job-id">
                             <div class="copyable-field">
                                 <span class="copyable-value">${job.id}</span>
-                                ${htmlReportPath ? `
-                                    <a href="${htmlReportPath}" target="_blank" class="full-results-btn">
-                                        Full Results →
-                                    </a>
-                                ` : `
-                                    <button class="copy-btn" onclick="window.dashboardController.copyToClipboard('${job.id}', this)">Copy ID</button>
-                                `}
+                                <a href="${htmlReportPath}" target="_blank" class="full-results-btn">
+                                    View Report →
+                                </a>
                             </div>
                         </div>
                         <div class="hero-pipeline-name">${pipelineName}</div>
@@ -1944,28 +1979,33 @@ class DashboardController {
     }
 
     /**
-     * Get HTML report path from job result
+     * Get HTML report path from job result or construct from job ID
      */
     getHtmlReportPath(job) {
-        if (!job.result) return null;
+        // Check if reportPath exists in result
+        if (job.result && job.result.reportPath) {
+            // If it's already an HTML file
+            if (job.result.reportPath.endsWith('.html')) {
+                return job.result.reportPath.replace(/^.*\/output\/reports\//, '/api/reports/');
+            }
 
-        // Check if reportPath exists (legacy format)
-        if (job.result.reportPath && job.result.reportPath.endsWith('.html')) {
-            return job.result.reportPath.replace(/^.*\/output\/reports\//, '/api/reports/');
-        }
+            // Check for report_paths.html (new format from scan orchestrator)
+            if (job.result.report_paths && job.result.report_paths.html) {
+                return job.result.report_paths.html.replace(/^.*\/output\/reports\//, '/api/reports/');
+            }
 
-        // Check for report_paths.html (new format from scan orchestrator)
-        if (job.result.report_paths && job.result.report_paths.html) {
-            return job.result.report_paths.html.replace(/^.*\/output\/reports\//, '/api/reports/');
-        }
-
-        // Try to construct from reportPath by changing extension
-        if (job.result.reportPath) {
-            const htmlPath = job.result.reportPath.replace(/\.(json|md)$/, '.html');
+            // Construct HTML path from JSON/MD path
+            // Pattern: "inter-project-scan-2repos-2025-11-24-summary.json" -> "inter-project-scan-2repos-2025-11-24.html"
+            const htmlPath = job.result.reportPath
+                .replace(/-summary\.(json|md)$/, '.html')  // Remove -summary suffix and change extension
+                .replace(/\.(json|md)$/, '.html');         // Or just change extension if no -summary
             return htmlPath.replace(/^.*\/output\/reports\//, '/api/reports/');
         }
 
-        return null;
+        // Fallback: construct from job ID
+        // Pattern: "inter-project-scan-2repos-2025-11-24" -> "/api/reports/inter-project-scan-2repos-2025-11-24.html"
+        const htmlFilename = `${job.id}.html`;
+        return `/api/reports/${htmlFilename}`;
     }
 
     /**
@@ -2110,6 +2150,125 @@ class DashboardController {
         }
 
         return `${seconds}s`;
+    }
+
+    /**
+     * Load code inventory data
+     */
+    async loadInventory() {
+        try {
+            // Fetch stats and projects in parallel
+            const [statsResponse, projectsResponse] = await Promise.all([
+                fetch('/api/inventory/stats'),
+                fetch('/api/inventory/projects?page=1&limit=50')
+            ]);
+
+            if (!statsResponse.ok || !projectsResponse.ok) {
+                throw new Error('Failed to fetch inventory data');
+            }
+
+            const stats = await statsResponse.json();
+            const projects = await projectsResponse.json();
+
+            this.renderInventoryStats(stats);
+            this.renderInventoryProjects(projects.data);
+        } catch (error) {
+            console.error('Failed to load inventory:', error);
+            this.renderInventoryError(error.message);
+        }
+    }
+
+    /**
+     * Render inventory statistics
+     */
+    renderInventoryStats(stats) {
+        const container = document.getElementById('inventoryStats');
+        if (!container) return;
+
+        const topLanguages = stats.languages.slice(0, 5);
+
+        container.innerHTML = `
+            <div class="stat-card">
+                <span class="stat-label">Total Projects</span>
+                <span class="stat-value">${stats.totalProjects}</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Public</span>
+                <span class="stat-value">${stats.publicRepos}</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Private</span>
+                <span class="stat-value">${stats.privateRepos}</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Total Stars</span>
+                <span class="stat-value">⭐ ${stats.totalStars}</span>
+            </div>
+            <div class="stat-card stat-card-wide">
+                <span class="stat-label">Top Languages</span>
+                <div class="language-list">
+                    ${topLanguages.map(lang => `
+                        <span class="language-badge">
+                            ${lang.name} <span class="language-count">${lang.count}</span>
+                        </span>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Render inventory projects
+     */
+    renderInventoryProjects(projects) {
+        const container = document.getElementById('inventoryProjects');
+        if (!container) return;
+
+        if (projects.length === 0) {
+            container.innerHTML = '<p class="empty-state">No projects found</p>';
+            return;
+        }
+
+        container.innerHTML = `
+            <h3 class="subsection-title">Repositories (${projects.length} shown)</h3>
+            <div class="inventory-grid">
+                ${projects.map(project => `
+                    <div class="inventory-card">
+                        <div class="inventory-card-header">
+                            <h4 class="inventory-project-name">
+                                <a href="${project.gitRemote}" target="_blank" rel="noopener">${project.name}</a>
+                            </h4>
+                            ${project.isPrivate ? '<span class="privacy-badge private">🔒 Private</span>' : '<span class="privacy-badge public">🌍 Public</span>'}
+                        </div>
+                        <p class="inventory-description">${project.description || 'No description'}</p>
+                        <div class="inventory-meta">
+                            <span class="language-tag">${project.language}</span>
+                            ${project.stars > 0 ? `<span class="stars-count">⭐ ${project.stars}</span>` : ''}
+                            <span class="last-pushed">${this.formatDate(project.lastPushed)}</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    /**
+     * Render inventory error
+     */
+    renderInventoryError(message) {
+        const statsContainer = document.getElementById('inventoryStats');
+        const projectsContainer = document.getElementById('inventoryProjects');
+
+        const errorHtml = `
+            <div class="error-state">
+                <p class="error-message">Failed to load code inventory</p>
+                <p class="error-details">${message}</p>
+                <button class="btn btn-secondary" onclick="dashboard.loadInventory()">Retry</button>
+            </div>
+        `;
+
+        if (statsContainer) statsContainer.innerHTML = errorHtml;
+        if (projectsContainer) projectsContainer.innerHTML = '';
     }
 }
 

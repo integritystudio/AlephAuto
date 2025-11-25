@@ -32,6 +32,7 @@ Automation pipelines built on **AlephAuto** job queue framework with real-time d
 | Dashboard | `npm run dashboard` → http://localhost:8080 |
 | Enable auto PRs | Set `ENABLE_GIT_WORKFLOW=true` in Doppler - See Git Workflow section |
 | API Reference | See `docs/API_REFERENCE.md` for complete endpoint documentation |
+| Pipeline docs | Dashboard → "Pipeline Data Flow" tab for architecture diagrams |
 | Cleanup repository | `npm run cleanup:once` (run now), `npm run cleanup:dryrun` (preview) |
 
 ## Critical Patterns & Gotchas
@@ -158,6 +159,35 @@ worker.on('job:failed', (job, error) => {
 worker.on('job:failed', (job, error) => {
   this.addActivity({ ... }); // If this throws, event handler fails
 });
+```
+
+### 13. Job Details Modal: Always Return Schema-Compliant Fields
+```javascript
+// ✅ Correct - only return fields defined in JobDetailsSchema
+function formatJobFromDb(job) {
+  const formatted = {
+    id: job.id,
+    pipelineId: job.pipelineId,
+    status: job.status,
+    startTime: job.startedAt || job.createdAt
+  };
+
+  // Add optional fields conditionally
+  if (job.completedAt) formatted.endTime = job.completedAt;
+  if (job.data) formatted.parameters = job.data;
+
+  return formatted;
+}
+
+// ❌ Wrong - includes extra fields that violate strict schema
+function formatJobFromDb(job) {
+  return {
+    ...job,
+    createdAt: job.createdAt,  // Not in schema
+    error: job.error,          // Not in schema (should be in result.error)
+    git: job.git               // Not in schema
+  };
+}
 ```
 
 ## Architecture: Big Picture
@@ -357,8 +387,8 @@ async _generatePRContext(job) {
 **Key Files:**
 
 - `sidequest/pipeline-core/git/branch-manager.js` - Git operations (branch, commit, push, PR)
-- `sidequest/server.js` - Base class with git workflow integration
-- `sidequest/config.js` - Git workflow configuration
+- `sidequest/core/server.js` - Base class with git workflow integration
+- `sidequest/core/config.js` - Git workflow configuration
 
 ### Type System: Zod → TypeScript Flow
 
@@ -518,6 +548,8 @@ jobs/
 ├── api/                    # REST API + WebSocket + Static files
 │   ├── server.js          # Main server entry point
 │   ├── routes/            # API route handlers
+│   │   ├── pipelines.js   # Pipeline job history (SQLite-backed)
+│   │   └── inventory.js   # Code inventory endpoints (NEW in v1.6.5)
 │   ├── types/             # Zod schemas + TypeScript types
 │   └── middleware/        # Validation, auth, etc.
 ├── sidequest/            # AlephAuto framework + pipeline core
@@ -532,13 +564,19 @@ jobs/
 │       ├── git/          # PR creation, branch management
 │       └── cache/        # Redis caching
 ├── public/               # Dashboard UI (HTML/CSS/JS)
+│   ├── dashboard.js     # Client-side controller (NEW: report links)
+│   ├── dashboard.css    # Styling (NEW: improved modal UX)
+│   └── index.html       # UI with pipeline details + docs tab (NEW)
 ├── tests/                # Tests (unit, integration, accuracy)
 │   ├── fixtures/        # Test helpers (createTempRepository)
 │   └── README.md        # Test infrastructure guide
 ├── docs/                 # Documentation
-│   ├── architecture/     # Architecture docs (ERROR_HANDLING.md, TYPE_SYSTEM.md)
-│   ├── dashboard_ui/     # Dashboard docs (DASHBOARD.md, DATAFLOW_DIAGRAMS.md)
+│   ├── architecture/     # Architecture docs
+│   │   └── pipeline-data-flow.md  # Comprehensive workflow diagrams (UPDATED)
+│   ├── dashboard_ui/     # Dashboard docs
 │   ├── deployment/       # Deployment guides
+│   │   ├── CI_CD_UPDATES.md         # CI/CD enhancements (NEW)
+│   │   └── CI_CD_CROSS_PLATFORM_AUDIT.md  # Cross-platform audit (NEW)
 │   └── runbooks/         # Operational runbooks
 └── ecosystem.config.cjs  # PM2 production config
 ```
@@ -555,8 +593,8 @@ jobs/
 - `api/middleware/validation.js` - Request validation middleware
 
 **Job Queue:**
-- `sidequest/server.js` - Base job queue (retry logic, events, git workflow)
-- `sidequest/config.js` - Centralized configuration
+- `sidequest/core/server.js` - Base job queue (retry logic, events, git workflow)
+- `sidequest/core/config.js` - Centralized configuration
 - `sidequest/pipeline-core/errors/error-classifier.js` - Auto-classify retryable errors
 
 **Error Handling & Resilience:**
@@ -570,9 +608,9 @@ jobs/
 - `sidequest/doc-enhancement/schema-enhancement-worker.js` - Example with git workflow
 
 **Dashboard:**
-- `public/dashboard.js` - Client-side controller
+- `public/dashboard.js` - Client-side controller (updated v1.6.5)
 - `api/websocket.js` - WebSocket event broadcasting
-- `public/index.html` - UI with pipeline details panel
+- `public/index.html` - UI with pipeline details panel + documentation tab (updated v1.6.5)
 
 **Testing:**
 - `tests/fixtures/test-helpers.js` - createTempRepository() and utilities
@@ -584,6 +622,12 @@ jobs/
 - `scripts/deploy-traditional-server.sh` - Deployment automation
 
 ## Breaking Changes & Migrations
+
+**v1.6.5 - Pipeline API Schema Enforcement**
+- **Old:** API returned extra fields (createdAt, error, git) in job responses
+- **New:** Strict schema validation - only JobDetailsSchema fields returned
+- **Impact:** Frontend should not rely on undocumented fields
+- **Migration:** Update any code expecting `createdAt`, top-level `error`, or `git` fields
 
 **v1.2.0 - Test Path Migration**
 - **Old:** Hardcoded `/tmp/test-repo` paths
@@ -600,7 +644,7 @@ jobs/
 **Architecture guides:**
 - `docs/architecture/ERROR_HANDLING.md` - Retry logic, circuit breaker, Sentry integration, Doppler monitoring, port management, null-safe patterns
 - `docs/architecture/TYPE_SYSTEM.md` - Zod + TypeScript validation patterns
-- `docs/architecture/CHEAT_SHEET.md` - Command reference
+- `docs/architecture/pipeline-data-flow.md` - **UPDATED v1.6.5** - Comprehensive workflow diagrams for all 9 pipelines
 - `docs/architecture/CACHE_TESTING.md` - Redis cache testing
 
 **API Documentation:**
@@ -612,6 +656,8 @@ jobs/
 
 **Deployment & Operations:**
 - `docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md` - PM2 + Nginx setup
+- `docs/deployment/CI_CD_UPDATES.md` - **NEW v1.6.5** - CI/CD deployment enhancements
+- `docs/deployment/CI_CD_CROSS_PLATFORM_AUDIT.md` - **NEW v1.6.5** - Cross-platform compatibility
 - `docs/runbooks/troubleshooting.md` - Doppler failures, port conflicts, Activity Feed errors, WebSocket issues
 - `docs/runbooks/pipeline-execution.md` - Pipeline patterns, Doppler integration, permission troubleshooting
 - `docs/runbooks/DOPPLER_OUTAGE.md` - Doppler API outage response
@@ -619,7 +665,33 @@ jobs/
 
 ## Recent Major Changes
 
-**v1.6.4 (Current) - Production Error Handling Improvements**
+**v1.6.5 (Current) - Dashboard UI Improvements & API Fixes**
+- **Pipeline Job Details Modal** - Fixed data integrity issues
+  - Replaced mock data with real SQLite database queries
+  - Fixed `formatJobFromDb()` to return only schema-compliant fields (removed createdAt, error, git)
+  - Updated `fetchJobsForPipeline()` to use `getJobs()` from database module
+  - Location: `api/routes/pipelines.js`, `api/routes/pipelines.ts`
+- **Job Modal UX Enhancement** - Improved report access
+  - Replaced "Copy ID" button with "View Report →" link for all jobs
+  - Updated `getHtmlReportPath()` to always return valid path (constructs from job ID if needed)
+  - Improved HTML report path construction (strips `-summary` suffix correctly)
+  - Location: `public/dashboard.js`
+- **Dashboard Documentation Tab** - Pipeline architecture visibility
+  - Added new "Pipeline Data Flow" documentation tab to dashboard UI
+  - New API endpoint: `GET /api/pipeline-data-flow` (serves comprehensive workflow diagrams)
+  - Expanded `pipeline-data-flow.md` to cover all 9 workflows (+1618 lines)
+  - Location: `public/index.html`, `api/server.js`, `docs/architecture/pipeline-data-flow.md`
+- **Code Inventory API** - New endpoints added
+  - `GET /api/inventory/stats` - Code inventory statistics
+  - `GET /api/inventory/projects` - Code inventory project list
+  - Updated auth middleware to allow public access to inventory and documentation endpoints
+  - Location: `api/routes/inventory.js`, `api/middleware/auth.js`
+- **Documentation Cleanup**
+  - Removed obsolete `docs/architecture/CHEAT_SHEET.md` (351 lines removed)
+  - Added comprehensive CI/CD deployment documentation
+  - Updated `docs/deployment/CI_CD_UPDATES.md` and `CI_CD_CROSS_PLATFORM_AUDIT.md`
+
+**v1.6.4 - Production Error Handling Improvements**
 - **Doppler Health Monitor** - Circuit breaker pattern for stale cache detection
   - Monitors fallback cache age every 15 minutes
   - Warning threshold: 12 hours, critical threshold: 24 hours
@@ -700,7 +772,7 @@ jobs/
 
 ---
 
-**Version:** 1.6.4
+**Version:** 1.6.5
 **Last Updated:** 2025-11-24
 **Status:** Production Ready (PM2 + Doppler deployment)
 **Environment:** macOS with traditional server stack

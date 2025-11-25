@@ -21,6 +21,7 @@ import {
 } from '../types/pipeline-requests.js';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import * as Sentry from '@sentry/node';
+import { getJobs } from '../../sidequest/core/database.js';
 
 const router = express.Router();
 const logger = createComponentLogger('PipelineRoutes');
@@ -182,81 +183,67 @@ async function fetchJobsForPipeline(
 ): Promise<JobDetails[]> {
   const { status, limit, offset, tab } = options;
 
-  // TODO: Implement actual job fetching from database/memory
-  // For now, return mock data for development
+  // Fetch jobs from SQLite database
+  const dbJobs = getJobs(pipelineId, {
+    status,
+    limit: limit ?? 10,
+    offset: offset ?? 0,
+    tab
+  });
 
-  // Mock job data
-  const mockJobs: JobDetails[] = [
-    {
-      id: 'job-123',
-      pipelineId,
-      status: 'completed',
-      startTime: new Date(Date.now() - 3600000).toISOString(),
-      endTime: new Date(Date.now() - 3400000).toISOString(),
-      duration: 200000,
-      parameters: {
-        repositoryPath: '/Users/example/code/test-repo'
-      },
-      result: {
-        output: 'Scan completed successfully',
-        stats: {
-          filesScanned: 42,
-          duplicatesFound: 3,
-          reportGenerated: true
-        }
+  // Map database schema to API response schema
+  // Only include fields defined in JobDetailsSchema to pass strict validation
+  const jobs: JobDetails[] = dbJobs.map(dbJob => {
+    const job: JobDetails = {
+      id: dbJob.id,
+      pipelineId: dbJob.pipelineId,
+      status: dbJob.status,
+      startTime: dbJob.startedAt || dbJob.createdAt,
+    };
+
+    // Add optional fields only if they exist
+    if (dbJob.data) {
+      job.parameters = dbJob.data;
+    }
+
+    // Add endTime and duration if job is completed
+    if (dbJob.completedAt) {
+      job.endTime = dbJob.completedAt;
+
+      // Calculate duration in milliseconds
+      const start = new Date(dbJob.startedAt || dbJob.createdAt).getTime();
+      const end = new Date(dbJob.completedAt).getTime();
+      job.duration = end - start;
+    }
+
+    // Build result object from dbJob.result and dbJob.error
+    if (dbJob.result || dbJob.error) {
+      job.result = {};
+
+      // Merge result data
+      if (dbJob.result) {
+        Object.assign(job.result, dbJob.result);
       }
-    },
-    {
-      id: 'job-122',
-      pipelineId,
-      status: 'failed',
-      startTime: new Date(Date.now() - 7200000).toISOString(),
-      endTime: new Date(Date.now() - 7100000).toISOString(),
-      duration: 100000,
-      parameters: {
-        repositoryPath: '/Users/example/code/another-repo'
-      },
-      result: {
-        error: 'Repository not found: /Users/example/code/another-repo',
-        stats: {
-          filesScanned: 0
-        }
-      }
-    },
-    {
-      id: 'job-121',
-      pipelineId,
-      status: 'running',
-      startTime: new Date(Date.now() - 600000).toISOString(),
-      parameters: {
-        repositoryPath: '/Users/example/code/active-repo'
+
+      // Add error message if job failed
+      if (dbJob.error && typeof dbJob.error === 'object' && 'message' in dbJob.error) {
+        job.result.error = dbJob.error.message;
+      } else if (dbJob.error && typeof dbJob.error === 'string') {
+        job.result.error = dbJob.error;
       }
     }
-  ];
 
-  // Filter by status if provided
-  let filteredJobs = status
-    ? mockJobs.filter(job => job.status === status)
-    : mockJobs;
-
-  // Filter by tab context
-  if (tab === 'failed') {
-    filteredJobs = filteredJobs.filter(job => job.status === 'failed');
-  } else if (tab === 'recent') {
-    filteredJobs = filteredJobs.slice(0, 10);
-  }
-
-  // Apply pagination
-  const paginatedJobs = filteredJobs.slice(offset, offset + limit);
+    return job;
+  });
 
   logger.debug({
     pipelineId,
-    total: mockJobs.length,
-    filtered: filteredJobs.length,
-    returned: paginatedJobs.length
-  }, 'Job query results');
+    returned: jobs.length,
+    status,
+    tab
+  }, 'Job query results from database');
 
-  return paginatedJobs;
+  return jobs;
 }
 
 /**

@@ -192,3 +192,36 @@ export function createValidationErrorResponse(
     errors
   };
 }
+
+/**
+ * Pipeline Documentation Request Schema
+ * Path parameters for GET /api/pipelines/:pipelineId/docs
+ */
+export const PipelineDocsParamsSchema = z.object({
+  pipelineId: z.string().min(1)
+}).strict();
+
+export type PipelineDocsParams = z.infer<typeof PipelineDocsParamsSchema>;
+
+/**
+ * Pipeline Documentation Response Schema
+ * Markdown documentation for a specific pipeline
+ */
+export const PipelineDocsResponseSchema = z.object({
+  pipelineId: z.string(),
+  name: z.string(),
+  markdown: z.string(),
+  timestamp: z.string().datetime()
+}).strict();
+
+export type PipelineDocsResponse = z.infer<typeof PipelineDocsResponseSchema>;
+
+/**
+ * Pipeline HTML Report Request Schema
+ * Path parameters for GET /api/pipelines/:pipelineId/html
+ */
+export const PipelineHtmlParamsSchema = z.object({
+  pipelineId: z.string().min(1)
+}).strict();
+
+export type PipelineHtmlParams = z.infer<typeof PipelineHtmlParamsSchema>;

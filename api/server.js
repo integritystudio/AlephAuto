@@ -23,6 +23,7 @@ import scanRoutes, { worker } from './routes/scans.js';
 import repositoryRoutes from './routes/repositories.js';
 import reportRoutes from './routes/reports.js';
 import pipelineRoutes from './routes/pipelines.js';
+import inventoryRoutes from './routes/inventory.js';
 import * as Sentry from '@sentry/node';
 import { createServer } from 'http';
 import { createWebSocketServer } from './websocket.js';
@@ -32,6 +33,7 @@ import { DopplerHealthMonitor } from '../sidequest/pipeline-core/doppler-health-
 import { setupServerWithPortFallback, setupGracefulShutdown } from './utils/port-manager.js';
 import { getAllPipelineStats } from '../sidequest/core/database.js';
 import { getPipelineName } from '../sidequest/utils/pipeline-names.js';
+import fs from 'fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -160,12 +162,43 @@ app.get('/api/status', (req, res) => {
   }
 });
 
+// Pipeline data flow documentation endpoint
+app.get('/api/pipeline-data-flow', async (req, res) => {
+  try {
+    const docPath = path.join(__dirname, '../docs/architecture/pipeline-data-flow.md');
+    const markdown = await fs.readFile(docPath, 'utf-8');
+
+    // Convert markdown to HTML with basic formatting
+    // For now, wrap in pre tags to preserve formatting
+    // TODO: Add proper markdown parser (marked.js) for full rendering
+    const html = `
+      <div class="markdown-content">
+        <pre class="markdown-raw">${markdown.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+      </div>
+    `;
+
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+  } catch (error) {
+    logger.error({ error }, 'Failed to load pipeline data flow documentation');
+    Sentry.captureException(error, {
+      tags: { component: 'APIServer', endpoint: '/api/pipeline-data-flow' }
+    });
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to load documentation',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // API routes
 app.use('/api/scans', scanRoutes);
 app.use('/api/repositories', repositoryRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/pipelines', pipelineRoutes);
 app.use('/api/sidequest/pipeline-runners', pipelineRoutes); // Dashboard compatibility
+app.use('/api/inventory', inventoryRoutes);
 
 // 404 handler
 app.use((req, res) => {
