@@ -5,11 +5,13 @@
 **Important:** This project uses `@ast-grep/cli` for code pattern detection in the duplicate detection pipeline.
 
 ### Local Development
-- `@ast-grep/cli` is installed via `npm install` as a devDependency
+- `@ast-grep/cli` is installed via `npm install` as an **optionalDependency**
 - Binary is located at `node_modules/.bin/ast-grep`
+- If postinstall fails, it won't block npm install (optional)
 
 ### CI/CD (GitHub Actions)
 - **We use the official ast-grep GitHub Action** instead of npm package installation
+- `npm ci --omit=optional` skips @ast-grep/cli installation in CI
 - Reason: The npm package postinstall script can fail in CI environments with "Failed to move @ast-grep/cli binary into place"
 - Solution: `ast-grep/action@main` provides reliable binary installation across all platforms
 
@@ -20,7 +22,7 @@
     version: latest
 ```
 
-### Why Keep @ast-grep/cli in devDependencies?
+### Why Keep @ast-grep/cli in optionalDependencies?
 
 Even though CI uses the GitHub Action, we keep `@ast-grep/cli` in `package.json` for:
 1. **Local development** - Developers need ast-grep installed via npm
