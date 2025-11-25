@@ -37,7 +37,32 @@ Automation pipelines built on **AlephAuto** job queue framework with real-time d
 
 ## Critical Patterns & Gotchas
 
-### 1. Doppler Required for ALL Commands
+### 1. Cloudflare Tunnel: Automated File Sync
+```
+IMPORTANT: The api/routes/ subdirectory contains files for a Cloudflare secure tunnel into another application.
+
+Files that are automatically synced:
+- api/middleware/validation.js ↔ api/routes/middleware/validation.js
+- api/routes/pipelines.js ↔ api/routes/routes/pipelines.js
+
+Automation:
+- Pre-commit hook: Automatically checks files are in sync before commit
+- Manual sync: npm run sync:cloudflare
+- Check sync: npm run sync:cloudflare:check
+- Script: scripts/sync-cloudflare-tunnel-files.js
+
+The sync script automatically adjusts import paths:
+- Adds extra '../' level for sidequest imports
+- Adjusts relative imports (./scans.js → ../scans.js)
+- Ensures TypeScript type checking passes
+
+When editing source files (api/middleware/, api/routes/pipelines.js):
+1. Make changes to source file
+2. Pre-commit hook will verify sync before allowing commit
+3. If out of sync, run: npm run sync:cloudflare
+```
+
+### 2. Doppler Required for ALL Commands
 ```bash
 # ✅ Correct
 doppler run -- node api/server.js
@@ -46,7 +71,7 @@ doppler run -- node api/server.js
 node api/server.js
 ```
 
-### 2. Configuration: NEVER use process.env directly
+### 3. Configuration: NEVER use process.env directly
 ```javascript
 // ✅ Correct
 import { config } from './sidequest/config.js';
@@ -56,7 +81,7 @@ const port = config.jobsApiPort;
 const port = process.env.JOBS_API_PORT;
 ```
 
-### 3. Test Fixtures: NEVER hardcode /tmp/ paths
+### 4. Test Fixtures: NEVER hardcode /tmp/ paths
 ```javascript
 // ✅ Correct
 import { createTempRepository } from '../tests/fixtures/test-helpers.js';
@@ -67,7 +92,7 @@ const repoPath = testRepo.path; // Use this
 const repoPath = '/tmp/test-repo';
 ```
 
-### 4. Nullish Coalescing for Numeric Options
+### 5. Nullish Coalescing for Numeric Options
 ```javascript
 // ✅ Correct - preserves 0 as valid value
 const limit = options.limit ?? 10;
@@ -76,7 +101,7 @@ const limit = options.limit ?? 10;
 const limit = options.limit || 10;
 ```
 
-### 5. Field Names: CodeBlock uses `tags`, NOT `semantic_tags`
+### 6. Field Names: CodeBlock uses `tags`, NOT `semantic_tags`
 ```python
 # ✅ Correct
 block = CodeBlock(tags=["database"], ...)
@@ -85,13 +110,13 @@ block = CodeBlock(tags=["database"], ...)
 block = CodeBlock(semantic_tags=["database"], ...)
 ```
 
-### 6. Two-Phase Similarity: Extract features BEFORE normalization
+### 7. Two-Phase Similarity: Extract features BEFORE normalization
 See `sidequest/pipeline-core/similarity/structural.py:231` - feature extraction must happen on original code.
 
-### 7. Port: Use JOBS_API_PORT (8080), NOT API_PORT
+### 8. Port: Use JOBS_API_PORT (8080), NOT API_PORT
 Migration complete but docs may reference old `API_PORT` variable.
 
-### 8. Type Validation: Use Zod + TypeScript inference
+### 9. Type Validation: Use Zod + TypeScript inference
 ```typescript
 // ✅ Correct
 export const MySchema = z.object({ ... });
@@ -102,7 +127,7 @@ export const MySchema = z.object({ ... });
 export type MyType = { ... }; // Duplicates schema
 ```
 
-### 9. Pipeline Execution: Doppler + Explicit Node.js Interpreter
+### 10. Pipeline Execution: Doppler + Explicit Node.js Interpreter
 ```bash
 # ✅ Correct - explicit interpreter prevents "fork/exec permission denied"
 doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
@@ -119,7 +144,7 @@ node sidequest/pipeline-runners/duplicate-detection-pipeline.js
 **Critical:** Always use `doppler run -- node <script>` NOT `doppler run -- <script>`.
 See `docs/runbooks/pipeline-execution.md` for troubleshooting guide.
 
-### 10. Port Conflicts: Use Port Manager Utility
+### 11. Port Conflicts: Use Port Manager Utility
 ```javascript
 // ✅ Correct - automatic fallback to 8081-8090
 import { setupServerWithPortFallback } from './api/utils/port-manager.js';
@@ -132,7 +157,7 @@ const actualPort = await setupServerWithPortFallback(httpServer, {
 httpServer.listen(8080);
 ```
 
-### 11. Null-Safe Error Handling: Always Use Optional Chaining
+### 12. Null-Safe Error Handling: Always Use Optional Chaining
 ```javascript
 // ✅ Correct - safe against null/undefined
 const errorCode = error?.code ?? 'UNKNOWN';
@@ -143,7 +168,7 @@ const errorCode = error.code;
 const errorMessage = error.message;
 ```
 
-### 12. Activity Feed: Nested Try-Catch for Error Handlers
+### 13. Activity Feed: Nested Try-Catch for Error Handlers
 ```javascript
 // ✅ Correct - error handler failures are caught
 worker.on('job:failed', (job, error) => {
@@ -161,7 +186,7 @@ worker.on('job:failed', (job, error) => {
 });
 ```
 
-### 13. Job Details Modal: Always Return Schema-Compliant Fields
+### 14. Job Details Modal: Always Return Schema-Compliant Fields
 ```javascript
 // ✅ Correct - only return fields defined in JobDetailsSchema
 function formatJobFromDb(job) {
