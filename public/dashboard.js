@@ -1080,8 +1080,44 @@ class DashboardController {
                         panel.classList.remove('active');
                     }
                 });
+
+                // Load pipeline data flow documentation if that tab is clicked
+                if (targetDoc === 'data-flow') {
+                    this.loadPipelineDataFlow();
+                }
             });
         });
+    }
+
+    /**
+     * Load pipeline data flow documentation from markdown file
+     */
+    async loadPipelineDataFlow() {
+        const container = document.getElementById('pipelineDataFlowContent');
+        if (!container) return;
+
+        // Check if already loaded
+        if (container.dataset.loaded === 'true') return;
+
+        try {
+            const response = await fetch('/api/pipeline-data-flow');
+            if (!response.ok) {
+                throw new Error(`Failed to fetch documentation: ${response.statusText}`);
+            }
+
+            const html = await response.text();
+            container.innerHTML = html;
+            container.dataset.loaded = 'true';
+        } catch (error) {
+            console.error('Failed to load pipeline data flow documentation:', error);
+            container.innerHTML = `
+                <div class="error-state">
+                    <p class="error-message">Failed to load pipeline data flow documentation</p>
+                    <p class="error-details">${error.message}</p>
+                    <button class="btn btn-secondary" onclick="dashboard.loadPipelineDataFlow()">Retry</button>
+                </div>
+            `;
+        }
     }
 
     /**

@@ -2796,3 +2796,57 @@ pre {
         color: var(--color-gray-900);
     }
 }
+
+/* ============================================================================
+   Pipeline Data Flow Documentation
+   ============================================================================ */
+
+.markdown-content {
+    background: var(--color-white);
+    border-radius: 8px;
+    padding: 2rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.markdown-raw {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--color-gray-900);
+    background: var(--color-gray-50);
+    border: 1px solid var(--color-gray-200);
+    border-radius: 6px;
+    padding: 1.5rem;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.markdown-raw::-webkit-scrollbar {
+    height: 8px;
+}
+
+.markdown-raw::-webkit-scrollbar-track {
+    background: var(--color-gray-100);
+    border-radius: 4px;
+}
+
+.markdown-raw::-webkit-scrollbar-thumb {
+    background: var(--color-gray-300);
+    border-radius: 4px;
+}
+
+.markdown-raw::-webkit-scrollbar-thumb:hover {
+    background: var(--color-gray-400);
+}
+
+@media (max-width: 768px) {
+    .markdown-content {
+        padding: 1rem;
+    }
+
+    .markdown-raw {
+        font-size: 0.75rem;
+        padding: 1rem;
+    }
+}
