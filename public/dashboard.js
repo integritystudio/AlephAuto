@@ -301,6 +301,9 @@ class DashboardController {
         // Fetch initial status from API
         await this.fetchInitialStatus();
 
+        // Load code inventory
+        this.loadInventory();
+
         // Connect to WebSocket for real-time updates
         this.connectWebSocket();
 
@@ -2147,6 +2150,125 @@ class DashboardController {
         }
 
         return `${seconds}s`;
+    }
+
+    /**
+     * Load code inventory data
+     */
+    async loadInventory() {
+        try {
+            // Fetch stats and projects in parallel
+            const [statsResponse, projectsResponse] = await Promise.all([
+                fetch('/api/inventory/stats'),
+                fetch('/api/inventory/projects?page=1&limit=50')
+            ]);
+
+            if (!statsResponse.ok || !projectsResponse.ok) {
+                throw new Error('Failed to fetch inventory data');
+            }
+
+            const stats = await statsResponse.json();
+            const projects = await projectsResponse.json();
+
+            this.renderInventoryStats(stats);
+            this.renderInventoryProjects(projects.data);
+        } catch (error) {
+            console.error('Failed to load inventory:', error);
+            this.renderInventoryError(error.message);
+        }
+    }
+
+    /**
+     * Render inventory statistics
+     */
+    renderInventoryStats(stats) {
+        const container = document.getElementById('inventoryStats');
+        if (!container) return;
+
+        const topLanguages = stats.languages.slice(0, 5);
+
+        container.innerHTML = `
+            <div class="stat-card">
+                <span class="stat-label">Total Projects</span>
+                <span class="stat-value">${stats.totalProjects}</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Public</span>
+                <span class="stat-value">${stats.publicRepos}</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Private</span>
+                <span class="stat-value">${stats.privateRepos}</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Total Stars</span>
+                <span class="stat-value">⭐ ${stats.totalStars}</span>
+            </div>
+            <div class="stat-card stat-card-wide">
+                <span class="stat-label">Top Languages</span>
+                <div class="language-list">
+                    ${topLanguages.map(lang => `
+                        <span class="language-badge">
+                            ${lang.name} <span class="language-count">${lang.count}</span>
+                        </span>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Render inventory projects
+     */
+    renderInventoryProjects(projects) {
+        const container = document.getElementById('inventoryProjects');
+        if (!container) return;
+
+        if (projects.length === 0) {
+            container.innerHTML = '<p class="empty-state">No projects found</p>';
+            return;
+        }
+
+        container.innerHTML = `
+            <h3 class="subsection-title">Repositories (${projects.length} shown)</h3>
+            <div class="inventory-grid">
+                ${projects.map(project => `
+                    <div class="inventory-card">
+                        <div class="inventory-card-header">
+                            <h4 class="inventory-project-name">
+                                <a href="${project.gitRemote}" target="_blank" rel="noopener">${project.name}</a>
+                            </h4>
+                            ${project.isPrivate ? '<span class="privacy-badge private">🔒 Private</span>' : '<span class="privacy-badge public">🌍 Public</span>'}
+                        </div>
+                        <p class="inventory-description">${project.description || 'No description'}</p>
+                        <div class="inventory-meta">
+                            <span class="language-tag">${project.language}</span>
+                            ${project.stars > 0 ? `<span class="stars-count">⭐ ${project.stars}</span>` : ''}
+                            <span class="last-pushed">${this.formatDate(project.lastPushed)}</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    /**
+     * Render inventory error
+     */
+    renderInventoryError(message) {
+        const statsContainer = document.getElementById('inventoryStats');
+        const projectsContainer = document.getElementById('inventoryProjects');
+
+        const errorHtml = `
+            <div class="error-state">
+                <p class="error-message">Failed to load code inventory</p>
+                <p class="error-details">${message}</p>
+                <button class="btn btn-secondary" onclick="dashboard.loadInventory()">Retry</button>
+            </div>
+        `;
+
+        if (statsContainer) statsContainer.innerHTML = errorHtml;
+        if (projectsContainer) projectsContainer.innerHTML = '';
     }
 }
 
