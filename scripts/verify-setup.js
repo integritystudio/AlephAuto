@@ -98,16 +98,63 @@ check('python3 available', () => {
   }
 });
 
-check('Python virtual environment exists', () => {
+check('Python packages available', () => {
+  // Check if we're in CI (packages installed globally) or local dev (venv)
+  const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
   const venvPath = join(projectRoot, 'venv');
-  if (!existsSync(venvPath)) {
-    throw new Error('venv not found. Run: python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt');
+  const venvPython = join(venvPath, 'bin', 'python3');
+
+  let found = false;
+  let location = '';
+
+  // Try venv Python first (local dev)
+  if (existsSync(venvPython)) {
+    try {
+      execSync(`"${venvPython}" -c "import pydantic"`, {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 3000,
+      });
+      found = true;
+      location = 'venv';
+    } catch {
+      // venv exists but packages not installed
+    }
+  }
+
+  // Fallback to system Python (CI mode)
+  if (!found) {
+    try {
+      execSync('python3 -c "import pydantic"', {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 3000,
+      });
+      found = true;
+      location = isCI ? 'CI global' : 'system';
+    } catch {
+      // Not available
+    }
+  }
+
+  if (found) {
+    console.log(`   Python packages available (${location})`);
+  } else {
+    if (!isCI && !existsSync(venvPath)) {
+      throw new Error('Python packages not found. Run: python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt');
+    } else if (!isCI && existsSync(venvPath)) {
+      throw new Error('venv exists but packages not installed. Run: source venv/bin/activate && pip install -r requirements.txt');
+    } else {
+      throw new Error('Python packages not found. Run: pip install -r requirements.txt');
+    }
   }
 });
 
 check('ast-grep available', () => {
   // Check for ast-grep in common locations
   const possiblePaths = [
+    join(projectRoot, 'node_modules/.bin/ast-grep'),  // Local install (preferred)
+    'npx ast-grep',  // Via npx
     'ast-grep',  // In PATH
     '/opt/homebrew/bin/ast-grep',  // Apple Silicon Homebrew
     '/usr/local/bin/ast-grep',  // Intel Mac Homebrew
@@ -116,6 +163,7 @@ check('ast-grep available', () => {
 
   let found = false;
   let version = '';
+  let location = '';
 
   for (const astGrepPath of possiblePaths) {
     try {
@@ -125,7 +173,9 @@ check('ast-grep available', () => {
         timeout: 2000,
       }).trim();
       found = true;
-      console.log(`   ${version} (found at: ${astGrepPath})`);
+      location = astGrepPath.includes('node_modules') ? 'local install' :
+                 astGrepPath.includes('npx') ? 'npx' : 'global';
+      console.log(`   ${version} (${location})`);
       break;
     } catch {
       // Try next path
@@ -133,7 +183,7 @@ check('ast-grep available', () => {
   }
 
   if (!found) {
-    throw new Error('ast-grep not found. Install: npm install -g @ast-grep/cli or brew install ast-grep');
+    throw new Error('ast-grep not found. It should be installed as a dev dependency (already in package.json)');
   }
 });
 

@@ -1,0 +1,54 @@
+# mise configuration for AlephAuto jobs project
+# mise provides unified tool version management for Node.js and Python
+#
+# Installation: brew install mise
+# Usage: mise install (auto-runs when entering directory with mise hook)
+#
+# Learn more: https://mise.jdx.dev/
+
+[tools]
+node = "20"           # LTS version (matches CI matrix)
+python = "3.12"       # Latest stable (matches CI matrix)
+
+[env]
+# Add node_modules/.bin to PATH for local CLI tools
+_.path = ["./node_modules/.bin"]
+
+[tasks.setup]
+description = "Install all dependencies (Node.js + Python)"
+run = """
+echo "📦 Installing Node.js dependencies..."
+npm install
+
+echo "🐍 Setting up Python virtual environment..."
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+
+echo "✨ Setup complete! Run 'mise run verify' to check installation."
+"""
+
+[tasks.verify]
+description = "Verify all dependencies are installed correctly"
+run = "npm run verify"
+
+[tasks.test]
+description = "Run all tests (unit + integration)"
+run = "npm test && npm run test:integration"
+
+[tasks.dev]
+description = "Start development server"
+run = "doppler run -- npm run dashboard"
+
+[tasks.typecheck]
+description = "Run TypeScript type checking"
+run = "npm run typecheck"
+
+[tasks.clean]
+description = "Clean all generated files and dependencies"
+run = """
+rm -rf node_modules venv
+rm -f package-lock.json
+echo "🧹 Cleaned! Run 'mise run setup' to reinstall."
+"""

@@ -111,8 +111,14 @@
         "*.test.js",
         "*.spec.js"
       ],
-      "lastScannedAt": "2025-11-24T07:00:34.244Z",
+      "lastScannedAt": "2025-11-25T07:00:26.408Z",
       "scanHistory": [
+        {
+          "timestamp": "2025-11-25T07:00:26.408Z",
+          "status": "success",
+          "duration": 25.488,
+          "duplicatesFound": 163
+        },
         {
           "timestamp": "2025-11-24T07:00:34.244Z",
           "status": "success",
