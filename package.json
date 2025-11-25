@@ -40,6 +40,8 @@
     "setup:sentry": "node setup-files/setup-sentry.js",
     "verify": "node scripts/verify-setup.js",
     "typecheck": "tsc --noEmit",
+    "sync:cloudflare": "node scripts/sync-cloudflare-tunnel-files.js",
+    "sync:cloudflare:check": "node scripts/sync-cloudflare-tunnel-files.js --check-only",
     "logs:cleanup": "node scripts/cleanup-error-logs.js",
     "logs:cleanup:dry": "node scripts/cleanup-error-logs.js --dry-run",
     "logs:cleanup:verbose": "node scripts/cleanup-error-logs.js --verbose",
