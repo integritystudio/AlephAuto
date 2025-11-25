@@ -111,8 +111,9 @@ router.get('/:filename', async (req, res, next) => {
       logger.debug({ filename, reportPath }, 'Found exact report match');
     } catch {
       // Try pattern matching: extract job type and extension
-      // Pattern: {jobType}-{jobId}.{ext} or {jobType}-{timestamp}.{ext}
-      const match = filename.match(/^([a-z]+-[a-z]+)-.*\.(html|json|md)$/);
+      // Pattern: {jobType}-{jobId/timestamp}.{ext}
+      // Job type can be single word (repomix) or hyphenated (claude-health, git-activity)
+      const match = filename.match(/^([a-z]+(?:-[a-z]+)*)-.*\.(html|json|md)$/);
 
       if (match) {
         const [, jobType, ext] = match;
