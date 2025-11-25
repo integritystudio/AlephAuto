@@ -869,10 +869,6 @@ pre {
     .dashboard {
         grid-template-columns: 1fr;
     }
-
-    .activity-section {
-        grid-column: 1 / -1;
-    }
 }
 
 @media (max-width: 768px) {
