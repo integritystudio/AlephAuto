@@ -35,10 +35,9 @@ jobs:
       - name: Install Node.js dependencies
         run: npm ci --omit=optional
 
-      - name: Setup ast-grep
-        uses: ast-grep/action@main
-        with:
-          version: latest
+      - name: Install ast-grep (best effort)
+        run: npm install -g @ast-grep/cli@latest || echo "⚠️ ast-grep installation failed (non-critical)"
+        continue-on-error: true
 
       - name: Install Python dependencies
         run: |
@@ -83,10 +82,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --omit=optional
 
-      - name: Setup ast-grep
-        uses: ast-grep/action@main
-        with:
-          version: latest
+      - name: Install ast-grep (best effort)
+        run: npm install -g @ast-grep/cli@latest || echo "⚠️ ast-grep installation failed (non-critical)"
+        continue-on-error: true
 
       - name: TypeScript type checking
         run: npm run typecheck
@@ -111,10 +109,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --omit=optional
 
-      - name: Setup ast-grep
-        uses: ast-grep/action@main
-        with:
-          version: latest
+      - name: Install ast-grep (best effort)
+        run: npm install -g @ast-grep/cli@latest || echo "⚠️ ast-grep installation failed (non-critical)"
+        continue-on-error: true
 
       - name: Validate static assets
         run: |
