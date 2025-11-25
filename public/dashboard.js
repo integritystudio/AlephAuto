@@ -1110,10 +1110,12 @@ class DashboardController {
             container.dataset.loaded = 'true';
 
             // Initialize mermaid diagrams after content is loaded
+            // @ts-ignore - mermaid loaded from CDN
             if (window.mermaid) {
                 // Wait for next tick to ensure DOM is ready
                 setTimeout(async () => {
                     try {
+                        // @ts-ignore - mermaid loaded from CDN
                         await window.mermaid.run({
                             querySelector: '.markdown-content pre.language-mermaid, .markdown-content code.language-mermaid'
                         });

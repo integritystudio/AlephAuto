@@ -447,8 +447,10 @@ export class MigrationTransformer {
           // Parse new name (supports dot notation like 'utils.writeJson')
           if (newName.includes('.')) {
             const parts = newName.split('.');
+            // @ts-ignore - Start with identifier, becomes MemberExpression in loop
             let memberExpr = t.identifier(parts[0]);
             for (let i = 1; i < parts.length; i++) {
+              // @ts-ignore - memberExpr type changes from Identifier to MemberExpression
               memberExpr = t.memberExpression(memberExpr, t.identifier(parts[i]));
             }
             path.node.callee = memberExpr;

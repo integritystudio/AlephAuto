@@ -174,8 +174,7 @@ app.get('/api/pipeline-data-flow', async (req, res) => {
     // Configure marked for GitHub-flavored markdown with mermaid support
     marked.setOptions({
       gfm: true,
-      breaks: true,
-      mangle: false
+      breaks: true
     });
 
     // Parse markdown to HTML
