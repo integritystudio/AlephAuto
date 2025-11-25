@@ -314,7 +314,8 @@ interface PatternDetectionOutput {
 export class ScanOrchestrator {
   private readonly repositoryScanner: RepositoryScanner;
   private readonly patternDetector: AstGrepPatternDetector;
-  private readonly pythonPath: string;
+  private pythonPath: string | null;
+  private _pythonValidated: boolean;
   private readonly extractorScript: string;
   private readonly reportConfig: ReportOptions;
   private readonly outputDir: string;
@@ -327,42 +328,18 @@ export class ScanOrchestrator {
     this.patternDetector = new AstGrepPatternDetector(options.detector || {});
 
     // Python components (called via subprocess)
-    // Intelligent Python path detection:
+    // Intelligent Python path detection (lazy - validated on first use):
     // 1. Use explicitly provided pythonPath if given
     // 2. Try venv Python (local development)
     // 3. Fall back to system Python (CI/production)
     if (options.pythonPath) {
       this.pythonPath = options.pythonPath;
+      this._pythonValidated = false; // Will validate on first use
     } else {
-      const venvPython = path.join(process.cwd(), 'venv/bin/python3');
-      const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
-
-      if (existsSync(venvPython) && !isCI) {
-        // Local development: use venv Python
-        this.pythonPath = venvPython;
-        logger.info({ pythonPath: venvPython }, 'Using venv Python');
-      } else {
-        // CI/production: use system Python
-        try {
-          // Verify system Python is available and has required packages
-          execSync('python3 -c "import pydantic"', {
-            stdio: 'ignore',
-            timeout: 3000
-          });
-          this.pythonPath = 'python3';
-          logger.info({
-            pythonPath: 'python3',
-            isCI,
-            reason: existsSync(venvPython) ? 'CI environment detected' : 'venv not found'
-          }, 'Using system Python');
-        } catch (error) {
-          logger.error({ error }, 'Python validation failed');
-          throw new Error(
-            'Python not available. Please install Python 3.11+ with pydantic package, ' +
-            'or run in an environment with venv/bin/python3'
-          );
-        }
-      }
+      // Defer Python detection/validation until first scan
+      // This allows server to start without Python for health checks
+      this.pythonPath = null as any;
+      this._pythonValidated = false;
     }
 
     this.extractorScript = options.extractorScript || path.join(process.cwd(), 'sidequest/pipeline-core/extractors/extract_blocks.py');
@@ -374,6 +351,55 @@ export class ScanOrchestrator {
 
     // Configuration
     this.config = options.config || {};
+  }
+
+  /**
+   * Validate and detect Python path (lazy initialization)
+   * Only called when Python is actually needed for a scan
+   */
+  private _validatePython(): void {
+    if (this._pythonValidated) {
+      return; // Already validated
+    }
+
+    if (this.pythonPath) {
+      // Explicitly provided path - validate it exists
+      this._pythonValidated = true;
+      return;
+    }
+
+    // Auto-detect Python path
+    const venvPython = path.join(process.cwd(), 'venv/bin/python3');
+    const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+
+    if (existsSync(venvPython) && !isCI) {
+      // Local development: use venv Python
+      this.pythonPath = venvPython;
+      logger.info({ pythonPath: venvPython }, 'Using venv Python');
+    } else {
+      // CI/production: use system Python
+      try {
+        // Verify system Python is available and has required packages
+        execSync('python3 -c "import pydantic"', {
+          stdio: 'ignore',
+          timeout: 3000
+        });
+        this.pythonPath = 'python3';
+        logger.info({
+          pythonPath: 'python3',
+          isCI,
+          reason: existsSync(venvPython) ? 'CI environment detected' : 'venv not found'
+        }, 'Using system Python');
+      } catch (error) {
+        logger.error({ error }, 'Python validation failed');
+        throw new Error(
+          'Python not available. Please install Python 3.11+ with pydantic package, ' +
+          'or run in an environment with venv/bin/python3'
+        );
+      }
+    }
+
+    this._pythonValidated = true;
   }
 
   /**
@@ -473,10 +499,13 @@ export class ScanOrchestrator {
    * Run Python pipeline for extraction, grouping, and reporting
    */
   private async runPythonPipeline(data: PythonPipelineInput): Promise<PythonPipelineOutput> {
+    // Lazy validation: Only validate Python when actually needed
+    this._validatePython();
+
     return new Promise<PythonPipelineOutput>((resolve, reject) => {
       logger.debug('Launching Python extraction pipeline');
 
-      const proc: ChildProcess = spawn(this.pythonPath, [this.extractorScript], {
+      const proc: ChildProcess = spawn(this.pythonPath!, [this.extractorScript], {
         timeout: 600000, // 10 minute timeout
       });
 
