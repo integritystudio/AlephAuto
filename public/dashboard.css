@@ -610,8 +610,14 @@ body {
     font-size: 16px;
     font-weight: 600;
     color: var(--color-gray-800);
+    margin-top: var(--space-4);
+    margin-bottom: var(--space-3);
+    padding-bottom: var(--space-2);
+    border-bottom: 2px solid var(--color-gray-200);
+}
+
+.doc-panel h4:first-of-type {
     margin-top: var(--space-3);
-    margin-bottom: var(--space-2);
 }
 
 .doc-panel p {
@@ -628,8 +634,10 @@ body {
     margin-bottom: var(--space-1);
 }
 
-.pipeline-docs {
+/* Pipeline Documentation Grid */
+.pipeline-docs-grid {
     display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: var(--space-3);
 }
 
@@ -638,19 +646,48 @@ body {
     border: 1px solid var(--color-gray-200);
     border-radius: var(--radius-md);
     padding: var(--space-3);
+    transition: all var(--transition-base);
 }
 
-.api-endpoints {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
+.pipeline-doc:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+    border-color: var(--color-gray-300);
+}
+
+.pipeline-doc:focus-within {
+    outline: 2px solid var(--color-info);
+    outline-offset: 2px;
+}
+
+/* API Endpoints Grid */
+.api-endpoints-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
 }
 
 .api-endpoint {
     background: var(--color-gray-50);
     border: 1px solid var(--color-gray-200);
     border-radius: var(--radius-md);
-    padding: var(--space-2);
+    padding: var(--space-3);
+    transition: all var(--transition-base);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.api-endpoint:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+    border-color: var(--color-info);
+}
+
+.api-endpoint:focus-within {
+    outline: 2px solid var(--color-info);
+    outline-offset: 2px;
 }
 
 .api-intro {
@@ -852,6 +889,15 @@ pre {
     }
 
     .pipeline-cards {
+        grid-template-columns: 1fr;
+    }
+
+    /* Documentation grids - single column on mobile */
+    .pipeline-docs-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .api-endpoints-grid {
         grid-template-columns: 1fr;
     }
 
@@ -2803,51 +2849,76 @@ pre {
 
 .markdown-content {
     background: var(--color-white);
-    border-radius: 8px;
-    padding: 2rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-gray-200);
 }
 
 .markdown-raw {
-    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
-    font-size: 0.875rem;
-    line-height: 1.6;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.7;
     color: var(--color-gray-900);
     background: var(--color-gray-50);
     border: 1px solid var(--color-gray-200);
-    border-radius: 6px;
-    padding: 1.5rem;
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
     overflow-x: auto;
     white-space: pre-wrap;
     word-wrap: break-word;
+    max-height: 800px;
+    overflow-y: auto;
 }
 
+/* Scrollbar styling */
 .markdown-raw::-webkit-scrollbar {
+    width: 8px;
     height: 8px;
 }
 
 .markdown-raw::-webkit-scrollbar-track {
     background: var(--color-gray-100);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
 }
 
 .markdown-raw::-webkit-scrollbar-thumb {
     background: var(--color-gray-300);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
 }
 
 .markdown-raw::-webkit-scrollbar-thumb:hover {
     background: var(--color-gray-400);
 }
 
+/* Make markdown links stand out in the raw text */
+.markdown-raw a {
+    color: var(--color-info);
+    text-decoration: underline;
+    transition: color var(--transition-fast);
+}
+
+.markdown-raw a:hover {
+    color: var(--color-info-dark);
+    text-decoration: none;
+}
+
+/* Documentation intro styling */
+.doc-intro {
+    margin-bottom: var(--space-3);
+}
+
+/* Mobile responsive */
 @media (max-width: 768px) {
     .markdown-content {
-        padding: 1rem;
+        padding: var(--space-3);
     }
 
     .markdown-raw {
-        font-size: 0.75rem;
-        padding: 1rem;
+        font-size: 12px;
+        padding: var(--space-3);
+        max-height: 600px;
     }
 }
 

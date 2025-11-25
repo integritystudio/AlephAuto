@@ -8,13 +8,20 @@
  */
 import express from 'express';
 import { validateQuery, validateRequest } from '../middleware/validation.js';
-import { JobQueryParamsSchema, ManualTriggerRequestSchema } from '../types/pipeline-requests.js';
+import { JobQueryParamsSchema, ManualTriggerRequestSchema, PipelineDocsParamsSchema } from '../types/pipeline-requests.js';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import { worker } from './scans.js';
 import * as Sentry from '@sentry/node';
 import { getJobs, getJobCounts } from '../../sidequest/core/database.js';
+import { getPipelineName } from '../../sidequest/utils/pipeline-names.js';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
 const router = express.Router();
 const logger = createComponentLogger('PipelineRoutes');
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 /**
  * GET /api/sidequest/pipeline-runners/:pipelineId/jobs
  * Fetch job history for a specific pipeline
@@ -334,4 +341,70 @@ async function triggerPipelineJob(pipelineId, parameters) {
 
     return jobId;
 }
+
+/**
+ * GET /api/pipelines/:pipelineId/docs
+ * Fetch documentation for a specific pipeline
+ *
+ * Response: PipelineDocsResponse with markdown content
+ */
+router.get('/:pipelineId/docs', async (req, res, next) => {
+    const { pipelineId } = req.params;
+
+    try {
+        // Validate pipelineId
+        const validatedParams = PipelineDocsParamsSchema.parse({ pipelineId });
+
+        logger.info({ pipelineId }, 'Fetching pipeline documentation');
+
+        // Get pipeline name
+        const pipelineName = getPipelineName(pipelineId);
+
+        // Read documentation file
+        const docPath = path.join(__dirname, '../../docs/architecture/pipeline-data-flow.md');
+
+        let markdown;
+        try {
+            markdown = await fs.readFile(docPath, 'utf-8');
+        } catch (err) {
+            logger.warn({ pipelineId, docPath, error: err.message }, 'Documentation file not found');
+
+            // Return fallback documentation
+            markdown = `# ${pipelineName}\n\nDocumentation not yet available for this pipeline.\n\nPipeline ID: ${pipelineId}`;
+        }
+
+        const response = {
+            pipelineId,
+            name: pipelineName,
+            markdown,
+            timestamp: new Date().toISOString()
+        };
+
+        logger.info({ pipelineId, markdownLength: markdown.length }, 'Successfully fetched pipeline documentation');
+
+        res.json(response);
+    } catch (error) {
+        logger.error({ error, pipelineId }, 'Failed to fetch pipeline documentation');
+
+        Sentry.captureException(error, {
+            tags: {
+                component: 'PipelineAPI',
+                endpoint: '/api/pipelines/:id/docs',
+                pipelineId
+            }
+        });
+
+        // Handle validation errors
+        if (error.name === 'ZodError') {
+            return res.status(400).json({
+                error: 'Bad Request',
+                message: 'Invalid pipeline ID',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        next(error);
+    }
+});
+
 export default router;

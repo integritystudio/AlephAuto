@@ -178,7 +178,7 @@
             </div>
             <div class="doc-panel" data-panel="pipelines">
                 <h3>Available Pipelines</h3>
-                <div class="pipeline-docs">
+                <div class="pipeline-docs-grid">
                     <div class="pipeline-doc">
                         <h4>🔍 Duplicate Detection Pipeline</h4>
                         <p><strong>Purpose:</strong> Scans repositories for duplicate code using AST-grep and similarity algorithms</p>
@@ -290,7 +290,7 @@
                 <p class="api-intro">All endpoints return JSON. Authentication is required for most endpoints via <code>X-API-Key</code> header.</p>
 
                 <h4>System Status</h4>
-                <div class="api-endpoints">
+                <div class="api-endpoints-grid">
                     <div class="api-endpoint">
                         <code class="http-method">GET</code>
                         <code class="endpoint-path">/health</code>
@@ -337,7 +337,7 @@
                 </div>
 
                 <h4>Pipeline Management</h4>
-                <div class="api-endpoints">
+                <div class="api-endpoints-grid">
                     <div class="api-endpoint">
                         <code class="http-method">GET</code>
                         <code class="endpoint-path">/api/sidequest/pipeline-runners/:pipelineId/jobs</code>
@@ -383,7 +383,7 @@
                 </div>
 
                 <h4>Scan Operations</h4>
-                <div class="api-endpoints">
+                <div class="api-endpoints-grid">
                     <div class="api-endpoint">
                         <code class="http-method">POST</code>
                         <code class="endpoint-path">/api/scans</code>
@@ -411,7 +411,7 @@
                 </div>
 
                 <h4>Reports</h4>
-                <div class="api-endpoints">
+                <div class="api-endpoints-grid">
                     <div class="api-endpoint">
                         <code class="http-method">GET</code>
                         <code class="endpoint-path">/api/reports</code>
