@@ -8,7 +8,7 @@
  */
 import express from 'express';
 import { validateQuery, validateRequest } from '../middleware/validation.js';
-import { JobQueryParamsSchema, ManualTriggerRequestSchema, PipelineDocsParamsSchema } from '../types/pipeline-requests.js';
+import { JobQueryParamsSchema, ManualTriggerRequestSchema, PipelineDocsParamsSchema, PipelineHtmlParamsSchema } from '../types/pipeline-requests.js';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import { worker } from './scans.js';
 import * as Sentry from '@sentry/node';
@@ -390,6 +390,110 @@ router.get('/:pipelineId/docs', async (req, res, next) => {
             tags: {
                 component: 'PipelineAPI',
                 endpoint: '/api/pipelines/:id/docs',
+                pipelineId
+            }
+        });
+
+        // Handle validation errors
+        if (error.name === 'ZodError') {
+            return res.status(400).json({
+                error: 'Bad Request',
+                message: 'Invalid pipeline ID',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        next(error);
+    }
+});
+
+/**
+ * GET /api/pipelines/:pipelineId/html
+ * Serve HTML report for a specific pipeline job
+ *
+ * This endpoint resolves the HTML report path for a pipeline job and serves it.
+ * It looks for the most recent HTML report matching the pipelineId pattern.
+ *
+ * Response: HTML file content or 404 if not found
+ */
+router.get('/:pipelineId/html', async (req, res, next) => {
+    const { pipelineId } = req.params;
+
+    try {
+        // Validate pipelineId
+        const validatedParams = PipelineHtmlParamsSchema.parse({ pipelineId });
+
+        logger.info({ pipelineId }, 'Fetching HTML report for pipeline');
+
+        // Construct HTML report path
+        // Pattern: output/reports/{pipelineId}.html or output/reports/{pipelineId}-{date}.html
+        const reportsDir = path.join(__dirname, '../../output/reports');
+
+        // Try exact match first
+        let htmlPath = path.join(reportsDir, `${pipelineId}.html`);
+
+        try {
+            await fs.access(htmlPath);
+            logger.info({ pipelineId, htmlPath }, 'Found exact HTML report match');
+        } catch (err) {
+            // Try to find most recent report matching pattern
+            try {
+                const files = await fs.readdir(reportsDir);
+
+                // Filter files matching the pipelineId pattern
+                const matchingFiles = files.filter(f =>
+                    f.startsWith(pipelineId) && f.endsWith('.html')
+                ).sort().reverse(); // Most recent first (alphabetical sort works for ISO dates)
+
+                if (matchingFiles.length > 0) {
+                    htmlPath = path.join(reportsDir, matchingFiles[0]);
+                    logger.info({ pipelineId, htmlPath, matchingFiles: matchingFiles.length }, 'Found matching HTML report');
+                } else {
+                    logger.warn({ pipelineId, reportsDir }, 'No HTML reports found for pipeline');
+                    return res.status(404).json({
+                        error: 'Not Found',
+                        message: `No HTML report found for pipeline: ${pipelineId}`,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            } catch (readErr) {
+                logger.error({ error: readErr, reportsDir }, 'Failed to read reports directory');
+                throw readErr;
+            }
+        }
+
+        // Serve the HTML file
+        res.sendFile(htmlPath, (err) => {
+            if (err) {
+                logger.error({ error: err, htmlPath }, 'Failed to send HTML file');
+
+                Sentry.captureException(err, {
+                    tags: {
+                        component: 'PipelineAPI',
+                        endpoint: '/api/pipelines/:id/html',
+                        pipelineId
+                    }
+                });
+
+                if (!res.headersSent) {
+                    res.status(500).json({
+                        error: 'Internal Server Error',
+                        message: 'Failed to serve HTML report',
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            } else {
+                logger.info({ pipelineId, htmlPath }, 'Successfully served HTML report');
+            }
+        });
+
+    } catch (error) {
+        logger.error({ error, pipelineId }, 'Failed to fetch HTML report');
+
+        Sentry.captureException(error, {
+            tags: {
+                component: 'PipelineAPI',
+                endpoint: '/api/pipelines/:id/html',
                 pipelineId
             }
         });
