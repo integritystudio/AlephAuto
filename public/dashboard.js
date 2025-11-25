@@ -1745,7 +1745,7 @@ class DashboardController {
         const pipelineName = this.getPipelineDisplayName(job.pipelineId);
         const statusIcon = this.getStatusIcon(job.status);
 
-        // Get HTML report path if available
+        // Get HTML report path (always returns a path, either from result or constructed from job ID)
         const htmlReportPath = this.getHtmlReportPath(job);
 
         return `
@@ -1755,13 +1755,9 @@ class DashboardController {
                         <div class="hero-job-id">
                             <div class="copyable-field">
                                 <span class="copyable-value">${job.id}</span>
-                                ${htmlReportPath ? `
-                                    <a href="${htmlReportPath}" target="_blank" class="full-results-btn">
-                                        Full Results →
-                                    </a>
-                                ` : `
-                                    <button class="copy-btn" onclick="window.dashboardController.copyToClipboard('${job.id}', this)">Copy ID</button>
-                                `}
+                                <a href="${htmlReportPath}" target="_blank" class="full-results-btn">
+                                    View Report →
+                                </a>
                             </div>
                         </div>
                         <div class="hero-pipeline-name">${pipelineName}</div>
@@ -1980,28 +1976,33 @@ class DashboardController {
     }
 
     /**
-     * Get HTML report path from job result
+     * Get HTML report path from job result or construct from job ID
      */
     getHtmlReportPath(job) {
-        if (!job.result) return null;
+        // Check if reportPath exists in result
+        if (job.result && job.result.reportPath) {
+            // If it's already an HTML file
+            if (job.result.reportPath.endsWith('.html')) {
+                return job.result.reportPath.replace(/^.*\/output\/reports\//, '/api/reports/');
+            }
 
-        // Check if reportPath exists (legacy format)
-        if (job.result.reportPath && job.result.reportPath.endsWith('.html')) {
-            return job.result.reportPath.replace(/^.*\/output\/reports\//, '/api/reports/');
-        }
+            // Check for report_paths.html (new format from scan orchestrator)
+            if (job.result.report_paths && job.result.report_paths.html) {
+                return job.result.report_paths.html.replace(/^.*\/output\/reports\//, '/api/reports/');
+            }
 
-        // Check for report_paths.html (new format from scan orchestrator)
-        if (job.result.report_paths && job.result.report_paths.html) {
-            return job.result.report_paths.html.replace(/^.*\/output\/reports\//, '/api/reports/');
-        }
-
-        // Try to construct from reportPath by changing extension
-        if (job.result.reportPath) {
-            const htmlPath = job.result.reportPath.replace(/\.(json|md)$/, '.html');
+            // Construct HTML path from JSON/MD path
+            // Pattern: "inter-project-scan-2repos-2025-11-24-summary.json" -> "inter-project-scan-2repos-2025-11-24.html"
+            const htmlPath = job.result.reportPath
+                .replace(/-summary\.(json|md)$/, '.html')  // Remove -summary suffix and change extension
+                .replace(/\.(json|md)$/, '.html');         // Or just change extension if no -summary
             return htmlPath.replace(/^.*\/output\/reports\//, '/api/reports/');
         }
 
-        return null;
+        // Fallback: construct from job ID
+        // Pattern: "inter-project-scan-2repos-2025-11-24" -> "/api/reports/inter-project-scan-2repos-2025-11-24.html"
+        const htmlFilename = `${job.id}.html`;
+        return `/api/reports/${htmlFilename}`;
     }
 
     /**
