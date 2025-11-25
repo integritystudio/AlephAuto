@@ -354,7 +354,8 @@ export async function importLogsToDatabase(logsDir) {
     'claude-health': 'claude-health',
     'plugin-audit': 'plugin-manager',
     'gitignore': 'gitignore-manager',
-    'doc-enhancement': 'doc-enhancement',
+    'schema-enhancement': 'schema-enhancement',
+    'doc-enhancement': 'schema-enhancement', // Legacy compatibility
     'repomix': 'repomix'
   };
 
