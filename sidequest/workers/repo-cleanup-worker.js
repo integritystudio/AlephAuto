@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { SidequestServer } from '../core/server.js';
+import { generateReport } from '../utils/report-generator.js';
 import { createComponentLogger } from '../utils/logger.js';
 import * as Sentry from '@sentry/node';
 import { execFile } from 'child_process';
@@ -42,6 +43,7 @@ export class RepoCleanupWorker extends SidequestServer {
    * Run repository cleanup job
    */
   async runJobHandler(job) {
+    const startTime = Date.now();
     const {
       targetDir = this.baseDir,
       dryRun = false,
@@ -89,6 +91,26 @@ export class RepoCleanupWorker extends SidequestServer {
         finalSize,
         itemsFound: result.totalItems,
       }, 'Repository cleanup job completed');
+
+      // Generate HTML/JSON reports
+      const endTime = Date.now();
+      const reportPaths = await generateReport({
+        jobId: job.id,
+        jobType: 'repo-cleanup',
+        status: 'completed',
+        result: output,
+        startTime,
+        endTime,
+        parameters: job.data,
+        metadata: {
+          targetDir,
+          dryRun,
+          totalItems: result.totalItems
+        }
+      });
+
+      output.reportPaths = reportPaths;
+      logger.info({ reportPaths }, 'Repository cleanup reports generated');
 
       return output;
     } catch (error) {

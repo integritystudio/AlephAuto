@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { SidequestServer } from '../core/server.js';
+import { generateReport } from '../utils/report-generator.js';
 import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
@@ -79,6 +80,7 @@ export class RepomixWorker extends SidequestServer {
    * Run repomix for a specific directory
    */
   async runJobHandler(job) {
+    const startTime = Date.now();
     const { sourceDir, relativePath } = job.data;
 
     // Create output directory matching the source structure
@@ -99,13 +101,35 @@ export class RepomixWorker extends SidequestServer {
         logger.warn({ jobId: job.id, stderr }, 'Repomix warnings');
       }
 
-      return {
+      const result = {
         sourceDir,
         outputFile,
         relativePath,
         size: (await fs.stat(outputFile)).size,
         timestamp: new Date().toISOString(),
       };
+
+      // Generate HTML/JSON reports
+      const endTime = Date.now();
+      const repoName = path.basename(sourceDir);
+      const reportPaths = await generateReport({
+        jobId: job.id,
+        jobType: 'repomix',
+        status: 'completed',
+        result,
+        startTime,
+        endTime,
+        parameters: job.data,
+        metadata: {
+          repoName,
+          outputSize: result.size
+        }
+      });
+
+      result.reportPaths = reportPaths;
+      logger.info({ reportPaths }, 'Repomix reports generated');
+
+      return result;
     } catch (error) {
       // Even if command fails, try to save any output
       if (error.stdout) {

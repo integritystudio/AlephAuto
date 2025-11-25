@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { SidequestServer } from '../core/server.js';
+import { generateReport } from '../utils/report-generator.js';
 import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
@@ -40,6 +41,7 @@ export class GitActivityWorker extends SidequestServer {
    * Run git activity report job
    */
   async runJobHandler(job) {
+    const startTime = Date.now();
     const {
       reportType,
       days,
@@ -87,7 +89,7 @@ export class GitActivityWorker extends SidequestServer {
         filesGenerated: verifiedFiles.length
       }, 'Git activity report completed');
 
-      return {
+      const result = {
         reportType,
         days: days || this.#calculateDays(sinceDate, untilDate),
         sinceDate,
@@ -96,6 +98,27 @@ export class GitActivityWorker extends SidequestServer {
         outputFiles: verifiedFiles,
         timestamp: new Date().toISOString(),
       };
+
+      // Generate HTML/JSON reports
+      const endTime = Date.now();
+      const reportPaths = await generateReport({
+        jobId: job.id,
+        jobType: 'git-activity',
+        status: 'completed',
+        result,
+        startTime,
+        endTime,
+        parameters: job.data,
+        metadata: {
+          reportType,
+          filesGenerated: verifiedFiles.length
+        }
+      });
+
+      result.reportPaths = reportPaths;
+      logger.info({ reportPaths }, 'Git activity reports generated');
+
+      return result;
     } catch (error) {
       logger.error({
         jobId: job.id,

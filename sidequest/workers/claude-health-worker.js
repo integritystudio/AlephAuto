@@ -17,6 +17,7 @@
 import { SidequestServer } from '../core/server.js';
 import { config } from '../core/config.js';
 import { createComponentLogger } from '../utils/logger.js';
+import { generateReport } from '../utils/report-generator.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
@@ -86,6 +87,26 @@ class ClaudeHealthWorker extends SidequestServer {
         issueCount: recommendations.filter(r => r.priority === 'high').length,
         duration: result.duration
       });
+
+      // Generate HTML/JSON reports
+      const endTime = Date.now();
+      const reportPaths = await generateReport({
+        jobId: job.id,
+        jobType: 'claude-health',
+        status: 'completed',
+        result,
+        startTime,
+        endTime,
+        parameters: job.data || {},
+        metadata: {
+          healthScore: analysis.healthScore,
+          criticalIssues: recommendations.filter(r => r.priority === 'high').length,
+          warnings: recommendations.filter(r => r.priority === 'medium').length
+        }
+      });
+
+      result.reportPaths = reportPaths;
+      logger.info({ reportPaths }, 'Health check reports generated');
 
       return result;
     } catch (error) {

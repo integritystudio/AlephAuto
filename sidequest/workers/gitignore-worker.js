@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { SidequestServer } from '../core/server.js';
 import { GitignoreRepomixUpdater } from './gitignore-repomix-updater.js';
+import { generateReport } from '../utils/report-generator.js';
 import { createComponentLogger } from '../utils/logger.js';
 import * as Sentry from '@sentry/node';
 import path from 'path';
@@ -39,6 +40,7 @@ export class GitignoreWorker extends SidequestServer {
    * Run gitignore update job
    */
   async runJobHandler(job) {
+    const startTime = Date.now();
     const {
       baseDir = this.baseDir,
       excludeDirs = this.excludeDirs,
@@ -87,12 +89,33 @@ export class GitignoreWorker extends SidequestServer {
         errors: results.summary.error
       }, 'Gitignore update job completed');
 
-      return {
+      const result = {
         ...results,
         timestamp: new Date().toISOString(),
         dryRun,
         gitignoreEntry,
       };
+
+      // Generate HTML/JSON reports
+      const endTime = Date.now();
+      const reportPaths = await generateReport({
+        jobId: job.id,
+        jobType: 'gitignore-update',
+        status: 'completed',
+        result,
+        startTime,
+        endTime,
+        parameters: job.data,
+        metadata: {
+          totalRepositories: results.totalRepositories,
+          dryRun
+        }
+      });
+
+      result.reportPaths = reportPaths;
+      logger.info({ reportPaths }, 'Gitignore update reports generated');
+
+      return result;
     } catch (error) {
       logger.error({
         jobId: job.id,

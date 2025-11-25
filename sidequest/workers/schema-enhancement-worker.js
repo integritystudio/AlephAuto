@@ -1,5 +1,6 @@
 import { SidequestServer } from '../core/server.js';
 import { SchemaMCPTools } from '../utils/schema-mcp-tools.js';
+import { generateReport } from '../utils/report-generator.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../core/config.js';
 import fs from 'fs/promises';
@@ -36,6 +37,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
    * Run enhancement for a specific README file
    */
   async runJobHandler(job) {
+    const startTime = Date.now();
     const { readmePath, relativePath, context } = job.data;
 
     logger.info({ jobId: job.id, readmePath }, 'Enhancing README');
@@ -118,7 +120,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
 
       this.stats.enhanced++;
 
-      return {
+      const result = {
         status: 'enhanced',
         readmePath,
         relativePath,
@@ -128,6 +130,28 @@ export class SchemaEnhancementWorker extends SidequestServer {
         validation,
         timestamp: new Date().toISOString(),
       };
+
+      // Generate HTML/JSON reports
+      const endTime = Date.now();
+      const reportPaths = await generateReport({
+        jobId: job.id,
+        jobType: 'schema-enhancement',
+        status: 'completed',
+        result,
+        startTime,
+        endTime,
+        parameters: job.data,
+        metadata: {
+          schemaType,
+          impactScore: impact.impactScore,
+          rating: impact.rating
+        }
+      });
+
+      result.reportPaths = reportPaths;
+      logger.info({ reportPaths }, 'Schema enhancement reports generated');
+
+      return result;
 
     } catch (error) {
       this.stats.failed++;
