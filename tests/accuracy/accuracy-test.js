@@ -158,11 +158,10 @@ async function runAccuracyTest() {
   const testRepoPath = path.join(__dirname, 'fixtures');
   logger.info({ testRepoPath }, 'Setting up scan orchestrator');
 
-  // Create orchestrator
+  // Create orchestrator (let it auto-detect Python path based on environment)
   const orchestrator = new ScanOrchestrator({
     outputDir: path.join(__dirname, 'results'),
-    autoGenerateReports: false, // We'll generate our own report
-    pythonPath: path.join(process.cwd(), 'venv/bin/python3')
+    autoGenerateReports: false // We'll generate our own report
   });
 
   // Run scan

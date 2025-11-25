@@ -47,9 +47,9 @@ export class DuplicateDetectionWorker extends SidequestServer {
     this.interProjectScanner = new InterProjectScanner({
       outputDir: path.join(process.cwd(), 'output', 'automated-scans')
     });
-    this.orchestrator = new ScanOrchestrator({
-      pythonPath: path.join(process.cwd(), 'venv', 'bin', 'python3')
-    });
+    // Let ScanOrchestrator auto-detect Python path based on environment
+    // (venv for local dev, system Python for CI/production)
+    this.orchestrator = new ScanOrchestrator({});
     this.reportCoordinator = new ReportCoordinator(
       path.join(process.cwd(), 'output', 'reports')
     );

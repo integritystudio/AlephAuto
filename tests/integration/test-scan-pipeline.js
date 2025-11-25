@@ -23,7 +23,7 @@ async function main() {
     // Verify repository exists
     await fs.access(repoPath);
 
-    // Create orchestrator
+    // Create orchestrator (let it auto-detect Python path based on environment)
     const orchestrator = new ScanOrchestrator({
       scanner: {
         outputBaseDir: path.join(process.cwd(), 'output', 'scan-tests')
@@ -32,8 +32,7 @@ async function main() {
         rulesDirectory: path.join(process.cwd(), '.ast-grep', 'rules'),
         configPath: path.join(process.cwd(), '.ast-grep', 'sgconfig.yml')
       },
-      pythonPath: path.join(process.cwd(), 'venv', 'bin', 'python3'),
-      extractorScript: path.join(process.cwd(), 'lib', 'extractors', 'extract_blocks.py')
+      extractorScript: path.join(process.cwd(), 'sidequest', 'pipeline-core', 'extractors', 'extract_blocks.py')
     });
 
     // Run scan

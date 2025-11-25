@@ -54,8 +54,8 @@ async function main() {
           rulesDirectory: path.join(process.cwd(), '.ast-grep', 'rules'),
           configPath: path.join(process.cwd(), '.ast-grep', 'sgconfig.yml')
         },
-        pythonPath: path.join(process.cwd(), 'venv', 'bin', 'python3'),
-        extractorScript: path.join(process.cwd(), 'lib', 'extractors', 'extract_blocks.py')
+        // Let ScanOrchestrator auto-detect Python path
+        extractorScript: path.join(process.cwd(), 'sidequest', 'pipeline-core', 'extractors', 'extract_blocks.py')
       },
       outputDir: path.join(process.cwd(), 'output', 'inter-project-scans')
     });
