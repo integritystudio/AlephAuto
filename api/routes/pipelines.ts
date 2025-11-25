@@ -192,14 +192,19 @@ async function fetchJobsForPipeline(
   });
 
   // Map database schema to API response schema
+  // Only include fields defined in JobDetailsSchema to pass strict validation
   const jobs: JobDetails[] = dbJobs.map(dbJob => {
     const job: JobDetails = {
       id: dbJob.id,
       pipelineId: dbJob.pipelineId,
       status: dbJob.status,
       startTime: dbJob.startedAt || dbJob.createdAt,
-      parameters: dbJob.data || {},
     };
+
+    // Add optional fields only if they exist
+    if (dbJob.data) {
+      job.parameters = dbJob.data;
+    }
 
     // Add endTime and duration if job is completed
     if (dbJob.completedAt) {
@@ -211,17 +216,21 @@ async function fetchJobsForPipeline(
       job.duration = end - start;
     }
 
-    // Add result if available
-    if (dbJob.result) {
-      job.result = dbJob.result;
-    }
+    // Build result object from dbJob.result and dbJob.error
+    if (dbJob.result || dbJob.error) {
+      job.result = {};
 
-    // Add error if job failed
-    if (dbJob.error) {
-      job.result = {
-        ...job.result,
-        error: dbJob.error
-      };
+      // Merge result data
+      if (dbJob.result) {
+        Object.assign(job.result, dbJob.result);
+      }
+
+      // Add error message if job failed
+      if (dbJob.error && typeof dbJob.error === 'object' && 'message' in dbJob.error) {
+        job.result.error = dbJob.error.message;
+      } else if (dbJob.error && typeof dbJob.error === 'string') {
+        job.result.error = dbJob.error;
+      }
     }
 
     return job;

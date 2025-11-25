@@ -222,25 +222,53 @@ async function fetchJobsForPipeline(pipelineId, options) {
 
 /**
  * Format a job from database for API response
+ * Only includes fields defined in JobDetailsSchema to pass strict validation
  */
 function formatJobFromDb(job) {
     const duration = job.completedAt && job.startedAt
         ? new Date(job.completedAt) - new Date(job.startedAt)
         : null;
 
-    return {
+    const formatted = {
         id: job.id,
         pipelineId: job.pipelineId,
         status: job.status,
-        startTime: job.startedAt,
-        endTime: job.completedAt,
-        createdAt: job.createdAt,
-        duration,
-        parameters: job.data || {},
-        result: job.result || null,
-        error: job.error || null,
-        git: job.git || null
+        startTime: job.startedAt || job.createdAt
     };
+
+    // Add optional fields only if they exist
+    if (job.completedAt) {
+        formatted.endTime = job.completedAt;
+    }
+
+    if (duration !== null) {
+        formatted.duration = duration;
+    }
+
+    if (job.data) {
+        formatted.parameters = job.data;
+    }
+
+    // Build result object from job.result and job.error
+    if (job.result || job.error) {
+        formatted.result = {};
+
+        // Merge result data
+        if (job.result) {
+            Object.assign(formatted.result, job.result);
+        }
+
+        // Add error message if job failed
+        if (job.error) {
+            if (typeof job.error === 'object' && job.error.message) {
+                formatted.result.error = job.error.message;
+            } else if (typeof job.error === 'string') {
+                formatted.result.error = job.error;
+            }
+        }
+    }
+
+    return formatted;
 }
 
 /**
