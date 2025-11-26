@@ -57,7 +57,8 @@ describe('Activity Feed - Integration Tests', () => {
 
   it('Scenario 1: Job fails with Error object → activity created correctly', async () => {
     // Create a job that will fail with Error object
-    const jobId = worker.createJob({
+    const jobId = 'test-job-1';
+    worker.createJob(jobId, {
       type: 'test-job',
       data: { test: true }
     });
@@ -110,7 +111,8 @@ describe('Activity Feed - Integration Tests', () => {
   });
 
   it('Scenario 2: Job fails with null error → "Unknown error" handling', async () => {
-    const jobId = worker.createJob({
+    const jobId = 'test-job-2';
+    worker.createJob(jobId, {
       type: 'test-job',
       data: { test: true }
     });
@@ -137,7 +139,8 @@ describe('Activity Feed - Integration Tests', () => {
   });
 
   it('Scenario 3: Job fails with string error → converted correctly', async () => {
-    const jobId = worker.createJob({
+    const jobId = 'test-job-3';
+    worker.createJob(jobId, {
       type: 'test-job',
       data: { test: true }
     });
@@ -171,7 +174,8 @@ describe('Activity Feed - Integration Tests', () => {
     // Create 10 jobs that will fail rapidly
     const jobIds = [];
     for (let i = 0; i < 10; i++) {
-      const jobId = worker.createJob({
+      const jobId = `test-job-rapid-${i}`;
+      worker.createJob(jobId, {
         type: 'test-job',
         data: { index: i }
       });
@@ -218,7 +222,8 @@ describe('Activity Feed - Integration Tests', () => {
   });
 
   it('Scenario 5: Activity Feed survives error handler failures', async () => {
-    const jobId = worker.createJob({
+    const jobId = 'test-job-5';
+    worker.createJob(jobId, {
       type: 'test-job',
       data: { test: true }
     });
@@ -252,7 +257,8 @@ describe('Activity Feed - Integration Tests', () => {
   });
 
   it('Scenario 6: Job lifecycle → complete activity flow', async () => {
-    const jobId = worker.createJob({
+    const jobId = 'test-job-6';
+    worker.createJob(jobId, {
       type: 'test-job',
       data: { operation: 'success-test' }
     });
@@ -298,7 +304,8 @@ describe('Activity Feed - Integration Tests', () => {
   });
 
   it('Scenario 7: Retry activities tracking', async () => {
-    const jobId = worker.createJob({
+    const jobId = 'test-job-7';
+    worker.createJob(jobId, {
       type: 'test-job',
       data: { retry: true }
     });
