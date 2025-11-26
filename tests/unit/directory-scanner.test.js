@@ -42,15 +42,28 @@ describe('DirectoryScanner', () => {
   });
 
   test('should scan directories in test fixture', async () => {
-    // Create a temporary test directory structure
+    // Create a temporary test directory structure with git repositories
     const tempDir = path.join(os.tmpdir(), 'test-scanner-' + Date.now());
 
     try {
       await fs.mkdir(tempDir, { recursive: true });
+
+      // Create git repositories (DirectoryScanner only finds git repos)
       await fs.mkdir(path.join(tempDir, 'project1'));
+      await fs.mkdir(path.join(tempDir, 'project1', '.git'));
+
       await fs.mkdir(path.join(tempDir, 'project2'));
-      await fs.mkdir(path.join(tempDir, 'node_modules')); // Should be excluded
-      await fs.mkdir(path.join(tempDir, 'project1', 'src'));
+      await fs.mkdir(path.join(tempDir, 'project2', '.git'));
+
+      await fs.mkdir(path.join(tempDir, 'project3'));
+      await fs.mkdir(path.join(tempDir, 'project3', '.git'));
+
+      // Non-git directory - should be ignored
+      await fs.mkdir(path.join(tempDir, 'not-a-repo'));
+
+      // Excluded directory with .git - should be skipped
+      await fs.mkdir(path.join(tempDir, 'node_modules'));
+      await fs.mkdir(path.join(tempDir, 'node_modules', '.git'));
 
       const scanner = new DirectoryScanner({
         baseDir: tempDir,
@@ -59,13 +72,19 @@ describe('DirectoryScanner', () => {
 
       const directories = await scanner.scanDirectories();
 
-      // Should find project1, project2, and project1/src (not node_modules)
-      assert.ok(directories.length >= 3);
+      // Should find project1, project2, project3 (all git repos, not node_modules)
+      assert.ok(directories.length >= 3, `Expected at least 3 directories, got ${directories.length}`);
       const names = directories.map(d => d.name);
-      assert.ok(names.includes('project1'));
-      assert.ok(names.includes('project2'));
-      assert.ok(names.includes('src'));
-      assert.ok(!names.includes('node_modules'));
+      assert.ok(names.includes('project1'), 'Should include project1');
+      assert.ok(names.includes('project2'), 'Should include project2');
+      assert.ok(names.includes('project3'), 'Should include project3');
+      assert.ok(!names.includes('node_modules'), 'Should not include node_modules');
+      assert.ok(!names.includes('not-a-repo'), 'Should not include non-git directory');
+
+      // Verify all found directories are git repos
+      directories.forEach(dir => {
+        assert.ok(dir.isGitRepo, `${dir.name} should be marked as git repo`);
+      });
     } finally {
       // Cleanup
       await fs.rm(tempDir, { recursive: true, force: true });
@@ -76,11 +95,17 @@ describe('DirectoryScanner', () => {
     const tempDir = path.join(os.tmpdir(), 'test-depth-' + Date.now());
 
     try {
-      // Create deep directory structure
+      // Create deep directory structure with git repos at different levels
       await fs.mkdir(tempDir, { recursive: true });
+
+      // Git repo at depth 1
       await fs.mkdir(path.join(tempDir, 'level1'));
-      await fs.mkdir(path.join(tempDir, 'level1', 'level2'));
-      await fs.mkdir(path.join(tempDir, 'level1', 'level2', 'level3'));
+      await fs.mkdir(path.join(tempDir, 'level1', '.git'));
+
+      // Git repo at depth 2 (should not be found with maxDepth=1)
+      await fs.mkdir(path.join(tempDir, 'shallow'));
+      await fs.mkdir(path.join(tempDir, 'shallow', 'level2'));
+      await fs.mkdir(path.join(tempDir, 'shallow', 'level2', '.git'));
 
       const scanner = new DirectoryScanner({
         baseDir: tempDir,
@@ -89,9 +114,16 @@ describe('DirectoryScanner', () => {
 
       const directories = await scanner.scanDirectories();
 
-      // Should only find level1, not level2 or level3
+      // Should only find level1 at depth 1, not level2 at depth 2
+      assert.ok(directories.length >= 1, `Expected at least 1 directory, got ${directories.length}`);
       const depths = directories.map(d => d.depth);
-      assert.ok(Math.max(...depths) <= 1);
+      const maxDepth = Math.max(...depths);
+      assert.ok(maxDepth <= 1, `Max depth should be <= 1, got ${maxDepth}`);
+
+      // Verify level1 is found
+      const names = directories.map(d => d.name);
+      assert.ok(names.includes('level1'), 'Should include level1');
+      assert.ok(!names.includes('level2'), 'Should not include level2 (exceeds maxDepth)');
     } finally {
       await fs.rm(tempDir, { recursive: true, force: true });
     }
