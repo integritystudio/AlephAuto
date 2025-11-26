@@ -33,7 +33,7 @@ jobs:
           cache: 'pip'
 
       - name: Install Node.js dependencies
-        run: npm ci --omit=optional
+        run: NODE_ENV=development npm ci --include=dev --omit=optional
 
       - name: Install ast-grep (best effort)
         run: npm install -g @ast-grep/cli@latest || echo "⚠️ ast-grep installation failed (non-critical)"
@@ -80,7 +80,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --omit=optional
+        run: NODE_ENV=development npm ci --include=dev --omit=optional
 
       - name: Install ast-grep (best effort)
         run: npm install -g @ast-grep/cli@latest || echo "⚠️ ast-grep installation failed (non-critical)"
@@ -107,7 +107,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --omit=optional
+        run: NODE_ENV=development npm ci --include=dev --omit=optional
 
       - name: Install ast-grep (best effort)
         run: npm install -g @ast-grep/cli@latest || echo "⚠️ ast-grep installation failed (non-critical)"

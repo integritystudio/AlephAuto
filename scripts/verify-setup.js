@@ -6,7 +6,7 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -58,6 +58,21 @@ check('node_modules exists', () => {
   const nodeModulesPath = join(projectRoot, 'node_modules');
   if (!existsSync(nodeModulesPath)) {
     throw new Error('node_modules not found. Run: npm install');
+  }
+});
+
+check('@types/node installed (TypeScript support)', () => {
+  const typesNodePath = join(projectRoot, 'node_modules', '@types', 'node');
+  if (!existsSync(typesNodePath)) {
+    throw new Error('@types/node not found. Run: npm run fix:types OR NODE_ENV=development npm ci --include=dev');
+  }
+  // Check version
+  try {
+    const packageJsonPath = join(typesNodePath, 'package.json');
+    const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+    console.log(`   Version: ${pkg.version}`);
+  } catch {
+    // Version check optional
   }
 });
 
