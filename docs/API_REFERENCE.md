@@ -124,9 +124,12 @@ Start a new duplicate detection scan for a single repository.
 **Response (201):**
 ```json
 {
-  "scanId": "api-scan-1705312200000",
+  "success": true,
+  "job_id": "api-scan-1705312200000",
   "repositoryPath": "/path/to/repository",
   "status": "queued",
+  "status_url": "/api/scans/api-scan-1705312200000/status",
+  "results_url": "/api/scans/api-scan-1705312200000/results",
   "timestamp": "2024-01-15T10:30:00.000Z"
 }
 ```
@@ -197,14 +200,93 @@ Get scan results by ID.
 
 **Parameters:**
 - `scanId` (path): Scan identifier
+- `format` (query, optional): Result format (`"summary"` or `"full"`, default: `"summary"`)
 
-**Response:**
+**Response (Summary):**
 ```json
 {
   "scan_id": "api-scan-1705312200000",
   "status": "completed",
-  "results": [],
-  "message": "Result storage not yet implemented",
+  "summary": {
+    "duplicateCount": 5,
+    "filesScanned": 120,
+    "duplicateGroups": 3
+  },
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+**Response (Full):**
+```json
+{
+  "scan_id": "api-scan-1705312200000",
+  "status": "completed",
+  "results": {
+    "duplicates": [],
+    "statistics": {}
+  },
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+---
+
+### GET /api/scans/recent
+
+List recent scans with optional limit.
+
+**Query Parameters:**
+- `limit` (optional): Maximum number of scans to return (default: 10)
+
+**Response:**
+```json
+{
+  "scans": [
+    {
+      "job_id": "api-scan-1705312200000",
+      "repositoryPath": "/path/to/repository",
+      "status": "completed",
+      "timestamp": "2024-01-15T10:30:00.000Z"
+    }
+  ],
+  "count": 1,
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+---
+
+### GET /api/scans/stats
+
+Get scanning statistics and metrics.
+
+**Response:**
+```json
+{
+  "totalScans": 150,
+  "completedScans": 142,
+  "failedScans": 5,
+  "runningScans": 3,
+  "averageDuration": 45000,
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+---
+
+### DELETE /api/scans/:jobId
+
+Cancel a running scan job.
+
+**Parameters:**
+- `jobId` (path): Job identifier
+
+**Response:**
+```json
+{
+  "success": true,
+  "job_id": "api-scan-1705312200000",
+  "message": "Scan job cancelled successfully",
   "timestamp": "2024-01-15T10:30:00.000Z"
 }
 ```

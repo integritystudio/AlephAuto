@@ -1,12 +1,45 @@
 # CI/CD Pipeline Updates
-**Date:** 2025-11-24
-**Updated File:** `.github/workflows/deploy.yml`
+**Date:** 2025-11-26
+**Updated Files:** `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`
 
 ## Changes Summary
 
-Enhanced the GitHub Actions deployment pipeline to follow AlephAuto best practices and verify bugfixes are deployed correctly.
+Enhanced the GitHub Actions deployment pipeline to follow AlephAuto best practices and verify bugfixes are deployed correctly. Added TypeScript type dependency fixes for CI environment.
 
 ## Changes Made
+
+### 0. Fixed TypeScript @types/node Installation in CI (2025-11-26)
+
+**File:** `.github/workflows/ci.yml`
+
+**Problem:**
+TypeScript compilation was failing in CI with errors:
+```
+error TS2307: Cannot find module 'path' or its corresponding type declarations.
+error TS2580: Cannot find name 'process'. Do you need to install type definitions for node?
+```
+
+**Root Cause:**
+CI was running `npm ci` without ensuring dev dependencies were installed, causing `@types/node` to be missing.
+
+**Solution:**
+Updated the CI workflow to explicitly install dev dependencies:
+
+```yaml
+- name: Install Node.js dependencies
+  run: NODE_ENV=development npm ci --include=dev --omit=optional
+```
+
+**Additional Improvements:**
+1. Added `@types/node` to package.json devDependencies as explicit dependency
+2. Created `scripts/fix-types.js` utility for local type fix automation
+3. Enhanced `scripts/verify-setup.js` to check for @types/node availability
+4. Added `npm run fix:types` script for quick fixes
+
+**Related Documentation:**
+- `docs/runbooks/fix-missing-types.md` - Complete troubleshooting guide
+
+---
 
 ### 1. Updated npm install to use Doppler (Line 92)
 

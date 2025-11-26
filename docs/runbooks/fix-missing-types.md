@@ -77,8 +77,37 @@ npm run typecheck
 
 Production deployments (`npm ci --production`) correctly exclude dev dependencies since TypeScript compilation happens during CI/CD, not in production runtime.
 
+## Dashboard Type Fixes
+
+TypeScript errors in the dashboard (`TS2339: Property 'SIDEQUEST_API_BASE_URL' does not exist on type 'Window'`) can be resolved by:
+
+1. **Use the typed window constant:**
+
+```javascript
+// ✅ Correct - uses DashboardGlobals typedef
+const win = window;
+const baseUrl = win.SIDEQUEST_API_BASE_URL || 'http://localhost:8080';
+
+// ❌ Wrong - direct access fails type checking
+const baseUrl = window.SIDEQUEST_API_BASE_URL || 'http://localhost:8080';
+```
+
+2. **Type declaration is in `public/dashboard.js`:**
+
+```javascript
+/**
+ * @typedef {Window & {
+ *   SIDEQUEST_API_BASE_URL?: string;
+ * }} DashboardGlobals
+ */
+const win = /** @type {DashboardGlobals} */ (window);
+```
+
+This pattern allows TypeScript to properly recognize custom properties on the window object.
+
 ## Related Files
 
 - `scripts/fix-types.js` - Automated fix script
 - `scripts/verify-setup.js` - Now includes @types/node check
 - `.github/workflows/ci.yml` - Updated to include dev dependencies
+- `public/dashboard.js` - Dashboard type declarations and window object access
