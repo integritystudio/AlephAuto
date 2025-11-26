@@ -53,6 +53,13 @@ app.set('trust proxy', 1);
 app.use(express.json());
 app.use(cors());
 
+// CSP headers to allow iframe embedding from any origin
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy', "frame-ancestors *");
+  res.setHeader('X-Frame-Options', 'ALLOWALL');
+  next();
+});
+
 // Serve static files from public directory (dashboard)
 app.use(express.static(path.join(__dirname, '../public')));
 
