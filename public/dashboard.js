@@ -284,9 +284,36 @@ class DashboardController {
         this.reconnectDelay = 1000; // Start with 1 second
         this.eventQueue = [];
         this.batchTimeout = null;
-        this.apiBaseUrl = window.location.origin;
+        // Use SIDEQUEST_API_BASE_URL from meta tag or window object, fallback to current origin
+        this.apiBaseUrl = this.getApiBaseUrl();
 
         this.init();
+    }
+
+    /**
+     * Get API base URL from meta tag, window object, or fallback to current origin
+     * Priority: meta tag > window.SIDEQUEST_API_BASE_URL > window.location.origin
+     */
+    getApiBaseUrl() {
+        // 1. Check for meta tag (set during build/deploy)
+        const metaTag = document.querySelector('meta[name="sidequest-api-base-url"]');
+        if (metaTag) {
+            const url = metaTag.getAttribute('content');
+            if (url) {
+                console.log(`Using API base URL from meta tag: ${url}`);
+                return url;
+            }
+        }
+
+        // 2. Check for window object (can be set by parent frame or config script)
+        if (window.SIDEQUEST_API_BASE_URL) {
+            console.log(`Using API base URL from window object: ${window.SIDEQUEST_API_BASE_URL}`);
+            return window.SIDEQUEST_API_BASE_URL;
+        }
+
+        // 3. Fallback to current origin (for local development)
+        console.log(`Using API base URL from current origin: ${window.location.origin}`);
+        return window.location.origin;
     }
 
     /**
