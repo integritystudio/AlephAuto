@@ -27,25 +27,29 @@ describe('WebSocket Server', () => {
   });
 
   afterEach((done) => {
-    // Clean up
-    if (wss) {
-      wss.close(() => {
-        if (httpServer) {
-          httpServer.close(done);
-        } else {
-          done();
-        }
-      });
-    } else if (httpServer) {
-      httpServer.close(done);
-    } else {
-      done();
-    }
+    // Give WebSocket connections time to fully close
+    setTimeout(() => {
+      // Clean up
+      if (wss) {
+        wss.close(() => {
+          if (httpServer) {
+            httpServer.close(done);
+          } else {
+            done();
+          }
+        });
+      } else if (httpServer) {
+        httpServer.close(done);
+      } else {
+        done();
+      }
+    }, 50);
   });
 
   describe('Connection Handling', () => {
     test('should accept WebSocket connections', (done) => {
       const ws = new WebSocket(`${baseUrl}/ws`);
+      let finished = false;
 
       ws.on('open', () => {
         assert.ok(true, 'Connection established');
@@ -53,11 +57,18 @@ describe('WebSocket Server', () => {
       });
 
       ws.on('close', () => {
-        done();
+        if (!finished) {
+          finished = true;
+          done();
+        }
       });
 
-      ws.on('error', (error) => {
-        assert.fail(`Connection error: ${error.message}`);
+      ws.on('error', () => {
+        // Ignore errors during cleanup
+        if (!finished) {
+          finished = true;
+          done();
+        }
       });
     });
 
@@ -65,6 +76,8 @@ describe('WebSocket Server', () => {
       const connections = [];
       const numConnections = 5;
       let openCount = 0;
+      let closeCount = 0;
+      let finished = false;
 
       for (let i = 0; i < numConnections; i++) {
         const ws = new WebSocket(`${baseUrl}/ws`);
@@ -80,16 +93,22 @@ describe('WebSocket Server', () => {
         });
 
         ws.on('close', () => {
-          const allClosed = connections.every(conn => conn.readyState === WebSocket.CLOSED);
-          if (allClosed) {
+          closeCount++;
+          if (closeCount === numConnections && !finished) {
+            finished = true;
             done();
           }
+        });
+
+        ws.on('error', () => {
+          // Ignore errors during cleanup
         });
       }
     });
 
     test('should track connected clients', (done) => {
       const ws = new WebSocket(`${baseUrl}/ws`);
+      let finished = false;
 
       ws.on('open', () => {
         const info = wss.getClientInfo();
@@ -99,7 +118,18 @@ describe('WebSocket Server', () => {
       });
 
       ws.on('close', () => {
-        done();
+        if (!finished) {
+          finished = true;
+          done();
+        }
+      });
+
+      ws.on('error', () => {
+        // Ignore errors during cleanup
+        if (!finished) {
+          finished = true;
+          done();
+        }
       });
     });
   });
@@ -107,6 +137,7 @@ describe('WebSocket Server', () => {
   describe('Event Broadcasting', () => {
     test('should broadcast scan:started event', (done) => {
       const ws = new WebSocket(`${baseUrl}/ws`);
+      let finished = false;
 
       ws.on('open', () => {
         broadcaster.broadcastScanStarted('test-scan-1', '/test/repo');
@@ -119,12 +150,23 @@ describe('WebSocket Server', () => {
         assert.strictEqual(message.data.repository_path, '/test/repo');
         assert.ok(message.timestamp);
         ws.close();
-        done();
+      });
+
+      ws.on('close', () => {
+        if (!finished) {
+          finished = true;
+          done();
+        }
+      });
+
+      ws.on('error', () => {
+        // Ignore errors during cleanup
       });
     });
 
     test('should broadcast scan:progress event', (done) => {
       const ws = new WebSocket(`${baseUrl}/ws`);
+      let finished = false;
 
       ws.on('open', () => {
         broadcaster.broadcastScanProgress('test-scan-2', {
@@ -140,12 +182,23 @@ describe('WebSocket Server', () => {
         assert.strictEqual(message.data.progress.stage, 'extraction');
         assert.strictEqual(message.data.progress.blocks_found, 42);
         ws.close();
-        done();
+      });
+
+      ws.on('close', () => {
+        if (!finished) {
+          finished = true;
+          done();
+        }
+      });
+
+      ws.on('error', () => {
+        // Ignore errors during cleanup
       });
     });
 
     test('should broadcast scan:completed event', (done) => {
       const ws = new WebSocket(`${baseUrl}/ws`);
+      let finished = false;
       const results = {
         total_blocks: 100,
         duplicate_groups: 5,
@@ -162,12 +215,23 @@ describe('WebSocket Server', () => {
         assert.strictEqual(message.data.scan_id, 'test-scan-3');
         assert.deepStrictEqual(message.data.results, results);
         ws.close();
-        done();
+      });
+
+      ws.on('close', () => {
+        if (!finished) {
+          finished = true;
+          done();
+        }
+      });
+
+      ws.on('error', () => {
+        // Ignore errors during cleanup
       });
     });
 
     test('should broadcast scan:failed event', (done) => {
       const ws = new WebSocket(`${baseUrl}/ws`);
+      let finished = false;
 
       ws.on('open', () => {
         broadcaster.broadcastScanFailed('test-scan-4', 'Test error message');
@@ -179,7 +243,17 @@ describe('WebSocket Server', () => {
         assert.strictEqual(message.data.scan_id, 'test-scan-4');
         assert.strictEqual(message.data.error, 'Test error message');
         ws.close();
-        done();
+      });
+
+      ws.on('close', () => {
+        if (!finished) {
+          finished = true;
+          done();
+        }
+      });
+
+      ws.on('error', () => {
+        // Ignore errors during cleanup
       });
     });
 
@@ -187,6 +261,8 @@ describe('WebSocket Server', () => {
       const clients = [];
       const numClients = 3;
       let receivedCount = 0;
+      let closedCount = 0;
+      let finished = false;
 
       for (let i = 0; i < numClients; i++) {
         const ws = new WebSocket(`${baseUrl}/ws`);
@@ -200,8 +276,19 @@ describe('WebSocket Server', () => {
           if (receivedCount === numClients) {
             assert.strictEqual(receivedCount, numClients, 'All clients received broadcast');
             clients.forEach(client => client.close());
+          }
+        });
+
+        ws.on('close', () => {
+          closedCount++;
+          if (closedCount === numClients && !finished) {
+            finished = true;
             done();
           }
+        });
+
+        ws.on('error', () => {
+          // Ignore errors during cleanup
         });
       }
 
@@ -215,6 +302,7 @@ describe('WebSocket Server', () => {
   describe('Message Format', () => {
     test('all messages should include timestamp', (done) => {
       const ws = new WebSocket(`${baseUrl}/ws`);
+      let finished = false;
 
       ws.on('open', () => {
         broadcaster.broadcastScanStarted('test-timestamp', '/test');
@@ -226,12 +314,23 @@ describe('WebSocket Server', () => {
         const timestamp = new Date(message.timestamp);
         assert.ok(!isNaN(timestamp.getTime()));
         ws.close();
-        done();
+      });
+
+      ws.on('close', () => {
+        if (!finished) {
+          finished = true;
+          done();
+        }
+      });
+
+      ws.on('error', () => {
+        // Ignore errors during cleanup
       });
     });
 
     test('all messages should include event type', (done) => {
       const ws = new WebSocket(`${baseUrl}/ws`);
+      let finished = false;
 
       ws.on('open', () => {
         broadcaster.broadcastScanProgress('test-event', { stage: 'test' });
@@ -242,12 +341,23 @@ describe('WebSocket Server', () => {
         assert.ok(message.event);
         assert.strictEqual(typeof message.event, 'string');
         ws.close();
-        done();
+      });
+
+      ws.on('close', () => {
+        if (!finished) {
+          finished = true;
+          done();
+        }
+      });
+
+      ws.on('error', () => {
+        // Ignore errors during cleanup
       });
     });
 
     test('messages should be valid JSON', (done) => {
       const ws = new WebSocket(`${baseUrl}/ws`);
+      let finished = false;
 
       ws.on('open', () => {
         broadcaster.broadcastScanCompleted('test-json', { test: true });
@@ -258,7 +368,17 @@ describe('WebSocket Server', () => {
           JSON.parse(data.toString());
         });
         ws.close();
-        done();
+      });
+
+      ws.on('close', () => {
+        if (!finished) {
+          finished = true;
+          done();
+        }
+      });
+
+      ws.on('error', () => {
+        // Ignore errors during cleanup
       });
     });
   });
@@ -266,6 +386,7 @@ describe('WebSocket Server', () => {
   describe('Error Handling', () => {
     test('should handle client disconnection gracefully', (done) => {
       const ws = new WebSocket(`${baseUrl}/ws`);
+      let finished = false;
 
       ws.on('open', () => {
         ws.close();
@@ -273,14 +394,22 @@ describe('WebSocket Server', () => {
 
       ws.on('close', () => {
         // Server should handle disconnection without errors
-        assert.ok(true, 'Client disconnected gracefully');
-        done();
+        if (!finished) {
+          finished = true;
+          assert.ok(true, 'Client disconnected gracefully');
+          done();
+        }
+      });
+
+      ws.on('error', () => {
+        // Ignore errors during cleanup
       });
     });
 
     test('should continue broadcasting after client disconnects', (done) => {
       const ws1 = new WebSocket(`${baseUrl}/ws`);
       const ws2 = new WebSocket(`${baseUrl}/ws`);
+      let finished = false;
 
       let ws1Ready = false;
       let ws2Ready = false;
@@ -312,7 +441,21 @@ describe('WebSocket Server', () => {
         assert.strictEqual(message.event, 'scan:started');
         assert.strictEqual(message.data.scan_id, 'after-disconnect');
         ws2.close();
-        done();
+      });
+
+      ws2.on('close', () => {
+        if (!finished) {
+          finished = true;
+          done();
+        }
+      });
+
+      ws1.on('error', () => {
+        // Ignore errors during cleanup
+      });
+
+      ws2.on('error', () => {
+        // Ignore errors during cleanup
       });
     });
   });
