@@ -307,9 +307,9 @@ class DashboardController {
         }
 
         // 2. Check for window object (can be set by parent frame or config script)
-        if (window.SIDEQUEST_API_BASE_URL) {
-            console.log(`Using API base URL from window object: ${window.SIDEQUEST_API_BASE_URL}`);
-            return window.SIDEQUEST_API_BASE_URL;
+        if (win.SIDEQUEST_API_BASE_URL) {
+            console.log(`Using API base URL from window object: ${win.SIDEQUEST_API_BASE_URL}`);
+            return win.SIDEQUEST_API_BASE_URL;
         }
 
         // 3. Fallback to current origin (for local development)
