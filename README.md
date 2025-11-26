@@ -1098,81 +1098,72 @@ See [sidequest/GIT-ACTIVITY-REPORTER-README.md](sidequest/GIT-ACTIVITY-REPORTER-
 
 ## Testing
 
-Comprehensive test suite covering all major features with 95.5% pass rate.
+Comprehensive test suite covering all major features with proper test fixtures and infrastructure.
 
 ### Test Statistics
 
 ```
-Total Tests: 67
-Passing: 64 (95.5%)
-Failing: 3 (4.5%)
-Test Suites: 5
+Unit Tests: 24+ tests across 2 suites
+- repomix-worker.test.js: 8/8 passing ✅
+- mcp-server.test.js: 10-13/16 passing (intermittent MCP server issues)
+
+Integration Tests: Available in tests/integration/
+Accuracy Tests: Available in tests/accuracy/
+
+Test Infrastructure: Using test fixtures (createTempRepository)
+Path Validation: Pre-commit hook prevents hardcoded paths ✅
 ```
 
 ### Running Tests
 
 ```bash
-# Run all tests
+# Run all unit tests
 npm test
 
-# Run specific test file
-npm run test:scanner        # Directory scanner tests
-npm run test:single         # Single enhancement tests
+# Run integration tests
+npm run test:integration
 
-# Run individual test files
-node --test test/directory-scanner.test.js
-node --test test/schema-mcp-tools.test.js
-node --test test/repomix-worker.test.js
-node --test test/sidequest-server.test.js
+# Validate test paths (pre-commit check)
+npm run test:validate-paths
+
+# Run specific test file
+doppler run -- node --test tests/unit/repomix-worker.test.js
+doppler run -- node --test tests/unit/mcp-server.test.js
 
 # Run with verbose output
 npm test -- --reporter=spec
+
+# Type checking
+npm run typecheck
 ```
+
+### Test Infrastructure
+
+All tests use the test fixtures system from `tests/fixtures/test-helpers.js`:
+
+```javascript
+import { createTempRepository, createMultipleTempRepositories, cleanupRepositories } from '../fixtures/test-helpers.js';
+
+// Create temporary test repository
+const testRepo = await createTempRepository('test');
+console.log(testRepo.path); // /var/folders/.../alephauto-test-test-abc123
+
+// Cleanup after tests
+await testRepo.cleanup();
+```
+
+**Key Features:**
+- Automatic cleanup in `afterEach` hooks
+- Real git repository structure
+- No hardcoded `/tmp/` paths
+- Pre-commit validation prevents hardcoded paths
+
+See [tests/README.md](tests/README.md) for complete test infrastructure guide.
 
 ### Test Suites
 
-#### 1. DirectoryScanner Tests (13 tests) ✅
-All passing - Tests directory scanning functionality.
-
-**Coverage:**
-- Initialization with default/custom options
-- Exclude directories handling
-- Recursive directory scanning
-- Max depth limit enforcement
-- Permission error handling
-- Scan statistics generation
-- Directory tree visualization
-- Scan report saving
-
-#### 2. READMEScanner Tests (11 tests) ✅
-All passing - Tests README file scanner for documentation enhancement.
-
-**Coverage:**
-- README file pattern matching
-- Recursive README scanning
-- Schema markup detection
-- README content reading
-- Context gathering (languages, project type)
-- Multi-language detection (JavaScript, TypeScript, Python, Go, Rust)
-- Git remote URL extraction
-- Statistics generation
-
-#### 3. SchemaMCPTools Tests (31 tests) ✅
-All passing - Tests Schema.org MCP tools integration.
-
-**Coverage:**
-- Schema type detection (HowTo, APIReference, SoftwareApplication, etc.)
-- Schema generation with context
-- Title and description extraction
-- Programming language metadata
-- Code repository linking
-- Schema validation
-- Impact analysis and scoring (0-100)
-- JSON-LD script generation
-- Schema injection into content
-
-#### 4. RepomixWorker Tests (9 tests) ⚠️
-8/9 passing - Tests repomix job worker functionality.
+#### 1. RepomixWorker Tests (8 tests) ✅
+**All passing** - Tests repomix job worker functionality with test fixtures.
 
 **Coverage:**
 - Job creation with correct structure
@@ -1181,75 +1172,61 @@ All passing - Tests Schema.org MCP tools integration.
 - Multiple job queuing
 - SidequestServer inheritance
 - Event emission
+- Custom worker options
+- Concurrent job processing
 
-**Known Issue:** 1 timing-related test failure (jobs process instantly)
+**Migration Status:** ✅ Migrated to use `createTempRepository()` fixtures
 
-#### 5. SidequestServer Tests (12 tests) ⚠️
-10/12 passing - Tests base sidequest server for job management.
+#### 2. MCP Server Tests (16 tests) ⚠️
+10-13/16 passing - Tests Model Context Protocol server integration.
 
 **Coverage:**
-- Job creation and queue management
-- Job storage in Map
-- Successful job execution and failure handling
-- Max concurrent limit enforcement
-- Event emission
-- Job retrieval and statistics generation
+- Server initialization and handshake
+- Tools discovery (list available tools)
+- Resources discovery
+- JSONRPC protocol compliance
+- Tool execution and validation
+- Error handling
+- Capability negotiation
 
-**Known Issues:** 2 timing-related test failures (fast job processing)
+**Known Issues:** Intermittent failures due to MCP server response timing
 
-### Test Coverage by Feature
+**Migration Status:** ✅ Already using test fixtures (no migration needed)
 
-**Directory Scanning:**
-- ✅ Recursive scanning
-- ✅ Exclusion patterns
-- ✅ Depth limiting
-- ✅ Statistics generation
-- ✅ Report generation
-- ✅ Tree visualization
+#### 3. Additional Test Suites
 
-**Documentation Enhancement:**
-- ✅ README discovery
-- ✅ Context analysis
-- ✅ Schema type selection
-- ✅ Schema generation
-- ✅ Schema validation
-- ✅ Impact measurement
-- ✅ Content injection
+The following test suites are available in the codebase:
 
-**Job Management:**
-- ✅ Job creation
-- ✅ Queue management
-- ✅ Concurrent execution
-- ✅ Event-driven architecture
-- ✅ Error handling
-- ✅ Sentry integration
+- **DirectoryScanner Tests** - Directory scanning and traversal
+- **READMEScanner Tests** - README file discovery and analysis
+- **SchemaMCPTools Tests** - Schema.org structured data generation
+- **SidequestServer Tests** - Base job queue management
+- **Integration Tests** - End-to-end pipeline testing
+- **Accuracy Tests** - Duplicate detection accuracy validation
 
-**Repomix Integration:**
-- ✅ Job creation
-- ✅ Output management
-- ✅ Directory structure mirroring
-- ✅ Error logging
-
-### Known Test Limitations
-
-#### Timing-Related Failures (3 tests)
-These are not bugs but demonstrate excellent system performance:
-
-1. **repomix-worker.test.js** - Jobs process too fast to catch 'queued' status
-2. **sidequest-server.test.js** - Jobs transition instantly to 'running'
-3. **sidequest-server.test.js** - Queue empties instantly as jobs start
-
-These could be fixed with delays or mocking, but the functionality works correctly in production.
+See [tests/README.md](tests/README.md) for complete test documentation.
 
 ### Test Quality Metrics
 
-- **Test-to-Code Ratio**: High
-- **Edge Case Coverage**: Extensive
-- **Error Handling Tests**: Comprehensive
-- **Integration Tests**: Present
-- **Mocking**: Minimal (uses real filesystem with cleanup)
-- **Execution Time**: < 2 seconds total
-- **Test Pollution**: None (proper cleanup)
+**Infrastructure Quality:**
+- ✅ Test fixtures system with automatic cleanup
+- ✅ Pre-commit hooks prevent hardcoded paths
+- ✅ Real git repository structures in tests
+- ✅ Proper async/await patterns
+- ✅ Comprehensive error handling coverage
+
+**Execution Characteristics:**
+- **Isolation**: Each test uses unique temporary directories
+- **Cleanup**: Automatic cleanup in `afterEach` hooks
+- **Speed**: Fast execution with minimal overhead
+- **Reliability**: Deterministic results (except MCP server timing issues)
+
+**Best Practices:**
+- No hardcoded `/tmp/` paths
+- No shared state between tests
+- Proper use of `beforeEach`/`afterEach`
+- Clear, descriptive test names
+- Comprehensive assertions
 
 ---
 
