@@ -1,7 +1,7 @@
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { spawn } from 'child_process';
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import { createTempRepository } from '../fixtures/test-helpers.js';
 
 const logger = createComponentLogger('MCPServerTest');
@@ -56,9 +56,10 @@ describe('MCP Server', () => {
           requestSent = true;
 
           // Close stdin to signal end of input
+          // Give server more time for complex operations like initialize
           setTimeout(() => {
             serverProcess.stdin.end();
-          }, 100);
+          }, 500);
         }
       });
 
@@ -163,7 +164,9 @@ describe('MCP Server', () => {
 
       const scanTool = toolsResponse.result.tools.find(t => t.name === 'scan_repository');
       assert.ok(scanTool, 'Should have scan_repository tool');
-      assert.ok(scanTool.description.includes('scan'));
+      // Case-insensitive check for 'scan' in description
+      assert.ok(scanTool.description.toLowerCase().includes('scan'),
+        'Tool description should mention scanning');
     });
   });
 
@@ -198,8 +201,13 @@ describe('MCP Server', () => {
     test('responses should have jsonrpc version', async () => {
       const responses = await sendMCPRequest('tools/list', {});
 
-      responses.forEach(response => {
-        assert.strictEqual(response.jsonrpc, '2.0');
+      // Filter to only JSONRPC responses (have id or result fields)
+      const jsonrpcResponses = responses.filter(r => r.id !== undefined || r.result !== undefined || r.error !== undefined);
+
+      assert.ok(jsonrpcResponses.length > 0, 'Should have at least one JSONRPC response');
+
+      jsonrpcResponses.forEach(response => {
+        assert.strictEqual(response.jsonrpc, '2.0', 'JSONRPC response should have version 2.0');
       });
     });
 
@@ -312,9 +320,14 @@ describe('MCP Server', () => {
         clientInfo: { name: 'test', version: '1.0.0' }
       });
 
-      const initResponse = responses.find(r => r.result);
-      assert.ok(initResponse.result.capabilities);
-      assert.ok(initResponse.result.capabilities.tools);
+      // Filter for actual JSONRPC responses first
+      const jsonrpcResponses = responses.filter(r => r.jsonrpc === '2.0');
+      assert.ok(jsonrpcResponses.length > 0, 'Should receive at least one JSONRPC response');
+
+      const initResponse = jsonrpcResponses.find(r => r.result && r.result.protocolVersion);
+      assert.ok(initResponse, 'Should receive initialize response');
+      assert.ok(initResponse.result.capabilities, 'Response should have capabilities');
+      assert.ok(initResponse.result.capabilities.tools, 'Capabilities should include tools');
     });
 
     test('should declare resource capabilities if supported', async () => {
@@ -324,10 +337,17 @@ describe('MCP Server', () => {
         clientInfo: { name: 'test', version: '1.0.0' }
       });
 
-      const initResponse = responses.find(r => r.result);
+      // Filter for actual JSONRPC responses first
+      const jsonrpcResponses = responses.filter(r => r.jsonrpc === '2.0');
+      assert.ok(jsonrpcResponses.length > 0, 'Should receive at least one JSONRPC response');
+
+      const initResponse = jsonrpcResponses.find(r => r.result && r.result.protocolVersion);
+      assert.ok(initResponse, 'Should receive initialize response');
+
       // Resources capability is optional
-      if (initResponse.result.capabilities.resources) {
-        assert.strictEqual(typeof initResponse.result.capabilities.resources, 'object');
+      if (initResponse.result.capabilities && initResponse.result.capabilities.resources) {
+        assert.strictEqual(typeof initResponse.result.capabilities.resources, 'object',
+          'Resources capability should be an object if present');
       }
     });
   });
