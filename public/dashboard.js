@@ -14,6 +14,7 @@
  * Global type declarations for window extensions
  * @typedef {Object} DashboardGlobals
  * @property {DashboardController} [dashboardController]
+ * @property {string} [SIDEQUEST_API_BASE_URL]
  */
 
 /** @type {Window & typeof globalThis & DashboardGlobals} */
