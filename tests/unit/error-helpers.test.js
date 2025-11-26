@@ -6,6 +6,7 @@
  * to prevent cascading TypeErrors when handling errors.
  */
 
+import { describe, test } from 'node:test';
 import { strict as assert } from 'assert';
 import {
   safeErrorMessage,
@@ -19,12 +20,12 @@ import {
 
 describe('Error Helper Utilities', () => {
   describe('safeErrorMessage()', () => {
-    it('should extract message from Error object', () => {
+    test('should extract message from Error object', () => {
       const error = new Error('test error');
       assert.equal(safeErrorMessage(error), 'test error');
     });
 
-    it('should handle custom Error subclasses', () => {
+    test('should handle custom Error subclasses', () => {
       class CustomError extends Error {
         constructor(message) {
           super(message);
@@ -35,59 +36,59 @@ describe('Error Helper Utilities', () => {
       assert.equal(safeErrorMessage(error), 'custom error');
     });
 
-    it('should handle string errors', () => {
+    test('should handle string errors', () => {
       assert.equal(safeErrorMessage('string error'), 'string error');
     });
 
-    it('should handle null with default fallback', () => {
+    test('should handle null with default fallback', () => {
       assert.equal(safeErrorMessage(null), 'Unknown error');
     });
 
-    it('should handle undefined with default fallback', () => {
+    test('should handle undefined with default fallback', () => {
       assert.equal(safeErrorMessage(undefined), 'Unknown error');
     });
 
-    it('should handle null with custom fallback', () => {
+    test('should handle null with custom fallback', () => {
       assert.equal(safeErrorMessage(null, 'Custom fallback'), 'Custom fallback');
     });
 
-    it('should handle error-like objects with message property', () => {
+    test('should handle error-like objects with message property', () => {
       const errorObj = { message: 'error-like object' };
       assert.equal(safeErrorMessage(errorObj), 'error-like object');
     });
 
-    it('should handle empty string with fallback', () => {
+    test('should handle empty string with fallback', () => {
       assert.equal(safeErrorMessage(''), 'Unknown error');
     });
 
-    it('should handle Error with empty message', () => {
+    test('should handle Error with empty message', () => {
       const error = new Error('');
       assert.equal(safeErrorMessage(error), 'Unknown error');
     });
 
-    it('should handle numbers by converting to string', () => {
+    test('should handle numbers by converting to string', () => {
       assert.equal(safeErrorMessage(404), '404');
       assert.equal(safeErrorMessage(0), '0');
     });
 
-    it('should handle booleans by converting to string', () => {
+    test('should handle booleans by converting to string', () => {
       assert.equal(safeErrorMessage(true), 'true');
       assert.equal(safeErrorMessage(false), 'false');
     });
 
-    it('should handle plain objects by JSON stringifying', () => {
+    test('should handle plain objects by JSON stringifying', () => {
       const obj = { code: 'ENOENT', filePath: '/some/path/to/file' };
       const result = safeErrorMessage(obj);
       assert.ok(result.includes('ENOENT'));
       assert.ok(result.includes('/some/path/to/file'));
     });
 
-    it('should handle arrays by converting to string', () => {
+    test('should handle arrays by converting to string', () => {
       const arr = ['error1', 'error2'];
       assert.equal(safeErrorMessage(arr), 'error1,error2');
     });
 
-    it('should handle symbols by converting to string', () => {
+    test('should handle symbols by converting to string', () => {
       const sym = Symbol('test');
       const result = safeErrorMessage(sym);
       assert.ok(result.includes('Symbol'));
@@ -95,38 +96,38 @@ describe('Error Helper Utilities', () => {
   });
 
   describe('safeErrorStack()', () => {
-    it('should extract stack from Error object', () => {
+    test('should extract stack from Error object', () => {
       const error = new Error('test error');
       const stack = safeErrorStack(error);
       assert.ok(stack);
       assert.ok(stack.includes('Error: test error'));
     });
 
-    it('should return undefined for null', () => {
+    test('should return undefined for null', () => {
       assert.equal(safeErrorStack(null), undefined);
     });
 
-    it('should return undefined for undefined', () => {
+    test('should return undefined for undefined', () => {
       assert.equal(safeErrorStack(undefined), undefined);
     });
 
-    it('should return undefined for strings', () => {
+    test('should return undefined for strings', () => {
       assert.equal(safeErrorStack('error string'), undefined);
     });
 
-    it('should handle error-like objects with stack property', () => {
+    test('should handle error-like objects with stack property', () => {
       const errorObj = { stack: 'fake stack trace' };
       assert.equal(safeErrorStack(errorObj), 'fake stack trace');
     });
 
-    it('should return undefined for objects without stack', () => {
+    test('should return undefined for objects without stack', () => {
       const obj = { message: 'no stack' };
       assert.equal(safeErrorStack(obj), undefined);
     });
   });
 
   describe('toErrorObject()', () => {
-    it('should convert Error to structured object', () => {
+    test('should convert Error to structured object', () => {
       const error = new Error('test error');
       const obj = toErrorObject(error);
 
@@ -137,7 +138,7 @@ describe('Error Helper Utilities', () => {
       assert.ok(obj.stack);
     });
 
-    it('should convert string to structured object', () => {
+    test('should convert string to structured object', () => {
       const obj = toErrorObject('string error');
 
       assert.equal(obj.message, 'string error');
@@ -146,7 +147,7 @@ describe('Error Helper Utilities', () => {
       assert.equal(obj.stack, undefined);
     });
 
-    it('should handle null with fallback message', () => {
+    test('should handle null with fallback message', () => {
       const obj = toErrorObject(null, { fallbackMessage: 'Null error' });
 
       assert.equal(obj.message, 'Null error');
@@ -154,7 +155,7 @@ describe('Error Helper Utilities', () => {
       assert.equal(obj.isError, false);
     });
 
-    it('should include metadata when provided', () => {
+    test('should include metadata when provided', () => {
       const error = new Error('test');
       const obj = toErrorObject(error, {
         metadata: { jobId: '123', attempt: 2 }
@@ -163,7 +164,7 @@ describe('Error Helper Utilities', () => {
       assert.deepEqual(obj.metadata, { jobId: '123', attempt: 2 });
     });
 
-    it('should include error code if available', () => {
+    test('should include error code if available', () => {
       const error = new Error('File not found');
       error.code = 'ENOENT';
       const obj = toErrorObject(error);
@@ -171,7 +172,7 @@ describe('Error Helper Utilities', () => {
       assert.equal(obj.code, 'ENOENT');
     });
 
-    it('should handle custom Error subclasses', () => {
+    test('should handle custom Error subclasses', () => {
       class ValidationError extends Error {
         constructor(message) {
           super(message);
@@ -188,45 +189,45 @@ describe('Error Helper Utilities', () => {
   });
 
   describe('isErrorLike()', () => {
-    it('should return true for Error objects', () => {
+    test('should return true for Error objects', () => {
       assert.equal(isErrorLike(new Error('test')), true);
     });
 
-    it('should return true for objects with message property', () => {
+    test('should return true for objects with message property', () => {
       assert.equal(isErrorLike({ message: 'test' }), true);
     });
 
-    it('should return true for objects with stack property', () => {
+    test('should return true for objects with stack property', () => {
       assert.equal(isErrorLike({ stack: 'stack trace' }), true);
     });
 
-    it('should return true for objects with both message and stack', () => {
+    test('should return true for objects with both message and stack', () => {
       assert.equal(isErrorLike({ message: 'test', stack: 'trace' }), true);
     });
 
-    it('should return false for null', () => {
+    test('should return false for null', () => {
       assert.equal(isErrorLike(null), false);
     });
 
-    it('should return false for undefined', () => {
+    test('should return false for undefined', () => {
       assert.equal(isErrorLike(undefined), false);
     });
 
-    it('should return false for strings', () => {
+    test('should return false for strings', () => {
       assert.equal(isErrorLike('error'), false);
     });
 
-    it('should return false for numbers', () => {
+    test('should return false for numbers', () => {
       assert.equal(isErrorLike(404), false);
     });
 
-    it('should return false for plain objects without error properties', () => {
+    test('should return false for plain objects without error properties', () => {
       assert.equal(isErrorLike({ code: 'ENOENT' }), false);
     });
   });
 
   describe('serializeError()', () => {
-    it('should serialize Error object with stack', () => {
+    test('should serialize Error object with stack', () => {
       const error = new Error('test error');
       const serialized = serializeError(error, true);
 
@@ -236,7 +237,7 @@ describe('Error Helper Utilities', () => {
       assert.ok(serialized.stack);
     });
 
-    it('should serialize Error object without stack', () => {
+    test('should serialize Error object without stack', () => {
       const error = new Error('test error');
       const serialized = serializeError(error, false);
 
@@ -245,7 +246,7 @@ describe('Error Helper Utilities', () => {
       assert.equal(serialized.stack, undefined);
     });
 
-    it('should serialize Error with cause', () => {
+    test('should serialize Error with cause', () => {
       const cause = new Error('root cause');
       const error = new Error('wrapper error', { cause });
       const serialized = serializeError(error);
@@ -255,7 +256,7 @@ describe('Error Helper Utilities', () => {
       assert.equal(serialized.cause.message, 'root cause');
     });
 
-    it('should include error code if available', () => {
+    test('should include error code if available', () => {
       const error = new Error('File error');
       error.code = 'ENOENT';
       const serialized = serializeError(error);
@@ -263,7 +264,7 @@ describe('Error Helper Utilities', () => {
       assert.equal(serialized.code, 'ENOENT');
     });
 
-    it('should handle string errors', () => {
+    test('should handle string errors', () => {
       const serialized = serializeError('string error');
 
       assert.equal(serialized.message, 'string error');
@@ -271,7 +272,7 @@ describe('Error Helper Utilities', () => {
       assert.equal(serialized.stack, undefined);
     });
 
-    it('should handle null errors', () => {
+    test('should handle null errors', () => {
       const serialized = serializeError(null);
 
       assert.equal(serialized.message, 'Unknown error');
@@ -280,21 +281,21 @@ describe('Error Helper Utilities', () => {
   });
 
   describe('formatErrorMessage()', () => {
-    it('should format error without type prefix by default', () => {
+    test('should format error without type prefix by default', () => {
       const error = new Error('test error');
       const formatted = formatErrorMessage(error);
 
       assert.equal(formatted, 'test error');
     });
 
-    it('should include type prefix when requested', () => {
+    test('should include type prefix when requested', () => {
       const error = new Error('test error');
       const formatted = formatErrorMessage(error, { includeType: true });
 
       assert.equal(formatted, '[Error] test error');
     });
 
-    it('should include error code when requested', () => {
+    test('should include error code when requested', () => {
       const error = new Error('File not found');
       error.code = 'ENOENT';
       const formatted = formatErrorMessage(error, { includeCode: true });
@@ -302,7 +303,7 @@ describe('Error Helper Utilities', () => {
       assert.equal(formatted, '[ENOENT] File not found');
     });
 
-    it('should prefer code over type when both requested', () => {
+    test('should prefer code over type when both requested', () => {
       const error = new Error('File not found');
       error.code = 'ENOENT';
       const formatted = formatErrorMessage(error, {
@@ -313,7 +314,7 @@ describe('Error Helper Utilities', () => {
       assert.equal(formatted, '[ENOENT] File not found');
     });
 
-    it('should handle string errors with type', () => {
+    test('should handle string errors with type', () => {
       const formatted = formatErrorMessage('string error', { includeType: true });
 
       assert.equal(formatted, '[string] string error');
@@ -321,7 +322,7 @@ describe('Error Helper Utilities', () => {
   });
 
   describe('combineErrors()', () => {
-    it('should combine multiple Error objects', () => {
+    test('should combine multiple Error objects', () => {
       const errors = [
         new Error('error 1'),
         new Error('error 2'),
@@ -332,14 +333,14 @@ describe('Error Helper Utilities', () => {
       assert.equal(combined, 'error 1; error 2; error 3');
     });
 
-    it('should combine with custom separator', () => {
+    test('should combine with custom separator', () => {
       const errors = [new Error('error 1'), new Error('error 2')];
       const combined = combineErrors(errors, ' | ');
 
       assert.equal(combined, 'error 1 | error 2');
     });
 
-    it('should handle mixed error types', () => {
+    test('should handle mixed error types', () => {
       const errors = [
         new Error('error object'),
         'string error',
@@ -352,7 +353,7 @@ describe('Error Helper Utilities', () => {
       assert.ok(combined.includes('object error'));
     });
 
-    it('should filter out null/undefined errors', () => {
+    test('should filter out null/undefined errors', () => {
       const errors = [
         new Error('error 1'),
         null,
@@ -364,15 +365,15 @@ describe('Error Helper Utilities', () => {
       assert.equal(combined, 'error 1; error 2');
     });
 
-    it('should return fallback for empty array', () => {
+    test('should return fallback for empty array', () => {
       assert.equal(combineErrors([]), 'Unknown error');
     });
 
-    it('should return fallback for null input', () => {
+    test('should return fallback for null input', () => {
       assert.equal(combineErrors(null), 'Unknown error');
     });
 
-    it('should handle single error', () => {
+    test('should handle single error', () => {
       const errors = [new Error('single error')];
       const combined = combineErrors(errors);
 
@@ -381,7 +382,7 @@ describe('Error Helper Utilities', () => {
   });
 
   describe('Edge cases and stress tests', () => {
-    it('should handle deeply nested error causes', () => {
+    test('should handle deeply nested error causes', () => {
       const error3 = new Error('level 3');
       const error2 = new Error('level 2', { cause: error3 });
       const error1 = new Error('level 1', { cause: error2 });
@@ -392,7 +393,7 @@ describe('Error Helper Utilities', () => {
       assert.equal(serialized.cause.cause.message, 'level 3');
     });
 
-    it('should handle circular reference objects safely', () => {
+    test('should handle circular reference objects safely', () => {
       const obj = { message: 'circular' };
       obj.self = obj;
 
@@ -401,21 +402,21 @@ describe('Error Helper Utilities', () => {
       assert.ok(message);
     });
 
-    it('should handle very long error messages', () => {
+    test('should handle very long error messages', () => {
       const longMessage = 'A'.repeat(10000);
       const error = new Error(longMessage);
 
       assert.equal(safeErrorMessage(error), longMessage);
     });
 
-    it('should handle errors with special characters', () => {
+    test('should handle errors with special characters', () => {
       const message = 'Error: \n\t\r\0 special chars';
       const error = new Error(message);
 
       assert.equal(safeErrorMessage(error), message);
     });
 
-    it('should handle errors with unicode characters', () => {
+    test('should handle errors with unicode characters', () => {
       const message = '错误: Unicode エラー';
       const error = new Error(message);
 
@@ -424,7 +425,7 @@ describe('Error Helper Utilities', () => {
   });
 
   describe('ActivityFeed cascade prevention', () => {
-    it('should prevent TypeError when error parameter is missing', () => {
+    test('should prevent TypeError when error parameter is missing', () => {
       // Simulate activity-feed.js:219 scenario
       const job = { id: '123', data: { type: 'test' } };
       const error = undefined; // Missing error parameter!
@@ -440,7 +441,7 @@ describe('Error Helper Utilities', () => {
       });
     });
 
-    it('should handle job:failed event with null error', () => {
+    test('should handle job:failed event with null error', () => {
       const job = { id: '456' };
       const error = null;
 
@@ -450,7 +451,7 @@ describe('Error Helper Utilities', () => {
       assert.equal(errorObj.isError, false);
     });
 
-    it('should handle retry:created event with undefined error', () => {
+    test('should handle retry:created event with undefined error', () => {
       const jobId = '789';
       const error = undefined;
 
@@ -464,5 +465,3 @@ describe('Error Helper Utilities', () => {
   });
 });
 
-// Run tests
-console.log('Running error helper tests...');
