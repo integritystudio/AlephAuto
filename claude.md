@@ -862,7 +862,31 @@ jobs/
 - Pre-commit path validation
 - Auto-PR creation for duplicates
 
-## Recent Updates (Updated: 2025-11-25)
+## Recent Updates (Updated: 2025-11-26)
+
+**v1.6.7 - Scan API Completion & TypeScript Improvements**
+- **Complete /api/scans Endpoint Implementation** - Fixed all 8 failing tests
+  - Added POST /api/scans/start with correct response format (scanId → job_id)
+  - Added GET /api/scans/recent endpoint with limit parameter
+  - Added GET /api/scans/stats endpoint with metrics
+  - Fixed GET /api/scans/:scanId/status field names
+  - Fixed GET /api/scans/:scanId/results with summary and full formats
+  - Added DELETE /api/scans/:jobId endpoint
+  - Location: api/routes/scans.js
+- **TypeScript Type Fixes** - Resolved window object type errors
+  - Fixed TS2339 errors in dashboard.js using DashboardGlobals typedef
+  - Used typed win constant for SIDEQUEST_API_BASE_URL access
+  - Added scripts/fix-types.js utility for automated type fixes
+  - Location: public/dashboard.js, docs/runbooks/fix-missing-types.md
+- **CI/CD @types/node Fix** - Ensured TypeScript types install in CI
+  - Added @types/node to devDependencies for CI environment
+  - Enhanced scripts/verify-setup.js with package availability checks
+  - Location: .github/workflows/ci.yml, package.json
+- **CORS & Embedding** - Enabled iframe embedding from any origin
+  - Updated CORS configuration for dashboard embedding scenarios
+  - Location: api/server.js
+
+---
 
 **v1.6.6 - TODO Resolution & CI/CD Enhancements**
 - **Parallel TODO Resolution** - Resolved 6 major TODO comments
@@ -896,7 +920,7 @@ jobs/
 
 ---
 
-**Version:** 1.6.6
-**Last Updated:** 2025-11-25
+**Version:** 1.6.7
+**Last Updated:** 2025-11-26
 **Status:** Production Ready (PM2 + Doppler deployment)
 **Environment:** macOS with traditional server stack
