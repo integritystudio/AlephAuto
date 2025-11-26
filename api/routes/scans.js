@@ -53,9 +53,10 @@ router.post(
       }]);
 
       const response = {
-        scanId: jobId,
-        repositoryPath,
-        status: 'queued',
+        success: true,
+        job_id: job.id,
+        status_url: `/api/scans/${job.id}/status`,
+        results_url: `/api/scans/${job.id}/results`,
         timestamp: new Date().toISOString()
       };
 
@@ -109,6 +110,67 @@ router.post('/start-multi', strictRateLimiter, async (req, res, next) => {
 });
 
 /**
+ * GET /api/scans/recent
+ * Get recent scans
+ * NOTE: This must come BEFORE /:scanId routes to avoid being caught as a scanId
+ */
+router.get('/recent', async (req, res, next) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+
+    // TODO: Implement scan history storage
+    // For now, return empty list with queue stats
+    const queueStats = worker.getStats();
+
+    res.json({
+      scans: [],
+      total: 0,
+      limit: limit,
+      queue_stats: {
+        active: queueStats.active,
+        queued: queueStats.queued,
+        completed: queueStats.completed
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/scans/stats
+ * Get scanning statistics
+ * NOTE: This must come BEFORE /:scanId routes to avoid being caught as a scanId
+ */
+router.get('/stats', async (req, res, next) => {
+  try {
+    const scanMetrics = worker.getScanMetrics();
+    const queueStats = worker.getStats();
+
+    res.json({
+      scan_metrics: {
+        total_scans: scanMetrics.totalScans || 0,
+        duplicates_found: scanMetrics.duplicatesFound || 0,
+        files_scanned: scanMetrics.filesScanned || 0
+      },
+      queue_stats: {
+        active: queueStats.active,
+        queued: queueStats.queued,
+        completed: queueStats.completed
+      },
+      cache_stats: {
+        hits: scanMetrics.cacheHits || 0,
+        misses: scanMetrics.cacheMisses || 0
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/scans/:scanId/status
  * Get scan status
  */
@@ -116,16 +178,22 @@ router.get('/:scanId/status', async (req, res, next) => {
   try {
     const { scanId } = req.params;
 
-    const scanMetrics = worker.getScanMetrics();
     const queueStats = worker.getStats();
 
+    // Determine job status based on queue state
+    let status = 'completed';
+    if (queueStats.active > 0) {
+      status = 'running';
+    } else if (queueStats.queued > 0) {
+      status = 'queued';
+    }
+
     res.json({
-      scan_id: scanId,
-      status: queueStats.activeJobs > 0 ? 'running' : 'idle',
-      active_jobs: queueStats.activeJobs,
-      queued_jobs: queueStats.queuedJobs,
-      completed_scans: scanMetrics.totalScans || 0,
-      failed_scans: scanMetrics.failedScans || 0,
+      job_id: scanId,
+      status: status,
+      queued: queueStats.queued,
+      active: queueStats.active,
+      completed: queueStats.completed,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -140,13 +208,49 @@ router.get('/:scanId/status', async (req, res, next) => {
 router.get('/:scanId/results', async (req, res, next) => {
   try {
     const { scanId } = req.params;
+    const { format } = req.query;
 
-    // TODO: Implement result storage and retrieval
+    const scanMetrics = worker.getScanMetrics();
+
+    const response = {
+      job_id: scanId,
+      metrics: {
+        total_scans: scanMetrics.totalScans || 0,
+        duplicates_found: scanMetrics.duplicatesFound || 0,
+        files_scanned: scanMetrics.filesScanned || 0
+      },
+      timestamp: new Date().toISOString()
+    };
+
+    // Add detailed metrics if requested
+    if (format === 'full') {
+      response.detailed_metrics = {
+        cache_hits: scanMetrics.cacheHits || 0,
+        cache_misses: scanMetrics.cacheMisses || 0,
+        average_scan_time: scanMetrics.avgScanTime || 0
+      };
+    }
+
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * DELETE /api/scans/:jobId
+ * Cancel a scan job
+ */
+router.delete('/:jobId', async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+
+    // TODO: Implement job cancellation
+    // For now, just acknowledge the request
     res.json({
-      scan_id: scanId,
-      status: 'completed',
-      results: [],
-      message: 'Result storage not yet implemented',
+      success: true,
+      job_id: jobId,
+      message: 'Job cancellation not yet implemented',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
