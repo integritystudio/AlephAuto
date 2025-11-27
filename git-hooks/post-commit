@@ -1,0 +1,57 @@
+#!/bin/bash
+#
+# Post-commit hook to check pipeline documentation staleness
+# Warns if pipeline-data-flow.md hasn't been updated when pipeline code changes
+#
+
+# Get the list of files changed in this commit
+CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD)
+
+# Check if any pipeline-related files were changed
+PIPELINE_CHANGES=$(echo "$CHANGED_FILES" | grep -E "(sidequest/pipeline-runners/|sidequest/workers/.*pipeline|sidequest/workers/.*worker)")
+
+# If pipeline files changed, check documentation age
+if [ -n "$PIPELINE_CHANGES" ]; then
+    DOC_FILE="docs/architecture/pipeline-data-flow.md"
+
+    # Check if documentation file exists
+    if [ ! -f "$DOC_FILE" ]; then
+        echo ""
+        echo "⚠️  WARNING: Pipeline documentation not found!"
+        echo "   File: $DOC_FILE"
+        echo "   Pipeline changes detected but no documentation file exists."
+        echo ""
+        exit 0
+    fi
+
+    # Get last modification date of documentation
+    DOC_LAST_COMMIT=$(git log -1 --format="%at" -- "$DOC_FILE" 2>/dev/null)
+    CURRENT_COMMIT=$(git log -1 --format="%at" HEAD)
+
+    # If doc wasn't updated in this commit
+    if [ "$DOC_LAST_COMMIT" != "$CURRENT_COMMIT" ]; then
+        # Calculate days since last doc update
+        DAYS_OLD=$(( (CURRENT_COMMIT - DOC_LAST_COMMIT) / 86400 ))
+
+        # Get the date from the documentation file
+        DOC_DATE=$(grep "^\*\*Last Updated:\*\*" "$DOC_FILE" | sed 's/.*: //' || echo "Unknown")
+
+        echo ""
+        echo "⚠️  DOCUMENTATION STALENESS WARNING"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Pipeline code changes detected in this commit:"
+        echo "$PIPELINE_CHANGES" | sed 's/^/  • /'
+        echo ""
+        echo "Documentation file: $DOC_FILE"
+        echo "Last updated: $DOC_DATE ($DAYS_OLD days ago)"
+        echo ""
+        echo "Please review and update the pipeline documentation if needed:"
+        echo "  1. Check if new pipelines were added"
+        echo "  2. Verify data flow diagrams are accurate"
+        echo "  3. Update the 'Last Updated' date in the doc header"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+    fi
+fi
+
+exit 0
