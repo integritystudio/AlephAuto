@@ -34,3 +34,7 @@ export type {
 // Loading
 export { Spinner, LoadingOverlay } from './Loading';
 export type { SpinnerProps, LoadingOverlayProps, SpinnerSize } from './Loading';
+
+// ErrorMessage
+export { ErrorMessage } from './ErrorMessage';
+export type { ErrorMessageProps } from './ErrorMessage';

@@ -14,6 +14,7 @@ import { Header } from '../Header';
 import { PipelineCard } from '../PipelineCard';
 import { JobItem } from '../JobItem';
 import { ActivityFeed } from '../ActivityFeed';
+import { LoadingOverlay, ErrorMessage } from '../ui';
 import './Layout.css';
 
 interface LayoutProps {
@@ -27,6 +28,12 @@ interface LayoutProps {
   queuedJobs: Job[];
   /** Array of activity items */
   activities: ActivityItem[];
+  /** Loading state */
+  isLoading: boolean;
+  /** Error message */
+  error: string | null;
+  /** Retry handler for errors */
+  onRetry?: () => void;
   /** Settings click handler */
   onSettingsClick?: () => void;
   /** Pipeline view handler */
@@ -69,6 +76,9 @@ export const Layout: React.FC<LayoutProps> = ({
   activeJobs,
   queuedJobs,
   activities,
+  isLoading,
+  error,
+  onRetry,
   onSettingsClick,
   onPipelineView,
   onPipelineRetry,
@@ -80,6 +90,9 @@ export const Layout: React.FC<LayoutProps> = ({
 }) => {
   return (
     <div className="dashboard-layout">
+      {/* Loading Overlay */}
+      <LoadingOverlay show={isLoading} message="Loading dashboard data..." />
+
       {/* Header */}
       <Header
         systemStatus={systemStatus}
@@ -88,6 +101,14 @@ export const Layout: React.FC<LayoutProps> = ({
 
       {/* Main Content */}
       <main className="dashboard-main">
+        {/* Error Display */}
+        {error && !isLoading && (
+          <ErrorMessage
+            message={error}
+            details="Try starting the backend server with: npm run dashboard"
+            onRetry={onRetry}
+          />
+        )}
         <div className="dashboard-grid">
           {/* Left Column: Pipeline Status */}
           <section className="dashboard-section pipelines-section" aria-labelledby="pipelines-heading">

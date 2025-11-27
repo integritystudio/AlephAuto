@@ -37,6 +37,8 @@ function App() {
     activeJobs,
     queuedJobs,
     activity,
+    isLoading,
+    error,
     selectPipeline,
     markActivityRead,
   } = useDashboardStore();
@@ -99,6 +101,14 @@ function App() {
     // TODO: Optionally clear activity items from store
   }, [markActivityRead]);
 
+  /**
+   * Handle retry action when error occurs
+   */
+  const handleRetry = useCallback(() => {
+    console.log('[App] Retrying connection...');
+    window.location.reload();
+  }, []);
+
   return (
     <div className="app">
       <Layout
@@ -107,6 +117,9 @@ function App() {
         activeJobs={activeJobs}
         queuedJobs={queuedJobs}
         activities={activity}
+        isLoading={isLoading}
+        error={error}
+        onRetry={handleRetry}
         onPipelineView={handlePipelineView}
         onPipelineRetry={handlePipelineRetry}
         onJobViewLogs={handleJobViewLogs}
