@@ -27,6 +27,10 @@ interface DashboardStore {
   selectedPipeline?: string;
   /** Unread activity count */
   unreadActivityCount: number;
+  /** Loading state */
+  isLoading: boolean;
+  /** Error state */
+  error: string | null;
 
   // Actions
   /** Set all pipelines */
@@ -51,6 +55,10 @@ interface DashboardStore {
   updateJob: (jobId: string, updates: Partial<Job>) => void;
   /** Remove a job */
   removeJob: (jobId: string) => void;
+  /** Set loading state */
+  setLoading: (isLoading: boolean) => void;
+  /** Set error state */
+  setError: (error: string | null) => void;
 }
 
 /**
@@ -81,6 +89,8 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
   },
   selectedPipeline: undefined,
   unreadActivityCount: 0,
+  isLoading: true,
+  error: null,
 
   // Actions
   setPipelines: (pipelines) => set({ pipelines }),
@@ -129,4 +139,8 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
       activeJobs: state.activeJobs.filter((job) => job.id !== jobId),
       queuedJobs: state.queuedJobs.filter((job) => job.id !== jobId),
     })),
+
+  setLoading: (isLoading) => set({ isLoading }),
+
+  setError: (error) => set({ error }),
 }));

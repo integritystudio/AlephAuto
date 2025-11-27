@@ -39,6 +39,10 @@ export const useWebSocketConnection = () => {
      * Load initial data from API
      */
     const loadInitialData = async () => {
+      const store = useDashboardStore.getState();
+      store.setLoading(true);
+      store.setError(null);
+
       try {
         console.log('[Dashboard] Loading initial data...');
 
@@ -49,8 +53,6 @@ export const useWebSocketConnection = () => {
             apiService.getActiveJobs(),
             apiService.getQueuedJobs(),
           ]);
-
-        const store = useDashboardStore.getState();
 
         if (systemStatusRes.success) {
           store.setSystemStatus(systemStatusRes.data);
@@ -69,8 +71,14 @@ export const useWebSocketConnection = () => {
         }
 
         console.log('[Dashboard] Initial data loaded');
+        store.setLoading(false);
       } catch (error) {
         console.error('[Dashboard] Failed to load initial data:', error);
+        const errorMessage = error instanceof Error
+          ? error.message
+          : 'Failed to connect to API. Please ensure the backend server is running on port 8080.';
+        store.setError(errorMessage);
+        store.setLoading(false);
       }
     };
 
