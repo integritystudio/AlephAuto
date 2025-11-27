@@ -181,6 +181,28 @@ export function getJobs(pipelineId, options = {}) {
 }
 
 /**
+ * Get all jobs across all pipelines
+ */
+export function getAllJobs(options = {}) {
+  const db = getDatabase();
+  const { status, limit = 100, offset = 0 } = options;
+
+  let query = 'SELECT * FROM jobs';
+  const params = [];
+
+  if (status) {
+    query += ' WHERE status = ?';
+    params.push(status);
+  }
+
+  query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+
+  const stmt = db.prepare(query);
+  return stmt.all(...params);
+}
+
+/**
  * Get job counts for a pipeline
  */
 export function getJobCounts(pipelineId) {

@@ -21,6 +21,7 @@ const PUBLIC_PATHS = [
   '/api/pipelines', // Dashboard pipeline details panel
   '/api/sidequest/pipeline-runners', // Dashboard pipeline jobs API
   '/api/reports',  // Dashboard needs access to scan reports
+  '/api/jobs',     // Dashboard job queue display
   '/favicon.ico' // Static asset
 ];
 
