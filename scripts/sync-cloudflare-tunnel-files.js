@@ -89,6 +89,31 @@ function filesInSync(sourcePath, destPath, adjustments) {
 }
 
 /**
+ * Validate that all imports in a file are correctly adjusted
+ * Returns {valid, issues} where issues is an array of validation problems
+ */
+function validateImports(filePath, expectedAdjustments) {
+  if (!fs.existsSync(filePath)) {
+    return { valid: false, issues: ['File does not exist'] };
+  }
+
+  const content = fs.readFileSync(filePath, 'utf8');
+  const issues = [];
+
+  // Check for unadjusted import patterns (look for exact "from" patterns that shouldn't exist)
+  for (const { from } of expectedAdjustments) {
+    if (content.includes(from)) {
+      issues.push(`Found unadjusted import: ${from}`);
+    }
+  }
+
+  return {
+    valid: issues.length === 0,
+    issues
+  };
+}
+
+/**
  * Sync a single file pair
  */
 function syncFile(mapping) {
@@ -123,6 +148,16 @@ function syncFile(mapping) {
   } else {
     fs.writeFileSync(destPath, adjustedContent, 'utf8');
     console.log(`✅ SYNCED: ${mapping.source} → ${mapping.dest}`);
+
+    // Validate the synced file
+    const validation = validateImports(destPath, mapping.importAdjustments);
+    if (!validation.valid) {
+      console.warn(`⚠️  Validation warnings for ${mapping.dest}:`);
+      validation.issues.forEach(issue => console.warn(`   - ${issue}`));
+    } else if (verbose) {
+      console.log(`   ✓ Import paths validated`);
+    }
+
     return true;
   }
 }

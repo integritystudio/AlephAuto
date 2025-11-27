@@ -14,8 +14,8 @@
 
 set -e  # Exit on error
 
-CACHE_DIR="$HOME/.doppler"
-CACHE_FILE="$CACHE_DIR/.fallback.json"
+CACHE_DIR="$HOME/.doppler/fallback"
+CACHE_FILE_PATTERN="$CACHE_DIR/.secrets-*.json"
 LOG_FILE="$(dirname "$0")/../logs/doppler-cache-warming.log"
 
 # Ensure log directory exists
@@ -46,12 +46,19 @@ log "📥 Fetching secrets from Doppler API..."
 if doppler secrets get NODE_ENV --plain > /dev/null 2>&1; then
     log "✅ Successfully fetched secrets from Doppler API"
 
-    # Verify cache file was updated
-    if [ -f "$CACHE_FILE" ]; then
-        CACHE_AGE=$(($(date +%s) - $(stat -f %m "$CACHE_FILE" 2>/dev/null || stat -c %Y "$CACHE_FILE" 2>/dev/null)))
-        log "✅ Cache file updated: $CACHE_FILE (age: ${CACHE_AGE}s)"
+    # Verify cache directory has secret files
+    if [ -d "$CACHE_DIR" ]; then
+        # Find the newest secret file
+        NEWEST_FILE=$(ls -t "$CACHE_DIR"/.secrets-*.json 2>/dev/null | head -1)
+        if [ -n "$NEWEST_FILE" ]; then
+            CACHE_AGE=$(($(date +%s) - $(stat -f %m "$NEWEST_FILE" 2>/dev/null || stat -c %Y "$NEWEST_FILE" 2>/dev/null)))
+            FILE_COUNT=$(ls -1 "$CACHE_DIR"/.secrets-*.json 2>/dev/null | wc -l | tr -d ' ')
+            log "✅ Cache updated: $(basename "$NEWEST_FILE") (age: ${CACHE_AGE}s, total files: $FILE_COUNT)"
+        else
+            log "⚠️  Warning: No secret files found in cache directory: $CACHE_DIR"
+        fi
     else
-        log "⚠️  Warning: Cache file not found after fetch: $CACHE_FILE"
+        log "⚠️  Warning: Cache directory not found: $CACHE_DIR"
     fi
 else
     log "❌ ERROR: Failed to fetch secrets from Doppler API"
