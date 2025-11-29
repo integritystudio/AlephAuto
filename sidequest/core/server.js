@@ -473,4 +473,82 @@ export class SidequestServer extends EventEmitter {
       failed: this.jobHistory.filter(j => j.status === 'failed').length,
     };
   }
+
+  /**
+   * Cancel a job
+   * - If queued: removes from queue and marks as cancelled
+   * - If running: marks as cancelled (job may complete current operation)
+   * - If completed/failed: returns false (cannot cancel)
+   *
+   * @param {string} jobId - The ID of the job to cancel
+   * @returns {{success: boolean, message: string, job?: object}} Result of cancellation attempt
+   */
+  cancelJob(jobId) {
+    const job = this.jobs.get(jobId);
+
+    if (!job) {
+      return {
+        success: false,
+        message: `Job ${jobId} not found`
+      };
+    }
+
+    // Cannot cancel completed or failed jobs
+    if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
+      return {
+        success: false,
+        message: `Cannot cancel job with status '${job.status}'`,
+        job
+      };
+    }
+
+    // If queued, remove from queue
+    if (job.status === 'queued') {
+      const queueIndex = this.queue.indexOf(jobId);
+      if (queueIndex > -1) {
+        this.queue.splice(queueIndex, 1);
+      }
+    }
+
+    // Mark job as cancelled
+    job.status = 'cancelled';
+    job.completedAt = new Date();
+    job.error = { message: 'Job cancelled by user', cancelled: true };
+
+    // Persist to database
+    try {
+      saveJob({
+        id: job.id,
+        pipelineId: this.jobType,
+        status: job.status,
+        createdAt: job.createdAt?.toISOString(),
+        startedAt: job.startedAt?.toISOString(),
+        completedAt: job.completedAt?.toISOString(),
+        data: job.data,
+        result: job.result,
+        error: job.error,
+        git: job.git
+      });
+    } catch (dbError) {
+      logger.error({ error: dbError.message, jobId }, 'Failed to persist cancelled job to database');
+    }
+
+    // Emit cancellation event
+    this.emit('job:cancelled', job);
+
+    Sentry.addBreadcrumb({
+      category: 'job',
+      message: `Job ${jobId} cancelled`,
+      level: 'warning',
+      data: { jobId, previousStatus: job.status }
+    });
+
+    logger.info({ jobId, previousStatus: job.status }, 'Job cancelled');
+
+    return {
+      success: true,
+      message: `Job ${jobId} cancelled successfully`,
+      job
+    };
+  }
 }
