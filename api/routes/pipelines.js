@@ -11,6 +11,7 @@ import { validateQuery, validateRequest } from '../middleware/validation.js';
 import { JobQueryParamsSchema, ManualTriggerRequestSchema, PipelineDocsParamsSchema, PipelineHtmlParamsSchema } from '../types/pipeline-requests.js';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import { worker } from './scans.js';
+import { workerRegistry } from '../utils/worker-registry.js';
 import * as Sentry from '@sentry/node';
 import { getJobs, getJobCounts } from '../../sidequest/core/database.js';
 import { getPipelineName } from '../../sidequest/utils/pipeline-names.js';
@@ -303,41 +304,93 @@ function formatJob(job, pipelineId) {
 /**
  * Helper: Trigger a manual job for a pipeline
  *
+ * Uses WorkerRegistry singleton to support all pipeline types.
+ * Previously only supported duplicate-detection, now supports all 7+ pipelines.
+ *
  * @param pipelineId - Pipeline identifier
  * @param parameters - Job parameters
  * @returns New job ID
  */
 async function triggerPipelineJob(pipelineId, parameters) {
-    if (pipelineId !== 'duplicate-detection') {
-        throw new Error(`Unknown pipeline: ${pipelineId}`);
+    // Validate pipeline is supported using WorkerRegistry
+    if (!workerRegistry.isSupported(pipelineId)) {
+        const supported = workerRegistry.getSupportedPipelines().join(', ');
+        throw new Error(`Unknown pipeline: ${pipelineId}. Supported pipelines: ${supported}`);
     }
 
-    // Create job via worker
-    const jobId = `manual-${Date.now()}`;
+    logger.info({ pipelineId, parameters }, 'Triggering pipeline job via WorkerRegistry');
 
-    // Schedule scan with the worker
-    if (parameters.repositoryPath) {
-        const path = await import('path');
-        worker.scheduleScan('intra-project', [{
-            name: path.basename(parameters.repositoryPath),
-            path: parameters.repositoryPath
-        }]);
-    } else if (parameters.repositoryPaths && Array.isArray(parameters.repositoryPaths)) {
-        const path = await import('path');
-        const repositories = parameters.repositoryPaths.map(repoPath => ({
-            name: path.basename(repoPath),
-            path: repoPath
-        }));
-        worker.scheduleScan('inter-project', repositories);
+    // Get or create worker instance (cached by WorkerRegistry)
+    const pipelineWorker = await workerRegistry.getWorker(pipelineId);
+
+    // Generate job ID with pipeline prefix for clarity
+    const jobId = `${pipelineId}-manual-${Date.now()}`;
+
+    // Handle pipeline-specific job creation
+    // Some pipelines have specialized methods (like duplicate-detection's scheduleScan)
+    // while others use the generic createJob pattern
+    if (pipelineId === 'duplicate-detection') {
+        // Legacy duplicate-detection uses scheduleScan method
+        if (parameters.repositoryPath) {
+            const pathModule = await import('path');
+            pipelineWorker.scheduleScan('intra-project', [{
+                name: pathModule.basename(parameters.repositoryPath),
+                path: parameters.repositoryPath
+            }]);
+        } else if (parameters.repositoryPaths && Array.isArray(parameters.repositoryPaths)) {
+            const pathModule = await import('path');
+            const repositories = parameters.repositoryPaths.map(repoPath => ({
+                name: pathModule.basename(repoPath),
+                path: repoPath
+            }));
+            pipelineWorker.scheduleScan('inter-project', repositories);
+        } else {
+            throw new Error('duplicate-detection requires either repositoryPath or repositoryPaths parameter');
+        }
     } else {
-        throw new Error('Either repositoryPath or repositoryPaths is required');
+        // Generic job creation for other pipelines
+        // Workers extend SidequestServer which provides createJob method
+        if (typeof pipelineWorker.createJob === 'function') {
+            pipelineWorker.createJob(jobId, {
+                ...parameters,
+                triggeredBy: 'api',
+                triggeredAt: new Date().toISOString()
+            });
+        } else if (typeof pipelineWorker.scheduleJob === 'function') {
+            // Some workers use scheduleJob instead
+            pipelineWorker.scheduleJob({
+                id: jobId,
+                ...parameters,
+                triggeredBy: 'api',
+                triggeredAt: new Date().toISOString()
+            });
+        } else if (typeof pipelineWorker.addJob === 'function') {
+            // Fallback to addJob if available
+            await pipelineWorker.addJob({
+                id: jobId,
+                data: {
+                    ...parameters,
+                    triggeredBy: 'api',
+                    triggeredAt: new Date().toISOString()
+                }
+            });
+        } else {
+            // Last resort: emit job:created event directly
+            logger.warn({ pipelineId }, 'Worker lacks createJob/scheduleJob/addJob method, using direct job queuing');
+            pipelineWorker.emit('job:created', {
+                id: jobId,
+                status: 'queued',
+                data: parameters,
+                createdAt: new Date()
+            });
+        }
     }
 
     logger.info({
         pipelineId,
         jobId,
         parameters
-    }, 'Triggered pipeline job');
+    }, 'Successfully triggered pipeline job');
 
     return jobId;
 }
