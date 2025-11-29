@@ -37,7 +37,10 @@ module.exports = {
         REDIS_HOST: process.env.REDIS_HOST || 'localhost',
         REDIS_PORT: process.env.REDIS_PORT || '6379',
         SENTRY_DSN: process.env.SENTRY_DSN || '',
-        SENTRY_ENVIRONMENT: process.env.SENTRY_ENVIRONMENT || 'production'
+        SENTRY_ENVIRONMENT: process.env.SENTRY_ENVIRONMENT || 'production',
+        // CRITICAL: Include Homebrew paths for npx/node availability in child processes
+        // This prevents "spawn npx ENOENT" errors in workers (E4 bugfix 2025-11-25)
+        PATH: process.env.PATH || '/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
       },
 
       // Logging
@@ -95,7 +98,10 @@ module.exports = {
         DOC_CRON_SCHEDULE: process.env.DOC_CRON_SCHEDULE || '0 3 * * *',
         GIT_CRON_SCHEDULE: process.env.GIT_CRON_SCHEDULE || '0 20 * * 0',
         PLUGIN_CRON_SCHEDULE: process.env.PLUGIN_CRON_SCHEDULE || '0 9 * * 1',
-        CLAUDE_HEALTH_CRON_SCHEDULE: process.env.CLAUDE_HEALTH_CRON_SCHEDULE || '0 8 * * *'
+        CLAUDE_HEALTH_CRON_SCHEDULE: process.env.CLAUDE_HEALTH_CRON_SCHEDULE || '0 8 * * *',
+        // CRITICAL: Include Homebrew paths for npx/repomix availability in child processes
+        // This prevents "spawn npx ENOENT" errors (E4 bugfix 2025-11-25)
+        PATH: process.env.PATH || '/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
       },
 
       // Logging
