@@ -199,13 +199,14 @@ async function fetchJobsForPipeline(
   const totalCount = dbResult.total || 0;
 
   // Map database schema to API response schema
-  // Only include fields defined in JobDetailsSchema to pass strict validation
+  // Include all fields needed by the dashboard modal
   const jobs: JobDetails[] = dbJobs.map((dbJob: any) => {
     const job: JobDetails = {
       id: dbJob.id,
       pipelineId: dbJob.pipelineId,
       status: dbJob.status,
       startTime: dbJob.startedAt || dbJob.createdAt,
+      createdAt: dbJob.createdAt, // Needed for timeline display
     };
 
     // Add optional fields only if they exist
@@ -223,21 +224,19 @@ async function fetchJobsForPipeline(
       job.duration = end - start;
     }
 
-    // Build result object from dbJob.result and dbJob.error
-    if (dbJob.result || dbJob.error) {
-      job.result = {};
+    // Add result data
+    if (dbJob.result) {
+      job.result = { ...dbJob.result };
+    }
 
-      // Merge result data
-      if (dbJob.result) {
-        Object.assign(job.result, dbJob.result);
-      }
+    // Add error at top level (modal checks job.error, not job.result.error)
+    if (dbJob.error) {
+      job.error = dbJob.error;
+    }
 
-      // Add error message if job failed
-      if (dbJob.error && typeof dbJob.error === 'object' && 'message' in dbJob.error) {
-        job.result.error = dbJob.error.message;
-      } else if (dbJob.error && typeof dbJob.error === 'string') {
-        job.result.error = dbJob.error;
-      }
+    // Add git info if available (needed for git workflow display in modal)
+    if (dbJob.git) {
+      job.git = dbJob.git;
     }
 
     return job;

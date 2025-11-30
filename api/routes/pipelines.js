@@ -230,7 +230,7 @@ async function fetchJobsForPipeline(pipelineId, options) {
 
 /**
  * Format a job from database for API response
- * Only includes fields defined in JobDetailsSchema to pass strict validation
+ * Includes all fields needed by the dashboard modal
  */
 function formatJobFromDb(job) {
     const duration = job.completedAt && job.startedAt
@@ -241,7 +241,8 @@ function formatJobFromDb(job) {
         id: job.id,
         pipelineId: job.pipelineId,
         status: job.status,
-        startTime: job.startedAt || job.createdAt
+        startTime: job.startedAt || job.createdAt,
+        createdAt: job.createdAt // Needed for timeline display in modal
     };
 
     // Add optional fields only if they exist
@@ -257,23 +258,19 @@ function formatJobFromDb(job) {
         formatted.parameters = job.data;
     }
 
-    // Build result object from job.result and job.error
-    if (job.result || job.error) {
-        formatted.result = {};
+    // Add result data (pass through all fields for modal display)
+    if (job.result) {
+        formatted.result = { ...job.result };
+    }
 
-        // Merge result data
-        if (job.result) {
-            Object.assign(formatted.result, job.result);
-        }
+    // Add error at top level (modal checks job.error, not job.result.error)
+    if (job.error) {
+        formatted.error = job.error;
+    }
 
-        // Add error message if job failed
-        if (job.error) {
-            if (typeof job.error === 'object' && job.error.message) {
-                formatted.result.error = job.error.message;
-            } else if (typeof job.error === 'string') {
-                formatted.result.error = job.error;
-            }
-        }
+    // Add git info if available (needed for git workflow display in modal)
+    if (job.git) {
+        formatted.git = job.git;
     }
 
     return formatted;
