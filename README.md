@@ -287,7 +287,12 @@ See `scripts/config-monitoring/README.md` for complete guide.
 # Install PM2
 npm install -g pm2
 
-# Start all pipelines
+# Start with Doppler (recommended - uses production config)
+doppler run -c prd -- pm2 start config/ecosystem.config.cjs
+pm2 save
+pm2 status
+
+# Or start individual pipelines manually
 pm2 start index.js --name repomix-cron
 pm2 start doc-enhancement-pipeline.js --name doc-enhancement
 pm2 start git-activity-pipeline.js --name git-activity
@@ -354,7 +359,13 @@ Edit `sidequest/directory-scanner.js` to customize exclusions.
 
 See [dev/archive/CHANGELOG.md](dev/archive/CHANGELOG.md) for complete version history.
 
-### Latest (Version 1.7.0 - 2025-11-27)
+### Latest (Version 1.6.8 - 2025-11-30)
+- Deployment configuration consistency improvements
+- PM2 ecosystem configs now use relative paths (portable across environments)
+- All `doppler run` commands use explicit `-c prd` flag for production
+- Template alignment between ecosystem.config.js and .cjs
+
+### Version 1.7.0 (2025-11-27)
 - Dashboard improvements with error handling and loading states
 - Jobs API endpoint for cross-pipeline queries
 - Pipeline data flow documentation panel

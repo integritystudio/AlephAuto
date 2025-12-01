@@ -133,7 +133,7 @@ export type MyType = { ... }; // Duplicates schema
 doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
 
 # ✅ Correct - PM2 with interpreter: 'node' in config/ecosystem.config.cjs
-doppler run -- pm2 start config/ecosystem.config.cjs
+doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 
 # ❌ Wrong - Doppler cannot execute JS files directly (permission denied)
 doppler run -- sidequest/pipeline-runners/duplicate-detection-pipeline.js
@@ -570,8 +570,8 @@ npm run typecheck               # TypeScript checks
 
 ### Production Deployment
 ```bash
-# Using PM2 + Doppler
-doppler run -- pm2 start config/ecosystem.config.cjs
+# Using PM2 + Doppler (use -c prd for production config)
+doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 pm2 save
 pm2 status
 
@@ -866,7 +866,25 @@ jobs/
 - Pre-commit path validation
 - Auto-PR creation for duplicates
 
-## Recent Updates (Updated: 2025-11-26)
+## Recent Updates (Updated: 2025-11-30)
+
+**v1.6.8 - Deployment Configuration Consistency**
+- **Relative Paths in Ecosystem Configs** - Portable PM2 configuration
+  - Replaced hardcoded `/home/aledlie/bday/AlephAuto` paths with `__dirname`-relative paths
+  - Uses `PROJECT_ROOT = path.resolve(__dirname, '..')` for cross-environment compatibility
+  - Log paths now use `path.join(LOGS_DIR, 'pm2-*.log')` pattern
+  - Location: `config/ecosystem.config.cjs`, `config/ecosystem.config.js`
+- **Explicit Doppler Production Config** - CI/CD deployment fixes
+  - All `doppler run` commands in deploy.yml now use `-c prd` flag
+  - Ensures production secrets are used during deployment
+  - Added `mkdir -p logs` step before PM2 startup
+  - Location: `.github/workflows/deploy.yml`
+- **Template Alignment** - Synced ecosystem.config.js with production .cjs
+  - Updated template to use fork mode (not cluster) to prevent port conflicts
+  - Changed interpreter from `doppler` to `node` (doppler wraps PM2 instead)
+  - Added all restart behavior and monitoring settings from production config
+
+---
 
 **v1.6.7 - Scan API Completion & TypeScript Improvements**
 - **Complete /api/scans Endpoint Implementation** - Fixed all 8 failing tests
@@ -924,7 +942,7 @@ jobs/
 
 ---
 
-**Version:** 1.6.7
-**Last Updated:** 2025-11-26
+**Version:** 1.6.8
+**Last Updated:** 2025-11-30
 **Status:** Production Ready (PM2 + Doppler deployment)
-**Environment:** macOS with traditional server stack
+**Environment:** Linux/macOS with traditional server stack
