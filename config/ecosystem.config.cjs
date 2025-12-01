@@ -1,5 +1,7 @@
+const path = require('path');
+
 /**
- * PM2 Ecosystem Configuration - macOS Development/Production
+ * PM2 Ecosystem Configuration - Production
  *
  * Usage:
  *   doppler run -- pm2 start config/ecosystem.config.cjs              # Start with Doppler env vars
@@ -8,7 +10,14 @@
  *
  * Environment variables are pulled from Doppler at PM2 startup and preserved
  * across PM2 restarts. All variables have fallback defaults.
+ *
+ * Note: Uses __dirname to resolve paths relative to this config file,
+ * ensuring consistency between local development and CI/CD deployment.
  */
+
+// Project root is one level up from config/
+const PROJECT_ROOT = path.resolve(__dirname, '..');
+const LOGS_DIR = path.join(PROJECT_ROOT, 'logs');
 
 module.exports = {
   apps: [
@@ -20,7 +29,7 @@ module.exports = {
     {
       name: 'aleph-dashboard',
       script: 'api/server.js',
-      cwd: '/home/aledlie/bday/AlephAuto',
+      cwd: PROJECT_ROOT,
       instances: 1,  // CHANGED: Single instance to prevent port conflicts (was 2)
       exec_mode: 'fork',  // CHANGED: Fork mode instead of cluster to prevent EADDRINUSE (was 'cluster')
       autorestart: true,
@@ -41,8 +50,8 @@ module.exports = {
       },
 
       // Logging
-      error_file: '/home/aledlie/bday/AlephAuto/logs/pm2-dashboard-error.log',
-      out_file: '/home/aledlie/bday/AlephAuto/logs/pm2-dashboard-out.log',
+      error_file: path.join(LOGS_DIR, 'pm2-dashboard-error.log'),
+      out_file: path.join(LOGS_DIR, 'pm2-dashboard-out.log'),
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
 
@@ -76,7 +85,7 @@ module.exports = {
     {
       name: 'aleph-worker',
       script: 'sidequest/pipeline-runners/duplicate-detection-pipeline.js',
-      cwd: '/home/aledlie/bday/AlephAuto',
+      cwd: PROJECT_ROOT,
       instances: 1,
       exec_mode: 'fork',
       autorestart: false,  // Disable autorestart to debug - worker should run indefinitely with cron
@@ -99,8 +108,8 @@ module.exports = {
       },
 
       // Logging
-      error_file: '/home/aledlie/bday/AlephAuto/logs/pm2-worker-error.log',
-      out_file: '/home/aledlie/bday/AlephAuto/logs/pm2-worker-out.log',
+      error_file: path.join(LOGS_DIR, 'pm2-worker-error.log'),
+      out_file: path.join(LOGS_DIR, 'pm2-worker-out.log'),
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
 
@@ -130,11 +139,11 @@ module.exports = {
    */
   deploy: {
     production: {
-      user: 'aleph',
+      user: process.env.DEPLOY_USER || 'aleph',
       host: process.env.TAILSCALE_DOMAIN,
       ref: 'origin/main',
       repo: process.env.GIT_REPO_SSH,
-      path: '/home/aledlie/bday/AlephAuto',
+      path: process.env.DEPLOY_PATH || PROJECT_ROOT,
 
       // Pre-deploy commands
       'pre-deploy-local': 'echo "Deploying to production..."',
