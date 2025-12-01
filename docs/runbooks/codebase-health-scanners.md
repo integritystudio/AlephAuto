@@ -256,7 +256,7 @@ console.log(JSON.stringify(results, null, 2));
 
 ### Option 3: PM2 Ecosystem Integration
 
-Add to `ecosystem.config.cjs`:
+Add to `config/ecosystem.config.cjs`:
 ```javascript
 module.exports = {
   apps: [

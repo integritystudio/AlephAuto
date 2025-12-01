@@ -159,7 +159,7 @@ npm run typecheck  # See errors
 ```bash
 pm2 logs aleph-dashboard --lines 50  # Find error
 pm2 restart aleph-dashboard          # Try restart
-doppler run -- pm2 restart ecosystem.config.cjs --update-env  # Refresh env
+doppler run -- pm2 restart config/ecosystem.config.cjs --update-env  # Refresh env
 ```
 
 ### Stale Doppler Cache

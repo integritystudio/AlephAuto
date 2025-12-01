@@ -165,13 +165,13 @@ describe('Pipeline Execution - Integration Tests', () => {
   });
 
   it('Scenario 6: Verify PM2 ecosystem config references correct scripts', async () => {
-    const ecosystemPath = path.join(projectRoot, 'ecosystem.config.cjs');
+    const ecosystemPath = path.join(projectRoot, 'config', 'ecosystem.config.cjs');
 
     // Check if ecosystem file exists
     try {
       await fs.access(ecosystemPath);
     } catch (error) {
-      // ecosystem.config.cjs might not exist, skip test
+      // config/ecosystem.config.cjs might not exist, skip test
       return;
     }
 
@@ -179,7 +179,7 @@ describe('Pipeline Execution - Integration Tests', () => {
 
     // Verify it references valid pipeline files
     for (const pipeline of pipelineRunners) {
-      // ecosystem.config.cjs might reference some pipelines
+      // config/ecosystem.config.cjs might reference some pipelines
       // We just verify that if referenced, the path is correct
       if (content.includes(path.basename(pipeline))) {
         const fullPath = path.join(projectRoot, pipeline);

@@ -29,7 +29,7 @@ node sidequest/pipeline-runners/duplicate-detection-pipeline.js
 doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
 
 # Method 4: PM2 via Doppler (production deployment)
-doppler run -- pm2 start ecosystem.config.cjs
+doppler run -- pm2 start config/ecosystem.config.cjs
 ```
 
 ### Incorrect Execution Methods
@@ -133,18 +133,18 @@ RUN_ON_STARTUP=true doppler run -- node sidequest/pipeline-runners/duplicate-det
 **Requirements:**
 - PM2 installed globally: `npm install -g pm2`
 - Doppler configured
-- `ecosystem.config.cjs` present
+- `config/ecosystem.config.cjs` present
 
 **Usage:**
 ```bash
 # Start all apps
-doppler run -- pm2 start ecosystem.config.cjs
+doppler run -- pm2 start config/ecosystem.config.cjs
 
 # Start specific app
-doppler run -- pm2 start ecosystem.config.cjs --only aleph-worker
+doppler run -- pm2 start config/ecosystem.config.cjs --only aleph-worker
 
 # Restart with updated environment
-doppler run -- pm2 restart ecosystem.config.cjs --update-env
+doppler run -- pm2 restart config/ecosystem.config.cjs --update-env
 
 # View logs
 pm2 logs aleph-worker
@@ -249,7 +249,7 @@ doppler run -- node api/server.js
 
 **Pattern 2: PM2 with secrets**
 ```bash
-doppler run -- pm2 start ecosystem.config.cjs
+doppler run -- pm2 start config/ecosystem.config.cjs
 ```
 
 **Pattern 3: Environment override**
@@ -289,7 +289,7 @@ const port = config.jobsApiPort;
 
 ### Ecosystem Configuration
 
-The `ecosystem.config.cjs` defines two PM2 apps:
+The `config/ecosystem.config.cjs` defines two PM2 apps:
 
 **1. aleph-dashboard (API + WebSocket server)**
 ```javascript
@@ -336,11 +336,11 @@ Variables are pulled from Doppler when starting PM2 with `doppler run --`.
 ### PM2 Execution Flow
 
 ```
-1. doppler run -- pm2 start ecosystem.config.cjs
+1. doppler run -- pm2 start config/ecosystem.config.cjs
    ↓
 2. Doppler injects secrets into process.env
    ↓
-3. PM2 reads ecosystem.config.cjs
+3. PM2 reads config/ecosystem.config.cjs
    ↓
 4. PM2 extracts env variables (with fallbacks)
    ↓
@@ -353,19 +353,19 @@ Variables are pulled from Doppler when starting PM2 with `doppler run --`.
 
 ```bash
 # Start all apps
-doppler run -- pm2 start ecosystem.config.cjs
+doppler run -- pm2 start config/ecosystem.config.cjs
 
 # Start specific app
-doppler run -- pm2 start ecosystem.config.cjs --only aleph-worker
+doppler run -- pm2 start config/ecosystem.config.cjs --only aleph-worker
 
 # Stop all
-pm2 stop ecosystem.config.cjs
+pm2 stop config/ecosystem.config.cjs
 
 # Restart with updated env
-doppler run -- pm2 restart ecosystem.config.cjs --update-env
+doppler run -- pm2 restart config/ecosystem.config.cjs --update-env
 
 # Delete all
-pm2 delete ecosystem.config.cjs
+pm2 delete config/ecosystem.config.cjs
 
 # View logs
 pm2 logs
@@ -406,7 +406,7 @@ doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
 ```
 
 **PM2 Solution:**
-Ensure `interpreter: 'node'` in `ecosystem.config.cjs`:
+Ensure `interpreter: 'node'` in `config/ecosystem.config.cjs`:
 ```javascript
 {
   name: 'aleph-worker',
@@ -664,7 +664,7 @@ node duplicate-detection-pipeline.js
 
 ```bash
 # ✅ GOOD: Process management + monitoring
-doppler run -- pm2 start ecosystem.config.cjs
+doppler run -- pm2 start config/ecosystem.config.cjs
 
 # ⚠️ OKAY: One-off testing
 doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
@@ -703,7 +703,7 @@ npm test
 npm run test:integration
 
 # Production
-doppler run -- pm2 start ecosystem.config.cjs
+doppler run -- pm2 start config/ecosystem.config.cjs
 pm2 save
 pm2 logs
 
@@ -722,7 +722,7 @@ head -n 1 sidequest/pipeline-runners/*.js
 - `/Users/alyshialedlie/code/jobs/docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md` - PM2 deployment guide
 - `/Users/alyshialedlie/code/jobs/docs/runbooks/DOPPLER_OUTAGE.md` - Doppler troubleshooting
 - `/Users/alyshialedlie/code/jobs/docs/architecture/CHEAT_SHEET.md` - Command reference
-- `/Users/alyshialedlie/code/jobs/ecosystem.config.cjs` - PM2 configuration
+- `/Users/alyshialedlie/code/jobs/config/ecosystem.config.cjs` - PM2 configuration
 - `/Users/alyshialedlie/code/jobs/.husky/pre-commit` - Pre-commit validation
 
 ---

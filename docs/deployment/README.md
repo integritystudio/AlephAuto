@@ -77,12 +77,12 @@ sudo ./scripts/deploy-traditional-server.sh --update
 ### `ecosystem.config.template.js`
 **PM2 ecosystem configuration template**
 
-Copy to `ecosystem.config.js` and customize:
+Copy to `config/ecosystem.config.js` and customize:
 
 ```bash
-cp ecosystem.config.template.js ecosystem.config.js
-nano ecosystem.config.js  # Replace YOUR_DOPPLER_TOKEN
-pm2 start ecosystem.config.js
+cp ecosystem.config.template.js config/ecosystem.config.js
+nano config/ecosystem.config.js  # Replace YOUR_DOPPLER_TOKEN
+pm2 start config/ecosystem.config.js
 ```
 
 **Features:**

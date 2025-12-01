@@ -7,7 +7,7 @@
  * Tests:
  * - Workflow file structure and validity
  * - Critical deployment steps presence
- * - PM2 process naming consistency with ecosystem.config.cjs
+ * - PM2 process naming consistency with config/ecosystem.config.cjs
  * - Doppler integration
  * - Health check configuration
  * - Rollback capability
@@ -26,7 +26,7 @@ const require = createRequire(import.meta.url);
 const yaml = require('js-yaml');
 
 const WORKFLOW_PATH = join(process.cwd(), '.github/workflows/deploy.yml');
-const ECOSYSTEM_PATH = join(process.cwd(), 'ecosystem.config.cjs');
+const ECOSYSTEM_PATH = join(process.cwd(), 'config', 'ecosystem.config.cjs');
 
 describe('Deployment Workflow Tests', () => {
   let workflowConfig;
@@ -286,10 +286,10 @@ describe('Deployment Workflow Tests', () => {
       assert.ok(workerApp, 'Ecosystem config should have aleph-worker');
     });
 
-    it('should start worker using ecosystem.config.cjs', () => {
+    it('should start worker using config/ecosystem.config.cjs', () => {
       assert.ok(
-        restartScript.includes('pm2 start ecosystem.config.cjs'),
-        'Should use ecosystem.config.cjs to start worker'
+        restartScript.includes('pm2 start config/ecosystem.config.cjs'),
+        'Should use config/ecosystem.config.cjs to start worker'
       );
     });
 

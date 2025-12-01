@@ -215,7 +215,7 @@ cp /usr/local/var/db/redis/dump.rdb ~/backups/redis-$(date +%Y%m%d).rdb
 **Critical Files to Backup:**
 - `sidequest/config.js` - Centralized configuration
 - `config/scan-repositories.json` - Repository scan configuration
-- `ecosystem.config.js` - PM2 configuration (if using traditional server)
+- `config/ecosystem.config.js` - PM2 configuration (if using traditional server)
 - `.env` or Doppler secrets dump
 
 **Backup Command:**
@@ -224,7 +224,7 @@ cp /usr/local/var/db/redis/dump.rdb ~/backups/redis-$(date +%Y%m%d).rdb
 tar -czf config-backup-$(date +%Y%m%d).tar.gz \
   sidequest/config.js \
   config/scan-repositories.json \
-  ecosystem.config.js
+  config/ecosystem.config.js
 ```
 
 ---

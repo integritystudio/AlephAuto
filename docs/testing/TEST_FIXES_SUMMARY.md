@@ -110,7 +110,7 @@ Two detailed documents created:
 **Issues:**
 - Tests check specific PM2 settings (cluster mode, autorestart)
 - Tests are implementation-detail focused
-- Tests may be outdated vs actual ecosystem.config.cjs
+- Tests may be outdated vs actual config/ecosystem.config.cjs
 
 **Fix:** Update tests to match actual PM2 config or make tests less brittle
 
@@ -279,7 +279,7 @@ function createBroadcasterMock() {
 ### Phase 4: Deployment Tests (Day 5) ✅
 **Goal:** Update deployment workflow tests
 
-- [ ] Review actual ecosystem.config.cjs
+- [ ] Review actual config/ecosystem.config.cjs
 - [ ] Update PM2 assertions to match reality
 - [ ] Make tests less brittle (focus on behavior, not implementation)
 - [ ] Document expected PM2 configuration

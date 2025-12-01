@@ -2,8 +2,8 @@
  * PM2 Ecosystem Configuration - macOS Development/Production
  *
  * Usage:
- *   doppler run -- pm2 start ecosystem.config.cjs              # Start with Doppler env vars
- *   doppler run -- pm2 restart ecosystem.config.cjs --update-env  # Restart with updated env
+ *   doppler run -- pm2 start config/ecosystem.config.cjs              # Start with Doppler env vars
+ *   doppler run -- pm2 restart config/ecosystem.config.cjs --update-env  # Restart with updated env
  *   pm2 save                                                   # Save current process list
  *
  * Environment variables are pulled from Doppler at PM2 startup and preserved
@@ -20,7 +20,7 @@ module.exports = {
     {
       name: 'aleph-dashboard',
       script: 'api/server.js',
-      cwd: '/Users/alyshialedlie/code/jobs',
+      cwd: '/home/aledlie/bday/AlephAuto',
       instances: 1,  // CHANGED: Single instance to prevent port conflicts (was 2)
       exec_mode: 'fork',  // CHANGED: Fork mode instead of cluster to prevent EADDRINUSE (was 'cluster')
       autorestart: true,
@@ -41,8 +41,8 @@ module.exports = {
       },
 
       // Logging
-      error_file: '/Users/alyshialedlie/code/jobs/logs/pm2-dashboard-error.log',
-      out_file: '/Users/alyshialedlie/code/jobs/logs/pm2-dashboard-out.log',
+      error_file: '/home/aledlie/bday/AlephAuto/logs/pm2-dashboard-error.log',
+      out_file: '/home/aledlie/bday/AlephAuto/logs/pm2-dashboard-out.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
 
@@ -76,7 +76,7 @@ module.exports = {
     {
       name: 'aleph-worker',
       script: 'sidequest/pipeline-runners/duplicate-detection-pipeline.js',
-      cwd: '/Users/alyshialedlie/code/jobs',
+      cwd: '/home/aledlie/bday/AlephAuto',
       instances: 1,
       exec_mode: 'fork',
       autorestart: false,  // Disable autorestart to debug - worker should run indefinitely with cron
@@ -99,8 +99,8 @@ module.exports = {
       },
 
       // Logging
-      error_file: '/Users/alyshialedlie/code/jobs/logs/pm2-worker-error.log',
-      out_file: '/Users/alyshialedlie/code/jobs/logs/pm2-worker-out.log',
+      error_file: '/home/aledlie/bday/AlephAuto/logs/pm2-worker-error.log',
+      out_file: '/home/aledlie/bday/AlephAuto/logs/pm2-worker-out.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
 
@@ -122,5 +122,36 @@ module.exports = {
       // Cron-based restart (optional - restart daily at 2 AM)
       cron_restart: '0 2 * * *'
     }
-  ]
+  ],
+
+  /**
+   * Deployment Configuration (Optional)
+   * For automated deployments via PM2 deploy
+   */
+  deploy: {
+    production: {
+      user: 'aleph',
+      host: process.env.TAILSCALE_DOMAIN,
+      ref: 'origin/main',
+      repo: process.env.GIT_REPO_SSH,
+      path: '/home/aledlie/bday/AlephAuto',
+
+      // Pre-deploy commands
+      'pre-deploy-local': 'echo "Deploying to production..."',
+
+      // Post-deploy commands
+      'post-deploy': 'npm ci --production && ' +
+                     'source venv/bin/activate && pip install -r requirements.txt && ' +
+                     'doppler run --config prd -- pm2 reload config/ecosystem.config.cjs --env production && ' +
+                     'pm2 save',
+
+      // Pre-setup commands (first-time deployment)
+      'pre-setup': 'sudo apt update && sudo apt install -y git',
+
+      // Environment
+      env: {
+        NODE_ENV: process.env.NODE_ENV || 'production'
+      }
+    }
+  }
 };

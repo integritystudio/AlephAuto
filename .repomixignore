@@ -113,7 +113,7 @@ htmlcov/
 # PM2
 .pm2/
 pm2.log
-ecosystem.config.js
+config/ecosystem.config.js
 
 # Security
 *.pem

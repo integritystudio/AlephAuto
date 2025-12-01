@@ -1176,6 +1176,13 @@ class DashboardController {
         this.currentPipelineId = null;
         this.currentTab = 'recent';
 
+        // Store jobs per-tab to avoid race condition when loading tabs in parallel
+        this.jobsByTab = {
+            recent: [],
+            failed: [],
+            all: []
+        };
+
         // Close panel handlers
         const closePanel = () => this.closePipelinePanel();
 
@@ -1282,6 +1289,8 @@ class DashboardController {
         this.currentPipelineId = null;
         this.currentTab = 'recent';
         this.panelTriggerElement = null;
+        this.jobsByTab = { recent: [], failed: [], all: [] };
+        this.currentJobs = [];
     }
 
     /**
@@ -1381,12 +1390,20 @@ class DashboardController {
         const container = document.getElementById(containerId);
         if (!container) return;
 
-        // Store jobs for click handler
+        // Extract tab name from containerId (e.g., "recentJobsList" -> "recent")
+        const tab = containerId.replace('JobsList', '');
+
+        // Store jobs per-tab to avoid race condition when tabs load in parallel
+        if (this.jobsByTab) {
+            this.jobsByTab[tab] = jobs;
+        }
+
+        // Also update currentJobs for backward compatibility
         this.currentJobs = jobs;
 
         container.innerHTML = jobs.map((job, index) => {
             return `
-                <div class="panel-job-item clickable" data-job-index="${index}" onclick="window.dashboardController.showJobDetails(${index})">
+                <div class="panel-job-item clickable" data-job-index="${index}" data-tab="${tab}" onclick="window.dashboardController.showJobDetails(${index}, '${tab}')">
                     <div class="panel-job-header">
                         <span class="panel-job-id">${job.id}</span>
                         <span class="panel-job-status status-${job.status}">${job.status}</span>
@@ -1411,10 +1428,23 @@ class DashboardController {
 
     /**
      * Show job details modal with enhanced UX
+     * @param {number} index - Job index within the tab
+     * @param {string} [tab] - Tab name (recent, failed, all) - optional for backward compatibility
      */
-    showJobDetails(index) {
-        const job = this.currentJobs[index];
-        if (!job) return;
+    showJobDetails(index, tab) {
+        // Get job from the correct tab's job list
+        let job;
+        if (tab && this.jobsByTab && this.jobsByTab[tab]) {
+            job = this.jobsByTab[tab][index];
+        } else {
+            // Fallback to currentJobs for backward compatibility
+            job = this.currentJobs?.[index];
+        }
+
+        if (!job) {
+            console.error('Job not found:', { index, tab, jobsByTab: this.jobsByTab, currentJobs: this.currentJobs });
+            return;
+        }
 
         // Store current focus to restore later
         this.previousFocus = document.activeElement;
@@ -1789,7 +1819,7 @@ class DashboardController {
         const pipelineName = this.getPipelineDisplayName(job.pipelineId);
         const statusIcon = this.getStatusIcon(job.status);
 
-        // Get HTML report path (always returns a path, either from result or constructed from job ID)
+        // Get HTML report path (returns null if no report exists)
         const htmlReportPath = this.getHtmlReportPath(job);
 
         return `
@@ -1799,9 +1829,11 @@ class DashboardController {
                         <div class="hero-job-id">
                             <div class="copyable-field">
                                 <span class="copyable-value">${job.id}</span>
-                                <a href="${htmlReportPath}" target="_blank" class="full-results-btn">
-                                    View Report →
-                                </a>
+                                ${htmlReportPath ? `
+                                    <a href="${htmlReportPath}" target="_blank" class="full-results-btn">
+                                        View Report →
+                                    </a>
+                                ` : ''}
                             </div>
                         </div>
                         <div class="hero-pipeline-name">${pipelineName}</div>
@@ -2020,33 +2052,40 @@ class DashboardController {
     }
 
     /**
-     * Get HTML report path from job result or construct from job ID
+     * Get HTML report path from job result, returns null if no report exists
      */
     getHtmlReportPath(job) {
-        // Check if reportPath exists in result
-        if (job.result && job.result.reportPath) {
+        if (!job.result) return null;
+
+        // Check for reportPaths.html (camelCase - from generic report generator)
+        if (job.result.reportPaths && job.result.reportPaths.html) {
+            return job.result.reportPaths.html.replace(/^.*\/output\/reports\//, '/api/reports/');
+        }
+
+        // Check for report_paths.html (snake_case - from scan orchestrator)
+        if (job.result.report_paths && job.result.report_paths.html) {
+            return job.result.report_paths.html.replace(/^.*\/output\/reports\//, '/api/reports/');
+        }
+
+        // Check for reportPath (singular string)
+        if (job.result.reportPath) {
             // If it's already an HTML file
             if (job.result.reportPath.endsWith('.html')) {
                 return job.result.reportPath.replace(/^.*\/output\/reports\//, '/api/reports/');
             }
 
-            // Check for report_paths.html (new format from scan orchestrator)
-            if (job.result.report_paths && job.result.report_paths.html) {
-                return job.result.report_paths.html.replace(/^.*\/output\/reports\//, '/api/reports/');
-            }
-
-            // Construct HTML path from JSON/MD path
+            // Construct HTML path from JSON/MD path (only for pipelines that generate reports)
             // Pattern: "inter-project-scan-2repos-2025-11-24-summary.json" -> "inter-project-scan-2repos-2025-11-24.html"
-            const htmlPath = job.result.reportPath
-                .replace(/-summary\.(json|md)$/, '.html')  // Remove -summary suffix and change extension
-                .replace(/\.(json|md)$/, '.html');         // Or just change extension if no -summary
-            return htmlPath.replace(/^.*\/output\/reports\//, '/api/reports/');
+            if (job.result.reportPath.match(/\.(json|md)$/)) {
+                const htmlPath = job.result.reportPath
+                    .replace(/-summary\.(json|md)$/, '.html')  // Remove -summary suffix and change extension
+                    .replace(/\.(json|md)$/, '.html');         // Or just change extension if no -summary
+                return htmlPath.replace(/^.*\/output\/reports\//, '/api/reports/');
+            }
         }
 
-        // Fallback: construct from job ID
-        // Pattern: "inter-project-scan-2repos-2025-11-24" -> "/api/reports/inter-project-scan-2repos-2025-11-24.html"
-        const htmlFilename = `${job.id}.html`;
-        return `/api/reports/${htmlFilename}`;
+        // No report available - return null instead of guessing
+        return null;
     }
 
     /**

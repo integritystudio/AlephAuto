@@ -1,12 +1,12 @@
 /**
  * PM2 Ecosystem Configuration Template
  *
- * Copy this file to ecosystem.config.js and replace YOUR_DOPPLER_TOKEN
+ * Copy this file to config/ecosystem.config.js and replace YOUR_DOPPLER_TOKEN
  *
  * Usage:
- *   pm2 start ecosystem.config.js
- *   pm2 restart ecosystem.config.js
- *   pm2 reload ecosystem.config.js --update-env
+ *   pm2 start config/ecosystem.config.js
+ *   pm2 restart config/ecosystem.config.js
+ *   pm2 reload config/ecosystem.config.js --update-env
  */
 
 module.exports = {
@@ -22,13 +22,13 @@ module.exports = {
       instances: 2,  // Or 'max' to use all CPU cores
       exec_mode: 'cluster',
       autorestart: true,
-      watch: false,  // Set to true for development
+      watch: process.env.WATCH,  // Set to true for development
       max_memory_restart: '500M',
 
       // Environment variables
       env: {
-        NODE_ENV: 'production',
-        DOPPLER_TOKEN: 'YOUR_DOPPLER_TOKEN_HERE'  // Replace with actual token
+        NODE_ENV: process.env.NODE_ENV,
+        DOPPLER_TOKEN: process.env.BOTTLENECK_TOKEN
       },
 
       // Logging
@@ -67,8 +67,8 @@ module.exports = {
 
       // Environment variables
       env: {
-        NODE_ENV: 'production',
-        DOPPLER_TOKEN: 'YOUR_DOPPLER_TOKEN_HERE'  // Replace with actual token
+        NODE_ENV: process.env.NODE_ENV,
+        DOPPLER_TOKEN: process.env.DOPPLER_TOKEN
       },
 
       // Logging
@@ -98,9 +98,9 @@ module.exports = {
   deploy: {
     production: {
       user: 'aleph',
-      host: 'your-server-ip',  // Replace with actual server IP/hostname
+      host: process.env.TAILSCALE_DOMAIN,
       ref: 'origin/main',
-      repo: 'git@github.com:your-username/your-repo.git',  // Replace with actual repo
+      repo: process.env.GIT_REPO_SSH,
       path: '/var/www/aleph-dashboard',
 
       // Pre-deploy commands
@@ -109,7 +109,7 @@ module.exports = {
       // Post-deploy commands
       'post-deploy': 'npm ci --production && ' +
                      'source venv/bin/activate && pip install -r requirements.txt && ' +
-                     'pm2 reload ecosystem.config.js --env production && ' +
+                     'pm2 reload config/ecosystem.config.js --env production && ' +
                      'pm2 save',
 
       // Pre-setup commands (first-time deployment)
@@ -117,7 +117,7 @@ module.exports = {
 
       // Environment
       env: {
-        NODE_ENV: 'production'
+        NODE_ENV: process.env.NODE_ENV
       }
     }
   }

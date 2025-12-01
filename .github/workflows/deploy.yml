@@ -108,11 +108,11 @@ jobs:
 
             # Check if services are already running
             if pm2 list | grep -q "aleph-dashboard\|aleph-worker"; then
-              echo "Services found, restarting with ecosystem.config.cjs..."
-              doppler run -- pm2 restart ecosystem.config.cjs
+              echo "Services found, restarting with config/ecosystem.config.cjs..."
+              doppler run -- pm2 restart config/ecosystem.config.cjs
             else
-              echo "Services not found, starting with ecosystem.config.cjs..."
-              doppler run -- pm2 start ecosystem.config.cjs
+              echo "Services not found, starting with config/ecosystem.config.cjs..."
+              doppler run -- pm2 start config/ecosystem.config.cjs
             fi
 
             # Save PM2 configuration

@@ -149,7 +149,7 @@ doppler secrets download --no-file --format env > /tmp/doppler-secrets-emergency
 cat /tmp/doppler-secrets-emergency.env | grep -E "DB_PASSWORD|API_KEY|SENTRY_DSN"
 
 # 4. Re-inject secrets and restart
-doppler run -- pm2 start ecosystem.config.cjs
+doppler run -- pm2 start config/ecosystem.config.cjs
 
 # 5. Verify services started successfully
 pm2 status
@@ -213,7 +213,7 @@ pm2 stop all
 set -a
 source /tmp/emergency-secrets.env
 set +a
-pm2 start ecosystem.config.cjs
+pm2 start config/ecosystem.config.cjs
 
 # 4. Cleanup
 rm /tmp/emergency-secrets.env

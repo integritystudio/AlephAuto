@@ -132,8 +132,8 @@ export type MyType = { ... }; // Duplicates schema
 # ✅ Correct - explicit interpreter prevents "fork/exec permission denied"
 doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
 
-# ✅ Correct - PM2 with interpreter: 'node' in ecosystem.config.cjs
-doppler run -- pm2 start ecosystem.config.cjs
+# ✅ Correct - PM2 with interpreter: 'node' in config/ecosystem.config.cjs
+doppler run -- pm2 start config/ecosystem.config.cjs
 
 # ❌ Wrong - Doppler cannot execute JS files directly (permission denied)
 doppler run -- sidequest/pipeline-runners/duplicate-detection-pipeline.js
@@ -571,7 +571,7 @@ npm run typecheck               # TypeScript checks
 ### Production Deployment
 ```bash
 # Using PM2 + Doppler
-doppler run -- pm2 start ecosystem.config.cjs
+doppler run -- pm2 start config/ecosystem.config.cjs
 pm2 save
 pm2 status
 
@@ -629,7 +629,7 @@ doppler setup --project bottleneck --config prd   # Production
 - `CLEANUP_TARGET_DIR` - Directory to clean (default: ~/code)
 - `CLEANUP_DRY_RUN` - Preview mode without actual deletion (false by default)
 
-See ecosystem.config.cjs for full list with defaults.
+See config/ecosystem.config.cjs for full list with defaults.
 
 ## Directory Structure (Key Paths)
 
@@ -668,7 +668,11 @@ jobs/
 │   │   ├── CI_CD_UPDATES.md         # CI/CD enhancements (NEW)
 │   │   └── CI_CD_CROSS_PLATFORM_AUDIT.md  # Cross-platform audit (NEW)
 │   └── runbooks/         # Operational runbooks
-└── ecosystem.config.cjs  # PM2 production config
+├── config/               # Configuration files
+│   ├── ecosystem.config.cjs  # PM2 production config
+│   ├── ecosystem.config.js   # PM2 config template
+│   └── config.yml            # Application config
+└── ...
 ```
 
 ## Key Implementation Files
@@ -710,7 +714,7 @@ jobs/
 - `.husky/pre-commit` - Validates no hardcoded /tmp/ paths
 
 **Deployment:**
-- `ecosystem.config.cjs` - PM2 configuration (2 apps)
+- `config/ecosystem.config.cjs` - PM2 configuration (2 apps)
 - `scripts/deploy-traditional-server.sh` - Deployment automation
 
 ## Breaking Changes & Migrations

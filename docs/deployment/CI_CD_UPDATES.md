@@ -76,7 +76,7 @@ fi
 if pm2 describe aleph-worker > /dev/null 2>&1; then
   doppler run -- pm2 restart aleph-worker
 else
-  doppler run -- pm2 start ecosystem.config.cjs
+  doppler run -- pm2 start config/ecosystem.config.cjs
 fi
 ```
 
@@ -84,16 +84,16 @@ fi
 ```yaml
 # Check if services are already running
 if pm2 list | grep -q "aleph-dashboard\|aleph-worker"; then
-  echo "Services found, restarting with ecosystem.config.cjs..."
-  doppler run -- pm2 restart ecosystem.config.cjs
+  echo "Services found, restarting with config/ecosystem.config.cjs..."
+  doppler run -- pm2 restart config/ecosystem.config.cjs
 else
-  echo "Services not found, starting with ecosystem.config.cjs..."
-  doppler run -- pm2 start ecosystem.config.cjs
+  echo "Services not found, starting with config/ecosystem.config.cjs..."
+  doppler run -- pm2 start config/ecosystem.config.cjs
 fi
 ```
 
 **Rationale:**
-- Uses single source of truth (ecosystem.config.cjs) for both start and restart
+- Uses single source of truth (config/ecosystem.config.cjs) for both start and restart
 - Eliminates potential configuration drift between manual start and ecosystem config
 - Simpler logic: one command for both services instead of two separate blocks
 - Consistent with production deployment patterns documented in TRADITIONAL_SERVER_DEPLOYMENT.md
@@ -159,7 +159,7 @@ fi
 - ✅ Deployment log shows bugfix verification status
 
 ### Maintenance Improvements
-- ✅ Single source of truth (ecosystem.config.cjs) reduces configuration drift
+- ✅ Single source of truth (config/ecosystem.config.cjs) reduces configuration drift
 - ✅ Simpler deployment logic is easier to understand and debug
 - ✅ Automated verification reduces manual testing burden
 
@@ -214,7 +214,7 @@ cd /path/to/jobs
 git log -1  # Note current commit
 pm2 stop all
 git reset --hard <previous-commit>
-doppler run -- pm2 restart ecosystem.config.cjs
+doppler run -- pm2 restart config/ecosystem.config.cjs
 ```
 
 ## Related Documentation
