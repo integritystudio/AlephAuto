@@ -186,31 +186,34 @@ worker.on('job:failed', (job, error) => {
 });
 ```
 
-### 14. Job Details Modal: Always Return Schema-Compliant Fields
+### 14. Job Details Modal: Include All Fields Needed by Dashboard
 ```javascript
-// ✅ Correct - only return fields defined in JobDetailsSchema
+// ✅ Correct - include fields needed for modal display
 function formatJobFromDb(job) {
   const formatted = {
     id: job.id,
     pipelineId: job.pipelineId,
     status: job.status,
-    startTime: job.startedAt || job.createdAt
+    startTime: job.startedAt || job.createdAt,
+    createdAt: job.createdAt  // Needed for timeline display
   };
 
   // Add optional fields conditionally
   if (job.completedAt) formatted.endTime = job.completedAt;
   if (job.data) formatted.parameters = job.data;
+  if (job.result) formatted.result = { ...job.result };
+  if (job.error) formatted.error = job.error;  // Top-level for modal
+  if (job.git) formatted.git = job.git;  // Git workflow display
 
   return formatted;
 }
 
-// ❌ Wrong - includes extra fields that violate strict schema
+// ❌ Wrong - missing fields causes modal to render incorrectly
 function formatJobFromDb(job) {
   return {
-    ...job,
-    createdAt: job.createdAt,  // Not in schema
-    error: job.error,          // Not in schema (should be in result.error)
-    git: job.git               // Not in schema
+    id: job.id,
+    status: job.status
+    // Missing createdAt, error, git - breaks modal display
   };
 }
 ```
@@ -689,8 +692,10 @@ jobs/
 **Job Queue:**
 - `sidequest/core/server.js` - Base job queue (retry logic, events, git workflow)
 - `sidequest/core/config.js` - Centralized configuration
+- `sidequest/core/database.js` - SQLite job persistence with `getAllJobs()`, `getJobs()` queries
 - `sidequest/pipeline-core/errors/error-classifier.js` - Auto-classify retryable errors
 - `api/utils/worker-registry.js` - Singleton registry for worker instances with lazy initialization
+- `api/routes/jobs.js` - Cross-pipeline job queries (`GET /api/jobs`, `GET /api/jobs/:jobId`)
 
 **Error Handling & Resilience:**
 - `sidequest/pipeline-core/doppler-health-monitor.js` - Circuit breaker for Doppler cache staleness
@@ -719,11 +724,11 @@ jobs/
 
 ## Breaking Changes & Migrations
 
-**v1.6.5 - Pipeline API Schema Enforcement**
-- **Old:** API returned extra fields (createdAt, error, git) in job responses
-- **New:** Strict schema validation - only JobDetailsSchema fields returned
-- **Impact:** Frontend should not rely on undocumented fields
-- **Migration:** Update any code expecting `createdAt`, top-level `error`, or `git` fields
+**v1.6.8 - Job Modal Field Requirements (Revision)**
+- **Old:** `formatJobFromDb()` returned minimal schema-compliant fields only
+- **New:** Returns all fields needed by dashboard modal (createdAt, error, git)
+- **Impact:** Modal now correctly displays job timeline, error details, and git workflow info
+- **Note:** This reverts v1.6.5 strict schema enforcement to fix modal display issues
 
 **v1.2.0 - Test Path Migration**
 - **Old:** Hardcoded `/tmp/test-repo` paths
@@ -761,11 +766,11 @@ jobs/
 
 ## Recent Major Changes
 
-**v1.6.5 (Current) - Dashboard UI Improvements & API Fixes**
+**v1.6.5 - Dashboard UI Improvements & API Fixes**
 - **Pipeline Job Details Modal** - Fixed data integrity issues
   - Replaced mock data with real SQLite database queries
-  - Fixed `formatJobFromDb()` to return only schema-compliant fields (removed createdAt, error, git)
   - Updated `fetchJobsForPipeline()` to use `getJobs()` from database module
+  - `formatJobFromDb()` now includes all fields needed by modal (createdAt, error, git)
   - Location: `api/routes/pipelines.js`, `api/routes/pipelines.ts`
 - **Job Modal UX Enhancement** - Improved report access
   - Replaced "Copy ID" button with "View Report →" link for all jobs
