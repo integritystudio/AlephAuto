@@ -724,11 +724,17 @@ jobs/
 
 ## Breaking Changes & Migrations
 
-**v1.6.8 - Job Modal Field Requirements (Revision)**
-- **Old:** `formatJobFromDb()` returned minimal schema-compliant fields only
-- **New:** Returns all fields needed by dashboard modal (createdAt, error, git)
-- **Impact:** Modal now correctly displays job timeline, error details, and git workflow info
-- **Note:** This reverts v1.6.5 strict schema enforcement to fix modal display issues
+**v1.6.5 → v1.6.8 - Job Modal API Fields**
+- **v1.6.5 (Breaking):** `formatJobFromDb()` was changed to return only strict schema fields
+  - Removed: `createdAt`, `error` (top-level), `git` from API responses
+  - Impact: Dashboard modal displayed incorrectly (missing timeline, errors, git info)
+- **v1.6.8 (Fix):** Restored all fields needed by dashboard modal
+  - Added back: `createdAt`, `error`, `git`, full `result` object
+  - Modal now correctly displays job details
+- **For API consumers:** The `/api/pipelines/:id/jobs` endpoint now returns these fields:
+  - `createdAt` - Job creation timestamp (for timeline)
+  - `error` - Top-level error object (for failed jobs)
+  - `git` - Git workflow metadata (branchName, prUrl, etc.)
 
 **v1.2.0 - Test Path Migration**
 - **Old:** Hardcoded `/tmp/test-repo` paths
