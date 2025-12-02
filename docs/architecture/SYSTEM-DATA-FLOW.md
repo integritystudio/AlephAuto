@@ -90,59 +90,59 @@ AlephAuto is a **job queue framework** with real-time dashboard for automation p
 ```mermaid
 graph TB
     subgraph External["External Systems"]
-        User[User/Browser]
+        User["User Browser"]
         Git[Git Repositories]
         Sentry[Sentry Error Tracking]
         Doppler[Doppler Secrets]
     end
 
     subgraph Frontend["Frontend Layer"]
-        Dashboard[Dashboard UI<br/>React + Vite]
-        Store[Zustand Store]
-        WSClient[WebSocket Client]
+        Dashboard["Dashboard UI"]
+        Store["Zustand Store"]
+        WSClient["WebSocket Client"]
     end
 
-    subgraph API["API Layer (Express 5)"]
-        Server[Express Server<br/>api/server.js]
-        Routes[Route Handlers<br/>api/routes/]
-        Middleware[Validation Middleware<br/>Zod Schemas]
-        WSServer[WebSocket Server<br/>api/websocket.js]
+    subgraph API["API Layer - Express 5"]
+        Server["Express Server"]
+        Routes["Route Handlers"]
+        Middleware["Validation Middleware"]
+        WSServer["WebSocket Server"]
     end
 
     subgraph JobQueue["Job Queue Framework"]
-        BaseServer[SidequestServer<br/>sidequest/core/server.js]
-        Queue[Job Queue<br/>In-Memory]
-        EventEmitter[Event Emitter<br/>job:created, job:completed]
+        BaseServer["SidequestServer"]
+        Queue["Job Queue"]
+        EventEmitter["Event Emitter"]
     end
 
     subgraph Workers["Worker Layer"]
-        DD[Duplicate Detection<br/>Worker]
-        SE[Schema Enhancement<br/>Worker]
-        GA[Git Activity<br/>Worker]
-        RC[Repo Cleanup<br/>Worker]
-        Others[Other Workers...]
+        DD["Duplicate Detection"]
+        SE["Schema Enhancement"]
+        GA["Git Activity"]
+        RC["Repo Cleanup"]
+        Others["Other Workers"]
     end
 
     subgraph Pipeline["Pipeline Processing"]
-        Orchestrator[Scan Orchestrator<br/>TypeScript]
-        JSStages[JS Stages 1-2<br/>Scanner + AST-Grep]
-        PyStages[Python Stages 3-7<br/>Extraction + Grouping]
+        Orchestrator["Scan Orchestrator"]
+        JSStages["JS Stages 1-2"]
+        PyStages["Python Stages 3-7"]
     end
 
     subgraph Data["Data Layer"]
-        SQLite[(SQLite<br/>data/jobs.db)]
-        FileSystem[(File System<br/>output/reports/)]
-        Config[Config<br/>sidequest/config.js]
+        SQLite[("SQLite DB")]
+        FileSystem[("File System")]
+        Config["Config"]
     end
 
     subgraph Monitoring["Monitoring"]
-        ActivityFeed[Activity Feed<br/>Manager]
-        Broadcaster[Event<br/>Broadcaster]
-        ErrorClassifier[Error<br/>Classifier]
+        ActivityFeed["Activity Feed"]
+        Broadcaster["Broadcaster"]
+        ErrorClassifier["Error Classifier"]
     end
 
     %% User interactions
-    User -->|HTTP/WS| Dashboard
+    User -->|"HTTP and WS"| Dashboard
     Dashboard --> Store
     Store <-->|WebSocket| WSClient
     WSClient <-->|WS Connection| WSServer
@@ -161,7 +161,7 @@ graph TB
     %% Worker to pipeline
     DD --> Orchestrator
     Orchestrator --> JSStages
-    JSStages -->|JSON stdin/stdout| PyStages
+    JSStages -->|"JSON stdin-stdout"| PyStages
     PyStages --> FileSystem
 
     %% Data persistence
@@ -254,19 +254,19 @@ flowchart TB
     end
 
     subgraph Middleware["Middleware Stack"]
-        CORS[CORS Middleware<br/>Cross-origin handling]
-        JSON[JSON Parser<br/>Body parsing]
-        RateLimit[Rate Limiter<br/>Request throttling]
-        Auth[Auth Middleware<br/>JWT validation]
-        Validation[Zod Validation<br/>Schema check]
+        CORS["CORS Middleware"]
+        JSON["JSON Parser"]
+        RateLimit["Rate Limiter"]
+        Auth["Auth Middleware"]
+        Validation["Zod Validation"]
     end
 
     subgraph Routing["Route Handling"]
         Router[Express Router]
-        HealthRoutes[/health<br/>/api/health/doppler]
-        ScanRoutes[/api/scans/*<br/>Start, status, results]
-        JobRoutes[/api/jobs/*<br/>List, cancel, retry]
-        PipelineRoutes[/api/pipelines/*<br/>List, details]
+        HealthRoutes["health endpoints"]
+        ScanRoutes["scan endpoints"]
+        JobRoutes["job endpoints"]
+        PipelineRoutes["pipeline endpoints"]
     end
 
     subgraph Response["Response Generation"]
@@ -422,10 +422,10 @@ erDiagram
 flowchart LR
     subgraph Operations["Database Operations"]
         direction TB
-        Init[initDatabase<br/>Create tables & indexes]
-        Save[saveJob<br/>INSERT/UPDATE]
-        Get[getJobs<br/>SELECT with pagination]
-        Stats[getAllPipelineStats<br/>Aggregate counts]
+        Init["initDatabase"]
+        Save["saveJob"]
+        Get["getJobs"]
+        Stats["getAllPipelineStats"]
     end
 
     subgraph Indexes["Indexes"]
@@ -501,29 +501,29 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    subgraph Registry["Worker Registry (api/utils/worker-registry.js)"]
-        Register[registerWorker<br/>Map worker to type]
-        Get[getWorker<br/>Get by type]
-        All[getAllWorkers<br/>List all]
-        Health[healthCheck<br/>Check all workers]
+    subgraph Registry["Worker Registry"]
+        Register["registerWorker"]
+        Get["getWorker"]
+        All["getAllWorkers"]
+        Health["healthCheck"]
     end
 
     subgraph Workers["Registered Workers"]
-        DD[duplicate-detection]
-        SE[schema-enhancement]
-        GA[git-activity-report]
-        GI[gitignore-update]
-        RC[repo-cleanup]
-        CH[claude-health-check]
-        TR[test-refactor]
-        PM[plugin-audit]
-        RM[repomix-scan]
+        DD["duplicate-detection"]
+        SE["schema-enhancement"]
+        GA["git-activity-report"]
+        GI["gitignore-update"]
+        RC["repo-cleanup"]
+        CH["claude-health-check"]
+        TR["test-refactor"]
+        PM["plugin-audit"]
+        RM["repomix-scan"]
     end
 
     subgraph API["API Routes"]
-        Start[POST /api/scans/start]
-        List[GET /api/pipelines]
-        Status[GET /api/jobs/:id]
+        Start["POST scans start"]
+        List["GET pipelines"]
+        Status["GET jobs by id"]
     end
 
     Register --> DD & SE & GA & GI & RC & CH & TR & PM & RM
@@ -564,7 +564,7 @@ flowchart TB
 
     subgraph Output["Output Channels"]
         WS[WebSocket Clients]
-        Memory[In-Memory Feed<br/>Last 50 items]
+        Memory["In-Memory Feed"]
         Logs[Log Files]
     end
 
@@ -593,9 +593,9 @@ The duplicate detection pipeline bridges JavaScript and Python via JSON over std
 
 ```mermaid
 sequenceDiagram
-    participant JS as JavaScript<br/>scan-orchestrator.ts
-    participant Spawn as Node.js spawn()
-    participant PY as Python<br/>extract_blocks.py
+    participant JS as JavaScript
+    participant Spawn as Node spawn
+    participant PY as Python
 
     Note over JS: Stages 1-2 Complete
 
@@ -709,15 +709,15 @@ interface PythonPipelineOutput {
 ```mermaid
 flowchart TB
     subgraph Sources["Configuration Sources"]
-        Doppler[Doppler Secrets<br/>doppler run --]
-        EnvFile[.env File<br/>Local fallback]
-        Defaults[Code Defaults<br/>config.js]
+        Doppler["Doppler Secrets"]
+        EnvFile[".env File"]
+        Defaults["Code Defaults"]
     end
 
     subgraph Loading["Loading Process"]
-        DotEnv[dotenv.config()]
-        ProcessEnv[process.env]
-        ConfigModule[sidequest/config.js]
+        DotEnv["dotenv.config"]
+        ProcessEnv["process.env"]
+        ConfigModule["config.js"]
     end
 
     subgraph Config["Exported Config"]
@@ -793,8 +793,8 @@ flowchart TB
     end
 
     subgraph Runtime["Runtime"]
-        Express[Express Server<br/>Port 8080]
-        WebSocket[WebSocket<br/>Port 8080/ws]
+        Express["Express Server Port 8080"]
+        WebSocket["WebSocket Port 8080"]
         SQLite[SQLite Database]
         Logs[Log Files]
     end
