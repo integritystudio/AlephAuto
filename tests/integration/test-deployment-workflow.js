@@ -37,14 +37,11 @@ describe('Deployment Workflow Tests', () => {
     const workflowContent = readFileSync(WORKFLOW_PATH, 'utf8');
     workflowConfig = yaml.load(workflowContent);
 
-    // Load ecosystem config
-    const ecosystemContent = readFileSync(ECOSYSTEM_PATH, 'utf8');
-    // Extract module.exports object using basic parsing
-    const match = ecosystemContent.match(/module\.exports\s*=\s*(\{[\s\S]*\})/);
-    if (match) {
-      // Use eval in a controlled way for test purposes only
-      ecosystemConfig = eval(`(${match[1]})`);
-    }
+    // Load ecosystem config safely using createRequire (no eval!)
+    // Clear require cache to ensure fresh load
+    const ecosystemRequire = createRequire(import.meta.url);
+    delete ecosystemRequire.cache[ecosystemRequire.resolve(ECOSYSTEM_PATH)];
+    ecosystemConfig = ecosystemRequire(ECOSYSTEM_PATH);
   });
 
   describe('1. Workflow File Structure', () => {

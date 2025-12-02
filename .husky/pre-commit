@@ -21,6 +21,30 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# Check for dangerous eval() usage (CWE-95 security vulnerability)
+echo "Checking for dangerous eval() usage..."
+EVAL_FILES=$(git diff --cached --name-only --diff-filter=ACMR | xargs grep -l "eval\s*(" 2>/dev/null | grep -E '\.(js|ts|jsx|tsx)$' || true)
+
+if [ -n "$EVAL_FILES" ]; then
+  echo ""
+  echo "❌ Pre-commit validation failed!"
+  echo "Dangerous eval() usage detected in staged files:"
+  echo ""
+  for file in $EVAL_FILES; do
+    echo "  - $file"
+    grep -n "eval\s*(" "$file" | head -5 | sed 's/^/      /'
+  done
+  echo ""
+  echo "eval() allows arbitrary code execution (CWE-95)."
+  echo "Use safe alternatives:"
+  echo "  - JSON.parse() for JSON parsing"
+  echo "  - obj[propertyName] for dynamic property access"
+  echo "  - createRequire() for loading CommonJS modules"
+  echo "  - new Function() with validation for dynamic code (if absolutely necessary)"
+  echo ""
+  exit 1
+fi
+
 # Check for hardcoded test paths
 echo "Validating test paths..."
 npm run test:validate-paths

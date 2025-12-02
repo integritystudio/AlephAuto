@@ -33,12 +33,18 @@
         "*.test.js",
         "*.spec.js"
       ],
-      "lastScannedAt": "2025-11-30T08:00:00.997Z",
+      "lastScannedAt": "2025-12-01T07:00:14.842Z",
       "scanHistory": [
         {
-          "timestamp": "2025-11-30T08:00:00.998Z",
+          "timestamp": "2025-12-01T07:00:14.842Z",
           "status": "success",
-          "duration": 0.003,
+          "duration": 14.515,
+          "duplicatesFound": 0
+        },
+        {
+          "timestamp": "2025-11-30T07:00:12.586Z",
+          "status": "success",
+          "duration": 12.324,
           "duplicatesFound": 0
         },
         {
@@ -88,12 +94,6 @@
           "status": "success",
           "duration": 5.297,
           "duplicatesFound": 121
-        },
-        {
-          "timestamp": "2025-11-18T13:21:17.259Z",
-          "status": "success",
-          "duration": 10.423,
-          "duplicatesFound": 11
         }
       ]
     },
@@ -111,12 +111,18 @@
         "*.test.js",
         "*.spec.js"
       ],
-      "lastScannedAt": "2025-11-30T08:00:00.999Z",
+      "lastScannedAt": "2025-12-01T07:00:14.843Z",
       "scanHistory": [
         {
-          "timestamp": "2025-11-30T08:00:01.000Z",
+          "timestamp": "2025-12-01T07:00:14.843Z",
           "status": "success",
-          "duration": 0.003,
+          "duration": 14.515,
+          "duplicatesFound": 0
+        },
+        {
+          "timestamp": "2025-11-30T07:00:12.586Z",
+          "status": "success",
+          "duration": 12.324,
           "duplicatesFound": 0
         },
         {
