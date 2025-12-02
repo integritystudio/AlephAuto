@@ -86,23 +86,23 @@ jobs:
           cd ../..
 
           # Verify pydantic models load correctly
-          python3 -c "
-import sys
-sys.path.insert(0, 'sidequest/pipeline-core')
-from models.code_block import CodeBlock, BlockLocation
-from models.duplicate_group import DuplicateGroup
-print('✅ Pydantic models imported successfully')
-"
+          python3 << 'PYEOF'
+          import sys
+          sys.path.insert(0, 'sidequest/pipeline-core')
+          from models.code_block import CodeBlock, BlockLocation
+          from models.duplicate_group import DuplicateGroup
+          print('✅ Pydantic models imported successfully')
+          PYEOF
 
           # Test structural similarity module
-          python3 -c "
-import sys
-sys.path.insert(0, 'sidequest/pipeline-core')
-from similarity.structural import calculate_structural_similarity
-score = calculate_structural_similarity('function a() { return 1; }', 'function b() { return 1; }')
-assert 0 <= score <= 1, f'Invalid score: {score}'
-print(f'✅ Structural similarity working (score: {score:.2f})')
-"
+          python3 << 'PYEOF'
+          import sys
+          sys.path.insert(0, 'sidequest/pipeline-core')
+          from similarity.structural import calculate_structural_similarity
+          score = calculate_structural_similarity('function a() { return 1; }', 'function b() { return 1; }')
+          assert 0 <= score <= 1, f'Invalid score: {score}'
+          print(f'✅ Structural similarity working (score: {score:.2f})')
+          PYEOF
 
           echo "✅ Python pipeline integration verified"
 
