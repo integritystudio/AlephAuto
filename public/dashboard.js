@@ -1128,9 +1128,10 @@ class DashboardController {
         if (container.dataset.loaded === 'true') return;
 
         try {
-            const response = await fetch('/api/pipeline-data-flow');
+            const response = await fetch(`${this.apiBaseUrl}/api/pipeline-data-flow`);
             if (!response.ok) {
-                throw new Error(`Failed to fetch documentation: ${response.statusText}`);
+                const errorText = await response.text();
+                throw new Error(`Failed to fetch documentation: ${response.statusText} - ${errorText}`);
             }
 
             const html = await response.text();
