@@ -25,6 +25,7 @@
     "docs/**/*",
     "scripts/**/*",
     "frontend/**/*",
-    "cloudflare-workers/**/*"
+    "cloudflare-workers/**/*",
+    "mcp-servers/**/*"
   ]
 }

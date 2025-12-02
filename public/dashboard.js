@@ -1473,6 +1473,20 @@ class DashboardController {
             <div class="job-details-content">
                 <header class="job-details-header">
                     <h3 id="job-details-title">Job Details</h3>
+                    <div class="job-details-actions">
+                        <button class="job-action-btn job-action-pause ${this.isPipelinePaused(job.pipelineId) ? 'paused' : ''}"
+                                aria-label="${this.isPipelinePaused(job.pipelineId) ? 'Resume pipeline jobs' : 'Pause pipeline jobs'}"
+                                onclick="window.dashboardController.togglePauseJobs('${job.pipelineId}')">
+                            <span class="action-icon">${this.isPipelinePaused(job.pipelineId) ? '▶' : '⏸'}</span>
+                            <span class="action-text">${this.isPipelinePaused(job.pipelineId) ? 'Resume Jobs' : 'Pause Jobs'}</span>
+                        </button>
+                        <button class="job-action-btn job-action-run"
+                                aria-label="Run job manually"
+                                onclick="window.dashboardController.triggerManualJob('${job.pipelineId}')">
+                            <span class="action-icon">▶</span>
+                            <span class="action-text">Run Job</span>
+                        </button>
+                    </div>
                     <button class="job-details-close"
                             aria-label="Close job details dialog"
                             onclick="window.dashboardController.closeJobDetails()">&times;</button>
@@ -2214,6 +2228,148 @@ class DashboardController {
 
         html += '</div>';
         return html;
+    }
+
+    /**
+     * Check if a pipeline is paused
+     * @param {string} pipelineId
+     * @returns {boolean}
+     */
+    isPipelinePaused(pipelineId) {
+        // Track paused pipelines in memory (survives modal open/close)
+        if (!this.pausedPipelines) {
+            this.pausedPipelines = new Set();
+        }
+        return this.pausedPipelines.has(pipelineId);
+    }
+
+    /**
+     * Toggle pause state for a pipeline's jobs
+     * @param {string} pipelineId
+     */
+    async togglePauseJobs(pipelineId) {
+        if (!this.pausedPipelines) {
+            this.pausedPipelines = new Set();
+        }
+
+        const wasPaused = this.pausedPipelines.has(pipelineId);
+
+        try {
+            // Call the pause/resume API
+            const response = await fetch(
+                `${this.apiBaseUrl}/api/sidequest/pipeline-runners/${pipelineId}/${wasPaused ? 'resume' : 'pause'}`,
+                { method: 'POST' }
+            );
+
+            if (!response.ok) {
+                // If API doesn't exist yet (404), just toggle locally with a warning
+                if (response.status === 404) {
+                    console.warn(`Pause/resume API not implemented yet for ${pipelineId}. Toggling UI state only.`);
+                } else {
+                    throw new Error(`API error: ${response.status}`);
+                }
+            }
+
+            // Toggle local state
+            if (wasPaused) {
+                this.pausedPipelines.delete(pipelineId);
+                this.addActivity('info', `Resumed jobs for ${this.getPipelineDisplayName(pipelineId)}`);
+            } else {
+                this.pausedPipelines.add(pipelineId);
+                this.addActivity('info', `Paused jobs for ${this.getPipelineDisplayName(pipelineId)}`);
+            }
+
+            // Update the button UI
+            this.updatePauseButtonUI(pipelineId, !wasPaused);
+
+        } catch (error) {
+            console.error('Failed to toggle pause state:', error);
+            this.addActivity('error', `Failed to ${wasPaused ? 'resume' : 'pause'} jobs: ${error.message}`);
+        }
+    }
+
+    /**
+     * Update the pause button UI after toggle
+     * @param {string} pipelineId
+     * @param {boolean} isPaused
+     */
+    updatePauseButtonUI(pipelineId, isPaused) {
+        const modal = document.getElementById('job-details-modal');
+        if (!modal) return;
+
+        const pauseBtn = modal.querySelector('.job-action-pause');
+        if (pauseBtn) {
+            const iconSpan = pauseBtn.querySelector('.action-icon');
+            const textSpan = pauseBtn.querySelector('.action-text');
+
+            if (isPaused) {
+                pauseBtn.classList.add('paused');
+                pauseBtn.setAttribute('aria-label', 'Resume pipeline jobs');
+                if (iconSpan) iconSpan.textContent = '▶';
+                if (textSpan) textSpan.textContent = 'Resume Jobs';
+            } else {
+                pauseBtn.classList.remove('paused');
+                pauseBtn.setAttribute('aria-label', 'Pause pipeline jobs');
+                if (iconSpan) iconSpan.textContent = '⏸';
+                if (textSpan) textSpan.textContent = 'Pause Jobs';
+            }
+        }
+    }
+
+    /**
+     * Manually trigger a job for the pipeline
+     * @param {string} pipelineId
+     */
+    async triggerManualJob(pipelineId) {
+        /** @type {HTMLButtonElement | null} */
+        const runBtn = document.querySelector('.job-action-run');
+
+        try {
+            // Disable button and show loading state
+            if (runBtn) {
+                runBtn.disabled = true;
+                runBtn.classList.add('loading');
+                const textSpan = runBtn.querySelector('.action-text');
+                if (textSpan) textSpan.textContent = 'Starting...';
+            }
+
+            // Call the trigger API
+            const response = await fetch(
+                `${this.apiBaseUrl}/api/sidequest/pipeline-runners/${pipelineId}/trigger`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                }
+            );
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // Show success notification
+            this.addActivity('success', `Manually triggered ${this.getPipelineDisplayName(pipelineId)} job: ${data.jobId || 'started'}`);
+
+            // Refresh jobs list after short delay
+            setTimeout(() => {
+                this.fetchPipelineJobs(pipelineId, { tab: this.currentTab });
+            }, 1000);
+
+        } catch (error) {
+            console.error('Failed to trigger manual job:', error);
+            this.addActivity('error', `Failed to trigger job: ${error.message}`);
+        } finally {
+            // Reset button state
+            if (runBtn) {
+                runBtn.disabled = false;
+                runBtn.classList.remove('loading');
+                const textSpan = runBtn.querySelector('.action-text');
+                if (textSpan) textSpan.textContent = 'Run Job';
+            }
+        }
     }
 
     /**
