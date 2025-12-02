@@ -134,15 +134,10 @@ function filterExcludedFiles(groups) {
 }
 
 /**
- * Run accuracy test
+ * Prepare accuracy test data by loading expected results (ground truth)
+ * @returns {Promise<{expected: Object}>} Ground truth data
  */
-async function runAccuracyTest() {
-  console.log('='.repeat(70));
-  console.log('Duplicate Detection Accuracy Test Suite');
-  console.log('='.repeat(70));
-  console.log();
-
-  // Load expected results
+async function prepareAccuracyTestData() {
   logger.info('Loading expected results (ground truth)...');
   const expected = await loadExpectedResults();
 
@@ -154,25 +149,29 @@ async function runAccuracyTest() {
   console.log(`  False positive candidates: ${expected.false_positives_to_avoid.length}`);
   console.log();
 
-  // Set up test repository path
-  const testRepoPath = path.join(__dirname, 'fixtures');
+  return { expected };
+}
+
+/**
+ * Execute duplicate detection scan on a repository
+ * @param {string} testRepoPath - Path to the test repository
+ * @returns {Promise<{scanResult: Object, duration: string}>} Scan results and duration
+ */
+async function executeDuplicateScan(testRepoPath) {
   logger.info({ testRepoPath }, 'Setting up scan orchestrator');
 
-  // Create orchestrator (let it auto-detect Python path based on environment)
   const orchestrator = new ScanOrchestrator({
     outputDir: path.join(__dirname, 'results'),
-    autoGenerateReports: false // We'll generate our own report
+    autoGenerateReports: false
   });
 
-  // Run scan
   console.log('Running duplicate detection scan...');
   console.log('-'.repeat(70));
 
   const startTime = Date.now();
-  let scanResult;
 
   try {
-    scanResult = await orchestrator.scanRepository(testRepoPath, {
+    const scanResult = await orchestrator.scanRepository(testRepoPath, {
       generateReports: false
     });
 
@@ -189,16 +188,21 @@ async function runAccuracyTest() {
       console.log();
     }
 
+    return { scanResult, duration };
   } catch (error) {
     logger.error({ error }, 'Scan failed');
     console.error('ERROR: Scan failed:', error.message);
     process.exit(1);
   }
+}
 
-  // Enhance detected groups with function names
+/**
+ * Process scan results: enhance groups with function names, filter excluded files
+ * @param {Object} scanResult - Raw scan results
+ * @returns {Array} Processed and filtered duplicate groups
+ */
+function processDetectedGroups(scanResult) {
   let detectedGroups = enhanceDetectedGroups(scanResult);
-
-  // Filter out groups from excluded files (edge-cases.js)
   detectedGroups = filterExcludedFiles(detectedGroups);
 
   if (verbose && detectedGroups.length > 0) {
@@ -212,7 +216,16 @@ async function runAccuracyTest() {
     console.log();
   }
 
-  // Compare results
+  return detectedGroups;
+}
+
+/**
+ * Calculate accuracy metrics by comparing detected groups against expected
+ * @param {Array} detectedGroups - Groups found by the scanner
+ * @param {Object} expected - Ground truth data
+ * @returns {Object} Comparison results, metrics, and report
+ */
+function calculateAccuracyMetrics(detectedGroups, expected) {
   console.log('Comparing results against ground truth...');
   console.log('-'.repeat(70));
 
@@ -222,13 +235,17 @@ async function runAccuracyTest() {
     expected.false_positives_to_avoid
   );
 
-  // Calculate metrics
   const metrics = calculateAllMetrics(comparison);
-
-  // Generate report
   const report = generateAccuracyReport(metrics, comparison, expected.metrics_targets);
 
-  // Display results
+  return { comparison, metrics, report };
+}
+
+/**
+ * Print accuracy metrics section
+ * @param {Object} metrics - Calculated metrics
+ */
+function printAccuracyMetrics(metrics) {
   console.log();
   console.log('ACCURACY METRICS');
   console.log('='.repeat(70));
@@ -249,20 +266,85 @@ async function runAccuracyTest() {
   console.log(`FP Rate:    ${metrics.falsePositiveRate.percentage.padStart(8)} - ${metrics.falsePositiveRate.interpretation}`);
   console.log(`            ${metrics.counts.fp} false alarms / ${metrics.counts.fp + metrics.counts.tn} non-duplicates`);
   console.log();
+}
 
-  // Target comparison
+/**
+ * Print target comparison section
+ * @param {Object} targets - Target comparison data from report
+ */
+function printTargetComparison(targets) {
   console.log('TARGET COMPARISON');
   console.log('='.repeat(70));
   console.log();
 
-  const targets = report.targets;
-  console.log(`Precision:   ${targets.precision.met ? '✅' : '❌'} Target: ${(targets.precision.target * 100).toFixed(0)}%, Actual: ${(targets.precision.actual * 100).toFixed(2)}% (${targets.precision.delta > 0 ? '+' : ''}${(targets.precision.delta * 100).toFixed(1)}%)`);
-  console.log(`Recall:      ${targets.recall.met ? '✅' : '❌'} Target: ${(targets.recall.target * 100).toFixed(0)}%, Actual: ${(targets.recall.actual * 100).toFixed(2)}% (${targets.recall.delta > 0 ? '+' : ''}${(targets.recall.delta * 100).toFixed(1)}%)`);
-  console.log(`F1 Score:    ${targets.f1_score.met ? '✅' : '❌'} Target: ${(targets.f1_score.target * 100).toFixed(0)}%, Actual: ${(targets.f1_score.actual * 100).toFixed(2)}% (${targets.f1_score.delta > 0 ? '+' : ''}${(targets.f1_score.delta * 100).toFixed(1)}%)`);
-  console.log(`FP Rate:     ${targets.false_positive_rate.met ? '✅' : '❌'} Target: <${(targets.false_positive_rate.target * 100).toFixed(0)}%, Actual: ${(targets.false_positive_rate.actual * 100).toFixed(2)}% (${targets.false_positive_rate.delta > 0 ? '' : ''}${(targets.false_positive_rate.delta * 100).toFixed(1)}%)`);
+  const formatTarget = (name, target, prefix = '') => {
+    const icon = target.met ? '✅' : '❌';
+    const sign = target.delta > 0 ? '+' : '';
+    const targetPrefix = name === 'FP Rate' ? '<' : '';
+    return `${name}:${' '.repeat(12 - name.length)}${icon} Target: ${targetPrefix}${(target.target * 100).toFixed(0)}%, Actual: ${(target.actual * 100).toFixed(2)}% (${sign}${(target.delta * 100).toFixed(1)}%)`;
+  };
+
+  console.log(formatTarget('Precision', targets.precision));
+  console.log(formatTarget('Recall', targets.recall));
+  console.log(formatTarget('F1 Score', targets.f1_score));
+  console.log(formatTarget('FP Rate', targets.false_positive_rate));
+  console.log();
+}
+
+/**
+ * Print detailed results (true positives, false negatives, false positives, true negatives)
+ * @param {Object} comparison - Comparison results
+ */
+function printDetailedResults(comparison) {
+  console.log('DETAILS');
+  console.log('='.repeat(70));
   console.log();
 
-  // Overall assessment
+  if (comparison.truePositives.length > 0) {
+    console.log(`✅ True Positives (${comparison.truePositives.length}):`);
+    comparison.truePositives.forEach(tp => {
+      console.log(`   - ${tp.expected}: ${tp.overlap}/${tp.expected_members} members matched (${(tp.overlap_ratio * 100).toFixed(0)}%)`);
+    });
+    console.log();
+  }
+
+  if (comparison.falseNegatives.length > 0) {
+    console.log(`❌ False Negatives (${comparison.falseNegatives.length}) - Missed duplicates:`);
+    comparison.falseNegatives.forEach(fn => {
+      console.log(`   - ${fn.group_id}: ${fn.description}`);
+      console.log(`     Members: ${fn.members.join(', ')}`);
+    });
+    console.log();
+  }
+
+  if (comparison.falsePositives.length > 0) {
+    console.log(`⚠️  False Positives (${comparison.falsePositives.length}) - Incorrect detections:`);
+    comparison.falsePositives.forEach(fp => {
+      if (fp.reason) {
+        console.log(`   - ${fp.function}: ${fp.reason}`);
+      } else {
+        console.log(`   - ${fp.group_id}: ${fp.members.join(', ')}`);
+      }
+    });
+    console.log();
+  }
+
+  if (comparison.trueNegatives.length > 0) {
+    console.log(`✅ True Negatives (${comparison.trueNegatives.length}) - Correctly ignored:`);
+    comparison.trueNegatives.forEach(tn => {
+      console.log(`   - ${tn.function}: ${tn.reason}`);
+    });
+    console.log();
+  }
+}
+
+/**
+ * Print overall assessment and save results if requested
+ * @param {Object} report - Generated accuracy report
+ * @param {Object} comparison - Comparison results for details
+ * @returns {Promise<boolean>} Whether all targets were met
+ */
+async function printOverallAssessmentAndSave(report, comparison) {
   console.log('OVERALL ASSESSMENT');
   console.log('='.repeat(70));
   console.log();
@@ -270,48 +352,9 @@ async function runAccuracyTest() {
   console.log(`All Targets Met:    ${report.overall_assessment.all_targets_met ? '✅ YES' : '❌ NO'}`);
   console.log();
 
-  // Details
+  // Print details if verbose or there are issues
   if (verbose || comparison.falsePositives.length > 0 || comparison.falseNegatives.length > 0) {
-    console.log('DETAILS');
-    console.log('='.repeat(70));
-    console.log();
-
-    if (comparison.truePositives.length > 0) {
-      console.log(`✅ True Positives (${comparison.truePositives.length}):`);
-      comparison.truePositives.forEach(tp => {
-        console.log(`   - ${tp.expected}: ${tp.overlap}/${tp.expected_members} members matched (${(tp.overlap_ratio * 100).toFixed(0)}%)`);
-      });
-      console.log();
-    }
-
-    if (comparison.falseNegatives.length > 0) {
-      console.log(`❌ False Negatives (${comparison.falseNegatives.length}) - Missed duplicates:`);
-      comparison.falseNegatives.forEach(fn => {
-        console.log(`   - ${fn.group_id}: ${fn.description}`);
-        console.log(`     Members: ${fn.members.join(', ')}`);
-      });
-      console.log();
-    }
-
-    if (comparison.falsePositives.length > 0) {
-      console.log(`⚠️  False Positives (${comparison.falsePositives.length}) - Incorrect detections:`);
-      comparison.falsePositives.forEach(fp => {
-        if (fp.reason) {
-          console.log(`   - ${fp.function}: ${fp.reason}`);
-        } else {
-          console.log(`   - ${fp.group_id}: ${fp.members.join(', ')}`);
-        }
-      });
-      console.log();
-    }
-
-    if (comparison.trueNegatives.length > 0) {
-      console.log(`✅ True Negatives (${comparison.trueNegatives.length}) - Correctly ignored:`);
-      comparison.trueNegatives.forEach(tn => {
-        console.log(`   - ${tn.function}: ${tn.reason}`);
-      });
-      console.log();
-    }
+    printDetailedResults(comparison);
   }
 
   // Save results if requested
@@ -322,8 +365,39 @@ async function runAccuracyTest() {
     console.log();
   }
 
-  // Exit with appropriate code
-  const success = report.overall_assessment.all_targets_met;
+  return report.overall_assessment.all_targets_met;
+}
+
+/**
+ * Run accuracy test - main coordinator function
+ */
+async function runAccuracyTest() {
+  console.log('='.repeat(70));
+  console.log('Duplicate Detection Accuracy Test Suite');
+  console.log('='.repeat(70));
+  console.log();
+
+  // Phase 1: Load ground truth
+  const { expected } = await prepareAccuracyTestData();
+
+  // Phase 2: Execute scan
+  const testRepoPath = path.join(__dirname, 'fixtures');
+  const { scanResult } = await executeDuplicateScan(testRepoPath);
+
+  // Phase 3: Process results
+  const detectedGroups = processDetectedGroups(scanResult);
+
+  // Phase 4: Calculate metrics
+  const { comparison, metrics, report } = calculateAccuracyMetrics(detectedGroups, expected);
+
+  // Phase 5: Display results
+  printAccuracyMetrics(metrics);
+  printTargetComparison(report.targets);
+
+  // Phase 6: Overall assessment and save
+  const success = await printOverallAssessmentAndSave(report, comparison);
+
+  // Final status
   if (success) {
     console.log('✅ All accuracy targets met!');
   } else {

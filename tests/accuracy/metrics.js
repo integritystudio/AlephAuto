@@ -61,23 +61,13 @@ export function calculateFalsePositiveRate(falsePositives, trueNegatives) {
 }
 
 /**
- * Compare detected results against expected ground truth
+ * Build lookup maps for expected and detected groups
  *
- * @param {Array} detectedGroups - Groups detected by scanner
  * @param {Array} expectedGroups - Expected groups from ground truth
- * @param {Array} falsePositiveCandidates - Functions that should NOT be detected
- * @returns {Object} Comparison results with TP, FP, FN, TN
+ * @param {Array} detectedGroups - Groups detected by scanner
+ * @returns {Object} Maps for expected and detected lookups
  */
-export function compareResults(detectedGroups, expectedGroups, falsePositiveCandidates = []) {
-  const results = {
-    truePositives: [],
-    falsePositives: [],
-    falseNegatives: [],
-    trueNegatives: [],
-    partialMatches: []
-  };
-
-  // Create lookup maps
+function buildLookupMaps(expectedGroups, detectedGroups) {
   const expectedMap = new Map();
   expectedGroups.forEach(group => {
     group.members.forEach(member => {
@@ -92,7 +82,6 @@ export function compareResults(detectedGroups, expectedGroups, falsePositiveCand
   const detectedMap = new Map();
   detectedGroups.forEach(group => {
     group.member_block_ids?.forEach(blockId => {
-      // Extract file and function info from block
       const block = group._blocks?.find(b => b.block_id === blockId);
       if (block) {
         const key = `${block.relative_path}:${block._function_name || 'unknown'}`;
@@ -104,28 +93,47 @@ export function compareResults(detectedGroups, expectedGroups, falsePositiveCand
     });
   });
 
-  // Find true positives: detected groups that match expected groups
+  return { expectedMap, detectedMap };
+}
+
+/**
+ * Extract member keys from a detected group
+ *
+ * @param {Object} detectedGroup - A detected group
+ * @returns {Array<string>} Array of member keys
+ */
+function extractDetectedMembers(detectedGroup) {
+  return (detectedGroup.member_block_ids || [])
+    .map(blockId => {
+      const block = detectedGroup._blocks?.find(b => b.block_id === blockId);
+      return block ? `${block.relative_path}:${block._function_name || 'unknown'}` : null;
+    })
+    .filter(Boolean);
+}
+
+/**
+ * Find true positives and false negatives by comparing expected to detected groups
+ *
+ * @param {Array} expectedGroups - Expected groups from ground truth
+ * @param {Array} detectedGroups - Groups detected by scanner
+ * @returns {Object} truePositives and falseNegatives arrays
+ */
+function findTruePositivesAndFalseNegatives(expectedGroups, detectedGroups) {
+  const truePositives = [];
+  const falseNegatives = [];
+
   expectedGroups.forEach(expectedGroup => {
     const expectedMembers = expectedGroup.members.map(m => `${m.file}:${m.function}`);
-
-    // Find if any detected group matches this expected group
     let matchFound = false;
-    detectedGroups.forEach(detectedGroup => {
-      const detectedMembers = (detectedGroup.member_block_ids || [])
-        .map(blockId => {
-          const block = detectedGroup._blocks?.find(b => b.block_id === blockId);
-          return block ? `${block.relative_path}:${block._function_name || 'unknown'}` : null;
-        })
-        .filter(Boolean);
 
-      // Calculate overlap
+    detectedGroups.forEach(detectedGroup => {
+      const detectedMembers = extractDetectedMembers(detectedGroup);
       const overlap = expectedMembers.filter(m => detectedMembers.includes(m));
       const overlapRatio = overlap.length / Math.max(expectedMembers.length, detectedMembers.length);
 
       if (overlapRatio >= 0.5) {
-        // At least 50% overlap = match
         matchFound = true;
-        results.truePositives.push({
+        truePositives.push({
           expected: expectedGroup.group_id,
           detected: detectedGroup.group_id,
           overlap: overlap.length,
@@ -137,7 +145,7 @@ export function compareResults(detectedGroups, expectedGroups, falsePositiveCand
     });
 
     if (!matchFound) {
-      results.falseNegatives.push({
+      falseNegatives.push({
         group_id: expectedGroup.group_id,
         description: expectedGroup.description,
         members: expectedMembers
@@ -145,41 +153,56 @@ export function compareResults(detectedGroups, expectedGroups, falsePositiveCand
     }
   });
 
-  // Find false positives: detected groups that don't match any expected group
+  return { truePositives, falseNegatives };
+}
+
+/**
+ * Find false positives from detected groups that don't match expected groups
+ *
+ * @param {Array} detectedGroups - Groups detected by scanner
+ * @param {Array} truePositives - Already identified true positives
+ * @returns {Array} False positive entries
+ */
+function findUnmatchedDetections(detectedGroups, truePositives) {
+  const falsePositives = [];
+
   detectedGroups.forEach(detectedGroup => {
-    const detectedMembers = (detectedGroup.member_block_ids || [])
-      .map(blockId => {
-        const block = detectedGroup._blocks?.find(b => b.block_id === blockId);
-        return block ? `${block.relative_path}:${block._function_name || 'unknown'}` : null;
-      })
-      .filter(Boolean);
-
-    // Check if this detected group matches any expected group
-    let matchFound = results.truePositives.some(tp => tp.detected === detectedGroup.group_id);
-
+    const matchFound = truePositives.some(tp => tp.detected === detectedGroup.group_id);
     if (!matchFound) {
-      results.falsePositives.push({
+      falsePositives.push({
         group_id: detectedGroup.group_id,
-        members: detectedMembers,
+        members: extractDetectedMembers(detectedGroup),
         pattern: detectedGroup.pattern_id
       });
     }
   });
 
-  // Find true negatives: functions marked as false positive candidates that were NOT detected
+  return falsePositives;
+}
+
+/**
+ * Process false positive candidates to find true negatives and additional false positives
+ *
+ * @param {Array} falsePositiveCandidates - Functions that should NOT be detected
+ * @param {Map} detectedMap - Map of detected function keys
+ * @returns {Object} trueNegatives and additionalFalsePositives arrays
+ */
+function processFalsePositiveCandidates(falsePositiveCandidates, detectedMap) {
+  const trueNegatives = [];
+  const additionalFalsePositives = [];
+
   falsePositiveCandidates.forEach(candidate => {
     const key = `${candidate.file}:${candidate.function}`;
     const wasDetected = detectedMap.has(key);
 
     if (!wasDetected) {
-      results.trueNegatives.push({
+      trueNegatives.push({
         function: candidate.function,
         file: candidate.file,
         reason: candidate.reason
       });
     } else {
-      // This is actually a false positive - detected something that shouldn't be
-      results.falsePositives.push({
+      additionalFalsePositives.push({
         function: candidate.function,
         file: candidate.file,
         reason: `Detected as duplicate but should not be: ${candidate.reason}`
@@ -187,7 +210,30 @@ export function compareResults(detectedGroups, expectedGroups, falsePositiveCand
     }
   });
 
-  return results;
+  return { trueNegatives, additionalFalsePositives };
+}
+
+/**
+ * Compare detected results against expected ground truth
+ *
+ * @param {Array} detectedGroups - Groups detected by scanner
+ * @param {Array} expectedGroups - Expected groups from ground truth
+ * @param {Array} falsePositiveCandidates - Functions that should NOT be detected
+ * @returns {Object} Comparison results with TP, FP, FN, TN
+ */
+export function compareResults(detectedGroups, expectedGroups, falsePositiveCandidates = []) {
+  const { detectedMap } = buildLookupMaps(expectedGroups, detectedGroups);
+  const { truePositives, falseNegatives } = findTruePositivesAndFalseNegatives(expectedGroups, detectedGroups);
+  const unmatchedFalsePositives = findUnmatchedDetections(detectedGroups, truePositives);
+  const { trueNegatives, additionalFalsePositives } = processFalsePositiveCandidates(falsePositiveCandidates, detectedMap);
+
+  return {
+    truePositives,
+    falsePositives: [...unmatchedFalsePositives, ...additionalFalsePositives],
+    falseNegatives,
+    trueNegatives,
+    partialMatches: []
+  };
 }
 
 /**

@@ -15,12 +15,151 @@
 const https = require('https');
 require('dotenv').config();
 
-// Get webhook URLs from environment
-const WEBHOOKS = {
-  critical: process.env.DISCORD_WEBHOOK_CRITICAL,
-  high: process.env.DISCORD_WEBHOOK_HIGH,
-  medium: process.env.DISCORD_WEBHOOK_MEDIUM
+// Channel configuration with test data
+const CHANNEL_CONFIG = {
+  critical: {
+    envVar: 'DISCORD_WEBHOOK_CRITICAL',
+    displayName: '#alerts-critical',
+    color: 0xFF0000, // Red
+    testEmbed: {
+      title: 'CRITICAL: Database Connection Failed',
+      titleEmoji: '\uD83D\uDEA8',
+      description: 'Unable to connect to primary database. All services affected.',
+      severity: 'CRITICAL',
+      component: 'database-pool',
+      location: 'database.js:127',
+      footerPrefix: 'CRITICAL'
+    }
+  },
+  high: {
+    envVar: 'DISCORD_WEBHOOK_HIGH',
+    displayName: '#alerts-high',
+    color: 0xFF4444, // Light Red
+    testEmbed: {
+      title: 'ERROR: Payment Processing Failed',
+      titleEmoji: '\u26A0\uFE0F',
+      description: "TypeError: Cannot read property 'map' of undefined",
+      severity: 'ERROR',
+      component: 'payment-worker',
+      location: 'payment.js:342',
+      userImpact: '3 users affected',
+      footerPrefix: 'HIGH'
+    }
+  },
+  medium: {
+    envVar: 'DISCORD_WEBHOOK_MEDIUM',
+    displayName: '#alerts-medium',
+    color: 0xFFAA00, // Orange
+    testEmbed: {
+      title: 'WARNING: High Error Rate Detected',
+      titleEmoji: '\u2139\uFE0F',
+      description: 'Error rate exceeded 100 errors/hour threshold',
+      severity: 'WARNING',
+      component: null,
+      threshold: '100 errors/hour',
+      currentRate: '157 errors/hour',
+      started: '5 minutes ago',
+      footerPrefix: 'MEDIUM'
+    }
+  }
 };
+
+/**
+ * Get webhook URLs from environment
+ */
+function getWebhooks() {
+  return {
+    critical: process.env.DISCORD_WEBHOOK_CRITICAL,
+    high: process.env.DISCORD_WEBHOOK_HIGH,
+    medium: process.env.DISCORD_WEBHOOK_MEDIUM
+  };
+}
+
+/**
+ * Check webhook configuration and log status
+ * @returns {{ configured: string[], missing: string[] }}
+ */
+function checkWebhookConfiguration(webhooks) {
+  const configured = [];
+  const missing = [];
+
+  Object.entries(webhooks).forEach(([channel, url]) => {
+    if (url) {
+      configured.push(channel);
+      console.log(`\u2705 ${channel.toUpperCase()}: Webhook configured`);
+    } else {
+      missing.push(channel);
+      console.log(`\u274C ${channel.toUpperCase()}: Webhook NOT configured`);
+    }
+  });
+
+  return { configured, missing };
+}
+
+/**
+ * Log missing webhook help message
+ */
+function logMissingWebhookHelp(missingChannels) {
+  if (missingChannels.length === 0) return;
+
+  console.log('\n\u26A0\uFE0F  Missing webhooks detected!\n');
+  console.log('To configure missing webhooks:');
+  missingChannels.forEach(channel => {
+    console.log(`   doppler secrets set DISCORD_WEBHOOK_${channel.toUpperCase()}="your-webhook-url"`);
+  });
+  console.log('');
+}
+
+/**
+ * Create test embed for a channel
+ */
+function createTestEmbed(channelKey, config) {
+  const { color, testEmbed } = config;
+  const fields = [
+    { name: '\uD83D\uDCCA Severity', value: testEmbed.severity, inline: true },
+    { name: '\uD83C\uDF0D Environment', value: 'production', inline: true }
+  ];
+
+  // Add component field if present
+  if (testEmbed.component) {
+    fields.push({ name: '\uD83C\uDFF7\uFE0F Component', value: testEmbed.component, inline: true });
+  }
+
+  // Add location field if present
+  if (testEmbed.location) {
+    fields.push({ name: '\uD83D\uDCCD Location', value: testEmbed.location, inline: true });
+  }
+
+  // Add optional fields based on channel type
+  if (testEmbed.userImpact) {
+    fields.push({ name: '\uD83D\uDC64 User Impact', value: testEmbed.userImpact, inline: true });
+  }
+  if (testEmbed.threshold) {
+    fields.push({ name: '\uD83D\uDCC8 Threshold', value: testEmbed.threshold, inline: true });
+  }
+  if (testEmbed.currentRate) {
+    fields.push({ name: '\uD83D\uDCC8 Current Rate', value: testEmbed.currentRate, inline: true });
+  }
+  if (testEmbed.started) {
+    fields.push({ name: '\u23F0 Started', value: testEmbed.started, inline: true });
+  }
+
+  // Add time field
+  fields.push({ name: '\u23F0 Time', value: new Date().toLocaleString(), inline: false });
+
+  // Add link field
+  const linkLabel = channelKey === 'medium' ? '\uD83D\uDD17 View Dashboard' : '\uD83D\uDD17 View Details';
+  fields.push({ name: linkLabel, value: '[Open in Sentry](https://sentry.io/)', inline: false });
+
+  return {
+    title: `${testEmbed.titleEmoji} ${testEmbed.title}`,
+    description: testEmbed.description,
+    color,
+    fields,
+    timestamp: new Date().toISOString(),
+    footer: { text: `Sentry Alert \u2022 ${testEmbed.footerPrefix} Priority` }
+  };
+}
 
 /**
  * Send Discord message with embed
@@ -54,17 +193,17 @@ function sendDiscordMessage(webhookUrl, embed, channelName) {
       res.on('data', (chunk) => body += chunk);
       res.on('end', () => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          console.log(`   ✅ Message sent to ${channelName}!`);
+          console.log(`   \u2705 Message sent to ${channelName}!`);
           resolve({ success: true, channel: channelName });
         } else {
-          console.error(`   ❌ Discord API error for ${channelName}:`, res.statusCode, body);
+          console.error(`   \u274C Discord API error for ${channelName}:`, res.statusCode, body);
           reject(new Error(`Discord API error: ${res.statusCode}`));
         }
       });
     });
 
     req.on('error', (error) => {
-      console.error(`   ❌ Request error for ${channelName}:`, error);
+      console.error(`   \u274C Request error for ${channelName}:`, error);
       reject(error);
     });
 
@@ -74,155 +213,63 @@ function sendDiscordMessage(webhookUrl, embed, channelName) {
 }
 
 /**
- * Test all Discord channels
+ * Test a single channel
+ * @returns {Promise<{ success: boolean, channel: string, error?: string }>}
  */
-async function testAllChannels() {
-  console.log('╔════════════════════════════════════════════════════════════════╗');
-  console.log('║    Testing Multi-Channel Discord Integration for Sentry       ║');
-  console.log('╚════════════════════════════════════════════════════════════════╝\n');
+async function testSingleChannel(channelKey, webhookUrl, testNumber) {
+  const config = CHANNEL_CONFIG[channelKey];
+  console.log(`\n\uD83D\uDCE4 Test ${testNumber}: ${channelKey.toUpperCase()} channel (${config.displayName})`);
 
-  // Check which webhooks are configured
-  const configuredChannels = [];
-  const missingChannels = [];
+  try {
+    const embed = createTestEmbed(channelKey, config);
+    await sendDiscordMessage(webhookUrl, embed, config.displayName);
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Rate limit delay
+    return { success: true, channel: channelKey };
+  } catch (error) {
+    return { success: false, channel: channelKey, error: error.message };
+  }
+}
 
-  Object.entries(WEBHOOKS).forEach(([channel, url]) => {
-    if (url) {
-      configuredChannels.push(channel);
-      console.log(`✅ ${channel.toUpperCase()}: Webhook configured`);
-    } else {
-      missingChannels.push(channel);
-      console.log(`❌ ${channel.toUpperCase()}: Webhook NOT configured`);
-    }
-  });
+/**
+ * Print test header
+ */
+function printHeader() {
+  console.log('\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557');
+  console.log('\u2551    Testing Multi-Channel Discord Integration for Sentry       \u2551');
+  console.log('\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D\n');
+}
 
-  if (missingChannels.length > 0) {
-    console.log('\n⚠️  Missing webhooks detected!\n');
-    console.log('To configure missing webhooks:');
-    missingChannels.forEach(channel => {
-      console.log(`   doppler secrets set DISCORD_WEBHOOK_${channel.toUpperCase()}="your-webhook-url"`);
-    });
+/**
+ * Print test results summary
+ */
+function printResults(results, webhooks) {
+  const successful = results.filter(r => r.success);
+  const failed = results.filter(r => !r.success);
+
+  console.log('\n\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557');
+  console.log('\u2551              Multi-Channel Test Complete!                     \u2551');
+  console.log('\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D\n');
+
+  console.log('\uD83D\uDCCA Test Results:');
+  console.log(`   \u2705 Successful: ${successful.length} channel(s)`);
+  console.log(`   \u274C Failed: ${failed.length} channel(s)\n`);
+
+  if (successful.length > 0) {
+    console.log('\u2705 Successful channels:');
+    successful.forEach(r => console.log(`   \u2022 ${r.channel.toUpperCase()}`));
     console.log('');
   }
 
-  if (configuredChannels.length === 0) {
-    console.error('❌ No webhooks configured. Exiting.\n');
-    process.exit(1);
-  }
-
-  console.log(`\n📤 Testing ${configuredChannels.length} configured channel(s)...\n`);
-
-  const results = {
-    success: [],
-    failed: []
-  };
-
-  // Test Critical Channel
-  if (WEBHOOKS.critical) {
-    console.log('📤 Test 1: CRITICAL channel (#alerts-critical)');
-    try {
-      await sendDiscordMessage(WEBHOOKS.critical, {
-        title: '🚨 CRITICAL: Database Connection Failed',
-        description: 'Unable to connect to primary database. All services affected.',
-        color: 0xFF0000, // Red
-        fields: [
-          { name: '📊 Severity', value: 'CRITICAL', inline: true },
-          { name: '🌍 Environment', value: 'production', inline: true },
-          { name: '🏷️ Component', value: 'database-pool', inline: true },
-          { name: '📍 Location', value: 'database.js:127', inline: true },
-          { name: '⏰ Time', value: new Date().toLocaleString(), inline: false },
-          { name: '🔗 View Details', value: '[Open in Sentry](https://sentry.io/)', inline: false }
-        ],
-        timestamp: new Date().toISOString(),
-        footer: { text: 'Sentry Alert • CRITICAL Priority' }
-      }, '#alerts-critical');
-      results.success.push('critical');
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    } catch (error) {
-      results.failed.push({ channel: 'critical', error: error.message });
-    }
-  }
-
-  // Test High Priority Channel
-  if (WEBHOOKS.high) {
-    console.log('\n📤 Test 2: HIGH priority channel (#alerts-high)');
-    try {
-      await sendDiscordMessage(WEBHOOKS.high, {
-        title: '⚠️ ERROR: Payment Processing Failed',
-        description: 'TypeError: Cannot read property \'map\' of undefined',
-        color: 0xFF4444, // Light Red
-        fields: [
-          { name: '📊 Severity', value: 'ERROR', inline: true },
-          { name: '🌍 Environment', value: 'production', inline: true },
-          { name: '🏷️ Component', value: 'payment-worker', inline: true },
-          { name: '📍 Location', value: 'payment.js:342', inline: true },
-          { name: '👤 User Impact', value: '3 users affected', inline: true },
-          { name: '⏰ Time', value: new Date().toLocaleString(), inline: false },
-          { name: '🔗 View Details', value: '[Open in Sentry](https://sentry.io/)', inline: false }
-        ],
-        timestamp: new Date().toISOString(),
-        footer: { text: 'Sentry Alert • HIGH Priority' }
-      }, '#alerts-high');
-      results.success.push('high');
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    } catch (error) {
-      results.failed.push({ channel: 'high', error: error.message });
-    }
-  }
-
-  // Test Medium Priority Channel
-  if (WEBHOOKS.medium) {
-    console.log('\n📤 Test 3: MEDIUM priority channel (#alerts-medium)');
-    try {
-      await sendDiscordMessage(WEBHOOKS.medium, {
-        title: 'ℹ️ WARNING: High Error Rate Detected',
-        description: 'Error rate exceeded 100 errors/hour threshold',
-        color: 0xFFAA00, // Orange
-        fields: [
-          { name: '📊 Severity', value: 'WARNING', inline: true },
-          { name: '🌍 Environment', value: 'production', inline: true },
-          { name: '📈 Threshold', value: '100 errors/hour', inline: true },
-          { name: '📈 Current Rate', value: '157 errors/hour', inline: true },
-          { name: '⏰ Started', value: '5 minutes ago', inline: true },
-          { name: '🔗 View Dashboard', value: '[Open in Sentry](https://sentry.io/)', inline: false }
-        ],
-        timestamp: new Date().toISOString(),
-        footer: { text: 'Sentry Alert • MEDIUM Priority' }
-      }, '#alerts-medium');
-      results.success.push('medium');
-    } catch (error) {
-      results.failed.push({ channel: 'medium', error: error.message });
-    }
-  }
-
-  // Print results
-  console.log('\n╔════════════════════════════════════════════════════════════════╗');
-  console.log('║              Multi-Channel Test Complete!                     ║');
-  console.log('╚════════════════════════════════════════════════════════════════╝\n');
-
-  console.log('📊 Test Results:');
-  console.log(`   ✅ Successful: ${results.success.length} channel(s)`);
-  console.log(`   ❌ Failed: ${results.failed.length} channel(s)\n`);
-
-  if (results.success.length > 0) {
-    console.log('✅ Successful channels:');
-    results.success.forEach(channel => {
-      console.log(`   • ${channel.toUpperCase()}`);
-    });
+  if (failed.length > 0) {
+    console.log('\u274C Failed channels:');
+    failed.forEach(r => console.log(`   \u2022 ${r.channel.toUpperCase()}: ${r.error}`));
     console.log('');
   }
 
-  if (results.failed.length > 0) {
-    console.log('❌ Failed channels:');
-    results.failed.forEach(({ channel, error }) => {
-      console.log(`   • ${channel.toUpperCase()}: ${error}`);
-    });
-    console.log('');
-  }
-
-  console.log('📱 Check your Discord server for test messages in:');
-  if (WEBHOOKS.critical) console.log('   • #alerts-critical (red message)');
-  if (WEBHOOKS.high) console.log('   • #alerts-high (light red message)');
-  if (WEBHOOKS.medium) console.log('   • #alerts-medium (orange message)');
+  console.log('\uD83D\uDCF1 Check your Discord server for test messages in:');
+  if (webhooks.critical) console.log('   \u2022 #alerts-critical (red message)');
+  if (webhooks.high) console.log('   \u2022 #alerts-high (light red message)');
+  if (webhooks.medium) console.log('   \u2022 #alerts-medium (orange message)');
   console.log('');
 
   console.log('Next steps:');
@@ -231,13 +278,46 @@ async function testAllChannels() {
   console.log('   3. Run: node setup-files/configure-discord-alerts.js');
   console.log('   4. Monitor for real Sentry alerts\n');
 
-  if (results.failed.length > 0) {
+  return failed.length;
+}
+
+/**
+ * Test all Discord channels
+ */
+async function testAllChannels() {
+  printHeader();
+
+  const webhooks = getWebhooks();
+  const { configured, missing } = checkWebhookConfiguration(webhooks);
+
+  logMissingWebhookHelp(missing);
+
+  if (configured.length === 0) {
+    console.error('\u274C No webhooks configured. Exiting.\n');
+    process.exit(1);
+  }
+
+  console.log(`\n\uD83D\uDCE4 Testing ${configured.length} configured channel(s)...`);
+
+  // Test each configured channel
+  const results = [];
+  let testNumber = 1;
+
+  for (const channelKey of configured) {
+    const result = await testSingleChannel(channelKey, webhooks[channelKey], testNumber);
+    results.push(result);
+    testNumber++;
+  }
+
+  const failedCount = printResults(results, webhooks);
+
+  if (failedCount > 0) {
     process.exit(1);
   }
 }
 
 // Run tests
 testAllChannels().catch(error => {
-  console.error('\n❌ Test suite failed:', error.message);
+  console.error('\n\u274C Test suite failed:', error.message);
   process.exit(1);
 });
