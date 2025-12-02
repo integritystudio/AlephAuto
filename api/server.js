@@ -197,10 +197,10 @@ app.get('/api/status', (req, res) => {
   }
 });
 
-// Pipeline data flow documentation endpoint
+// Pipeline data flow documentation endpoint (serves SYSTEM-DATA-FLOW.md)
 app.get('/api/pipeline-data-flow', async (req, res) => {
   try {
-    const docPath = path.join(__dirname, '../docs/architecture/pipeline-data-flow.md');
+    const docPath = path.join(__dirname, '../docs/architecture/SYSTEM-DATA-FLOW.md');
     const markdown = await fs.readFile(docPath, 'utf-8');
 
     // Configure marked for GitHub-flavored markdown with mermaid support
