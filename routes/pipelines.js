@@ -200,19 +200,64 @@ async function fetchJobsForPipeline(pipelineId, options) {
  * @returns New job ID
  */
 async function triggerPipelineJob(pipelineId, parameters) {
-    // TODO: Implement actual job triggering with worker
-    // For now, generate a mock job ID
-    const jobId = `job-${Date.now()}`;
-    logger.debug({
+    // Import worker registry dynamically to avoid circular dependencies
+    const { workerRegistry } = await import('../api/utils/worker-registry.js');
+
+    // Validate pipeline exists
+    if (!workerRegistry.isSupported(pipelineId)) {
+        const error = new Error(`Unknown pipeline ID: ${pipelineId}`);
+        logger.error({
+            pipelineId,
+            supportedPipelines: workerRegistry.getSupportedPipelines()
+        }, 'Unsupported pipeline ID');
+        throw error;
+    }
+
+    // Get or initialize worker for this pipeline
+    let worker;
+    try {
+        worker = await workerRegistry.getWorker(pipelineId);
+    }
+    catch (error) {
+        logger.error({
+            error,
+            pipelineId
+        }, 'Failed to initialize worker');
+        throw new Error(`Failed to initialize worker for pipeline '${pipelineId}': ${error.message}`);
+    }
+
+    // Create job with unique ID
+    const jobId = `job-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+    logger.info({
         pipelineId,
         jobId,
         parameters
-    }, 'Generated new job ID');
-    // In production, this would:
-    // 1. Validate pipeline exists
-    // 2. Create job in queue/database
-    // 3. Notify worker to start processing
-    // 4. Emit WebSocket event for real-time updates
-    return jobId;
+    }, 'Creating job with worker');
+
+    try {
+        // Create job in worker's queue
+        const job = worker.createJob(jobId, {
+            ...parameters,
+            triggeredBy: 'manual-api'
+        });
+
+        logger.info({
+            pipelineId,
+            jobId,
+            status: job.status
+        }, 'Job created successfully');
+
+        return jobId;
+    }
+    catch (error) {
+        logger.error({
+            error,
+            pipelineId,
+            jobId,
+            parameters
+        }, 'Failed to create job');
+        throw new Error(`Failed to create job for pipeline '${pipelineId}': ${error.message}`);
+    }
 }
 export default router;
