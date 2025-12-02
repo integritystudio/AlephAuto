@@ -48,11 +48,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      # Render uses PORT env var, map it to our JOBS_API_PORT
-      - key: PORT
-        value: 10000
-      - key: JOBS_API_PORT
-        value: 10000
+      # NOTE: Do NOT set PORT - Render automatically sets it and routes traffic to that port
+      # The app must read process.env.PORT to bind correctly
       # Doppler service token for production config
       - key: DOPPLER_TOKEN
         sync: false

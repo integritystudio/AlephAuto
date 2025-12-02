@@ -89,7 +89,8 @@ export const config = {
   healthCheckPort: parseInt(process.env.HEALTH_CHECK_PORT || '3000', 10),
 
   // API server port
-  apiPort: parseInt(process.env.JOBS_API_PORT || '8080', 10),
+  // PORT is standard for Render/Heroku, JOBS_API_PORT is our custom env var
+  apiPort: parseInt(process.env.PORT || process.env.JOBS_API_PORT || '8080', 10),
 
   // Doppler resilience configuration
   doppler: {
