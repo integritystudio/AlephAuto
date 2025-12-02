@@ -1342,6 +1342,94 @@ pre {
     color: var(--color-gray-900);
 }
 
+/* Job Detail Action Buttons */
+.job-details-actions {
+    display: flex;
+    gap: var(--space-1);
+    margin-left: auto;
+    margin-right: var(--space-2);
+}
+
+.job-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--color-gray-300);
+    border-radius: var(--radius-md);
+    background: var(--color-white);
+    color: var(--color-gray-700);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+}
+
+.job-action-btn:hover {
+    background: var(--color-gray-100);
+    border-color: var(--color-gray-400);
+    color: var(--color-gray-900);
+}
+
+.job-action-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.job-action-btn .action-icon {
+    font-size: 12px;
+    line-height: 1;
+}
+
+/* Pause button states */
+.job-action-pause {
+    border-color: var(--color-warning);
+    color: var(--color-warning-dark);
+}
+
+.job-action-pause:hover {
+    background: var(--color-warning-light);
+    border-color: var(--color-warning-dark);
+}
+
+.job-action-pause.paused {
+    border-color: var(--color-success);
+    color: var(--color-success-dark);
+    background: var(--color-success-bg);
+}
+
+.job-action-pause.paused:hover {
+    background: #a7f3d0;
+    border-color: var(--color-success-dark);
+}
+
+/* Run button */
+.job-action-run {
+    border-color: var(--color-info);
+    color: var(--color-info-dark);
+    background: var(--color-info-bg);
+}
+
+.job-action-run:hover {
+    background: #bfdbfe;
+    border-color: var(--color-info-dark);
+}
+
+.job-action-run.loading {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+.job-action-run.loading .action-icon {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
 .job-details-body {
     flex: 1;
     overflow-y: auto;

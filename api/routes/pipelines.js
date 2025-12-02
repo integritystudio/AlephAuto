@@ -23,6 +23,10 @@ const logger = createComponentLogger('PipelineRoutes');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// In-memory storage for paused pipelines (survives across requests, not restarts)
+// In production, this could be persisted to database or Redis
+const pausedPipelines = new Set();
 /**
  * GET /api/sidequest/pipeline-runners/:pipelineId/jobs
  * Fetch job history for a specific pipeline
@@ -140,6 +144,226 @@ async (req, res, next) => {
         next(error);
     }
 });
+
+/**
+ * POST /api/sidequest/pipeline-runners/:pipelineId/pause
+ * Pause job processing for a specific pipeline
+ *
+ * When paused, no new jobs will be processed (queued jobs remain in queue).
+ * Running jobs will complete but no new jobs will start.
+ *
+ * Response: PauseResponse with pipeline status
+ */
+router.post('/:pipelineId/pause', async (req, res, next) => {
+    const { pipelineId } = req.params;
+
+    try {
+        logger.info({ pipelineId }, 'Pausing pipeline');
+
+        // Validate pipeline exists
+        if (!workerRegistry.isSupported(pipelineId)) {
+            const supported = workerRegistry.getSupportedPipelines().join(', ');
+            return res.status(404).json({
+                error: 'Not Found',
+                message: `Unknown pipeline: ${pipelineId}. Supported pipelines: ${supported}`,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Check if already paused
+        if (pausedPipelines.has(pipelineId)) {
+            return res.status(200).json({
+                pipelineId,
+                status: 'paused',
+                message: 'Pipeline was already paused',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Add to paused set
+        pausedPipelines.add(pipelineId);
+
+        // Try to pause the worker if it supports it
+        try {
+            const pipelineWorker = await workerRegistry.getWorker(pipelineId);
+            if (typeof pipelineWorker.pause === 'function') {
+                await pipelineWorker.pause();
+                logger.info({ pipelineId }, 'Worker pause method called');
+            } else if (typeof pipelineWorker.setPaused === 'function') {
+                pipelineWorker.setPaused(true);
+                logger.info({ pipelineId }, 'Worker setPaused(true) called');
+            } else {
+                logger.info({ pipelineId }, 'Worker does not have pause method, using registry-level pause');
+            }
+        } catch (workerErr) {
+            logger.warn({ pipelineId, error: workerErr.message }, 'Could not access worker for pause, using registry-level pause');
+        }
+
+        const response = {
+            pipelineId,
+            status: 'paused',
+            message: 'Pipeline paused successfully. New jobs will not be processed.',
+            timestamp: new Date().toISOString()
+        };
+
+        logger.info({ pipelineId }, 'Successfully paused pipeline');
+        res.json(response);
+
+    } catch (error) {
+        logger.error({ error, pipelineId }, 'Failed to pause pipeline');
+
+        Sentry.captureException(error, {
+            tags: {
+                component: 'PipelineAPI',
+                endpoint: '/api/sidequest/pipeline-runners/:id/pause',
+                pipelineId
+            }
+        });
+
+        next(error);
+    }
+});
+
+/**
+ * POST /api/sidequest/pipeline-runners/:pipelineId/resume
+ * Resume job processing for a paused pipeline
+ *
+ * Queued jobs will begin processing again.
+ *
+ * Response: ResumeResponse with pipeline status
+ */
+router.post('/:pipelineId/resume', async (req, res, next) => {
+    const { pipelineId } = req.params;
+
+    try {
+        logger.info({ pipelineId }, 'Resuming pipeline');
+
+        // Validate pipeline exists
+        if (!workerRegistry.isSupported(pipelineId)) {
+            const supported = workerRegistry.getSupportedPipelines().join(', ');
+            return res.status(404).json({
+                error: 'Not Found',
+                message: `Unknown pipeline: ${pipelineId}. Supported pipelines: ${supported}`,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Check if already running
+        if (!pausedPipelines.has(pipelineId)) {
+            return res.status(200).json({
+                pipelineId,
+                status: 'running',
+                message: 'Pipeline was already running',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Remove from paused set
+        pausedPipelines.delete(pipelineId);
+
+        // Try to resume the worker if it supports it
+        try {
+            const pipelineWorker = await workerRegistry.getWorker(pipelineId);
+            if (typeof pipelineWorker.resume === 'function') {
+                await pipelineWorker.resume();
+                logger.info({ pipelineId }, 'Worker resume method called');
+            } else if (typeof pipelineWorker.setPaused === 'function') {
+                pipelineWorker.setPaused(false);
+                logger.info({ pipelineId }, 'Worker setPaused(false) called');
+            } else {
+                logger.info({ pipelineId }, 'Worker does not have resume method, using registry-level resume');
+            }
+        } catch (workerErr) {
+            logger.warn({ pipelineId, error: workerErr.message }, 'Could not access worker for resume, using registry-level resume');
+        }
+
+        const response = {
+            pipelineId,
+            status: 'running',
+            message: 'Pipeline resumed successfully. Queued jobs will begin processing.',
+            timestamp: new Date().toISOString()
+        };
+
+        logger.info({ pipelineId }, 'Successfully resumed pipeline');
+        res.json(response);
+
+    } catch (error) {
+        logger.error({ error, pipelineId }, 'Failed to resume pipeline');
+
+        Sentry.captureException(error, {
+            tags: {
+                component: 'PipelineAPI',
+                endpoint: '/api/sidequest/pipeline-runners/:id/resume',
+                pipelineId
+            }
+        });
+
+        next(error);
+    }
+});
+
+/**
+ * GET /api/sidequest/pipeline-runners/:pipelineId/status
+ * Get the current status of a pipeline (paused/running)
+ *
+ * Response: StatusResponse with pipeline status
+ */
+router.get('/:pipelineId/status', async (req, res, next) => {
+    const { pipelineId } = req.params;
+
+    try {
+        // Validate pipeline exists
+        if (!workerRegistry.isSupported(pipelineId)) {
+            const supported = workerRegistry.getSupportedPipelines().join(', ');
+            return res.status(404).json({
+                error: 'Not Found',
+                message: `Unknown pipeline: ${pipelineId}. Supported pipelines: ${supported}`,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        const isPaused = pausedPipelines.has(pipelineId);
+
+        // Try to get additional stats from worker
+        let workerStats = null;
+        try {
+            const pipelineWorker = await workerRegistry.getWorker(pipelineId);
+            if (typeof pipelineWorker.getStats === 'function') {
+                workerStats = pipelineWorker.getStats();
+            }
+        } catch (workerErr) {
+            logger.debug({ pipelineId, error: workerErr.message }, 'Could not get worker stats');
+        }
+
+        const response = {
+            pipelineId,
+            name: getPipelineName(pipelineId),
+            status: isPaused ? 'paused' : 'running',
+            isPaused,
+            ...(workerStats && {
+                activeJobs: workerStats.activeJobs || 0,
+                queuedJobs: workerStats.queuedJobs || 0
+            }),
+            timestamp: new Date().toISOString()
+        };
+
+        res.json(response);
+
+    } catch (error) {
+        logger.error({ error, pipelineId }, 'Failed to get pipeline status');
+
+        Sentry.captureException(error, {
+            tags: {
+                component: 'PipelineAPI',
+                endpoint: '/api/sidequest/pipeline-runners/:id/status',
+                pipelineId
+            }
+        });
+
+        next(error);
+    }
+});
+
 /**
  * Helper: Fetch jobs for a pipeline
  *
@@ -560,5 +784,22 @@ router.get('/:pipelineId/html', async (req, res, next) => {
         next(error);
     }
 });
+
+/**
+ * Check if a pipeline is currently paused
+ * @param {string} pipelineId - Pipeline identifier
+ * @returns {boolean} True if pipeline is paused
+ */
+export function isPipelinePaused(pipelineId) {
+    return pausedPipelines.has(pipelineId);
+}
+
+/**
+ * Get all currently paused pipelines
+ * @returns {string[]} Array of paused pipeline IDs
+ */
+export function getPausedPipelines() {
+    return Array.from(pausedPipelines);
+}
 
 export default router;
