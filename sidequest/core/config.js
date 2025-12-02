@@ -109,6 +109,20 @@ export const config = {
 
   // Project root directory
   projectRoot: __dirname,
+
+  // Redis configuration for scan result caching
+  redis: {
+    // REDIS_URL is typically provided by hosting platforms (Render, Heroku, etc.)
+    // Format: redis://[user:password@]host:port
+    url: process.env.REDIS_URL || null,
+    // Fallback to individual settings for local development
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6379', 10),
+    // Enable caching when Redis is available
+    enabled: process.env.REDIS_URL !== undefined || process.env.REDIS_HOST !== undefined,
+    // Cache TTL in seconds (default: 30 days)
+    ttl: parseInt(process.env.REDIS_CACHE_TTL || String(30 * 24 * 60 * 60), 10),
+  },
 };
 
 /**

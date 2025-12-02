@@ -6,8 +6,19 @@
 # - Python 3.11+ with pydantic (for duplicate detection pipeline stages 3-7)
 # - Doppler CLI (for secrets management)
 # - pnpm (for Node.js dependencies)
+# - Redis/Valkey (for scan result caching)
 
 services:
+  # Redis/Valkey Key-Value Store for caching scan results
+  # https://docs.render.com/redis
+  - type: redis
+    name: alephauto-redis
+    region: oregon
+    plan: free
+    ipAllowList: []  # Allow connections from all Render services
+    maxmemoryPolicy: allkeys-lru  # Evict least recently used keys when memory full
+
+  # Main API Service
   - type: web
     name: alephauto-api
     runtime: node
@@ -51,5 +62,11 @@ services:
       # Python path for spawn() calls in pipeline
       - key: PYTHON_PATH
         value: ./venv/bin/python3
+      # Redis connection for scan result caching
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: alephauto-redis
+          property: connectionString
     autoDeploy: true
     branch: main
