@@ -1,5 +1,11 @@
 # Render Blueprint for AlephAuto Backend
 # https://render.com/docs/blueprint-spec
+#
+# DEPLOYMENT REQUIREMENTS:
+# - Node.js 20.x (Render default)
+# - Python 3.11+ with pydantic (for duplicate detection pipeline stages 3-7)
+# - Doppler CLI (for secrets management)
+# - pnpm (for Node.js dependencies)
 
 services:
   - type: web
@@ -7,12 +13,31 @@ services:
     runtime: node
     region: oregon
     plan: free
-    buildCommand: pnpm install --frozen-lockfile && npm install -g doppler
-    startCommand: doppler run -c prd -- node api/server.js
+    # Build command: Install all dependencies including Python for pipeline stages 3-7
+    # The duplicate detection pipeline uses Python (pydantic) for code analysis
+    buildCommand: |
+      # Install Node.js dependencies
+      pnpm install --frozen-lockfile
+
+      # Install Doppler CLI for secrets management
+      curl -sLf --retry 3 --tlsv1.2 --proto "=https" 'https://packages.doppler.com/public/cli/gpg.DE2A7741.key' | gpg --dearmor -o /usr/share/keyrings/doppler-archive-keyring.gpg
+      echo "deb [signed-by=/usr/share/keyrings/doppler-archive-keyring.gpg] https://packages.doppler.com/public/cli/deb/debian any-version main" | tee /etc/apt/sources.list.d/doppler-cli.list
+      apt-get update && apt-get install -y doppler python3 python3-pip python3-venv
+
+      # Create Python virtual environment and install dependencies
+      python3 -m venv venv
+      . venv/bin/activate
+      pip install --upgrade pip
+      pip install -r requirements.txt
+
+      echo "✅ Build complete: Node.js, Python, and Doppler configured"
+    # Start command: Activate venv for Python access, then start server with Doppler
+    startCommand: . venv/bin/activate && doppler run -c prd -- node api/server.js
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
+      # Render uses PORT env var, map it to our JOBS_API_PORT
       - key: PORT
         value: 10000
       - key: JOBS_API_PORT
@@ -23,5 +48,8 @@ services:
       # CORS configuration for GitHub Pages frontend
       - key: CORS_ORIGIN
         value: https://n0ai.app
+      # Python path for spawn() calls in pipeline
+      - key: PYTHON_PATH
+        value: ./venv/bin/python3
     autoDeploy: true
     branch: main
