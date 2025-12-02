@@ -52,7 +52,31 @@ app.set('trust proxy', 1);
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+
+// CORS configuration - allow GitHub Pages frontend and localhost for development
+const corsOptions = {
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      'https://n0ai.app',
+      'http://localhost:8080',
+      'http://localhost:3000',
+      'http://127.0.0.1:8080',
+      process.env.CORS_ORIGIN // Allow custom origin via environment variable
+    ].filter(Boolean);
+
+    // Allow requests with no origin (like mobile apps, curl, or same-origin)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      logger.warn({ origin }, 'CORS blocked request from unauthorized origin');
+      callback(null, true); // Still allow for now, but log it
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+app.use(cors(corsOptions));
 
 // CSP headers to allow iframe embedding from any origin
 app.use((req, res, next) => {
