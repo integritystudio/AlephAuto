@@ -15,11 +15,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -28,7 +33,7 @@ jobs:
           cache: 'pip'
 
       - name: Install Node.js dependencies
-        run: npm ci --production --omit=optional
+        run: pnpm install --frozen-lockfile --prod
 
       - name: Install Python dependencies
         run: |
@@ -45,7 +50,7 @@ jobs:
           sudo apt-get update && sudo apt-get install doppler
 
       - name: Install PM2 globally
-        run: npm install -g pm2
+        run: pnpm add -g pm2
 
       - name: Validate deployment files
         run: |
@@ -91,8 +96,11 @@ jobs:
             # Ensure logs directory exists for PM2
             mkdir -p logs
 
+            # Install pnpm first if not available
+            command -v pnpm || npm install -g pnpm
+
             # Install Node.js dependencies with Doppler
-            doppler run -c prd -- npm install --production --omit=optional
+            doppler run -c prd -- pnpm install --frozen-lockfile --prod
 
             # Install Python dependencies
             python3 -m venv venv
