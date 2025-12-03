@@ -20,7 +20,7 @@ services:
 
   # Main API Service
   - type: web
-    name: alephauto-api
+    name: alephauto
     runtime: node
     region: oregon
     plan: free
@@ -29,6 +29,9 @@ services:
     buildCommand: |
       # Install Node.js dependencies
       pnpm install --frozen-lockfile
+
+      # Rebuild native modules for Linux (Render runs Linux, lockfile may have macOS binaries)
+      pnpm rebuild better-sqlite3
 
       # Install Doppler CLI for secrets management
       curl -sLf --retry 3 --tlsv1.2 --proto "=https" 'https://packages.doppler.com/public/cli/gpg.DE2A7741.key' | gpg --dearmor -o /usr/share/keyrings/doppler-archive-keyring.gpg
