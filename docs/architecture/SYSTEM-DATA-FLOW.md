@@ -915,12 +915,12 @@ server {
 
 ## Related Documentation
 
-- **[Pipeline Data Flow](./pipeline-data-flow.md)** - Individual pipeline details
-- **[Similarity Algorithm](./similarity-algorithm.md)** - Duplicate detection algorithm
-- **[Error Handling](./ERROR_HANDLING.md)** - Error classification and retry
-- **[Type System](./TYPE_SYSTEM.md)** - Zod schemas and TypeScript
-- **[API Reference](../API_REFERENCE.md)** - Complete API documentation
-- **[Cheat Sheet](./CHEAT-SHEET.md)** - Quick reference
+- **[Pipeline Data Flow](https://github.com/aledlie/AlephAuto/blob/main/docs/architecture/pipeline-data-flow.md)** - Individual pipeline details
+- **[Similarity Algorithm](https://github.com/aledlie/AlephAuto/blob/main/docs/architecture/similarity-algorithm.md)** - Duplicate detection algorithm
+- **[Error Handling](https://github.com/aledlie/AlephAuto/blob/main/docs/architecture/ERROR_HANDLING.md)** - Error classification and retry
+- **[Type System](https://github.com/aledlie/AlephAuto/blob/main/docs/architecture/TYPE_SYSTEM.md)** - Zod schemas and TypeScript
+- **[API Reference](https://github.com/aledlie/AlephAuto/blob/main/docs/API_REFERENCE.md)** - Complete API documentation
+- **[Cheat Sheet](https://github.com/aledlie/AlephAuto/blob/main/docs/architecture/CHEAT-SHEET.md)** - Quick reference
 
 ---
 
