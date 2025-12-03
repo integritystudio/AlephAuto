@@ -27,16 +27,16 @@ services:
     # Build command: Install all dependencies including Python for pipeline stages 3-7
     # The duplicate detection pipeline uses Python (pydantic) for code analysis
     buildCommand: |
+      # Install build tools, Doppler CLI, and Python FIRST (needed for native modules)
+      curl -sLf --retry 3 --tlsv1.2 --proto "=https" 'https://packages.doppler.com/public/cli/gpg.DE2A7741.key' | gpg --dearmor -o /usr/share/keyrings/doppler-archive-keyring.gpg
+      echo "deb [signed-by=/usr/share/keyrings/doppler-archive-keyring.gpg] https://packages.doppler.com/public/cli/deb/debian any-version main" | tee /etc/apt/sources.list.d/doppler-cli.list
+      apt-get update && apt-get install -y doppler python3 python3-pip python3-venv build-essential
+
       # Install Node.js dependencies
       pnpm install --frozen-lockfile
 
-      # Rebuild native modules for Linux (Render runs Linux, lockfile may have macOS binaries)
+      # Rebuild native modules for Linux (better-sqlite3 needs C++ compiler)
       pnpm rebuild better-sqlite3
-
-      # Install Doppler CLI for secrets management
-      curl -sLf --retry 3 --tlsv1.2 --proto "=https" 'https://packages.doppler.com/public/cli/gpg.DE2A7741.key' | gpg --dearmor -o /usr/share/keyrings/doppler-archive-keyring.gpg
-      echo "deb [signed-by=/usr/share/keyrings/doppler-archive-keyring.gpg] https://packages.doppler.com/public/cli/deb/debian any-version main" | tee /etc/apt/sources.list.d/doppler-cli.list
-      apt-get update && apt-get install -y doppler python3 python3-pip python3-venv
 
       # Create Python virtual environment and install dependencies
       python3 -m venv venv
