@@ -38,9 +38,10 @@ const MAX_ABSOLUTE_RETRIES = 5;
 export class DuplicateDetectionWorker extends SidequestServer {
   constructor(options = {}) {
     super({
+      ...options,
+      jobType: 'duplicate-detection',
       maxConcurrent: options.maxConcurrentScans || 3,
       logDir: path.join(process.cwd(), 'logs', 'duplicate-detection'),
-      ...options
     });
 
     this.configLoader = new RepositoryConfigLoader(options.configPath);
