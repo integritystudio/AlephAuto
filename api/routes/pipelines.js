@@ -568,6 +568,37 @@ async function triggerPipelineJob(pipelineId, parameters) {
         } else {
             throw new Error('duplicate-detection requires either repositoryPath or repositoryPaths parameter');
         }
+    } else if (pipelineId === 'schema-enhancement') {
+        // Schema enhancement requires readmePath for single-file mode
+        // or directory for full-scan mode
+        if (!parameters.readmePath && !parameters.directory) {
+            throw new Error(
+                'schema-enhancement requires either readmePath (single file) or directory (full scan) parameter. ' +
+                'Example: { "readmePath": "/path/to/README.md" } or { "directory": "/path/to/project" }'
+            );
+        }
+
+        if (parameters.directory) {
+            // Import and use the pipeline for directory scan mode
+            const { SchemaEnhancementPipeline } = await import('../../sidequest/pipeline-runners/schema-enhancement-pipeline.js');
+            const pipeline = new SchemaEnhancementPipeline({
+                dryRun: parameters.dryRun ?? false,
+                gitWorkflowEnabled: parameters.gitWorkflowEnabled ?? false
+            });
+            // Run enhancement asynchronously (don't await - let it run in background)
+            pipeline.runEnhancement(parameters.directory).catch(error => {
+                logger.error({ error, pipelineId, directory: parameters.directory }, 'Directory scan failed');
+            });
+        } else {
+            // Single file mode - use worker directly
+            pipelineWorker.createJob(jobId, {
+                readmePath: parameters.readmePath,
+                relativePath: parameters.relativePath || parameters.readmePath,
+                context: parameters.context || {},
+                triggeredBy: 'api',
+                triggeredAt: new Date().toISOString()
+            });
+        }
     } else {
         // Generic job creation for other pipelines
         // Workers extend SidequestServer which provides createJob method
