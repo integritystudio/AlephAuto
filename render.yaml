@@ -33,10 +33,11 @@ services:
       apt-get update && apt-get install -y doppler python3 python3-pip python3-venv build-essential
 
       # Install Node.js dependencies
-      pnpm install --frozen-lockfile
+      pnpm install
 
-      # Rebuild native modules for Linux (better-sqlite3 needs C++ compiler)
-      pnpm rebuild better-sqlite3
+      # Force rebuild better-sqlite3 native module for Linux
+      # pnpm's symlink structure can cause issues, so use npm to rebuild
+      npm rebuild better-sqlite3 --build-from-source
 
       # Create Python virtual environment and install dependencies
       python3 -m venv venv
