@@ -23,6 +23,10 @@ export class SidequestServer extends EventEmitter {
     this.queue = [];
     this.logDir = options.logDir || './logs';
 
+    // Auto-start control: if false, jobs won't process until start() is called
+    // Defaults to true for production, tests can set false
+    this.isRunning = options.autoStart !== false;
+
     // Git workflow options
     this.gitWorkflowEnabled = options.gitWorkflowEnabled ?? false;
     this.gitBranchPrefix = options.gitBranchPrefix || 'automated';
@@ -104,6 +108,11 @@ export class SidequestServer extends EventEmitter {
    * Process the job queue
    */
   async processQueue() {
+    // Don't process if not running (allows tests to set handlers before jobs execute)
+    if (this.isRunning === false) {
+      return;
+    }
+
     while (this.queue.length > 0 && this.activeJobs < this.maxConcurrent) {
       const jobId = this.queue.shift();
       const job = this.jobs.get(jobId);
@@ -410,6 +419,31 @@ export class SidequestServer extends EventEmitter {
   }
 
   /**
+   * Start processing jobs (no-op, jobs auto-process when created)
+   * Provided for lifecycle compatibility with tests
+   */
+  start() {
+    this.isRunning = true;
+    this.processQueue();
+  }
+
+  /**
+   * Stop processing new jobs
+   * Provided for lifecycle compatibility with tests
+   */
+  stop() {
+    this.isRunning = false;
+  }
+
+  /**
+   * Allow tests to set a handler via handleJob property
+   * @param {Function} handler - The job handler function
+   */
+  set handleJob(handler) {
+    this.runJobHandler = handler;
+  }
+
+  /**
    * Log job completion to file
    */
   async logJobCompletion(job) {
@@ -548,6 +582,163 @@ export class SidequestServer extends EventEmitter {
     return {
       success: true,
       message: `Job ${jobId} cancelled successfully`,
+      job
+    };
+  }
+
+  /**
+   * Pause a job
+   *
+   * Pauses a queued or running job:
+   * - If queued: removes from queue, marks as paused
+   * - If running: marks as paused (job will stop at next checkpoint)
+   * - If already paused/completed/failed/cancelled: returns false
+   *
+   * @param {string} jobId - The ID of the job to pause
+   * @returns {{success: boolean, message: string, job?: object}} Result of pause attempt
+   */
+  pauseJob(jobId) {
+    const job = this.jobs.get(jobId);
+
+    if (!job) {
+      return {
+        success: false,
+        message: `Job ${jobId} not found`
+      };
+    }
+
+    // Cannot pause completed, failed, cancelled, or already paused jobs
+    if (['completed', 'failed', 'cancelled', 'paused'].includes(job.status)) {
+      return {
+        success: false,
+        message: `Cannot pause job with status '${job.status}'`,
+        job
+      };
+    }
+
+    const previousStatus = job.status;
+
+    // If queued, remove from queue
+    if (job.status === 'queued') {
+      const queueIndex = this.queue.indexOf(jobId);
+      if (queueIndex > -1) {
+        this.queue.splice(queueIndex, 1);
+      }
+    }
+
+    // Mark job as paused
+    job.status = 'paused';
+    job.pausedAt = new Date();
+
+    // Persist to database
+    try {
+      saveJob({
+        id: job.id,
+        pipelineId: this.jobType,
+        status: job.status,
+        createdAt: job.createdAt?.toISOString(),
+        startedAt: job.startedAt?.toISOString(),
+        completedAt: job.completedAt?.toISOString(),
+        data: job.data,
+        result: job.result,
+        error: job.error,
+        git: job.git
+      });
+    } catch (dbError) {
+      logger.error({ error: dbError.message, jobId }, 'Failed to persist paused job to database');
+    }
+
+    // Emit pause event
+    this.emit('job:paused', job);
+
+    Sentry.addBreadcrumb({
+      category: 'job',
+      message: `Job ${jobId} paused`,
+      level: 'info',
+      data: { jobId, previousStatus }
+    });
+
+    logger.info({ jobId, previousStatus }, 'Job paused');
+
+    return {
+      success: true,
+      message: `Job ${jobId} paused successfully`,
+      job
+    };
+  }
+
+  /**
+   * Resume a paused job
+   *
+   * Resumes a paused job by re-queuing it:
+   * - If paused: adds back to queue, marks as queued
+   * - If not paused: returns false
+   *
+   * @param {string} jobId - The ID of the job to resume
+   * @returns {{success: boolean, message: string, job?: object}} Result of resume attempt
+   */
+  resumeJob(jobId) {
+    const job = this.jobs.get(jobId);
+
+    if (!job) {
+      return {
+        success: false,
+        message: `Job ${jobId} not found`
+      };
+    }
+
+    // Can only resume paused jobs
+    if (job.status !== 'paused') {
+      return {
+        success: false,
+        message: `Cannot resume job with status '${job.status}'. Only paused jobs can be resumed.`,
+        job
+      };
+    }
+
+    // Mark job as queued and add back to queue
+    job.status = 'queued';
+    job.resumedAt = new Date();
+    delete job.pausedAt;
+
+    this.queue.push(jobId);
+
+    // Persist to database
+    try {
+      saveJob({
+        id: job.id,
+        pipelineId: this.jobType,
+        status: job.status,
+        createdAt: job.createdAt?.toISOString(),
+        startedAt: job.startedAt?.toISOString(),
+        completedAt: job.completedAt?.toISOString(),
+        data: job.data,
+        result: job.result,
+        error: job.error,
+        git: job.git
+      });
+    } catch (dbError) {
+      logger.error({ error: dbError.message, jobId }, 'Failed to persist resumed job to database');
+    }
+
+    // Emit resume event
+    this.emit('job:resumed', job);
+
+    Sentry.addBreadcrumb({
+      category: 'job',
+      message: `Job ${jobId} resumed`,
+      level: 'info',
+      data: { jobId }
+    });
+
+    logger.info({ jobId }, 'Job resumed');
+
+    // Trigger queue processing
+    this.processQueue();
+
+    return {
+      success: true,
+      message: `Job ${jobId} resumed successfully`,
       job
     };
   }
