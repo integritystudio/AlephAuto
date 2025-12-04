@@ -27,6 +27,7 @@ import {
 } from '../../api/utils/port-manager.js';
 import { ActivityFeedManager } from '../../api/activity-feed.js';
 import { SidequestServer } from '../../sidequest/core/server.js';
+import { initDatabase } from '../../sidequest/core/database.js';
 
 describe('Error Recovery - End-to-End Integration Tests', () => {
   let testCacheDir;
@@ -34,6 +35,9 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
   let servers = [];
 
   beforeEach(async () => {
+    // Initialize database FIRST (it's async, needed for SidequestServer)
+    await initDatabase();
+
     // Setup cache directory for Doppler
     testCacheDir = await fs.mkdtemp(path.join(os.tmpdir(), 'error-recovery-'));
     testCacheFile = path.join(testCacheDir, '.fallback.json');
@@ -186,7 +190,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     // The test verifies the system continues to function
 
     // Verify server is still accessible
-    const response = await fetch(`http://localhost:actualPort}/api/activities`);
+    const response = await fetch(`http://localhost:${actualPort}/api/activities`);
     assert.equal(response.status, 200, 'Server should still respond');
 
     await worker.stop();
@@ -253,10 +257,11 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
 
   it('Scenario 4: Recovery after all components fail', async () => {
     // Setup failing components
+    // Use successThreshold: 2 so we can observe HALF_OPEN state
     const doppler = new DopplerResilience({
       cacheFile: testCacheFile,
       failureThreshold: 2,
-      successThreshold: 1,
+      successThreshold: 2,
       timeout: 100
     });
 
@@ -281,12 +286,12 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     // Wait for timeout
     await new Promise(resolve => setTimeout(resolve, 150));
 
-    // Next call should attempt recovery
+    // Next call should attempt recovery - enters HALF_OPEN
     const secrets = await doppler.getSecrets();
-    assert.equal(doppler.getState(), 'HALF_OPEN', 'Should attempt recovery');
+    assert.equal(doppler.getState(), 'HALF_OPEN', 'Should be in recovery mode');
     assert.equal(secrets.NODE_ENV, 'production', 'Should get live secrets');
 
-    // One more success to close circuit
+    // One more success to close circuit (successThreshold: 2)
     await doppler.getSecrets();
     assert.equal(doppler.getState(), 'CLOSED', 'Circuit should be closed');
 
