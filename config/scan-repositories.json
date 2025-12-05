@@ -33,8 +33,26 @@
         "*.test.js",
         "*.spec.js"
       ],
-      "lastScannedAt": "2025-12-01T07:00:14.842Z",
+      "lastScannedAt": "2025-12-04T07:07:13.800Z",
       "scanHistory": [
+        {
+          "timestamp": "2025-12-04T07:07:13.800Z",
+          "status": "success",
+          "duration": 433.281,
+          "duplicatesFound": 1043
+        },
+        {
+          "timestamp": "2025-12-04T07:06:31.483Z",
+          "status": "success",
+          "duration": 390.972,
+          "duplicatesFound": 376
+        },
+        {
+          "timestamp": "2025-12-03T07:00:22.644Z",
+          "status": "success",
+          "duration": 22.337,
+          "duplicatesFound": 0
+        },
         {
           "timestamp": "2025-12-01T07:00:14.842Z",
           "status": "success",
@@ -76,24 +94,6 @@
           "status": "success",
           "duration": 10.768,
           "duplicatesFound": 11
-        },
-        {
-          "timestamp": "2025-11-18T13:31:46.302Z",
-          "status": "success",
-          "duration": 4.833,
-          "duplicatesFound": 120
-        },
-        {
-          "timestamp": "2025-11-18T13:21:36.672Z",
-          "status": "success",
-          "duration": 11.055,
-          "duplicatesFound": 11
-        },
-        {
-          "timestamp": "2025-11-18T13:21:30.929Z",
-          "status": "success",
-          "duration": 5.297,
-          "duplicatesFound": 121
         }
       ]
     },
@@ -111,8 +111,26 @@
         "*.test.js",
         "*.spec.js"
       ],
-      "lastScannedAt": "2025-12-01T07:00:14.843Z",
+      "lastScannedAt": "2025-12-04T07:07:13.801Z",
       "scanHistory": [
+        {
+          "timestamp": "2025-12-04T07:07:13.801Z",
+          "status": "success",
+          "duration": 433.281,
+          "duplicatesFound": 1043
+        },
+        {
+          "timestamp": "2025-12-04T07:03:32.209Z",
+          "status": "success",
+          "duration": 211.71,
+          "duplicatesFound": 160
+        },
+        {
+          "timestamp": "2025-12-03T07:00:22.645Z",
+          "status": "success",
+          "duration": 22.337,
+          "duplicatesFound": 0
+        },
         {
           "timestamp": "2025-12-01T07:00:14.843Z",
           "status": "success",
