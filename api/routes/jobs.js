@@ -6,9 +6,31 @@
 import express from 'express';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import { getAllJobs } from '../../sidequest/core/database.js';
+import { workerRegistry } from '../utils/worker-registry.js';
 
 const router = express.Router();
 const logger = createComponentLogger('JobsAPI');
+
+/**
+ * Map pipeline IDs to user-friendly display names
+ *
+ * @param {string} pipelineId - Pipeline identifier
+ * @returns {string} Human-readable pipeline name
+ */
+function getPipelineFriendlyName(pipelineId) {
+  const pipelineNames = {
+    'duplicate-detection': 'Duplicate Detection',
+    'schema-enhancement': 'Schema Enhancement',
+    'git-activity': 'Git Activity Report',
+    'gitignore-manager': 'Gitignore Manager',
+    'repomix': 'Repomix',
+    'claude-health': 'Claude Health Check',
+    'repo-cleanup': 'Repository Cleanup',
+    'test-refactor': 'Test Refactor'
+  };
+
+  return pipelineNames[pipelineId] ?? pipelineId;
+}
 
 /**
  * GET /api/jobs
@@ -42,7 +64,7 @@ router.get('/', (req, res) => {
       '@type': 'https://schema.org/Action',
       id: job.id,
       pipelineId: job.pipeline_id,
-      pipelineName: job.pipeline_id, // TODO: Map to friendly name
+      pipelineName: getPipelineFriendlyName(job.pipeline_id),
       status: job.status,
       createdAt: job.created_at,
       startedAt: job.started_at,
@@ -114,7 +136,7 @@ router.get('/:jobId', (req, res) => {
         '@type': 'https://schema.org/Action',
         id: job.id,
         pipelineId: job.pipeline_id,
-        pipelineName: job.pipeline_id,
+        pipelineName: getPipelineFriendlyName(job.pipeline_id),
         status: job.status,
         createdAt: job.created_at,
         startedAt: job.started_at,
@@ -137,6 +159,157 @@ router.get('/:jobId', (req, res) => {
       success: false,
       error: {
         message: 'Failed to retrieve job details',
+        code: 'INTERNAL_ERROR'
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * POST /api/jobs/:jobId/cancel
+ * Cancel a running or queued job
+ */
+router.post('/:jobId/cancel', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+
+    logger.info({ jobId }, 'Cancelling job');
+
+    // Extract pipeline ID from job ID (format: pipelineId-*)
+    const pipelineId = jobId.split('-')[0];
+
+    // Get worker for this pipeline
+    const worker = await workerRegistry.getWorker(pipelineId);
+
+    if (!worker) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          message: `No worker found for pipeline: ${pipelineId}`,
+          code: 'WORKER_NOT_FOUND'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Cancel the job via worker
+    const result = worker.cancelJob(jobId);
+
+    if (result.success) {
+      logger.info({ jobId }, 'Job cancelled successfully');
+      res.json({
+        success: true,
+        message: result.message || 'Job cancelled successfully',
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      logger.warn({ jobId, message: result.message }, 'Failed to cancel job');
+      res.status(400).json({
+        success: false,
+        error: {
+          message: result.message || 'Failed to cancel job',
+          code: 'CANCEL_FAILED'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+  } catch (error) {
+    logger.error({ error, jobId: req.params.jobId }, 'Failed to cancel job');
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Failed to cancel job',
+        code: 'INTERNAL_ERROR'
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * POST /api/jobs/:jobId/retry
+ * Retry a failed job
+ */
+router.post('/:jobId/retry', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+
+    logger.info({ jobId }, 'Retrying job');
+
+    // Get job details to determine pipeline
+    const allJobs = getAllJobs();
+    const job = allJobs.find(j => j.id === jobId);
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          message: 'Job not found',
+          code: 'NOT_FOUND'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Can only retry failed jobs
+    if (job.status !== 'failed') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: `Cannot retry job with status '${job.status}'. Only failed jobs can be retried.`,
+          code: 'INVALID_STATUS'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const pipelineId = job.pipeline_id;
+
+    // Get worker for this pipeline
+    const worker = await workerRegistry.getWorker(pipelineId);
+
+    if (!worker) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          message: `No worker found for pipeline: ${pipelineId}`,
+          code: 'WORKER_NOT_FOUND'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Create a new job with same parameters (retry by creating duplicate)
+    const newJobId = `${pipelineId}-retry-${Date.now()}`;
+
+    // Parse job data (parameters)
+    const jobData = job.data ? (typeof job.data === 'string' ? JSON.parse(job.data) : job.data) : {};
+
+    // Create new job with retry metadata
+    const newJob = worker.createJob(newJobId, {
+      ...jobData,
+      retriedFrom: jobId,
+      retryCount: (job.retry_count ?? 0) + 1,
+      triggeredBy: 'retry',
+      triggeredAt: new Date().toISOString()
+    });
+
+    logger.info({ jobId, newJobId: newJob.id }, 'Job retried successfully');
+    res.json({
+      success: true,
+      message: 'Job retried successfully',
+      newJobId: newJob.id,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error({ error, jobId: req.params.jobId }, 'Failed to retry job');
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Failed to retry job',
         code: 'INTERNAL_ERROR'
       },
       timestamp: new Date().toISOString()

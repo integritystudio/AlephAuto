@@ -10,6 +10,39 @@ This directory contains comprehensive architectural documentation for the Code C
 
 ## Documentation Files
 
+### 🏗️ [System Data Flow](./SYSTEM-DATA-FLOW.md) ⭐ NEW
+
+**Complete system-level architecture and data flow diagrams**
+
+**Contents:**
+- Full system architecture with all layers
+- High-level request-to-response flow
+- API request processing flow
+- Job queue state machine
+- WebSocket real-time communication
+- Database schema and operations
+- Error handling and retry logic
+- Inter-process communication (JS ↔ Python)
+- Configuration loading hierarchy
+- Deployment architecture (PM2, Nginx)
+
+**Key Diagrams:**
+- Complete System Architecture (all components)
+- API Request Flow (middleware stack)
+- Job Queue State Machine
+- WebSocket Broadcasting
+- Error Classification Flow
+- Worker Registry Pattern
+
+**Use This Document When:**
+- Understanding how the entire system fits together
+- Debugging cross-component issues
+- Planning new integrations
+- Onboarding new developers
+- Understanding deployment architecture
+
+---
+
 ### 📊 [Pipeline Data Flow](./pipeline-data-flow.md)
 
 **Complete guide to the 7-stage code consolidation pipeline**
@@ -444,5 +477,7 @@ When updating this documentation:
 ## Quick Navigation
 
 - **[← Back to Main README](../../README.md)**
-- **[Pipeline Data Flow Documentation →](./pipeline-data-flow.md)**
-- **[Similarity Algorithm Documentation →](./similarity-algorithm.md)**
+- **[System Data Flow (NEW) →](./SYSTEM-DATA-FLOW.md)** - Complete system architecture
+- **[Pipeline Data Flow →](./pipeline-data-flow.md)** - Individual pipeline details
+- **[Similarity Algorithm →](./similarity-algorithm.md)** - Duplicate detection algorithm
+- **[Cheat Sheet →](./CHEAT-SHEET.md)** - Quick reference

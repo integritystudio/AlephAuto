@@ -14,34 +14,34 @@
 
 /* ===== ROOT VARIABLES ===== */
 :root {
-    /* Colors - Foundation */
-    --color-white: #ffffff;
-    --color-gray-50: #f9fafb;
-    --color-gray-100: #f3f4f6;
-    --color-gray-200: #e5e7eb;
-    --color-gray-300: #d1d5db;
-    --color-gray-600: #4b5563;
-    --color-gray-700: #374151;
-    --color-gray-800: #1f2937;
-    --color-gray-900: #111827;
+    /* Colors - Dark Theme Foundation (matches SideQuests Dashboard) */
+    --color-white: #1f2937;
+    --color-gray-50: #1a1a1a;
+    --color-gray-100: #252525;
+    --color-gray-200: #3a3a3a;
+    --color-gray-300: #4a4a4a;
+    --color-gray-600: #b0b0b0;
+    --color-gray-700: #d0d0d0;
+    --color-gray-800: #e0e0e0;
+    --color-gray-900: #f0f0f0;
 
-    /* Semantic Colors */
-    --color-success: #10b981;
-    --color-success-bg: #d1fae5;
-    --color-success-dark: #059669;  /* Darker green for better contrast (6.8:1) */
+    /* Semantic Colors - Dark Theme Backgrounds */
+    --color-success: #22c55e;
+    --color-success-bg: #14532d;
+    --color-success-dark: #10b981;
     --color-error: #ef4444;
-    --color-error-bg: #fee2e2;
-    --color-error-dark: #b91c1c;    /* Darker red for better contrast (6.8:1) */
+    --color-error-bg: #450a0a;
+    --color-error-dark: #f87171;
     --color-warning: #f59e0b;
-    --color-warning-bg: #fef3c7;
-    --color-warning-light: #fef3c7;
-    --color-warning-dark: #b45309;
+    --color-warning-bg: #451a03;
+    --color-warning-light: #78350f;
+    --color-warning-dark: #fbbf24;
     --color-info: #3b82f6;
-    --color-info-bg: #dbeafe;
-    --color-info-dark: #1e40af;     /* Darker blue for better contrast (6.2:1) */
-    --color-idle: #6b7280;
-    --color-idle-bg: #f3f4f6;
-    --color-idle-dark: #4b5563;     /* Darker gray for better contrast (5.1:1) */
+    --color-info-bg: #1e3a5f;
+    --color-info-dark: #60a5fa;
+    --color-idle: #9ca3af;
+    --color-idle-bg: #374151;
+    --color-idle-dark: #6b7280;
 
     /* Pipeline Colors */
     --color-pipeline-1: #8b5cf6;
@@ -60,10 +60,10 @@
     --space-4: 2rem;
     --space-6: 3rem;
 
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    /* Shadows - Dark Theme */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
 
     /* Border Radius */
     --radius-sm: 0.25rem;
@@ -1340,6 +1340,94 @@ pre {
 .job-details-close:hover {
     background: var(--color-gray-200);
     color: var(--color-gray-900);
+}
+
+/* Job Detail Action Buttons */
+.job-details-actions {
+    display: flex;
+    gap: var(--space-1);
+    margin-left: auto;
+    margin-right: var(--space-2);
+}
+
+.job-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--color-gray-300);
+    border-radius: var(--radius-md);
+    background: var(--color-white);
+    color: var(--color-gray-700);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+}
+
+.job-action-btn:hover {
+    background: var(--color-gray-100);
+    border-color: var(--color-gray-400);
+    color: var(--color-gray-900);
+}
+
+.job-action-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.job-action-btn .action-icon {
+    font-size: 12px;
+    line-height: 1;
+}
+
+/* Pause button states */
+.job-action-pause {
+    border-color: var(--color-warning);
+    color: var(--color-warning-dark);
+}
+
+.job-action-pause:hover {
+    background: var(--color-warning-light);
+    border-color: var(--color-warning-dark);
+}
+
+.job-action-pause.paused {
+    border-color: var(--color-success);
+    color: var(--color-success-dark);
+    background: var(--color-success-bg);
+}
+
+.job-action-pause.paused:hover {
+    background: #a7f3d0;
+    border-color: var(--color-success-dark);
+}
+
+/* Run button */
+.job-action-run {
+    border-color: var(--color-info);
+    color: var(--color-info-dark);
+    background: var(--color-info-bg);
+}
+
+.job-action-run:hover {
+    background: #bfdbfe;
+    border-color: var(--color-info-dark);
+}
+
+.job-action-run.loading {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+.job-action-run.loading .action-icon {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .job-details-body {

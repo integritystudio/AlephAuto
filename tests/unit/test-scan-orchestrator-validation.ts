@@ -37,6 +37,12 @@ interface TestResult {
 }
 
 /**
+ * Test constants for invalid inputs
+ * Using named constants avoids magic numbers and improves test readability
+ */
+const TEST_INVALID_NUMERIC_PATH = 123;
+
+/**
  * Helper function to test invalid repository path
  */
 async function testInvalidRepoPath(
@@ -107,8 +113,8 @@ async function testScanOrchestratorValidation(): Promise<void> {
   // Test 4: non-string repoPath (number)
   results.push(await testInvalidRepoPath(
     orchestrator,
-    'number repoPath (123)',
-    123 as any,
+    `number repoPath (${TEST_INVALID_NUMERIC_PATH})`,
+    TEST_INVALID_NUMERIC_PATH as any,
     'Invalid repository path: number'
   ));
 

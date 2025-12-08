@@ -72,6 +72,12 @@
           "duplicatesFound": 376
         },
         {
+          "timestamp": "2025-12-01T07:00:14.842Z",
+          "status": "success",
+          "duration": 14.515,
+          "duplicatesFound": 0
+        },
+        {
           "timestamp": "2025-11-30T07:01:16.419Z",
           "status": "success",
           "duration": 75.24,
@@ -84,6 +90,12 @@
           "duplicatesFound": 371
         },
         {
+          "timestamp": "2025-11-30T07:00:12.586Z",
+          "status": "success",
+          "duration": 12.324,
+          "duplicatesFound": 0
+        },
+        {
           "timestamp": "2025-11-29T07:06:10.938Z",
           "status": "success",
           "duration": 370.7,
@@ -94,6 +106,48 @@
           "status": "success",
           "duration": 343.461,
           "duplicatesFound": 377
+        },
+        {
+          "timestamp": "2025-11-25T07:01:14.307Z",
+          "status": "success",
+          "duration": 433.271,
+          "duplicatesFound": 1041
+        },
+        {
+          "timestamp": "2025-11-24T07:00:34.243Z",
+          "status": "success",
+          "duration": 33.713,
+          "duplicatesFound": 933
+        },
+        {
+          "timestamp": "2025-11-24T07:00:26.425Z",
+          "status": "success",
+          "duration": 25.904,
+          "duplicatesFound": 312
+        },
+        {
+          "timestamp": "2025-11-18T13:31:52.218Z",
+          "status": "success",
+          "duration": 10.768,
+          "duplicatesFound": 11
+        },
+        {
+          "timestamp": "2025-11-18T13:31:46.302Z",
+          "status": "success",
+          "duration": 4.833,
+          "duplicatesFound": 120
+        },
+        {
+          "timestamp": "2025-11-18T13:21:36.672Z",
+          "status": "success",
+          "duration": 11.055,
+          "duplicatesFound": 11
+        },
+        {
+          "timestamp": "2025-11-18T13:21:30.929Z",
+          "status": "success",
+          "duration": 5.297,
+          "duplicatesFound": 121
         }
       ]
     },
@@ -150,6 +204,12 @@
           "duplicatesFound": 158
         },
         {
+          "timestamp": "2025-12-01T07:00:14.843Z",
+          "status": "success",
+          "duration": 14.515,
+          "duplicatesFound": 0
+        },
+        {
           "timestamp": "2025-11-30T07:01:16.420Z",
           "status": "success",
           "duration": 75.24,
@@ -162,6 +222,12 @@
           "duplicatesFound": 164
         },
         {
+          "timestamp": "2025-11-30T07:00:12.586Z",
+          "status": "success",
+          "duration": 12.324,
+          "duplicatesFound": 0
+        },
+        {
           "timestamp": "2025-11-29T07:06:10.941Z",
           "status": "success",
           "duration": 370.7,
@@ -172,6 +238,12 @@
           "status": "success",
           "duration": 150.361,
           "duplicatesFound": 160
+        },
+        {
+          "timestamp": "2025-11-25T07:01:14.308Z",
+          "status": "success",
+          "duration": 433.271,
+          "duplicatesFound": 1041
         }
       ]
     },

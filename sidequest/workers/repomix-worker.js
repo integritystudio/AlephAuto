@@ -25,7 +25,10 @@ const logger = createComponentLogger('RepomixWorker');
  */
 export class RepomixWorker extends SidequestServer {
   constructor(options = {}) {
-    super(options);
+    super({
+      ...options,
+      jobType: 'repomix',
+    });
     this.outputBaseDir = options.outputBaseDir || './condense';
     this.codeBaseDir = options.codeBaseDir || path.join(os.homedir(), 'code');
 

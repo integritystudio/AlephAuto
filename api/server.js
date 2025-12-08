@@ -34,7 +34,7 @@ import { ScanEventBroadcaster } from './event-broadcaster.js';
 import { ActivityFeedManager } from './activity-feed.js';
 import { DopplerHealthMonitor } from '../sidequest/pipeline-core/doppler-health-monitor.js';
 import { setupServerWithPortFallback, setupGracefulShutdown } from './utils/port-manager.js';
-import { getAllPipelineStats } from '../sidequest/core/database.js';
+import { initDatabase, getAllPipelineStats, closeDatabase } from '../sidequest/core/database.js';
 import { getPipelineName } from '../sidequest/utils/pipeline-names.js';
 import { workerRegistry } from './utils/worker-registry.js';
 import fs from 'fs/promises';
@@ -52,7 +52,31 @@ app.set('trust proxy', 1);
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+
+// CORS configuration - allow GitHub Pages frontend and localhost for development
+const corsOptions = {
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      'https://n0ai.app',
+      'http://localhost:8080',
+      'http://localhost:3000',
+      'http://127.0.0.1:8080',
+      process.env.CORS_ORIGIN // Allow custom origin via environment variable
+    ].filter(Boolean);
+
+    // Allow requests with no origin (like mobile apps, curl, or same-origin)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      logger.warn({ origin }, 'CORS blocked request from unauthorized origin');
+      callback(null, true); // Still allow for now, but log it
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+app.use(cors(corsOptions));
 
 // CSP headers to allow iframe embedding from any origin
 app.use((req, res, next) => {
@@ -173,10 +197,10 @@ app.get('/api/status', (req, res) => {
   }
 });
 
-// Pipeline data flow documentation endpoint
+// Pipeline data flow documentation endpoint (serves SYSTEM-DATA-FLOW.md)
 app.get('/api/pipeline-data-flow', async (req, res) => {
   try {
-    const docPath = path.join(__dirname, '../docs/architecture/pipeline-data-flow.md');
+    const docPath = path.join(__dirname, '../docs/architecture/SYSTEM-DATA-FLOW.md');
     const markdown = await fs.readFile(docPath, 'utf-8');
 
     // Configure marked for GitHub-flavored markdown with mermaid support
@@ -269,6 +293,10 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
 
 (async () => {
   try {
+    // Initialize database (sql.js requires async init)
+    await initDatabase();
+    logger.info('Database initialized');
+
     // Setup server with automatic port fallback
     const actualPort = await setupServerWithPortFallback(httpServer, {
       preferredPort: PREFERRED_PORT,
@@ -310,6 +338,9 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
             resolve();
           });
         });
+
+        // Close database connection
+        closeDatabase();
       }
     });
   } catch (error) {

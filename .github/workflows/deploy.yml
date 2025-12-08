@@ -15,11 +15,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -28,13 +33,11 @@ jobs:
           cache: 'pip'
 
       - name: Install Node.js dependencies
-        run: npm ci --production --omit=optional
+        run: pnpm install --frozen-lockfile --prod
 
       - name: Install Python dependencies
         run: |
-          python -m venv venv
-          source venv/bin/activate
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Install Doppler CLI
@@ -45,7 +48,7 @@ jobs:
           sudo apt-get update && sudo apt-get install doppler
 
       - name: Install PM2 globally
-        run: npm install -g pm2
+        run: pnpm add -g pm2
 
       - name: Validate deployment files
         run: |
@@ -88,8 +91,14 @@ jobs:
           script: |
             cd ${{ secrets.DEPLOY_PATH }}
 
+            # Ensure logs directory exists for PM2
+            mkdir -p logs
+
+            # Install pnpm first if not available
+            command -v pnpm || npm install -g pnpm
+
             # Install Node.js dependencies with Doppler
-            doppler run -- npm install --production --omit=optional
+            doppler run -c prd -- pnpm install --frozen-lockfile --prod
 
             # Install Python dependencies
             python3 -m venv venv
@@ -108,11 +117,11 @@ jobs:
 
             # Check if services are already running
             if pm2 list | grep -q "aleph-dashboard\|aleph-worker"; then
-              echo "Services found, restarting with ecosystem.config.cjs..."
-              doppler run -- pm2 restart ecosystem.config.cjs
+              echo "Services found, restarting with config/ecosystem.config.cjs..."
+              doppler run -c prd -- pm2 restart config/ecosystem.config.cjs
             else
-              echo "Services not found, starting with ecosystem.config.cjs..."
-              doppler run -- pm2 start ecosystem.config.cjs
+              echo "Services not found, starting with config/ecosystem.config.cjs..."
+              doppler run -c prd -- pm2 start config/ecosystem.config.cjs
             fi
 
             # Save PM2 configuration

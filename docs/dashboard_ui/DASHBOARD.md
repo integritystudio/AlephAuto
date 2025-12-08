@@ -130,8 +130,8 @@ Dashboard available at: **http://localhost:8080/**
 ### Start Dashboard (Production)
 
 ```bash
-# Using PM2 (ecosystem.config.cjs)
-doppler run -- pm2 start ecosystem.config.cjs
+# Using PM2 (config/ecosystem.config.cjs)
+doppler run -- pm2 start config/ecosystem.config.cjs
 
 # Or manually
 doppler run -- pm2 start api/server.js --name aleph-dashboard
@@ -435,7 +435,7 @@ case 'custom:event':
 
 ```bash
 # Start dashboard with ecosystem config
-doppler run -- pm2 start ecosystem.config.cjs
+doppler run -- pm2 start config/ecosystem.config.cjs
 
 # View logs
 pm2 logs aleph-dashboard

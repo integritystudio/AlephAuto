@@ -373,7 +373,7 @@ pm2 delete all
 pm2 flush
 
 # Restart from fresh state
-doppler run -- pm2 start ecosystem.config.cjs
+doppler run -- pm2 start config/ecosystem.config.cjs
 
 # Save PM2 state
 pm2 save
@@ -398,7 +398,7 @@ pm2 save
 
 4. **PM2 best practices**
    - Use `pm2 reload` instead of `restart` for zero-downtime
-   - Set `max_restarts` in ecosystem.config.cjs
+   - Set `max_restarts` in config/ecosystem.config.cjs
    - Enable `kill_timeout` for graceful shutdown
 
 ### Related Documentation

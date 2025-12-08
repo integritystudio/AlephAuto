@@ -353,11 +353,11 @@ chmod +x scripts/*.sh 2>/dev/null || true
 
 ### 1. Create PM2 Ecosystem File
 
-Create `ecosystem.config.js` in the project root:
+Create `config/ecosystem.config.js` in the project root:
 
 ```bash
 cd /var/www/aleph-dashboard
-cat > ecosystem.config.js << 'EOF'
+cat > config/ecosystem.config.js << 'EOF'
 module.exports = {
   apps: [
     {
@@ -412,7 +412,7 @@ EOF
 If you prefer not to store the token in the file:
 
 ```bash
-cat > ecosystem.config.js << 'EOF'
+cat > config/ecosystem.config.js << 'EOF'
 module.exports = {
   apps: [
     {
@@ -434,7 +434,7 @@ module.exports = {
 EOF
 
 # Then start with doppler run
-doppler run -- pm2 start ecosystem.config.js
+doppler run -- pm2 start config/ecosystem.config.js
 ```
 
 ### 3. Create Logs Directory
@@ -449,7 +449,7 @@ mkdir -p /var/www/aleph-dashboard/logs
 cd /var/www/aleph-dashboard
 
 # Start using ecosystem file
-pm2 start ecosystem.config.js
+pm2 start config/ecosystem.config.js
 
 # Or start dashboard only
 doppler run -- pm2 start api/server.js --name aleph-dashboard -i 2

@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
+    "start:api": "node api/server.js",
     "dev": "node --watch index.js",
     "dashboard": "doppler run -- node api/server.js",
     "fix:types": "node scripts/fix-types.js",
@@ -83,7 +84,8 @@
     "node-cron": "^3.0.3",
     "pino": "^9.0.0",
     "pino-pretty": "^11.0.0",
-    "repomix": "^0.2.7",
+    "repomix": "^1.9.2",
+    "sql.js": "^1.13.0",
     "ws": "^8.18.3",
     "zod": "^3.23.0"
   },

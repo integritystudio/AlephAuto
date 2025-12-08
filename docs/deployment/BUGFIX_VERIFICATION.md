@@ -41,7 +41,7 @@ Comprehensive guide for verifying bugfix deployments using `scripts/verify-bugfi
    - Verifies scripts can be executed
 
 5. **PM2 Configuration Validation** (Issue #5)
-   - Validates ecosystem.config.cjs syntax
+   - Validates config/ecosystem.config.cjs syntax
    - Checks restart delay settings (prevents crash loops)
    - Verifies exponential backoff configuration
 
@@ -240,7 +240,7 @@ pm2 logs aleph-dashboard --lines 100
 ./scripts/rollback-bugfixes.sh
 
 # Option 3: Manual fixes
-doppler run -- pm2 restart ecosystem.config.cjs --update-env
+doppler run -- pm2 restart config/ecosystem.config.cjs --update-env
 ```
 
 ## Understanding Check Results
@@ -276,7 +276,7 @@ npm run typecheck  # See detailed errors
 
 **Solution:**
 ```bash
-node -c ecosystem.config.cjs  # See syntax errors
+node -c config/ecosystem.config.cjs  # See syntax errors
 # Fix syntax, then re-run verification
 ```
 
@@ -288,7 +288,7 @@ node -c ecosystem.config.cjs  # See syntax errors
 doppler run --command=echo
 
 # Or restart server with fresh secrets
-doppler run -- pm2 restart ecosystem.config.cjs --update-env
+doppler run -- pm2 restart config/ecosystem.config.cjs --update-env
 ```
 
 ### Issue: "aleph-dashboard has 10+ restarts"
@@ -429,7 +429,7 @@ Run periodically to ensure system health:
 
 - `/docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md` - Deployment guide
 - `/docs/architecture/ERROR_HANDLING.md` - Error handling patterns
-- `/ecosystem.config.cjs` - PM2 configuration
+- `/config/ecosystem.config.cjs` - PM2 configuration
 - `/scripts/deploy-traditional-server.sh` - Deployment script
 
 ## Changelog

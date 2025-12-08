@@ -17,7 +17,7 @@ const ROOT_LOGS_DIR = path.join(__dirname, '../logs');
 
 async function main() {
   console.log('Initializing database...');
-  initDatabase();
+  await initDatabase();
 
   console.log(`\nImporting scan reports from: ${REPORTS_DIR}`);
   const reportsImported = await importReportsToDatabase(REPORTS_DIR);

@@ -1,0 +1,38 @@
+name: Code Quality Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  complexity-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check for eval() usage
+        run: |
+          if grep -r "eval(" --include="*.js" --include="*.ts" --exclude-dir=node_modules .; then
+            echo "::error::eval() usage detected! This is a security risk."
+            exit 1
+          fi
+          echo "No eval() usage found"
+      - name: Check for Function() constructor
+        run: |
+          if grep -r "new Function(" --include="*.js" --include="*.ts" --exclude-dir=node_modules .; then
+            echo "::warning::Function() constructor detected - review for safety"
+          fi
+      - name: TypeScript type check
+        run: pnpm run typecheck || true

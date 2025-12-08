@@ -6,7 +6,7 @@
  * completed pipeline jobs that don't already have reports.
  */
 
-import { initDatabase, getDatabase } from '../sidequest/core/database.js';
+import { initDatabase, getAllJobs, saveJob } from '../sidequest/core/database.js';
 import { generateReport } from '../sidequest/utils/report-generator.js';
 import { createComponentLogger } from '../sidequest/utils/logger.js';
 
@@ -16,16 +16,8 @@ const logger = createComponentLogger('RetroactiveReports');
  * Get all completed jobs from all pipelines
  */
 function getAllCompletedJobs() {
-  const db = getDatabase();
-
-  const stmt = db.prepare(`
-    SELECT id, pipeline_id, status, created_at, started_at, completed_at, data, result, error
-    FROM jobs
-    WHERE status = 'completed'
-    ORDER BY completed_at DESC
-  `);
-
-  const rows = stmt.all();
+  // Use getAllJobs with status filter
+  const rows = getAllJobs({ status: 'completed', limit: 1000 });
 
   return rows.map(row => ({
     id: row.id,
@@ -34,9 +26,9 @@ function getAllCompletedJobs() {
     createdAt: row.created_at,
     startedAt: row.started_at,
     completedAt: row.completed_at,
-    data: row.data ? JSON.parse(row.data) : {},
-    result: row.result ? JSON.parse(row.result) : {},
-    error: row.error ? JSON.parse(row.error) : null
+    data: row.data ? (typeof row.data === 'string' ? JSON.parse(row.data) : row.data) : {},
+    result: row.result ? (typeof row.result === 'string' ? JSON.parse(row.result) : row.result) : {},
+    error: row.error ? (typeof row.error === 'string' ? JSON.parse(row.error) : row.error) : null
   }));
 }
 
@@ -56,16 +48,25 @@ function hasReport(job) {
 /**
  * Update job result with report paths
  */
-function updateJobResult(jobId, reportPaths) {
-  const db = getDatabase();
+function updateJobResult(jobId, job, reportPaths) {
+  // Use saveJob to update the job with new result
+  const updatedResult = {
+    ...job.result,
+    reportPaths
+  };
 
-  const stmt = db.prepare(`
-    UPDATE jobs
-    SET result = json_set(result, '$.reportPaths', json(?))
-    WHERE id = ?
-  `);
+  saveJob({
+    id: jobId,
+    pipelineId: job.pipelineId,
+    status: job.status,
+    createdAt: job.createdAt,
+    startedAt: job.startedAt,
+    completedAt: job.completedAt,
+    data: job.data,
+    result: updatedResult,
+    error: job.error
+  });
 
-  stmt.run(JSON.stringify(reportPaths), jobId);
   logger.info({ jobId, reportPaths }, 'Updated job result with report paths');
 }
 
@@ -76,8 +77,8 @@ async function main() {
   try {
     logger.info('Starting retroactive report generation');
 
-    // Initialize database
-    initDatabase();
+    // Initialize database (async with sql.js)
+    await initDatabase();
 
     // Get all completed jobs
     const jobs = getAllCompletedJobs();
@@ -137,7 +138,7 @@ async function main() {
         });
 
         // Update job in database
-        updateJobResult(job.id, reportPaths);
+        updateJobResult(job.id, job, reportPaths);
 
         successCount++;
         logger.info({

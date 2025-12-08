@@ -17,7 +17,10 @@ const logger = createComponentLogger('GitignoreWorker');
  */
 export class GitignoreWorker extends SidequestServer {
   constructor(options = {}) {
-    super(options);
+    super({
+      ...options,
+      jobType: 'gitignore-manager',
+    });
     this.baseDir = options.baseDir || path.join(os.homedir(), 'code');
     this.excludeDirs = options.excludeDirs || [
       'node_modules',

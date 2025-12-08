@@ -136,7 +136,7 @@ This script verifies the following recent bugfixes:
 **Issue:** Rapid restart loops after crashes
 **Fix:** Restart delay and exponential backoff
 **Verification:**
-- ecosystem.config.cjs syntax valid
+- config/ecosystem.config.cjs syntax valid
 - restart_delay set to 8000ms
 - exp_backoff_restart_delay enabled
 - max_restarts limited to 5
@@ -336,7 +336,7 @@ npm install -g wscat pm2
 - `docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md` - Deployment guide
 - `docs/architecture/ERROR_HANDLING.md` - Error handling patterns
 - `docs/architecture/TYPE_SYSTEM.md` - Type validation patterns
-- `ecosystem.config.cjs` - PM2 configuration
+- `config/ecosystem.config.cjs` - PM2 configuration
 - `scripts/deploy-traditional-server.sh` - Deployment script
 
 ## Future Enhancements

@@ -1,6 +1,43 @@
-# Code Consolidation System - Quick Reference Cheat Sheet
+# AlephAuto - Quick Reference Cheat Sheet
 
-**Version**: 1.0 | **Last Updated**: 2025-11-17 | **Print This Page for Quick Reference**
+**Version**: 2.0 | **Last Updated**: 2025-12-02 | **Print This Page for Quick Reference**
+
+---
+
+## 🏗️ Complete System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  DASHBOARD (React/Vite)  ←──WebSocket──→  API SERVER (Express 5)   │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┴───────────────┐
+                    │       JOB QUEUE FRAMEWORK      │
+                    │       (SidequestServer)        │
+                    │   ┌─────┬─────┬─────┬─────┐   │
+                    │   │ DD  │ SE  │ GA  │ RC  │   │  9 Workers
+                    │   └─────┴─────┴─────┴─────┘   │
+                    └───────────────┬───────────────┘
+                                    │
+        ┌───────────────────────────┼───────────────────────────┐
+        │                           │                           │
+┌───────┴───────┐         ┌────────┴────────┐         ┌────────┴────────┐
+│   SQLite DB   │         │   File System   │         │    External     │
+│  (jobs.db)    │         │   (reports)     │         │  (Sentry, Git)  │
+└───────────────┘         └─────────────────┘         └─────────────────┘
+```
+
+### System at a Glance
+
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Frontend** | React + Vite + Zustand | Real-time dashboard UI |
+| **API** | Express 5 + WebSocket | REST API + real-time events |
+| **Queue** | SidequestServer | Job lifecycle management |
+| **Workers** | 9 specialized workers | Pipeline execution |
+| **Database** | SQLite (WAL) | Job persistence |
+| **Config** | Doppler | Secrets management |
+| **Monitoring** | Sentry v8 | Error tracking |
 
 ---
 
@@ -29,7 +66,7 @@ penalty = calculate_semantic_penalty(features1, features2)  # PHASE 3
 
 # ❌ WRONG: Normalizing first destroys semantic features
 ```
-**Location**: `lib/similarity/structural.py:29-93, 422-482`
+**Location**: `sidequest/pipeline-core/similarity/structural.py:29-93, 422-482`
 
 ### 2. Function-Based Deduplication
 ```python
@@ -39,7 +76,7 @@ function_key = f"{file_path}:{function_name}"
 # ❌ WRONG: Line numbers change during edits
 function_key = f"{file_path}:{line_number}"
 ```
-**Location**: `lib/extractors/extract_blocks.py:108-163`
+**Location**: `sidequest/pipeline-core/extractors/extract_blocks.py:108-163`
 
 ### 3. Correct Field Names
 ```python
@@ -49,7 +86,7 @@ CodeBlock(tags=[f"function:{name}"])
 # ❌ WRONG: Field doesn't exist
 CodeBlock(semantic_tags=[f"function:{name}"])
 ```
-**Location**: `lib/extractors/extract_blocks.py:231`
+**Location**: `sidequest/pipeline-core/extractors/extract_blocks.py:231`
 
 ### 4. Backwards Function Search
 ```python
@@ -59,7 +96,7 @@ for i in range(line_start - 1, search_start - 1, -1):
         function_name = extract_function_name(lines[i])
         break
 ```
-**Location**: `lib/extractors/extract_blocks.py:80-98`
+**Location**: `sidequest/pipeline-core/extractors/extract_blocks.py:80-98`
 
 ### 5. Nullish Coalescing for Numbers
 ```javascript
@@ -90,11 +127,11 @@ this.maxConcurrent = options.maxConcurrent || 5;
 
 | Component | Purpose | Location |
 |-----------|---------|----------|
-| **Scan Orchestrator** | Pipeline coordinator | `lib/scan-orchestrator.js` |
-| **Repository Scanner** | Git validation, repomix | `lib/scanners/repository-scanner.js` |
-| **AST-Grep Detector** | Pattern detection (18 rules) | `lib/scanners/ast-grep-detector.js` |
-| **Block Extractor** | Python stages 3-7 | `lib/extractors/extract_blocks.py` |
-| **Similarity Engine** | Multi-layer algorithm | `lib/similarity/structural.py` |
+| **Scan Orchestrator** | Pipeline coordinator | `sidequest/pipeline-core/scan-orchestrator.ts` |
+| **Repository Scanner** | Git validation, repomix | `sidequest/pipeline-core/scanners/repository-scanner.js` |
+| **AST-Grep Detector** | Pattern detection (18 rules) | `sidequest/pipeline-core/scanners/ast-grep-detector.js` |
+| **Block Extractor** | Python stages 3-7 | `sidequest/pipeline-core/extractors/extract_blocks.py` |
+| **Similarity Engine** | Multi-layer algorithm | `sidequest/pipeline-core/similarity/structural.py` |
 | **AST-Grep Rules** | Detection patterns | `.ast-grep/rules/` |
 
 ---
@@ -103,7 +140,7 @@ this.maxConcurrent = options.maxConcurrent || 5;
 
 ```bash
 # Run duplicate detection
-doppler run -- node lib/scan-orchestrator.js /path/to/repo
+doppler run -- node sidequest/pipeline-core/scan-orchestrator.ts /path/to/repo
 
 # Test immediately (bypass cron)
 doppler run -- RUN_ON_STARTUP=true node duplicate-detection-pipeline.js
@@ -189,11 +226,11 @@ npm run typecheck
 ## 📁 Quick File References
 
 **Critical Implementation Files**:
-- `lib/similarity/structural.py:29-93` - Feature extraction
-- `lib/similarity/structural.py:422-482` - Penalty calculation
-- `lib/extractors/extract_blocks.py:80-98` - Function name search
-- `lib/extractors/extract_blocks.py:108-163` - Deduplication logic
-- `lib/extractors/extract_blocks.py:231` - CodeBlock creation (use `tags`)
+- `sidequest/pipeline-core/similarity/structural.py:29-93` - Feature extraction
+- `sidequest/pipeline-core/similarity/structural.py:422-482` - Penalty calculation
+- `sidequest/pipeline-core/extractors/extract_blocks.py:80-98` - Function name search
+- `sidequest/pipeline-core/extractors/extract_blocks.py:108-163` - Deduplication logic
+- `sidequest/pipeline-core/extractors/extract_blocks.py:231` - CodeBlock creation (use `tags`)
 - `sidequest/server.js:18` - Nullish coalescing pattern
 
 **Documentation**:
@@ -227,8 +264,44 @@ const dsn = process.env.SENTRY_DSN;
 
 ---
 
+## 🌐 API Quick Reference
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Basic health check |
+| `/api/status` | GET | Full system status |
+| `/api/scans/start` | POST | Start intra-project scan |
+| `/api/scans/start-multi` | POST | Start inter-project scan |
+| `/api/scans/:id/status` | GET | Get scan status |
+| `/api/scans/:id/results` | GET | Get scan results |
+| `/api/jobs` | GET | List all jobs |
+| `/api/jobs/:id` | GET | Job details |
+| `/api/jobs/:id/cancel` | POST | Cancel job |
+| `/api/jobs/:id/retry` | POST | Retry failed job |
+| `/api/pipelines` | GET | List pipelines |
+
+---
+
+## 🔄 Job Lifecycle
+
+```
+Created → Queued → Running → Completed
+                      ↓
+               RetryPending → Failed
+```
+
+| State | Events | DB Update |
+|-------|--------|-----------|
+| **Created** | `job:created` | INSERT |
+| **Running** | `job:started` | UPDATE |
+| **Completed** | `job:completed` | UPDATE |
+| **Failed** | `job:failed` | UPDATE |
+
+---
+
 ## 📞 Need More Info?
 
+- **System Architecture**: `docs/architecture/SYSTEM-DATA-FLOW.md` ⭐ NEW
 - **Architecture Overview**: `docs/architecture/README.md`
 - **Pipeline Details**: `docs/architecture/pipeline-data-flow.md`
 - **Algorithm Deep Dive**: `docs/architecture/similarity-algorithm.md`

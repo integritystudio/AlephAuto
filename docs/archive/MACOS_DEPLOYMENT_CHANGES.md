@@ -201,7 +201,7 @@ pydantic>=2.12.0
 
 **Location:** `/Users/alyshialedlie/code/jobs/requirements.txt`
 
-### 2. ecosystem.config.cjs (PM2 Configuration)
+### 2. config/ecosystem.config.cjs (PM2 Configuration)
 
 **Important:** Must use `.cjs` extension (not `.js`) because the project uses ES modules.
 
@@ -221,7 +221,7 @@ pydantic>=2.12.0
 - Using `script: 'doppler'` with `args: 'run -- node script.js'` is the correct approach
 - This ensures environment variables are properly injected from Doppler
 
-**Location:** `/Users/alyshialedlie/code/jobs/ecosystem.config.cjs`
+**Location:** `/Users/alyshialedlie/code/jobs/config/ecosystem.config.cjs`
 
 **Template Location:** `/Users/alyshialedlie/code/jobs/ecosystem.config.template.js`
 
@@ -233,9 +233,9 @@ pydantic>=2.12.0
    - **Cause:** Missing Python dependencies file
    - **Fix:** Create `requirements.txt` with `pydantic>=2.12.0`
 
-2. **"File ecosystem.config.js not found"**
+2. **"File config/ecosystem.config.js not found"**
    - **Cause:** Missing PM2 configuration file
-   - **Fix:** Create `ecosystem.config.cjs` (use `.cjs` extension for ES module projects)
+   - **Fix:** Create `config/ecosystem.config.cjs` (use `.cjs` extension for ES module projects)
 
 3. **"Doppler Error: fork/exec ... permission denied"**
    - **Cause:** Incorrect PM2 + Doppler integration pattern
@@ -288,6 +288,6 @@ Potential enhancements for future versions:
 **Last Updated:** 2025-11-17
 **Recent Fixes:**
 - Added `requirements.txt` for Python dependencies
-- Created `ecosystem.config.cjs` for PM2 configuration (macOS-specific)
+- Created `config/ecosystem.config.cjs` for PM2 configuration (macOS-specific)
 - Fixed PM2 + Doppler integration pattern (use `script: 'doppler'` instead of `interpreter`)
 - Added troubleshooting section for common deployment issues

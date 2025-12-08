@@ -214,7 +214,7 @@ doppler run -- npm install --production --omit=optional
 |-----------------|--------|----------------|
 | Doppler Required for ALL Commands | ✅ FOLLOWED | deploy.yml line 92 |
 | Use npm install with Doppler | ✅ FOLLOWED | Changed from npm ci |
-| PM2 uses ecosystem.config.cjs | ✅ FOLLOWED | Lines 112, 115 |
+| PM2 uses config/ecosystem.config.cjs | ✅ FOLLOWED | Lines 112, 115 |
 
 ## Conclusion
 

@@ -39,14 +39,43 @@ export type JobQueryParams = z.infer<typeof JobQueryParamsSchema>;
 /**
  * Job Result Schema
  * Represents the result of a completed or failed job
+ * Uses passthrough to allow pipeline-specific result fields
  */
 export const JobResultSchema = z.object({
   output: z.string().optional(),
   error: z.string().optional(),
   stats: z.record(z.union([z.string(), z.number(), z.boolean()])).optional()
-}).strict();
+}).passthrough(); // Allow additional pipeline-specific fields
 
 export type JobResult = z.infer<typeof JobResultSchema>;
+
+/**
+ * Git Info Schema
+ * Git workflow information for a job
+ */
+export const GitInfoSchema = z.object({
+  branch: z.string().optional(),
+  commit: z.string().optional(),
+  pr: z.string().optional(),
+  repository: z.string().optional()
+}).passthrough(); // Allow additional git fields
+
+export type GitInfo = z.infer<typeof GitInfoSchema>;
+
+/**
+ * Job Error Schema
+ * Error information for failed jobs
+ */
+export const JobErrorSchema = z.union([
+  z.string(),
+  z.object({
+    message: z.string(),
+    stack: z.string().optional(),
+    code: z.string().optional()
+  }).passthrough()
+]);
+
+export type JobError = z.infer<typeof JobErrorSchema>;
 
 /**
  * Job Details Schema
@@ -60,8 +89,12 @@ export const JobDetailsSchema = z.object({
   endTime: z.string().datetime().optional(),
   duration: z.number().int().nonnegative().optional(), // milliseconds
   parameters: z.record(z.unknown()).optional(),
-  result: JobResultSchema.optional()
-}).strict();
+  result: JobResultSchema.optional(),
+  // Additional fields for dashboard modal display
+  createdAt: z.string().datetime().optional(),
+  error: JobErrorSchema.optional(),
+  git: GitInfoSchema.optional()
+}).passthrough(); // Allow additional fields for extensibility
 
 export type JobDetails = z.infer<typeof JobDetailsSchema>;
 

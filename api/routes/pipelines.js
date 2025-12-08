@@ -11,6 +11,7 @@ import { validateQuery, validateRequest } from '../middleware/validation.js';
 import { JobQueryParamsSchema, ManualTriggerRequestSchema, PipelineDocsParamsSchema, PipelineHtmlParamsSchema } from '../types/pipeline-requests.js';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import { worker } from './scans.js';
+import { workerRegistry } from '../utils/worker-registry.js';
 import * as Sentry from '@sentry/node';
 import { getJobs, getJobCounts } from '../../sidequest/core/database.js';
 import { getPipelineName } from '../../sidequest/utils/pipeline-names.js';
@@ -22,6 +23,10 @@ const logger = createComponentLogger('PipelineRoutes');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// In-memory storage for paused pipelines (survives across requests, not restarts)
+// In production, this could be persisted to database or Redis
+const pausedPipelines = new Set();
 /**
  * GET /api/sidequest/pipeline-runners/:pipelineId/jobs
  * Fetch job history for a specific pipeline
@@ -139,6 +144,226 @@ async (req, res, next) => {
         next(error);
     }
 });
+
+/**
+ * POST /api/sidequest/pipeline-runners/:pipelineId/pause
+ * Pause job processing for a specific pipeline
+ *
+ * When paused, no new jobs will be processed (queued jobs remain in queue).
+ * Running jobs will complete but no new jobs will start.
+ *
+ * Response: PauseResponse with pipeline status
+ */
+router.post('/:pipelineId/pause', async (req, res, next) => {
+    const { pipelineId } = req.params;
+
+    try {
+        logger.info({ pipelineId }, 'Pausing pipeline');
+
+        // Validate pipeline exists
+        if (!workerRegistry.isSupported(pipelineId)) {
+            const supported = workerRegistry.getSupportedPipelines().join(', ');
+            return res.status(404).json({
+                error: 'Not Found',
+                message: `Unknown pipeline: ${pipelineId}. Supported pipelines: ${supported}`,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Check if already paused
+        if (pausedPipelines.has(pipelineId)) {
+            return res.status(200).json({
+                pipelineId,
+                status: 'paused',
+                message: 'Pipeline was already paused',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Add to paused set
+        pausedPipelines.add(pipelineId);
+
+        // Try to pause the worker if it supports it
+        try {
+            const pipelineWorker = await workerRegistry.getWorker(pipelineId);
+            if (typeof pipelineWorker.pause === 'function') {
+                await pipelineWorker.pause();
+                logger.info({ pipelineId }, 'Worker pause method called');
+            } else if (typeof pipelineWorker.setPaused === 'function') {
+                pipelineWorker.setPaused(true);
+                logger.info({ pipelineId }, 'Worker setPaused(true) called');
+            } else {
+                logger.info({ pipelineId }, 'Worker does not have pause method, using registry-level pause');
+            }
+        } catch (workerErr) {
+            logger.warn({ pipelineId, error: workerErr.message }, 'Could not access worker for pause, using registry-level pause');
+        }
+
+        const response = {
+            pipelineId,
+            status: 'paused',
+            message: 'Pipeline paused successfully. New jobs will not be processed.',
+            timestamp: new Date().toISOString()
+        };
+
+        logger.info({ pipelineId }, 'Successfully paused pipeline');
+        res.json(response);
+
+    } catch (error) {
+        logger.error({ error, pipelineId }, 'Failed to pause pipeline');
+
+        Sentry.captureException(error, {
+            tags: {
+                component: 'PipelineAPI',
+                endpoint: '/api/sidequest/pipeline-runners/:id/pause',
+                pipelineId
+            }
+        });
+
+        next(error);
+    }
+});
+
+/**
+ * POST /api/sidequest/pipeline-runners/:pipelineId/resume
+ * Resume job processing for a paused pipeline
+ *
+ * Queued jobs will begin processing again.
+ *
+ * Response: ResumeResponse with pipeline status
+ */
+router.post('/:pipelineId/resume', async (req, res, next) => {
+    const { pipelineId } = req.params;
+
+    try {
+        logger.info({ pipelineId }, 'Resuming pipeline');
+
+        // Validate pipeline exists
+        if (!workerRegistry.isSupported(pipelineId)) {
+            const supported = workerRegistry.getSupportedPipelines().join(', ');
+            return res.status(404).json({
+                error: 'Not Found',
+                message: `Unknown pipeline: ${pipelineId}. Supported pipelines: ${supported}`,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Check if already running
+        if (!pausedPipelines.has(pipelineId)) {
+            return res.status(200).json({
+                pipelineId,
+                status: 'running',
+                message: 'Pipeline was already running',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Remove from paused set
+        pausedPipelines.delete(pipelineId);
+
+        // Try to resume the worker if it supports it
+        try {
+            const pipelineWorker = await workerRegistry.getWorker(pipelineId);
+            if (typeof pipelineWorker.resume === 'function') {
+                await pipelineWorker.resume();
+                logger.info({ pipelineId }, 'Worker resume method called');
+            } else if (typeof pipelineWorker.setPaused === 'function') {
+                pipelineWorker.setPaused(false);
+                logger.info({ pipelineId }, 'Worker setPaused(false) called');
+            } else {
+                logger.info({ pipelineId }, 'Worker does not have resume method, using registry-level resume');
+            }
+        } catch (workerErr) {
+            logger.warn({ pipelineId, error: workerErr.message }, 'Could not access worker for resume, using registry-level resume');
+        }
+
+        const response = {
+            pipelineId,
+            status: 'running',
+            message: 'Pipeline resumed successfully. Queued jobs will begin processing.',
+            timestamp: new Date().toISOString()
+        };
+
+        logger.info({ pipelineId }, 'Successfully resumed pipeline');
+        res.json(response);
+
+    } catch (error) {
+        logger.error({ error, pipelineId }, 'Failed to resume pipeline');
+
+        Sentry.captureException(error, {
+            tags: {
+                component: 'PipelineAPI',
+                endpoint: '/api/sidequest/pipeline-runners/:id/resume',
+                pipelineId
+            }
+        });
+
+        next(error);
+    }
+});
+
+/**
+ * GET /api/sidequest/pipeline-runners/:pipelineId/status
+ * Get the current status of a pipeline (paused/running)
+ *
+ * Response: StatusResponse with pipeline status
+ */
+router.get('/:pipelineId/status', async (req, res, next) => {
+    const { pipelineId } = req.params;
+
+    try {
+        // Validate pipeline exists
+        if (!workerRegistry.isSupported(pipelineId)) {
+            const supported = workerRegistry.getSupportedPipelines().join(', ');
+            return res.status(404).json({
+                error: 'Not Found',
+                message: `Unknown pipeline: ${pipelineId}. Supported pipelines: ${supported}`,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        const isPaused = pausedPipelines.has(pipelineId);
+
+        // Try to get additional stats from worker
+        let workerStats = null;
+        try {
+            const pipelineWorker = await workerRegistry.getWorker(pipelineId);
+            if (typeof pipelineWorker.getStats === 'function') {
+                workerStats = pipelineWorker.getStats();
+            }
+        } catch (workerErr) {
+            logger.debug({ pipelineId, error: workerErr.message }, 'Could not get worker stats');
+        }
+
+        const response = {
+            pipelineId,
+            name: getPipelineName(pipelineId),
+            status: isPaused ? 'paused' : 'running',
+            isPaused,
+            ...(workerStats && {
+                activeJobs: workerStats.activeJobs || 0,
+                queuedJobs: workerStats.queuedJobs || 0
+            }),
+            timestamp: new Date().toISOString()
+        };
+
+        res.json(response);
+
+    } catch (error) {
+        logger.error({ error, pipelineId }, 'Failed to get pipeline status');
+
+        Sentry.captureException(error, {
+            tags: {
+                component: 'PipelineAPI',
+                endpoint: '/api/sidequest/pipeline-runners/:id/status',
+                pipelineId
+            }
+        });
+
+        next(error);
+    }
+});
+
 /**
  * Helper: Fetch jobs for a pipeline
  *
@@ -229,7 +454,7 @@ async function fetchJobsForPipeline(pipelineId, options) {
 
 /**
  * Format a job from database for API response
- * Only includes fields defined in JobDetailsSchema to pass strict validation
+ * Includes all fields needed by the dashboard modal
  */
 function formatJobFromDb(job) {
     const duration = job.completedAt && job.startedAt
@@ -240,7 +465,8 @@ function formatJobFromDb(job) {
         id: job.id,
         pipelineId: job.pipelineId,
         status: job.status,
-        startTime: job.startedAt || job.createdAt
+        startTime: job.startedAt || job.createdAt,
+        createdAt: job.createdAt // Needed for timeline display in modal
     };
 
     // Add optional fields only if they exist
@@ -256,23 +482,19 @@ function formatJobFromDb(job) {
         formatted.parameters = job.data;
     }
 
-    // Build result object from job.result and job.error
-    if (job.result || job.error) {
-        formatted.result = {};
+    // Add result data (pass through all fields for modal display)
+    if (job.result) {
+        formatted.result = { ...job.result };
+    }
 
-        // Merge result data
-        if (job.result) {
-            Object.assign(formatted.result, job.result);
-        }
+    // Add error at top level (modal checks job.error, not job.result.error)
+    if (job.error) {
+        formatted.error = job.error;
+    }
 
-        // Add error message if job failed
-        if (job.error) {
-            if (typeof job.error === 'object' && job.error.message) {
-                formatted.result.error = job.error.message;
-            } else if (typeof job.error === 'string') {
-                formatted.result.error = job.error;
-            }
-        }
+    // Add git info if available (needed for git workflow display in modal)
+    if (job.git) {
+        formatted.git = job.git;
     }
 
     return formatted;
@@ -303,41 +525,124 @@ function formatJob(job, pipelineId) {
 /**
  * Helper: Trigger a manual job for a pipeline
  *
+ * Uses WorkerRegistry singleton to support all pipeline types.
+ * Previously only supported duplicate-detection, now supports all 7+ pipelines.
+ *
  * @param pipelineId - Pipeline identifier
  * @param parameters - Job parameters
  * @returns New job ID
  */
 async function triggerPipelineJob(pipelineId, parameters) {
-    if (pipelineId !== 'duplicate-detection') {
-        throw new Error(`Unknown pipeline: ${pipelineId}`);
+    // Validate pipeline is supported using WorkerRegistry
+    if (!workerRegistry.isSupported(pipelineId)) {
+        const supported = workerRegistry.getSupportedPipelines().join(', ');
+        throw new Error(`Unknown pipeline: ${pipelineId}. Supported pipelines: ${supported}`);
     }
 
-    // Create job via worker
-    const jobId = `manual-${Date.now()}`;
+    logger.info({ pipelineId, parameters }, 'Triggering pipeline job via WorkerRegistry');
 
-    // Schedule scan with the worker
-    if (parameters.repositoryPath) {
-        const path = await import('path');
-        worker.scheduleScan('intra-project', [{
-            name: path.basename(parameters.repositoryPath),
-            path: parameters.repositoryPath
-        }]);
-    } else if (parameters.repositoryPaths && Array.isArray(parameters.repositoryPaths)) {
-        const path = await import('path');
-        const repositories = parameters.repositoryPaths.map(repoPath => ({
-            name: path.basename(repoPath),
-            path: repoPath
-        }));
-        worker.scheduleScan('inter-project', repositories);
+    // Get or create worker instance (cached by WorkerRegistry)
+    const pipelineWorker = await workerRegistry.getWorker(pipelineId);
+
+    // Generate job ID with pipeline prefix for clarity
+    const jobId = `${pipelineId}-manual-${Date.now()}`;
+
+    // Handle pipeline-specific job creation
+    // Some pipelines have specialized methods (like duplicate-detection's scheduleScan)
+    // while others use the generic createJob pattern
+    if (pipelineId === 'duplicate-detection') {
+        // Legacy duplicate-detection uses scheduleScan method
+        if (parameters.repositoryPath) {
+            const pathModule = await import('path');
+            pipelineWorker.scheduleScan('intra-project', [{
+                name: pathModule.basename(parameters.repositoryPath),
+                path: parameters.repositoryPath
+            }]);
+        } else if (parameters.repositoryPaths && Array.isArray(parameters.repositoryPaths)) {
+            const pathModule = await import('path');
+            const repositories = parameters.repositoryPaths.map(repoPath => ({
+                name: pathModule.basename(repoPath),
+                path: repoPath
+            }));
+            pipelineWorker.scheduleScan('inter-project', repositories);
+        } else {
+            throw new Error('duplicate-detection requires either repositoryPath or repositoryPaths parameter');
+        }
+    } else if (pipelineId === 'schema-enhancement') {
+        // Schema enhancement requires readmePath for single-file mode
+        // or directory for full-scan mode
+        if (!parameters.readmePath && !parameters.directory) {
+            throw new Error(
+                'schema-enhancement requires either readmePath (single file) or directory (full scan) parameter. ' +
+                'Example: { "readmePath": "/path/to/README.md" } or { "directory": "/path/to/project" }'
+            );
+        }
+
+        if (parameters.directory) {
+            // Import and use the pipeline for directory scan mode
+            const { SchemaEnhancementPipeline } = await import('../../sidequest/pipeline-runners/schema-enhancement-pipeline.js');
+            const pipeline = new SchemaEnhancementPipeline({
+                dryRun: parameters.dryRun ?? false,
+                gitWorkflowEnabled: parameters.gitWorkflowEnabled ?? false
+            });
+            // Run enhancement asynchronously (don't await - let it run in background)
+            pipeline.runEnhancement(parameters.directory).catch(error => {
+                logger.error({ error, pipelineId, directory: parameters.directory }, 'Directory scan failed');
+            });
+        } else {
+            // Single file mode - use worker directly
+            pipelineWorker.createJob(jobId, {
+                readmePath: parameters.readmePath,
+                relativePath: parameters.relativePath || parameters.readmePath,
+                context: parameters.context || {},
+                triggeredBy: 'api',
+                triggeredAt: new Date().toISOString()
+            });
+        }
     } else {
-        throw new Error('Either repositoryPath or repositoryPaths is required');
+        // Generic job creation for other pipelines
+        // Workers extend SidequestServer which provides createJob method
+        if (typeof pipelineWorker.createJob === 'function') {
+            pipelineWorker.createJob(jobId, {
+                ...parameters,
+                triggeredBy: 'api',
+                triggeredAt: new Date().toISOString()
+            });
+        } else if (typeof pipelineWorker.scheduleJob === 'function') {
+            // Some workers use scheduleJob instead
+            pipelineWorker.scheduleJob({
+                id: jobId,
+                ...parameters,
+                triggeredBy: 'api',
+                triggeredAt: new Date().toISOString()
+            });
+        } else if (typeof pipelineWorker.addJob === 'function') {
+            // Fallback to addJob if available
+            await pipelineWorker.addJob({
+                id: jobId,
+                data: {
+                    ...parameters,
+                    triggeredBy: 'api',
+                    triggeredAt: new Date().toISOString()
+                }
+            });
+        } else {
+            // Last resort: emit job:created event directly
+            logger.warn({ pipelineId }, 'Worker lacks createJob/scheduleJob/addJob method, using direct job queuing');
+            pipelineWorker.emit('job:created', {
+                id: jobId,
+                status: 'queued',
+                data: parameters,
+                createdAt: new Date()
+            });
+        }
     }
 
     logger.info({
         pipelineId,
         jobId,
         parameters
-    }, 'Triggered pipeline job');
+    }, 'Successfully triggered pipeline job');
 
     return jobId;
 }
@@ -510,5 +815,22 @@ router.get('/:pipelineId/html', async (req, res, next) => {
         next(error);
     }
 });
+
+/**
+ * Check if a pipeline is currently paused
+ * @param {string} pipelineId - Pipeline identifier
+ * @returns {boolean} True if pipeline is paused
+ */
+export function isPipelinePaused(pipelineId) {
+    return pausedPipelines.has(pipelineId);
+}
+
+/**
+ * Get all currently paused pipelines
+ * @returns {string[]} Array of paused pipeline IDs
+ */
+export function getPausedPipelines() {
+    return Array.from(pausedPipelines);
+}
 
 export default router;

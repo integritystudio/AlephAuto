@@ -29,8 +29,9 @@ const logger = createComponentLogger('ClaudeHealth');
 class ClaudeHealthWorker extends SidequestServer {
   constructor(options = {}) {
     super({
+      ...options,
+      jobType: 'claude-health',
       maxConcurrent: options.maxConcurrent ?? 1, // Single concurrent health check
-      ...options
     });
 
     this.claudeDir = path.join(process.env.HOME, '.claude');

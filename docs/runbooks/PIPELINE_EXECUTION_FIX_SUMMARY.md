@@ -52,7 +52,7 @@ $ ls -la sidequest/pipeline-runners/*.js
 
 ### 3. Enhanced PM2 Configuration
 
-Updated `ecosystem.config.cjs` with explicit comments explaining the critical `interpreter: 'node'` configuration:
+Updated `config/ecosystem.config.cjs` with explicit comments explaining the critical `interpreter: 'node'` configuration:
 
 **Before:**
 ```javascript
@@ -129,7 +129,7 @@ Created `/Users/alyshialedlie/code/jobs/docs/runbooks/pipeline-execution.md` wit
 
 **Lines changed:** 70 (from 47)
 
-### 2. `/Users/alyshialedlie/code/jobs/ecosystem.config.cjs`
+### 2. `/Users/alyshialedlie/code/jobs/config/ecosystem.config.cjs`
 **Changes:**
 - Added critical comments explaining interpreter configuration
 - Documented what PM2 actually executes
@@ -182,7 +182,7 @@ $ ls -la api/server.js sidequest/pipeline-runners/*.js | awk '{print $1, $9}'
 
 ### PM2 Configuration Validated
 ```bash
-$ grep -A 2 "interpreter:" ecosystem.config.cjs
+$ grep -A 2 "interpreter:" config/ecosystem.config.cjs
 
       interpreter: 'node',
 
@@ -212,7 +212,7 @@ doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
 
 ### Method 4: PM2 via Doppler (production workers)
 ```bash
-doppler run -- pm2 start ecosystem.config.cjs
+doppler run -- pm2 start config/ecosystem.config.cjs
 ```
 
 ## Prevention Measures
@@ -267,7 +267,7 @@ $ if [ $MISSING_SHEBANG -eq 0 ]; then
 ### PM2 Execution Test
 ```bash
 # This should work without errors
-doppler run -- pm2 start ecosystem.config.cjs --only aleph-worker
+doppler run -- pm2 start config/ecosystem.config.cjs --only aleph-worker
 pm2 logs aleph-worker --lines 20
 pm2 delete aleph-worker
 ```
@@ -296,7 +296,7 @@ Error: fork/exec /Users/alyshialedlie/code/jobs/sidequest/pipeline-runners/dupli
 ```
 
 **Resolution:**
-The error was caused by attempting to execute JavaScript files directly without using the Node.js interpreter. While the files had correct shebangs and permissions, Doppler/PM2 must be explicitly configured to use the Node.js interpreter via `interpreter: 'node'` in ecosystem.config.cjs.
+The error was caused by attempting to execute JavaScript files directly without using the Node.js interpreter. While the files had correct shebangs and permissions, Doppler/PM2 must be explicitly configured to use the Node.js interpreter via `interpreter: 'node'` in config/ecosystem.config.cjs.
 
 ## Recommendations
 
@@ -334,14 +334,14 @@ The error was caused by attempting to execute JavaScript files directly without 
    - Centralized logging
    - Resource limits
 
-2. **Always verify ecosystem.config.cjs:**
+2. **Always verify config/ecosystem.config.cjs:**
    - `interpreter: 'node'` for all apps
    - Correct working directory (`cwd`)
    - Proper environment variables
 
 3. **Always test with Doppler:**
    ```bash
-   doppler run -- pm2 start ecosystem.config.cjs
+   doppler run -- pm2 start config/ecosystem.config.cjs
    pm2 logs --lines 50
    ```
 
@@ -364,7 +364,7 @@ The error was caused by attempting to execute JavaScript files directly without 
    - Removed husky.sh dependency
    - Better error messages
 
-2. `/Users/alyshialedlie/code/jobs/ecosystem.config.cjs`
+2. `/Users/alyshialedlie/code/jobs/config/ecosystem.config.cjs`
    - Added critical comments
    - Documented interpreter configuration
    - Prevention of future errors
@@ -382,7 +382,7 @@ The error was caused by attempting to execute JavaScript files directly without 
 ## References
 
 - Pipeline Execution Runbook: `/Users/alyshialedlie/code/jobs/docs/runbooks/pipeline-execution.md`
-- PM2 Configuration: `/Users/alyshialedlie/code/jobs/ecosystem.config.cjs`
+- PM2 Configuration: `/Users/alyshialedlie/code/jobs/config/ecosystem.config.cjs`
 - Pre-commit Hook: `/Users/alyshialedlie/code/jobs/.husky/pre-commit`
 - Doppler Runbook: `/Users/alyshialedlie/code/jobs/docs/runbooks/DOPPLER_OUTAGE.md`
 - Deployment Guide: `/Users/alyshialedlie/code/jobs/docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md`

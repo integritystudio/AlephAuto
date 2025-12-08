@@ -17,7 +17,10 @@ const logger = createComponentLogger('GitActivityWorker');
  */
 export class GitActivityWorker extends SidequestServer {
   constructor(options = {}) {
-    super(options);
+    super({
+      ...options,
+      jobType: 'git-activity',
+    });
     this.codeBaseDir = options.codeBaseDir || path.join(os.homedir(), 'code');
     this.pythonScript = options.pythonScript || path.join(
       path.dirname(new URL(import.meta.url).pathname),
