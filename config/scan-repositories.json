@@ -33,67 +33,67 @@
         "*.test.js",
         "*.spec.js"
       ],
-      "lastScannedAt": "2025-11-25T07:01:14.307Z",
+      "lastScannedAt": "2025-12-04T07:07:13.897Z",
       "scanHistory": [
         {
-          "timestamp": "2025-11-25T07:01:14.307Z",
+          "timestamp": "2025-12-04T07:07:13.897Z",
           "status": "success",
-          "duration": 74.099,
-          "duplicatesFound": 1033
+          "duration": 433.271,
+          "duplicatesFound": 1041
         },
         {
-          "timestamp": "2025-11-25T07:00:58.786Z",
+          "timestamp": "2025-12-04T07:06:12.876Z",
           "status": "success",
-          "duration": 58.583,
+          "duration": 372.238,
+          "duplicatesFound": 367
+        },
+        {
+          "timestamp": "2025-12-03T07:01:40.671Z",
+          "status": "success",
+          "duration": 100.28,
+          "duplicatesFound": 1044
+        },
+        {
+          "timestamp": "2025-12-03T07:01:26.878Z",
+          "status": "success",
+          "duration": 86.492,
+          "duplicatesFound": 369
+        },
+        {
+          "timestamp": "2025-12-01T07:01:23.770Z",
+          "status": "success",
+          "duration": 82.778,
+          "duplicatesFound": 1049
+        },
+        {
+          "timestamp": "2025-12-01T07:01:09.857Z",
+          "status": "success",
+          "duration": 68.877,
+          "duplicatesFound": 376
+        },
+        {
+          "timestamp": "2025-11-30T07:01:16.419Z",
+          "status": "success",
+          "duration": 75.24,
+          "duplicatesFound": 1046
+        },
+        {
+          "timestamp": "2025-11-30T07:01:11.701Z",
+          "status": "success",
+          "duration": 70.867,
+          "duplicatesFound": 371
+        },
+        {
+          "timestamp": "2025-11-29T07:06:10.938Z",
+          "status": "success",
+          "duration": 370.7,
+          "duplicatesFound": 1044
+        },
+        {
+          "timestamp": "2025-11-29T07:05:43.603Z",
+          "status": "success",
+          "duration": 343.461,
           "duplicatesFound": 377
-        },
-        {
-          "timestamp": "2025-11-24T07:00:34.243Z",
-          "status": "success",
-          "duration": 33.713,
-          "duplicatesFound": 933
-        },
-        {
-          "timestamp": "2025-11-24T07:00:26.425Z",
-          "status": "success",
-          "duration": 25.904,
-          "duplicatesFound": 312
-        },
-        {
-          "timestamp": "2025-11-18T13:31:52.218Z",
-          "status": "success",
-          "duration": 10.768,
-          "duplicatesFound": 11
-        },
-        {
-          "timestamp": "2025-11-18T13:31:46.302Z",
-          "status": "success",
-          "duration": 4.833,
-          "duplicatesFound": 120
-        },
-        {
-          "timestamp": "2025-11-18T13:21:36.672Z",
-          "status": "success",
-          "duration": 11.055,
-          "duplicatesFound": 11
-        },
-        {
-          "timestamp": "2025-11-18T13:21:30.929Z",
-          "status": "success",
-          "duration": 5.297,
-          "duplicatesFound": 121
-        },
-        {
-          "timestamp": "2025-11-18T13:21:17.259Z",
-          "status": "success",
-          "duration": 10.423,
-          "duplicatesFound": 11
-        },
-        {
-          "timestamp": "2025-11-18T13:21:12.176Z",
-          "status": "success",
-          "duration": 5.324,
-          "duplicatesFound": 120
         }
       ]
     },
@@ -111,37 +111,67 @@
         "*.test.js",
         "*.spec.js"
       ],
-      "lastScannedAt": "2025-11-25T07:01:14.308Z",
+      "lastScannedAt": "2025-12-04T07:07:13.898Z",
       "scanHistory": [
         {
-          "timestamp": "2025-11-25T07:01:14.308Z",
+          "timestamp": "2025-12-04T07:07:13.898Z",
           "status": "success",
-          "duration": 74.099,
-          "duplicatesFound": 1033
+          "duration": 433.271,
+          "duplicatesFound": 1041
         },
         {
-          "timestamp": "2025-11-25T07:00:24.536Z",
+          "timestamp": "2025-12-04T07:03:32.305Z",
           "status": "success",
-          "duration": 24.332,
-          "duplicatesFound": 167
+          "duration": 211.696,
+          "duplicatesFound": 163
         },
         {
-          "timestamp": "2025-11-24T07:00:34.244Z",
+          "timestamp": "2025-12-03T07:01:40.672Z",
           "status": "success",
-          "duration": 33.713,
-          "duplicatesFound": 933
+          "duration": 100.28,
+          "duplicatesFound": 1044
         },
         {
-          "timestamp": "2025-11-24T07:00:10.039Z",
+          "timestamp": "2025-12-03T07:00:44.840Z",
           "status": "success",
-          "duration": 9.512,
-          "duplicatesFound": 153
+          "duration": 44.464,
+          "duplicatesFound": 165
         },
         {
-          "timestamp": "2025-11-24T04:17:55.717Z",
+          "timestamp": "2025-12-01T07:01:23.771Z",
           "status": "success",
-          "duration": 8.203,
+          "duration": 82.778,
+          "duplicatesFound": 1049
+        },
+        {
+          "timestamp": "2025-12-01T07:00:34.966Z",
+          "status": "success",
+          "duration": 34,
           "duplicatesFound": 158
+        },
+        {
+          "timestamp": "2025-11-30T07:01:16.420Z",
+          "status": "success",
+          "duration": 75.24,
+          "duplicatesFound": 1046
+        },
+        {
+          "timestamp": "2025-11-30T07:00:30.347Z",
+          "status": "success",
+          "duration": 29.529,
+          "duplicatesFound": 164
+        },
+        {
+          "timestamp": "2025-11-29T07:06:10.941Z",
+          "status": "success",
+          "duration": 370.7,
+          "duplicatesFound": 1044
+        },
+        {
+          "timestamp": "2025-11-29T07:02:30.475Z",
+          "status": "success",
+          "duration": 150.361,
+          "duplicatesFound": 160
         }
       ]
     },

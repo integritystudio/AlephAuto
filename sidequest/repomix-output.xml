@@ -1266,8 +1266,8 @@ export const config = {
     backoffMultiplier: parseFloat(process.env.DOPPLER_BACKOFF_MULTIPLIER || '2.0'),
     maxBackoffMs: parseInt(process.env.DOPPLER_MAX_BACKOFF_MS || '10000', 10), // 10s
 
-    // Cache settings
-    cacheFile: process.env.DOPPLER_CACHE_FILE || path.join(os.homedir(), '.doppler', '.fallback.json')
+    // Cache settings - Doppler CLI uses a fallback directory, not a single file
+    cacheDir: process.env.DOPPLER_CACHE_DIR || path.join(os.homedir(), '.doppler', 'fallback')
   },
 
   // Project root directory
@@ -1509,6 +1509,28 @@ export function getJobs(pipelineId, options = {}) {
   } else {
     return jobs;  // Backward compatible - just return array
   }
+}
+
+/**
+ * Get all jobs across all pipelines
+ */
+export function getAllJobs(options = {}) {
+  const db = getDatabase();
+  const { status, limit = 100, offset = 0 } = options;
+
+  let query = 'SELECT * FROM jobs';
+  const params = [];
+
+  if (status) {
+    query += ' WHERE status = ?';
+    params.push(status);
+  }
+
+  query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+
+  const stmt = db.prepare(query);
+  return stmt.all(...params);
 }
 
 /**
@@ -2377,22 +2399,38 @@ export class SidequestServer extends EventEmitter {
    * Log job completion to file
    */
   async logJobCompletion(job) {
-    const logPath = path.join(this.logDir, `${job.id}.json`);
-    await fs.writeFile(logPath, JSON.stringify(job, null, 2));
+    try {
+      // Ensure log directory exists
+      await fs.mkdir(this.logDir, { recursive: true });
+
+      const logPath = path.join(this.logDir, `${job.id}.json`);
+      await fs.writeFile(logPath, JSON.stringify(job, null, 2));
+    } catch (logError) {
+      // If we can't write logs, at least log to console
+      logger.error({ logError, jobId: job.id }, 'Failed to write completion log file');
+    }
   }
 
   /**
    * Log job failure to file
    */
   async logJobFailure(job, error) {
-    const logPath = path.join(this.logDir, `${job.id}.error.json`);
-    await fs.writeFile(logPath, JSON.stringify({
-      ...job,
-      error: {
-        message: error.message,
-        stack: error.stack,
-      },
-    }, null, 2));
+    try {
+      // Ensure log directory exists
+      await fs.mkdir(this.logDir, { recursive: true });
+
+      const logPath = path.join(this.logDir, `${job.id}.error.json`);
+      await fs.writeFile(logPath, JSON.stringify({
+        ...job,
+        error: {
+          message: error.message,
+          stack: error.stack,
+        },
+      }, null, 2));
+    } catch (logError) {
+      // If we can't write logs, at least log to console
+      logger.error({ logError, jobId: job.id }, 'Failed to write error log file');
+    }
   }
 
   /**
@@ -4553,7 +4591,10 @@ def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> L
             print(f"DEBUG first match: file_path={match.get('file_path')}, line_start={match.get('line_start')}", file=sys.stderr)
         try:
             # Generate unique block ID
-            block_id = f"cb_{hashlib.sha256(f"{match['file_path']}:{match['line_start']}".encode()).hexdigest()[:12]}"
+            # Python 3.11 doesn't support nested f-strings, so construct the string first
+            block_key = f"{match['file_path']}:{match['line_start']}"
+            block_hash = hashlib.sha256(block_key.encode()).hexdigest()[:12]
+            block_id = f"cb_{block_hash}"
 
             # Map pattern_id to category (must match SemanticCategory enum)
             category_map = {
@@ -5218,11 +5259,11 @@ export class BranchManager {
 
       logger.info({ branchName, repositoryPath }, 'Branch created and checked out');
 
-      span.setStatus('ok');
+      span?.setStatus('ok');
       return { branchName, originalBranch };
 
     } catch (error) {
-      span.setStatus('internal_error');
+      span?.setStatus('internal_error');
       logger.error({ error, repositoryPath, jobContext }, 'Failed to create job branch');
 
       Sentry.captureException(error, {
@@ -5239,7 +5280,7 @@ export class BranchManager {
 
       throw error;
     } finally {
-      span.end();
+      if (span) span.end();
     }
   }
 
@@ -5266,7 +5307,7 @@ export class BranchManager {
       const hasChanges = await this.hasChanges(repositoryPath);
       if (!hasChanges) {
         logger.info({ repositoryPath }, 'No changes to commit');
-        span.setStatus('ok');
+        span?.setStatus('ok');
         return '';
       }
 
@@ -5288,11 +5329,11 @@ export class BranchManager {
 
       logger.info({ commitSha: commitSha.trim(), filesCount: changedFiles.length }, 'Changes committed');
 
-      span.setStatus('ok');
+      span?.setStatus('ok');
       return commitSha.trim();
 
     } catch (error) {
-      span.setStatus('internal_error');
+      span?.setStatus('internal_error');
       logger.error({ error, repositoryPath, commitContext }, 'Failed to commit changes');
 
       Sentry.captureException(error, {
@@ -5309,7 +5350,7 @@ export class BranchManager {
 
       throw error;
     } finally {
-      span.end();
+      if (span) span.end();
     }
   }
 
@@ -5329,7 +5370,7 @@ export class BranchManager {
     try {
       if (this.dryRun) {
         logger.info({ branchName }, 'Dry run: Skipping branch push');
-        span.setStatus('ok');
+        span?.setStatus('ok');
         return false;
       }
 
@@ -5339,11 +5380,11 @@ export class BranchManager {
 
       logger.info({ branchName }, 'Branch pushed successfully');
 
-      span.setStatus('ok');
+      span?.setStatus('ok');
       return true;
 
     } catch (error) {
-      span.setStatus('internal_error');
+      span?.setStatus('internal_error');
       logger.error({ error, repositoryPath, branchName }, 'Failed to push branch');
 
       Sentry.captureException(error, {
@@ -5360,7 +5401,7 @@ export class BranchManager {
       // Don't throw - PR creation can still fail gracefully
       return false;
     } finally {
-      span.end();
+      if (span) span.end();
     }
   }
 
@@ -5384,7 +5425,7 @@ export class BranchManager {
     try {
       if (this.dryRun) {
         logger.info({ branch: prContext.branchName }, 'Dry run: Skipping PR creation');
-        span.setStatus('ok');
+        span?.setStatus('ok');
         return `dry-run-${prContext.branchName}`;
       }
 
@@ -5413,11 +5454,11 @@ export class BranchManager {
 
       logger.info({ prUrl: prUrl.trim() }, 'Pull request created');
 
-      span.setStatus('ok');
+      span?.setStatus('ok');
       return prUrl.trim();
 
     } catch (error) {
-      span.setStatus('internal_error');
+      span?.setStatus('internal_error');
       logger.error({ error, repositoryPath, prContext }, 'Failed to create pull request');
 
       Sentry.captureException(error, {
@@ -5433,7 +5474,7 @@ export class BranchManager {
 
       return null;
     } finally {
-      span.end();
+      if (span) span.end();
     }
   }
 
@@ -6017,8 +6058,10 @@ export class MigrationTransformer {
           // Parse new name (supports dot notation like 'utils.writeJson')
           if (newName.includes('.')) {
             const parts = newName.split('.');
+            // @ts-ignore - Start with identifier, becomes MemberExpression in loop
             let memberExpr = t.identifier(parts[0]);
             for (let i = 1; i < parts.length; i++) {
+              // @ts-ignore - memberExpr type changes from Identifier to MemberExpression
               memberExpr = t.memberExpression(memberExpr, t.identifier(parts[i]));
             }
             path.node.callee = memberExpr;
@@ -14027,8 +14070,9 @@ const logger = createComponentLogger('DopplerHealthMonitor');
 
 export class DopplerHealthMonitor {
   constructor(options = {}) {
-    // Doppler fallback cache location
-    this.cacheFile = options.cacheFile || path.join(os.homedir(), '.doppler', '.fallback.json');
+    // Doppler fallback cache directory (not a single file)
+    // Doppler CLI stores secrets in ~/.doppler/fallback/ as individual JSON files
+    this.cacheDir = options.cacheDir || path.join(os.homedir(), '.doppler', 'fallback');
 
     // Max cache age before triggering alerts (default: 24 hours)
     this.maxCacheAge = options.maxCacheAge || 24 * 60 * 60 * 1000;
@@ -14046,8 +14090,45 @@ export class DopplerHealthMonitor {
    */
   async checkCacheHealth() {
     try {
-      const stats = await fs.stat(this.cacheFile);
-      const cacheAge = Date.now() - stats.mtime.getTime();
+      // Check if fallback directory exists
+      const dirStats = await fs.stat(this.cacheDir);
+      if (!dirStats.isDirectory()) {
+        throw new Error('Fallback path exists but is not a directory');
+      }
+
+      // Find all secret files (not metadata)
+      const files = await fs.readdir(this.cacheDir);
+      const secretFiles = files.filter(f => f.startsWith('.secrets-') && f.endsWith('.json'));
+
+      if (secretFiles.length === 0) {
+        logger.warn({ cacheDir: this.cacheDir }, 'Doppler fallback directory exists but contains no secret files');
+
+        return {
+          healthy: false,
+          cacheAgeMs: 0,
+          cacheAgeHours: 0,
+          cacheAgeMinutes: 0,
+          lastModified: null,
+          usingFallback: false,
+          fileCount: 0,
+          severity: 'warning'
+        };
+      }
+
+      // Find the most recently modified secret file
+      let newestFile = null;
+      let newestMtime = 0;
+
+      for (const file of secretFiles) {
+        const filePath = path.join(this.cacheDir, file);
+        const stats = await fs.stat(filePath);
+        if (stats.mtime.getTime() > newestMtime) {
+          newestMtime = stats.mtime.getTime();
+          newestFile = file;
+        }
+      }
+
+      const cacheAge = Date.now() - newestMtime;
       const cacheAgeHours = Math.floor(cacheAge / (60 * 60 * 1000));
       const cacheAgeMinutes = Math.floor((cacheAge % (60 * 60 * 1000)) / (60 * 1000));
 
@@ -14056,15 +14137,19 @@ export class DopplerHealthMonitor {
         cacheAgeMs: cacheAge,
         cacheAgeHours,
         cacheAgeMinutes,
-        lastModified: stats.mtime.toISOString(),
-        usingFallback: true, // If cache file exists and has age, we're using fallback
+        lastModified: new Date(newestMtime).toISOString(),
+        newestFile,
+        fileCount: secretFiles.length,
+        usingFallback: true,
         severity: this.getSeverity(cacheAge)
       };
 
       if (cacheAge > this.maxCacheAge) {
         logger.error({
           cacheAgeHours,
-          lastModified: stats.mtime
+          lastModified: new Date(newestMtime),
+          newestFile,
+          fileCount: secretFiles.length
         }, 'Doppler cache is critically stale - secrets may be outdated');
 
         Sentry.captureMessage('Doppler cache critically stale', {
@@ -14072,8 +14157,10 @@ export class DopplerHealthMonitor {
           extra: {
             cacheAgeHours,
             cacheAgeMinutes,
-            lastModified: stats.mtime.toISOString(),
-            threshold: this.maxCacheAge / (60 * 60 * 1000)
+            lastModified: new Date(newestMtime).toISOString(),
+            threshold: this.maxCacheAge / (60 * 60 * 1000),
+            newestFile,
+            fileCount: secretFiles.length
           },
           tags: {
             component: 'doppler-health-monitor',
@@ -14083,7 +14170,8 @@ export class DopplerHealthMonitor {
       } else if (cacheAge > this.warningThreshold) {
         logger.warn({
           cacheAgeHours,
-          lastModified: stats.mtime
+          lastModified: new Date(newestMtime),
+          newestFile
         }, 'Doppler cache is aging - approaching staleness threshold');
 
         Sentry.captureMessage('Doppler cache aging', {
@@ -14091,8 +14179,10 @@ export class DopplerHealthMonitor {
           extra: {
             cacheAgeHours,
             cacheAgeMinutes,
-            lastModified: stats.mtime.toISOString(),
-            threshold: this.warningThreshold / (60 * 60 * 1000)
+            lastModified: new Date(newestMtime).toISOString(),
+            threshold: this.warningThreshold / (60 * 60 * 1000),
+            newestFile,
+            fileCount: secretFiles.length
           },
           tags: {
             component: 'doppler-health-monitor',
@@ -14102,15 +14192,16 @@ export class DopplerHealthMonitor {
       } else {
         logger.debug({
           cacheAgeHours,
-          cacheAgeMinutes
+          cacheAgeMinutes,
+          fileCount: secretFiles.length
         }, 'Doppler cache health check - within thresholds');
       }
 
       return status;
     } catch (error) {
       if (error.code === 'ENOENT') {
-        // Cache file doesn't exist - probably using live Doppler
-        logger.debug('No Doppler fallback cache found - likely using live API');
+        // Cache directory doesn't exist - probably using live Doppler only
+        logger.debug({ cacheDir: this.cacheDir }, 'No Doppler fallback cache found - likely using live API only');
 
         return {
           healthy: true,
@@ -14119,11 +14210,12 @@ export class DopplerHealthMonitor {
           cacheAgeMinutes: 0,
           lastModified: null,
           usingFallback: false,
+          fileCount: 0,
           severity: 'healthy'
         };
       }
 
-      logger.error({ error }, 'Failed to check Doppler cache health');
+      logger.error({ error, cacheDir: this.cacheDir }, 'Failed to check Doppler cache health');
 
       Sentry.captureException(error, {
         tags: {
@@ -14199,12 +14291,12 @@ export class DopplerHealthMonitor {
   }
 
   /**
-   * Get cache file path (for testing/debugging)
+   * Get cache directory path (for testing/debugging)
    *
-   * @returns {string} Cache file path
+   * @returns {string} Cache directory path
    */
-  getCacheFilePath() {
-    return this.cacheFile;
+  getCacheDirectoryPath() {
+    return this.cacheDir;
   }
 }
 
@@ -15002,9 +15094,10 @@ import { HTMLReportGenerator } from './reports/html-report-generator.js';
 import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
 import { InterProjectScanner } from './inter-project-scanner.js';
 import { createComponentLogger } from '../utils/logger.js';
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { existsSync } from 'fs';
 import * as Sentry from '@sentry/node';
 const logger = createComponentLogger('ScanOrchestrator');
 // ============================================================================
@@ -15026,10 +15119,22 @@ export class ScanOrchestrator {
         // JavaScript components
         this.repositoryScanner = new RepositoryScanner(options.scanner || {});
         this.patternDetector = new AstGrepPatternDetector(options.detector || {});
+
         // Python components (called via subprocess)
-        // Use venv python by default if it exists, otherwise fall back to system python3
-        const venvPython = path.join(process.cwd(), 'venv/bin/python3');
-        this.pythonPath = options.pythonPath || venvPython;
+        // Intelligent Python path detection (lazy - validated on first use):
+        // 1. Use explicitly provided pythonPath if given
+        // 2. Try venv Python (local development)
+        // 3. Fall back to system Python (CI/production)
+        if (options.pythonPath) {
+            this.pythonPath = options.pythonPath;
+            this._pythonValidated = false; // Will validate on first use
+        } else {
+            // Defer Python detection/validation until first scan
+            // This allows server to start without Python for health checks
+            this.pythonPath = null;
+            this._pythonValidated = false;
+        }
+
         this.extractorScript = options.extractorScript || path.join(process.cwd(), 'sidequest/pipeline-core/extractors/extract_blocks.py');
         // Report generation configuration
         this.reportConfig = options.reports || {};
@@ -15038,6 +15143,56 @@ export class ScanOrchestrator {
         // Configuration
         this.config = options.config || {};
     }
+
+    /**
+     * Validate and detect Python path (lazy initialization)
+     * Only called when Python is actually needed for a scan
+     */
+    _validatePython() {
+        if (this._pythonValidated) {
+            return; // Already validated
+        }
+
+        if (this.pythonPath) {
+            // Explicitly provided path - validate it exists
+            this._pythonValidated = true;
+            return;
+        }
+
+        // Auto-detect Python path
+        const venvPython = path.join(process.cwd(), 'venv/bin/python3');
+        const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+
+        if (existsSync(venvPython) && !isCI) {
+            // Local development: use venv Python
+            this.pythonPath = venvPython;
+            logger.info({ pythonPath: venvPython }, 'Using venv Python');
+        } else {
+            // CI/production: use system Python
+            try {
+                // Verify system Python is available and has required packages
+                execSync('python3 -c "import pydantic"', {
+                    stdio: 'ignore',
+                    timeout: 3000
+                });
+                this.pythonPath = 'python3';
+                logger.info({
+                    pythonPath: 'python3',
+                    isCI,
+                    reason: existsSync(venvPython) ? 'CI environment detected' : 'venv not found'
+                }, 'Using system Python');
+            } catch (error) {
+                logger.error({ error }, 'Python validation failed');
+                throw new Error(
+                    'Python not available. Please install Python 3.11+ with pydantic package, ' +
+                    'or run in an environment with venv/bin/python3'
+                );
+            }
+        }
+
+        this._pythonValidated = true;
+    }
+
     /**
      * Scan a single repository for duplicates
      */
@@ -15117,6 +15272,9 @@ export class ScanOrchestrator {
      * Run Python pipeline for extraction, grouping, and reporting
      */
     async runPythonPipeline(data) {
+        // Lazy validation: Only validate Python when actually needed
+        this._validatePython();
+
         return new Promise((resolve, reject) => {
             logger.debug('Launching Python extraction pipeline');
             const proc = spawn(this.pythonPath, [this.extractorScript], {
@@ -15336,9 +15494,10 @@ import { HTMLReportGenerator } from './reports/html-report-generator.js';
 import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
 import { InterProjectScanner } from './inter-project-scanner.js';
 import { createComponentLogger } from '../utils/logger.js';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess, execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { existsSync } from 'fs';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('ScanOrchestrator');
@@ -15632,7 +15791,8 @@ interface PatternDetectionOutput {
 export class ScanOrchestrator {
   private readonly repositoryScanner: RepositoryScanner;
   private readonly patternDetector: AstGrepPatternDetector;
-  private readonly pythonPath: string;
+  private pythonPath: string | null;
+  private _pythonValidated: boolean;
   private readonly extractorScript: string;
   private readonly reportConfig: ReportOptions;
   private readonly outputDir: string;
@@ -15645,9 +15805,20 @@ export class ScanOrchestrator {
     this.patternDetector = new AstGrepPatternDetector(options.detector || {});
 
     // Python components (called via subprocess)
-    // Use venv python by default if it exists, otherwise fall back to system python3
-    const venvPython = path.join(process.cwd(), 'venv/bin/python3');
-    this.pythonPath = options.pythonPath || venvPython;
+    // Intelligent Python path detection (lazy - validated on first use):
+    // 1. Use explicitly provided pythonPath if given
+    // 2. Try venv Python (local development)
+    // 3. Fall back to system Python (CI/production)
+    if (options.pythonPath) {
+      this.pythonPath = options.pythonPath;
+      this._pythonValidated = false; // Will validate on first use
+    } else {
+      // Defer Python detection/validation until first scan
+      // This allows server to start without Python for health checks
+      this.pythonPath = null as any;
+      this._pythonValidated = false;
+    }
+
     this.extractorScript = options.extractorScript || path.join(process.cwd(), 'sidequest/pipeline-core/extractors/extract_blocks.py');
 
     // Report generation configuration
@@ -15657,6 +15828,55 @@ export class ScanOrchestrator {
 
     // Configuration
     this.config = options.config || {};
+  }
+
+  /**
+   * Validate and detect Python path (lazy initialization)
+   * Only called when Python is actually needed for a scan
+   */
+  private _validatePython(): void {
+    if (this._pythonValidated) {
+      return; // Already validated
+    }
+
+    if (this.pythonPath) {
+      // Explicitly provided path - validate it exists
+      this._pythonValidated = true;
+      return;
+    }
+
+    // Auto-detect Python path
+    const venvPython = path.join(process.cwd(), 'venv/bin/python3');
+    const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+
+    if (existsSync(venvPython) && !isCI) {
+      // Local development: use venv Python
+      this.pythonPath = venvPython;
+      logger.info({ pythonPath: venvPython }, 'Using venv Python');
+    } else {
+      // CI/production: use system Python
+      try {
+        // Verify system Python is available and has required packages
+        execSync('python3 -c "import pydantic"', {
+          stdio: 'ignore',
+          timeout: 3000
+        });
+        this.pythonPath = 'python3';
+        logger.info({
+          pythonPath: 'python3',
+          isCI,
+          reason: existsSync(venvPython) ? 'CI environment detected' : 'venv not found'
+        }, 'Using system Python');
+      } catch (error) {
+        logger.error({ error }, 'Python validation failed');
+        throw new Error(
+          'Python not available. Please install Python 3.11+ with pydantic package, ' +
+          'or run in an environment with venv/bin/python3'
+        );
+      }
+    }
+
+    this._pythonValidated = true;
   }
 
   /**
@@ -15756,10 +15976,13 @@ export class ScanOrchestrator {
    * Run Python pipeline for extraction, grouping, and reporting
    */
   private async runPythonPipeline(data: PythonPipelineInput): Promise<PythonPipelineOutput> {
+    // Lazy validation: Only validate Python when actually needed
+    this._validatePython();
+
     return new Promise<PythonPipelineOutput>((resolve, reject) => {
       logger.debug('Launching Python extraction pipeline');
 
-      const proc: ChildProcess = spawn(this.pythonPath, [this.extractorScript], {
+      const proc: ChildProcess = spawn(this.pythonPath!, [this.extractorScript], {
         timeout: 600000, // 10 minute timeout
       });
 
@@ -17413,9 +17636,9 @@ class DuplicateDetectionWorker extends SidequestServer {
     this.interProjectScanner = new InterProjectScanner({
       outputDir: path.join(process.cwd(), 'output', 'automated-scans')
     });
-    this.orchestrator = new ScanOrchestrator({
-      pythonPath: path.join(process.cwd(), 'venv', 'bin', 'python3')
-    });
+    // Let ScanOrchestrator auto-detect Python path based on environment
+    // (venv for local dev, system Python for CI/production)
+    this.orchestrator = new ScanOrchestrator({});
     this.reportCoordinator = new ReportCoordinator(
       path.join(process.cwd(), 'output', 'reports')
     );
@@ -24852,9 +25075,9 @@ export class DuplicateDetectionWorker extends SidequestServer {
     this.interProjectScanner = new InterProjectScanner({
       outputDir: path.join(process.cwd(), 'output', 'automated-scans')
     });
-    this.orchestrator = new ScanOrchestrator({
-      pythonPath: path.join(process.cwd(), 'venv', 'bin', 'python3')
-    });
+    // Let ScanOrchestrator auto-detect Python path based on environment
+    // (venv for local dev, system Python for CI/production)
+    this.orchestrator = new ScanOrchestrator({});
     this.reportCoordinator = new ReportCoordinator(
       path.join(process.cwd(), 'output', 'reports')
     );
@@ -25365,6 +25588,12 @@ export class DuplicateDetectionWorker extends SidequestServer {
 
     for (const repoConfig of repositoryConfigs) {
       try {
+        // Skip config updates for temporary test repositories
+        if (repoConfig.name.startsWith('alephauto-test-')) {
+          logger.debug({ repository: repoConfig.name }, 'Skipping config update for test repository');
+          continue;
+        }
+
         // Update last scanned timestamp
         await this.configLoader.updateLastScanned(repoConfig.name);
 
@@ -25934,7 +26163,7 @@ export class GitActivityWorker extends SidequestServer {
 <file path="workers/gitignore-worker.js">
 // @ts-nocheck
 import { SidequestServer } from '../core/server.js';
-import { GitignoreRepomixUpdater } from './gitignore-repomix-updater.js';
+import { GitignoreRepomixUpdater } from '../utils/gitignore-repomix-updater.js';
 import { generateReport } from '../utils/report-generator.js';
 import { createComponentLogger } from '../utils/logger.js';
 import * as Sentry from '@sentry/node';
