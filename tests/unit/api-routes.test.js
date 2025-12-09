@@ -1,21 +1,67 @@
-import { test, describe, beforeEach, afterEach } from 'node:test';
+import { test, describe, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import request from 'supertest';
 import express from 'express';
-import scanRoutes, { worker } from '../../api/routes/scans.js';
-import repositoryRoutes from '../../api/routes/repositories.js';
-import reportRoutes from '../../api/routes/reports.js';
-import {
-  createTempRepository,
-  createMultipleTempRepositories,
-  cleanupRepositories,
-  waitForQueueDrain
-} from '../fixtures/test-helpers.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DB_PATH = path.join(__dirname, '../../data/jobs.db');
+
+// Dynamic imports to control initialization order
+let scanRoutes, worker, repositoryRoutes, reportRoutes;
+let closeDatabase, initDatabase;
+let createTempRepository, createMultipleTempRepositories, cleanupRepositories, waitForQueueDrain;
 
 describe('API Routes', () => {
   let app;
   let testRepo;
   let multiRepos;
+
+  // Initialize fresh database before all tests
+  before(async () => {
+    // Delete corrupted database file if it exists (before importing modules)
+    if (fs.existsSync(DB_PATH)) {
+      fs.unlinkSync(DB_PATH);
+    }
+    // Also delete WAL files
+    [DB_PATH + '-shm', DB_PATH + '-wal'].forEach(f => {
+      if (fs.existsSync(f)) fs.unlinkSync(f);
+    });
+
+    // Now import modules (will create fresh database)
+    const dbModule = await import('../../sidequest/core/database.js');
+    closeDatabase = dbModule.closeDatabase;
+    initDatabase = dbModule.initDatabase;
+    await initDatabase();
+
+    const scanModule = await import('../../api/routes/scans.js');
+    scanRoutes = scanModule.default;
+    worker = scanModule.worker;
+
+    const repoModule = await import('../../api/routes/repositories.js');
+    repositoryRoutes = repoModule.default;
+
+    const reportModule = await import('../../api/routes/reports.js');
+    reportRoutes = reportModule.default;
+
+    const helpersModule = await import('../fixtures/test-helpers.js');
+    createTempRepository = helpersModule.createTempRepository;
+    createMultipleTempRepositories = helpersModule.createMultipleTempRepositories;
+    cleanupRepositories = helpersModule.cleanupRepositories;
+    waitForQueueDrain = helpersModule.waitForQueueDrain;
+  });
+
+  // Stop worker and close database after all tests
+  after(async () => {
+    if (worker) worker.stop();
+    // Wait for any pending jobs to finish
+    if (worker && waitForQueueDrain) {
+      await waitForQueueDrain(worker, { timeout: 5000 });
+    }
+    if (closeDatabase) closeDatabase();
+  });
 
   beforeEach(async () => {
     // Create fresh Express app for each test
