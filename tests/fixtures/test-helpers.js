@@ -6,6 +6,11 @@ import os from 'os';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Track repositories for cleanup (global to handle cross-test cleanup)
+if (!global._testRepositories) {
+  global._testRepositories = new Set();
+}
+
 /**
  * Get path to the test repository fixture
  * @returns {string} Absolute path to test-repo fixture
@@ -24,8 +29,14 @@ export function getTestRepoPath() {
 export async function createTempRepository(name = 'test-repo') {
   // Create temp directory
   const tmpDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), `alephauto-test-${name}-`)
+    path.join(os.tmpdir(), `aleph-test-${name}-`)
   );
+
+  // Track for cleanup
+  global._testRepositories.add(tmpDir);
+
+  // Verify directory exists before proceeding
+  await fs.access(tmpDir);
 
   // Create basic .git directory to make it look like a git repo
   const gitDir = path.join(tmpDir, '.git');
@@ -45,9 +56,12 @@ export async function createTempRepository(name = 'test-repo') {
     cleanup: async () => {
       try {
         await fs.rm(tmpDir, { recursive: true, force: true });
+        global._testRepositories.delete(tmpDir);
       } catch (error) {
-        // Ignore cleanup errors
-        console.warn(`Failed to cleanup temp directory ${tmpDir}:`, error.message);
+        // Ignore ENOENT (already cleaned up)
+        if (error.code !== 'ENOENT') {
+          console.warn(`Failed to cleanup temp directory ${tmpDir}:`, error.message);
+        }
       }
     }
   };
@@ -68,10 +82,43 @@ export async function createMultipleTempRepositories(count = 2) {
 
 /**
  * Cleanup all temporary repositories
- * @param {Array<{cleanup: Function}>} repos - Array of repository objects
+ * Can be called with an array of repository objects OR without arguments
+ * to cleanup all globally tracked repositories
+ *
+ * @param {Array<{cleanup: Function}>} [repos] - Array of repository objects (optional)
  */
 export async function cleanupRepositories(repos) {
-  await Promise.all(repos.map(repo => repo.cleanup()));
+  // If repos array is provided, use it (backward compatible)
+  if (repos && Array.isArray(repos)) {
+    await Promise.all(repos.map(repo => repo.cleanup()));
+    return;
+  }
+
+  // Otherwise, cleanup all globally tracked repositories
+  if (!global._testRepositories) {
+    return;
+  }
+
+  const results = await Promise.allSettled(
+    Array.from(global._testRepositories).map(async (repo) => {
+      try {
+        await fs.rm(repo, { recursive: true, force: true });
+      } catch (error) {
+        // Ignore ENOENT (already cleaned up)
+        if (error.code !== 'ENOENT') {
+          console.warn(`Failed to cleanup ${repo}:`, error.message);
+          throw error;
+        }
+      }
+    })
+  );
+
+  global._testRepositories.clear();
+
+  const failures = results.filter(r => r.status === 'rejected');
+  if (failures.length > 0) {
+    console.warn(`Failed to cleanup ${failures.length} repositories`);
+  }
 }
 
 /**

@@ -17,6 +17,7 @@ import { HTMLReportGenerator } from './reports/html-report-generator.js';
 import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
 import { InterProjectScanner } from './inter-project-scanner.js';
 import { createComponentLogger } from '../utils/logger.js';
+import { DependencyValidator } from '../utils/dependency-validator.js';
 import { spawn, ChildProcess, execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
@@ -316,6 +317,7 @@ export class ScanOrchestrator {
   private readonly patternDetector: AstGrepPatternDetector;
   private pythonPath: string | null;
   private _pythonValidated: boolean;
+  private _dependenciesValidated: boolean = false;
   private readonly extractorScript: string;
   private readonly reportConfig: ReportOptions;
   private readonly outputDir: string;
@@ -354,21 +356,22 @@ export class ScanOrchestrator {
   }
 
   /**
-   * Validate and detect Python path (lazy initialization)
+   * Detect Python path (lazy initialization)
    * Only called when Python is actually needed for a scan
+   * Note: DependencyValidator.validateAll() handles the actual validation
    */
-  private _validatePython(): void {
+  private _detectPythonPath(): void {
     if (this._pythonValidated) {
-      return; // Already validated
+      return; // Already detected
     }
 
     if (this.pythonPath) {
-      // Explicitly provided path - validate it exists
+      // Explicitly provided path - use it
       this._pythonValidated = true;
       return;
     }
 
-    // Auto-detect Python path
+    // Auto-detect Python path (validation done by DependencyValidator)
     const venvPython = path.join(process.cwd(), 'venv/bin/python3');
     const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
 
@@ -378,25 +381,12 @@ export class ScanOrchestrator {
       logger.info({ pythonPath: venvPython }, 'Using venv Python');
     } else {
       // CI/production: use system Python
-      try {
-        // Verify system Python is available and has required packages
-        execSync('python3 -c "import pydantic"', {
-          stdio: 'ignore',
-          timeout: 3000
-        });
-        this.pythonPath = 'python3';
-        logger.info({
-          pythonPath: 'python3',
-          isCI,
-          reason: existsSync(venvPython) ? 'CI environment detected' : 'venv not found'
-        }, 'Using system Python');
-      } catch (error) {
-        logger.error({ error }, 'Python validation failed');
-        throw new Error(
-          'Python not available. Please install Python 3.11+ with pydantic package, ' +
-          'or run in an environment with venv/bin/python3'
-        );
-      }
+      this.pythonPath = 'python3';
+      logger.info({
+        pythonPath: 'python3',
+        isCI,
+        reason: existsSync(venvPython) ? 'CI environment detected' : 'venv not found'
+      }, 'Using system Python');
     }
 
     this._pythonValidated = true;
@@ -432,6 +422,12 @@ export class ScanOrchestrator {
     logger.info({ repoPath }, 'Starting repository duplicate scan');
 
     try {
+      // Validate dependencies once per scanner instance
+      if (!this._dependenciesValidated) {
+        await DependencyValidator.validateAll();
+        this._dependenciesValidated = true;
+      }
+
       // Stage 1: Repository scanning
       logger.info('Stage 1/7: Scanning repository with repomix');
       const repoScan: RepositoryScanOutput = await this.repositoryScanner.scanRepository(
@@ -499,8 +495,8 @@ export class ScanOrchestrator {
    * Run Python pipeline for extraction, grouping, and reporting
    */
   private async runPythonPipeline(data: PythonPipelineInput): Promise<PythonPipelineOutput> {
-    // Lazy validation: Only validate Python when actually needed
-    this._validatePython();
+    // Lazy detection: Only detect Python path when actually needed
+    this._detectPythonPath();
 
     return new Promise<PythonPipelineOutput>((resolve, reject) => {
       logger.debug('Launching Python extraction pipeline');
