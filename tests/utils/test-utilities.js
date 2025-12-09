@@ -68,7 +68,10 @@ export class TestWorker extends SidequestServer {
    */
   async runJobHandler(job) {
     if (!this._testHandler) {
-      throw new Error('No test handler configured. Call setHandler() first.');
+      throw new Error(
+        'No test handler configured. Call setHandler() first.\n' +
+        'Example: worker.setHandler(async (job) => ({ success: true }))'
+      );
     }
     return await this._testHandler(job);
   }
