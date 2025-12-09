@@ -191,13 +191,31 @@ describe('API Routes', () => {
     });
 
     describe('DELETE /api/scans/:jobId', () => {
-      test('should cancel scan job', async () => {
-        const response = await request(app)
-          .delete('/api/scans/test-job-123');
+      test('should cancel queued scan job', async () => {
+        // First, create a job by starting a scan
+        const startResponse = await request(app)
+          .post('/api/scans/start')
+          .send({ repositoryPath: testRepo.path });
 
-        assert.strictEqual(response.status, 200);
-        assert.ok(response.body.success);
-        assert.strictEqual(response.body.job_id, 'test-job-123');
+        assert.strictEqual(startResponse.status, 201);
+        const jobId = startResponse.body.job_id;
+
+        // Now cancel the job
+        const response = await request(app)
+          .delete(`/api/scans/${jobId}`);
+
+        // Job should be cancelled (200) or already completed (400)
+        assert.ok([200, 400].includes(response.status));
+        assert.strictEqual(response.body.job_id, jobId);
+      });
+
+      test('should return 404 for non-existent job', async () => {
+        const response = await request(app)
+          .delete('/api/scans/non-existent-job-123');
+
+        assert.strictEqual(response.status, 404);
+        assert.strictEqual(response.body.success, false);
+        assert.ok(response.body.message.includes('not found'));
       });
     });
   });
