@@ -437,7 +437,7 @@ export class SidequestServer extends EventEmitter {
 
   /**
    * Allow tests to set a handler via handleJob property
-   * @param {Function} handler - The job handler function
+   * @param {(job: any) => Promise<any>} handler - The job handler function
    */
   set handleJob(handler) {
     this.runJobHandler = handler;
