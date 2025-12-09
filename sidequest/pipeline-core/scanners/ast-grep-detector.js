@@ -123,7 +123,20 @@ export class AstGrepPatternDetector {
             resolve([]);
           }
         } else {
-          const error = /** @type {ProcessError} */ (new Error(`ast-grep exited with code ${code}`));
+          logger.error({
+            code,
+            cwd: repoPath,
+            args,
+            stdout: stdout.slice(-1000),
+            stderr: stderr.slice(-1000)
+          }, `ast-grep exited with code ${code}`);
+
+          const error = /** @type {ProcessError} */ (new Error(
+            `ast-grep exited with code ${code}\n` +
+            `stderr: ${stderr.slice(-200)}\n` +
+            (code === 127 ? 'Binary not found. Install: npm install -g @ast-grep/cli\n' : '') +
+            `Reproduce: cd ${repoPath} && sg ${args.join(' ')}`
+          ));
           error.code = code;
           error.stdout = stdout;
           error.stderr = stderr;
