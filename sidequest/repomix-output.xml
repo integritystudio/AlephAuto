@@ -4,7 +4,7 @@ This file is a merged representation of a subset of the codebase, containing fil
 This section contains a summary of this file.
 
 <purpose>
-This file contains a packed representation of the entire repository's contents.
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
 It is designed to be easily consumable by AI systems for analysis, code review,
 or other automated processes.
 </purpose>
@@ -14,7 +14,8 @@ The content is organized as follows:
 1. This summary section
 2. Repository information
 3. Directory structure
-4. Repository files, each consisting of:
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
   - File path as an attribute
   - Full contents of the file
 </file_format>
@@ -36,10 +37,6 @@ The content is organized as follows:
 - Files matching default ignore patterns are excluded
 - Files are sorted by Git change count (files with more changes are at the bottom)
 </notes>
-
-<additional_info>
-
-</additional_info>
 
 </file_summary>
 
@@ -126,6 +123,7 @@ types/
   duplicate-detection-types.js
   duplicate-detection-types.ts
 utils/
+  dependency-validator.js
   directory-scanner.js
   doppler-resilience.example.js
   doppler-resilience.js
@@ -1252,7 +1250,8 @@ export const config = {
   healthCheckPort: parseInt(process.env.HEALTH_CHECK_PORT || '3000', 10),
 
   // API server port
-  apiPort: parseInt(process.env.JOBS_API_PORT || '8080', 10),
+  // PORT is standard for Render/Heroku, JOBS_API_PORT is our custom env var
+  apiPort: parseInt(process.env.PORT || process.env.JOBS_API_PORT || '8080', 10),
 
   // Doppler resilience configuration
   doppler: {
@@ -1272,6 +1271,20 @@ export const config = {
 
   // Project root directory
   projectRoot: __dirname,
+
+  // Redis configuration for scan result caching
+  redis: {
+    // REDIS_URL is typically provided by hosting platforms (Render, Heroku, etc.)
+    // Format: redis://[user:password@]host:port
+    url: process.env.REDIS_URL || null,
+    // Fallback to individual settings for local development
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6379', 10),
+    // Enable caching when Redis is available
+    enabled: process.env.REDIS_URL !== undefined || process.env.REDIS_HOST !== undefined,
+    // Cache TTL in seconds (default: 30 days)
+    ttl: parseInt(process.env.REDIS_CACHE_TTL || String(30 * 24 * 60 * 60), 10),
+  },
 };
 
 /**
@@ -1332,11 +1345,13 @@ export default config;
 /**
  * SQLite Database for Job History Persistence
  *
- * Stores job history to survive server restarts.
+ * Uses sql.js (pure JavaScript SQLite) for cross-platform compatibility.
+ * No native bindings required - works on any platform.
+ *
  * Located at: data/jobs.db
  */
 
-import Database from 'better-sqlite3';
+import initSqlJs from 'sql.js';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -1349,72 +1364,117 @@ const logger = createComponentLogger('Database');
 const DB_PATH = path.join(__dirname, '../../data/jobs.db');
 
 let db = null;
+let SQL = null;
+let saveTimer = null;
 
 /**
- * Initialize the database connection and create tables
+ * Initialize sql.js and the database
+ * Must be called before any database operations
  */
-export function initDatabase() {
+export async function initDatabase() {
   if (db) return db;
 
-  // Ensure data directory exists
-  const dataDir = path.dirname(DB_PATH);
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
+  try {
+    // Initialize sql.js (loads WASM)
+    SQL = await initSqlJs();
+
+    // Ensure data directory exists
+    const dataDir = path.dirname(DB_PATH);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+
+    // Load existing database or create new one
+    if (fs.existsSync(DB_PATH)) {
+      const fileBuffer = fs.readFileSync(DB_PATH);
+      db = new SQL.Database(fileBuffer);
+      logger.info({ dbPath: DB_PATH }, 'Database loaded from file');
+    } else {
+      db = new SQL.Database();
+      logger.info({ dbPath: DB_PATH }, 'New database created');
+    }
+
+    // Create jobs table if not exists
+    db.run(`
+      CREATE TABLE IF NOT EXISTS jobs (
+        id TEXT PRIMARY KEY,
+        pipeline_id TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'queued',
+        created_at TEXT NOT NULL,
+        started_at TEXT,
+        completed_at TEXT,
+        data TEXT,
+        result TEXT,
+        error TEXT,
+        git TEXT
+      )
+    `);
+
+    // Create indexes
+    db.run('CREATE INDEX IF NOT EXISTS idx_jobs_pipeline_id ON jobs(pipeline_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at DESC)');
+
+    // Save database periodically (every 30 seconds)
+    if (!saveTimer) {
+      saveTimer = setInterval(() => {
+        persistDatabase();
+      }, 30000);
+    }
+
+    logger.info({ dbPath: DB_PATH }, 'Database initialized');
+    return db;
+  } catch (error) {
+    logger.error({ error: error.message }, 'Failed to initialize database');
+    throw error;
   }
+}
 
-  db = new Database(DB_PATH);
+/**
+ * Persist database to file
+ */
+function persistDatabase() {
+  if (!db) return;
 
-  // Enable WAL mode for better concurrent access
-  db.pragma('journal_mode = WAL');
-
-  // Create jobs table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS jobs (
-      id TEXT PRIMARY KEY,
-      pipeline_id TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'queued',
-      created_at TEXT NOT NULL,
-      started_at TEXT,
-      completed_at TEXT,
-      data TEXT,
-      result TEXT,
-      error TEXT,
-      git TEXT
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_jobs_pipeline_id ON jobs(pipeline_id);
-    CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
-    CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at DESC);
-  `);
-
-  logger.info({ dbPath: DB_PATH }, 'Database initialized');
-
-  return db;
+  try {
+    const data = db.export();
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(DB_PATH, buffer);
+    logger.debug({ dbPath: DB_PATH, size: buffer.length }, 'Database persisted to file');
+  } catch (error) {
+    logger.error({ error: error.message }, 'Failed to persist database');
+  }
 }
 
 /**
  * Get database instance (initializes if needed)
+ * Note: This is now synchronous but requires initDatabase() to be called first
  */
 export function getDatabase() {
   if (!db) {
-    return initDatabase();
+    throw new Error('Database not initialized. Call initDatabase() first.');
   }
   return db;
+}
+
+/**
+ * Check if database is initialized
+ */
+export function isDatabaseReady() {
+  return db !== null;
 }
 
 /**
  * Save a job to the database
  */
 export function saveJob(job) {
-  const db = getDatabase();
+  const database = getDatabase();
 
-  const stmt = db.prepare(`
+  database.run(`
     INSERT OR REPLACE INTO jobs
     (id, pipeline_id, status, created_at, started_at, completed_at, data, result, error, git)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  stmt.run(
+  `, [
     job.id,
     job.pipelineId || 'duplicate-detection',
     job.status,
@@ -1425,9 +1485,44 @@ export function saveJob(job) {
     job.result ? JSON.stringify(job.result) : null,
     job.error ? JSON.stringify(job.error) : null,
     job.git ? JSON.stringify(job.git) : null
-  );
+  ]);
+
+  // Persist immediately for important operations
+  persistDatabase();
 
   logger.debug({ jobId: job.id, status: job.status }, 'Job saved to database');
+}
+
+/**
+ * Execute a query and return all results as objects
+ */
+function queryAll(query, params = []) {
+  const database = getDatabase();
+  const stmt = database.prepare(query);
+  stmt.bind(params);
+
+  const results = [];
+  while (stmt.step()) {
+    results.push(stmt.getAsObject());
+  }
+  stmt.free();
+  return results;
+}
+
+/**
+ * Execute a query and return the first result as object
+ */
+function queryOne(query, params = []) {
+  const database = getDatabase();
+  const stmt = database.prepare(query);
+  stmt.bind(params);
+
+  let result = null;
+  if (stmt.step()) {
+    result = stmt.getAsObject();
+  }
+  stmt.free();
+  return result;
 }
 
 /**
@@ -1443,7 +1538,6 @@ export function saveJob(job) {
  * @returns {Array|Object} Array of jobs, or {jobs: Array, total: number} if includeTotal=true
  */
 export function getJobs(pipelineId, options = {}) {
-  const db = getDatabase();
   const { status, limit = 10, offset = 0, tab, includeTotal = false } = options;
 
   // Build count query (only if includeTotal requested)
@@ -1460,9 +1554,8 @@ export function getJobs(pipelineId, options = {}) {
       countParams.push('failed');
     }
 
-    const countStmt = db.prepare(countQuery);
-    const countResult = countStmt.get(...countParams);
-    totalCount = countResult.count;
+    const countResult = queryOne(countQuery, countParams);
+    totalCount = countResult?.count ?? 0;
   }
 
   // Build data query
@@ -1484,10 +1577,9 @@ export function getJobs(pipelineId, options = {}) {
 
   // Apply pagination
   query += ' LIMIT ? OFFSET ?';
-  params.push(String(limit), String(offset));
+  params.push(limit, offset);
 
-  const stmt = db.prepare(query);
-  const rows = stmt.all(...params);
+  const rows = queryAll(query, params);
 
   // Parse JSON fields
   const jobs = rows.map(row => ({
@@ -1515,7 +1607,6 @@ export function getJobs(pipelineId, options = {}) {
  * Get all jobs across all pipelines
  */
 export function getAllJobs(options = {}) {
-  const db = getDatabase();
   const { status, limit = 100, offset = 0 } = options;
 
   let query = 'SELECT * FROM jobs';
@@ -1529,17 +1620,14 @@ export function getAllJobs(options = {}) {
   query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
   params.push(limit, offset);
 
-  const stmt = db.prepare(query);
-  return stmt.all(...params);
+  return queryAll(query, params);
 }
 
 /**
  * Get job counts for a pipeline
  */
 export function getJobCounts(pipelineId) {
-  const db = getDatabase();
-
-  const stmt = db.prepare(`
+  const result = queryOne(`
     SELECT
       COUNT(*) as total,
       SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
@@ -1548,25 +1636,21 @@ export function getJobCounts(pipelineId) {
       SUM(CASE WHEN status = 'queued' THEN 1 ELSE 0 END) as queued
     FROM jobs
     WHERE pipeline_id = ?
-  `);
+  `, [pipelineId]);
 
-  return stmt.get(pipelineId);
+  return result;
 }
 
 /**
  * Get the most recent job for a pipeline
  */
 export function getLastJob(pipelineId) {
-  const db = getDatabase();
-
-  const stmt = db.prepare(`
+  const row = queryOne(`
     SELECT * FROM jobs
     WHERE pipeline_id = ?
     ORDER BY created_at DESC
     LIMIT 1
-  `);
-
-  const row = stmt.get(pipelineId);
+  `, [pipelineId]);
 
   if (!row) return null;
 
@@ -1590,20 +1674,10 @@ export function getLastJob(pipelineId) {
  * Returns statistics for ALL pipelines in the database, including job counts
  * by status and last run timestamp.
  *
- * @returns {Array<{pipeline_id: string, total: number, completed: number, failed: number, running: number, queued: number, last_run: string|null}>} Array of pipeline statistics with pipeline_id, total, completed, failed, running, queued job counts, and last_run ISO timestamp
- *
- * @example
- * const stats = getAllPipelineStats();
- * // Returns: [
- * //   { pipeline_id: 'duplicate-detection', total: 10, completed: 8, failed: 2, ... },
- * //   { pipeline_id: 'repomix', total: 201, completed: 80, failed: 121, ... },
- * //   ...
- * // ]
+ * @returns {Array<{pipeline_id: string, total: number, completed: number, failed: number, running: number, queued: number, last_run: string|null}>}
  */
 export function getAllPipelineStats() {
-  const db = getDatabase();
-
-  const stmt = db.prepare(`
+  return queryAll(`
     SELECT
       pipeline_id,
       COUNT(*) as total,
@@ -1616,23 +1690,18 @@ export function getAllPipelineStats() {
     GROUP BY pipeline_id
     ORDER BY pipeline_id
   `);
-
-  return stmt.all();
 }
 
 /**
  * Import existing reports into the database
  */
 export async function importReportsToDatabase(reportsDir) {
-  const fsModule = await import('fs');
-  const db = getDatabase();
-
-  if (!fsModule.existsSync(reportsDir)) {
+  if (!fs.existsSync(reportsDir)) {
     logger.warn({ reportsDir }, 'Reports directory not found');
     return 0;
   }
 
-  const files = fsModule.readdirSync(reportsDir)
+  const files = fs.readdirSync(reportsDir)
     .filter(f => f.endsWith('-summary.json'));
 
   let imported = 0;
@@ -1640,8 +1709,8 @@ export async function importReportsToDatabase(reportsDir) {
   for (const file of files) {
     try {
       const filePath = path.join(reportsDir, file);
-      const content = JSON.parse(fsModule.readFileSync(filePath, 'utf8'));
-      const stats = fsModule.statSync(filePath);
+      const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      const stats = fs.statSync(filePath);
 
       // Extract date from filename (e.g., inter-project-scan-2repos-2025-11-24-summary.json)
       const dateMatch = file.match(/(\d{4}-\d{2}-\d{2})/);
@@ -1651,7 +1720,7 @@ export async function importReportsToDatabase(reportsDir) {
       const jobId = file.replace('-summary.json', '');
 
       // Check if already imported
-      const existing = db.prepare('SELECT id FROM jobs WHERE id = ?').get(jobId);
+      const existing = queryOne('SELECT id FROM jobs WHERE id = ?', [jobId]);
       if (existing) continue;
 
       // Import as completed job
@@ -1688,15 +1757,12 @@ export async function importReportsToDatabase(reportsDir) {
  * Import job logs from sidequest/logs directory
  */
 export async function importLogsToDatabase(logsDir) {
-  const fsModule = await import('fs');
-  const db = getDatabase();
-
-  if (!fsModule.existsSync(logsDir)) {
+  if (!fs.existsSync(logsDir)) {
     logger.warn({ logsDir }, 'Logs directory not found');
     return 0;
   }
 
-  const files = fsModule.readdirSync(logsDir)
+  const files = fs.readdirSync(logsDir)
     .filter(f => f.endsWith('.json'));
 
   let imported = 0;
@@ -1715,8 +1781,8 @@ export async function importLogsToDatabase(logsDir) {
   for (const file of files) {
     try {
       const filePath = path.join(logsDir, file);
-      const content = JSON.parse(fsModule.readFileSync(filePath, 'utf8'));
-      const stats = fsModule.statSync(filePath);
+      const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      const stats = fs.statSync(filePath);
 
       // Extract pipeline type from filename
       let pipelineId = 'unknown';
@@ -1731,7 +1797,7 @@ export async function importLogsToDatabase(logsDir) {
       const jobId = file.replace('.json', '');
 
       // Check if already imported
-      const existing = db.prepare('SELECT id FROM jobs WHERE id = ?').get(jobId);
+      const existing = queryOne('SELECT id FROM jobs WHERE id = ?', [jobId]);
       if (existing) continue;
 
       // Determine status from content
@@ -1764,7 +1830,14 @@ export async function importLogsToDatabase(logsDir) {
  * Close the database connection
  */
 export function closeDatabase() {
+  if (saveTimer) {
+    clearInterval(saveTimer);
+    saveTimer = null;
+  }
+
   if (db) {
+    // Persist before closing
+    persistDatabase();
     db.close();
     db = null;
     logger.info('Database closed');
@@ -1774,10 +1847,13 @@ export function closeDatabase() {
 export default {
   initDatabase,
   getDatabase,
+  isDatabaseReady,
   saveJob,
   getJobs,
+  getAllJobs,
   getJobCounts,
   getLastJob,
+  getAllPipelineStats,
   importReportsToDatabase,
   importLogsToDatabase,
   closeDatabase
@@ -2009,6 +2085,10 @@ export class SidequestServer extends EventEmitter {
     this.queue = [];
     this.logDir = options.logDir || './logs';
 
+    // Auto-start control: if false, jobs won't process until start() is called
+    // Defaults to true for production, tests can set false
+    this.isRunning = options.autoStart !== false;
+
     // Git workflow options
     this.gitWorkflowEnabled = options.gitWorkflowEnabled ?? false;
     this.gitBranchPrefix = options.gitBranchPrefix || 'automated';
@@ -2090,6 +2170,11 @@ export class SidequestServer extends EventEmitter {
    * Process the job queue
    */
   async processQueue() {
+    // Don't process if not running (allows tests to set handlers before jobs execute)
+    if (this.isRunning === false) {
+      return;
+    }
+
     while (this.queue.length > 0 && this.activeJobs < this.maxConcurrent) {
       const jobId = this.queue.shift();
       const job = this.jobs.get(jobId);
@@ -2396,6 +2481,31 @@ export class SidequestServer extends EventEmitter {
   }
 
   /**
+   * Start processing jobs (no-op, jobs auto-process when created)
+   * Provided for lifecycle compatibility with tests
+   */
+  start() {
+    this.isRunning = true;
+    this.processQueue();
+  }
+
+  /**
+   * Stop processing new jobs
+   * Provided for lifecycle compatibility with tests
+   */
+  stop() {
+    this.isRunning = false;
+  }
+
+  /**
+   * Allow tests to set a handler via handleJob property
+   * @param {(job: any) => Promise<any>} handler - The job handler function
+   */
+  set handleJob(handler) {
+    this.runJobHandler = handler;
+  }
+
+  /**
    * Log job completion to file
    */
   async logJobCompletion(job) {
@@ -2457,6 +2567,241 @@ export class SidequestServer extends EventEmitter {
       active: this.activeJobs,
       completed: this.jobHistory.filter(j => j.status === 'completed').length,
       failed: this.jobHistory.filter(j => j.status === 'failed').length,
+    };
+  }
+
+  /**
+   * Cancel a job
+   * - If queued: removes from queue and marks as cancelled
+   * - If running: marks as cancelled (job may complete current operation)
+   * - If completed/failed: returns false (cannot cancel)
+   *
+   * @param {string} jobId - The ID of the job to cancel
+   * @returns {{success: boolean, message: string, job?: object}} Result of cancellation attempt
+   */
+  cancelJob(jobId) {
+    const job = this.jobs.get(jobId);
+
+    if (!job) {
+      return {
+        success: false,
+        message: `Job ${jobId} not found`
+      };
+    }
+
+    // Cannot cancel completed or failed jobs
+    if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
+      return {
+        success: false,
+        message: `Cannot cancel job with status '${job.status}'`,
+        job
+      };
+    }
+
+    // If queued, remove from queue
+    if (job.status === 'queued') {
+      const queueIndex = this.queue.indexOf(jobId);
+      if (queueIndex > -1) {
+        this.queue.splice(queueIndex, 1);
+      }
+    }
+
+    // Mark job as cancelled
+    job.status = 'cancelled';
+    job.completedAt = new Date();
+    job.error = { message: 'Job cancelled by user', cancelled: true };
+
+    // Persist to database
+    try {
+      saveJob({
+        id: job.id,
+        pipelineId: this.jobType,
+        status: job.status,
+        createdAt: job.createdAt?.toISOString(),
+        startedAt: job.startedAt?.toISOString(),
+        completedAt: job.completedAt?.toISOString(),
+        data: job.data,
+        result: job.result,
+        error: job.error,
+        git: job.git
+      });
+    } catch (dbError) {
+      logger.error({ error: dbError.message, jobId }, 'Failed to persist cancelled job to database');
+    }
+
+    // Emit cancellation event
+    this.emit('job:cancelled', job);
+
+    Sentry.addBreadcrumb({
+      category: 'job',
+      message: `Job ${jobId} cancelled`,
+      level: 'warning',
+      data: { jobId, previousStatus: job.status }
+    });
+
+    logger.info({ jobId, previousStatus: job.status }, 'Job cancelled');
+
+    return {
+      success: true,
+      message: `Job ${jobId} cancelled successfully`,
+      job
+    };
+  }
+
+  /**
+   * Pause a job
+   *
+   * Pauses a queued or running job:
+   * - If queued: removes from queue, marks as paused
+   * - If running: marks as paused (job will stop at next checkpoint)
+   * - If already paused/completed/failed/cancelled: returns false
+   *
+   * @param {string} jobId - The ID of the job to pause
+   * @returns {{success: boolean, message: string, job?: object}} Result of pause attempt
+   */
+  pauseJob(jobId) {
+    const job = this.jobs.get(jobId);
+
+    if (!job) {
+      return {
+        success: false,
+        message: `Job ${jobId} not found`
+      };
+    }
+
+    // Cannot pause completed, failed, cancelled, or already paused jobs
+    if (['completed', 'failed', 'cancelled', 'paused'].includes(job.status)) {
+      return {
+        success: false,
+        message: `Cannot pause job with status '${job.status}'`,
+        job
+      };
+    }
+
+    const previousStatus = job.status;
+
+    // If queued, remove from queue
+    if (job.status === 'queued') {
+      const queueIndex = this.queue.indexOf(jobId);
+      if (queueIndex > -1) {
+        this.queue.splice(queueIndex, 1);
+      }
+    }
+
+    // Mark job as paused
+    job.status = 'paused';
+    job.pausedAt = new Date();
+
+    // Persist to database
+    try {
+      saveJob({
+        id: job.id,
+        pipelineId: this.jobType,
+        status: job.status,
+        createdAt: job.createdAt?.toISOString(),
+        startedAt: job.startedAt?.toISOString(),
+        completedAt: job.completedAt?.toISOString(),
+        data: job.data,
+        result: job.result,
+        error: job.error,
+        git: job.git
+      });
+    } catch (dbError) {
+      logger.error({ error: dbError.message, jobId }, 'Failed to persist paused job to database');
+    }
+
+    // Emit pause event
+    this.emit('job:paused', job);
+
+    Sentry.addBreadcrumb({
+      category: 'job',
+      message: `Job ${jobId} paused`,
+      level: 'info',
+      data: { jobId, previousStatus }
+    });
+
+    logger.info({ jobId, previousStatus }, 'Job paused');
+
+    return {
+      success: true,
+      message: `Job ${jobId} paused successfully`,
+      job
+    };
+  }
+
+  /**
+   * Resume a paused job
+   *
+   * Resumes a paused job by re-queuing it:
+   * - If paused: adds back to queue, marks as queued
+   * - If not paused: returns false
+   *
+   * @param {string} jobId - The ID of the job to resume
+   * @returns {{success: boolean, message: string, job?: object}} Result of resume attempt
+   */
+  resumeJob(jobId) {
+    const job = this.jobs.get(jobId);
+
+    if (!job) {
+      return {
+        success: false,
+        message: `Job ${jobId} not found`
+      };
+    }
+
+    // Can only resume paused jobs
+    if (job.status !== 'paused') {
+      return {
+        success: false,
+        message: `Cannot resume job with status '${job.status}'. Only paused jobs can be resumed.`,
+        job
+      };
+    }
+
+    // Mark job as queued and add back to queue
+    job.status = 'queued';
+    job.resumedAt = new Date();
+    delete job.pausedAt;
+
+    this.queue.push(jobId);
+
+    // Persist to database
+    try {
+      saveJob({
+        id: job.id,
+        pipelineId: this.jobType,
+        status: job.status,
+        createdAt: job.createdAt?.toISOString(),
+        startedAt: job.startedAt?.toISOString(),
+        completedAt: job.completedAt?.toISOString(),
+        data: job.data,
+        result: job.result,
+        error: job.error,
+        git: job.git
+      });
+    } catch (dbError) {
+      logger.error({ error: dbError.message, jobId }, 'Failed to persist resumed job to database');
+    }
+
+    // Emit resume event
+    this.emit('job:resumed', job);
+
+    Sentry.addBreadcrumb({
+      category: 'job',
+      message: `Job ${jobId} resumed`,
+      level: 'info',
+      data: { jobId }
+    });
+
+    logger.info({ jobId }, 'Job resumed');
+
+    // Trigger queue processing
+    this.processQueue();
+
+    return {
+      success: true,
+      message: `Job ${jobId} resumed successfully`,
+      job
     };
   }
 }
@@ -3991,6 +4336,15 @@ export class RepositoryConfigLoader {
  * Classifies errors as retryable (transient) or non-retryable (permanent)
  * to prevent wasted retry attempts on errors that will never succeed.
  *
+ * Architecture: Configuration-driven classification using lookup objects
+ * instead of conditional chains to reduce cyclomatic complexity.
+ *
+ * Classification Priority:
+ * 1. Error codes (Node.js/system errors) - highest priority
+ * 2. HTTP status codes - medium priority
+ * 3. Error message patterns - lowest priority
+ * 4. Default fallback
+ *
  * @module lib/errors/error-classifier
  */
 
@@ -4000,6 +4354,21 @@ export class RepositoryConfigLoader {
 /** @typedef {import('./error-types').ExtendedError} ExtendedError */
 
 /**
+ * @typedef {Object} ErrorClassification
+ * @property {string} category - 'retryable' or 'non_retryable'
+ * @property {string} reason - Human-readable explanation
+ * @property {number} suggestedDelay - Retry delay in milliseconds (0 for non-retryable)
+ */
+
+/**
+ * @typedef {Object} ErrorCodeConfig
+ * @property {boolean} retryable - Whether this error type is retryable
+ * @property {string} description - Human-readable description
+ * @property {number} delay - Suggested retry delay in milliseconds
+ * @property {'filesystem' | 'network' | 'application' | 'http'} group - Error category group
+ */
+
+/**
  * Error categories
  */
 export const ErrorCategory = {
@@ -4007,235 +4376,307 @@ export const ErrorCategory = {
   NON_RETRYABLE: 'non_retryable'
 };
 
-/**
- * Error types that should NOT be retried
- * These represent permanent failures that won't be fixed by retrying
- */
-const NON_RETRYABLE_ERROR_CODES = new Set([
-  // Filesystem errors
-  'ENOENT',      // No such file or directory
-  'ENOTDIR',     // Not a directory
-  'EISDIR',      // Is a directory (when file expected)
-  'EACCES',      // Permission denied
-  'EPERM',       // Operation not permitted
-  'EINVAL',      // Invalid argument
-  'EEXIST',      // File already exists
-
-  // Network errors - permanent
-  'ENOTFOUND',   // DNS resolution failed
-  'ECONNREFUSED',// Connection refused (server not listening)
-
-  // Application errors
-  'ERR_INVALID_ARG_TYPE',
-  'ERR_INVALID_ARG_VALUE',
-  'ERR_MODULE_NOT_FOUND',
-  'ERR_REQUIRE_ESM',
-  'ERR_UNKNOWN_FILE_EXTENSION',
-
-  // HTTP errors - client errors (4xx)
-  'ERR_HTTP_400', // Bad Request
-  'ERR_HTTP_401', // Unauthorized
-  'ERR_HTTP_403', // Forbidden
-  'ERR_HTTP_404', // Not Found
-  'ERR_HTTP_405', // Method Not Allowed
-  'ERR_HTTP_409', // Conflict
-  'ERR_HTTP_422', // Unprocessable Entity
-]);
+// =============================================================================
+// ERROR CODE CONFIGURATION
+// =============================================================================
 
 /**
- * Error types that SHOULD be retried
- * These represent transient failures that may succeed on retry
- */
-const RETRYABLE_ERROR_CODES = new Set([
-  // Network errors - transient
-  'ETIMEDOUT',   // Connection timed out
-  'ECONNRESET',  // Connection reset by peer
-  'EHOSTUNREACH',// Host unreachable
-  'ENETUNREACH', // Network unreachable
-  'EPIPE',       // Broken pipe
-  'EAGAIN',      // Resource temporarily unavailable
-  'EBUSY',       // Resource busy
-
-  // HTTP errors - server errors (5xx)
-  'ERR_HTTP_500', // Internal Server Error
-  'ERR_HTTP_502', // Bad Gateway
-  'ERR_HTTP_503', // Service Unavailable
-  'ERR_HTTP_504', // Gateway Timeout
-]);
-
-/**
- * Error messages that indicate non-retryable errors
- * (case-insensitive matching)
- */
-const NON_RETRYABLE_MESSAGES = [
-  'invalid repository path',
-  'not a git repository',
-  'permission denied',
-  'access denied',
-  'authentication failed',
-  'invalid credentials',
-  'malformed',
-  'invalid format',
-  'parse error',
-  'syntax error',
-  'validation error',
-  'schema error',
-];
-
-/**
- * Error messages that indicate retryable errors
- */
-const RETRYABLE_MESSAGES = [
-  'timeout',
-  'timed out',
-  'connection reset',
-  'service unavailable',
-  'temporarily unavailable',
-  'try again',
-  'rate limit',
-  'too many requests',
-];
-
-/**
- * Classify an error as retryable or non-retryable
+ * Centralized error code configuration.
+ * Each error code maps to its classification properties.
  *
- * @param {Error} error - The error to classify
- * @returns {{category: string, reason: string, suggestedDelay: number}} Classification result with category, reason, and suggested retry delay
+ * @type {Record<string, ErrorCodeConfig>}
  */
-export function classifyError(error) {
-  if (!error) {
+const ERROR_CODE_CONFIG = {
+  // -------------------------------------------------------------------------
+  // Filesystem errors (non-retryable)
+  // -------------------------------------------------------------------------
+  ENOENT: { retryable: false, description: 'No such file or directory', delay: 0, group: 'filesystem' },
+  ENOTDIR: { retryable: false, description: 'Not a directory', delay: 0, group: 'filesystem' },
+  EISDIR: { retryable: false, description: 'Is a directory (when file expected)', delay: 0, group: 'filesystem' },
+  EACCES: { retryable: false, description: 'Permission denied', delay: 0, group: 'filesystem' },
+  EPERM: { retryable: false, description: 'Operation not permitted', delay: 0, group: 'filesystem' },
+  EINVAL: { retryable: false, description: 'Invalid argument', delay: 0, group: 'filesystem' },
+  EEXIST: { retryable: false, description: 'File already exists', delay: 0, group: 'filesystem' },
+
+  // -------------------------------------------------------------------------
+  // Network errors - permanent (non-retryable)
+  // -------------------------------------------------------------------------
+  ENOTFOUND: { retryable: false, description: 'DNS resolution failed', delay: 0, group: 'network' },
+  ECONNREFUSED: { retryable: false, description: 'Connection refused (server not listening)', delay: 0, group: 'network' },
+
+  // -------------------------------------------------------------------------
+  // Network errors - transient (retryable)
+  // -------------------------------------------------------------------------
+  ETIMEDOUT: { retryable: true, description: 'Connection timed out', delay: 10000, group: 'network' },
+  ECONNRESET: { retryable: true, description: 'Connection reset by peer', delay: 5000, group: 'network' },
+  EHOSTUNREACH: { retryable: true, description: 'Host unreachable', delay: 5000, group: 'network' },
+  ENETUNREACH: { retryable: true, description: 'Network unreachable', delay: 5000, group: 'network' },
+  EPIPE: { retryable: true, description: 'Broken pipe', delay: 5000, group: 'network' },
+  EAGAIN: { retryable: true, description: 'Resource temporarily unavailable', delay: 5000, group: 'network' },
+  EBUSY: { retryable: true, description: 'Resource busy', delay: 5000, group: 'network' },
+
+  // -------------------------------------------------------------------------
+  // Application errors (non-retryable)
+  // -------------------------------------------------------------------------
+  ERR_INVALID_ARG_TYPE: { retryable: false, description: 'Invalid argument type', delay: 0, group: 'application' },
+  ERR_INVALID_ARG_VALUE: { retryable: false, description: 'Invalid argument value', delay: 0, group: 'application' },
+  ERR_MODULE_NOT_FOUND: { retryable: false, description: 'Module not found', delay: 0, group: 'application' },
+  ERR_REQUIRE_ESM: { retryable: false, description: 'Cannot require ESM module', delay: 0, group: 'application' },
+  ERR_UNKNOWN_FILE_EXTENSION: { retryable: false, description: 'Unknown file extension', delay: 0, group: 'application' },
+
+  // -------------------------------------------------------------------------
+  // HTTP error codes (non-retryable client errors)
+  // -------------------------------------------------------------------------
+  ERR_HTTP_400: { retryable: false, description: 'Bad Request', delay: 0, group: 'http' },
+  ERR_HTTP_401: { retryable: false, description: 'Unauthorized', delay: 0, group: 'http' },
+  ERR_HTTP_403: { retryable: false, description: 'Forbidden', delay: 0, group: 'http' },
+  ERR_HTTP_404: { retryable: false, description: 'Not Found', delay: 0, group: 'http' },
+  ERR_HTTP_405: { retryable: false, description: 'Method Not Allowed', delay: 0, group: 'http' },
+  ERR_HTTP_409: { retryable: false, description: 'Conflict', delay: 0, group: 'http' },
+  ERR_HTTP_422: { retryable: false, description: 'Unprocessable Entity', delay: 0, group: 'http' },
+
+  // -------------------------------------------------------------------------
+  // HTTP error codes (retryable server errors)
+  // -------------------------------------------------------------------------
+  ERR_HTTP_500: { retryable: true, description: 'Internal Server Error', delay: 10000, group: 'http' },
+  ERR_HTTP_502: { retryable: true, description: 'Bad Gateway', delay: 10000, group: 'http' },
+  ERR_HTTP_503: { retryable: true, description: 'Service Unavailable', delay: 10000, group: 'http' },
+  ERR_HTTP_504: { retryable: true, description: 'Gateway Timeout', delay: 10000, group: 'http' }
+};
+
+// =============================================================================
+// HTTP STATUS CODE CONFIGURATION
+// =============================================================================
+
+/**
+ * HTTP status code ranges and special cases
+ */
+const HTTP_STATUS_CONFIG = {
+  /** Rate limit status code - retryable with long delay */
+  RATE_LIMIT: 429,
+  RATE_LIMIT_DELAY: 60000,
+
+  /** Client error range (4xx) - non-retryable except 429 */
+  CLIENT_ERROR_MIN: 400,
+  CLIENT_ERROR_MAX: 499,
+
+  /** Server error range (5xx) - retryable */
+  SERVER_ERROR_MIN: 500,
+  SERVER_ERROR_MAX: 599,
+  SERVER_ERROR_DELAY: 10000
+};
+
+// =============================================================================
+// MESSAGE PATTERN CONFIGURATION
+// =============================================================================
+
+/**
+ * @typedef {Object} MessagePatternConfig
+ * @property {string} pattern - Substring to match (case-insensitive)
+ * @property {boolean} retryable - Whether this pattern indicates retryable error
+ * @property {number} delay - Suggested retry delay in milliseconds
+ */
+
+/**
+ * Error message patterns for classification.
+ * Checked in order - first match wins.
+ *
+ * @type {MessagePatternConfig[]}
+ */
+const MESSAGE_PATTERNS = [
+  // Non-retryable patterns (checked first for safety)
+  { pattern: 'invalid repository path', retryable: false, delay: 0 },
+  { pattern: 'not a git repository', retryable: false, delay: 0 },
+  { pattern: 'permission denied', retryable: false, delay: 0 },
+  { pattern: 'access denied', retryable: false, delay: 0 },
+  { pattern: 'authentication failed', retryable: false, delay: 0 },
+  { pattern: 'invalid credentials', retryable: false, delay: 0 },
+  { pattern: 'malformed', retryable: false, delay: 0 },
+  { pattern: 'invalid format', retryable: false, delay: 0 },
+  { pattern: 'parse error', retryable: false, delay: 0 },
+  { pattern: 'syntax error', retryable: false, delay: 0 },
+  { pattern: 'validation error', retryable: false, delay: 0 },
+  { pattern: 'schema error', retryable: false, delay: 0 },
+
+  // Retryable patterns
+  { pattern: 'rate limit', retryable: true, delay: 60000 },
+  { pattern: 'too many requests', retryable: true, delay: 60000 },
+  { pattern: 'timeout', retryable: true, delay: 5000 },
+  { pattern: 'timed out', retryable: true, delay: 5000 },
+  { pattern: 'connection reset', retryable: true, delay: 5000 },
+  { pattern: 'service unavailable', retryable: true, delay: 5000 },
+  { pattern: 'temporarily unavailable', retryable: true, delay: 5000 },
+  { pattern: 'try again', retryable: true, delay: 5000 }
+];
+
+// =============================================================================
+// DEFAULT CLASSIFICATION
+// =============================================================================
+
+/**
+ * Default classification for unknown errors.
+ * Conservative approach: treat unknown as retryable to avoid data loss.
+ */
+const DEFAULT_CLASSIFICATION = {
+  category: ErrorCategory.RETRYABLE,
+  reason: 'Unknown error type - defaulting to retryable',
+  suggestedDelay: 5000
+};
+
+/**
+ * Classification for null/undefined errors
+ */
+const NULL_ERROR_CLASSIFICATION = {
+  category: ErrorCategory.NON_RETRYABLE,
+  reason: 'No error provided',
+  suggestedDelay: 0
+};
+
+// =============================================================================
+// CLASSIFICATION FUNCTIONS
+// =============================================================================
+
+/**
+ * Classify error by error code lookup.
+ *
+ * @param {string} errorCode - The error code to classify
+ * @returns {ErrorClassification | null} Classification or null if not found
+ * @private
+ */
+function classifyByErrorCode(errorCode) {
+  const config = ERROR_CODE_CONFIG[errorCode];
+  if (!config) return null;
+
+  return {
+    category: config.retryable ? ErrorCategory.RETRYABLE : ErrorCategory.NON_RETRYABLE,
+    reason: `Error code '${errorCode}' indicates ${config.retryable ? 'transient' : 'permanent'} failure`,
+    suggestedDelay: config.delay
+  };
+}
+
+/**
+ * Classify error by HTTP status code.
+ *
+ * @param {number} statusCode - The HTTP status code
+ * @returns {ErrorClassification | null} Classification or null if not applicable
+ * @private
+ */
+function classifyByHttpStatus(statusCode) {
+  // Rate limit - special case, always retryable
+  if (statusCode === HTTP_STATUS_CONFIG.RATE_LIMIT) {
+    return {
+      category: ErrorCategory.RETRYABLE,
+      reason: `HTTP ${statusCode} indicates rate limit`,
+      suggestedDelay: HTTP_STATUS_CONFIG.RATE_LIMIT_DELAY
+    };
+  }
+
+  // Client errors (4xx except 429) - non-retryable
+  if (statusCode >= HTTP_STATUS_CONFIG.CLIENT_ERROR_MIN &&
+      statusCode <= HTTP_STATUS_CONFIG.CLIENT_ERROR_MAX) {
     return {
       category: ErrorCategory.NON_RETRYABLE,
-      reason: 'No error provided',
+      reason: `HTTP ${statusCode} indicates client error`,
       suggestedDelay: 0
     };
+  }
+
+  // Server errors (5xx) - retryable
+  if (statusCode >= HTTP_STATUS_CONFIG.SERVER_ERROR_MIN &&
+      statusCode <= HTTP_STATUS_CONFIG.SERVER_ERROR_MAX) {
+    return {
+      category: ErrorCategory.RETRYABLE,
+      reason: `HTTP ${statusCode} indicates server error`,
+      suggestedDelay: HTTP_STATUS_CONFIG.SERVER_ERROR_DELAY
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Classify error by message pattern matching.
+ *
+ * @param {string} message - The error message (lowercase)
+ * @returns {ErrorClassification | null} Classification or null if no pattern matches
+ * @private
+ */
+function classifyByMessagePattern(message) {
+  for (const config of MESSAGE_PATTERNS) {
+    if (message.includes(config.pattern)) {
+      return {
+        category: config.retryable ? ErrorCategory.RETRYABLE : ErrorCategory.NON_RETRYABLE,
+        reason: `Error message contains '${config.pattern}'`,
+        suggestedDelay: config.delay
+      };
+    }
+  }
+  return null;
+}
+
+// =============================================================================
+// PUBLIC API
+// =============================================================================
+
+/**
+ * Classify an error as retryable or non-retryable.
+ *
+ * Uses a priority-based classification strategy:
+ * 1. Error codes (highest priority) - direct lookup
+ * 2. HTTP status codes - range-based classification
+ * 3. Message patterns - substring matching
+ * 4. Default (lowest priority) - conservative retryable
+ *
+ * @param {Error} error - The error to classify
+ * @returns {ErrorClassification} Classification result
+ */
+export function classifyError(error) {
+  // Handle null/undefined errors
+  if (!error) {
+    return NULL_ERROR_CLASSIFICATION;
   }
 
   // Extract error properties
   const extError = /** @type {ExtendedError} */ (error);
   const errorCode = extError.code || extError.errno;
-  const errorMessage = error.message?.toLowerCase() || '';
   const httpError = /** @type {HTTPError} */ (error);
   const statusCode = httpError.statusCode || httpError.status;
 
-  // Check error code against known sets
+  // Priority 1: Check error code
   if (errorCode) {
-    // Convert errorCode to string for Set operations
-    const errorCodeStr = String(errorCode);
-
-    if (NON_RETRYABLE_ERROR_CODES.has(errorCodeStr)) {
-      return {
-        category: ErrorCategory.NON_RETRYABLE,
-        reason: `Error code '${errorCodeStr}' indicates permanent failure`,
-        suggestedDelay: 0
-      };
-    }
-
-    if (RETRYABLE_ERROR_CODES.has(errorCodeStr)) {
-      return {
-        category: ErrorCategory.RETRYABLE,
-        reason: `Error code '${errorCodeStr}' indicates transient failure`,
-        suggestedDelay: calculateRetryDelay(errorCodeStr, statusCode)
-      };
-    }
+    const codeClassification = classifyByErrorCode(String(errorCode));
+    if (codeClassification) return codeClassification;
   }
 
-  // Check HTTP status codes
+  // Priority 2: Check HTTP status code
   if (statusCode) {
-    if (statusCode >= 400 && statusCode < 500 && statusCode !== 429) {
-      // 4xx errors (except 429 Too Many Requests) are non-retryable
-      return {
-        category: ErrorCategory.NON_RETRYABLE,
-        reason: `HTTP ${statusCode} indicates client error`,
-        suggestedDelay: 0
-      };
-    }
-
-    if (statusCode >= 500 || statusCode === 429) {
-      // 5xx errors and 429 are retryable
-      return {
-        category: ErrorCategory.RETRYABLE,
-        reason: `HTTP ${statusCode} indicates server error or rate limit`,
-        suggestedDelay: statusCode === 429 ? 60000 : 10000 // 1min for rate limit, 10s otherwise
-      };
-    }
+    const httpClassification = classifyByHttpStatus(statusCode);
+    if (httpClassification) return httpClassification;
   }
 
-  // Check error message patterns
-  for (const pattern of NON_RETRYABLE_MESSAGES) {
-    if (errorMessage.includes(pattern)) {
-      return {
-        category: ErrorCategory.NON_RETRYABLE,
-        reason: `Error message contains '${pattern}'`,
-        suggestedDelay: 0
-      };
-    }
+  // Priority 3: Check message patterns
+  const errorMessage = error.message?.toLowerCase() || '';
+  if (errorMessage) {
+    const messageClassification = classifyByMessagePattern(errorMessage);
+    if (messageClassification) return messageClassification;
   }
 
-  for (const pattern of RETRYABLE_MESSAGES) {
-    if (errorMessage.includes(pattern)) {
-      return {
-        category: ErrorCategory.RETRYABLE,
-        reason: `Error message contains '${pattern}'`,
-        suggestedDelay: pattern.includes('rate limit') ? 60000 : 5000
-      };
-    }
-  }
-
-  // Default to retryable for unknown errors (conservative approach)
-  return {
-    category: ErrorCategory.RETRYABLE,
-    reason: 'Unknown error type - defaulting to retryable',
-    suggestedDelay: 5000
-  };
+  // Priority 4: Default classification
+  return DEFAULT_CLASSIFICATION;
 }
 
 /**
- * Check if an error is retryable
+ * Check if an error is retryable.
  *
  * @param {Error} error - The error to check
  * @returns {boolean} True if the error should be retried
  */
 export function isRetryable(error) {
-  const classification = classifyError(error);
-  return classification.category === ErrorCategory.RETRYABLE;
+  return classifyError(error).category === ErrorCategory.RETRYABLE;
 }
 
 /**
- * Calculate suggested retry delay based on error type
- *
- * @param {string} errorCode - Error code
- * @param {number} [statusCode] - HTTP status code (if applicable)
- * @returns {number} Suggested delay in milliseconds
- * @private
- */
-function calculateRetryDelay(errorCode, statusCode) {
-  // Rate limiting
-  if (statusCode === 429) {
-    return 60000; // 1 minute
-  }
-
-  // Network timeouts
-  if (errorCode === 'ETIMEDOUT') {
-    return 10000; // 10 seconds
-  }
-
-  // Connection errors
-  if (['ECONNRESET', 'ECONNREFUSED', 'EPIPE'].includes(errorCode)) {
-    return 5000; // 5 seconds
-  }
-
-  // Server errors
-  if (statusCode && statusCode >= 500) {
-    return 10000; // 10 seconds
-  }
-
-  // Default
-  return 5000; // 5 seconds
-}
-
-/**
- * Get detailed error information
+ * Get detailed error information including classification.
  *
  * @param {Error} error - The error to analyze
  * @returns {Object} Detailed error information
@@ -4260,7 +4701,30 @@ export function getErrorInfo(error) {
 }
 
 /**
- * Create a ScanError with classification
+ * Determine error category group for a given error.
+ *
+ * @param {Error} error - The error to categorize
+ * @returns {'network' | 'file_system' | 'http' | 'database' | 'unknown'} Category group
+ * @private
+ */
+function getErrorCategoryGroup(error) {
+  const classification = classifyError(error);
+  const reason = classification.reason.toLowerCase();
+
+  if (reason.includes('network') || reason.includes('connection') || reason.includes('timeout')) {
+    return 'network';
+  }
+  if (reason.includes('http')) {
+    return 'http';
+  }
+  if (reason.includes('file') || reason.includes('directory') || reason.includes('permission')) {
+    return 'file_system';
+  }
+  return 'unknown';
+}
+
+/**
+ * Create a ScanError with classification.
  *
  * @param {string} message - Error message
  * @param {Error} cause - Original error
@@ -4285,12 +4749,13 @@ export function createScanError(message, cause) {
   }
 
   // Add classification
-  const classification = classifyError(cause || error);
+  const errorToClassify = cause || error;
+  const classification = classifyError(errorToClassify);
+  const categoryGroup = getErrorCategoryGroup(errorToClassify);
+
   classifiedError.retryable = classification.category === ErrorCategory.RETRYABLE;
   classifiedError.classification = {
-    category: classification.reason.includes('network') ? 'network' :
-              classification.reason.includes('HTTP') ? 'http' :
-              classification.reason.includes('file') ? 'file_system' : 'unknown',
+    category: categoryGroup,
     retryable: classification.category === ErrorCategory.RETRYABLE,
     severity: classification.category === ErrorCategory.NON_RETRYABLE ? 'high' : 'medium'
   };
@@ -10144,7 +10609,20 @@ export class AstGrepPatternDetector {
             resolve([]);
           }
         } else {
-          const error = /** @type {ProcessError} */ (new Error(`ast-grep exited with code ${code}`));
+          logger.error({
+            code,
+            cwd: repoPath,
+            args,
+            stdout: stdout.slice(-1000),
+            stderr: stderr.slice(-1000)
+          }, `ast-grep exited with code ${code}`);
+
+          const error = /** @type {ProcessError} */ (new Error(
+            `ast-grep exited with code ${code}\n` +
+            `stderr: ${stderr.slice(-200)}\n` +
+            (code === 127 ? 'Binary not found. Install: npm install -g @ast-grep/cli\n' : '') +
+            `Reproduce: cd ${repoPath} && sg ${args.join(' ')}`
+          ));
           error.code = code;
           error.stdout = stdout;
           error.stderr = stderr;
@@ -15494,6 +15972,7 @@ import { HTMLReportGenerator } from './reports/html-report-generator.js';
 import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
 import { InterProjectScanner } from './inter-project-scanner.js';
 import { createComponentLogger } from '../utils/logger.js';
+import { DependencyValidator } from '../utils/dependency-validator.js';
 import { spawn, ChildProcess, execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
@@ -15793,6 +16272,7 @@ export class ScanOrchestrator {
   private readonly patternDetector: AstGrepPatternDetector;
   private pythonPath: string | null;
   private _pythonValidated: boolean;
+  private _dependenciesValidated: boolean = false;
   private readonly extractorScript: string;
   private readonly reportConfig: ReportOptions;
   private readonly outputDir: string;
@@ -15831,21 +16311,22 @@ export class ScanOrchestrator {
   }
 
   /**
-   * Validate and detect Python path (lazy initialization)
+   * Detect Python path (lazy initialization)
    * Only called when Python is actually needed for a scan
+   * Note: DependencyValidator.validateAll() handles the actual validation
    */
-  private _validatePython(): void {
+  private _detectPythonPath(): void {
     if (this._pythonValidated) {
-      return; // Already validated
+      return; // Already detected
     }
 
     if (this.pythonPath) {
-      // Explicitly provided path - validate it exists
+      // Explicitly provided path - use it
       this._pythonValidated = true;
       return;
     }
 
-    // Auto-detect Python path
+    // Auto-detect Python path (validation done by DependencyValidator)
     const venvPython = path.join(process.cwd(), 'venv/bin/python3');
     const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
 
@@ -15855,25 +16336,12 @@ export class ScanOrchestrator {
       logger.info({ pythonPath: venvPython }, 'Using venv Python');
     } else {
       // CI/production: use system Python
-      try {
-        // Verify system Python is available and has required packages
-        execSync('python3 -c "import pydantic"', {
-          stdio: 'ignore',
-          timeout: 3000
-        });
-        this.pythonPath = 'python3';
-        logger.info({
-          pythonPath: 'python3',
-          isCI,
-          reason: existsSync(venvPython) ? 'CI environment detected' : 'venv not found'
-        }, 'Using system Python');
-      } catch (error) {
-        logger.error({ error }, 'Python validation failed');
-        throw new Error(
-          'Python not available. Please install Python 3.11+ with pydantic package, ' +
-          'or run in an environment with venv/bin/python3'
-        );
-      }
+      this.pythonPath = 'python3';
+      logger.info({
+        pythonPath: 'python3',
+        isCI,
+        reason: existsSync(venvPython) ? 'CI environment detected' : 'venv not found'
+      }, 'Using system Python');
     }
 
     this._pythonValidated = true;
@@ -15909,6 +16377,12 @@ export class ScanOrchestrator {
     logger.info({ repoPath }, 'Starting repository duplicate scan');
 
     try {
+      // Validate dependencies once per scanner instance
+      if (!this._dependenciesValidated) {
+        await DependencyValidator.validateAll();
+        this._dependenciesValidated = true;
+      }
+
       // Stage 1: Repository scanning
       logger.info('Stage 1/7: Scanning repository with repomix');
       const repoScan: RepositoryScanOutput = await this.repositoryScanner.scanRepository(
@@ -15976,8 +16450,8 @@ export class ScanOrchestrator {
    * Run Python pipeline for extraction, grouping, and reporting
    */
   private async runPythonPipeline(data: PythonPipelineInput): Promise<PythonPipelineOutput> {
-    // Lazy validation: Only validate Python when actually needed
-    this._validatePython();
+    // Lazy detection: Only detect Python path when actually needed
+    this._detectPythonPath();
 
     return new Promise<PythonPipelineOutput>((resolve, reject) => {
       logger.debug('Launching Python extraction pipeline');
@@ -20785,6 +21259,166 @@ export function isInterProjectJobResult(result: JobResult): result is InterProje
 }
 </file>
 
+<file path="utils/dependency-validator.js">
+/**
+ * DependencyValidator - Pre-flight validation for external dependencies
+ *
+ * Validates that required tools (repomix, ast-grep, Python) are available
+ * before running the duplicate detection pipeline.
+ *
+ * @module dependency-validator
+ */
+
+import { execSync } from 'child_process';
+import { createComponentLogger } from './logger.js';
+
+const logger = createComponentLogger('DependencyValidator');
+
+/**
+ * Error thrown when dependency validation fails
+ */
+export class DependencyValidationError extends Error {
+  /**
+   * @param {string[]} failures - Array of failure messages
+   */
+  constructor(failures) {
+    super(`Dependency validation failed:\n${failures.map(f => `  - ${f}`).join('\n')}`);
+    this.failures = failures;
+    this.name = 'DependencyValidationError';
+  }
+}
+
+/**
+ * DependencyValidator - Validates external tool dependencies
+ *
+ * Checks for:
+ * - repomix (via npx)
+ * - ast-grep (global binary or via npx)
+ * - Python 3.11+ (venv or system)
+ */
+export class DependencyValidator {
+  /**
+   * Validate all required dependencies
+   * @throws {DependencyValidationError} If any dependency is missing
+   */
+  static async validateAll() {
+    const results = await Promise.allSettled([
+      this.validateRepomix(),
+      this.validateAstGrep(),
+      this.validatePython()
+    ]);
+
+    const failures = results
+      .filter(r => r.status === 'rejected')
+      .map(r => r.reason.message);
+
+    if (failures.length > 0) {
+      logger.error({ failures }, 'Dependency validation failed');
+      throw new DependencyValidationError(failures);
+    }
+
+    logger.info('All dependencies validated successfully');
+  }
+
+  /**
+   * Validate repomix is available
+   * @throws {Error} If repomix is not available
+   */
+  static async validateRepomix() {
+    try {
+      execSync('npx repomix --version', {
+        stdio: 'ignore',
+        timeout: 30000,
+        env: process.env
+      });
+      logger.debug('repomix validation passed');
+    } catch (error) {
+      throw new Error(
+        'repomix not available. Install: npm install\n' +
+        'Or verify package.json includes "repomix" dependency.'
+      );
+    }
+  }
+
+  /**
+   * Validate ast-grep is available
+   * Tries global binary first, then falls back to npx
+   * @throws {Error} If ast-grep is not available
+   */
+  static async validateAstGrep() {
+    // Try global binary first
+    try {
+      execSync('sg --version', {
+        stdio: 'ignore',
+        timeout: 5000
+      });
+      logger.debug('ast-grep validation passed (global binary)');
+      return;
+    } catch {
+      // Global binary not found, try npx fallback
+    }
+
+    // Fallback to npx (slower but works)
+    try {
+      execSync('npx @ast-grep/cli --version', {
+        stdio: 'ignore',
+        timeout: 30000,
+        env: process.env
+      });
+      logger.debug('ast-grep validation passed (via npx)');
+    } catch (error) {
+      throw new Error(
+        'ast-grep not available. Install:\n' +
+        '  Global: npm install -g @ast-grep/cli\n' +
+        '  Local: npm install (already in optionalDependencies)'
+      );
+    }
+  }
+
+  /**
+   * Validate Python 3.11+ is available
+   * Tries venv first, then falls back to system Python
+   * @returns {Promise<string>} The Python path that passed validation
+   * @throws {Error} If Python 3.11+ is not available
+   */
+  static async validatePython() {
+    const pythonPaths = [
+      { path: 'venv/bin/python3', name: 'venv' },
+      { path: 'python3', name: 'system' }
+    ];
+
+    for (const { path: pythonPath, name } of pythonPaths) {
+      try {
+        const version = execSync(`${pythonPath} --version`, {
+          encoding: 'utf-8',
+          timeout: 5000
+        });
+
+        const match = version.match(/Python (\d+)\.(\d+)/);
+        if (match) {
+          const major = parseInt(match[1]);
+          const minor = parseInt(match[2]);
+
+          if (major >= 3 && minor >= 11) {
+            logger.debug({ pythonPath, version: `${major}.${minor}`, name }, 'Python validation passed');
+            return pythonPath;
+          }
+        }
+      } catch {
+        // This Python path not available, try next
+      }
+    }
+
+    throw new Error(
+      'Python 3.11+ not available. Install:\n' +
+      '  macOS: brew install python@3.11\n' +
+      '  Ubuntu: sudo apt install python3.11\n' +
+      'Or create venv: python3 -m venv venv'
+    );
+  }
+}
+</file>
+
 <file path="utils/directory-scanner.js">
 import fs from 'fs/promises';
 import path from 'path';
@@ -24293,8 +24927,9 @@ const logger = createComponentLogger('ClaudeHealth');
 class ClaudeHealthWorker extends SidequestServer {
   constructor(options = {}) {
     super({
+      ...options,
+      jobType: 'claude-health',
       maxConcurrent: options.maxConcurrent ?? 1, // Single concurrent health check
-      ...options
     });
 
     this.claudeDir = path.join(process.env.HOME, '.claude');
@@ -25066,9 +25701,10 @@ const MAX_ABSOLUTE_RETRIES = 5;
 export class DuplicateDetectionWorker extends SidequestServer {
   constructor(options = {}) {
     super({
+      ...options,
+      jobType: 'duplicate-detection',
       maxConcurrent: options.maxConcurrentScans || 3,
       logDir: path.join(process.cwd(), 'logs', 'duplicate-detection'),
-      ...options
     });
 
     this.configLoader = new RepositoryConfigLoader(options.configPath);
@@ -25813,7 +26449,10 @@ const logger = createComponentLogger('GitActivityWorker');
  */
 export class GitActivityWorker extends SidequestServer {
   constructor(options = {}) {
-    super(options);
+    super({
+      ...options,
+      jobType: 'git-activity',
+    });
     this.codeBaseDir = options.codeBaseDir || path.join(os.homedir(), 'code');
     this.pythonScript = options.pythonScript || path.join(
       path.dirname(new URL(import.meta.url).pathname),
@@ -26180,7 +26819,10 @@ const logger = createComponentLogger('GitignoreWorker');
  */
 export class GitignoreWorker extends SidequestServer {
   constructor(options = {}) {
-    super(options);
+    super({
+      ...options,
+      jobType: 'gitignore-manager',
+    });
     this.baseDir = options.baseDir || path.join(os.homedir(), 'code');
     this.excludeDirs = options.excludeDirs || [
       'node_modules',
@@ -26737,7 +27379,10 @@ const logger = createComponentLogger('RepomixWorker');
  */
 export class RepomixWorker extends SidequestServer {
   constructor(options = {}) {
-    super(options);
+    super({
+      ...options,
+      jobType: 'repomix',
+    });
     this.outputBaseDir = options.outputBaseDir || './condense';
     this.codeBaseDir = options.codeBaseDir || path.join(os.homedir(), 'code');
 
@@ -26906,7 +27551,19 @@ export class RepomixWorker extends SidequestServer {
         if (code === 0) {
           resolve({ stdout, stderr });
         } else {
-          const error = new Error(`repomix exited with code ${code}`);
+          logger.error({
+            code,
+            cwd,
+            args,
+            stdout: stdout.slice(-1000),
+            stderr: stderr.slice(-1000)
+          }, `repomix exited with code ${code}`);
+
+          const error = new Error(
+            `repomix exited with code ${code}\n` +
+            `stderr: ${stderr.slice(-200)}\n` +
+            `Reproduce: cd ${cwd} && npx repomix ${args.slice(1).join(' ')}`
+          );
           error.code = code;
           error.stdout = stdout;
           error.stderr = stderr;
