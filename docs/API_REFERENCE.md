@@ -791,5 +791,5 @@ curl -X POST http://localhost:8080/api/pipelines/duplicate-detection/trigger \
 
 ---
 
-**Last Updated:** 2024-01-15
+**Last Updated:** 2025-11-26
 **Version:** 1.6.1

@@ -387,6 +387,6 @@ For questions:
 
 ---
 
-**Last Updated:** 2025-11-17
+**Last Updated:** 2025-11-18
 **Version:** 1.0
 **Location:** `/Users/alyshialedlie/code/jobs/docs/`

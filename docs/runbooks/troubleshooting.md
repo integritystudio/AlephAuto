@@ -815,5 +815,5 @@ sqlite3 data/jobs.db "SELECT * FROM jobs ORDER BY createdAt DESC LIMIT 10;"
 
 ---
 
-**Last Updated:** 2025-11-24
+**Last Updated:** 2025-11-30
 **Version:** 1.6.4

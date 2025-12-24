@@ -1337,7 +1337,7 @@ sudo kill -9 $(sudo lsof -t -i:8080)
 
 ---
 
-**Last Updated:** 2025-11-17
+**Last Updated:** 2025-11-30
 **Deployment Method:** Traditional Server (PM2 + Doppler + Nginx)
 **Difficulty:** Intermediate
 **Estimated Setup Time:** 1-2 hours
