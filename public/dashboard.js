@@ -11,10 +11,22 @@
  */
 
 /**
+ * @typedef {Object} TrackingAPI
+ * @property {function(string, Object=): void} trackEvent
+ * @property {function(string, string, Object=): void} trackPipeline
+ * @property {function(string, string, string, Object=): void} trackJob
+ * @property {function(string): void} trackDocTab
+ * @property {function(string, string, Object=): void} trackPanel
+ * @property {function(string, string, Object=): void} trackError
+ * @property {function(string): void} trackConnectionStatus
+ */
+
+/**
  * Global type declarations for window extensions
  * @typedef {Object} DashboardGlobals
  * @property {DashboardController} [dashboardController]
  * @property {string} [SIDEQUEST_API_BASE_URL]
+ * @property {TrackingAPI} [AlephTracking]
  */
 
 /** @type {Window & typeof globalThis & DashboardGlobals} */
@@ -560,6 +572,7 @@ class DashboardController {
                 this.reconnectDelay = 1000;
                 this.updateSystemStatus('healthy', 'Connected');
                 this.addActivity('info', 'WebSocket connection established');
+                win.AlephTracking?.trackConnectionStatus('connected');
             };
 
             this.ws.onmessage = (event) => {
@@ -576,6 +589,7 @@ class DashboardController {
             };
 
             this.ws.onclose = () => {
+                win.AlephTracking?.trackConnectionStatus('disconnected');
                 this.scheduleReconnect();
             };
 
@@ -594,6 +608,7 @@ class DashboardController {
             console.log('WebSocket unavailable, switching to polling mode');
             this.usingPolling = true;
             this.updateSystemStatus('healthy', 'Polling');
+            win.AlephTracking?.trackConnectionStatus('polling_fallback');
             this.startPolling();
             return;
         }
@@ -1096,6 +1111,11 @@ class DashboardController {
             tab.addEventListener('click', () => {
                 const targetDoc = /** @type {HTMLElement} */ (tab).dataset.doc;
 
+                // Track documentation tab view
+                if (targetDoc) {
+                    win.AlephTracking?.trackDocTab(targetDoc);
+                }
+
                 // Update active tab
                 tabs.forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
@@ -1229,6 +1249,9 @@ class DashboardController {
      */
     async openPipelinePanel(pipelineId) {
         console.log('Opening pipeline panel:', pipelineId);
+
+        // Track pipeline panel open
+        win.AlephTracking?.trackPipeline('view', pipelineId);
 
         // Store the triggering element for focus return
         this.panelTriggerElement = document.activeElement;
