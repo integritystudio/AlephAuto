@@ -71,12 +71,14 @@ export function validateRequest(schema: ZodSchema) {
 
 /**
  * Validate query parameters
+ * Stores validated data in req.validatedQuery to avoid read-only req.query
  */
 export function validateQuery(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const validated = schema.parse(req.query);
-      req.query = validated;
+      // Store in custom property since req.query is read-only
+      (req as any).validatedQuery = validated;
       next();
     } catch (error) {
       if (error instanceof ZodError) {

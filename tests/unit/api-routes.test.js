@@ -1,21 +1,67 @@
-import { test, describe, beforeEach, afterEach } from 'node:test';
+import { test, describe, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import request from 'supertest';
 import express from 'express';
-import scanRoutes, { worker } from '../../api/routes/scans.js';
-import repositoryRoutes from '../../api/routes/repositories.js';
-import reportRoutes from '../../api/routes/reports.js';
-import {
-  createTempRepository,
-  createMultipleTempRepositories,
-  cleanupRepositories,
-  waitForQueueDrain
-} from '../fixtures/test-helpers.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DB_PATH = path.join(__dirname, '../../data/jobs.db');
+
+// Dynamic imports to control initialization order
+let scanRoutes, worker, repositoryRoutes, reportRoutes;
+let closeDatabase, initDatabase;
+let createTempRepository, createMultipleTempRepositories, cleanupRepositories, waitForQueueDrain;
 
 describe('API Routes', () => {
   let app;
   let testRepo;
   let multiRepos;
+
+  // Initialize fresh database before all tests
+  before(async () => {
+    // Delete corrupted database file if it exists (before importing modules)
+    if (fs.existsSync(DB_PATH)) {
+      fs.unlinkSync(DB_PATH);
+    }
+    // Also delete WAL files
+    [DB_PATH + '-shm', DB_PATH + '-wal'].forEach(f => {
+      if (fs.existsSync(f)) fs.unlinkSync(f);
+    });
+
+    // Now import modules (will create fresh database)
+    const dbModule = await import('../../sidequest/core/database.js');
+    closeDatabase = dbModule.closeDatabase;
+    initDatabase = dbModule.initDatabase;
+    await initDatabase();
+
+    const scanModule = await import('../../api/routes/scans.js');
+    scanRoutes = scanModule.default;
+    worker = scanModule.worker;
+
+    const repoModule = await import('../../api/routes/repositories.js');
+    repositoryRoutes = repoModule.default;
+
+    const reportModule = await import('../../api/routes/reports.js');
+    reportRoutes = reportModule.default;
+
+    const helpersModule = await import('../fixtures/test-helpers.js');
+    createTempRepository = helpersModule.createTempRepository;
+    createMultipleTempRepositories = helpersModule.createMultipleTempRepositories;
+    cleanupRepositories = helpersModule.cleanupRepositories;
+    waitForQueueDrain = helpersModule.waitForQueueDrain;
+  });
+
+  // Stop worker and close database after all tests
+  after(async () => {
+    if (worker) worker.stop();
+    // Wait for any pending jobs to finish
+    if (worker && waitForQueueDrain) {
+      await waitForQueueDrain(worker, { timeout: 5000 });
+    }
+    if (closeDatabase) closeDatabase();
+  });
 
   beforeEach(async () => {
     // Create fresh Express app for each test
@@ -191,13 +237,31 @@ describe('API Routes', () => {
     });
 
     describe('DELETE /api/scans/:jobId', () => {
-      test('should cancel scan job', async () => {
-        const response = await request(app)
-          .delete('/api/scans/test-job-123');
+      test('should cancel queued scan job', async () => {
+        // First, create a job by starting a scan
+        const startResponse = await request(app)
+          .post('/api/scans/start')
+          .send({ repositoryPath: testRepo.path });
 
-        assert.strictEqual(response.status, 200);
-        assert.ok(response.body.success);
-        assert.strictEqual(response.body.job_id, 'test-job-123');
+        assert.strictEqual(startResponse.status, 201);
+        const jobId = startResponse.body.job_id;
+
+        // Now cancel the job
+        const response = await request(app)
+          .delete(`/api/scans/${jobId}`);
+
+        // Job should be cancelled (200) or already completed (400)
+        assert.ok([200, 400].includes(response.status));
+        assert.strictEqual(response.body.job_id, jobId);
+      });
+
+      test('should return 404 for non-existent job', async () => {
+        const response = await request(app)
+          .delete('/api/scans/non-existent-job-123');
+
+        assert.strictEqual(response.status, 404);
+        assert.strictEqual(response.body.success, false);
+        assert.ok(response.body.message.includes('not found'));
       });
     });
   });
