@@ -592,6 +592,7 @@ async function triggerPipelineJob(pipelineId, parameters) {
         } else {
             // Single file mode - use worker directly
             pipelineWorker.createJob(jobId, {
+                type: pipelineId,
                 readmePath: parameters.readmePath,
                 relativePath: parameters.relativePath || parameters.readmePath,
                 context: parameters.context || {},
@@ -604,6 +605,7 @@ async function triggerPipelineJob(pipelineId, parameters) {
         // Workers extend SidequestServer which provides createJob method
         if (typeof pipelineWorker.createJob === 'function') {
             pipelineWorker.createJob(jobId, {
+                type: pipelineId,
                 ...parameters,
                 triggeredBy: 'api',
                 triggeredAt: new Date().toISOString()
@@ -612,6 +614,7 @@ async function triggerPipelineJob(pipelineId, parameters) {
             // Some workers use scheduleJob instead
             pipelineWorker.scheduleJob({
                 id: jobId,
+                type: pipelineId,
                 ...parameters,
                 triggeredBy: 'api',
                 triggeredAt: new Date().toISOString()
@@ -621,6 +624,7 @@ async function triggerPipelineJob(pipelineId, parameters) {
             await pipelineWorker.addJob({
                 id: jobId,
                 data: {
+                    type: pipelineId,
                     ...parameters,
                     triggeredBy: 'api',
                     triggeredAt: new Date().toISOString()
@@ -632,7 +636,7 @@ async function triggerPipelineJob(pipelineId, parameters) {
             pipelineWorker.emit('job:created', {
                 id: jobId,
                 status: 'queued',
-                data: parameters,
+                data: { type: pipelineId, ...parameters },
                 createdAt: new Date()
             });
         }
