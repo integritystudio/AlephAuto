@@ -28,6 +28,23 @@ class WorkerRegistry {
   constructor() {
     this._workers = new Map();
     this._initializing = new Map();
+    this._activityFeed = null;
+  }
+
+  /**
+   * Set the activity feed manager to connect workers for real-time updates
+   *
+   * @param {import('../activity-feed.js').ActivityFeedManager} activityFeed - Activity feed manager
+   */
+  setActivityFeed(activityFeed) {
+    this._activityFeed = activityFeed;
+
+    // Connect any existing workers
+    for (const worker of this._workers.values()) {
+      activityFeed.listenToWorker(worker);
+    }
+
+    logger.info({ workerCount: this._workers.size }, 'Activity feed connected to worker registry');
   }
 
   /**
@@ -160,6 +177,12 @@ class WorkerRegistry {
     if (worker.initialize && typeof worker.initialize === 'function') {
       // @ts-ignore
       await worker.initialize();
+    }
+
+    // Connect worker to activity feed for real-time WebSocket updates
+    if (this._activityFeed) {
+      this._activityFeed.listenToWorker(worker);
+      logger.info({ pipelineId }, 'Worker connected to activity feed for WebSocket broadcasts');
     }
 
     logger.info({ pipelineId }, 'Worker initialized successfully');

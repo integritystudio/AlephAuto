@@ -272,6 +272,9 @@ const activityFeed = new ActivityFeedManager(broadcaster, { maxActivities: 50 })
 // Connect activity feed to worker events
 activityFeed.listenToWorker(worker);
 
+// Connect activity feed to WorkerRegistry for dynamically created workers
+workerRegistry.setActivityFeed(activityFeed);
+
 // Make broadcaster and activity feed available to routes
 app.set('broadcaster', broadcaster);
 app.set('activityFeed', activityFeed);
