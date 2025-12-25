@@ -191,8 +191,16 @@ export class ActivityFeedManager {
       // Job completed
       worker.on('job:completed', (job) => {
         try {
-          const duration = job.result?.duration_seconds
-            ? `${job.result.duration_seconds.toFixed(2)}s`
+          // Calculate duration from timestamps, fallback to result.duration_seconds
+          let durationSeconds = job.result?.duration_seconds;
+          if (!durationSeconds && job.startedAt && job.completedAt) {
+            const startTime = job.startedAt instanceof Date ? job.startedAt : new Date(job.startedAt);
+            const endTime = job.completedAt instanceof Date ? job.completedAt : new Date(job.completedAt);
+            durationSeconds = (endTime.getTime() - startTime.getTime()) / 1000;
+          }
+
+          const duration = durationSeconds != null
+            ? `${durationSeconds.toFixed(2)}s`
             : 'unknown duration';
 
           this.addActivity({
@@ -202,7 +210,7 @@ export class ActivityFeedManager {
             jobId: job.id,
             jobType: job.data?.type || 'unknown',
             status: 'completed',
-            duration: job.result?.duration_seconds,
+            duration: durationSeconds,
             icon: '✅'
           });
         } catch (error) {
