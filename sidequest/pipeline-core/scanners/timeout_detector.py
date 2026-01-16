@@ -14,18 +14,23 @@ Usage:
 Author: Derived from AnalyticsBot dashboard debugging session
 """
 
-import os
-import sys
-import re
+from __future__ import annotations
+
 import json
+import re
+import sys
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import List, Dict, Any
-from dataclasses import dataclass, asdict
+from typing import TYPE_CHECKING, Any, Callable
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 @dataclass
 class Finding:
-    """Represents a single finding"""
+    """Represents a single finding."""
+
     file_path: str
     line_number: int
     severity: str
@@ -35,199 +40,262 @@ class Finding:
     recommendation: str
 
 
+@dataclass
+class FileContext:
+    """Context for scanning a single file."""
+
+    file_path: Path
+    content: str
+    lines: list[str]
+
+    def has_text_in_range(self, text: str, start_line: int, num_lines: int) -> bool:
+        """Check if text exists within a range of lines."""
+        end = min(start_line + num_lines, len(self.lines))
+        return any(text in self.lines[j] for j in range(start_line - 1, end))
+
+    def has_pattern_in_range(
+        self, pattern: str, start_line: int, num_lines: int
+    ) -> bool:
+        """Check if regex pattern matches within a range of lines."""
+        end = min(start_line + num_lines, len(self.lines))
+        return any(re.search(pattern, self.lines[j]) for j in range(start_line - 1, end))
+
+
+# ---------------------------------------------------------------------------
+# Pattern Detector Functions
+# ---------------------------------------------------------------------------
+# Each detector returns a Finding if the pattern matches, None otherwise.
+# This approach replaces nested if-statements with focused, testable functions.
+# ---------------------------------------------------------------------------
+
+
+def _detect_promise_race_no_timeout(
+    ctx: FileContext, line_num: int, line: str
+) -> Finding | None:
+    """Detect Promise.race() without timeout wrapper."""
+    if 'Promise.race' not in line:
+        return None
+    if 'timeout' in line.lower():
+        return None
+
+    return Finding(
+        file_path=str(ctx.file_path),
+        line_number=line_num,
+        severity='high',
+        category='promise_race_no_timeout',
+        message='Promise.race() without timeout wrapper',
+        code_snippet=line.strip(),
+        recommendation='Wrap with withTimeout() or add setTimeout rejection',
+    )
+
+
+def _detect_loading_without_finally(
+    ctx: FileContext, line_num: int, line: str
+) -> Finding | None:
+    """Detect setLoading(true) without finally block."""
+    if 'setLoading(true)' not in line and 'setLoading( true )' not in line:
+        return None
+
+    if ctx.has_text_in_range('finally', line_num, 20):
+        return None
+
+    return Finding(
+        file_path=str(ctx.file_path),
+        line_number=line_num,
+        severity='medium',
+        category='loading_without_finally',
+        message='setLoading(true) without finally block',
+        code_snippet=line.strip(),
+        recommendation='Add finally block with setLoading(false)',
+    )
+
+
+def _detect_async_no_error_handling(
+    ctx: FileContext, line_num: int, line: str
+) -> Finding | None:
+    """Detect async function without try-catch."""
+    if not re.match(r'^\s*async\s+(function|\w+)\s*\(', line):
+        return None
+
+    has_try = ctx.has_pattern_in_range(r'\btry\b', line_num, 50)
+    has_catch = ctx.has_pattern_in_range(r'\bcatch\b', line_num, 50)
+
+    if has_try and has_catch:
+        return None
+
+    return Finding(
+        file_path=str(ctx.file_path),
+        line_number=line_num,
+        severity='low',
+        category='async_no_error_handling',
+        message='Async function without try-catch',
+        code_snippet=line.strip(),
+        recommendation='Add try-catch block for error handling',
+    )
+
+
+def _detect_settimeout_no_cleanup(
+    ctx: FileContext, line_num: int, line: str
+) -> Finding | None:
+    """Detect setTimeout without clearTimeout cleanup."""
+    if 'setTimeout' not in line:
+        return None
+    if 'clearTimeout' in ctx.content:
+        return None
+    if 'reject' not in line and 'timeout' not in line.lower():
+        return None
+    if 'clearTimeout' in ctx.content or 'return () =>' in ctx.content:
+        return None
+
+    return Finding(
+        file_path=str(ctx.file_path),
+        line_number=line_num,
+        severity='low',
+        category='settimeout_no_cleanup',
+        message='setTimeout without cleanup in useEffect/cleanup',
+        code_snippet=line.strip(),
+        recommendation='Add cleanup function: return () => clearTimeout(timeoutId)',
+    )
+
+
+# Registry of all pattern detectors
+PATTERN_DETECTORS: list[Callable[[FileContext, int, str], Finding | None]] = [
+    _detect_promise_race_no_timeout,
+    _detect_loading_without_finally,
+    _detect_async_no_error_handling,
+    _detect_settimeout_no_cleanup,
+]
+
+
+# ---------------------------------------------------------------------------
+# Excluded Directories
+# ---------------------------------------------------------------------------
+
+EXCLUDED_DIRS = frozenset({'node_modules', '.git', 'dist', 'build'})
+
+
+def _should_include_file(file_path: Path) -> bool:
+    """Check if file should be included in scan."""
+    return not any(excluded in file_path.parts for excluded in EXCLUDED_DIRS)
+
+
 class TimeoutDetector:
-    """Detects timeout and infinite loading patterns in codebases"""
+    """Detects timeout and infinite loading patterns in codebases."""
 
-    def __init__(self, logger=None):
+    def __init__(self, logger: Callable[[str], None] | None = None) -> None:
         self.logger = logger or print
-        self.findings: List[Finding] = []
+        self.findings: list[Finding] = []
 
-    def scan_directory(self, repo_path: str) -> Dict[str, Any]:
-        """Scan a directory for timeout patterns"""
-        repo_path = Path(repo_path)
+    def scan_directory(self, repo_path: str) -> dict[str, Any]:
+        """Scan a directory for timeout patterns."""
+        path = Path(repo_path)
+        self.logger(f"Scanning: {path}")
 
-        self.logger(f"Scanning: {repo_path}")
-
-        # Find all TypeScript/JavaScript/Python files
-        extensions = ['.ts', '.tsx', '.js', '.jsx', '.py']
-        files = []
-
-        for ext in extensions:
-            files.extend(repo_path.rglob(f'*{ext}'))
-
-        # Skip node_modules and other common excludes
-        files = [
-            f for f in files
-            if 'node_modules' not in str(f)
-            and '.git' not in str(f)
-            and 'dist' not in str(f)
-            and 'build' not in str(f)
-        ]
-
+        files = list(self._find_files(path))
         self.logger(f"Found {len(files)} files to scan")
 
-        # Scan each file
         for file_path in files:
             self._scan_file(file_path)
 
-        # Generate statistics
-        stats = self._calculate_statistics()
-
         return {
             'findings': [asdict(f) for f in self.findings],
-            'statistics': stats
+            'statistics': self._calculate_statistics(),
         }
 
-    def _scan_file(self, file_path: Path):
-        """Scan a single file for patterns"""
+    def _find_files(self, repo_path: Path) -> Iterator[Path]:
+        """Find all scannable files in repository."""
+        extensions = {'.ts', '.tsx', '.js', '.jsx', '.py'}
+        for ext in extensions:
+            for file_path in repo_path.rglob(f'*{ext}'):
+                if _should_include_file(file_path):
+                    yield file_path
+
+    def _scan_file(self, file_path: Path) -> None:
+        """Scan a single file for patterns."""
         try:
             content = file_path.read_text(encoding='utf-8')
-            lines = content.split('\n')
+        except (OSError, UnicodeDecodeError) as e:
+            self.logger(f"Error reading {file_path}: {e}")
+            return
 
-            for i, line in enumerate(lines, start=1):
-                # Pattern 1: Promise.race without timeout
-                if 'Promise.race' in line and 'timeout' not in line.lower():
-                    self.findings.append(Finding(
-                        file_path=str(file_path),
-                        line_number=i,
-                        severity='high',
-                        category='promise_race_no_timeout',
-                        message='Promise.race() without timeout wrapper',
-                        code_snippet=line.strip(),
-                        recommendation='Wrap with withTimeout() or add setTimeout rejection'
-                    ))
+        ctx = FileContext(file_path=file_path, content=content, lines=content.split('\n'))
 
-                # Pattern 2: setLoading(true) without finally
-                if 'setLoading(true)' in line or 'setLoading( true )' in line:
-                    # Check if there's a finally block in the next 20 lines
-                    has_finally = any(
-                        'finally' in lines[j]
-                        for j in range(i, min(i + 20, len(lines)))
-                    )
+        for line_num, line in enumerate(ctx.lines, start=1):
+            self._check_line(ctx, line_num, line)
 
-                    if not has_finally:
-                        self.findings.append(Finding(
-                            file_path=str(file_path),
-                            line_number=i,
-                            severity='medium',
-                            category='loading_without_finally',
-                            message='setLoading(true) without finally block',
-                            code_snippet=line.strip(),
-                            recommendation='Add finally block with setLoading(false)'
-                        ))
+    def _check_line(self, ctx: FileContext, line_num: int, line: str) -> None:
+        """Check a line against all pattern detectors."""
+        for detector in PATTERN_DETECTORS:
+            finding = detector(ctx, line_num, line)
+            if finding:
+                self.findings.append(finding)
 
-                # Pattern 3: async function without try-catch
-                if re.match(r'^\s*async\s+(function|\w+)\s*\(', line):
-                    # Look ahead for try-catch
-                    has_try_catch = any(
-                        re.search(r'\btry\b', lines[j]) and re.search(r'\bcatch\b', lines[j + 10] if j + 10 < len(lines) else '')
-                        for j in range(i, min(i + 50, len(lines)))
-                    )
+    def _calculate_statistics(self) -> dict[str, Any]:
+        """Calculate statistics from findings."""
+        from collections import Counter
 
-                    if not has_try_catch:
-                        self.findings.append(Finding(
-                            file_path=str(file_path),
-                            line_number=i,
-                            severity='low',
-                            category='async_no_error_handling',
-                            message='Async function without try-catch',
-                            code_snippet=line.strip(),
-                            recommendation='Add try-catch block for error handling'
-                        ))
-
-                # Pattern 4: setTimeout without clearTimeout
-                if 'setTimeout' in line and 'clearTimeout' not in content:
-                    # Check if it's part of a timeout pattern
-                    if 'reject' in line or 'timeout' in line.lower():
-                        # This is likely a timeout pattern, check for cleanup
-                        has_cleanup = 'clearTimeout' in content or 'return () =>' in content
-
-                        if not has_cleanup:
-                            self.findings.append(Finding(
-                                file_path=str(file_path),
-                                line_number=i,
-                                severity='low',
-                                category='settimeout_no_cleanup',
-                                message='setTimeout without cleanup in useEffect/cleanup',
-                                code_snippet=line.strip(),
-                                recommendation='Add cleanup function: return () => clearTimeout(timeoutId)'
-                            ))
-
-        except Exception as e:
-            self.logger(f"Error scanning {file_path}: {e}")
-
-    def _calculate_statistics(self) -> Dict[str, Any]:
-        """Calculate statistics from findings"""
-        severity_breakdown = {}
-        category_breakdown = {}
-        files_affected = set()
-
-        for finding in self.findings:
-            # Severity
-            severity_breakdown[finding.severity] = severity_breakdown.get(finding.severity, 0) + 1
-
-            # Category
-            category_breakdown[finding.category] = category_breakdown.get(finding.category, 0) + 1
-
-            # Files
-            files_affected.add(finding.file_path)
+        severity_counts = Counter(f.severity for f in self.findings)
+        category_counts = Counter(f.category for f in self.findings)
+        files_affected = {f.file_path for f in self.findings}
 
         return {
             'total_findings': len(self.findings),
             'files_affected': len(files_affected),
-            'severity_breakdown': severity_breakdown,
-            'category_breakdown': category_breakdown
+            'severity_breakdown': dict(severity_counts),
+            'category_breakdown': dict(category_counts),
         }
 
-    def generate_report(self, results: Dict[str, Any]) -> str:
-        """Generate markdown report"""
+    def generate_report(self, results: dict[str, Any]) -> str:
+        """Generate markdown report."""
+        stats = results['statistics']
         lines = [
             '# Timeout Pattern Detection Report',
             '',
             '## Statistics',
             '',
-            f"- **Total Findings:** {results['statistics']['total_findings']}",
-            f"- **Files Affected:** {results['statistics']['files_affected']}",
+            f"- **Total Findings:** {stats['total_findings']}",
+            f"- **Files Affected:** {stats['files_affected']}",
             '',
             '### Severity Breakdown',
-            ''
+            '',
         ]
 
-        for severity, count in results['statistics']['severity_breakdown'].items():
-            emoji = {'high': '🔴', 'medium': '🟡', 'low': '🟢'}.get(severity, '⚪')
+        severity_emoji = {'high': '🔴', 'medium': '🟡', 'low': '🟢'}
+        for severity, count in stats['severity_breakdown'].items():
+            emoji = severity_emoji.get(severity, '⚪')
             lines.append(f"- {emoji} **{severity.upper()}:** {count}")
 
         lines.extend(['', '### Category Breakdown', ''])
-
-        for category, count in results['statistics']['category_breakdown'].items():
+        for category, count in stats['category_breakdown'].items():
             lines.append(f"- **{category}:** {count}")
 
         lines.extend(['', '## Findings', ''])
-
-        # Group by severity
-        for severity in ['high', 'medium', 'low']:
-            severity_findings = [
-                f for f in self.findings
-                if f.severity == severity
-            ]
-
-            if severity_findings:
-                lines.extend([f'### {severity.upper()} Severity ({len(severity_findings)})', ''])
-
-                for finding in severity_findings[:10]:  # Limit to 10 per severity
-                    lines.extend([
-                        f"**{finding.file_path}:{finding.line_number}**",
-                        f"- Category: {finding.category}",
-                        f"- Message: {finding.message}",
-                        f"- Code: `{finding.code_snippet}`",
-                        f"- Recommendation: {finding.recommendation}",
-                        ''
-                    ])
-
-                if len(severity_findings) > 10:
-                    lines.append(f"*... and {len(severity_findings) - 10} more*\n")
+        self._add_findings_by_severity(lines)
 
         return '\n'.join(lines)
+
+    def _add_findings_by_severity(self, lines: list[str], max_per_severity: int = 10) -> None:
+        """Add findings grouped by severity to report lines."""
+        for severity in ('high', 'medium', 'low'):
+            severity_findings = [f for f in self.findings if f.severity == severity]
+            if not severity_findings:
+                continue
+
+            lines.extend([f'### {severity.upper()} Severity ({len(severity_findings)})', ''])
+
+            for finding in severity_findings[:max_per_severity]:
+                lines.extend([
+                    f"**{finding.file_path}:{finding.line_number}**",
+                    f"- Category: {finding.category}",
+                    f"- Message: {finding.message}",
+                    f"- Code: `{finding.code_snippet}`",
+                    f"- Recommendation: {finding.recommendation}",
+                    '',
+                ])
+
+            remaining = len(severity_findings) - max_per_severity
+            if remaining > 0:
+                lines.append(f"*... and {remaining} more*\n")
 
 
 def main():
