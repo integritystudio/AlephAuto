@@ -273,6 +273,60 @@ def validate_exact_group_semantics(group_blocks: List['CodeBlock']) -> tuple:
     return True, "semantically_compatible"
 
 
+def _try_accept_group(
+    group_blocks: List['CodeBlock'],
+    similarity_score: float,
+    similarity_method: str,
+    groups: list,
+    grouped_block_ids: set,
+    layer_name: str,
+    validate_semantics: bool = False
+) -> bool:
+    """Try to accept a candidate group through validation pipeline.
+
+    Args:
+        group_blocks: Candidate blocks for the group
+        similarity_score: Similarity score for the group
+        similarity_method: Method used ('exact_match' or 'structural')
+        groups: List to append accepted groups to
+        grouped_block_ids: Set to mark grouped block IDs
+        layer_name: Name for debug logging ('Layer 1', 'Layer 2')
+        validate_semantics: Whether to run semantic validation (Layer 1 only)
+
+    Returns:
+        True if group was accepted, False otherwise
+    """
+    if len(group_blocks) < 2:
+        return False
+
+    func_names = _extract_function_names(group_blocks)
+
+    # Optional semantic validation (Layer 1 exact matches only)
+    if validate_semantics:
+        is_valid, reason = validate_exact_group_semantics(group_blocks)
+        if not is_valid:
+            print(f"DEBUG: {layer_name} group REJECTED (semantic): {func_names} - {reason}", file=sys.stderr)
+            return False
+
+    # Check group quality
+    quality_score = calculate_group_quality_score(group_blocks, similarity_score)
+
+    if quality_score < MIN_GROUP_QUALITY:
+        print(f"DEBUG: {layer_name} group REJECTED (quality): {func_names} (quality={quality_score:.2f})", file=sys.stderr)
+        return False
+
+    # Accept group
+    group = _create_duplicate_group(group_blocks, similarity_score, similarity_method)
+    groups.append(group)
+
+    # Mark blocks as grouped
+    for block in group_blocks:
+        grouped_block_ids.add(block.block_id)
+
+    print(f"DEBUG: {layer_name} group ACCEPTED: {func_names} (quality={quality_score:.2f})", file=sys.stderr)
+    return True
+
+
 def group_by_similarity(
     blocks: List['CodeBlock'],
     similarity_threshold: float = 0.90
@@ -306,33 +360,12 @@ def group_by_similarity(
     exact_groups = _group_by_exact_hash(complex_blocks)
 
     for hash_val, group_blocks in exact_groups.items():
-        if len(group_blocks) >= 2:
-            func_names = _extract_function_names(group_blocks)
-            print(f"DEBUG: Layer 1 exact group candidate: {func_names} (hash={hash_val[:8]})", file=sys.stderr)
-
-            # ✅ NEW: Validate semantic compatibility BEFORE accepting group
-            is_valid, reason = validate_exact_group_semantics(group_blocks)
-            if not is_valid:
-                print(f"DEBUG: Layer 1 group REJECTED (semantic): {func_names} - {reason}", file=sys.stderr)
-                continue  # Skip this group - semantic mismatch detected
-
-            # Check group quality
-            quality_score = calculate_group_quality_score(group_blocks, 1.0)
-
-            if quality_score >= MIN_GROUP_QUALITY:
-                group = _create_duplicate_group(
-                    group_blocks,
-                    similarity_score=1.0,
-                    similarity_method='exact_match'  # Must match pydantic enum
-                )
-                groups.append(group)
-                print(f"DEBUG: Layer 1 group ACCEPTED: {func_names} (quality={quality_score:.2f})", file=sys.stderr)
-
-                # Mark these blocks as grouped
-                for block in group_blocks:
-                    grouped_block_ids.add(block.block_id)
-            else:
-                print(f"DEBUG: Layer 1 group REJECTED (quality): {func_names} (quality={quality_score:.2f})", file=sys.stderr)
+        print(f"DEBUG: Layer 1 exact group candidate: {_extract_function_names(group_blocks)} (hash={hash_val[:8]})", file=sys.stderr)
+        _try_accept_group(
+            group_blocks, 1.0, 'exact_match',
+            groups, grouped_block_ids, 'Layer 1',
+            validate_semantics=True
+        )
 
     print(f"Layer 1: Found {len(groups)} exact duplicate groups", file=sys.stderr)
 
@@ -340,31 +373,16 @@ def group_by_similarity(
     ungrouped_blocks = [b for b in complex_blocks if b.block_id not in grouped_block_ids]
     print(f"Layer 2: Checking {len(ungrouped_blocks)} remaining blocks for structural similarity...", file=sys.stderr)
 
-    structural_groups = _group_by_structural_similarity(
-        ungrouped_blocks,
-        similarity_threshold
-    )
+    structural_groups = _group_by_structural_similarity(ungrouped_blocks, similarity_threshold)
+    layer1_count = len(groups)
 
     for group_blocks, similarity_score in structural_groups:
-        if len(group_blocks) >= 2:
-            # Check group quality
-            quality_score = calculate_group_quality_score(group_blocks, similarity_score)
+        _try_accept_group(
+            group_blocks, similarity_score, 'structural',
+            groups, grouped_block_ids, 'Layer 2'
+        )
 
-            if quality_score >= MIN_GROUP_QUALITY:
-                group = _create_duplicate_group(
-                    group_blocks,
-                    similarity_score=similarity_score,
-                    similarity_method='structural'
-                )
-                groups.append(group)
-            else:
-                print(f"Warning: Structural group rejected (quality={quality_score:.2f} < {MIN_GROUP_QUALITY}): {[b.block_id for b in group_blocks]}", file=sys.stderr)
-
-            # Mark these blocks as grouped
-            for block in group_blocks:
-                grouped_block_ids.add(block.block_id)
-
-    print(f"Layer 2: Found {len(structural_groups)} structural duplicate groups", file=sys.stderr)
+    print(f"Layer 2: Found {len(groups) - layer1_count} structural duplicate groups", file=sys.stderr)
 
     # TODO: Layer 3 - Semantic similarity
     # Group remaining blocks by category + semantic tags
