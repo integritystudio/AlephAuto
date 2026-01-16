@@ -9,7 +9,10 @@ Combines:
 - Layer 3: Semantic equivalence (category + tags) [TODO]
 """
 
-from typing import List, Dict, Set
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import List, Dict, Set, Callable, Any
 from collections import defaultdict
 from pathlib import Path
 import sys
@@ -44,6 +47,94 @@ MIN_COMPLEXITY_THRESHOLD = {
 
 # Minimum quality threshold for duplicate groups
 MIN_GROUP_QUALITY = float(os.getenv('MIN_GROUP_QUALITY', '0.70'))  # Groups must score at least 70% quality
+
+# Opposite logical operator pairs for semantic validation
+OPPOSITE_OPERATOR_PAIRS: list[tuple[set[str], set[str]]] = [
+    ({'==='}, {'!=='}),
+    ({'=='}, {'!='}),
+]
+
+
+# ---------------------------------------------------------------------------
+# Semantic Check Infrastructure
+# ---------------------------------------------------------------------------
+
+@dataclass
+class SemanticCheckResult:
+    """Result of a semantic compatibility check."""
+    is_valid: bool
+    reason: str
+    details: tuple[Any, Any] | None = None
+
+
+def _check_method_chain(code1: str, code2: str) -> SemanticCheckResult:
+    """Check for method chain differences."""
+    chain1 = extract_method_chain(code1)
+    chain2 = extract_method_chain(code2)
+    if chain1 != chain2:
+        return SemanticCheckResult(False, 'method_chain_mismatch', (chain1, chain2))
+    return SemanticCheckResult(True, 'ok')
+
+
+def _check_http_status_codes(code1: str, code2: str) -> SemanticCheckResult:
+    """Check for HTTP status code differences."""
+    status1 = extract_http_status_codes(code1)
+    status2 = extract_http_status_codes(code2)
+    if status1 and status2 and status1 != status2:
+        return SemanticCheckResult(False, 'status_code_mismatch', (status1, status2))
+    return SemanticCheckResult(True, 'ok')
+
+
+def _check_logical_operators(code1: str, code2: str) -> SemanticCheckResult:
+    """Check for opposite logical operators."""
+    ops1 = extract_logical_operators(code1)
+    ops2 = extract_logical_operators(code2)
+    for pair1, pair2 in OPPOSITE_OPERATOR_PAIRS:
+        has_opposite = (
+            (pair1.issubset(ops1) and pair2.issubset(ops2)) or
+            (pair2.issubset(ops1) and pair1.issubset(ops2))
+        )
+        if has_opposite:
+            return SemanticCheckResult(False, 'opposite_logic', (ops1, ops2))
+    return SemanticCheckResult(True, 'ok')
+
+
+def _check_semantic_methods(code1: str, code2: str) -> SemanticCheckResult:
+    """Check for semantic method opposites (e.g., Math.max vs Math.min)."""
+    methods1 = extract_semantic_methods(code1)
+    methods2 = extract_semantic_methods(code2)
+    if methods1 and methods2 and methods1 != methods2:
+        return SemanticCheckResult(False, 'semantic_method_mismatch', (methods1, methods2))
+    return SemanticCheckResult(True, 'ok')
+
+
+# Registry of semantic checks to run on code pairs
+SEMANTIC_CHECKS: list[Callable[[str, str], SemanticCheckResult]] = [
+    _check_method_chain,
+    _check_http_status_codes,
+    _check_logical_operators,
+    _check_semantic_methods,
+]
+
+
+def _extract_function_names(blocks: list) -> list[str]:
+    """Extract function names from block tags."""
+    func_names = []
+    for block in blocks:
+        for tag in block.tags:
+            if tag.startswith('function:'):
+                func_names.append(tag[9:])
+                break
+    return func_names
+
+
+def _run_semantic_checks(code1: str, code2: str) -> SemanticCheckResult:
+    """Run all semantic checks on a code pair."""
+    for check in SEMANTIC_CHECKS:
+        result = check(code1, code2)
+        if not result.is_valid:
+            return result
+    return SemanticCheckResult(True, 'semantically_compatible')
 
 
 def calculate_code_complexity(source_code: str) -> dict:
@@ -164,57 +255,20 @@ def validate_exact_group_semantics(group_blocks: List['CodeBlock']) -> tuple:
     if len(group_blocks) < 2:
         return True, "single_block"
 
-    # Extract function names for logging
-    func_names = []
-    for block in group_blocks:
-        for tag in block.tags:
-            if tag.startswith('function:'):
-                func_names.append(tag[9:])
-                break
+    func_names = _extract_function_names(group_blocks)
 
     # Check all pairs for semantic differences
     for i in range(len(group_blocks)):
         for j in range(i + 1, len(group_blocks)):
-            code1 = group_blocks[i].source_code
-            code2 = group_blocks[j].source_code
-
-            # Check 1: Method chain differences
-            chain1 = extract_method_chain(code1)
-            chain2 = extract_method_chain(code2)
-            if chain1 != chain2:
-                print(f"DEBUG: Layer 1 REJECTED - Method chain mismatch: {func_names}", file=sys.stderr)
-                print(f"       {chain1} vs {chain2}", file=sys.stderr)
-                return False, f"method_chain_mismatch: {chain1} vs {chain2}"
-
-            # Check 2: HTTP status code differences
-            status1 = extract_http_status_codes(code1)
-            status2 = extract_http_status_codes(code2)
-            if status1 and status2 and status1 != status2:
-                print(f"DEBUG: Layer 1 REJECTED - Status code mismatch: {func_names}", file=sys.stderr)
-                print(f"       {status1} vs {status2}", file=sys.stderr)
-                return False, f"status_code_mismatch: {status1} vs {status2}"
-
-            # Check 3: Logical operator opposites
-            ops1 = extract_logical_operators(code1)
-            ops2 = extract_logical_operators(code2)
-            opposite_pairs = [
-                ({'==='}, {'!=='}),
-                ({'=='}, {'!='}),
-            ]
-            for pair1, pair2 in opposite_pairs:
-                if (pair1.issubset(ops1) and pair2.issubset(ops2)) or \
-                   (pair2.issubset(ops1) and pair1.issubset(ops2)):
-                    print(f"DEBUG: Layer 1 REJECTED - Opposite logic: {func_names}", file=sys.stderr)
-                    print(f"       {ops1} vs {ops2}", file=sys.stderr)
-                    return False, f"opposite_logic: {ops1} vs {ops2}"
-
-            # Check 4: Semantic method opposites (Math.max vs Math.min)
-            methods1 = extract_semantic_methods(code1)
-            methods2 = extract_semantic_methods(code2)
-            if methods1 and methods2 and methods1 != methods2:
-                print(f"DEBUG: Layer 1 REJECTED - Semantic method mismatch: {func_names}", file=sys.stderr)
-                print(f"       {methods1} vs {methods2}", file=sys.stderr)
-                return False, f"semantic_method_mismatch: {methods1} vs {methods2}"
+            result = _run_semantic_checks(
+                group_blocks[i].source_code,
+                group_blocks[j].source_code
+            )
+            if not result.is_valid:
+                print(f"DEBUG: Layer 1 REJECTED - {result.reason}: {func_names}", file=sys.stderr)
+                if result.details:
+                    print(f"       {result.details[0]} vs {result.details[1]}", file=sys.stderr)
+                return False, f"{result.reason}: {result.details[0]} vs {result.details[1]}"
 
     return True, "semantically_compatible"
 
@@ -253,14 +307,7 @@ def group_by_similarity(
 
     for hash_val, group_blocks in exact_groups.items():
         if len(group_blocks) >= 2:
-            # Extract function names for debug logging
-            func_names = []
-            for block in group_blocks:
-                for tag in block.tags:
-                    if tag.startswith('function:'):
-                        func_names.append(tag[9:])
-                        break
-
+            func_names = _extract_function_names(group_blocks)
             print(f"DEBUG: Layer 1 exact group candidate: {func_names} (hash={hash_val[:8]})", file=sys.stderr)
 
             # ✅ NEW: Validate semantic compatibility BEFORE accepting group
@@ -336,12 +383,9 @@ def _group_by_exact_hash(blocks: List['CodeBlock']) -> Dict[str, List['CodeBlock
 
         # Debug: Show first 20 blocks and their hashes
         if i < 20:
-            func_name = None
-            for tag in block.tags:
-                if tag.startswith('function:'):
-                    func_name = tag[9:]
-                    break
-            print(f"Warning: DEBUG hash block {i}: {func_name or 'unknown'} at {block.location.file_path}:{block.location.line_start}, hash={hash_val[:8]}, code_len={len(block.source_code)}", file=sys.stderr)
+            func_names = _extract_function_names([block])
+            func_name = func_names[0] if func_names else 'unknown'
+            print(f"Warning: DEBUG hash block {i}: {func_name} at {block.location.file_path}:{block.location.line_start}, hash={hash_val[:8]}, code_len={len(block.source_code)}", file=sys.stderr)
 
     return hash_groups
 
