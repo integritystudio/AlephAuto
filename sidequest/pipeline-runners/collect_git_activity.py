@@ -281,6 +281,124 @@ def create_bar_chart_svg(data, title, output_file, width=800, height=600):
     print(f"Created: {output_file.name}")
 
 
+# ---------------------------------------------------------------------------
+# Helper Functions for Main
+# ---------------------------------------------------------------------------
+
+def _calculate_date_range(args) -> tuple[str, str | None] | None:
+    """Calculate date range from command line arguments.
+
+    Returns:
+        (since_date, until_date) tuple, or None if invalid arguments
+    """
+    # Handle shorthand flags
+    if args.weekly:
+        args.days = 7
+    elif args.monthly:
+        args.days = 30
+
+    if args.days:
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=args.days)
+        return start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')
+
+    if args.start_date:
+        return args.start_date, args.end_date
+
+    return None
+
+
+def _resolve_output_dir(args) -> Path:
+    """Resolve output directory from arguments or use default."""
+    if args.output_dir:
+        return Path(args.output_dir)
+
+    year = datetime.now().year
+    return Path.home() / 'code' / 'PersonalSite' / 'assets' / 'images' / f'git-activity-{year}'
+
+
+def _collect_repository_stats(repos: list[Path], since_date: str, until_date: str | None) -> tuple[list, list]:
+    """Collect statistics from all repositories.
+
+    Returns:
+        (repositories, all_files) tuple
+    """
+    print("\nCollecting commit statistics...")
+    repositories = []
+    all_files = []
+
+    for repo in repos:
+        stats = get_repo_stats(repo, since_date, until_date)
+        if stats and stats['commits'] > 0:
+            repositories.append(stats)
+            all_files.extend(stats['files'])
+
+    repositories.sort(key=lambda x: x['commits'], reverse=True)
+    return repositories, all_files
+
+
+def _compile_activity_data(
+    repositories: list,
+    all_files: list,
+    since_date: str,
+    until_date: str | None
+) -> dict:
+    """Compile all activity data into a single dictionary."""
+    print("\nAnalyzing programming languages...")
+    language_stats = analyze_languages(all_files)
+
+    print("\nDiscovering project websites...")
+    websites = find_project_websites(repositories)
+
+    print("\nCategorizing projects...")
+    categories = categorize_repositories(repositories)
+
+    return {
+        'date_range': {
+            'start': since_date,
+            'end': until_date or datetime.now().strftime('%Y-%m-%d')
+        },
+        'total_commits': sum(r['commits'] for r in repositories),
+        'total_repositories': len(repositories),
+        'total_files': len(all_files),
+        'repositories': repositories,
+        'languages': language_stats,
+        'websites': websites,
+        'categories': {
+            cat: [{'name': r['name'], 'commits': r['commits']} for r in repos]
+            for cat, repos in categories.items()
+        }
+    }
+
+
+def _print_summary(data: dict, output_dir: Path) -> None:
+    """Print activity summary to console."""
+    repositories = data['repositories']
+    language_stats = data['languages']
+    websites = data['websites']
+
+    print(f"\n{'='*60}")
+    print("Summary")
+    print(f"{'='*60}")
+    print(f"Total commits: {data['total_commits']}")
+    print(f"Active repositories: {len(repositories)}")
+    print(f"File changes: {data['total_files']}")
+    print(f"Languages detected: {len(language_stats)}")
+    print(f"Websites found: {len(websites)}")
+
+    print("\nTop 5 repositories:")
+    for i, repo in enumerate(repositories[:5], 1):
+        print(f"  {i}. {repo['name']}: {repo['commits']} commits")
+
+    print("\nTop 5 languages:")
+    sorted_langs = sorted(language_stats.items(), key=lambda x: x[1], reverse=True)
+    for i, (lang, count) in enumerate(sorted_langs[:5], 1):
+        print(f"  {i}. {lang}: {count} files")
+
+    print(f"\n✅ Complete! Visualizations saved to: {output_dir}")
+    print(f"{'='*60}\n")
+
+
 def generate_visualizations(data, output_dir):
     """Generate all SVG visualizations"""
     print("\nGenerating SVG visualizations...")
@@ -342,74 +460,27 @@ def main():
     args = parser.parse_args()
 
     # Calculate date range
-    if args.weekly:
-        args.days = 7
-    elif args.monthly:
-        args.days = 30
-
-    if args.days:
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=args.days)
-        since_date = start_date.strftime('%Y-%m-%d')
-        until_date = end_date.strftime('%Y-%m-%d')
-    elif args.start_date:
-        since_date = args.start_date
-        until_date = args.end_date
-    else:
+    date_range = _calculate_date_range(args)
+    if date_range is None:
         print("Error: Must specify --start-date, --days, --weekly, or --monthly")
         return 1
 
+    since_date, until_date = date_range
+
+    # Print header
     print(f"\n{'='*60}")
-    print(f"Git Activity Report Generator")
+    print("Git Activity Report Generator")
     print(f"{'='*60}")
     print(f"Date range: {since_date} to {until_date or 'now'}")
     print(f"Scan depth: {args.max_depth} directories")
     print(f"{'='*60}\n")
 
-    # Find repositories
+    # Find and process repositories
     repos = find_git_repos(args.max_depth)
+    repositories, all_files = _collect_repository_stats(repos, since_date, until_date)
 
-    # Collect statistics
-    print("\nCollecting commit statistics...")
-    repositories = []
-    all_files = []
-
-    for repo in repos:
-        stats = get_repo_stats(repo, since_date, until_date)
-        if stats and stats['commits'] > 0:
-            repositories.append(stats)
-            all_files.extend(stats['files'])
-
-    repositories.sort(key=lambda x: x['commits'], reverse=True)
-
-    # Analyze languages
-    print("\nAnalyzing programming languages...")
-    language_stats = analyze_languages(all_files)
-
-    # Find websites
-    print("\nDiscovering project websites...")
-    websites = find_project_websites(repositories)
-
-    # Categorize projects
-    print("\nCategorizing projects...")
-    categories = categorize_repositories(repositories)
-
-    # Compile data
-    data = {
-        'date_range': {
-            'start': since_date,
-            'end': until_date or datetime.now().strftime('%Y-%m-%d')
-        },
-        'total_commits': sum(r['commits'] for r in repositories),
-        'total_repositories': len(repositories),
-        'total_files': len(all_files),
-        'repositories': repositories,
-        'languages': language_stats,
-        'websites': websites,
-        'categories': {cat: [{'name': r['name'], 'commits': r['commits']}
-                             for r in repos]
-                       for cat, repos in categories.items()}
-    }
+    # Compile all data
+    data = _compile_activity_data(repositories, all_files, since_date, until_date)
 
     # Save JSON
     json_file = args.json_output or '/tmp/git_activity_comprehensive.json'
@@ -418,34 +489,11 @@ def main():
     print(f"\n✅ Saved data to: {json_file}")
 
     # Generate visualizations
-    if args.output_dir:
-        output_dir = Path(args.output_dir)
-    else:
-        year = datetime.now().year
-        output_dir = Path.home() / 'code' / 'PersonalSite' / 'assets' / 'images' / f'git-activity-{year}'
-
+    output_dir = _resolve_output_dir(args)
     generate_visualizations(data, output_dir)
 
     # Print summary
-    print(f"\n{'='*60}")
-    print(f"Summary")
-    print(f"{'='*60}")
-    print(f"Total commits: {data['total_commits']}")
-    print(f"Active repositories: {len(repositories)}")
-    print(f"File changes: {len(all_files)}")
-    print(f"Languages detected: {len(language_stats)}")
-    print(f"Websites found: {len(websites)}")
-    print(f"\nTop 5 repositories:")
-    for i, repo in enumerate(repositories[:5], 1):
-        print(f"  {i}. {repo['name']}: {repo['commits']} commits")
-
-    print(f"\nTop 5 languages:")
-    sorted_langs = sorted(language_stats.items(), key=lambda x: x[1], reverse=True)
-    for i, (lang, count) in enumerate(sorted_langs[:5], 1):
-        print(f"  {i}. {lang}: {count} files")
-
-    print(f"\n✅ Complete! Visualizations saved to: {output_dir}")
-    print(f"{'='*60}\n")
+    _print_summary(data, output_dir)
 
     return 0
 
