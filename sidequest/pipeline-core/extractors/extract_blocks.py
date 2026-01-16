@@ -13,16 +13,28 @@ Outputs JSON to stdout containing:
 - metrics
 """
 
-import sys
-import json
+from __future__ import annotations
+
 import hashlib
-import re
+import json
 import os
+import re
+import sys
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 # Debug mode - set PIPELINE_DEBUG=1 to enable verbose output
 DEBUG = os.environ.get('PIPELINE_DEBUG', '').lower() in ('1', 'true', 'yes')
+
+
+def _debug(msg: str) -> None:
+    """Print debug message if DEBUG is enabled."""
+    if DEBUG:
+        print(f"DEBUG {msg}", file=sys.stderr)
 
 # Add lib/models and lib/similarity to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
@@ -35,9 +47,77 @@ from scan_report import ScanReport, RepositoryInfo, ScanConfiguration, ScanMetri
 from similarity.grouping import group_by_similarity
 
 
-def extract_function_name(source_code: str, file_path: Optional[str] = None, line_start: Optional[int] = None, repo_path: Optional[str] = None) -> Optional[str]:
-    """
-    Extract function name from source code using regex patterns.
+# ---------------------------------------------------------------------------
+# Function Name Extraction Patterns
+# ---------------------------------------------------------------------------
+
+FUNCTION_NAME_PATTERNS: tuple[str, ...] = (
+    r'function\s+(\w+)\s*\(',              # function name(
+    r'const\s+(\w+)\s*=\s*(?:async\s+)?function',  # const name = function
+    r'const\s+(\w+)\s*=\s*(?:async\s+)?\(',        # const name = ( or const name = async (
+    r'let\s+(\w+)\s*=\s*(?:async\s+)?function',    # let name = function
+    r'let\s+(\w+)\s*=\s*(?:async\s+)?\(',          # let name = (
+    r'var\s+(\w+)\s*=\s*(?:async\s+)?function',    # var name = function
+    r'var\s+(\w+)\s*=\s*(?:async\s+)?\(',          # var name = (
+    r'async\s+function\s+(\w+)\s*\(',      # async function name(
+    r'(\w+)\s*:\s*function',               # name: function
+    r'(\w+)\s*:\s*async\s+function',       # name: async function
+    r'export\s+function\s+(\w+)',          # export function name
+    r'export\s+const\s+(\w+)\s*=',         # export const name =
+)
+
+
+def _match_function_pattern(text: str, multiline: bool = False) -> str | None:
+    """Try to match function name patterns against text."""
+    flags = re.MULTILINE if multiline else 0
+    for pattern in FUNCTION_NAME_PATTERNS:
+        match = re.search(pattern, text, flags)
+        if match and match.group(1):
+            return match.group(1)
+    return None
+
+
+def _search_file_for_function_name(
+    file_path: str,
+    line_start: int,
+    repo_path: str,
+) -> str | None:
+    """Search backwards in file to find function declaration."""
+    full_path = Path(repo_path) / file_path
+    _debug(f"attempting to read {full_path} at line {line_start}")
+
+    if not full_path.exists():
+        _debug(f"file does not exist: {full_path}")
+        return None
+
+    try:
+        lines = full_path.read_text(encoding='utf-8').splitlines()
+    except (OSError, UnicodeDecodeError) as e:
+        print(f"Warning: Could not read file context for {file_path}: {e}", file=sys.stderr)
+        return None
+
+    # Search backwards from match line (up to 10 lines before)
+    search_start = max(0, line_start - 11)
+    for i in range(line_start - 1, search_start - 1, -1):
+        if i < 0 or i >= len(lines):
+            continue
+
+        func_name = _match_function_pattern(lines[i])
+        if func_name:
+            _debug(f"found function name '{func_name}' at line {i+1} (match was at {line_start})")
+            return func_name
+
+    _debug(f"no function name found in lines {search_start+1}-{line_start} for {file_path}:{line_start}")
+    return None
+
+
+def extract_function_name(
+    source_code: str,
+    file_path: str | None = None,
+    line_start: int | None = None,
+    repo_path: str | None = None,
+) -> str | None:
+    """Extract function name from source code using regex patterns.
 
     Priority 1: Function-Level Extraction
     This enables proper matching between detected and expected duplicates.
@@ -45,129 +125,95 @@ def extract_function_name(source_code: str, file_path: Optional[str] = None, lin
     If function name can't be found in source_code, reads the actual file
     to get more context (lines before the match).
     """
-    if DEBUG:
-        print(f"DEBUG extract_function_name called: file_path={file_path}, line_start={line_start}, repo_path={repo_path}", file=sys.stderr)
+    _debug(f"extract_function_name called: file_path={file_path}, line_start={line_start}")
 
     if not source_code:
         return None
 
-    # Try various patterns to extract function name
-    patterns = [
-        r'function\s+(\w+)\s*\(',          # function name(
-        r'const\s+(\w+)\s*=\s*(?:async\s+)?function',  # const name = function
-        r'const\s+(\w+)\s*=\s*(?:async\s+)?\(',        # const name = ( or const name = async (
-        r'let\s+(\w+)\s*=\s*(?:async\s+)?function',    # let name = function
-        r'let\s+(\w+)\s*=\s*(?:async\s+)?\(',          # let name = (
-        r'var\s+(\w+)\s*=\s*(?:async\s+)?function',    # var name = function
-        r'var\s+(\w+)\s*=\s*(?:async\s+)?\(',          # var name = (
-        r'async\s+function\s+(\w+)\s*\(',  # async function name(
-        r'(\w+)\s*:\s*function',           # name: function
-        r'(\w+)\s*:\s*async\s+function',   # name: async function
-        r'export\s+function\s+(\w+)',      # export function name
-        r'export\s+const\s+(\w+)\s*=',     # export const name =
-    ]
+    # Try to find function name in the matched source code
+    func_name = _match_function_pattern(source_code, multiline=True)
+    if func_name:
+        return func_name
 
-    for pattern in patterns:
-        match = re.search(pattern, source_code, re.MULTILINE)
-        if match and match.group(1):
-            return match.group(1)
-
-    # If not found in matched text, try reading more context from file
+    # Fall back to reading file context if we have location info
     if file_path and line_start and repo_path:
-        try:
-            full_file_path = Path(repo_path) / file_path
-            if DEBUG:
-                print(f"DEBUG attempting to read {full_file_path} at line {line_start}", file=sys.stderr)
-
-            if full_file_path.exists():
-                with open(full_file_path, 'r', encoding='utf-8') as f:
-                    lines = f.readlines()
-
-                # Search BACKWARDS from match line to find the CLOSEST function declaration
-                # This prevents finding previous functions in the file
-                search_start = max(0, line_start - 11)  # line_start is 1-indexed
-                search_end = line_start  # Don't search past the match
-
-                # Iterate backwards through lines to find closest function declaration
-                for i in range(search_end - 1, search_start - 1, -1):
-                    if i < 0 or i >= len(lines):
-                        continue
-
-                    line = lines[i]
-
-                    # Try each pattern on this line
-                    for pattern in patterns:
-                        match = re.search(pattern, line)
-                        if match and match.group(1):
-                            func_name = match.group(1)
-                            if DEBUG:
-                                print(f"DEBUG found function name '{func_name}' at line {i+1} (match was at {line_start})", file=sys.stderr)
-                            return func_name
-
-                if DEBUG:
-                    print(f"DEBUG no function name found in lines {search_start+1}-{search_end} for {file_path}:{line_start}", file=sys.stderr)
-            else:
-                if DEBUG:
-                    print(f"DEBUG file does not exist: {full_file_path}", file=sys.stderr)
-        except Exception as e:
-            print(f"Warning: Could not read file context for {file_path}: {e}", file=sys.stderr)
+        return _search_file_for_function_name(file_path, line_start, repo_path)
 
     return None
 
-def deduplicate_blocks(blocks: List[CodeBlock]) -> List[CodeBlock]:
+def _get_function_name_from_tags(tags: list[str]) -> str | None:
+    """Extract function name from block tags."""
+    for tag in tags:
+        if tag.startswith('function:'):
+            return tag[9:]  # Remove 'function:' prefix
+    return None
+
+
+def _try_add_by_function(
+    block: CodeBlock,
+    function_name: str,
+    seen_functions: dict[str, CodeBlock],
+    unique_blocks: list[CodeBlock],
+) -> bool:
+    """Try to add block using function-based deduplication.
+
+    Returns True if block was processed (added or skipped as duplicate).
     """
-    Remove duplicate code blocks from the same location and function.
+    function_key = f"{block.location.file_path}:{function_name}"
+
+    if function_key not in seen_functions:
+        seen_functions[function_key] = block
+        unique_blocks.append(block)
+        return True
+
+    # Already seen this function - keep the earlier occurrence
+    existing_block = seen_functions[function_key]
+    if block.location.line_start < existing_block.location.line_start:
+        unique_blocks.remove(existing_block)
+        seen_functions[function_key] = block
+        unique_blocks.append(block)
+    else:
+        _debug(f"dedup: skipping duplicate {function_name} at line {block.location.line_start} (kept line {existing_block.location.line_start})")
+
+    return True
+
+
+def _try_add_by_location(
+    block: CodeBlock,
+    seen_locations: set[str],
+    unique_blocks: list[CodeBlock],
+) -> None:
+    """Add block using location-based deduplication."""
+    location_key = f"{block.location.file_path}:{block.location.line_start}"
+    if location_key not in seen_locations:
+        seen_locations.add(location_key)
+        unique_blocks.append(block)
+
+
+def deduplicate_blocks(blocks: list[CodeBlock]) -> list[CodeBlock]:
+    """Remove duplicate code blocks from the same location and function.
 
     Priority 4: Deduplicate Pattern Matches
     ast-grep patterns can match the same code multiple times within a function.
     This removes duplicates based on file:function_name, keeping only the earliest match.
     """
-    seen_locations = set()
-    seen_functions = {}  # file:function -> earliest block
-    unique_blocks = []
+    seen_locations: set[str] = set()
+    seen_functions: dict[str, CodeBlock] = {}
+    unique_blocks: list[CodeBlock] = []
 
     for i, block in enumerate(blocks):
-        # Extract function name from tags
-        function_name = None
-        for tag in block.tags:
-            if tag.startswith('function:'):
-                function_name = tag[9:]  # Remove 'function:' prefix
-                break
+        function_name = _get_function_name_from_tags(block.tags)
 
-        # Debug: Show first 10 blocks being processed
         if DEBUG and i < 10:
-            print(f"DEBUG dedup block {i}: {block.location.file_path}:{block.location.line_start}, func={function_name}, code_len={len(block.source_code)}", file=sys.stderr)
+            _debug(f"dedup block {i}: {block.location.file_path}:{block.location.line_start}, func={function_name}")
 
-        # Strategy 1: Deduplicate by function name (preferred)
         if function_name:
-            function_key = f"{block.location.file_path}:{function_name}"
-
-            if function_key not in seen_functions:
-                # First occurrence of this function - keep it
-                seen_functions[function_key] = block
-                unique_blocks.append(block)
-            else:
-                # Already seen this function - check if this is earlier in file
-                existing_block = seen_functions[function_key]
-                if block.location.line_start < existing_block.location.line_start:
-                    # This block is earlier, replace the existing one
-                    unique_blocks.remove(existing_block)
-                    seen_functions[function_key] = block
-                    unique_blocks.append(block)
-                else:
-                    # This is a later occurrence of same function - skip it
-                    if DEBUG:
-                        print(f"DEBUG dedup: skipping duplicate {function_name} at line {block.location.line_start} (kept line {existing_block.location.line_start})", file=sys.stderr)
+            _try_add_by_function(block, function_name, seen_functions, unique_blocks)
         else:
-            # Strategy 2: Fall back to line-based deduplication for blocks without function names
-            location_key = f"{block.location.file_path}:{block.location.line_start}"
+            _try_add_by_location(block, seen_locations, unique_blocks)
 
-            if location_key not in seen_locations:
-                seen_locations.add(location_key)
-                unique_blocks.append(block)
-
-    if len(blocks) != len(unique_blocks):
-        removed = len(blocks) - len(unique_blocks)
+    removed = len(blocks) - len(unique_blocks)
+    if removed > 0:
         print(f"Deduplication: Removed {removed} duplicate blocks ({len(seen_functions)} unique functions, {len(seen_locations)} unique locations)", file=sys.stderr)
 
     return unique_blocks
@@ -322,9 +368,82 @@ def generate_suggestions(groups: List[DuplicateGroup]) -> List[ConsolidationSugg
     return suggestions
 
 
+# ---------------------------------------------------------------------------
+# Strategy Determination Rules (Data-Driven)
+# ---------------------------------------------------------------------------
+# Each category has rules with occurrence thresholds defining the strategy.
+# Format: (max_occurrences, strategy, rationale_template, complexity, risk)
+# Rules are evaluated in order; first matching rule wins.
+# ---------------------------------------------------------------------------
+
+@dataclass
+class StrategyRule:
+    """Rule for determining consolidation strategy."""
+
+    max_occurrences: int | None  # None means unlimited
+    strategy: str
+    rationale_template: str
+    complexity: str
+    risk: str
+
+
+# Category-specific strategy rules
+CATEGORY_STRATEGY_RULES: dict[str, list[StrategyRule]] = {
+    'logger': [
+        StrategyRule(5, 'local_util', "Logger/config pattern used {occ} times - extract to module constant", 'trivial', 'minimal'),
+        StrategyRule(None, 'shared_package', "Logger/config pattern used {occ} times across {files} files - centralize configuration", 'simple', 'low'),
+    ],
+    'config_access': [
+        StrategyRule(5, 'local_util', "Logger/config pattern used {occ} times - extract to module constant", 'trivial', 'minimal'),
+        StrategyRule(None, 'shared_package', "Logger/config pattern used {occ} times across {files} files - centralize configuration", 'simple', 'low'),
+    ],
+    'api_handler': [
+        StrategyRule(3, 'local_util', "API pattern used {occ} times - extract to middleware/util", 'simple', 'low'),
+        StrategyRule(10, 'shared_package', "API pattern used {occ} times across {files} files - create shared middleware", 'moderate', 'medium'),
+        StrategyRule(None, 'mcp_server', "API pattern used {occ} times - candidate for framework/MCP abstraction", 'complex', 'high'),
+    ],
+    'auth_check': [
+        StrategyRule(3, 'local_util', "API pattern used {occ} times - extract to middleware/util", 'simple', 'low'),
+        StrategyRule(10, 'shared_package', "API pattern used {occ} times across {files} files - create shared middleware", 'moderate', 'medium'),
+        StrategyRule(None, 'mcp_server', "API pattern used {occ} times - candidate for framework/MCP abstraction", 'complex', 'high'),
+    ],
+    'error_handler': [
+        StrategyRule(3, 'local_util', "API pattern used {occ} times - extract to middleware/util", 'simple', 'low'),
+        StrategyRule(10, 'shared_package', "API pattern used {occ} times across {files} files - create shared middleware", 'moderate', 'medium'),
+        StrategyRule(None, 'mcp_server', "API pattern used {occ} times - candidate for framework/MCP abstraction", 'complex', 'high'),
+    ],
+    'database_operation': [
+        StrategyRule(3, 'local_util', "Database pattern used {occ} times - extract to repository method", 'moderate', 'medium'),
+        StrategyRule(None, 'shared_package', "Database pattern used {occ} times - create shared query builder", 'complex', 'high'),
+    ],
+}
+
+# Default rules for categories not explicitly listed
+DEFAULT_STRATEGY_RULES: list[StrategyRule] = [
+    StrategyRule(3, 'local_util', "Utility pattern used {occ} times in {files} files - extract to local util", 'simple', 'minimal'),
+    StrategyRule(8, 'shared_package', "Utility pattern used {occ} times across {files} files - create shared utility", 'simple', 'low'),
+    StrategyRule(None, 'mcp_server', "Utility pattern used {occ} times - consider MCP tool or shared package", 'moderate', 'medium'),
+]
+
+
+def _apply_strategy_rules(
+    rules: list[StrategyRule],
+    occurrences: int,
+    files: int,
+) -> tuple[str, str, str, str]:
+    """Apply strategy rules and return first matching result."""
+    for rule in rules:
+        if rule.max_occurrences is None or occurrences <= rule.max_occurrences:
+            rationale = rule.rationale_template.format(occ=occurrences, files=files)
+            return (rule.strategy, rationale, rule.complexity, rule.risk)
+
+    # Fallback (should not reach here if rules are properly defined)
+    last_rule = rules[-1]
+    return (last_rule.strategy, last_rule.rationale_template.format(occ=occurrences, files=files), last_rule.complexity, last_rule.risk)
+
+
 def _determine_strategy(group: DuplicateGroup) -> tuple[str, str, str, str]:
-    """
-    Determine consolidation strategy based on group characteristics
+    """Determine consolidation strategy based on group characteristics.
 
     Returns: (strategy, rationale, complexity, risk)
     """
@@ -332,95 +451,18 @@ def _determine_strategy(group: DuplicateGroup) -> tuple[str, str, str, str]:
     files = len(group.affected_files)
     category = group.category
 
-    # Single file duplicates - simplest case
+    # Single file duplicates - simplest case (always local_util)
     if files == 1:
         return (
             'local_util',
             f"All {occurrences} occurrences in same file - extract to local function",
             'trivial',
-            'minimal'
+            'minimal',
         )
 
-    # Logger patterns - special handling
-    if category in ['logger', 'config_access']:
-        if occurrences <= 5:
-            return (
-                'local_util',
-                f"Logger/config pattern used {occurrences} times - extract to module constant",
-                'trivial',
-                'minimal'
-            )
-        else:
-            return (
-                'shared_package',
-                f"Logger/config pattern used {occurrences} times across {files} files - centralize configuration",
-                'simple',
-                'low'
-            )
-
-    # API handlers and auth checks - medium complexity
-    if category in ['api_handler', 'auth_check', 'error_handler']:
-        if occurrences <= 3:
-            return (
-                'local_util',
-                f"API pattern used {occurrences} times - extract to middleware/util",
-                'simple',
-                'low'
-            )
-        elif occurrences <= 10:
-            return (
-                'shared_package',
-                f"API pattern used {occurrences} times across {files} files - create shared middleware",
-                'moderate',
-                'medium'
-            )
-        else:
-            return (
-                'mcp_server',
-                f"API pattern used {occurrences} times - candidate for framework/MCP abstraction",
-                'complex',
-                'high'
-            )
-
-    # Database operations - handle carefully
-    if category == 'database_operation':
-        if occurrences <= 3:
-            return (
-                'local_util',
-                f"Database pattern used {occurrences} times - extract to repository method",
-                'moderate',
-                'medium'
-            )
-        else:
-            return (
-                'shared_package',
-                f"Database pattern used {occurrences} times - create shared query builder",
-                'complex',
-                'high'
-            )
-
-    # General utilities and helpers
-    if occurrences <= 3:
-        return (
-            'local_util',
-            f"Utility pattern used {occurrences} times in {files} files - extract to local util",
-            'trivial' if files == 2 else 'simple',
-            'minimal'
-        )
-    elif occurrences <= 8:
-        return (
-            'shared_package',
-            f"Utility pattern used {occurrences} times across {files} files - create shared utility",
-            'simple',
-            'low'
-        )
-    else:
-        return (
-            'mcp_server',
-            f"Utility pattern used {occurrences} times - consider MCP tool or shared package",
-            'moderate',
-            'medium'
-        )
+    # Get category-specific rules or use defaults
+    rules = CATEGORY_STRATEGY_RULES.get(category, DEFAULT_STRATEGY_RULES)
+    return _apply_strategy_rules(rules, occurrences, files)
 
 
 def _generate_migration_steps(group: DuplicateGroup, strategy: str) -> List[MigrationStep]:
