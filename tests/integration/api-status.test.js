@@ -25,7 +25,10 @@ const DB_PATH = path.join(__dirname, '../../data/jobs.db');
 // Base URL for API - uses localhost by default
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8080';
 
-describe('GET /api/status Integration Tests', () => {
+// Skip in CI - requires running API server
+const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+
+describe('GET /api/status Integration Tests', { skip: isCI ? 'Requires running API server' : false }, () => {
   let db;
   let expectedPipelines;
 

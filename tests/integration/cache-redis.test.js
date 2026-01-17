@@ -16,6 +16,9 @@ import path from 'path';
 import fs from 'fs/promises';
 import os from 'os';
 
+// Skip in CI - requires running Redis server
+const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+
 const execPromise = promisify(exec);
 
 // Redis MCP client wrapper
@@ -110,7 +113,7 @@ class RedisMCPClient {
   }
 }
 
-describe('ScanResultCache Integration Tests', () => {
+describe('ScanResultCache Integration Tests', { skip: isCI ? 'Requires running Redis server' : false }, () => {
   let redisClient;
   let cache;
   const testRepoPath = '/Users/alyshialedlie/code/jobs';
@@ -431,7 +434,7 @@ describe('ScanResultCache Integration Tests', () => {
   });
 });
 
-describe('CachedScanner Integration Tests', () => {
+describe('CachedScanner Integration Tests', { skip: isCI ? 'Requires running Redis server' : false }, () => {
   let redisClient;
   let scanner;
   let tempRepo;
