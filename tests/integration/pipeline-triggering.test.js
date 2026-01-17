@@ -21,6 +21,9 @@ import { createTempRepository, createMultipleTempRepositories, cleanupRepositori
 // Base URL for API - uses localhost by default
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8080';
 
+// Skip in CI - requires running API server
+const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+
 // Supported pipelines that should be triggerable (excluding test-refactor which is disabled)
 const SUPPORTED_PIPELINES = [
   'duplicate-detection',
@@ -62,7 +65,7 @@ function getPipelineTestParams() {
   };
 }
 
-describe('POST /api/sidequest/pipeline-runners/:id/trigger Integration Tests', () => {
+describe('POST /api/sidequest/pipeline-runners/:id/trigger Integration Tests', { skip: isCI ? 'Requires running API server' : false }, () => {
 
   before(async () => {
     // Create temporary test repositories

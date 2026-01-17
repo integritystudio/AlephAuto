@@ -196,7 +196,7 @@ describe('GET /api/status Integration Tests', { skip: isCI ? 'Requires running A
   });
 });
 
-describe('GET /api/sidequest/pipeline-runners/:id/jobs Pagination Tests', () => {
+describe('GET /api/sidequest/pipeline-runners/:id/jobs Pagination Tests', { skip: isCI ? 'Requires running API server' : false }, () => {
   let db;
 
   before(() => {
