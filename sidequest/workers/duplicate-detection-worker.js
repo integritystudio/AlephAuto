@@ -352,7 +352,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
     const result = await this.interProjectScanner.scanRepositories(repoPaths);
 
     // Generate reports
-    await this.reportCoordinator.generateAllReports(result, {
+    const reportPaths = await this.reportCoordinator.generateAllReports(result, {
       title: `Automated Inter-Project Scan: ${repoPaths.length} Repositories`,
       includeDetails: true,
       includeSourceCode: true,
@@ -379,7 +379,8 @@ export class DuplicateDetectionWorker extends SidequestServer {
       repositories: repoPaths.length,
       crossRepoDuplicates: result.metrics.total_cross_repository_groups || 0,
       suggestions: result.metrics.total_suggestions || 0,
-      duration: result.scan_metadata?.duration_seconds || 0
+      duration: result.scan_metadata?.duration_seconds || 0,
+      reportPaths
     };
   }
 
@@ -432,7 +433,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
     const result = await this.orchestrator.scanRepository(repoPath);
 
     // Generate reports
-    await this.reportCoordinator.generateAllReports(result, {
+    const reportPaths = await this.reportCoordinator.generateAllReports(result, {
       title: `Automated Scan: ${repositoryConfig.name}`,
       includeDetails: true,
       includeSourceCode: true,
@@ -514,6 +515,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
       duplicates: result.metrics.total_duplicate_groups || 0,
       suggestions: result.metrics.total_suggestions || 0,
       duration: result.scan_metadata?.duration_seconds || 0,
+      reportPaths,
       prResults: prResults ? {
         prsCreated: prResults.prsCreated,
         prUrls: prResults.prUrls,
