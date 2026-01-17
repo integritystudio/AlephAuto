@@ -7,6 +7,10 @@ import { config } from '../core/config.js';
  * Logs are JSON-formatted for easy parsing and analysis.
  * Use pino-pretty in development for human-readable output.
  *
+ * IMPORTANT: Logs are sent to stderr (not stdout) for MCP server compatibility.
+ * MCP servers use stdout for JSON-RPC protocol communication, so logs must
+ * go to stderr to avoid mixing with protocol messages.
+ *
  * Usage:
  *   logger.info('Simple message');
  *   logger.info({ jobId: 'job-123', path: '/foo' }, 'Job started');
@@ -31,6 +35,7 @@ export const logger = pino({
   },
 
   // Pretty printing for development (disabled in production for performance)
+  // Note: transport with destination sends to stderr
   transport: config.nodeEnv !== 'production' ? {
     target: 'pino-pretty',
     options: {
@@ -39,9 +44,10 @@ export const logger = pino({
       ignore: 'pid,hostname',
       singleLine: false,
       messageFormat: '{levelLabel} - {msg}',
+      destination: 2, // stderr (fd 2) for MCP compatibility
     }
   } : undefined,
-});
+}, config.nodeEnv === 'production' ? pino.destination(2) : undefined);
 
 /**
  * Create a child logger with additional context
