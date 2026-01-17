@@ -84,7 +84,7 @@ jobs:
 
           # Test extract_blocks.py can be imported and run with sample input
           cd sidequest/pipeline-core
-          echo '{"candidates":[{"file_path":"test.js","line_start":1,"line_end":5,"code":"function test() { return 1; }","pattern_name":"test-pattern","category":"test"}]}' | python3 extractors/extract_blocks.py --stage blocks
+          echo '{"repository_info":{"path":"/tmp/test-repo","name":"test-repo"},"candidates":[{"file_path":"test.js","line_start":1,"line_end":5,"code":"function test() { return 1; }","pattern_name":"test-pattern","category":"test"}]}' | python3 extractors/extract_blocks.py --stage blocks
           cd ../..
 
           # Verify pydantic models load correctly
