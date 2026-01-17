@@ -174,7 +174,7 @@ app.get('/api/status', (req, res) => {
     const queueStats = {
       active: workerStats.active || 0,
       queued: workerStats.queued || 0,
-      capacity: workerStats.active / (workerStats.maxConcurrent || 3) * 100
+      capacity: workerStats.active / (worker.maxConcurrent || 3) * 100
     };
 
     res.json({
