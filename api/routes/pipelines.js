@@ -341,8 +341,8 @@ router.get('/:pipelineId/status', async (req, res, next) => {
             status: isPaused ? 'paused' : 'running',
             isPaused,
             ...(workerStats && {
-                activeJobs: workerStats.activeJobs || 0,
-                queuedJobs: workerStats.queuedJobs || 0
+                activeJobs: workerStats.active || 0,
+                queuedJobs: workerStats.queued || 0
             }),
             timestamp: new Date().toISOString()
         };

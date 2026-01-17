@@ -125,9 +125,9 @@ router.get('/:scanId/status', async (req, res, next) => {
 
     res.json({
       scan_id: scanId,
-      status: queueStats.activeJobs > 0 ? 'running' : 'idle',
-      active_jobs: queueStats.activeJobs,
-      queued_jobs: queueStats.queuedJobs,
+      status: queueStats.active > 0 ? 'running' : 'idle',
+      active_jobs: queueStats.active,
+      queued_jobs: queueStats.queued,
       completed_scans: scanMetrics.totalScans || 0,
       failed_scans: scanMetrics.failedScans || 0,
       timestamp: new Date().toISOString()

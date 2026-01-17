@@ -161,7 +161,7 @@ app.get('/api/status', (req, res) => {
       name: getPipelineName(stats.pipeline_id),
       // Show "running" status accurately only for duplicate-detection (we have worker access)
       // For other pipelines, use database running count as fallback
-      status: (stats.pipeline_id === 'duplicate-detection' && workerStats.activeJobs > 0)
+      status: (stats.pipeline_id === 'duplicate-detection' && workerStats.active > 0)
         ? 'running'
         : (stats.running > 0 ? 'running' : 'idle'),
       completedJobs: stats.completed || 0,
@@ -172,9 +172,9 @@ app.get('/api/status', (req, res) => {
 
     // Calculate queue stats (only from duplicate-detection worker)
     const queueStats = {
-      active: workerStats.activeJobs || 0,
-      queued: workerStats.queuedJobs || 0,
-      capacity: workerStats.activeJobs / (workerStats.maxConcurrent || 3) * 100
+      active: workerStats.active || 0,
+      queued: workerStats.queued || 0,
+      capacity: workerStats.active / (workerStats.maxConcurrent || 3) * 100
     };
 
     res.json({
