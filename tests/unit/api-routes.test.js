@@ -55,10 +55,16 @@ describe('API Routes', () => {
 
   // Stop worker and close database after all tests
   after(async () => {
-    if (worker) worker.stop();
-    // Wait for any pending jobs to finish
-    if (worker && waitForQueueDrain) {
-      await waitForQueueDrain(worker, { timeout: 5000 });
+    if (worker) {
+      worker.stop();
+      // Cancel any remaining active/queued jobs
+      for (const [jobId, job] of worker.jobs) {
+        if (job.status === 'running' || job.status === 'queued') {
+          worker.cancelJob(jobId);
+        }
+      }
+      // Brief wait for cancellation to propagate
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
     if (closeDatabase) closeDatabase();
   });
