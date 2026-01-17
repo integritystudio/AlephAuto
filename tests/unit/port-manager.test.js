@@ -5,13 +5,14 @@
  * graceful shutdown, and process cleanup.
  */
 
-import { describe, test, before, after } from 'node:test';
+import { describe, test, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import {
   isPortAvailable,
   findAvailablePort,
   setupServerWithPortFallback,
-  setupGracefulShutdown
+  setupGracefulShutdown,
+  killProcessOnPort
 } from '../../api/utils/port-manager.js';
 import net from 'net';
 import { createServer } from 'http';
@@ -372,6 +373,210 @@ describe('Port Manager', () => {
       assert.strictEqual(result3, true);
       assert.strictEqual(result4, true);
       assert.strictEqual(result5, true);
+    });
+  });
+
+  describe('killProcessOnPort', () => {
+    test('should return false when lsof fails to find process', async () => {
+      // Use a port that's definitely not in use
+      // lsof exits with error when no process found, so we get false
+      const unusedPort = 19999;
+      const result = await killProcessOnPort(unusedPort);
+      // lsof returns non-zero when no process found, which causes error
+      assert.strictEqual(result, false);
+    });
+
+    test('should handle invalid port errors gracefully', async () => {
+      // Use an invalid port number that will cause lsof to fail
+      const invalidPort = -1;
+      const result = await killProcessOnPort(invalidPort);
+      // Should return false due to error in lsof command
+      assert.strictEqual(result, false);
+    });
+
+    test('should return boolean for any port input', async () => {
+      // Test that the function always returns a boolean, never throws
+      // Use high ports unlikely to have processes to avoid killing anything important
+      const result1 = await killProcessOnPort(59990);
+      const result2 = await killProcessOnPort(59991);
+      const result3 = await killProcessOnPort(59992);
+
+      assert.strictEqual(typeof result1, 'boolean');
+      assert.strictEqual(typeof result2, 'boolean');
+      assert.strictEqual(typeof result3, 'boolean');
+    });
+  });
+
+  describe('setupServerWithPortFallback with killExisting', () => {
+    test('should use default maxPort when not specified', async () => {
+      const preferredPort = 9750;
+      const server = createTestServer();
+
+      const actualPort = await setupServerWithPortFallback(server, {
+        preferredPort
+        // maxPort will default to preferredPort + 10
+      });
+
+      assert.strictEqual(actualPort, preferredPort);
+      assert.strictEqual(server.listening, true);
+    });
+
+    test('should handle killExisting option when port is available', async () => {
+      // Test the killExisting code path when port is already available
+      // (no actual killing needed)
+      const preferredPort = 9770;
+      const server = createTestServer();
+
+      const actualPort = await setupServerWithPortFallback(server, {
+        preferredPort,
+        maxPort: preferredPort + 5,
+        killExisting: true
+      });
+
+      // Should get preferred port since it was available
+      assert.strictEqual(actualPort, preferredPort);
+      assert.strictEqual(server.listening, true);
+    });
+
+    test('should accept killExisting as false explicitly', async () => {
+      const preferredPort = 9780;
+      const server = createTestServer();
+
+      const actualPort = await setupServerWithPortFallback(server, {
+        preferredPort,
+        maxPort: preferredPort + 5,
+        killExisting: false
+      });
+
+      assert.strictEqual(actualPort, preferredPort);
+      assert.strictEqual(server.listening, true);
+    });
+  });
+
+  describe('setupGracefulShutdown - Extended', () => {
+    test('should accept custom onShutdown handler', () => {
+      const server = createTestServer();
+      let handlerProvided = false;
+
+      setupGracefulShutdown(server, {
+        onShutdown: async () => {
+          handlerProvided = true;
+        }
+      });
+
+      // Verify handlers are registered
+      assert.ok(process.listeners('SIGTERM').length > 0);
+    });
+
+    test('should accept custom timeout option', () => {
+      const server = createTestServer();
+
+      // Should not throw with custom timeout
+      setupGracefulShutdown(server, {
+        timeout: 5000
+      });
+
+      assert.ok(process.listeners('SIGTERM').length > 0);
+    });
+
+    test('should register uncaughtException handler', () => {
+      const server = createTestServer();
+      const beforeCount = process.listeners('uncaughtException').length;
+
+      setupGracefulShutdown(server);
+
+      assert.ok(process.listeners('uncaughtException').length > beforeCount);
+    });
+
+    test('should register unhandledRejection handler', () => {
+      const server = createTestServer();
+      const beforeCount = process.listeners('unhandledRejection').length;
+
+      setupGracefulShutdown(server);
+
+      assert.ok(process.listeners('unhandledRejection').length > beforeCount);
+    });
+
+    test('should work with default options', () => {
+      const server = createTestServer();
+
+      // Should not throw with no options
+      setupGracefulShutdown(server);
+
+      assert.ok(process.listeners('SIGTERM').length > 0);
+      assert.ok(process.listeners('SIGINT').length > 0);
+      assert.ok(process.listeners('SIGHUP').length > 0);
+    });
+  });
+
+  describe('isPortAvailable - Edge Cases', () => {
+    test('should handle high port numbers', async () => {
+      const port = 65000;
+      const available = await isPortAvailable(port);
+      assert.strictEqual(available, true);
+    });
+
+    test('should always return boolean for any valid port', async () => {
+      // Test that function returns boolean regardless of port availability
+      const result1 = await isPortAvailable(49152);
+      const result2 = await isPortAvailable(49153);
+      const result3 = await isPortAvailable(65534);
+
+      assert.strictEqual(typeof result1, 'boolean');
+      assert.strictEqual(typeof result2, 'boolean');
+      assert.strictEqual(typeof result3, 'boolean');
+    });
+
+    test('should handle checking same port multiple times', async () => {
+      const port = 49200;
+
+      const result1 = await isPortAvailable(port);
+      const result2 = await isPortAvailable(port);
+
+      // Both should return same result
+      assert.strictEqual(result1, result2);
+      assert.strictEqual(result1, true);
+    });
+  });
+
+  describe('findAvailablePort - Edge Cases', () => {
+    test('should handle inverted range (start > end)', async () => {
+      // When startPort > endPort, loop doesn't execute
+      const port = await findAvailablePort(9900, 9890);
+      assert.strictEqual(port, null);
+    });
+
+    test('should work with consecutive occupied ports', async () => {
+      const startPort = 9800;
+
+      // Occupy consecutive ports
+      await startServerOnPort(9800);
+      await startServerOnPort(9801);
+      await startServerOnPort(9802);
+      await startServerOnPort(9803);
+
+      const port = await findAvailablePort(startPort, startPort + 10);
+      assert.strictEqual(port, 9804);
+    });
+  });
+
+  describe('Server Error Scenarios', () => {
+    test('should handle server.listen error via error event', async () => {
+      const preferredPort = 9850;
+
+      // Occupy the port first
+      await startServerOnPort(preferredPort);
+
+      // Create a raw server that might emit error differently
+      const server = createTestServer();
+
+      // This should still work via fallback
+      const actualPort = await setupServerWithPortFallback(server, {
+        preferredPort,
+        maxPort: preferredPort + 5
+      });
+
+      assert.ok(actualPort > preferredPort);
     });
   });
 });
