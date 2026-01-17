@@ -249,8 +249,10 @@ export class ActivityFeedManager {
 
           // Defensive: ensure errorObj has required properties
           const errorMessage = errorObj?.message || 'Unknown error';
-          const errorCode = error?.code;
-          const errorRetryable = error?.retryable || false;
+          /** @type {any} */
+          const errorAny = error;
+          const errorCode = errorAny?.code;
+          const errorRetryable = errorAny?.retryable || false;
 
           this.addActivity({
             type: 'job:failed',
@@ -310,7 +312,9 @@ export class ActivityFeedManager {
           }
 
           const errorMessage = safeErrorMessage(error);
-          const errorCode = error?.code;
+          /** @type {any} */
+          const errorAny2 = error;
+          const errorCode = errorAny2?.code;
 
           this.addActivity({
             type: 'retry:created',
@@ -370,8 +374,8 @@ export class ActivityFeedManager {
             tags: {
               component: 'ActivityFeed',
               event: 'retry:max-attempts',
-              jobId,
-              attempts
+              jobId: String(jobId),
+              attempts: Number(attempts)
             }
           });
         } catch (activityError) {

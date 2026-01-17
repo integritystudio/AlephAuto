@@ -60,7 +60,7 @@ class SchemaEnhancementPipeline {
     });
 
     this.worker.on('job:completed', (job) => {
-      const duration = job.completedAt - job.startedAt;
+      const duration = new Date(job.completedAt).getTime() - new Date(job.startedAt).getTime();
       logger.info({
         jobId: job.id,
         duration,

@@ -13,7 +13,7 @@
  * - Comprehensive metrics tracking
  */
 
-import { SidequestServer } from '../core/server.js';
+import { SidequestServer, Job as BaseJob } from '../core/server.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { glob } from 'glob';
 import path from 'path';
@@ -46,7 +46,7 @@ interface JobData {
   dryRun: boolean;
 }
 
-interface Job {
+interface RefactorJob {
   id: string;
   data: JobData;
   result?: JobResult;
@@ -140,7 +140,7 @@ export class TestRefactorWorker extends SidequestServer {
   /**
    * Queue a project for test refactoring
    */
-  queueProject(projectPath: string, options: Partial<JobData> = {}): Job {
+  queueProject(projectPath: string, options: Partial<JobData> = {}): BaseJob {
     const jobId = `refactor-${path.basename(projectPath)}-${Date.now()}`;
 
     return this.createJob(jobId, {
@@ -174,7 +174,7 @@ export class TestRefactorWorker extends SidequestServer {
   /**
    * Execute the refactoring job
    */
-  async runJobHandler(job: Job): Promise<JobResult> {
+  async runJobHandler(job: RefactorJob): Promise<JobResult> {
     const { repositoryPath, testsDir, utilsDir, e2eDir, framework, dryRun } = job.data;
     this.metrics.totalProjects++;
 
@@ -709,7 +709,7 @@ export async function clickExternalLink(page: Page, linkText: string) {
   /**
    * Override commit message generation
    */
-  async _generateCommitMessage(job: Job): Promise<{ title: string; body: string }> {
+  async _generateCommitMessage(job: RefactorJob): Promise<{ title: string; body: string }> {
     const result = job.result;
     return {
       title: `refactor(tests): add modular test utilities`,

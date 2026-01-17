@@ -533,7 +533,7 @@ export class ScanOrchestrator {
         }
       });
 
-      proc.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
+      proc.on('close', (code: number | null, signal: string | null) => {
         // Success case: exit code 0
         if (code === 0) {
           try {
@@ -584,7 +584,7 @@ export class ScanOrchestrator {
         reject(new Error(`Python pipeline exited with code ${code}: ${stderr.slice(-500)}`));
       });
 
-      proc.on('error', (error: NodeJS.ErrnoException) => {
+      proc.on('error', (error: Error & { code?: string }) => {
         if (error.code === 'ENOENT') {
           reject(new Error(`Python not found at: ${this.pythonPath}`));
         } else {
