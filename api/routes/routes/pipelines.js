@@ -11,7 +11,7 @@ import { validateQuery, validateRequest } from '../middleware/validation.js';
 import { JobQueryParamsSchema, ManualTriggerRequestSchema, PipelineDocsParamsSchema, PipelineHtmlParamsSchema } from '../../types/pipeline-requests.js';
 import { createComponentLogger } from '../../../sidequest/utils/logger.js';
 import { worker } from '../scans.js';
-import { workerRegistry } from '../utils/worker-registry.js';
+import { workerRegistry } from '../../utils/worker-registry.js';
 import * as Sentry from '@sentry/node';
 import { getJobs, getJobCounts } from '../../../sidequest/core/database.js';
 import { getPipelineName } from '../../../sidequest/utils/pipeline-names.js';

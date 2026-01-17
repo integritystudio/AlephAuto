@@ -153,7 +153,30 @@ export class RepomixWorker extends SidequestServer {
    * @param {string} cwd - Current working directory to run repomix in
    * @private
    */
-  #runRepomixCommand(cwd) {
+  async #runRepomixCommand(cwd) {
+    // Pre-flight check: Validate working directory exists before spawning
+    // This prevents cryptic 'uv_cwd' ENOENT errors when directory is deleted
+    try {
+      const stats = await fs.stat(cwd);
+      if (!stats.isDirectory()) {
+        const error = new Error(`Working directory is not a directory: ${cwd}`);
+        error.code = 'ENOTDIR';
+        throw error;
+      }
+    } catch (statError) {
+      if (statError.code === 'ENOENT') {
+        const error = new Error(
+          `Working directory no longer exists: ${cwd}\n` +
+          'This can happen when scanning temporary directories that are cleaned up before the scan completes.'
+        );
+        error.code = 'ENOENT';
+        error.originalError = statError;
+        logger.error({ cwd, error: statError }, 'Working directory deleted before repomix could run');
+        throw error;
+      }
+      throw statError;
+    }
+
     return new Promise((resolve, reject) => {
       // Build repomix arguments
       const args = ['repomix'];
@@ -217,10 +240,23 @@ export class RepomixWorker extends SidequestServer {
         }
       });
 
-      proc.on('error', (error) => {
-        error.stdout = stdout;
-        error.stderr = stderr;
-        reject(error);
+      proc.on('error', (spawnError) => {
+        // Enhance error message for common spawn failures
+        let enhancedError = spawnError;
+        if (spawnError.syscall === 'uv_cwd' || spawnError.syscall === 'spawn') {
+          enhancedError = new Error(
+            `Failed to spawn repomix process: ${spawnError.message}\n` +
+            `Working directory: ${cwd}\n` +
+            'This usually means the directory was deleted during the scan.'
+          );
+          enhancedError.code = spawnError.code;
+          enhancedError.syscall = spawnError.syscall;
+          enhancedError.originalError = spawnError;
+          logger.error({ cwd, error: spawnError }, 'Spawn failed - directory may have been deleted');
+        }
+        enhancedError.stdout = stdout;
+        enhancedError.stderr = stderr;
+        reject(enhancedError);
       });
     });
   }

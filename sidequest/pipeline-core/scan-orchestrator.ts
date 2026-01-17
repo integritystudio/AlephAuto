@@ -533,19 +533,55 @@ export class ScanOrchestrator {
         }
       });
 
-      proc.on('close', (code: number | null) => {
+      proc.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
+        // Success case: exit code 0
         if (code === 0) {
           try {
             const result: PythonPipelineOutput = JSON.parse(stdout);
             resolve(result);
           } catch (error) {
-            logger.error({ stdout, stderr }, 'Failed to parse Python pipeline output');
+            logger.error({ stdout: stdout.slice(-500), stderr: stderr.slice(-500) }, 'Failed to parse Python pipeline output');
             reject(new Error(`Failed to parse Python output: ${(error as Error).message}`));
           }
-        } else {
-          logger.error({ code, stderr }, 'Python pipeline failed');
-          reject(new Error(`Python pipeline exited with code ${code}: ${stderr}`));
+          return;
         }
+
+        // Handle null exit code (process killed by signal)
+        // This can happen when:
+        // 1. Process times out (spawn timeout option)
+        // 2. Process receives SIGTERM/SIGKILL
+        // 3. Process crashes due to signal
+        if (code === null) {
+          // Try to parse stdout anyway - the work may have completed before the signal
+          if (stdout.trim()) {
+            try {
+              const result: PythonPipelineOutput = JSON.parse(stdout);
+              logger.warn(
+                { signal, stderrTail: stderr.slice(-200) },
+                `Python pipeline was killed by signal ${signal} but produced valid output - treating as success`
+              );
+              resolve(result);
+              return;
+            } catch {
+              // stdout exists but isn't valid JSON - continue to error handling
+            }
+          }
+
+          // No valid output - report the signal
+          const timeoutMsg = signal === 'SIGTERM'
+            ? ' (likely due to timeout - consider increasing timeout or optimizing the scan)'
+            : '';
+          logger.error({ signal, stderrTail: stderr.slice(-500) }, `Python pipeline killed by signal: ${signal}`);
+          reject(new Error(
+            `Python pipeline was killed by signal ${signal}${timeoutMsg}\n` +
+            `stderr (last 200 chars): ${stderr.slice(-200)}`
+          ));
+          return;
+        }
+
+        // Non-zero exit code
+        logger.error({ code, stderrTail: stderr.slice(-500) }, 'Python pipeline failed');
+        reject(new Error(`Python pipeline exited with code ${code}: ${stderr.slice(-500)}`));
       });
 
       proc.on('error', (error: NodeJS.ErrnoException) => {

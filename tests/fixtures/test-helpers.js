@@ -11,6 +11,71 @@ if (!global._testRepositories) {
   global._testRepositories = new Set();
 }
 
+// Track active operations on directories to prevent cleanup race conditions
+// Maps directory path -> { count: number, waiters: Function[] }
+if (!global._activeOperations) {
+  global._activeOperations = new Map();
+}
+
+/**
+ * Register an active operation on a directory
+ * Call this before starting async work that uses the directory
+ * @param {string} dirPath - The directory path
+ * @returns {Function} Release function to call when operation completes
+ */
+export function trackOperation(dirPath) {
+  const normalizedPath = path.resolve(dirPath);
+
+  if (!global._activeOperations.has(normalizedPath)) {
+    global._activeOperations.set(normalizedPath, { count: 0, waiters: [] });
+  }
+
+  const tracker = global._activeOperations.get(normalizedPath);
+  tracker.count++;
+
+  let released = false;
+  return function release() {
+    if (released) return; // Prevent double-release
+    released = true;
+
+    tracker.count--;
+    if (tracker.count === 0) {
+      // Notify all waiters that directory is free
+      tracker.waiters.forEach(resolve => resolve());
+      tracker.waiters = [];
+    }
+  };
+}
+
+/**
+ * Wait for all active operations on a directory to complete
+ * @param {string} dirPath - The directory path
+ * @param {number} timeout - Maximum wait time in ms (default: 30000)
+ * @returns {Promise<void>}
+ */
+export async function waitForOperations(dirPath, timeout = 30000) {
+  const normalizedPath = path.resolve(dirPath);
+  const tracker = global._activeOperations.get(normalizedPath);
+
+  if (!tracker || tracker.count === 0) {
+    return; // No active operations
+  }
+
+  // Wait for operations to complete
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error(
+        `Timeout waiting for ${tracker.count} operation(s) to complete on ${dirPath}`
+      ));
+    }, timeout);
+
+    tracker.waiters.push(() => {
+      clearTimeout(timeoutId);
+      resolve();
+    });
+  });
+}
+
 /**
  * Get path to the test repository fixture
  * @returns {string} Absolute path to test-repo fixture
@@ -24,9 +89,13 @@ export function getTestRepoPath() {
  * Creates a temporary directory with basic git structure
  *
  * @param {string} name - Name for the temp directory (default: 'test-repo')
- * @returns {Promise<{path: string, cleanup: Function}>}
+ * @param {Object} options - Options
+ * @param {number} options.cleanupTimeout - Max time to wait for operations before cleanup (default: 30000)
+ * @returns {Promise<{path: string, cleanup: Function, trackOperation: Function}>}
  */
-export async function createTempRepository(name = 'test-repo') {
+export async function createTempRepository(name = 'test-repo', options = {}) {
+  const { cleanupTimeout = 30000 } = options;
+
   // Create temp directory
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), `aleph-test-${name}-`)
@@ -50,13 +119,43 @@ export async function createTempRepository(name = 'test-repo') {
     'export function test() { return true; }\n'
   );
 
-  // Return path and cleanup function
+  // Return path, cleanup function, and operation tracking
   return {
     path: tmpDir,
-    cleanup: async () => {
+
+    /**
+     * Track an operation on this repository
+     * Returns a release function to call when operation completes
+     * @returns {Function} Release function
+     */
+    trackOperation: () => trackOperation(tmpDir),
+
+    /**
+     * Cleanup the repository
+     * Waits for any tracked operations to complete before deleting
+     * @param {Object} cleanupOptions - Cleanup options
+     * @param {boolean} cleanupOptions.force - Force cleanup without waiting (default: false)
+     */
+    cleanup: async (cleanupOptions = {}) => {
+      const { force = false } = cleanupOptions;
+
       try {
+        // Wait for active operations unless forced
+        if (!force) {
+          try {
+            await waitForOperations(tmpDir, cleanupTimeout);
+          } catch (waitError) {
+            console.warn(
+              `Cleanup proceeding despite pending operations on ${tmpDir}: ${waitError.message}`
+            );
+          }
+        }
+
         await fs.rm(tmpDir, { recursive: true, force: true });
         global._testRepositories.delete(tmpDir);
+
+        // Clean up operation tracker
+        global._activeOperations.delete(path.resolve(tmpDir));
       } catch (error) {
         // Ignore ENOENT (already cleaned up)
         if (error.code !== 'ENOENT') {
@@ -85,12 +184,19 @@ export async function createMultipleTempRepositories(count = 2) {
  * Can be called with an array of repository objects OR without arguments
  * to cleanup all globally tracked repositories
  *
+ * Waits for active operations on each directory before cleaning up
+ *
  * @param {Array<{cleanup: Function}>} [repos] - Array of repository objects (optional)
+ * @param {Object} [options] - Cleanup options
+ * @param {boolean} [options.force] - Force cleanup without waiting for operations (default: false)
+ * @param {number} [options.timeout] - Max time to wait for operations per repo (default: 30000)
  */
-export async function cleanupRepositories(repos) {
+export async function cleanupRepositories(repos, options = {}) {
+  const { force = false, timeout = 30000 } = options;
+
   // If repos array is provided, use it (backward compatible)
   if (repos && Array.isArray(repos)) {
-    await Promise.all(repos.map(repo => repo.cleanup()));
+    await Promise.all(repos.map(repo => repo.cleanup({ force })));
     return;
   }
 
@@ -102,7 +208,21 @@ export async function cleanupRepositories(repos) {
   const results = await Promise.allSettled(
     Array.from(global._testRepositories).map(async (repo) => {
       try {
+        // Wait for active operations unless forced
+        if (!force) {
+          try {
+            await waitForOperations(repo, timeout);
+          } catch (waitError) {
+            console.warn(
+              `Cleanup proceeding despite pending operations on ${repo}: ${waitError.message}`
+            );
+          }
+        }
+
         await fs.rm(repo, { recursive: true, force: true });
+
+        // Clean up operation tracker
+        global._activeOperations.delete(path.resolve(repo));
       } catch (error) {
         // Ignore ENOENT (already cleaned up)
         if (error.code !== 'ENOENT') {

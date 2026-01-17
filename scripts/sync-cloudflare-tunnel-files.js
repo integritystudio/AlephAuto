@@ -44,6 +44,8 @@ const FILE_MAPPINGS = [
       { from: '"./scans.js"', to: '"../scans.js"' },
       { from: "'../types/", to: "'../../types/" },
       { from: '"../types/', to: '"../../types/' },
+      { from: "'../utils/", to: "'../../utils/" },
+      { from: '"../utils/', to: '"../../utils/' },
       { from: "'../../sidequest/", to: "'../../../sidequest/" },
       { from: '"../../sidequest/', to: '"../../../sidequest/' },
     ]
