@@ -11,7 +11,7 @@
 
 // @ts-nocheck
 import { createTempRepository } from '../fixtures/test-helpers.js';
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import fs from 'fs/promises';
 import path from 'path';
 

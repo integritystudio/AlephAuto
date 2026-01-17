@@ -7,7 +7,7 @@
  */
 
 import { ScanOrchestrator } from '../../sidequest/pipeline-core/scan-orchestrator.js';
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import path from 'path';
 import fs from 'fs/promises';
 

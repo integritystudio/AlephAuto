@@ -11,7 +11,7 @@
 
 // @ts-nocheck
 import { createTempRepository } from '../fixtures/test-helpers.js';
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.js';
 // Using Node.js built-in fetch (v18+)
 
 const logger = createComponentLogger('RetryMetricsTest');

@@ -9,7 +9,7 @@
 
 import { HTMLReportGenerator } from '../../sidequest/pipeline-core/reports/html-report-generator.js';
 import { MarkdownReportGenerator } from '../../sidequest/pipeline-core/reports/markdown-report-generator.js';
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import fs from 'fs/promises';
 import path from 'path';
 
