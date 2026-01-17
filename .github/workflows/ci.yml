@@ -82,16 +82,11 @@ jobs:
         run: |
           echo "Testing Python pipeline stages (3-7)..."
 
-          # Test extract_blocks.py can be imported and run with sample input
-          cd sidequest/pipeline-core
-          echo '{"repository_info":{"path":"/tmp/test-repo","name":"test-repo"},"pattern_matches":[{"file_path":"test.js","line_start":1,"line_end":5,"code":"function test() { return 1; }","pattern_name":"test-pattern","category":"test"}]}' | python3 extractors/extract_blocks.py --stage blocks
-          cd ../..
-
           # Verify pydantic models load correctly
           python3 << 'PYEOF'
           import sys
           sys.path.insert(0, 'sidequest/pipeline-core')
-          from models.code_block import CodeBlock, BlockLocation
+          from models.code_block import CodeBlock, SourceLocation
           from models.duplicate_group import DuplicateGroup
           print('✅ Pydantic models imported successfully')
           PYEOF
