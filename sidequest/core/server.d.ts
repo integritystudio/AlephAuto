@@ -31,12 +31,12 @@ export interface JobError {
 export interface Job {
   id: string;
   status: JobStatus;
-  data: Record<string, unknown>;
+  data: Record<string, any>;
   createdAt: Date;
   startedAt: Date | null;
   completedAt: Date | null;
   error: JobError | null;
-  result: unknown;
+  result: any;
   git: JobGitMetadata;
 }
 
@@ -117,7 +117,7 @@ export class SidequestServer extends EventEmitter {
    * @param jobData - Job data/parameters
    * @returns The created job
    */
-  createJob(jobId: string, jobData: Record<string, unknown>): Job;
+  createJob(jobId: string, jobData: Record<string, any>): Job;
 
   /**
    * Process the job queue
