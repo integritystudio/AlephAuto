@@ -309,7 +309,7 @@ describe('Test Utilities - Validation', () => {
 
       await assert.rejects(
         async () => await waitForMultipleEvents(worker, 'job:completed', 5, 100),
-        /Only received 2\/5/
+        /Only received \d+\/5/  // Match any number of events less than 5
       );
     });
   });

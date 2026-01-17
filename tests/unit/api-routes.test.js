@@ -79,10 +79,21 @@ describe('API Routes', () => {
   });
 
   afterEach(async () => {
-    // Wait for all queued jobs to complete before cleanup
-    // This prevents race conditions where tests clean up temp directories
-    // while workers are still processing jobs
-    await waitForQueueDrain(worker, { timeout: 10000 });
+    // Cancel any active/queued jobs to speed up cleanup
+    // This prevents long-running scans from blocking test cleanup
+    if (worker) {
+      const stats = worker.getStats();
+      if (stats.active > 0 || stats.queued > 0) {
+        // Get all jobs and cancel any that are running or queued
+        for (const [jobId, job] of worker.jobs) {
+          if (job.status === 'running' || job.status === 'queued') {
+            worker.cancelJob(jobId);
+          }
+        }
+      }
+      // Brief wait for cancellation to propagate
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
 
     // Cleanup temporary repositories
     if (testRepo) await testRepo.cleanup();
