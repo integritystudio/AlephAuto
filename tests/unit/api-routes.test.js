@@ -309,4 +309,364 @@ describe('API Routes', () => {
       assert.ok(response.body.timestamp);
     });
   });
+
+  describe('Report Routes', () => {
+    describe('GET /api/reports', () => {
+      test('should return list of reports', async () => {
+        const response = await request(app)
+          .get('/api/reports');
+
+        assert.strictEqual(response.status, 200);
+        assert.ok(Array.isArray(response.body.reports));
+        assert.ok(typeof response.body.total === 'number');
+        assert.ok(response.body.timestamp);
+      });
+
+      test('should respect limit query parameter', async () => {
+        const response = await request(app)
+          .get('/api/reports?limit=5');
+
+        assert.strictEqual(response.status, 200);
+        assert.ok(response.body.reports.length <= 5);
+      });
+
+      test('should filter by format=html', async () => {
+        const response = await request(app)
+          .get('/api/reports?format=html');
+
+        assert.strictEqual(response.status, 200);
+        // If there are reports, they should all be html
+        for (const report of response.body.reports) {
+          assert.strictEqual(report.format, 'html');
+        }
+      });
+
+      test('should filter by format=json', async () => {
+        const response = await request(app)
+          .get('/api/reports?format=json');
+
+        assert.strictEqual(response.status, 200);
+        for (const report of response.body.reports) {
+          assert.strictEqual(report.format, 'json');
+        }
+      });
+
+      test('should filter by format=markdown', async () => {
+        const response = await request(app)
+          .get('/api/reports?format=markdown');
+
+        assert.strictEqual(response.status, 200);
+        for (const report of response.body.reports) {
+          assert.strictEqual(report.format, 'markdown');
+        }
+      });
+
+      test('should filter by type=summary', async () => {
+        const response = await request(app)
+          .get('/api/reports?type=summary');
+
+        assert.strictEqual(response.status, 200);
+        for (const report of response.body.reports) {
+          assert.strictEqual(report.type, 'summary');
+        }
+      });
+
+      test('should filter by type=full', async () => {
+        const response = await request(app)
+          .get('/api/reports?type=full');
+
+        assert.strictEqual(response.status, 200);
+        for (const report of response.body.reports) {
+          assert.strictEqual(report.type, 'full');
+        }
+      });
+    });
+
+    describe('GET /api/reports/:filename', () => {
+      test('should reject path traversal attempts with ..', async () => {
+        // Express normalizes paths, so ../../.. becomes a 404 not found
+        // The security check catches encoded traversal attempts
+        const response = await request(app)
+          .get('/api/reports/..%2F..%2Fetc%2Fpasswd');
+
+        // Either 400 (caught by security check) or 404 (normalized path)
+        assert.ok([400, 404].includes(response.status));
+      });
+
+      test('should handle encoded path traversal attempts', async () => {
+        const response = await request(app)
+          .get('/api/reports/test%2F..%2Ftest.html');
+
+        // Security check or file not found
+        assert.ok([400, 404].includes(response.status));
+      });
+
+      test('should return 404 for non-existent report', async () => {
+        const response = await request(app)
+          .get('/api/reports/non-existent-report-xyz.html');
+
+        assert.strictEqual(response.status, 404);
+        assert.strictEqual(response.body.error, 'Not Found');
+      });
+
+      test('should return report when it exists', async () => {
+        // First get list of reports to find an existing one
+        const listResponse = await request(app)
+          .get('/api/reports?limit=1&format=html');
+
+        if (listResponse.body.reports.length > 0) {
+          const reportName = listResponse.body.reports[0].name;
+          const response = await request(app)
+            .get(`/api/reports/${reportName}`);
+
+          assert.strictEqual(response.status, 200);
+          assert.ok(response.type.includes('html'));
+        }
+      });
+
+      test('should return JSON report with correct content type', async () => {
+        const listResponse = await request(app)
+          .get('/api/reports?limit=1&format=json');
+
+        if (listResponse.body.reports.length > 0) {
+          const reportName = listResponse.body.reports[0].name;
+          const response = await request(app)
+            .get(`/api/reports/${reportName}`);
+
+          assert.strictEqual(response.status, 200);
+          assert.ok(response.type.includes('json'));
+        }
+      });
+    });
+
+    describe('DELETE /api/reports/:filename', () => {
+      test('should reject path traversal attempts', async () => {
+        // Express normalizes paths, so encoded traversal triggers security check
+        const response = await request(app)
+          .delete('/api/reports/..%2F..%2Fetc%2Fpasswd');
+
+        // Either 400 (caught by security check) or 404 (normalized/not found)
+        assert.ok([400, 404].includes(response.status));
+      });
+
+      test('should return 404 for non-existent report', async () => {
+        const response = await request(app)
+          .delete('/api/reports/non-existent-report-xyz.html');
+
+        assert.strictEqual(response.status, 404);
+        assert.strictEqual(response.body.error, 'Not Found');
+      });
+    });
+
+    describe('GET /api/reports/:scanId/summary', () => {
+      test('should return 404 for non-existent scan summary', async () => {
+        const response = await request(app)
+          .get('/api/reports/non-existent-scan-xyz/summary');
+
+        assert.strictEqual(response.status, 404);
+        assert.strictEqual(response.body.error, 'Not Found');
+        assert.ok(response.body.message.includes('Summary not found'));
+      });
+    });
+  });
+
+  describe('Repository Routes', () => {
+    describe('GET /api/repositories', () => {
+      test('should return list of repositories', async () => {
+        const response = await request(app)
+          .get('/api/repositories');
+
+        assert.strictEqual(response.status, 200);
+        assert.ok(Array.isArray(response.body.repositories));
+        assert.ok(typeof response.body.total === 'number');
+        assert.ok(response.body.timestamp);
+      });
+
+      test('should filter by enabled=true', async () => {
+        const response = await request(app)
+          .get('/api/repositories?enabled=true');
+
+        assert.strictEqual(response.status, 200);
+        assert.ok(Array.isArray(response.body.repositories));
+        // All returned repos should be enabled
+        for (const repo of response.body.repositories) {
+          assert.strictEqual(repo.enabled, true);
+        }
+      });
+
+      test('should filter by priority', async () => {
+        const response = await request(app)
+          .get('/api/repositories?priority=high');
+
+        assert.strictEqual(response.status, 200);
+        for (const repo of response.body.repositories) {
+          assert.strictEqual(repo.priority, 'high');
+        }
+      });
+
+      test('should filter by tag', async () => {
+        const response = await request(app)
+          .get('/api/repositories?tag=production');
+
+        assert.strictEqual(response.status, 200);
+        for (const repo of response.body.repositories) {
+          assert.ok(repo.tags.includes('production'));
+        }
+      });
+    });
+
+    describe('GET /api/repositories/:name', () => {
+      test('should return 404 for non-existent repository', async () => {
+        const response = await request(app)
+          .get('/api/repositories/non-existent-repo-xyz');
+
+        assert.strictEqual(response.status, 404);
+        assert.strictEqual(response.body.error, 'Not Found');
+        assert.ok(response.body.message.includes('not found'));
+      });
+
+      test('should return repository details when found', async () => {
+        // First get list of repos to find an existing one
+        const listResponse = await request(app)
+          .get('/api/repositories');
+
+        if (listResponse.body.repositories.length > 0) {
+          const repoName = listResponse.body.repositories[0].name;
+          const response = await request(app)
+            .get(`/api/repositories/${repoName}`);
+
+          assert.strictEqual(response.status, 200);
+          assert.ok(response.body.name || response.body.path);
+          assert.ok(response.body.timestamp);
+        }
+      });
+    });
+
+    describe('POST /api/repositories/:name/scan', () => {
+      test('should return 404 for non-existent repository', async () => {
+        const response = await request(app)
+          .post('/api/repositories/non-existent-repo-xyz/scan')
+          .send({});
+
+        assert.strictEqual(response.status, 404);
+        assert.strictEqual(response.body.error, 'Not Found');
+      });
+
+      test('should trigger scan for existing repository', async () => {
+        // First get list of repos to find an existing one
+        const listResponse = await request(app)
+          .get('/api/repositories');
+
+        if (listResponse.body.repositories.length > 0) {
+          const repoName = listResponse.body.repositories[0].name;
+          const response = await request(app)
+            .post(`/api/repositories/${repoName}/scan`)
+            .send({ forceRefresh: true });
+
+          assert.strictEqual(response.status, 200);
+          assert.ok(response.body.success);
+          assert.ok(response.body.job_id);
+          assert.ok(response.body.status_url);
+        }
+      });
+    });
+
+    describe('GET /api/repositories/:name/cache', () => {
+      test('should return 404 for non-existent repository', async () => {
+        const response = await request(app)
+          .get('/api/repositories/non-existent-repo-xyz/cache');
+
+        assert.strictEqual(response.status, 404);
+        assert.strictEqual(response.body.error, 'Not Found');
+      });
+
+      test('should return cache status for existing repository', async () => {
+        const listResponse = await request(app)
+          .get('/api/repositories');
+
+        if (listResponse.body.repositories.length > 0) {
+          const repoName = listResponse.body.repositories[0].name;
+          const response = await request(app)
+            .get(`/api/repositories/${repoName}/cache`);
+
+          assert.strictEqual(response.status, 200);
+          assert.ok(response.body.repository);
+          assert.ok(response.body.cache_status !== undefined);
+        }
+      });
+    });
+
+    describe('DELETE /api/repositories/:name/cache', () => {
+      test('should return 404 for non-existent repository', async () => {
+        const response = await request(app)
+          .delete('/api/repositories/non-existent-repo-xyz/cache');
+
+        assert.strictEqual(response.status, 404);
+        assert.strictEqual(response.body.error, 'Not Found');
+      });
+
+      test('should invalidate cache for existing repository', async () => {
+        const listResponse = await request(app)
+          .get('/api/repositories');
+
+        if (listResponse.body.repositories.length > 0) {
+          const repoName = listResponse.body.repositories[0].name;
+          const response = await request(app)
+            .delete(`/api/repositories/${repoName}/cache`);
+
+          assert.strictEqual(response.status, 200);
+          assert.ok(response.body.success);
+          assert.ok(typeof response.body.cache_entries_deleted === 'number');
+        }
+      });
+    });
+
+    describe('GET /api/repositories/groups/list', () => {
+      test('should return list of repository groups', async () => {
+        const response = await request(app)
+          .get('/api/repositories/groups/list');
+
+        assert.strictEqual(response.status, 200);
+        assert.ok(Array.isArray(response.body.groups));
+        assert.ok(typeof response.body.total === 'number');
+        assert.ok(response.body.timestamp);
+      });
+
+      test('should filter by enabled=true', async () => {
+        const response = await request(app)
+          .get('/api/repositories/groups/list?enabled=true');
+
+        assert.strictEqual(response.status, 200);
+        for (const group of response.body.groups) {
+          assert.strictEqual(group.enabled, true);
+        }
+      });
+    });
+
+    describe('GET /api/repositories/groups/:name', () => {
+      test('should return 404 for non-existent group', async () => {
+        const response = await request(app)
+          .get('/api/repositories/groups/non-existent-group-xyz');
+
+        assert.strictEqual(response.status, 404);
+        assert.strictEqual(response.body.error, 'Not Found');
+        assert.ok(response.body.message.includes('not found'));
+      });
+
+      test('should return group details when found', async () => {
+        const listResponse = await request(app)
+          .get('/api/repositories/groups/list');
+
+        if (listResponse.body.groups.length > 0) {
+          const groupName = listResponse.body.groups[0].name;
+          const response = await request(app)
+            .get(`/api/repositories/groups/${groupName}`);
+
+          assert.strictEqual(response.status, 200);
+          assert.ok(response.body.name);
+          assert.ok(response.body.timestamp);
+        }
+      });
+    });
+  });
 });
