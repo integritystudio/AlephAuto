@@ -2,6 +2,8 @@
 
 Comprehensive testing documentation for the AlephAuto job queue framework and all pipelines.
 
+**Last Updated:** 2026-01-18
+
 ## Table of Contents
 
 1. [Overview](#overview)
@@ -19,8 +21,12 @@ Comprehensive testing documentation for the AlephAuto job queue framework and al
 ### Test Statistics
 
 ```
-Total Tests: 80+
-Unit Tests: 24+ tests across 9 files
+Total Tests: 802
+Passing: 796 (99.3%)
+Skipped: 6 (intentional - require external infrastructure)
+Failed: 0
+Test Duration: ~21 seconds
+Unit Tests: 268 test suites
 Integration Tests: 8 test files
 Accuracy Tests: 1 comprehensive suite
 Test Fixtures: Automatic cleanup system
@@ -34,8 +40,8 @@ tests/
 ├── unit/                               # Unit tests (9 files)
 │   ├── api-routes.test.js             # API endpoint tests
 │   ├── sidequest-server.test.js       # Job queue tests
-│   ├── repomix-worker.test.js         # Repomix worker tests (8/8 passing)
-│   ├── mcp-server.test.js             # MCP server tests (10-13/16 passing)
+│   ├── repomix-worker.test.js         # Repomix worker tests (all passing)
+│   ├── mcp-server.test.js             # MCP server tests (all passing)
 │   ├── directory-scanner.test.js      # Directory scanning tests
 │   ├── readme-scanner.test.js         # README discovery tests
 │   ├── schema-mcp-tools.test.js       # Schema.org tools tests

@@ -2,6 +2,7 @@
 
 **Generated:** 2025-12-09 10:58:08
 **Root Directory:** /Users/alyshialedlie/code/ISPublicSites/AlephAuto
+**Status:** Historical snapshot - re-run analysis tools for current data
 
 ## Analysis Results
 

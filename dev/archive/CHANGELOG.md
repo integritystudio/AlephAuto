@@ -2,6 +2,51 @@
 
 This file tracks major changes, bug fixes, and feature additions to the AlephAuto job queue framework.
 
+## Version 1.8.0 (2026-01-18)
+
+### Test Suite Expansion 📊
+
+**Comprehensive Unit Test Coverage** - 796 passing tests
+- Added tests for SidequestServer core functionality
+- Added tests for PR creator and report generator
+- Added tests for git-tracker, cached-scanner, markdown-report-generator
+- Added tests for rate-limit, repository-scanner, websocket
+- Added tests for scan-cache, ast-grep-detector, validation middleware
+- Added tests for reports, repositories, event-broadcaster
+- Test results: 796 pass, 0 fail, 6 skipped
+
+**CI/CD Improvements**
+- Fixed Python pipeline tests (tuple unpacking, model imports)
+- Made integration tests non-blocking with skip conditions
+- Added timeout flags to integration test scripts
+- Excluded standalone test scripts from CI runs
+- Updated logger import paths in integration tests
+
+### Security Updates 🔒
+
+**Dependency Vulnerability Fixes**
+- Resolved high-severity vulnerabilities in dependencies
+- Updated qs to >=6.14.1 via pnpm overrides
+
+### Bug Fixes ✅
+
+**Dashboard & API**
+- Fixed: Include reportPaths in duplicate-detection job results
+- Fixed: Redirect MCP logger to stderr for protocol compatibility
+
+**TypeScript**
+- Resolved pre-existing TypeScript errors
+- Use 'any' for Job.data and Job.result for flexibility
+- Fixed worker.maxConcurrent reference in types
+
+**Tests**
+- Fixed API routes timeout and flaky test issues
+- Added proper job cancellation in after hooks
+- Handle missing reports directory in CI environment
+- Skip integration tests requiring external services in CI
+
+---
+
 ## Version 1.7.1 (2025-11-27)
 
 ### Documentation Restructuring ✅

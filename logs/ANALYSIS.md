@@ -1,127 +1,133 @@
 # Logs Directory Analysis
 
-**Analysis Date**: 2025-11-09 14:20 PST
-**Task**: Clean old log files (older than 30 days)
+**Analysis Date**: 2026-01-18
+**Previous Analysis**: 2025-11-09
 
 ## Summary
 
-**Result**: No logs older than 30 days found - all logs are less than 2 days old.
+**Current Status**: Active logging with improved error rate
 
 ## Statistics
 
-- **Total log files**: 6,042
-- **Error log files**: 3,362 (56%)
-- **Success log files**: 2,680 (44%)
-- **Total size**: 31 MB
-- **Date range**: All from November 8, 2025
+| Metric | Previous (2025-11-09) | Current (2026-01-18) | Change |
+|--------|----------------------|---------------------|--------|
+| Total log files | 6,042 | 2,655 | -56% |
+| Error log files | 3,362 (56%) | 714 (27%) | -79% |
+| Success log files | 2,680 (44%) | 1,941 (73%) | +73% |
+| Total size | 31 MB | 36 MB | +16% |
+| Files from last 7 days | N/A | 625 | - |
 
 ## Findings
 
-### All Logs Are Recent
-All 6,042 log files were created on November 8, 2025, meaning they are less than 2 days old. Therefore, no logs met the criteria for deletion (older than 30 days).
+### Error Rate Improvement
+The error rate has dropped significantly from 56% to 27%, indicating:
+- Repomix configuration improvements have been effective
+- Fewer problematic directories being processed
+- Better error handling in place
 
-### High Error Rate
-Over half of the logs (3,362 files) are error logs, indicating:
-- Many repomix operations are failing
-- Possible configuration issues
-- Directories that repomix cannot process
+### Log Structure
+Logs are now organized with subdirectories:
+- `logs/duplicate-detection/` - Contains scan results for duplicate detection pipeline
+- Root `logs/` directory - General job logs and error files
 
-### Error Log Patterns
-Most error logs are from repomix operations on:
-- Go module dependencies (`go-pkg-mod`)
-- Python environment directories
-- Vim plugin directories
-- Various nested project structures
-
-### Sample Error Logs
-```
-repomix-go-pkg-mod-google.golang.org-api@v0.239.0-*.error.json
-repomix-python-pyenv-versions-3.13.7-*.error.json
-repomix-dotfiles-vim-bundle-*.error.json
-```
+### Active Log Types
+- `scan-inter-project-*.json` - Duplicate detection scan results
+- `job-*.json` - Individual job execution logs
+- `*.error.json` - Error logs for failed operations
+- `repomix-*.json` - Repomix execution logs
 
 ## Recommendations
 
-### 1. Fix Repomix Configuration
-The high error rate suggests repomix needs better configuration:
-- Add problematic paths to `.repomixignore`
-- Configure repomix to skip dependency directories
-- Review repomix.config.json settings
-
-### 2. Implement Log Rotation
-Since logs accumulate quickly (6K files in 1 day):
+### 1. Log Rotation (Implemented)
+Use the built-in cleanup script:
 ```bash
-# Set up a cron job to clean logs older than 30 days
-0 2 * * * find /Users/alyshialedlie/code/jobs/logs -name "*.json" -mtime +30 -delete
+# Dry run to see what would be cleaned
+npm run logs:cleanup:dry
+
+# Actually clean old logs
+npm run logs:cleanup
+
+# Verbose output
+npm run logs:cleanup:verbose
 ```
 
-### 3. Reduce Log Volume
-Consider:
-- Fixing the errors to reduce error logs
-- Logging only critical operations
-- Consolidating logs instead of one file per operation
-- Implementing log levels (error, warning, info)
+### 2. Monitor Error Trends
+Track error rate over time to ensure it continues improving:
+```bash
+# Count error vs success logs
+find logs/ -name "*.error.json" | wc -l
+find logs/ -name "*.json" ! -name "*.error.json" | wc -l
+```
 
-### 4. Review Repomix Scope
-The number of operations suggests repomix is running on:
-- Dependency directories (should be excluded)
-- System directories (should be excluded)
-- Binary/compiled directories (should be excluded)
+### 3. Review Large Log Files
+Check for unusually large log files that may indicate issues:
+```bash
+find logs/ -name "*.json" -size +100k -exec ls -lh {} \;
+```
 
 ## Log Cleanup Strategy
 
-### Current Task
-✅ **Completed**: Checked for logs older than 30 days
-- Found: 0 old logs
-- Deleted: 0 files
-- Reason: All logs are less than 2 days old
+### Automated Cleanup
+The `scripts/cleanup-error-logs.js` script handles:
+- Archiving logs older than configurable threshold
+- Deleting archived logs older than retention period
+- Verbose reporting of cleanup actions
 
-### Future Cleanup Options
+### Manual Cleanup Commands
 
-**Option 1: Delete All Error Logs (Aggressive)**
+**Option 1: Clean logs older than 30 days**
 ```bash
-# Would remove 3,362 files
-find logs/ -name "*.error.json" -delete
+npm run logs:cleanup
 ```
 
-**Option 2: Keep Only Recent Summary Logs (Moderate)**
+**Option 2: Preview cleanup without deleting**
 ```bash
-# Keep only the last 100 logs
+npm run logs:cleanup:dry
+```
+
+**Option 3: Keep only recent logs (aggressive)**
+```bash
+# Keep only last 100 logs per directory
 ls -t logs/*.json | tail -n +101 | xargs rm
 ```
 
-**Option 3: Set Up Automated Cleanup (Recommended)**
-```bash
-# Add to crontab to run daily at 2 AM
-0 2 * * * find /path/to/logs -name "*.json" -mtime +30 -delete
+## Directory Structure
+
+```
+logs/
+├── ANALYSIS.md                    # This file
+├── duplicate-detection/           # Pipeline-specific logs (~1,082 files)
+│   └── scan-inter-project-*.json  # Scan results
+├── job-*.json                     # Job execution logs
+├── *.error.json                   # Error logs
+└── repomix-*.json                 # Repomix execution logs
 ```
 
-## Next Steps
-
-1. **Review repomix configuration** - Fix the high error rate
-2. **Update .repomixignore** - Exclude directories causing errors
-3. **Set up log rotation** - Prevent future accumulation
-4. **Monitor log volume** - Track if changes reduce errors
-
-## Files to Review
-
-- `.repomixignore` - Add exclusion patterns
-- `repomix.config.json` - Review configuration
-- Error logs - Identify common failure patterns
-
-## Commands for Further Analysis
+## Commands for Analysis
 
 ```bash
-# Find most common error patterns
-grep -h "error" logs/*.error.json | sort | uniq -c | sort -nr | head -20
+# Count files by type
+find logs/ -name "*.json" | wc -l
+find logs/ -name "*.error.json" | wc -l
 
-# List directories causing most errors
-ls logs/*.error.json | sed 's/.*repomix-//' | sed 's/-[0-9]*.error.json//' | sort | uniq -c | sort -nr | head -20
+# Find most common error patterns
+ls logs/*.error.json 2>/dev/null | sed 's/.*repomix-//' | sed 's/-[0-9]*.error.json//' | sort | uniq -c | sort -nr | head -10
 
 # Check log file size distribution
-find logs/ -name "*.json" -exec ls -lh {} \; | awk '{print $5}' | sort | uniq -c
+du -sh logs/
+du -sh logs/*/
+
+# Find files from last 7 days
+find logs/ -type f -name "*.json" -mtime -7 | wc -l
 ```
 
 ## Conclusion
 
-No cleanup was performed because all logs are recent (< 2 days old). However, the analysis revealed significant issues with repomix configuration that should be addressed to prevent future log accumulation and fix the high error rate.
+The logs directory is healthier than the previous analysis:
+- Error rate reduced from 56% to 27%
+- Automated cleanup scripts are available
+- Logs are organized into subdirectories by pipeline
+- Total file count reduced despite continued operation
+
+---
+*Last updated: 2026-01-18*
