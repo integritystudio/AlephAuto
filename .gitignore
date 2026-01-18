@@ -52,3 +52,9 @@ data/*.db-wal
 
 # Frontend React app (development only)
 frontend/
+
+# Coverage reports
+coverage/
+
+# Schema cache (generated)
+.schema_cache/

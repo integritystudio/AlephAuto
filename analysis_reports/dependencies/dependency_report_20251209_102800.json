@@ -1,0 +1,503 @@
+{
+  "summary": {
+    "root_directory": "/Users/alyshialedlie/code/ISPublicSites/AlephAuto",
+    "total_dependencies": 77,
+    "external_dependencies": 0,
+    "internal_dependencies": 77,
+    "files_analyzed": 14,
+    "circular_dependencies_count": 0
+  },
+  "dependencies_by_file": {
+    "/Users/alyshialedlie/code/ISPublicSites/AlephAuto/sidequest/pipeline-core/similarity/structural.py": [
+      {
+        "package": "re",
+        "import_type": "static",
+        "line_number": 7,
+        "is_external": false
+      },
+      {
+        "package": "sys",
+        "import_type": "static",
+        "line_number": 8,
+        "is_external": false
+      },
+      {
+        "package": "hashlib",
+        "import_type": "static",
+        "line_number": 9,
+        "is_external": false
+      },
+      {
+        "package": "typing",
+        "import_type": "static",
+        "line_number": 10,
+        "is_external": false
+      },
+      {
+        "package": "difflib",
+        "import_type": "static",
+        "line_number": 11,
+        "is_external": false
+      },
+      {
+        "package": "dataclasses",
+        "import_type": "static",
+        "line_number": 12,
+        "is_external": false
+      }
+    ],
+    "/Users/alyshialedlie/code/ISPublicSites/AlephAuto/sidequest/pipeline-core/similarity/semantic.py": [
+      {
+        "package": "sys",
+        "import_type": "static",
+        "line_number": 9,
+        "is_external": false
+      },
+      {
+        "package": "typing",
+        "import_type": "static",
+        "line_number": 7,
+        "is_external": false
+      },
+      {
+        "package": "pathlib",
+        "import_type": "static",
+        "line_number": 8,
+        "is_external": false
+      },
+      {
+        "package": "code_block",
+        "import_type": "static",
+        "line_number": 15,
+        "is_external": false
+      }
+    ],
+    "/Users/alyshialedlie/code/ISPublicSites/AlephAuto/sidequest/pipeline-core/similarity/config.py": [
+      {
+        "package": "os",
+        "import_type": "static",
+        "line_number": 7,
+        "is_external": false
+      },
+      {
+        "package": "json",
+        "import_type": "static",
+        "line_number": 76,
+        "is_external": false
+      }
+    ],
+    "/Users/alyshialedlie/code/ISPublicSites/AlephAuto/sidequest/pipeline-core/similarity/grouping.py": [
+      {
+        "package": "sys",
+        "import_type": "static",
+        "line_number": 14,
+        "is_external": false
+      },
+      {
+        "package": "os",
+        "import_type": "static",
+        "line_number": 15,
+        "is_external": false
+      },
+      {
+        "package": "re",
+        "import_type": "static",
+        "line_number": 59,
+        "is_external": false
+      },
+      {
+        "package": "typing",
+        "import_type": "static",
+        "line_number": 11,
+        "is_external": false
+      },
+      {
+        "package": "collections",
+        "import_type": "static",
+        "line_number": 12,
+        "is_external": false
+      },
+      {
+        "package": "pathlib",
+        "import_type": "static",
+        "line_number": 13,
+        "is_external": false
+      },
+      {
+        "package": "code_block",
+        "import_type": "static",
+        "line_number": 24,
+        "is_external": false
+      },
+      {
+        "package": "duplicate_group",
+        "import_type": "static",
+        "line_number": 25,
+        "is_external": false
+      },
+      {
+        "package": ".structural",
+        "import_type": "static",
+        "line_number": 27,
+        "is_external": false
+      },
+      {
+        "package": ".semantic",
+        "import_type": "static",
+        "line_number": 35,
+        "is_external": false
+      }
+    ],
+    "/Users/alyshialedlie/code/ISPublicSites/AlephAuto/sidequest/pipeline-core/similarity/__init__.py": [
+      {
+        "package": ".structural",
+        "import_type": "static",
+        "line_number": 4,
+        "is_external": false
+      },
+      {
+        "package": ".grouping",
+        "import_type": "static",
+        "line_number": 5,
+        "is_external": false
+      }
+    ],
+    "/Users/alyshialedlie/code/ISPublicSites/AlephAuto/sidequest/pipeline-core/models/scan_report.py": [
+      {
+        "package": "datetime",
+        "import_type": "static",
+        "line_number": 8,
+        "is_external": false
+      },
+      {
+        "package": "typing",
+        "import_type": "static",
+        "line_number": 9,
+        "is_external": false
+      },
+      {
+        "package": "pydantic",
+        "import_type": "static",
+        "line_number": 10,
+        "is_external": false
+      }
+    ],
+    "/Users/alyshialedlie/code/ISPublicSites/AlephAuto/sidequest/pipeline-core/models/consolidation_suggestion.py": [
+      {
+        "package": "datetime",
+        "import_type": "static",
+        "line_number": 7,
+        "is_external": false
+      },
+      {
+        "package": "enum",
+        "import_type": "static",
+        "line_number": 8,
+        "is_external": false
+      },
+      {
+        "package": "typing",
+        "import_type": "static",
+        "line_number": 9,
+        "is_external": false
+      },
+      {
+        "package": "pydantic",
+        "import_type": "static",
+        "line_number": 10,
+        "is_external": false
+      }
+    ],
+    "/Users/alyshialedlie/code/ISPublicSites/AlephAuto/sidequest/pipeline-core/models/__init__.py": [
+      {
+        "package": ".code_block",
+        "import_type": "static",
+        "line_number": 13,
+        "is_external": false
+      },
+      {
+        "package": ".duplicate_group",
+        "import_type": "static",
+        "line_number": 21,
+        "is_external": false
+      },
+      {
+        "package": ".consolidation_suggestion",
+        "import_type": "static",
+        "line_number": 26,
+        "is_external": false
+      },
+      {
+        "package": ".scan_report",
+        "import_type": "static",
+        "line_number": 34,
+        "is_external": false
+      }
+    ],
+    "/Users/alyshialedlie/code/ISPublicSites/AlephAuto/sidequest/pipeline-core/models/duplicate_group.py": [
+      {
+        "package": "datetime",
+        "import_type": "static",
+        "line_number": 7,
+        "is_external": false
+      },
+      {
+        "package": "enum",
+        "import_type": "static",
+        "line_number": 8,
+        "is_external": false
+      },
+      {
+        "package": "typing",
+        "import_type": "static",
+        "line_number": 9,
+        "is_external": false
+      },
+      {
+        "package": "pydantic",
+        "import_type": "static",
+        "line_number": 10,
+        "is_external": false
+      }
+    ],
+    "/Users/alyshialedlie/code/ISPublicSites/AlephAuto/sidequest/pipeline-core/models/test_models.py": [
+      {
+        "package": "importlib.util",
+        "import_type": "static",
+        "line_number": 11,
+        "is_external": false
+      },
+      {
+        "package": "sys",
+        "import_type": "static",
+        "line_number": 12,
+        "is_external": false
+      },
+      {
+        "package": "pathlib",
+        "import_type": "static",
+        "line_number": 13,
+        "is_external": false
+      }
+    ],
+    "/Users/alyshialedlie/code/ISPublicSites/AlephAuto/sidequest/pipeline-core/models/code_block.py": [
+      {
+        "package": "hashlib",
+        "import_type": "static",
+        "line_number": 12,
+        "is_external": false
+      },
+      {
+        "package": "json",
+        "import_type": "static",
+        "line_number": 13,
+        "is_external": false
+      },
+      {
+        "package": "datetime",
+        "import_type": "static",
+        "line_number": 8,
+        "is_external": false
+      },
+      {
+        "package": "enum",
+        "import_type": "static",
+        "line_number": 9,
+        "is_external": false
+      },
+      {
+        "package": "typing",
+        "import_type": "static",
+        "line_number": 10,
+        "is_external": false
+      },
+      {
+        "package": "pydantic",
+        "import_type": "static",
+        "line_number": 11,
+        "is_external": false
+      }
+    ],
+    "/Users/alyshialedlie/code/ISPublicSites/AlephAuto/sidequest/pipeline-core/scanners/timeout_detector.py": [
+      {
+        "package": "os",
+        "import_type": "static",
+        "line_number": 16,
+        "is_external": false
+      },
+      {
+        "package": "sys",
+        "import_type": "static",
+        "line_number": 17,
+        "is_external": false
+      },
+      {
+        "package": "re",
+        "import_type": "static",
+        "line_number": 18,
+        "is_external": false
+      },
+      {
+        "package": "json",
+        "import_type": "static",
+        "line_number": 19,
+        "is_external": false
+      },
+      {
+        "package": "pathlib",
+        "import_type": "static",
+        "line_number": 20,
+        "is_external": false
+      },
+      {
+        "package": "typing",
+        "import_type": "static",
+        "line_number": 21,
+        "is_external": false
+      },
+      {
+        "package": "dataclasses",
+        "import_type": "static",
+        "line_number": 22,
+        "is_external": false
+      }
+    ],
+    "/Users/alyshialedlie/code/ISPublicSites/AlephAuto/sidequest/pipeline-core/extractors/extract_blocks.py": [
+      {
+        "package": "sys",
+        "import_type": "static",
+        "line_number": 15,
+        "is_external": false
+      },
+      {
+        "package": "json",
+        "import_type": "static",
+        "line_number": 16,
+        "is_external": false
+      },
+      {
+        "package": "hashlib",
+        "import_type": "static",
+        "line_number": 17,
+        "is_external": false
+      },
+      {
+        "package": "re",
+        "import_type": "static",
+        "line_number": 18,
+        "is_external": false
+      },
+      {
+        "package": "os",
+        "import_type": "static",
+        "line_number": 19,
+        "is_external": false
+      },
+      {
+        "package": "traceback",
+        "import_type": "static",
+        "line_number": 255,
+        "is_external": false
+      },
+      {
+        "package": "traceback",
+        "import_type": "static",
+        "line_number": 677,
+        "is_external": false
+      },
+      {
+        "package": "pathlib",
+        "import_type": "static",
+        "line_number": 20,
+        "is_external": false
+      },
+      {
+        "package": "typing",
+        "import_type": "static",
+        "line_number": 21,
+        "is_external": false
+      },
+      {
+        "package": "code_block",
+        "import_type": "static",
+        "line_number": 30,
+        "is_external": false
+      },
+      {
+        "package": "duplicate_group",
+        "import_type": "static",
+        "line_number": 31,
+        "is_external": false
+      },
+      {
+        "package": "consolidation_suggestion",
+        "import_type": "static",
+        "line_number": 32,
+        "is_external": false
+      },
+      {
+        "package": "scan_report",
+        "import_type": "static",
+        "line_number": 33,
+        "is_external": false
+      },
+      {
+        "package": "similarity.grouping",
+        "import_type": "static",
+        "line_number": 34,
+        "is_external": false
+      }
+    ],
+    "/Users/alyshialedlie/code/ISPublicSites/AlephAuto/sidequest/pipeline-runners/collect_git_activity.py": [
+      {
+        "package": "argparse",
+        "import_type": "static",
+        "line_number": 13,
+        "is_external": false
+      },
+      {
+        "package": "json",
+        "import_type": "static",
+        "line_number": 14,
+        "is_external": false
+      },
+      {
+        "package": "math",
+        "import_type": "static",
+        "line_number": 15,
+        "is_external": false
+      },
+      {
+        "package": "os",
+        "import_type": "static",
+        "line_number": 16,
+        "is_external": false
+      },
+      {
+        "package": "subprocess",
+        "import_type": "static",
+        "line_number": 17,
+        "is_external": false
+      },
+      {
+        "package": "collections",
+        "import_type": "static",
+        "line_number": 18,
+        "is_external": false
+      },
+      {
+        "package": "datetime",
+        "import_type": "static",
+        "line_number": 19,
+        "is_external": false
+      },
+      {
+        "package": "pathlib",
+        "import_type": "static",
+        "line_number": 20,
+        "is_external": false
+      }
+    ]
+  },
+  "circular_dependencies": []
+}
