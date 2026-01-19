@@ -54,6 +54,7 @@ describe('ReportCoordinator', () => {
         strategy_rationale: 'Extract to shared utility',
         target_location: 'src/utils/common.js',
         impact_score: 70,
+        roi_score: 85,
         complexity: 'simple',
         migration_risk: 'low'
       }

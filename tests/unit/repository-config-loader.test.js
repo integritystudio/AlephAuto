@@ -20,7 +20,8 @@ describe('RepositoryConfigLoader', () => {
       scanConfig: {
         maxRepositoriesPerNight: 5,
         scanStartTime: '02:00',
-        scanEndTime: '06:00'
+        scanEndTime: '06:00',
+        schedule: 'nightly'
       },
       scanDefaults: {
         timeout: 300,
@@ -431,7 +432,7 @@ describe('RepositoryConfigLoader', () => {
       const stats = loader.getStats();
       assert.strictEqual(stats.totalRepositories, 2);
       assert.strictEqual(stats.enabledRepositories, 1);
-      assert.strictEqual(stats.totalGroups, 1);
+      assert.strictEqual(stats.groups, 1);
     });
   });
 });
