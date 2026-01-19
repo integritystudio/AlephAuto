@@ -155,20 +155,29 @@ app.get('/api/status', (req, res) => {
     const activityFeed = req.app.get('activityFeed');
     const recentActivity = activityFeed ? activityFeed.getRecentActivities(20) : [];
 
-    // Map database stats to API response format
-    const pipelines = pipelineStats.map(stats => ({
-      id: stats.pipeline_id,
-      name: getPipelineName(stats.pipeline_id),
-      // Show "running" status accurately only for duplicate-detection (we have worker access)
-      // For other pipelines, use database running count as fallback
-      status: (stats.pipeline_id === 'duplicate-detection' && workerStats.active > 0)
-        ? 'running'
-        : (stats.running > 0 ? 'running' : 'idle'),
-      completedJobs: stats.completed || 0,
-      failedJobs: stats.failed || 0,
-      lastRun: stats.last_run, // ISO timestamp from database
-      nextRun: null // Cron schedule not tracked in database
-    }));
+    // Create a map of database stats by pipeline_id
+    const statsMap = new Map(pipelineStats.map(s => [s.pipeline_id, s]));
+
+    // Get all registered workers and merge with database stats
+    const allPipelineIds = workerRegistry.getSupportedPipelines();
+
+    // Map all registered pipelines to API response format
+    const pipelines = allPipelineIds.map(pipelineId => {
+      const stats = statsMap.get(pipelineId) || {};
+      return {
+        id: pipelineId,
+        name: getPipelineName(pipelineId),
+        // Show "running" status accurately only for duplicate-detection (we have worker access)
+        // For other pipelines, use database running count as fallback
+        status: (pipelineId === 'duplicate-detection' && workerStats.active > 0)
+          ? 'running'
+          : ((stats.running || 0) > 0 ? 'running' : 'idle'),
+        completedJobs: stats.completed || 0,
+        failedJobs: stats.failed || 0,
+        lastRun: stats.last_run || null, // ISO timestamp from database
+        nextRun: null // Cron schedule not tracked in database
+      };
+    });
 
     // Calculate queue stats (only from duplicate-detection worker)
     const queueStats = {
