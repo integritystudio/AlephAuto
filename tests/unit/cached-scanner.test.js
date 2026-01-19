@@ -434,3 +434,169 @@ describe('CachedScanner - Integration Behavior', () => {
     });
   });
 });
+
+describe('CachedScanner - warmCache', () => {
+  // Mock scanner that always succeeds
+  class SuccessScanner {
+    async scanRepository(repoPath, options) {
+      return {
+        repository_info: { path: repoPath },
+        metrics: { total_duplicate_groups: 1 }
+      };
+    }
+  }
+
+  // Mock scanner that always fails
+  class FailingScanner {
+    async scanRepository(repoPath, options) {
+      throw new Error('Simulated scan failure');
+    }
+  }
+
+  it('should warm cache for multiple repositories', async () => {
+    const scanner = new CachedScanner();
+    const mockCache = new MockCache();
+    const mockScanner = new SuccessScanner();
+    const mockGitTracker = new MockGitTracker();
+
+    scanner.cache = mockCache;
+    scanner.scanner = mockScanner;
+    scanner.gitTracker = mockGitTracker;
+
+    const repoPaths = ['/repo1', '/repo2', '/repo3'];
+    const results = await scanner.warmCache(repoPaths);
+
+    assert.strictEqual(results.total, 3);
+    assert.strictEqual(results.successful, 3);
+    assert.strictEqual(results.failed, 0);
+    assert.deepStrictEqual(results.errors, []);
+  });
+
+  it('should handle failures during warm-up', async () => {
+    const scanner = new CachedScanner();
+    const mockCache = new MockCache();
+    const mockScanner = new FailingScanner();
+    const mockGitTracker = new MockGitTracker();
+
+    scanner.cache = mockCache;
+    scanner.scanner = mockScanner;
+    scanner.gitTracker = mockGitTracker;
+
+    const repoPaths = ['/repo1', '/repo2'];
+    const results = await scanner.warmCache(repoPaths);
+
+    assert.strictEqual(results.total, 2);
+    assert.strictEqual(results.successful, 0);
+    assert.strictEqual(results.failed, 2);
+    assert.strictEqual(results.errors.length, 2);
+    assert.ok(results.errors[0].error.includes('Simulated'));
+  });
+
+  it('should continue after individual failures', async () => {
+    let callCount = 0;
+    class MixedScanner {
+      async scanRepository(repoPath, options) {
+        callCount++;
+        if (callCount === 2) {
+          throw new Error('Fails on second repo');
+        }
+        return { repository_info: { path: repoPath } };
+      }
+    }
+
+    const scanner = new CachedScanner();
+    scanner.cache = new MockCache();
+    scanner.scanner = new MixedScanner();
+    scanner.gitTracker = new MockGitTracker();
+
+    const repoPaths = ['/repo1', '/repo2', '/repo3'];
+    const results = await scanner.warmCache(repoPaths);
+
+    assert.strictEqual(results.total, 3);
+    assert.strictEqual(results.successful, 2);
+    assert.strictEqual(results.failed, 1);
+  });
+
+  it('should return empty results for empty input', async () => {
+    const scanner = new CachedScanner();
+    scanner.cache = new MockCache();
+    scanner.gitTracker = new MockGitTracker();
+
+    const results = await scanner.warmCache([]);
+
+    assert.strictEqual(results.total, 0);
+    assert.strictEqual(results.successful, 0);
+    assert.strictEqual(results.failed, 0);
+  });
+
+  it('should force refresh when warming cache', async () => {
+    let receivedOptions = null;
+    class OptionsTrackingScanner {
+      async scanRepository(repoPath, options) {
+        receivedOptions = options;
+        return { repository_info: { path: repoPath } };
+      }
+    }
+
+    const scanner = new CachedScanner();
+    scanner.cache = new MockCache();
+    scanner.scanner = new OptionsTrackingScanner();
+    scanner.gitTracker = new MockGitTracker();
+
+    await scanner.warmCache(['/repo1'], { customOption: true });
+
+    assert.ok(receivedOptions);
+    assert.strictEqual(receivedOptions.forceRefresh, true);
+    assert.strictEqual(receivedOptions.customOption, true);
+  });
+});
+
+describe('CachedScanner - Error Handling', () => {
+  class ErrorThrowingCache {
+    async invalidateCache() {
+      throw new Error('Cache invalidation failed');
+    }
+    async isCached() {
+      return false;
+    }
+    async getCacheAge() {
+      return null;
+    }
+    async getCacheMetadata() {
+      return null;
+    }
+  }
+
+  class ErrorThrowingGitTracker {
+    async getRepositoryStatus() {
+      throw new Error('Git tracker failed');
+    }
+  }
+
+  it('should throw error when invalidateCache fails', async () => {
+    const scanner = new CachedScanner();
+    scanner.cache = new ErrorThrowingCache();
+
+    await assert.rejects(
+      () => scanner.invalidateCache('/repo'),
+      (err) => {
+        assert.ok(err.message.includes('Cache invalidation failed'));
+        return true;
+      }
+    );
+  });
+
+  it('should throw error when getCacheStatus fails', async () => {
+    const scanner = new CachedScanner();
+    scanner.gitTracker = new ErrorThrowingGitTracker();
+    scanner.cache = new MockCache();
+
+    await assert.rejects(
+      () => scanner.getCacheStatus('/repo'),
+      (err) => {
+        assert.ok(err.message.includes('Git tracker failed'));
+        return true;
+      }
+    );
+  });
+});
