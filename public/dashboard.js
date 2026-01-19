@@ -554,8 +554,10 @@ class DashboardController {
             return;
         }
 
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+        // Derive WebSocket URL from API base URL (handles cross-origin setups like GitHub Pages + Render)
+        const apiUrl = new URL(this.apiBaseUrl);
+        const wsProtocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${apiUrl.host}/ws`;
 
         // Only log on first attempt
         if (this.reconnectAttempts === 0) {
