@@ -305,9 +305,16 @@ class DashboardController {
 
     /**
      * Get API base URL from meta tag, window object, or fallback to current origin
-     * Priority: meta tag > window.SIDEQUEST_API_BASE_URL > window.location.origin
+     * Priority: localhost (if running locally) > meta tag > window.SIDEQUEST_API_BASE_URL > window.location.origin
      */
     getApiBaseUrl() {
+        // 0. If running on localhost, always use current origin (for local development)
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (isLocalhost) {
+            console.log(`Running on localhost, using current origin: ${window.location.origin}`);
+            return window.location.origin;
+        }
+
         // 1. Check for meta tag (set during build/deploy)
         const metaTag = document.querySelector('meta[name="sidequest-api-base-url"]');
         if (metaTag) {
@@ -324,7 +331,7 @@ class DashboardController {
             return win.SIDEQUEST_API_BASE_URL;
         }
 
-        // 3. Fallback to current origin (for local development)
+        // 3. Fallback to current origin
         console.log(`Using API base URL from current origin: ${window.location.origin}`);
         return window.location.origin;
     }
