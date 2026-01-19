@@ -227,7 +227,7 @@ node sidequest/pipeline-runners/git-activity-pipeline.js --since 2025-01-01 --un
 npm run git:schedule
 ```
 
-**Output:** `~/code/PersonalSite/_reports/git_activity_comprehensive.json` + SVG visualizations in `~/code/PersonalSite/assets/images/git-activity-{year}/`
+**Output:** `~/code/PersonalSite/_reports/{date}-git-activity-report.md` (Jekyll-formatted) + SVG visualizations in `~/code/PersonalSite/assets/images/git-activity-{year}/`
 
 ---
 

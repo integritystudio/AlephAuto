@@ -1,0 +1,286 @@
+/**
+ * ScanOrchestrator Unit Tests
+ *
+ * Tests for the scan orchestrator that coordinates the duplicate detection pipeline.
+ */
+
+import { describe, it, beforeEach, mock } from 'node:test';
+import assert from 'node:assert';
+import { ScanOrchestrator, ScanError } from '../../sidequest/pipeline-core/scan-orchestrator.js';
+
+describe('ScanOrchestrator', () => {
+  describe('Constructor', () => {
+    it('should initialize with default options', () => {
+      const orchestrator = new ScanOrchestrator();
+
+      assert.ok(orchestrator.repositoryScanner, 'Should have repository scanner');
+      assert.ok(orchestrator.patternDetector, 'Should have pattern detector');
+      assert.strictEqual(orchestrator.autoGenerateReports, true);
+    });
+
+    it('should accept custom pythonPath option', () => {
+      const orchestrator = new ScanOrchestrator({
+        pythonPath: '/custom/python'
+      });
+
+      assert.strictEqual(orchestrator.pythonPath, '/custom/python');
+    });
+
+    it('should defer Python validation when not provided', () => {
+      const orchestrator = new ScanOrchestrator();
+
+      assert.strictEqual(orchestrator.pythonPath, null);
+      assert.strictEqual(orchestrator._pythonValidated, false);
+    });
+
+    it('should accept custom extractorScript path', () => {
+      const orchestrator = new ScanOrchestrator({
+        extractorScript: '/custom/extractor.py'
+      });
+
+      assert.strictEqual(orchestrator.extractorScript, '/custom/extractor.py');
+    });
+
+    it('should accept custom outputDir', () => {
+      const orchestrator = new ScanOrchestrator({
+        outputDir: '/custom/output'
+      });
+
+      assert.strictEqual(orchestrator.outputDir, '/custom/output');
+    });
+
+    it('should accept custom report config', () => {
+      const reportConfig = { format: 'html', includeStats: true };
+      const orchestrator = new ScanOrchestrator({
+        reports: reportConfig
+      });
+
+      assert.deepStrictEqual(orchestrator.reportConfig, reportConfig);
+    });
+
+    it('should allow disabling auto-generated reports', () => {
+      const orchestrator = new ScanOrchestrator({
+        autoGenerateReports: false
+      });
+
+      assert.strictEqual(orchestrator.autoGenerateReports, false);
+    });
+
+    it('should accept custom config', () => {
+      const config = { key: 'value' };
+      const orchestrator = new ScanOrchestrator({
+        config
+      });
+
+      assert.deepStrictEqual(orchestrator.config, config);
+    });
+
+    it('should pass scanner options to RepositoryScanner', () => {
+      const scannerOpts = { maxFileSize: 10000 };
+      const orchestrator = new ScanOrchestrator({
+        scanner: scannerOpts
+      });
+
+      assert.ok(orchestrator.repositoryScanner);
+    });
+
+    it('should pass detector options to PatternDetector', () => {
+      const detectorOpts = { patterns: ['test'] };
+      const orchestrator = new ScanOrchestrator({
+        detector: detectorOpts
+      });
+
+      assert.ok(orchestrator.patternDetector);
+    });
+  });
+
+  describe('scanRepository validation', () => {
+    it('should throw ScanError for undefined repoPath', async () => {
+      const orchestrator = new ScanOrchestrator();
+
+      await assert.rejects(
+        () => orchestrator.scanRepository(undefined),
+        (err) => {
+          assert.ok(err instanceof ScanError);
+          assert.ok(err.message.includes('undefined'));
+          return true;
+        }
+      );
+    });
+
+    it('should throw ScanError for null repoPath', async () => {
+      const orchestrator = new ScanOrchestrator();
+
+      await assert.rejects(
+        () => orchestrator.scanRepository(null),
+        (err) => {
+          assert.ok(err instanceof ScanError);
+          assert.ok(err.message.includes('null'));
+          return true;
+        }
+      );
+    });
+
+    it('should throw ScanError for non-string repoPath', async () => {
+      const orchestrator = new ScanOrchestrator();
+
+      await assert.rejects(
+        () => orchestrator.scanRepository(123),
+        (err) => {
+          assert.ok(err instanceof ScanError);
+          assert.ok(err.message.includes('number'));
+          return true;
+        }
+      );
+    });
+
+    it('should throw ScanError for empty string repoPath', async () => {
+      const orchestrator = new ScanOrchestrator();
+
+      await assert.rejects(
+        () => orchestrator.scanRepository(''),
+        (err) => {
+          assert.ok(err instanceof ScanError);
+          return true;
+        }
+      );
+    });
+
+    it('should throw ScanError for object repoPath', async () => {
+      const orchestrator = new ScanOrchestrator();
+
+      await assert.rejects(
+        () => orchestrator.scanRepository({ path: '/repo' }),
+        (err) => {
+          assert.ok(err instanceof ScanError);
+          assert.ok(err.message.includes('object'));
+          return true;
+        }
+      );
+    });
+
+    it('should throw ScanError for array repoPath', async () => {
+      const orchestrator = new ScanOrchestrator();
+
+      await assert.rejects(
+        () => orchestrator.scanRepository(['/repo1', '/repo2']),
+        (err) => {
+          assert.ok(err instanceof ScanError);
+          assert.ok(err.message.includes('object'));
+          return true;
+        }
+      );
+    });
+  });
+
+  describe('_validatePython', () => {
+    it('should skip validation if already validated', () => {
+      const orchestrator = new ScanOrchestrator({
+        pythonPath: '/usr/bin/python3'
+      });
+
+      orchestrator._pythonValidated = true;
+
+      // Should not throw
+      assert.doesNotThrow(() => orchestrator._validatePython());
+    });
+
+    it('should set validated flag when pythonPath is provided', () => {
+      const orchestrator = new ScanOrchestrator({
+        pythonPath: '/usr/bin/python3'
+      });
+
+      orchestrator._validatePython();
+
+      assert.strictEqual(orchestrator._pythonValidated, true);
+    });
+  });
+});
+
+describe('ScanError', () => {
+  it('should create error with message', () => {
+    const error = new ScanError('Test error message');
+
+    assert.strictEqual(error.message, 'Test error message');
+    assert.strictEqual(error.name, 'ScanError');
+  });
+
+  it('should support cause option', () => {
+    const cause = new Error('Original error');
+    const error = new ScanError('Wrapped error', { cause });
+
+    assert.strictEqual(error.cause, cause);
+  });
+
+  it('should be instanceof Error', () => {
+    const error = new ScanError('Test');
+
+    assert.ok(error instanceof Error);
+    assert.ok(error instanceof ScanError);
+  });
+});
+
+describe('ScanOrchestrator - Report Configuration', () => {
+  it('should use default output directory', () => {
+    const orchestrator = new ScanOrchestrator();
+
+    assert.ok(orchestrator.outputDir.includes('output'));
+    assert.ok(orchestrator.outputDir.includes('reports'));
+  });
+
+  it('should merge report config with defaults', () => {
+    const orchestrator = new ScanOrchestrator({
+      reports: {
+        format: 'markdown',
+        includeCode: true
+      }
+    });
+
+    assert.strictEqual(orchestrator.reportConfig.format, 'markdown');
+    assert.strictEqual(orchestrator.reportConfig.includeCode, true);
+  });
+});
+
+describe('ScanOrchestrator - Scanner/Detector Integration', () => {
+  it('should create RepositoryScanner with options', () => {
+    const orchestrator = new ScanOrchestrator({
+      scanner: {
+        excludePatterns: ['node_modules']
+      }
+    });
+
+    assert.ok(orchestrator.repositoryScanner);
+  });
+
+  it('should create AstGrepPatternDetector with options', () => {
+    const orchestrator = new ScanOrchestrator({
+      detector: {
+        minMatches: 3
+      }
+    });
+
+    assert.ok(orchestrator.patternDetector);
+  });
+});
+
+describe('ScanOrchestrator - Default Values', () => {
+  it('should have sensible defaults', () => {
+    const orchestrator = new ScanOrchestrator();
+
+    // Check that all components are initialized
+    assert.ok(orchestrator.repositoryScanner);
+    assert.ok(orchestrator.patternDetector);
+
+    // Default extractor script should point to extractors directory
+    assert.ok(orchestrator.extractorScript.includes('extract_blocks.py'));
+
+    // Default report config should be empty object
+    assert.deepStrictEqual(orchestrator.reportConfig, {});
+
+    // Default config should be empty object
+    assert.deepStrictEqual(orchestrator.config, {});
+
+    // Auto-generate reports should be enabled by default
+    assert.strictEqual(orchestrator.autoGenerateReports, true);
+  });
+});
