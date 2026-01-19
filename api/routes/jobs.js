@@ -5,8 +5,9 @@
 
 import express from 'express';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
-import { getAllJobs } from '../../sidequest/core/database.js';
+import { getAllJobs, bulkImportJobs } from '../../sidequest/core/database.js';
 import { workerRegistry } from '../utils/worker-registry.js';
+import { config } from '../../sidequest/config.js';
 
 const router = express.Router();
 const logger = createComponentLogger('JobsAPI');
@@ -311,6 +312,110 @@ router.post('/:jobId/retry', async (req, res) => {
       error: {
         message: 'Failed to retry job',
         code: 'INTERNAL_ERROR'
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * POST /api/jobs/bulk-import
+ * Bulk import jobs (for database migration)
+ * Requires MIGRATION_API_KEY environment variable for authentication
+ *
+ * Request body:
+ * {
+ *   "jobs": [{ id, pipeline_id, status, created_at, ... }],
+ *   "apiKey": "migration-key-from-env"
+ * }
+ */
+router.post('/bulk-import', (req, res) => {
+  try {
+    const { jobs, apiKey } = req.body;
+
+    // Validate API key for migration operations
+    const migrationKey = config.migrationApiKey || process.env.MIGRATION_API_KEY;
+    if (!migrationKey) {
+      return res.status(503).json({
+        success: false,
+        error: {
+          message: 'Migration API not configured. Set MIGRATION_API_KEY environment variable.',
+          code: 'MIGRATION_NOT_CONFIGURED'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (apiKey !== migrationKey) {
+      logger.warn('Bulk import attempted with invalid API key');
+      return res.status(401).json({
+        success: false,
+        error: {
+          message: 'Invalid migration API key',
+          code: 'UNAUTHORIZED'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Validate jobs array
+    if (!Array.isArray(jobs) || jobs.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'Request body must contain a non-empty "jobs" array',
+          code: 'INVALID_REQUEST'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Validate required fields
+    const requiredFields = ['id', 'status'];
+    for (const job of jobs) {
+      for (const field of requiredFields) {
+        if (!job[field]) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              message: `Job missing required field: ${field}`,
+              code: 'INVALID_JOB_DATA'
+            },
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+    }
+
+    logger.info({ jobCount: jobs.length }, 'Starting bulk import');
+
+    // Perform bulk import
+    const result = bulkImportJobs(jobs);
+
+    logger.info({
+      imported: result.imported,
+      skipped: result.skipped,
+      errors: result.errors.length
+    }, 'Bulk import completed');
+
+    res.json({
+      success: true,
+      data: {
+        imported: result.imported,
+        skipped: result.skipped,
+        errors: result.errors
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error({ error }, 'Bulk import failed');
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Bulk import failed',
+        code: 'INTERNAL_ERROR',
+        details: error.message
       },
       timestamp: new Date().toISOString()
     });

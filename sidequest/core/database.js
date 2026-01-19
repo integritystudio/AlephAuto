@@ -500,6 +500,56 @@ export function closeDatabase() {
   }
 }
 
+/**
+ * Bulk import jobs (for database migration)
+ * Skips jobs that already exist (by ID)
+ * @param {Array} jobs - Array of job objects
+ * @returns {{ imported: number, skipped: number, errors: string[] }}
+ */
+export function bulkImportJobs(jobs) {
+  const database = getDatabase();
+  let imported = 0;
+  let skipped = 0;
+  const errors = [];
+
+  for (const job of jobs) {
+    try {
+      // Check if job already exists
+      const existing = queryOne('SELECT id FROM jobs WHERE id = ?', [job.id]);
+      if (existing) {
+        skipped++;
+        continue;
+      }
+
+      database.run(`
+        INSERT INTO jobs
+        (id, pipeline_id, status, created_at, started_at, completed_at, data, result, error, git)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        job.id,
+        job.pipeline_id || job.pipelineId || 'unknown',
+        job.status,
+        job.created_at || job.createdAt || new Date().toISOString(),
+        job.started_at || job.startedAt || null,
+        job.completed_at || job.completedAt || null,
+        typeof job.data === 'string' ? job.data : (job.data ? JSON.stringify(job.data) : null),
+        typeof job.result === 'string' ? job.result : (job.result ? JSON.stringify(job.result) : null),
+        typeof job.error === 'string' ? job.error : (job.error ? JSON.stringify(job.error) : null),
+        typeof job.git === 'string' ? job.git : (job.git ? JSON.stringify(job.git) : null)
+      ]);
+      imported++;
+    } catch (error) {
+      errors.push(`Job ${job.id}: ${error.message}`);
+    }
+  }
+
+  // Persist after bulk import
+  persistDatabase();
+
+  logger.info({ imported, skipped, errorCount: errors.length }, 'Bulk import completed');
+  return { imported, skipped, errors };
+}
+
 export default {
   initDatabase,
   getDatabase,
@@ -512,5 +562,6 @@ export default {
   getAllPipelineStats,
   importReportsToDatabase,
   importLogsToDatabase,
+  bulkImportJobs,
   closeDatabase
 };

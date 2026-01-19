@@ -124,6 +124,10 @@ export const config = {
     // Cache TTL in seconds (default: 30 days)
     ttl: parseInt(process.env.REDIS_CACHE_TTL || String(30 * 24 * 60 * 60), 10),
   },
+
+  // Migration API key for bulk import operations
+  // Used to authenticate database migration requests
+  migrationApiKey: process.env.MIGRATION_API_KEY || null,
 };
 
 /**
