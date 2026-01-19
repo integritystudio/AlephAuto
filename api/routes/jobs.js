@@ -7,7 +7,7 @@ import express from 'express';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import { getAllJobs, bulkImportJobs } from '../../sidequest/core/database.js';
 import { workerRegistry } from '../utils/worker-registry.js';
-import { config } from '../../sidequest/config.js';
+import { config } from '../../sidequest/core/config.js';
 
 const router = express.Router();
 const logger = createComponentLogger('JobsAPI');
