@@ -158,6 +158,20 @@ export class ActivityFeedManager {
             status: 'created',
             icon: '📝'
           });
+
+          // Broadcast job event directly for dashboard real-time updates
+          if (this.broadcaster) {
+            this.broadcaster.broadcast({
+              type: 'job:created',
+              job: {
+                id: job.id,
+                status: job.status,
+                pipelineId: job.data?.pipelineId || worker.jobType,
+                createdAt: job.createdAt,
+                data: job.data
+              }
+            }, 'jobs');
+          }
         } catch (error) {
           logger.error({ error, job }, 'Failed to add job:created activity');
           Sentry.captureException(error, {
@@ -179,6 +193,20 @@ export class ActivityFeedManager {
             status: 'running',
             icon: '▶️'
           });
+
+          // Broadcast job event directly for dashboard real-time updates
+          if (this.broadcaster) {
+            this.broadcaster.broadcast({
+              type: 'job:started',
+              job: {
+                id: job.id,
+                status: job.status,
+                pipelineId: job.data?.pipelineId || worker.jobType,
+                startedAt: job.startedAt,
+                data: job.data
+              }
+            }, 'jobs');
+          }
         } catch (error) {
           logger.error({ error, job }, 'Failed to add job:started activity');
           Sentry.captureException(error, {
@@ -213,6 +241,21 @@ export class ActivityFeedManager {
             duration: durationSeconds,
             icon: '✅'
           });
+
+          // Broadcast job event directly for dashboard real-time updates
+          if (this.broadcaster) {
+            this.broadcaster.broadcast({
+              type: 'job:completed',
+              job: {
+                id: job.id,
+                status: job.status,
+                pipelineId: job.data?.pipelineId || worker.jobType,
+                completedAt: job.completedAt,
+                result: job.result,
+                data: job.data
+              }
+            }, 'jobs');
+          }
         } catch (error) {
           logger.error({ error, job }, 'Failed to add job:completed activity');
           Sentry.captureException(error, {
@@ -268,6 +311,21 @@ export class ActivityFeedManager {
             },
             icon: '❌'
           });
+
+          // Broadcast job event directly for dashboard real-time updates
+          if (this.broadcaster) {
+            this.broadcaster.broadcast({
+              type: 'job:failed',
+              job: {
+                id: job.id,
+                status: job.status,
+                pipelineId: job.data?.pipelineId || worker.jobType,
+                completedAt: job.completedAt,
+                error: { message: errorMessage, code: errorCode },
+                data: job.data
+              }
+            }, 'jobs');
+          }
 
           // Capture job failure in Sentry
           // Defensive: ensure we always pass an Error object to Sentry

@@ -91,6 +91,24 @@ export class SidequestServer extends EventEmitter {
     this.jobs.set(jobId, job);
     this.queue.push(jobId);
 
+    // Persist to SQLite immediately so job is visible in dashboard
+    try {
+      saveJob({
+        id: job.id,
+        pipelineId: this.jobType,
+        status: job.status,
+        createdAt: job.createdAt?.toISOString?.() || job.createdAt,
+        startedAt: job.startedAt,
+        completedAt: job.completedAt,
+        data: job.data,
+        result: job.result,
+        error: job.error,
+        git: job.git
+      });
+    } catch (dbErr) {
+      logger.error({ error: dbErr.message, jobId }, 'Failed to persist new job to database');
+    }
+
     Sentry.addBreadcrumb({
       category: 'job',
       message: `Job ${jobId} created`,
@@ -144,6 +162,24 @@ export class SidequestServer extends EventEmitter {
         job.status = 'running';
         job.startedAt = new Date();
         this.emit('job:started', job);
+
+        // Persist running status to database so job is visible in dashboard
+        try {
+          saveJob({
+            id: job.id,
+            pipelineId: this.jobType,
+            status: job.status,
+            createdAt: job.createdAt?.toISOString?.() || job.createdAt,
+            startedAt: job.startedAt?.toISOString?.() || job.startedAt,
+            completedAt: job.completedAt,
+            data: job.data,
+            result: job.result,
+            error: job.error,
+            git: job.git
+          });
+        } catch (dbErr) {
+          logger.error({ error: dbErr.message, jobId }, 'Failed to persist running job to database');
+        }
 
         Sentry.addBreadcrumb({
           category: 'job',
