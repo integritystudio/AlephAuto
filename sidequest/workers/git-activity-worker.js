@@ -33,7 +33,7 @@ export class GitActivityWorker extends SidequestServer {
       'code',
       'PersonalSite'
     );
-    this.outputDir = options.outputDir || '/tmp';
+    this.outputDir = options.outputDir || path.join(os.homedir(), 'code', 'PersonalSite', '_reports');
     this.logDir = options.logDir || path.join(
       path.dirname(new URL(import.meta.url).pathname),
       'logs'

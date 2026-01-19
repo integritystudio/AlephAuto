@@ -168,8 +168,10 @@ doppler setup --project bottleneck --config prd   # Production
 ## Documentation
 
 - `docs/API_REFERENCE.md` - REST API (22 endpoints)
+- `docs/MCP_SERVERS.md` - MCP server configuration (Sentry, Redis, etc.)
 - `docs/architecture/ERROR_HANDLING.md` - Retry logic, circuit breaker
 - `docs/architecture/TYPE_SYSTEM.md` - Zod + TypeScript patterns
+- `docs/runbooks/pipeline-execution.md` - Pipeline execution patterns, PM2/Doppler
 - `docs/runbooks/troubleshooting.md` - Debugging guide
 
 ## Contributing
@@ -181,4 +183,4 @@ doppler setup --project bottleneck --config prd   # Production
 
 ---
 
-**Version:** 1.6.9 | **Updated:** 2025-12-01 | **Status:** Production Ready
+**Version:** 1.7.0 | **Updated:** 2026-01-18 | **Status:** Production Ready

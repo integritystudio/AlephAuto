@@ -483,7 +483,9 @@ def main():
     data = _compile_activity_data(repositories, all_files, since_date, until_date)
 
     # Save JSON
-    json_file = args.json_output or '/tmp/git_activity_comprehensive.json'
+    default_json_dir = Path.home() / 'code' / 'PersonalSite' / '_reports'
+    default_json_dir.mkdir(parents=True, exist_ok=True)
+    json_file = args.json_output or str(default_json_dir / 'git_activity_comprehensive.json')
     with open(json_file, 'w') as f:
         json.dump(data, f, indent=2)
     print(f"\n✅ Saved data to: {json_file}")

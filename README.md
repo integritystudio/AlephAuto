@@ -58,7 +58,7 @@ npm run git:weekly
 |----------|--------------|--------|
 | **Duplicate Detection** | 7-stage multi-language pipeline, semantic analysis, PR creation | HTML/Markdown reports + PRs |
 | **Docs Enhancement** | Schema.org injection, SEO measurement, rich results tracking | `./document-enhancement-impact-measurement/` |
-| **Git Activity** | Commit analytics, SVG visualizations, JSON export | `/tmp/git_activity_*.json` + SVGs |
+| **Git Activity** | Commit analytics, SVG visualizations, JSON export | `~/code/PersonalSite/_reports/` |
 | **Repo Cleanup** | Python venvs, temp files, build artifacts removal | Cleanup summary logs |
 | **Repomix** | Recursive scanning, .gitignore respect, parallel processing | `./condense/` |
 | **Health Scanners** | Timeout detection, AST analysis, migration plans | Markdown/JSON reports |
@@ -227,7 +227,7 @@ node sidequest/pipeline-runners/git-activity-pipeline.js --since 2025-01-01 --un
 npm run git:schedule
 ```
 
-**Output:** `/tmp/git_activity_*.json` + SVG visualizations
+**Output:** `~/code/PersonalSite/_reports/git_activity_comprehensive.json` + SVG visualizations in `~/code/PersonalSite/assets/images/git-activity-{year}/`
 
 ---
 
