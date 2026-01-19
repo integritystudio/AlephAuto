@@ -30,7 +30,7 @@ MCP is a protocol that allows AI models to interact with external tools and serv
 
 | Server | Status | Transport | Purpose |
 |--------|--------|-----------|---------|
-| **Sentry MCP** | ⚠️ Needs Auth | HTTP | Error tracking, performance monitoring, root cause analysis |
+| **Sentry MCP** | ✓ Connected | STDIO | Error tracking, performance monitoring, root cause analysis |
 | **Redis MCP** | ✓ Connected | STDIO | Queue management, scan result caching (30-day TTL) |
 | **TaskQueue MCP** | ✓ Connected | STDIO | AI task management, workflow structuring |
 | **Filesystem MCP** | ✓ Connected | STDIO | Log file access, report analysis |
@@ -39,14 +39,14 @@ MCP is a protocol that allows AI models to interact with external tools and serv
 
 ## Installed MCP Servers
 
-### 1. Sentry MCP (Remote HTTP) ⚠️
+### 1. Sentry MCP (STDIO) ✓
 
-**Status:** Configured, requires OAuth authentication
+**Status:** Connected via Doppler authentication
 
 **Connection Details:**
-- **URL**: https://mcp.sentry.dev/mcp
-- **Transport**: HTTP (Remote)
-- **Authentication**: OAuth via Sentry organization
+- **Command**: `npx -y @sentry/mcp-server@latest`
+- **Transport**: STDIO (Node.js)
+- **Authentication**: User Auth Token via `SENTRY_API_TOKEN` (Doppler)
 
 **Purpose:**
 Error tracking and performance monitoring integration with Sentry.
@@ -74,26 +74,37 @@ Error tracking and performance monitoring integration with Sentry.
 
 **Setup Instructions:**
 
-1. **Authenticate with Sentry**
+1. **Ensure Doppler is Configured**
    ```bash
-   # MCP server will prompt for OAuth authentication on first use
-   claude mcp tools sentry-mcp
+   doppler setup --project bottleneck --config dev
    ```
 
-2. **Grant Permissions**
-   - Click the OAuth link provided
-   - Log in to your Sentry account
-   - Authorize the MCP application
-   - Grant read access to your organization
-
-3. **Verify Connection**
+2. **Verify SENTRY_API_TOKEN in Doppler**
    ```bash
-   # List available tools
-   claude mcp tools sentry-mcp
-
-   # Test connection
-   # Use a Sentry tool to verify authentication
+   doppler secrets get SENTRY_API_TOKEN --plain | head -c 20
+   # Should show: sntryu_... (Sentry User Auth Token)
    ```
+
+3. **Token Requirements**
+   The token must have these scopes:
+   - `org:read`, `project:read`, `project:write`
+   - `team:read`, `team:write`, `event:write`
+
+4. **MCP Configuration** (in `~/.claude/.mcp.json`)
+   ```json
+   {
+     "sentry-mcp": {
+       "command": "npx",
+       "args": ["-y", "@sentry/mcp-server@latest"],
+       "env": {
+         "SENTRY_ACCESS_TOKEN": "${SENTRY_API_TOKEN}"
+       }
+     }
+   }
+   ```
+
+5. **Optional: Enable AI-Powered Search**
+   Add `OPENAI_API_KEY` to Doppler for `search_events` and `search_issues` tools
 
 **Available Tools:**
 - `search_issues` - Search issues by query
@@ -385,11 +396,10 @@ MCP server configurations are stored in:
 {
   "mcpServers": {
     "sentry-mcp": {
-      "transport": "http",
-      "url": "https://mcp.sentry.dev/mcp",
-      "auth": {
-        "type": "oauth",
-        "organization": "your-org-slug"
+      "command": "npx",
+      "args": ["-y", "@sentry/mcp-server@latest"],
+      "env": {
+        "SENTRY_ACCESS_TOKEN": "${SENTRY_API_TOKEN}"
       }
     },
     "redis-mcp": {
@@ -718,36 +728,32 @@ tail -f ~/.claude/logs/mcp-*.log
 
 **Symptom:**
 ```
-Error: Unauthorized - OAuth authentication required
+Error: Unauthorized - Invalid or missing access token
 ```
 
 **Solution:**
 
-1. **Authenticate with Sentry**
+1. **Verify Token in Doppler**
    ```bash
-   # MCP server will prompt for OAuth
-   claude mcp tools sentry-mcp
+   doppler secrets get SENTRY_API_TOKEN --plain | head -c 20
+   # Should show: sntryu_... (User Auth Token prefix)
    ```
 
-2. **Grant Permissions**
-   - Click the OAuth link
-   - Log in to Sentry
-   - Authorize the application
-   - Grant read access
+2. **Check Token Scopes**
+   Required scopes: `org:read`, `project:read`, `project:write`, `team:read`, `team:write`, `event:write`
 
-3. **Verify Token**
+   Generate new token at: Settings → User Settings → Auth Tokens
+
+3. **Test Connection Manually**
    ```bash
-   # Check if token is stored
-   cat ~/.claude/mcp-tokens.json | jq '.["sentry-mcp"]'
+   export SENTRY_ACCESS_TOKEN=$(doppler secrets get SENTRY_API_TOKEN --plain)
+   npx -y @sentry/mcp-server@latest
+   # Should start without auth errors
    ```
 
-4. **Re-authenticate if Needed**
+4. **Update Token in Doppler**
    ```bash
-   # Remove old token
-   claude mcp remove sentry-mcp
-
-   # Re-add and re-authenticate
-   claude mcp add --transport http sentry-mcp https://mcp.sentry.dev/mcp
+   doppler secrets set SENTRY_API_TOKEN="sntryu_your_new_token"
    ```
 
 #### 3. Redis Connection Errors
