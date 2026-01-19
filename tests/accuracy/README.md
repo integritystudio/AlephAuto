@@ -1,5 +1,17 @@
 # Duplicate Detection Accuracy Test Suite
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "Duplicate Detection Accuracy Test Suite",
+  "description": "This directory contains a comprehensive test suite for validating the accuracy of the duplicate detection system.",
+  "dateModified": "2026-01-19T02:09:57.788Z",
+  "inLanguage": "en-US"
+}
+</script>
+
+
 This directory contains a comprehensive test suite for validating the accuracy of the duplicate detection system.
 
 ## Contents

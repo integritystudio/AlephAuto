@@ -1,5 +1,17 @@
 # ast-grep Pattern Library for Code Consolidation
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "ast-grep Pattern Library for Code Consolidation",
+  "description": "This directory contains a comprehensive collection of ast-grep rules for detecting code patterns that are candidates for consolidation across repositories.",
+  "dateModified": "2026-01-19T02:09:57.563Z",
+  "inLanguage": "en-US"
+}
+</script>
+
+
 This directory contains a comprehensive collection of ast-grep rules for detecting code patterns that are candidates for consolidation across repositories.
 
 ## Directory Structure

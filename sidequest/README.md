@@ -1,5 +1,16 @@
 # Sidequest - Job Queue Framework
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "APIReference",
+  "name": "Sidequest - Job Queue Framework",
+  "description": "The **sidequest** directory contains the core job queue framework for AlephAuto automation pipelines. It provides event-driven job management with SQLite persistence, Sentry integration, and Git wo...",
+  "additionalType": "https://schema.org/TechArticle"
+}
+</script>
+
+
 The **sidequest** directory contains the core job queue framework for AlephAuto automation pipelines. It provides event-driven job management with SQLite persistence, Sentry integration, and Git workflow automation.
 
 ## Architecture

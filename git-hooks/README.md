@@ -1,5 +1,17 @@
 # Git Hooks for AlephAuto
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "name": "Git Hooks for AlephAuto",
+  "description": "This directory contains Git hooks to maintain code quality and documentation freshness.",
+  "dateModified": "2026-01-19T02:09:57.669Z",
+  "inLanguage": "en-US"
+}
+</script>
+
+
 This directory contains Git hooks to maintain code quality and documentation freshness.
 
 ## Active Hooks

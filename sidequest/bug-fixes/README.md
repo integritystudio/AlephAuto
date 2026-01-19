@@ -1,5 +1,17 @@
 # BugfixAudit - Automated Bug Detection & Fixing
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "name": "BugfixAudit - Automated Bug Detection & Fixing",
+  "description": "Automated bug detection and fixing pipeline using Claude Code agents and plugins, built on the AlephAuto job queue framework.",
+  "dateModified": "2026-01-19T02:09:57.739Z",
+  "inLanguage": "en-US"
+}
+</script>
+
+
 Automated bug detection and fixing pipeline using Claude Code agents and plugins, built on the AlephAuto job queue framework.
 
 ## Overview

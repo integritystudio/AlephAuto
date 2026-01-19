@@ -1,5 +1,16 @@
 # AlephAuto Dashboard
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "APIReference",
+  "name": "AlephAuto Dashboard",
+  "description": "Real-time pipeline monitoring and job queue management dashboard for the AlephAuto automation framework.",
+  "additionalType": "https://schema.org/TechArticle"
+}
+</script>
+
+
 Real-time pipeline monitoring and job queue management dashboard for the AlephAuto automation framework.
 
 **Version**: 1.3.0 | **Status**: ✅ Production Ready (All features verified 2025-11-18)

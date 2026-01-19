@@ -1,5 +1,16 @@
 # Documentation Index
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "APIReference",
+  "name": "Documentation Index",
+  "description": "This directory contains all project documentation organized by category.",
+  "additionalType": "https://schema.org/TechArticle"
+}
+</script>
+
+
 This directory contains all project documentation organized by category.
 
 ## Directory Structure

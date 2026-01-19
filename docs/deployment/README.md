@@ -1,5 +1,17 @@
 # Deployment Documentation
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "Deployment Documentation",
+  "description": "This directory contains comprehensive deployment guides for the AlephAuto Dashboard.",
+  "dateModified": "2026-01-19T02:09:57.629Z",
+  "inLanguage": "en-US"
+}
+</script>
+
+
 This directory contains comprehensive deployment guides for the AlephAuto Dashboard.
 
 ## 📚 Available Guides

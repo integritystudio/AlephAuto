@@ -1,5 +1,17 @@
 # Test Infrastructure Guide
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "Test Infrastructure Guide",
+  "description": "Comprehensive guide for the AlephAuto test infrastructure, including fixtures, organization, and best practices.",
+  "dateModified": "2026-01-19T02:09:57.780Z",
+  "inLanguage": "en-US"
+}
+</script>
+
+
 Comprehensive guide for the AlephAuto test infrastructure, including fixtures, organization, and best practices.
 
 ## Table of Contents

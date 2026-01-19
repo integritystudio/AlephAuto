@@ -1,5 +1,17 @@
 # Testing Documentation Index
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "Testing Documentation Index",
+  "description": "This directory contains comprehensive documentation for the AlephAuto job queue testing infrastructure.",
+  "dateModified": "2026-01-19T02:09:57.630Z",
+  "inLanguage": "en-US"
+}
+</script>
+
+
 This directory contains comprehensive documentation for the AlephAuto job queue testing infrastructure.
 
 ## Quick Start

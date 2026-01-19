@@ -1,5 +1,17 @@
 # Duplicate Detection MCP Server
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "name": "Duplicate Detection MCP Server",
+  "description": "Model Context Protocol server for duplicate code detection and consolidation.",
+  "dateModified": "2026-01-19T02:09:57.686Z",
+  "inLanguage": "en-US"
+}
+</script>
+
+
 Model Context Protocol server for duplicate code detection and consolidation.
 
 ## Overview

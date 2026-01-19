@@ -634,6 +634,17 @@ async function triggerPipelineJob(pipelineId, parameters) {
                 triggeredAt: new Date().toISOString()
             });
         }
+    } else if (pipelineId === 'repomix') {
+        // Repomix requires sourceDir and relativePath parameters
+        const sourceDir = parameters.sourceDir || parameters.repositoryPath;
+        const relativePath = parameters.relativePath || parameters.repositoryPath?.split('/').slice(-2).join('/') || 'repo';
+
+        if (!sourceDir) {
+            throw new Error('repomix requires sourceDir or repositoryPath parameter');
+        }
+
+        // Use the specialized createRepomixJob method
+        pipelineWorker.createRepomixJob(sourceDir, relativePath);
     } else {
         // Generic job creation for other pipelines
         // Workers extend SidequestServer which provides createJob method

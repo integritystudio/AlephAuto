@@ -1,5 +1,17 @@
 # Codebase Health Scanners
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "Codebase Health Scanners",
+  "description": "**Created from Session:** AnalyticsBot Debugging - Nov 18, 2025",
+  "dateModified": "2026-01-19T02:09:57.746Z",
+  "inLanguage": "en-US"
+}
+</script>
+
+
 **Created from Session:** AnalyticsBot Debugging - Nov 18, 2025
 
 Automated scanners derived from real debugging sessions. These tools detect the exact patterns that caused production issues.

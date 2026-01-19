@@ -1,5 +1,17 @@
 # Automated Code & Documentation Pipeline
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "Automated Code & Documentation Pipeline",
+  "description": "Five automated systems built on the **AlephAuto** job queue framework with Sentry error logging:",
+  "dateModified": "2026-01-19T02:09:57.570Z",
+  "inLanguage": "en-US"
+}
+</script>
+
+
 Five automated systems built on the **AlephAuto** job queue framework with Sentry error logging:
 
 1. **Repomix Pipeline**: Recursively processes all directories in `~/code` with repomix and stores outputs in a matching directory structure

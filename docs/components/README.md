@@ -1,5 +1,17 @@
 # AlephAuto
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "AlephAuto",
+  "description": "Node.js automation toolkit for managing code repositories at scale.",
+  "dateModified": "2026-01-19T02:09:57.627Z",
+  "inLanguage": "en-US"
+}
+</script>
+
+
 Node.js automation toolkit for managing code repositories at scale.
 
 ## Overview

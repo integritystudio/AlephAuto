@@ -1,5 +1,17 @@
 # GitHub Actions Configuration
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "name": "GitHub Actions Configuration",
+  "description": "**Important:** This project uses `@ast-grep/cli` for code pattern detection in the duplicate detection pipeline.",
+  "dateModified": "2026-01-19T02:09:57.570Z",
+  "inLanguage": "en-US"
+}
+</script>
+
+
 ## ast-grep Setup
 
 **Important:** This project uses `@ast-grep/cli` for code pattern detection in the duplicate detection pipeline.

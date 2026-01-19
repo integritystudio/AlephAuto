@@ -1,5 +1,17 @@
 # Architecture Documentation
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "Architecture Documentation",
+  "description": "**Directory:** `/docs/architecture/`",
+  "dateModified": "2026-01-19T02:09:57.578Z",
+  "inLanguage": "en-US"
+}
+</script>
+
+
 **Directory:** `/docs/architecture/`
 **Last Updated:** 2025-12-02
 **Version:** 1.0
