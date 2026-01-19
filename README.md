@@ -52,17 +52,274 @@ npm run git:weekly
 - Safe dry-run mode for testing
 - Structured JSON logging
 
-### Pipeline Capabilities
+### Pipeline Summary
 
 | Pipeline | Key Features | Output |
 |----------|--------------|--------|
-| **Repomix** | Recursive scanning, .gitignore respect, parallel processing | `./condense/` |
+| **Duplicate Detection** | 7-stage multi-language pipeline, semantic analysis, PR creation | HTML/Markdown reports + PRs |
 | **Docs Enhancement** | Schema.org injection, SEO measurement, rich results tracking | `./document-enhancement-impact-measurement/` |
 | **Git Activity** | Commit analytics, SVG visualizations, JSON export | `/tmp/git_activity_*.json` + SVGs |
-| **Gitignore Manager** | Batch updates, duplicate detection, dry-run support | `./sidequest/gitignore-update-report-*.json` |
+| **Repo Cleanup** | Python venvs, temp files, build artifacts removal | Cleanup summary logs |
+| **Repomix** | Recursive scanning, .gitignore respect, parallel processing | `./condense/` |
 | **Health Scanners** | Timeout detection, AST analysis, migration plans | Markdown/JSON reports |
 
 For detailed feature explanations, see [dev/archive/FEATURES.md](dev/archive/FEATURES.md).
+
+---
+
+## Pipeline Documentation
+
+### 1. Duplicate Detection Pipeline
+
+**Purpose:** Automatically detects code duplication across single repositories (intra-project) and multiple repositories (inter-project), generates consolidation suggestions, and optionally creates pull requests for refactoring.
+
+**7-Stage Multi-Language Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        JAVASCRIPT (Stages 1-2)                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Stage 1: Repository Scanning (repomix)                                     │
+│  └── Collects repository metadata, file list, language statistics           │
+│                                                                             │
+│  Stage 2: Pattern Detection (ast-grep)                                      │
+│  └── Applies 18+ AST patterns to identify potential duplicates              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼ JSON stdin/stdout
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PYTHON (Stages 3-7)                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Stage 3: Code Block Extraction                                             │
+│  └── Extracts code blocks with Pydantic models, calculates complexity       │
+│                                                                             │
+│  Stage 4: Semantic Annotation                                               │
+│  └── Categorizes code (auth, database, logging, error-handling, etc.)       │
+│                                                                             │
+│  Stage 5: Similarity Calculation                                            │
+│  └── Structural + semantic similarity scoring (exact, near, semantic)       │
+│                                                                             │
+│  Stage 6: Duplicate Grouping                                                │
+│  └── Groups similar code blocks, calculates impact scores                   │
+│                                                                             │
+│  Stage 7: Report Generation                                                 │
+│  └── HTML, Markdown, JSON reports with consolidation suggestions            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Scan Types:**
+- **Intra-project:** Scans a single repository for internal duplicates
+- **Inter-project:** Scans multiple repositories to find cross-repo duplicates
+
+**Key Features:**
+- Intelligent retry logic with exponential backoff and circuit breaker (max 5 retries)
+- Error classification: retryable errors (network, timeout) vs non-retryable (missing files)
+- High-impact duplicate detection with configurable threshold alerts
+- Auto-PR creation for consolidation suggestions (when `ENABLE_PR_CREATION=true`)
+- Repository configuration management (scan frequency, priority, grouping)
+
+**Usage:**
+```bash
+# Run immediately
+doppler run -- RUN_ON_STARTUP=true node sidequest/pipeline-runners/duplicate-detection-pipeline.js
+
+# Start cron server (default: 2 AM daily)
+doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
+
+# With PR creation enabled
+ENABLE_PR_CREATION=true doppler run -- RUN_ON_STARTUP=true node sidequest/pipeline-runners/duplicate-detection-pipeline.js
+```
+
+**Output:** `output/reports/` (HTML, Markdown, JSON) + optional GitHub PRs
+
+---
+
+### 2. Schema Enhancement Pipeline
+
+**Purpose:** Automatically injects Schema.org structured data into README files to improve SEO and enable rich search results in Google.
+
+**How It Works:**
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  1. Directory Scanning                                           │
+│  └── Recursively finds README.md files (skips node_modules, etc)│
+├──────────────────────────────────────────────────────────────────┤
+│  2. Content Analysis                                             │
+│  └── Analyzes README structure, detects project type             │
+├──────────────────────────────────────────────────────────────────┤
+│  3. Schema Selection                                             │
+│  └── Chooses appropriate Schema.org type (SoftwareApplication,   │
+│      TechArticle, HowTo, etc.)                                   │
+├──────────────────────────────────────────────────────────────────┤
+│  4. JSON-LD Injection                                            │
+│  └── Adds invisible structured data to README                    │
+├──────────────────────────────────────────────────────────────────┤
+│  5. Impact Measurement                                           │
+│  └── Tracks SEO improvements and generates reports               │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Schema Types Applied:**
+- `SoftwareApplication` - For projects with package.json
+- `TechArticle` - For documentation-heavy READMEs
+- `HowTo` - For tutorial-style READMEs
+- `FAQPage` - For Q&A style documentation
+
+**Usage:**
+```bash
+# Enhance all READMEs in ~/code
+npm run docs:enhance
+
+# Dry run (preview without changes)
+npm run docs:enhance:dry
+
+# Test single file
+npm run docs:test README.md
+
+# Custom directory
+node sidequest/pipeline-runners/schema-enhancement-pipeline.js --dir ~/projects
+```
+
+**Output:** `./document-enhancement-impact-measurement/` (JSON reports + modified READMEs)
+
+---
+
+### 3. Git Activity Pipeline
+
+**Purpose:** Generates comprehensive git activity reports with commit analytics, contributor statistics, and SVG visualizations.
+
+**Report Types:**
+- **Weekly:** Last 7 days of activity
+- **Monthly:** Last 30 days of activity
+- **Custom:** Arbitrary date ranges
+
+**Data Collected:**
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Per Repository:                                                 │
+│  ├── Commits (messages, authors, timestamps)                     │
+│  ├── Lines changed (additions, deletions)                        │
+│  ├── Files modified                                              │
+│  └── Branch activity                                             │
+├──────────────────────────────────────────────────────────────────┤
+│  Aggregated Statistics:                                          │
+│  ├── Total commits across all repos                              │
+│  ├── Top contributors                                            │
+│  ├── Most active repositories                                    │
+│  ├── Commit frequency patterns                                   │
+│  └── Language breakdown                                          │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Usage:**
+```bash
+# Weekly report (last 7 days)
+npm run git:weekly
+
+# Monthly report (last 30 days)
+npm run git:monthly
+
+# Custom date range
+node sidequest/pipeline-runners/git-activity-pipeline.js --since 2025-01-01 --until 2025-01-15
+
+# Start scheduled mode (Sunday 8 PM by default)
+npm run git:schedule
+```
+
+**Output:** `/tmp/git_activity_*.json` + SVG visualizations
+
+---
+
+### 4. Repository Cleanup Pipeline
+
+**Purpose:** Automatically removes bloat files and directories across repositories to reclaim disk space.
+
+**What Gets Cleaned:**
+
+| Category | Items Removed |
+|----------|---------------|
+| **Python Venvs** | `venv/`, `.venv/`, `__pycache__/` |
+| **macOS Files** | `.DS_Store`, `._*` files |
+| **Build Artifacts** | `dist/`, `build/`, `coverage/`, `.next/`, `.nuxt/` |
+| **Temp Files** | `*.log`, `*.tmp`, `.cache/` |
+| **Output Files** | Stale repomix output, old reports |
+
+**Safety Features:**
+- Dry-run mode for previewing changes
+- Respects `.gitignore` patterns
+- Skips actively tracked files
+- Detailed logging of all deletions
+
+**Usage:**
+```bash
+# Preview what would be cleaned (dry run)
+CLEANUP_DRY_RUN=true doppler run -- npm run cleanup:once
+
+# Run cleanup immediately
+RUN_ON_STARTUP=true doppler run -- node sidequest/pipeline-runners/repo-cleanup-pipeline.js
+
+# Start scheduled cleanup (Sunday 3 AM by default)
+doppler run -- node sidequest/pipeline-runners/repo-cleanup-pipeline.js
+```
+
+**Output:** Cleanup summary logs with disk space reclaimed
+
+---
+
+### 5. Repomix Pipeline
+
+**Purpose:** Recursively processes all directories with repomix and stores outputs in a matching directory structure for AI consumption.
+
+**How It Works:**
+1. Scans `~/code` (or configured directory) for repositories
+2. Runs repomix on each repository to generate condensed code summaries
+3. Stores output in `./condense/` mirroring the source structure
+
+**Usage:**
+```bash
+# Start scheduled cron (2 AM daily by default)
+npm start
+
+# Run immediately
+RUN_ON_STARTUP=true npm start
+
+# Development mode (auto-restart)
+npm run dev
+```
+
+**Output:** `./condense/{repo-name}.txt` files
+
+---
+
+### 6. Codebase Health Scanners
+
+**Purpose:** Detect code quality issues including timeout anti-patterns, root directory clutter, and structural problems.
+
+**Scanner Types:**
+
+| Scanner | What It Detects |
+|---------|-----------------|
+| **Timeout Detector** | Hardcoded timeouts, missing timeout handling, anti-patterns |
+| **Root Directory Analyzer** | File clutter, configuration sprawl, organization issues |
+| **AST-Grep Detector** | Pattern-based code issues using 18+ rules |
+
+**Usage:**
+```bash
+# Run all scanners
+./lib/scanners/codebase-health-scanner.js ~/code/myproject --scan all
+
+# Timeout patterns only
+./lib/scanners/codebase-health-scanner.js ~/code/myproject --scan timeout
+
+# Root directory analysis
+./lib/scanners/codebase-health-scanner.js ~/code/myproject --scan root
+
+# Python timeout scanner (alternative)
+python3 lib/scanners/timeout_detector.py ~/code/myproject
+```
+
+**Output:** Markdown/JSON reports with migration plans
 
 ## Architecture
 
