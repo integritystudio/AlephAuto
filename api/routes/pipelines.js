@@ -388,8 +388,20 @@ async function fetchJobsForPipeline(pipelineId, options) {
         const dbJobs = dbResult.jobs || [];
         const totalCount = dbResult.total || 0;
 
-        // Also get current in-memory jobs (not yet persisted)
-        const currentJobs = worker.getAllJobs();
+        // Get current in-memory jobs from the CORRECT worker for this pipeline
+        // FIX: Use workerRegistry instead of hardcoded worker to get pipeline-specific jobs
+        let currentJobs = [];
+        try {
+            if (workerRegistry.isSupported(pipelineId)) {
+                const pipelineWorker = await workerRegistry.getWorker(pipelineId);
+                currentJobs = pipelineWorker.getAllJobs ? pipelineWorker.getAllJobs() : [];
+                logger.debug({ pipelineId, inMemoryJobCount: currentJobs.length }, 'Fetched in-memory jobs from registry worker');
+            }
+        } catch (workerErr) {
+            // Fallback: use the legacy worker for backward compatibility
+            logger.debug({ pipelineId, error: workerErr.message }, 'Could not get registry worker, using legacy fallback');
+            currentJobs = worker.getAllJobs();
+        }
 
         // Combine: in-memory jobs take precedence (newer state)
         const allJobsMap = new Map();
@@ -399,9 +411,13 @@ async function fetchJobsForPipeline(pipelineId, options) {
             allJobsMap.set(job.id, formatJobFromDb(job));
         }
 
-        // Add/update with current in-memory jobs
+        // Add/update with current in-memory jobs (only if they match this pipeline)
         for (const job of currentJobs) {
-            allJobsMap.set(job.id, formatJob(job, pipelineId));
+            // Filter: only include jobs that belong to this pipeline
+            const jobPipelineId = job.data?.type || job.pipelineId || pipelineId;
+            if (jobPipelineId === pipelineId || job.id?.includes(pipelineId)) {
+                allJobsMap.set(job.id, formatJob(job, pipelineId));
+            }
         }
 
         // Convert to array and sort by creation time (newest first)
@@ -437,11 +453,29 @@ async function fetchJobsForPipeline(pipelineId, options) {
     } catch (err) {
         logger.error({ error: err.message, pipelineId }, 'Failed to fetch jobs from database, falling back to memory');
 
-        // Fallback to in-memory only
-        const currentJobs = worker.getAllJobs();
-        const historyJobs = worker.jobHistory || [];
+        // Fallback to in-memory only - use correct worker from registry
+        let currentJobs = [];
+        let historyJobs = [];
+
+        try {
+            if (workerRegistry.isSupported(pipelineId)) {
+                const pipelineWorker = await workerRegistry.getWorker(pipelineId);
+                currentJobs = pipelineWorker.getAllJobs ? pipelineWorker.getAllJobs() : [];
+                historyJobs = pipelineWorker.jobHistory || [];
+            }
+        } catch (workerErr) {
+            // Last resort: use legacy worker
+            logger.debug({ pipelineId, error: workerErr.message }, 'Using legacy worker for fallback');
+            currentJobs = worker.getAllJobs();
+            historyJobs = worker.jobHistory || [];
+        }
 
         const allJobs = [...historyJobs, ...currentJobs]
+            .filter(job => {
+                // Filter to only include jobs for this pipeline
+                const jobPipelineId = job.data?.type || job.pipelineId || pipelineId;
+                return jobPipelineId === pipelineId || job.id?.includes(pipelineId);
+            })
             .map(job => formatJob(job, pipelineId))
             .sort((a, b) => new Date(b.startTime || b.createdAt).getTime() - new Date(a.startTime || a.createdAt).getTime());
 
