@@ -72,12 +72,12 @@ describe('SidequestServer - Constructor', () => {
     assert.strictEqual(server.gitBranchPrefix, 'feature');
     assert.strictEqual(server.gitDryRun, true);
     assert.strictEqual(server.jobType, 'duplicate-detection');
-    assert.ok(server.branchManager);
+    assert.ok(server.gitWorkflowManager);
   });
 
-  it('should not create branchManager when git workflow is disabled', () => {
+  it('should not create gitWorkflowManager when git workflow is disabled', () => {
     const server = new TestSidequestServer({ gitWorkflowEnabled: false });
-    assert.strictEqual(server.branchManager, undefined);
+    assert.strictEqual(server.gitWorkflowManager, undefined);
   });
 
   it('should handle autoStart option', () => {

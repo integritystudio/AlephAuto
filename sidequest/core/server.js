@@ -142,11 +142,18 @@ export class SidequestServer extends EventEmitter {
   /**
    * Execute a job
    */
+  /**
+   * Execute a job with full lifecycle management
+   *
+   * Lifecycle:
+   * 1. Prepare job (set status, persist, create git branch if enabled)
+   * 2. Run the job handler
+   * 3. Finalize (handle success/failure, git workflow, persist, cleanup)
+   */
   async executeJob(jobId) {
     const job = this.jobs.get(jobId);
     if (!job) return;
 
-    // Use Sentry v8 API
     return await Sentry.startSpan({
       op: 'job.execute',
       name: `Execute Job: ${jobId}`,
@@ -154,186 +161,168 @@ export class SidequestServer extends EventEmitter {
       let branchCreated = false;
 
       try {
-        job.status = 'running';
-        job.startedAt = new Date();
-        this.emit('job:started', job);
+        // Phase 1: Prepare
+        this._prepareJobForExecution(job);
+        branchCreated = await this._setupGitBranchIfEnabled(job);
 
-        // Persist running status to database so job is visible in dashboard
-        try {
-          jobRepository.saveJob({
-            id: job.id,
-            pipelineId: this.jobType,
-            status: job.status,
-            createdAt: job.createdAt?.toISOString?.() || job.createdAt,
-            startedAt: job.startedAt?.toISOString?.() || job.startedAt,
-            completedAt: job.completedAt,
-            data: job.data,
-            result: job.result,
-            error: job.error,
-            git: job.git
-          });
-        } catch (dbErr) {
-          logger.error({ error: dbErr.message, jobId }, 'Failed to persist running job to database');
-        }
-
-        Sentry.addBreadcrumb({
-          category: 'job',
-          message: `Job ${jobId} started`,
-          level: 'info',
-        });
-
-        // Git workflow: Create branch before job execution
-        if (this.gitWorkflowEnabled && job.data.repositoryPath) {
-          try {
-            const branchInfo = await this.gitWorkflowManager.createJobBranch(
-              job.data.repositoryPath,
-              {
-                jobId: job.id,
-                jobType: this.jobType,
-                description: job.data.description || job.data.repository
-              }
-            );
-
-            if (branchInfo.branchName) {
-              job.git.branchName = branchInfo.branchName;
-              job.git.originalBranch = branchInfo.originalBranch;
-              branchCreated = true;
-
-              logger.info({
-                jobId: job.id,
-                branchName: branchInfo.branchName,
-                repositoryPath: job.data.repositoryPath
-              }, 'Created job branch');
-
-              Sentry.addBreadcrumb({
-                category: 'git',
-                message: `Created branch ${branchInfo.branchName}`,
-                level: 'info',
-              });
-            }
-          } catch (gitError) {
-            logger.warn({ err: gitError, jobId }, 'Failed to create branch, continuing without git workflow');
-            // Continue job execution even if branch creation fails
-          }
-        }
-
-        // Execute the job's handler
+        // Phase 2: Execute
         const result = await this.runJobHandler(job);
 
-        job.status = 'completed';
-        job.completedAt = new Date();
-        job.result = result;
-
-        // Git workflow: Commit, push, and create PR after successful job completion
-        if (branchCreated && this.gitWorkflowEnabled) {
-          try {
-            await this._handleGitWorkflowSuccess(job);
-          } catch (gitError) {
-            logger.error({ err: gitError, jobId }, 'Git workflow failed, but job completed successfully');
-            // Don't fail the job if git operations fail
-            Sentry.captureException(gitError, {
-              tags: {
-                component: 'git-workflow',
-                jobId: job.id
-              }
-            });
-          }
-        }
-
-        this.emit('job:completed', job);
-        this.jobHistory.push({ ...job });
-
-        // Persist to SQLite
-        try {
-          jobRepository.saveJob({
-            id: job.id,
-            pipelineId: this.jobType,
-            status: job.status,
-            createdAt: job.createdAt?.toISOString?.() || job.createdAt,
-            startedAt: job.startedAt?.toISOString?.() || job.startedAt,
-            completedAt: job.completedAt?.toISOString?.() || job.completedAt,
-            data: job.data,
-            result: job.result,
-            error: job.error,
-            git: job.git
-          });
-        } catch (dbErr) {
-          logger.error({ error: dbErr.message, jobId }, 'Failed to persist job to database');
-        }
-
-        // Log to file
-        await this.logJobCompletion(job);
-
-        Sentry.addBreadcrumb({
-          category: 'job',
-          message: `Job ${jobId} completed`,
-          level: 'info',
-        });
+        // Phase 3: Finalize success
+        await this._finalizeJobSuccess(job, result, branchCreated);
 
       } catch (error) {
-        job.status = 'failed';
-        job.completedAt = new Date();
-        job.error = safeErrorMessage(error);
+        // Phase 3: Finalize failure
+        await this._finalizeJobFailure(job, error, branchCreated);
 
-        // Git workflow: Cleanup branch on failure
-        if (branchCreated && this.gitWorkflowEnabled) {
-          try {
-            await this.gitWorkflowManager.cleanupBranch(
-              job.data.repositoryPath,
-              job.git.branchName,
-              job.git.originalBranch
-            );
-            logger.info({ jobId, branchName: job.git.branchName }, 'Cleaned up branch after job failure');
-          } catch (cleanupError) {
-            logger.warn({ err: cleanupError, jobId }, 'Failed to cleanup branch');
-          }
-        }
-
-        this.emit('job:failed', job, error);
-        this.jobHistory.push({ ...job });
-
-        // Persist to SQLite
-        try {
-          jobRepository.saveJob({
-            id: job.id,
-            pipelineId: this.jobType,
-            status: job.status,
-            createdAt: job.createdAt?.toISOString?.() || job.createdAt,
-            startedAt: job.startedAt?.toISOString?.() || job.startedAt,
-            completedAt: job.completedAt?.toISOString?.() || job.completedAt,
-            data: job.data,
-            result: job.result,
-            error: job.error,
-            git: job.git
-          });
-        } catch (dbErr) {
-          logger.error({ error: dbErr.message, jobId }, 'Failed to persist job to database');
-        }
-
-        // Log error to Sentry
-        Sentry.captureException(error, {
-          tags: {
-            jobId: job.id,
-            jobType: this.jobType,
-          },
-          contexts: {
-            job: {
-              id: job.id,
-              data: job.data,
-              startedAt: job.startedAt,
-            },
-          },
-        });
-
-        // Log to file
-        await this.logJobFailure(job, error);
-
-        logger.error({ err: error, jobId, jobData: job.data }, 'Job failed');
       } finally {
         this.activeJobs--;
         this.processQueue();
       }
     });
+  }
+
+  /**
+   * Persist job state to database
+   * @private
+   */
+  _persistJob(job) {
+    try {
+      jobRepository.saveJob({
+        id: job.id,
+        pipelineId: this.jobType,
+        status: job.status,
+        createdAt: job.createdAt?.toISOString?.() || job.createdAt,
+        startedAt: job.startedAt?.toISOString?.() || job.startedAt,
+        completedAt: job.completedAt?.toISOString?.() || job.completedAt,
+        data: job.data,
+        result: job.result,
+        error: job.error,
+        git: job.git
+      });
+    } catch (dbErr) {
+      logger.error({ error: dbErr.message, jobId: job.id }, 'Failed to persist job to database');
+    }
+  }
+
+  /**
+   * Prepare job for execution - set initial state
+   * @private
+   */
+  _prepareJobForExecution(job) {
+    job.status = 'running';
+    job.startedAt = new Date();
+    this.emit('job:started', job);
+    this._persistJob(job);
+
+    Sentry.addBreadcrumb({
+      category: 'job',
+      message: `Job ${job.id} started`,
+      level: 'info',
+    });
+  }
+
+  /**
+   * Setup git branch if workflow is enabled
+   * @private
+   * @returns {Promise<boolean>} True if branch was created
+   */
+  async _setupGitBranchIfEnabled(job) {
+    if (!this.gitWorkflowEnabled || !job.data.repositoryPath) {
+      return false;
+    }
+
+    try {
+      const branchInfo = await this.gitWorkflowManager.createJobBranch(
+        job.data.repositoryPath,
+        {
+          jobId: job.id,
+          jobType: this.jobType,
+          description: job.data.description || job.data.repository
+        }
+      );
+
+      if (branchInfo?.branchName) {
+        job.git.branchName = branchInfo.branchName;
+        job.git.originalBranch = branchInfo.originalBranch;
+        return true;
+      }
+    } catch (gitError) {
+      logger.warn({ err: gitError, jobId: job.id }, 'Failed to create branch, continuing without git workflow');
+    }
+
+    return false;
+  }
+
+  /**
+   * Finalize successful job execution
+   * @private
+   */
+  async _finalizeJobSuccess(job, result, branchCreated) {
+    job.status = 'completed';
+    job.completedAt = new Date();
+    job.result = result;
+
+    // Git workflow: Commit, push, and create PR
+    if (branchCreated && this.gitWorkflowEnabled) {
+      try {
+        await this._handleGitWorkflowSuccess(job);
+      } catch (gitError) {
+        logger.error({ err: gitError, jobId: job.id }, 'Git workflow failed, but job completed successfully');
+        Sentry.captureException(gitError, {
+          tags: { component: 'git-workflow', jobId: job.id }
+        });
+      }
+    }
+
+    this.emit('job:completed', job);
+    this.jobHistory.push({ ...job });
+    this._persistJob(job);
+    await this.logJobCompletion(job);
+
+    Sentry.addBreadcrumb({
+      category: 'job',
+      message: `Job ${job.id} completed`,
+      level: 'info',
+    });
+  }
+
+  /**
+   * Finalize failed job execution
+   * @private
+   */
+  async _finalizeJobFailure(job, error, branchCreated) {
+    job.status = 'failed';
+    job.completedAt = new Date();
+    job.error = safeErrorMessage(error);
+
+    // Git workflow: Cleanup branch on failure
+    if (branchCreated && this.gitWorkflowEnabled) {
+      try {
+        await this.gitWorkflowManager.cleanupBranch(
+          job.data.repositoryPath,
+          job.git.branchName,
+          job.git.originalBranch
+        );
+        logger.info({ jobId: job.id, branchName: job.git.branchName }, 'Cleaned up branch after job failure');
+      } catch (cleanupError) {
+        logger.warn({ err: cleanupError, jobId: job.id }, 'Failed to cleanup branch');
+      }
+    }
+
+    this.emit('job:failed', job, error);
+    this.jobHistory.push({ ...job });
+    this._persistJob(job);
+
+    Sentry.captureException(error, {
+      tags: { jobId: job.id, jobType: this.jobType },
+      contexts: {
+        job: { id: job.id, data: job.data, startedAt: job.startedAt }
+      }
+    });
+
+    await this.logJobFailure(job, error);
+    logger.error({ err: error, jobId: job.id, jobData: job.data }, 'Job failed');
   }
 
   /**
