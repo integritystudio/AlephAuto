@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { createComponentLogger } from '../utils/logger.js';
 import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.js';
-import { BranchManager } from '../pipeline-core/git/branch-manager.js';
+import { GitWorkflowManager } from './git-workflow-manager.js';
 import { jobRepository } from './job-repository.js';
 import { CONCURRENCY } from './constants.js';
 
@@ -35,19 +35,13 @@ export class SidequestServer extends EventEmitter {
     this.gitDryRun = options.gitDryRun ?? false;
     this.jobType = options.jobType || 'job'; // Used for branch naming
 
-    // Initialize BranchManager if git workflow is enabled
+    // Initialize GitWorkflowManager if git workflow is enabled
     if (this.gitWorkflowEnabled) {
-      this.branchManager = new BranchManager({
+      this.gitWorkflowManager = new GitWorkflowManager({
         baseBranch: this.gitBaseBranch,
         branchPrefix: this.gitBranchPrefix,
         dryRun: this.gitDryRun
       });
-      logger.info({
-        enabled: true,
-        baseBranch: this.gitBaseBranch,
-        branchPrefix: this.gitBranchPrefix,
-        dryRun: this.gitDryRun
-      }, 'Git workflow enabled');
     }
 
     // Initialize SQLite database for job persistence
@@ -191,7 +185,7 @@ export class SidequestServer extends EventEmitter {
         // Git workflow: Create branch before job execution
         if (this.gitWorkflowEnabled && job.data.repositoryPath) {
           try {
-            const branchInfo = await this.branchManager.createJobBranch(
+            const branchInfo = await this.gitWorkflowManager.createJobBranch(
               job.data.repositoryPath,
               {
                 jobId: job.id,
@@ -284,7 +278,7 @@ export class SidequestServer extends EventEmitter {
         // Git workflow: Cleanup branch on failure
         if (branchCreated && this.gitWorkflowEnabled) {
           try {
-            await this.branchManager.cleanupBranch(
+            await this.gitWorkflowManager.cleanupBranch(
               job.data.repositoryPath,
               job.git.branchName,
               job.git.originalBranch
@@ -350,13 +344,13 @@ export class SidequestServer extends EventEmitter {
     const repositoryPath = job.data.repositoryPath;
 
     // Check if there are changes
-    const hasChanges = await this.branchManager.hasChanges(repositoryPath);
+    const hasChanges = await this.gitWorkflowManager.hasChanges(repositoryPath);
 
     if (!hasChanges) {
       logger.info({ jobId: job.id }, 'No changes to commit, cleaning up branch');
 
       // Cleanup branch if no changes
-      await this.branchManager.cleanupBranch(
+      await this.gitWorkflowManager.cleanupBranch(
         repositoryPath,
         job.git.branchName,
         job.git.originalBranch
@@ -366,7 +360,7 @@ export class SidequestServer extends EventEmitter {
     }
 
     // Get changed files
-    job.git.changedFiles = await this.branchManager.getChangedFiles(repositoryPath);
+    job.git.changedFiles = await this.gitWorkflowManager.getChangedFiles(repositoryPath);
 
     logger.info({
       jobId: job.id,
@@ -381,13 +375,13 @@ export class SidequestServer extends EventEmitter {
       jobId: job.id
     };
 
-    job.git.commitSha = await this.branchManager.commitChanges(
+    job.git.commitSha = await this.gitWorkflowManager.commitChanges(
       repositoryPath,
       commitContext
     );
 
     // Push branch
-    const pushed = await this.branchManager.pushBranch(
+    const pushed = await this.gitWorkflowManager.pushBranch(
       repositoryPath,
       job.git.branchName
     );
@@ -399,7 +393,7 @@ export class SidequestServer extends EventEmitter {
 
     // Create PR
     const prContext = await this._generatePRContext(job);
-    job.git.prUrl = await this.branchManager.createPullRequest(
+    job.git.prUrl = await this.gitWorkflowManager.createPullRequest(
       repositoryPath,
       prContext
     );
