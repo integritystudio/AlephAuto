@@ -223,6 +223,64 @@ class WorkerRegistry {
   }
 
   /**
+   * Get aggregated stats from all initialized workers
+   *
+   * @returns {Object} Aggregated stats object
+   */
+  getAllStats() {
+    const stats = {
+      total: 0,
+      queued: 0,
+      active: 0,
+      completed: 0,
+      failed: 0,
+      byPipeline: {}
+    };
+
+    for (const [pipelineId, worker] of this._workers.entries()) {
+      if (worker.getStats && typeof worker.getStats === 'function') {
+        const workerStats = worker.getStats();
+        stats.total += workerStats.total || 0;
+        stats.queued += workerStats.queued || 0;
+        stats.active += workerStats.active || 0;
+        stats.completed += workerStats.completed || 0;
+        stats.failed += workerStats.failed || 0;
+        stats.byPipeline[pipelineId] = workerStats;
+      }
+    }
+
+    return stats;
+  }
+
+  /**
+   * Get stats for a specific pipeline worker (if initialized)
+   *
+   * @param {string} pipelineId - Pipeline identifier
+   * @returns {Object|null} Worker stats or null if not initialized
+   */
+  getWorkerStats(pipelineId) {
+    const worker = this._workers.get(pipelineId);
+    if (worker && worker.getStats && typeof worker.getStats === 'function') {
+      return worker.getStats();
+    }
+    return null;
+  }
+
+  /**
+   * Get scan metrics for a specific pipeline worker (if supported)
+   *
+   * @param {string} pipelineId - Pipeline identifier
+   * @returns {Object|null} Scan metrics or null if not available
+   */
+  getScanMetrics(pipelineId) {
+    const worker = this._workers.get(pipelineId);
+    if (worker && worker.getScanMetrics && typeof worker.getScanMetrics === 'function') {
+      return worker.getScanMetrics();
+    }
+    return null;
+  }
+
+  /**
    * Shutdown all workers gracefully
    *
    * @returns {Promise<void>}

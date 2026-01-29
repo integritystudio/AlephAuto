@@ -22,7 +22,7 @@ import { config } from '../sidequest/core/config.js';
 import { authMiddleware } from './middleware/auth.js';
 import { rateLimiter } from './middleware/rate-limit.js';
 import { errorHandler } from './middleware/error-handler.js';
-import scanRoutes, { worker } from './routes/scans.js';
+import scanRoutes from './routes/scans.js';
 import repositoryRoutes from './routes/repositories.js';
 import reportRoutes from './routes/reports.js';
 import pipelineRoutes from './routes/pipelines.js';
@@ -146,10 +146,9 @@ app.get('/api/status', (req, res) => {
     // Get all pipelines from database (persistent, survives restarts)
     const pipelineStats = getAllPipelineStats();
 
-    // Get in-memory queue stats from duplicate-detection worker
-    // (Other workers not imported, so we can't check their real-time status)
-    const workerStats = worker.getStats();
-    const scanMetrics = worker.getScanMetrics();
+    // Get in-memory queue stats from all initialized workers via registry
+    const workerStats = workerRegistry.getAllStats();
+    const scanMetrics = workerRegistry.getScanMetrics('duplicate-detection') || {};
 
     // Get activity feed
     const activityFeed = req.app.get('activityFeed');
@@ -163,27 +162,28 @@ app.get('/api/status', (req, res) => {
 
     // Map all registered pipelines to API response format
     const pipelines = allPipelineIds.map(pipelineId => {
-      const stats = statsMap.get(pipelineId) || {};
+      const dbStats = statsMap.get(pipelineId) || {};
+      const pipelineWorkerStats = workerStats.byPipeline[pipelineId] || {};
+
+      // Use worker stats if available, otherwise fall back to database running count
+      const activeJobs = pipelineWorkerStats.active || dbStats.running || 0;
+
       return {
         id: pipelineId,
         name: getPipelineName(pipelineId),
-        // Show "running" status accurately only for duplicate-detection (we have worker access)
-        // For other pipelines, use database running count as fallback
-        status: (pipelineId === 'duplicate-detection' && workerStats.active > 0)
-          ? 'running'
-          : ((stats.running || 0) > 0 ? 'running' : 'idle'),
-        completedJobs: stats.completed || 0,
-        failedJobs: stats.failed || 0,
-        lastRun: stats.last_run || null, // ISO timestamp from database
-        nextRun: null // Cron schedule not tracked in database
+        status: activeJobs > 0 ? 'running' : 'idle',
+        completedJobs: dbStats.completed || 0,
+        failedJobs: dbStats.failed || 0,
+        lastRun: dbStats.last_run || null,
+        nextRun: null
       };
     });
 
-    // Calculate queue stats (only from duplicate-detection worker)
+    // Calculate aggregated queue stats from all workers
     const queueStats = {
       active: workerStats.active || 0,
       queued: workerStats.queued || 0,
-      capacity: workerStats.active / (worker.maxConcurrent || 3) * 100
+      capacity: workerStats.active > 0 ? Math.min(100, (workerStats.active / 5) * 100) : 0
     };
 
     res.json({
