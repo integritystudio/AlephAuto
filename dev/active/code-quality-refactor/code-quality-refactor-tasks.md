@@ -121,15 +121,24 @@
 
 ## Phase 4: Server Decomposition
 
+**Note:** Phase 4 tasks require careful planning due to inheritance patterns.
+Workers like `schema-enhancement-worker.js` override `_generateCommitMessage()`
+and `_generatePRContext()`. Extraction must preserve this extensibility.
+
 ### 4.1 Extract GitWorkflowManager
 **Effort:** L | **Risk:** Medium | **Dependencies:** None
 
+**Complexity Note:** The methods `_generateCommitMessage()` and `_generatePRContext()`
+are designed to be overridden by subclasses. Extraction approach must:
+- Keep commit/PR message generation in SidequestServer (for inheritance)
+- Extract only the git operations to GitWorkflowManager
+- Use dependency injection or callback pattern
+
 - [ ] Create `sidequest/core/git-workflow-manager.js`
-- [ ] Move `_handleGitWorkflowSuccess()` method
-- [ ] Move `_setupGitWorkflow()` method
-- [ ] Move git-related event handlers
-- [ ] Update SidequestServer to use GitWorkflowManager
+- [ ] Move `_handleGitWorkflowSuccess()` method (partial - keep message generators)
+- [ ] Update SidequestServer to delegate git operations
 - [ ] Verify git workflow feature flags work
+- [ ] Verify schema-enhancement-worker still works
 - [ ] Run tests: `npm test && npm run test:integration`
 - [ ] Commit changes
 
