@@ -1,7 +1,7 @@
 # AlephAuto System Data Flow Documentation
 
-**Last Updated:** 2025-12-03
-**Version:** 1.0
+**Last Updated:** 2026-01-29
+**Version:** 1.1
 **Author:** Architecture Documentation
 
 ## Table of Contents
@@ -24,7 +24,7 @@
 
 ## System Overview
 
-AlephAuto is a **job queue framework** with real-time dashboard for automation pipelines. The system processes 9 different pipeline types across JavaScript and Python, with real-time monitoring via WebSocket and comprehensive error tracking via Sentry.
+AlephAuto is a **job queue framework** with real-time dashboard for automation pipelines. The system processes 8 different pipeline types across JavaScript and Python, with real-time monitoring via WebSocket and comprehensive error tracking via Sentry.
 
 ### System Characteristics
 
@@ -37,7 +37,7 @@ AlephAuto is a **job queue framework** with real-time dashboard for automation p
 | **Error Tracking** | Sentry v8 |
 | **Config Management** | Doppler |
 | **Process Manager** | PM2 |
-| **Concurrency** | Configurable (default: 3 jobs) |
+| **Concurrency** | Configurable (default: 5 jobs) |
 
 ### Layer Architecture
 
@@ -69,14 +69,18 @@ AlephAuto is a **job queue framework** with real-time dashboard for automation p
 │  │  │Detection │ │Enhance   │ │ Activity │ │ Cleanup  │        │    │
 │  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘        │    │
 │  └─────────────────────────────────────────────────────────────┘    │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐      │
+│  │GitWorkflow      │  │  WorkerRegistry │  │   Constants     │      │
+│  │Manager          │  │  (stats/lookup) │  │   (timeouts)    │      │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘      │
 └─────────────────────────────────────────────────────────────────────┘
                                   │
                                   ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        DATA ACCESS LAYER                             │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐      │
-│  │   SQLite DB     │  │   File System   │  │   External      │      │
-│  │   (jobs.db)     │  │   (reports)     │  │   Services      │      │
+│  │  JobRepository  │  │   File System   │  │   External      │      │
+│  │  (SQLite)       │  │   (reports)     │  │   Services      │      │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -113,6 +117,8 @@ graph TB
         BaseServer["SidequestServer"]
         Queue["Job Queue"]
         EventEmitter["Event Emitter"]
+        GitWorkflow["GitWorkflowManager"]
+        JobRepo["JobRepository"]
     end
 
     subgraph Workers["Worker Layer"]
@@ -165,8 +171,10 @@ graph TB
     PyStages --> FileSystem
 
     %% Data persistence
-    BaseServer --> SQLite
-    Routes --> SQLite
+    BaseServer --> JobRepo
+    JobRepo --> SQLite
+    Routes --> JobRepo
+    BaseServer --> GitWorkflow
     Config --> Doppler
 
     %% Monitoring flow
@@ -505,19 +513,19 @@ flowchart TB
         Register["registerWorker"]
         Get["getWorker"]
         All["getAllWorkers"]
+        Stats["getAllStats"]
         Health["healthCheck"]
     end
 
     subgraph Workers["Registered Workers"]
         DD["duplicate-detection"]
         SE["schema-enhancement"]
-        GA["git-activity-report"]
-        GI["gitignore-update"]
+        GA["git-activity"]
+        GI["gitignore-manager"]
         RC["repo-cleanup"]
-        CH["claude-health-check"]
+        CH["claude-health"]
         TR["test-refactor"]
-        PM["plugin-audit"]
-        RM["repomix-scan"]
+        RM["repomix"]
     end
 
     subgraph API["API Routes"]
@@ -526,15 +534,16 @@ flowchart TB
         Status["GET jobs by id"]
     end
 
-    Register --> DD & SE & GA & GI & RC & CH & TR & PM & RM
+    Register --> DD & SE & GA & GI & RC & CH & TR & RM
 
     Start --> Get
     Get --> DD
 
     List --> All
-    All --> DD & SE & GA & GI & RC & CH & TR & PM & RM
+    All --> DD & SE & GA & GI & RC & CH & TR & RM
 
-    Status --> Get
+    Status --> Stats
+    Stats --> DD & SE & GA & GI & RC & CH & TR & RM
 
     style Registry fill:#bbf,stroke:#333
 ```
@@ -582,6 +591,61 @@ flowchart TB
     style SEB fill:#bfb,stroke:#333
     style WS fill:#ff9,stroke:#333
 ```
+
+### Abstraction Layers (v1.1)
+
+The following abstractions were added to improve modularity and maintainability:
+
+```mermaid
+flowchart TB
+    subgraph Core["Core Abstractions"]
+        JobRepo["JobRepository<br/>sidequest/core/job-repository.js"]
+        GitWF["GitWorkflowManager<br/>sidequest/core/git-workflow-manager.js"]
+        Constants["Constants<br/>sidequest/core/constants.js"]
+    end
+
+    subgraph Types["Type System"]
+        JobStatus["JobStatus<br/>api/types/job-status.ts"]
+    end
+
+    subgraph Consumers["Consumer Components"]
+        Server["SidequestServer"]
+        Routes["API Routes"]
+        Workers["Workers"]
+    end
+
+    Server --> JobRepo
+    Server --> GitWF
+    Server --> Constants
+    Routes --> JobRepo
+    Workers --> Constants
+
+    JobRepo -->|"saveJob, getJobs"| DB[(SQLite)]
+    GitWF -->|"branch, commit, PR"| Git[Git Operations]
+
+    style JobRepo fill:#bbf,stroke:#333
+    style GitWF fill:#bfb,stroke:#333
+    style Constants fill:#ff9,stroke:#333
+```
+
+**JobRepository** - Database abstraction implementing repository pattern:
+- `saveJob(job)` - Persist job state
+- `getJobs(filters)` - Query jobs with filters
+- `getJobCounts(pipelineId)` - Get job statistics
+- `getAllPipelineStats()` - Aggregate stats across pipelines
+
+**GitWorkflowManager** - Encapsulates git operations:
+- `createJobBranch()` - Create feature branch for job
+- `commitChanges()` - Commit job results
+- `pushBranch()` - Push to remote
+- `createPullRequest()` - Create PR via GitHub API
+- `executeWorkflow()` - Full commit/push/PR workflow
+
+**Constants** - Centralized configuration values:
+- `TIMEOUTS.PYTHON_PIPELINE_MS` (600000ms)
+- `TIMEOUTS.DATABASE_SAVE_INTERVAL_MS` (30000ms)
+- `RETRY.MAX_ABSOLUTE_ATTEMPTS` (5)
+- `CONCURRENCY.DEFAULT_MAX_JOBS` (5)
 
 ---
 
@@ -762,7 +826,7 @@ flowchart TB
 | `ENABLE_GIT_WORKFLOW` | false | Enable branch/PR creation |
 | `ENABLE_PR_CREATION` | false | Auto-create PRs |
 | `RUN_ON_STARTUP` | false | Run pipelines immediately |
-| `MAX_CONCURRENT` | 3 | Max concurrent jobs |
+| `MAX_CONCURRENT` | 5 | Max concurrent jobs |
 | `REDIS_HOST` | localhost | Redis host (optional) |
 | `REDIS_PORT` | 6379 | Redis port (optional) |
 
@@ -905,8 +969,13 @@ server {
 | Route Handlers | `api/routes/*.ts` |
 | WebSocket | `api/websocket.js` |
 | Base Queue | `sidequest/core/server.js` |
+| Job Repository | `sidequest/core/job-repository.js` |
+| Git Workflow Manager | `sidequest/core/git-workflow-manager.js` |
+| Constants | `sidequest/core/constants.js` |
 | Database | `sidequest/core/database.js` |
-| Config | `sidequest/config.js` |
+| Config | `sidequest/core/config.js` |
+| Job Status Types | `api/types/job-status.ts` |
+| Worker Registry | `api/utils/worker-registry.js` |
 | Workers | `sidequest/workers/*.js` |
 | Pipelines | `sidequest/pipeline-runners/*.js` |
 | Orchestrator | `sidequest/pipeline-core/scan-orchestrator.ts` |
@@ -924,6 +993,6 @@ server {
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2025-12-03
+**Document Version:** 1.1
+**Last Updated:** 2026-01-29
 **Maintainer:** Architecture Team
