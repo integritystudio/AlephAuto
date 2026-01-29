@@ -23,6 +23,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
 import * as Sentry from '@sentry/node';
+import { TIMEOUTS } from '../core/constants.js';
 
 const logger = createComponentLogger('ScanOrchestrator');
 
@@ -502,7 +503,7 @@ export class ScanOrchestrator {
       logger.debug('Launching Python extraction pipeline');
 
       const proc: ChildProcess = spawn(this.pythonPath!, [this.extractorScript], {
-        timeout: 600000, // 10 minute timeout
+        timeout: TIMEOUTS.PYTHON_PIPELINE_MS,
       });
 
       let stdout = '';

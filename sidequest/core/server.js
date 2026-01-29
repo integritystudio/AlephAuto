@@ -7,6 +7,7 @@ import { createComponentLogger } from '../utils/logger.js';
 import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.js';
 import { BranchManager } from '../pipeline-core/git/branch-manager.js';
 import { saveJob, getJobCounts, getLastJob, initDatabase } from './database.js';
+import { CONCURRENCY } from './constants.js';
 
 const logger = createComponentLogger('SidequestServer');
 
@@ -18,7 +19,7 @@ export class SidequestServer extends EventEmitter {
     super();
     this.jobs = new Map();
     this.jobHistory = [];
-    this.maxConcurrent = options.maxConcurrent ?? 5;
+    this.maxConcurrent = options.maxConcurrent ?? CONCURRENCY.DEFAULT_MAX_JOBS;
     this.activeJobs = 0;
     this.queue = [];
     this.logDir = options.logDir || './logs';

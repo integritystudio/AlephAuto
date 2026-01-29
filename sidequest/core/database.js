@@ -12,6 +12,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createComponentLogger } from '../utils/logger.js';
+import { TIMEOUTS } from './constants.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logger = createComponentLogger('Database');
@@ -71,11 +72,11 @@ export async function initDatabase() {
     db.run('CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)');
     db.run('CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at DESC)');
 
-    // Save database periodically (every 30 seconds)
+    // Save database periodically
     if (!saveTimer) {
       saveTimer = setInterval(() => {
         persistDatabase();
-      }, 30000);
+      }, TIMEOUTS.DATABASE_SAVE_INTERVAL_MS);
     }
 
     logger.info({ dbPath: DB_PATH }, 'Database initialized');

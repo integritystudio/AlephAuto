@@ -23,11 +23,9 @@ import { createComponentLogger } from '../utils/logger.js';
 import { isRetryable, getErrorInfo } from '../pipeline-core/errors/error-classifier.js';
 import path from 'path';
 import * as Sentry from '@sentry/node';
+import { RETRY } from '../core/constants.js';
 
 const logger = createComponentLogger('DuplicateDetectionWorker');
-
-// Circuit breaker: Absolute maximum retry attempts to prevent infinite loops
-const MAX_ABSOLUTE_RETRIES = 5;
 
 /**
  * DuplicateDetectionWorker
@@ -205,12 +203,12 @@ export class DuplicateDetectionWorker extends SidequestServer {
     retryInfo.attempts++;
 
     // Circuit breaker: Check against absolute maximum
-    if (retryInfo.attempts >= MAX_ABSOLUTE_RETRIES) {
+    if (retryInfo.attempts >= RETRY.MAX_ABSOLUTE_ATTEMPTS) {
       logger.error({
         jobId: job.id,
         originalJobId,
         attempts: retryInfo.attempts,
-        maxAbsolute: MAX_ABSOLUTE_RETRIES
+        maxAbsolute: RETRY.MAX_ABSOLUTE_ATTEMPTS
       }, 'Circuit breaker triggered: Maximum absolute retry attempts reached');
 
       // Send Sentry alert for circuit breaker
@@ -225,7 +223,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
           jobId: job.id,
           originalJobId,
           attempts: retryInfo.attempts,
-          maxAbsolute: MAX_ABSOLUTE_RETRIES,
+          maxAbsolute: RETRY.MAX_ABSOLUTE_ATTEMPTS,
           errorMessage: error.message,
           errorCode: errorInfo.code,
           errorClassification: errorInfo.category
@@ -290,7 +288,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
           originalJobId,
           attempts: retryInfo.attempts,
           maxAttempts: retryInfo.maxAttempts,
-          maxAbsolute: MAX_ABSOLUTE_RETRIES,
+          maxAbsolute: RETRY.MAX_ABSOLUTE_ATTEMPTS,
           errorMessage: error.message,
           errorCode: errorInfo.code,
           errorClassification: errorInfo.category
@@ -314,7 +312,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
       originalJobId,
       attempt: retryInfo.attempts,
       maxAttempts: retryInfo.maxAttempts,
-      maxAbsolute: MAX_ABSOLUTE_RETRIES,
+      maxAbsolute: RETRY.MAX_ABSOLUTE_ATTEMPTS,
       delayMs: delay,
       error: error.message,
       errorClassification: errorInfo.category,
