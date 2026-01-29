@@ -115,11 +115,10 @@ class JobRepository {
    * Get the most recent job for a pipeline
    *
    * @param {string} pipelineId - Pipeline identifier
-   * @param {string} [status] - Optional status filter
    * @returns {Object|null} Most recent job or null
    */
-  getLastJob(pipelineId, status) {
-    return dbGetLastJob(pipelineId, status);
+  getLastJob(pipelineId) {
+    return dbGetLastJob(pipelineId);
   }
 
   /**

@@ -114,9 +114,14 @@ export class GitWorkflowManager {
    */
   async commitChanges(repositoryPath, commitContext) {
     try {
+      const normalizedContext = {
+        message: commitContext.message,
+        jobId: commitContext.jobId || 'unknown',
+        description: commitContext.description
+      };
       const commitSha = await this.branchManager.commitChanges(
         repositoryPath,
-        commitContext
+        normalizedContext
       );
 
       logger.info({
