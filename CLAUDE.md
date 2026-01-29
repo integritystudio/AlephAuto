@@ -79,6 +79,27 @@ import { setupServerWithPortFallback } from './api/utils/port-manager.js';
 const actualPort = await setupServerWithPortFallback(httpServer, { preferredPort: 8080 });
 ```
 
+### 7. Database Access: Use JobRepository
+```javascript
+import { jobRepository } from './sidequest/core/job-repository.js';
+await jobRepository.saveJob(job);           // Correct
+import { saveJob } from './sidequest/core/database.js';  // Wrong - use repository
+```
+
+### 8. Constants: No Magic Numbers
+```javascript
+import { TIMEOUTS, RETRY, CONCURRENCY } from './sidequest/core/constants.js';
+const timeout = TIMEOUTS.PYTHON_PIPELINE_MS;     // Correct (600000ms)
+const timeout = 600000;                           // Wrong - magic number
+```
+
+### 9. Git Operations: Use GitWorkflowManager
+```javascript
+// In SidequestServer subclasses:
+this.gitWorkflowManager.createJobBranch(repoPath, jobInfo);  // Correct
+this.branchManager.createJobBranch(repoPath, jobInfo);       // Wrong - use wrapper
+```
+
 ## Architecture
 
 ### Multi-Language Pipeline (JS ↔ Python)
@@ -99,10 +120,12 @@ JavaScript (Stages 1-2)          Python (Stages 3-7)
 ```
 SidequestServer (Base)
 ├── Event-driven lifecycle: created → queued → running → completed/failed
-├── Concurrency control (default: 3)
+├── Concurrency control (default: 5, via CONCURRENCY.DEFAULT_MAX_JOBS)
 ├── Sentry integration
 ├── Auto-retry with circuit breaker (retryable: ETIMEDOUT, 5xx; non-retryable: ENOENT, 4xx)
-└── Centralized config via sidequest/config.js
+├── GitWorkflowManager for branch/commit/PR operations
+├── JobRepository for database persistence
+└── Centralized config via sidequest/core/config.js
 ```
 
 ### Type System Flow
@@ -143,12 +166,13 @@ doppler setup --project bottleneck --config prd   # Production
 ```
 ├── api/                    # REST API + WebSocket
 │   ├── routes/            # Endpoint handlers
-│   ├── types/             # Zod schemas
+│   ├── types/             # Zod schemas (job-status.ts, etc.)
+│   ├── utils/             # Worker registry, port manager
 │   └── middleware/        # Validation
 ├── sidequest/             # Job queue framework
-│   ├── core/              # Base classes (server.js, config.js)
+│   ├── core/              # server.js, job-repository.js, git-workflow-manager.js, constants.js
 │   ├── workers/           # Worker implementations
-│   └── pipeline-core/     # Business logic
+│   └── pipeline-core/     # Business logic, scan orchestrator
 ├── public/                # Dashboard UI
 ├── tests/                 # Unit, integration, accuracy tests
 └── config/                # PM2, ecosystem configs
@@ -160,6 +184,10 @@ doppler setup --project bottleneck --config prd   # Production
 |---------|------|
 | Pipeline coordinator | `sidequest/pipeline-core/scan-orchestrator.ts` |
 | Base job queue | `sidequest/core/server.js` |
+| Job repository | `sidequest/core/job-repository.js` |
+| Git workflow manager | `sidequest/core/git-workflow-manager.js` |
+| Constants | `sidequest/core/constants.js` |
+| Job status types | `api/types/job-status.ts` |
 | Error classifier | `sidequest/pipeline-core/errors/error-classifier.js` |
 | Worker registry | `api/utils/worker-registry.js` |
 | Port manager | `api/utils/port-manager.js` |
@@ -169,6 +197,7 @@ doppler setup --project bottleneck --config prd   # Production
 
 - `docs/API_REFERENCE.md` - REST API (22 endpoints)
 - `docs/MCP_SERVERS.md` - MCP server configuration (Sentry, Redis, etc.)
+- `docs/architecture/SYSTEM-DATA-FLOW.md` - Complete system architecture and data flow
 - `docs/architecture/ERROR_HANDLING.md` - Retry logic, circuit breaker
 - `docs/architecture/TYPE_SYSTEM.md` - Zod + TypeScript patterns
 - `docs/runbooks/pipeline-execution.md` - Pipeline execution patterns, PM2/Doppler
@@ -183,4 +212,4 @@ doppler setup --project bottleneck --config prd   # Production
 
 ---
 
-**Version:** 1.7.0 | **Updated:** 2026-01-18 | **Status:** Production Ready
+**Version:** 1.8.0 | **Updated:** 2026-01-29 | **Status:** Production Ready
