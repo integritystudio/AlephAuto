@@ -46,7 +46,7 @@ function getPipelineTestParams() {
       repositoryPath: testRepo.path
     },
     'schema-enhancement': {
-      file: 'README.md'
+      readmePath: `${testRepo.path}/README.md`
     },
     'git-activity': {
       reportType: 'weekly'
@@ -295,7 +295,7 @@ describe('POST /api/sidequest/pipeline-runners/:id/trigger Integration Tests', {
         fetch(`${API_BASE_URL}/api/sidequest/pipeline-runners/schema-enhancement/trigger`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ parameters: { file: 'test.md' } })
+          body: JSON.stringify({ parameters: { readmePath: `${testRepo.path}/README.md` } })
         })
       ];
 
