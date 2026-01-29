@@ -26,6 +26,8 @@
     "scripts/**/*",
     "frontend/**/*",
     "cloudflare-workers/**/*",
-    "mcp-servers/**/*"
+    "mcp-servers/**/*",
+    "api/routes/routes/**/*",
+    "api/routes/middleware/**/*"
   ]
 }
