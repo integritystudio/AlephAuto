@@ -8,30 +8,10 @@ import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import { getAllJobs, bulkImportJobs } from '../../sidequest/core/database.js';
 import { workerRegistry } from '../utils/worker-registry.js';
 import { config } from '../../sidequest/core/config.js';
+import { getPipelineName } from '../../sidequest/utils/pipeline-names.js';
 
 const router = express.Router();
 const logger = createComponentLogger('JobsAPI');
-
-/**
- * Map pipeline IDs to user-friendly display names
- *
- * @param {string} pipelineId - Pipeline identifier
- * @returns {string} Human-readable pipeline name
- */
-function getPipelineFriendlyName(pipelineId) {
-  const pipelineNames = {
-    'duplicate-detection': 'Duplicate Detection',
-    'schema-enhancement': 'Schema Enhancement',
-    'git-activity': 'Git Activity Report',
-    'gitignore-manager': 'Gitignore Manager',
-    'repomix': 'Repomix',
-    'claude-health': 'Claude Health Check',
-    'repo-cleanup': 'Repository Cleanup',
-    'test-refactor': 'Test Refactor'
-  };
-
-  return pipelineNames[pipelineId] ?? pipelineId;
-}
 
 /**
  * GET /api/jobs
@@ -65,7 +45,7 @@ router.get('/', (req, res) => {
       '@type': 'https://schema.org/Action',
       id: job.id,
       pipelineId: job.pipeline_id,
-      pipelineName: getPipelineFriendlyName(job.pipeline_id),
+      pipelineName: getPipelineName(job.pipeline_id),
       status: job.status,
       createdAt: job.created_at,
       startedAt: job.started_at,
@@ -242,7 +222,7 @@ router.get('/:jobId', (req, res) => {
         '@type': 'https://schema.org/Action',
         id: job.id,
         pipelineId: job.pipeline_id,
-        pipelineName: getPipelineFriendlyName(job.pipeline_id),
+        pipelineName: getPipelineName(job.pipeline_id),
         status: job.status,
         createdAt: job.created_at,
         startedAt: job.started_at,
