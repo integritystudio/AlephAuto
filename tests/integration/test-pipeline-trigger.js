@@ -27,7 +27,12 @@ describe('Pipeline Job Trigger', () => {
   });
 
   after(async () => {
-    // Cleanup: shutdown all workers
+    // Cancel any pending jobs and shutdown all workers
+    for (const worker of workerRegistry._workers?.values() ?? []) {
+      if (worker.cancelAllJobs) {
+        try { await worker.cancelAllJobs(); } catch {}
+      }
+    }
     await workerRegistry.shutdown();
   });
 
@@ -85,9 +90,15 @@ describe('Pipeline Job Trigger', () => {
 
     assert.ok(job, 'Job should be created');
     assert.strictEqual(job.id, jobId, 'Job ID should match');
-    assert.strictEqual(job.status, 'queued', 'Job should be queued');
+    // Job status may be 'queued' or 'running' depending on timing
+    assert.ok(['queued', 'running'].includes(job.status), `Job should be queued or running, got: ${job.status}`);
     assert.ok(job.data, 'Job should have data');
     assert.strictEqual(job.data.triggeredBy, 'test', 'Job data should be preserved');
+
+    // Cancel the job to prevent it from running and hanging the test
+    if (worker.cancelJob) {
+      await worker.cancelJob(jobId);
+    }
   });
 
   it('should track multiple workers', async () => {

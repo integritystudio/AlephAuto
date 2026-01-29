@@ -17,6 +17,7 @@ import { RepoCleanupWorker } from '../../sidequest/workers/repo-cleanup-worker.j
 // import { TestRefactorWorker } from '../../sidequest/workers/test-refactor-worker.ts'; // Disabled: TypeScript file cannot be imported directly
 import { config } from '../../sidequest/core/config.js';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { closeDatabase } from '../../sidequest/core/database.js';
 
 const logger = createComponentLogger('WorkerRegistry');
 
@@ -253,6 +254,9 @@ class WorkerRegistry {
 
     this._workers.clear();
     this._initializing.clear();
+
+    // Close database to stop the save interval timer
+    closeDatabase();
 
     logger.info('All workers shut down');
   }

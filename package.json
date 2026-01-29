@@ -75,7 +75,7 @@
     "@babel/traverse": "^7.26.0",
     "@babel/types": "^7.26.0",
     "@sentry/node": "^7.120.4",
-    "better-sqlite3": "^12.4.6",
+    "better-sqlite3": "^12.6.2",
     "cors": "^2.8.5",
     "dompurify": "^3.3.0",
     "dotenv": "^17.2.3",
@@ -106,6 +106,9 @@
     "@ast-grep/cli": "^0.40.0"
   },
   "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ],
     "overrides": {
       "qs": ">=6.14.1"
     }
