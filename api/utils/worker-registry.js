@@ -16,7 +16,7 @@ import { ClaudeHealthWorker } from '../../sidequest/workers/claude-health-worker
 import { RepoCleanupWorker } from '../../sidequest/workers/repo-cleanup-worker.js';
 import { config } from '../../sidequest/core/config.js';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
-import { closeDatabase } from '../../sidequest/core/database.js';
+import { jobRepository } from '../../sidequest/core/job-repository.js';
 
 const logger = createComponentLogger('WorkerRegistry');
 
@@ -306,7 +306,7 @@ class WorkerRegistry {
     this._initializing.clear();
 
     // Close database to stop the save interval timer
-    closeDatabase();
+    jobRepository.close();
 
     logger.info('All workers shut down');
   }

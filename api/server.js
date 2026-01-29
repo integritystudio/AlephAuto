@@ -34,7 +34,7 @@ import { ScanEventBroadcaster } from './event-broadcaster.js';
 import { ActivityFeedManager } from './activity-feed.js';
 import { DopplerHealthMonitor } from '../sidequest/pipeline-core/doppler-health-monitor.js';
 import { setupServerWithPortFallback, setupGracefulShutdown } from './utils/port-manager.js';
-import { initDatabase, getAllPipelineStats, closeDatabase } from '../sidequest/core/database.js';
+import { jobRepository } from '../sidequest/core/job-repository.js';
 import { getPipelineName } from '../sidequest/utils/pipeline-names.js';
 import { workerRegistry } from './utils/worker-registry.js';
 import fs from 'fs/promises';
@@ -144,7 +144,7 @@ app.get('/api/health/doppler', async (req, res) => {
 app.get('/api/status', (req, res) => {
   try {
     // Get all pipelines from database (persistent, survives restarts)
-    const pipelineStats = getAllPipelineStats();
+    const pipelineStats = jobRepository.getAllPipelineStats();
 
     // Get in-memory queue stats from all initialized workers via registry
     const workerStats = workerRegistry.getAllStats();
@@ -305,9 +305,9 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
 
 (async () => {
   try {
-    // Initialize database (sql.js requires async init)
-    await initDatabase();
-    logger.info('Database initialized');
+    // Initialize job repository (sql.js requires async init)
+    await jobRepository.initialize();
+    logger.info('Job repository initialized');
 
     // Setup server with automatic port fallback
     const actualPort = await setupServerWithPortFallback(httpServer, {
@@ -351,8 +351,8 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
           });
         });
 
-        // Close database connection
-        closeDatabase();
+        // Close job repository
+        jobRepository.close();
       }
     });
   } catch (error) {

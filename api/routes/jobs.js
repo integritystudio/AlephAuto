@@ -5,7 +5,7 @@
 
 import express from 'express';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
-import { getAllJobs, bulkImportJobs } from '../../sidequest/core/database.js';
+import { jobRepository } from '../../sidequest/core/job-repository.js';
 import { workerRegistry } from '../utils/worker-registry.js';
 import { config } from '../../sidequest/core/config.js';
 import { getPipelineName } from '../../sidequest/utils/pipeline-names.js';
@@ -27,7 +27,7 @@ router.get('/', (req, res) => {
     const { status, limit = 50, offset = 0 } = req.query;
 
     // Get all jobs from database
-    const allJobs = getAllJobs();
+    const allJobs = jobRepository.getAllJobs();
 
     // Filter by status if provided
     let filteredJobs = allJobs;
@@ -162,7 +162,7 @@ router.post('/bulk-import', (req, res) => {
     logger.info({ jobCount: jobs.length }, 'Starting bulk import');
 
     // Perform bulk import
-    const result = bulkImportJobs(jobs);
+    const result = jobRepository.bulkImport(jobs);
 
     logger.info({
       imported: result.imported,
@@ -202,7 +202,7 @@ router.get('/:jobId', (req, res) => {
   try {
     const { jobId } = req.params;
 
-    const allJobs = getAllJobs();
+    const allJobs = jobRepository.getAllJobs();
     const job = allJobs.find(j => j.id === jobId);
 
     if (!job) {
@@ -325,7 +325,7 @@ router.post('/:jobId/retry', async (req, res) => {
     logger.info({ jobId }, 'Retrying job');
 
     // Get job details to determine pipeline
-    const allJobs = getAllJobs();
+    const allJobs = jobRepository.getAllJobs();
     const job = allJobs.find(j => j.id === jobId);
 
     if (!job) {

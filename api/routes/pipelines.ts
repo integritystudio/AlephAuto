@@ -21,7 +21,7 @@ import {
 } from '../types/pipeline-requests.js';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import * as Sentry from '@sentry/node';
-import { getJobs } from '../../sidequest/core/database.js';
+import { jobRepository } from '../../sidequest/core/job-repository.js';
 import { workerRegistry } from '../utils/worker-registry.js';
 
 const router = express.Router();
@@ -186,7 +186,7 @@ async function fetchJobsForPipeline(
   const { status, limit, offset, tab } = options;
 
   // Query SQLite database with total count (FIXED: Now includes actual DB count)
-  const dbResult = getJobs(pipelineId, {
+  const dbResult = jobRepository.getJobs(pipelineId, {
     status,
     limit: limit ?? 10,
     offset: offset ?? 0,

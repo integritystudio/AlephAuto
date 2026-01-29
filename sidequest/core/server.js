@@ -6,7 +6,7 @@ import path from 'path';
 import { createComponentLogger } from '../utils/logger.js';
 import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.js';
 import { BranchManager } from '../pipeline-core/git/branch-manager.js';
-import { saveJob, getJobCounts, getLastJob, initDatabase } from './database.js';
+import { jobRepository } from './job-repository.js';
 import { CONCURRENCY } from './constants.js';
 
 const logger = createComponentLogger('SidequestServer');
@@ -52,7 +52,7 @@ export class SidequestServer extends EventEmitter {
 
     // Initialize SQLite database for job persistence
     try {
-      initDatabase();
+      jobRepository.initialize();
       logger.info('Job history database initialized');
     } catch (err) {
       logger.error({ error: err.message }, 'Failed to initialize database');
@@ -94,7 +94,7 @@ export class SidequestServer extends EventEmitter {
 
     // Persist to SQLite immediately so job is visible in dashboard
     try {
-      saveJob({
+      jobRepository.saveJob({
         id: job.id,
         pipelineId: this.jobType,
         status: job.status,
@@ -166,7 +166,7 @@ export class SidequestServer extends EventEmitter {
 
         // Persist running status to database so job is visible in dashboard
         try {
-          saveJob({
+          jobRepository.saveJob({
             id: job.id,
             pipelineId: this.jobType,
             status: job.status,
@@ -251,7 +251,7 @@ export class SidequestServer extends EventEmitter {
 
         // Persist to SQLite
         try {
-          saveJob({
+          jobRepository.saveJob({
             id: job.id,
             pipelineId: this.jobType,
             status: job.status,
@@ -300,7 +300,7 @@ export class SidequestServer extends EventEmitter {
 
         // Persist to SQLite
         try {
-          saveJob({
+          jobRepository.saveJob({
             id: job.id,
             pipelineId: this.jobType,
             status: job.status,
@@ -588,7 +588,7 @@ export class SidequestServer extends EventEmitter {
 
     // Persist to database
     try {
-      saveJob({
+      jobRepository.saveJob({
         id: job.id,
         pipelineId: this.jobType,
         status: job.status,
@@ -669,7 +669,7 @@ export class SidequestServer extends EventEmitter {
 
     // Persist to database
     try {
-      saveJob({
+      jobRepository.saveJob({
         id: job.id,
         pipelineId: this.jobType,
         status: job.status,
@@ -742,7 +742,7 @@ export class SidequestServer extends EventEmitter {
 
     // Persist to database
     try {
-      saveJob({
+      jobRepository.saveJob({
         id: job.id,
         pipelineId: this.jobType,
         status: job.status,
