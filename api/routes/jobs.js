@@ -11,8 +11,9 @@ import { workerRegistry } from '../utils/worker-registry.js';
 import { config } from '../../sidequest/core/config.js';
 import { getPipelineName } from '../../sidequest/utils/pipeline-names.js';
 import { isValidJobStatus, JOB_STATUS } from '../types/job-status.js';
-import { PAGINATION, VALIDATION } from '../../sidequest/core/constants.js';
+import { PAGINATION, VALIDATION, RETRY } from '../../sidequest/core/constants.js';
 import { sendError, sendNotFoundError, sendInternalError, ERROR_CODES } from '../utils/api-error.js';
+import { bulkImportRateLimiter } from '../middleware/rate-limit.js';
 
 /**
  * Timing-safe string comparison to prevent timing attacks
@@ -124,8 +125,8 @@ router.get('/', (req, res) => {
   try {
     const { status, limit = PAGINATION.DEFAULT_LIMIT, offset = 0 } = req.query;
 
-    // Validate status if provided
-    if (status && !isValidJobStatus(status)) {
+    // Validate status if provided (use explicit null check, not truthy check)
+    if (status !== undefined && status !== null && !isValidJobStatus(status)) {
       return sendError(res, ERROR_CODES.INVALID_STATUS,
         `Invalid status '${status}'. Must be one of: ${Object.values(JOB_STATUS).join(', ')}`, 400);
     }
@@ -197,7 +198,7 @@ router.get('/', (req, res) => {
  *   "apiKey": "migration-key-from-env"
  * }
  */
-router.post('/bulk-import', (req, res) => {
+router.post('/bulk-import', bulkImportRateLimiter, (req, res) => {
   try {
     const { jobs, apiKey } = req.body;
 
@@ -387,6 +388,13 @@ router.post('/:jobId/retry', async (req, res) => {
     if (job.status !== 'failed') {
       return sendError(res, ERROR_CODES.INVALID_STATUS,
         `Cannot retry job with status '${job.status}'. Only failed jobs can be retried.`, 400);
+    }
+
+    // Enforce maximum retry count to prevent infinite retry loops
+    const currentRetryCount = job.retry_count ?? 0;
+    if (currentRetryCount >= RETRY.MAX_MANUAL_RETRIES) {
+      return sendError(res, ERROR_CODES.INVALID_REQUEST,
+        `Job has already been retried ${currentRetryCount} times (max: ${RETRY.MAX_MANUAL_RETRIES})`, 400);
     }
 
     const pipelineId = job.pipeline_id;

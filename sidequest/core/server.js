@@ -486,7 +486,10 @@ export class SidequestServer extends EventEmitter {
       // Ensure log directory exists
       await fs.mkdir(this.logDir, { recursive: true });
 
-      const logPath = path.join(this.logDir, `${job.id}.json`);
+      // Defense-in-depth: sanitize job ID to prevent path traversal
+      // Even though job IDs are validated, this protects against future bugs
+      const sanitizedId = path.basename(job.id);
+      const logPath = path.join(this.logDir, `${sanitizedId}.json`);
       await fs.writeFile(logPath, JSON.stringify(job, null, 2));
     } catch (logError) {
       // If we can't write logs, at least log to console
@@ -502,7 +505,9 @@ export class SidequestServer extends EventEmitter {
       // Ensure log directory exists
       await fs.mkdir(this.logDir, { recursive: true });
 
-      const logPath = path.join(this.logDir, `${job.id}.error.json`);
+      // Defense-in-depth: sanitize job ID to prevent path traversal
+      const sanitizedId = path.basename(job.id);
+      const logPath = path.join(this.logDir, `${sanitizedId}.error.json`);
       await fs.writeFile(logPath, JSON.stringify({
         ...job,
         error: {

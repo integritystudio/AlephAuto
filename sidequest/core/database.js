@@ -772,11 +772,33 @@ export async function importLogsToDatabase(logsDir) {
 }
 
 /**
- * Get database health status
+ * Get database health status with comprehensive metrics
  *
- * @returns {Object} Health status with persistence state and queue info
+ * @returns {Object} Health status with persistence state, queue info, and memory metrics
  */
 export function getHealthStatus() {
+  // Calculate database size if initialized
+  let dbSizeBytes = 0;
+  if (db) {
+    try {
+      dbSizeBytes = db.export().length;
+    } catch {
+      // If export fails, we're in a bad state
+      dbSizeBytes = -1;
+    }
+  }
+
+  // Calculate queue staleness (how long oldest item has been waiting)
+  const oldestQueuedItem = writeQueue[0];
+  const queueStalenessMs = oldestQueuedItem
+    ? Date.now() - oldestQueuedItem.timestamp
+    : 0;
+
+  // Determine memory pressure based on database size
+  // 50MB is a warning threshold for in-memory SQLite
+  const MEMORY_WARNING_THRESHOLD = 50 * 1024 * 1024;
+  const memoryPressure = dbSizeBytes > MEMORY_WARNING_THRESHOLD ? 'high' : 'normal';
+
   return {
     initialized: db !== null,
     degradedMode: isDegradedMode,
@@ -784,7 +806,10 @@ export function getHealthStatus() {
     persistFailureCount,
     recoveryAttempts,
     queuedWrites: writeQueue.length,
+    queueStalenessMs,
     dbPath: DB_PATH,
+    dbSizeBytes,
+    memoryPressure,
     status: isDegradedMode ? 'degraded' : (db ? 'healthy' : 'not_initialized'),
     message: isDegradedMode
       ? 'Database in degraded mode - accepting writes to memory only, attempting recovery'

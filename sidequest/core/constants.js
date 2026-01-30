@@ -30,6 +30,9 @@ export const TIMEOUTS = {
 export const RETRY = {
   /** Maximum retry attempts before giving up (circuit breaker) */
   MAX_ABSOLUTE_ATTEMPTS: 5,
+
+  /** Maximum manual retry count for a job via API */
+  MAX_MANUAL_RETRIES: 10,
 };
 
 /**

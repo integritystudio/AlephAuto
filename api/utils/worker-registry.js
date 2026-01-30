@@ -29,7 +29,7 @@ const logger = createComponentLogger('WorkerRegistry');
 
 /**
  * Track initialization failures for circuit breaker pattern
- * @type {Map<string, {count: number, lastAttempt: number}>}
+ * @type {Map<string, {count: number, lastAttempt: number, cooldownAttempts?: number}>}
  */
 const initFailures = new Map();
 
@@ -159,16 +159,31 @@ class WorkerRegistry {
       return this._workers.get(pipelineId);
     }
 
-    // Circuit breaker: check for repeated failures
+    // Circuit breaker: check for repeated failures with exponential backoff
     const failureInfo = initFailures.get(pipelineId);
     if (failureInfo && failureInfo.count >= 3) {
-      const cooldownMs = 60000; // 1 minute cooldown
+      // Exponential backoff: 1min, 2min, 4min, 8min (capped at 10min)
+      const cooldownAttempts = failureInfo.cooldownAttempts || 0;
+      const cooldownMs = Math.min(60000 * Math.pow(2, cooldownAttempts), 600000);
       const timeSinceLastAttempt = Date.now() - failureInfo.lastAttempt;
+
       if (timeSinceLastAttempt < cooldownMs) {
         throw new Error(`${pipelineId} worker initialization is in cooldown after ${failureInfo.count} failures. Retry in ${Math.ceil((cooldownMs - timeSinceLastAttempt) / 1000)}s`);
       }
-      // Reset after cooldown
-      initFailures.delete(pipelineId);
+
+      // Half-open state: allow ONE attempt, don't fully reset
+      // If it fails again, we'll have a longer cooldown next time
+      logger.info({
+        pipelineId,
+        previousFailures: failureInfo.count,
+        cooldownAttempts: cooldownAttempts + 1
+      }, 'Circuit breaker entering half-open state');
+
+      initFailures.set(pipelineId, {
+        count: 2, // Set to 2 so next failure triggers cooldown again
+        lastAttempt: Date.now(),
+        cooldownAttempts: cooldownAttempts + 1
+      });
     }
 
     // Concurrent initialization protection: await existing initialization

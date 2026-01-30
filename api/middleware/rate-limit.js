@@ -55,7 +55,7 @@ export const rateLimiter = rateLimit({
  */
 const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
 const strictLimitMax = isDevelopment ? 100 : 10;
-const strictLimitWindow = isDevelopment ? 60 * 60 * 1000 : 60 * 60 * 1000; // 1 hour
+const strictLimitWindow = 60 * 60 * 1000; // 1 hour
 
 export const strictRateLimiter = rateLimit({
   windowMs: strictLimitWindow,
@@ -76,6 +76,35 @@ export const strictRateLimiter = rateLimit({
     res.status(429).json({
       error: 'Too Many Requests',
       message: `Rate limit exceeded for scan operations. Please try again in 1 hour.${isDevelopment ? ' (Development mode: 100/hour)' : ''}`,
+      retryAfter: 3600,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * Bulk import rate limiter: 5 requests per hour
+ * Prevents DoS via expensive bulk database operations
+ */
+export const bulkImportRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: isDevelopment ? 50 : 5, // 5 in production, 50 in dev/test
+  message: {
+    error: 'Too Many Requests',
+    message: 'Rate limit exceeded for bulk import operations. Please try again later.',
+    retryAfter: '1 hour'
+  },
+  handler: (req, res) => {
+    logger.warn({
+      ip: req.ip,
+      path: req.path,
+      limit: isDevelopment ? 50 : 5,
+      mode: isDevelopment ? 'development' : 'production'
+    }, 'Bulk import rate limit exceeded');
+
+    res.status(429).json({
+      error: 'Too Many Requests',
+      message: `Rate limit exceeded for bulk import operations. Please try again in 1 hour.`,
       retryAfter: 3600,
       timestamp: new Date().toISOString()
     });
