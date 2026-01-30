@@ -50,7 +50,7 @@ export class SidequestServer extends EventEmitter {
       jobRepository.initialize();
       logger.info('Job history database initialized');
     } catch (err) {
-      logger.error({ error: err.message }, 'Failed to initialize database');
+      logger.error({ err }, 'Failed to initialize database');
     }
 
     // Initialize Sentry
@@ -138,7 +138,9 @@ export class SidequestServer extends EventEmitter {
    */
   async executeJob(jobId) {
     const job = this.jobs.get(jobId);
-    if (!job) return;
+    if (!job) {
+      return;
+    }
 
     return await Sentry.startSpan({
       op: 'job.execute',
@@ -205,7 +207,7 @@ export class SidequestServer extends EventEmitter {
         git: job.git
       });
     } catch (dbErr) {
-      logger.error({ error: dbErr.message, jobId: job.id }, 'Failed to persist job to database');
+      logger.error({ err: dbErr, jobId: job.id }, 'Failed to persist job to database');
       Sentry.captureException(dbErr, {
         tags: { jobId: job.id, operation: 'persist' }
       });
@@ -482,7 +484,7 @@ export class SidequestServer extends EventEmitter {
       await fs.writeFile(logPath, JSON.stringify(job, null, 2));
     } catch (logError) {
       // If we can't write logs, at least log to console
-      logger.error({ logError, jobId: job.id }, 'Failed to write completion log file');
+      logger.error({ err: logError, jobId: job.id }, 'Failed to write completion log file');
     }
   }
 
@@ -504,7 +506,7 @@ export class SidequestServer extends EventEmitter {
       }, null, 2));
     } catch (logError) {
       // If we can't write logs, at least log to console
-      logger.error({ logError, jobId: job.id }, 'Failed to write error log file');
+      logger.error({ err: logError, jobId: job.id }, 'Failed to write error log file');
     }
   }
 

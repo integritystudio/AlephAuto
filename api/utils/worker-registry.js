@@ -181,8 +181,26 @@ class WorkerRegistry {
 
     // Create initialization promise with proper cleanup via finally
     const initPromise = (async () => {
+      let worker = null;
       try {
-        const worker = await this._initializeWorker(pipelineId);
+        worker = await this._initializeWorker(pipelineId);
+
+        // Atomic check-and-set: ensure only one worker instance exists
+        // This prevents race conditions where multiple concurrent calls
+        // might create duplicate workers
+        const existingWorker = this._workers.get(pipelineId);
+        if (existingWorker) {
+          // Another concurrent call won the race - shut down duplicate
+          logger.info({ pipelineId }, 'Duplicate worker detected, shutting down duplicate and using existing');
+          // @ts-ignore - shutdown() exists on worker instances but not in base type
+          if (worker.shutdown && typeof worker.shutdown === 'function') {
+            // @ts-ignore
+            await worker.shutdown().catch(shutdownError => {
+              logger.error({ error: shutdownError.message, pipelineId }, 'Failed to shutdown duplicate worker');
+            });
+          }
+          return existingWorker;
+        }
 
         // Connect to activity feed BEFORE storing in _workers
         // This ensures no events are missed
@@ -200,6 +218,16 @@ class WorkerRegistry {
 
         return worker;
       } catch (error) {
+        // If we created a worker but failed after (e.g., activity feed connection),
+        // clean it up to prevent resource leaks
+        // @ts-ignore - shutdown() exists on worker instances but not in base type
+        if (worker && worker.shutdown && typeof worker.shutdown === 'function') {
+          // @ts-ignore
+          await worker.shutdown().catch(shutdownError => {
+            logger.error({ error: shutdownError.message, pipelineId }, 'Failed to cleanup worker after init failure');
+          });
+        }
+
         // Track initialization failures for circuit breaker
         const existing = initFailures.get(pipelineId) || { count: 0, lastAttempt: 0 };
         initFailures.set(pipelineId, {

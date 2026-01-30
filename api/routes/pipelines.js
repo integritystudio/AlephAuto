@@ -164,8 +164,11 @@ router.post('/:pipelineId/pause', async (req, res, next) => {
         if (!workerRegistry.isSupported(pipelineId)) {
             const supported = workerRegistry.getSupportedPipelines().join(', ');
             return res.status(404).json({
-                error: 'Not Found',
-                message: `Unknown pipeline: ${pipelineId}. Supported pipelines: ${supported}`,
+                success: false,
+                error: {
+                    code: 'NOT_FOUND',
+                    message: `Unknown pipeline: ${pipelineId}. Supported pipelines: ${supported}`
+                },
                 timestamp: new Date().toISOString()
             });
         }
@@ -242,8 +245,11 @@ router.post('/:pipelineId/resume', async (req, res, next) => {
         if (!workerRegistry.isSupported(pipelineId)) {
             const supported = workerRegistry.getSupportedPipelines().join(', ');
             return res.status(404).json({
-                error: 'Not Found',
-                message: `Unknown pipeline: ${pipelineId}. Supported pipelines: ${supported}`,
+                success: false,
+                error: {
+                    code: 'NOT_FOUND',
+                    message: `Unknown pipeline: ${pipelineId}. Supported pipelines: ${supported}`
+                },
                 timestamp: new Date().toISOString()
             });
         }
@@ -316,8 +322,11 @@ router.get('/:pipelineId/status', async (req, res, next) => {
         if (!workerRegistry.isSupported(pipelineId)) {
             const supported = workerRegistry.getSupportedPipelines().join(', ');
             return res.status(404).json({
-                error: 'Not Found',
-                message: `Unknown pipeline: ${pipelineId}. Supported pipelines: ${supported}`,
+                success: false,
+                error: {
+                    code: 'NOT_FOUND',
+                    message: `Unknown pipeline: ${pipelineId}. Supported pipelines: ${supported}`
+                },
                 timestamp: new Date().toISOString()
             });
         }
@@ -751,8 +760,11 @@ router.get('/:pipelineId/docs', async (req, res, next) => {
         // Handle validation errors
         if (error.name === 'ZodError') {
             return res.status(400).json({
-                error: 'Bad Request',
-                message: 'Invalid pipeline ID',
+                success: false,
+                error: {
+                    code: 'INVALID_REQUEST',
+                    message: 'Invalid pipeline ID'
+                },
                 timestamp: new Date().toISOString()
             });
         }
@@ -805,8 +817,11 @@ router.get('/:pipelineId/html', async (req, res, next) => {
                 } else {
                     logger.warn({ pipelineId, reportsDir }, 'No HTML reports found for pipeline');
                     return res.status(404).json({
-                        error: 'Not Found',
-                        message: `No HTML report found for pipeline: ${pipelineId}`,
+                        success: false,
+                        error: {
+                            code: 'NOT_FOUND',
+                            message: `No HTML report found for pipeline: ${pipelineId}`
+                        },
                         timestamp: new Date().toISOString()
                     });
                 }
@@ -831,8 +846,11 @@ router.get('/:pipelineId/html', async (req, res, next) => {
 
                 if (!res.headersSent) {
                     res.status(500).json({
-                        error: 'Internal Server Error',
-                        message: 'Failed to serve HTML report',
+                        success: false,
+                        error: {
+                            code: 'INTERNAL_ERROR',
+                            message: 'Failed to serve HTML report'
+                        },
                         timestamp: new Date().toISOString()
                     });
                 }
@@ -855,8 +873,11 @@ router.get('/:pipelineId/html', async (req, res, next) => {
         // Handle validation errors
         if (error.name === 'ZodError') {
             return res.status(400).json({
-                error: 'Bad Request',
-                message: 'Invalid pipeline ID',
+                success: false,
+                error: {
+                    code: 'INVALID_REQUEST',
+                    message: 'Invalid pipeline ID'
+                },
                 timestamp: new Date().toISOString()
             });
         }

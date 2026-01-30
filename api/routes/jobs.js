@@ -10,10 +10,60 @@ import { workerRegistry } from '../utils/worker-registry.js';
 import { config } from '../../sidequest/core/config.js';
 import { getPipelineName } from '../../sidequest/utils/pipeline-names.js';
 import { isValidJobStatus, JOB_STATUS } from '../types/job-status.js';
-import { PAGINATION } from '../../sidequest/core/constants.js';
+import { PAGINATION, VALIDATION } from '../../sidequest/core/constants.js';
 
 const router = express.Router();
 const logger = createComponentLogger('JobsAPI');
+
+/**
+ * Validate and sanitize job ID from URL parameter
+ * Prevents path traversal and injection attacks
+ *
+ * @param {string} jobId - Job ID from URL parameter
+ * @returns {{ valid: boolean, sanitized?: string, error?: string }}
+ */
+function validateJobId(jobId) {
+  if (!jobId) {
+    return { valid: false, error: 'Job ID is required' };
+  }
+
+  if (!VALIDATION.JOB_ID_PATTERN.test(jobId)) {
+    return {
+      valid: false,
+      error: 'Invalid job ID format. Must be alphanumeric with hyphens/underscores (max 100 chars)'
+    };
+  }
+
+  return { valid: true, sanitized: jobId };
+}
+
+/**
+ * Sanitize pagination parameters to prevent memory issues and NaN propagation
+ *
+ * @param {string|number} limit - Requested page size
+ * @param {string|number} offset - Requested offset
+ * @returns {{ limit: number, offset: number }}
+ */
+function sanitizePaginationParams(limit, offset) {
+  // Convert to string to ensure parseInt works correctly
+  const limitStr = String(limit);
+  const offsetStr = String(offset);
+
+  // Parse and use default if NaN (use ?? to handle 0 correctly)
+  const parsedLimit = parseInt(limitStr);
+  const parsedOffset = parseInt(offsetStr);
+
+  // Sanitize limit: enforce bounds [1, MAX_LIMIT], default to DEFAULT_LIMIT if NaN
+  const limitNum = Math.min(
+    Math.max(1, Number.isNaN(parsedLimit) ? PAGINATION.DEFAULT_LIMIT : parsedLimit),
+    PAGINATION.MAX_LIMIT
+  );
+
+  // Sanitize offset: ensure non-negative, default to 0 if NaN
+  const offsetNum = Math.max(0, Number.isNaN(parsedOffset) ? 0 : parsedOffset);
+
+  return { limit: limitNum, offset: offsetNum };
+}
 
 /**
  * GET /api/jobs
@@ -49,9 +99,8 @@ router.get('/', (req, res) => {
       filteredJobs = allJobs.filter(job => job.status === status);
     }
 
-    // Apply pagination
-    const limitNum = parseInt(limit);
-    const offsetNum = parseInt(offset);
+    // Sanitize pagination parameters to prevent memory issues and NaN propagation
+    const { limit: limitNum, offset: offsetNum } = sanitizePaginationParams(limit, offset);
     const paginatedJobs = filteredJobs.slice(offsetNum, offsetNum + limitNum);
 
     // Format response
@@ -217,8 +266,21 @@ router.get('/:jobId', (req, res) => {
   try {
     const { jobId } = req.params;
 
+    // Validate job ID to prevent path traversal and injection attacks
+    const validation = validateJobId(jobId);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: validation.error,
+          code: 'INVALID_JOB_ID'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
     const allJobs = jobRepository.getAllJobs();
-    const job = allJobs.find(j => j.id === jobId);
+    const job = allJobs.find(j => j.id === validation.sanitized);
 
     if (!job) {
       return res.status(404).json({
@@ -275,10 +337,24 @@ router.post('/:jobId/cancel', async (req, res) => {
   try {
     const { jobId } = req.params;
 
-    logger.info({ jobId }, 'Cancelling job');
+    // Validate job ID to prevent path traversal and injection attacks
+    const validation = validateJobId(jobId);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: validation.error,
+          code: 'INVALID_JOB_ID'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const sanitizedJobId = validation.sanitized;
+    logger.info({ jobId: sanitizedJobId }, 'Cancelling job');
 
     // Extract pipeline ID from job ID (format: pipelineId-*)
-    const pipelineId = jobId.split('-')[0];
+    const pipelineId = sanitizedJobId.split('-')[0];
 
     // Get worker for this pipeline
     const worker = await workerRegistry.getWorker(pipelineId);
@@ -295,17 +371,17 @@ router.post('/:jobId/cancel', async (req, res) => {
     }
 
     // Cancel the job via worker
-    const result = worker.cancelJob(jobId);
+    const result = worker.cancelJob(sanitizedJobId);
 
     if (result.success) {
-      logger.info({ jobId }, 'Job cancelled successfully');
+      logger.info({ jobId: sanitizedJobId }, 'Job cancelled successfully');
       res.json({
         success: true,
         message: result.message || 'Job cancelled successfully',
         timestamp: new Date().toISOString()
       });
     } else {
-      logger.warn({ jobId, message: result.message }, 'Failed to cancel job');
+      logger.warn({ jobId: sanitizedJobId, message: result.message }, 'Failed to cancel job');
       res.status(400).json({
         success: false,
         error: {
@@ -337,11 +413,25 @@ router.post('/:jobId/retry', async (req, res) => {
   try {
     const { jobId } = req.params;
 
-    logger.info({ jobId }, 'Retrying job');
+    // Validate job ID to prevent path traversal and injection attacks
+    const validation = validateJobId(jobId);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: validation.error,
+          code: 'INVALID_JOB_ID'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const sanitizedJobId = validation.sanitized;
+    logger.info({ jobId: sanitizedJobId }, 'Retrying job');
 
     // Get job details to determine pipeline
     const allJobs = jobRepository.getAllJobs();
-    const job = allJobs.find(j => j.id === jobId);
+    const job = allJobs.find(j => j.id === sanitizedJobId);
 
     if (!job) {
       return res.status(404).json({
@@ -391,13 +481,13 @@ router.post('/:jobId/retry', async (req, res) => {
     // Create new job with retry metadata
     const newJob = worker.createJob(newJobId, {
       ...jobData,
-      retriedFrom: jobId,
+      retriedFrom: sanitizedJobId,
       retryCount: (job.retry_count ?? 0) + 1,
       triggeredBy: 'retry',
       triggeredAt: new Date().toISOString()
     });
 
-    logger.info({ jobId, newJobId: newJob.id }, 'Job retried successfully');
+    logger.info({ jobId: sanitizedJobId, newJobId: newJob.id }, 'Job retried successfully');
     res.json({
       success: true,
       message: 'Job retried successfully',

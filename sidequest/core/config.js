@@ -48,6 +48,10 @@ export const config = {
   gitBranchPrefix: process.env.GIT_BRANCH_PREFIX || 'automated',
   gitDryRun: process.env.GIT_DRY_RUN === 'true', // Skip push/PR in dry run mode
 
+  // PR creation settings
+  prDryRun: process.env.PR_DRY_RUN === 'true',
+  enablePRCreation: process.env.ENABLE_PR_CREATION === 'true',
+
   // Repomix settings
   repomixTimeout: parseInt(process.env.REPOMIX_TIMEOUT || '600000', 10), // 10 minutes
   repomixMaxBuffer: parseInt(process.env.REPOMIX_MAX_BUFFER || '52428800', 10), // 50MB
@@ -134,6 +138,9 @@ export const config = {
     // Auto-save interval in milliseconds (default: 30 seconds)
     saveIntervalMs: parseInt(process.env.DATABASE_SAVE_INTERVAL_MS || '30000', 10),
   },
+
+  // System paths
+  homeDir: process.env.HOME || os.homedir(),
 };
 
 /**

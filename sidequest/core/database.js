@@ -14,6 +14,7 @@ import { fileURLToPath } from 'url';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from './config.js';
 import { isValidJobStatus } from '../../api/types/job-status.js';
+import * as Sentry from '@sentry/node';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logger = createComponentLogger('Database');
@@ -26,6 +27,16 @@ let SQL = null;
 let saveTimer = null;
 let persistFailureCount = 0;
 const MAX_PERSIST_FAILURES = 5;
+
+// Degraded mode state
+let isDegradedMode = false;
+let recoveryAttempts = 0;
+const MAX_RECOVERY_ATTEMPTS = 10;
+const BASE_RECOVERY_DELAY_MS = 5000; // 5 seconds
+let recoveryTimer = null;
+
+// Write queue for retry during degraded mode
+const writeQueue = [];
 
 /**
  * Safely parse JSON with fallback on error
@@ -119,13 +130,190 @@ export async function initDatabase() {
 }
 
 /**
+ * Enter degraded mode - continue accepting writes in-memory, queue for retry
+ * @private
+ */
+function _enterDegradedMode(initialError) {
+  if (isDegradedMode) return; // Already in degraded mode
+
+  isDegradedMode = true;
+  recoveryAttempts = 0;
+
+  // Alert Sentry with context
+  Sentry.captureException(initialError, {
+    level: 'error',
+    tags: {
+      component: 'database',
+      error_type: 'persistence_failure',
+      mode: 'degraded'
+    },
+    extra: {
+      failureCount: persistFailureCount,
+      dbPath: DB_PATH,
+      message: 'Database entered degraded mode - persistence disabled, in-memory only'
+    }
+  });
+
+  logger.error({
+    error: initialError.message,
+    failureCount: persistFailureCount,
+    dbPath: DB_PATH
+  }, 'DEGRADED MODE: Database persistence disabled. Operating in-memory only. Recovery will be attempted.');
+
+  // Start recovery attempts
+  _scheduleRecovery();
+}
+
+/**
+ * Schedule next recovery attempt with exponential backoff
+ * @private
+ */
+function _scheduleRecovery() {
+  if (!isDegradedMode || recoveryAttempts >= MAX_RECOVERY_ATTEMPTS) {
+    if (recoveryAttempts >= MAX_RECOVERY_ATTEMPTS) {
+      logger.error({
+        recoveryAttempts,
+        maxAttempts: MAX_RECOVERY_ATTEMPTS
+      }, 'Recovery attempts exhausted. Database remains in degraded mode.');
+
+      Sentry.captureMessage('Database recovery attempts exhausted', {
+        level: 'error',
+        tags: { component: 'database', mode: 'degraded' },
+        extra: { recoveryAttempts, dbPath: DB_PATH }
+      });
+    }
+    return;
+  }
+
+  // Exponential backoff: 5s, 10s, 20s, 40s, 80s, 160s (capped at ~5 min)
+  const delay = Math.min(BASE_RECOVERY_DELAY_MS * Math.pow(2, recoveryAttempts), 300000);
+
+  logger.info({
+    attempt: recoveryAttempts + 1,
+    maxAttempts: MAX_RECOVERY_ATTEMPTS,
+    delayMs: delay
+  }, 'Scheduling database recovery attempt');
+
+  recoveryTimer = setTimeout(() => {
+    _attemptRecovery();
+  }, delay);
+}
+
+/**
+ * Attempt to recover from degraded mode
+ * @private
+ */
+function _attemptRecovery() {
+  if (!isDegradedMode || !db) return;
+
+  recoveryAttempts++;
+
+  logger.info({
+    attempt: recoveryAttempts,
+    maxAttempts: MAX_RECOVERY_ATTEMPTS,
+    queuedWrites: writeQueue.length
+  }, 'Attempting database recovery');
+
+  try {
+    // Test write to see if persistence is working
+    const data = db.export();
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(DB_PATH, buffer);
+
+    // Success! Exit degraded mode
+    isDegradedMode = false;
+    persistFailureCount = 0;
+    recoveryAttempts = 0;
+
+    logger.info({
+      dbPath: DB_PATH,
+      size: buffer.length,
+      queuedWrites: writeQueue.length
+    }, 'Database recovery successful - persistence restored');
+
+    Sentry.captureMessage('Database persistence recovered', {
+      level: 'info',
+      tags: { component: 'database', mode: 'recovered' },
+      extra: {
+        recoveryAttempt: recoveryAttempts,
+        queuedWrites: writeQueue.length
+      }
+    });
+
+    // Process queued writes
+    _processWriteQueue();
+
+    // Restart auto-save timer if it was stopped
+    if (!saveTimer) {
+      saveTimer = setInterval(() => {
+        persistDatabase();
+      }, config.database.saveIntervalMs);
+      logger.info('Auto-save timer restarted after recovery');
+    }
+
+  } catch (error) {
+    logger.warn({
+      error: error.message,
+      attempt: recoveryAttempts,
+      maxAttempts: MAX_RECOVERY_ATTEMPTS
+    }, 'Database recovery attempt failed');
+
+    // Schedule next attempt
+    _scheduleRecovery();
+  }
+}
+
+/**
+ * Process queued writes after recovery
+ * @private
+ */
+function _processWriteQueue() {
+  if (writeQueue.length === 0) return;
+
+  logger.info({ queueSize: writeQueue.length }, 'Processing queued writes after recovery');
+
+  const processed = [];
+  const failed = [];
+
+  while (writeQueue.length > 0) {
+    const job = writeQueue.shift();
+    try {
+      // Re-save the job (already in memory, now persist to disk)
+      const data = db.export();
+      const buffer = Buffer.from(data);
+      fs.writeFileSync(DB_PATH, buffer);
+      processed.push(job.id);
+    } catch (error) {
+      logger.error({ jobId: job.id, error: error.message }, 'Failed to process queued write');
+      failed.push(job.id);
+      // Put it back in queue for next recovery attempt
+      writeQueue.push(job);
+      break; // Stop processing if we hit another failure
+    }
+  }
+
+  logger.info({
+    processed: processed.length,
+    failed: failed.length,
+    remaining: writeQueue.length
+  }, 'Write queue processing completed');
+}
+
+/**
  * Persist database to file
  *
- * Includes failure tracking with circuit breaker to prevent infinite error logs
- * when disk is full or permissions are denied.
+ * Includes failure tracking with circuit breaker and degraded mode with recovery.
+ * In degraded mode, continues accepting writes to in-memory database while
+ * attempting to recover disk persistence.
  */
 function persistDatabase() {
   if (!db) return;
+
+  // If in degraded mode, skip persistence but continue in-memory operations
+  if (isDegradedMode) {
+    logger.debug('In degraded mode - skipping disk persistence, data in-memory only');
+    return;
+  }
 
   try {
     const data = db.export();
@@ -139,17 +327,14 @@ function persistDatabase() {
     persistFailureCount++;
     logger.error({
       error: error.message,
+      code: error.code,
       failureCount: persistFailureCount,
       maxFailures: MAX_PERSIST_FAILURES
     }, 'Failed to persist database');
 
-    // Stop auto-save after repeated failures to prevent infinite error logs
+    // Enter degraded mode after repeated failures
     if (persistFailureCount >= MAX_PERSIST_FAILURES) {
-      logger.error('Database persistence failed too many times, stopping auto-save. Manual intervention required.');
-      if (saveTimer) {
-        clearInterval(saveTimer);
-        saveTimer = null;
-      }
+      _enterDegradedMode(error);
     }
   }
 }
@@ -174,10 +359,14 @@ export function isDatabaseReady() {
 
 /**
  * Save a job to the database
+ *
+ * In normal mode: saves to in-memory database and persists to disk
+ * In degraded mode: saves to in-memory database only, queues for retry
  */
 export function saveJob(job) {
   const database = getDatabase();
 
+  // Always save to in-memory database (works in both normal and degraded mode)
   database.run(`
     INSERT OR REPLACE INTO jobs
     (id, pipeline_id, status, created_at, started_at, completed_at, data, result, error, git)
@@ -195,10 +384,23 @@ export function saveJob(job) {
     job.git ? JSON.stringify(job.git) : null
   ]);
 
-  // Persist immediately for important operations
-  persistDatabase();
-
-  logger.debug({ jobId: job.id, status: job.status }, 'Job saved to database');
+  // Queue write if in degraded mode
+  if (isDegradedMode) {
+    // Only queue if not already queued (prevent duplicates)
+    const alreadyQueued = writeQueue.some(qJob => qJob.id === job.id);
+    if (!alreadyQueued) {
+      writeQueue.push({ id: job.id, timestamp: Date.now() });
+      logger.debug({
+        jobId: job.id,
+        queueSize: writeQueue.length,
+        mode: 'degraded'
+      }, 'Job saved to memory, queued for persistence retry');
+    }
+  } else {
+    // Normal mode: persist immediately for important operations
+    persistDatabase();
+    logger.debug({ jobId: job.id, status: job.status }, 'Job saved to database');
+  }
 }
 
 /**
@@ -535,19 +737,74 @@ export async function importLogsToDatabase(logsDir) {
 }
 
 /**
+ * Get database health status
+ *
+ * @returns {Object} Health status with persistence state and queue info
+ */
+export function getHealthStatus() {
+  return {
+    initialized: db !== null,
+    degradedMode: isDegradedMode,
+    persistenceWorking: !isDegradedMode,
+    persistFailureCount,
+    recoveryAttempts,
+    queuedWrites: writeQueue.length,
+    dbPath: DB_PATH,
+    status: isDegradedMode ? 'degraded' : (db ? 'healthy' : 'not_initialized'),
+    message: isDegradedMode
+      ? 'Database in degraded mode - accepting writes to memory only, attempting recovery'
+      : db
+        ? 'Database healthy - persistence working normally'
+        : 'Database not initialized'
+  };
+}
+
+/**
  * Close the database connection
  */
 export function closeDatabase() {
+  // Clear auto-save timer
   if (saveTimer) {
     clearInterval(saveTimer);
     saveTimer = null;
   }
 
+  // Clear recovery timer
+  if (recoveryTimer) {
+    clearTimeout(recoveryTimer);
+    recoveryTimer = null;
+  }
+
   if (db) {
-    // Persist before closing
-    persistDatabase();
+    // Attempt final persist before closing (even in degraded mode, try one last time)
+    if (isDegradedMode) {
+      logger.warn('Closing database in degraded mode - attempting final persistence');
+      try {
+        const data = db.export();
+        const buffer = Buffer.from(data);
+        fs.writeFileSync(DB_PATH, buffer);
+        logger.info('Final persistence successful before close');
+      } catch (error) {
+        logger.error({ error: error.message }, 'Final persistence failed - data may be lost');
+        Sentry.captureException(error, {
+          level: 'error',
+          tags: { component: 'database', event: 'close_failed' },
+          extra: { queuedWrites: writeQueue.length }
+        });
+      }
+    } else {
+      persistDatabase();
+    }
+
     db.close();
     db = null;
+
+    // Reset degraded mode state
+    isDegradedMode = false;
+    persistFailureCount = 0;
+    recoveryAttempts = 0;
+    writeQueue.length = 0;
+
     logger.info('Database closed');
   }
 }
@@ -639,5 +896,6 @@ export default {
   importReportsToDatabase,
   importLogsToDatabase,
   bulkImportJobs,
-  closeDatabase
+  closeDatabase,
+  getHealthStatus
 };

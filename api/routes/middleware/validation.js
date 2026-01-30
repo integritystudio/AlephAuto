@@ -43,12 +43,15 @@ export function validateRequest(schema) {
           errors
         }, 'Request validation failed');
 
-        // Return detailed validation error
+        // Return standardized validation error
         return res.status(400).json({
-          error: 'Bad Request',
-          message: 'Request validation failed',
-          timestamp: new Date().toISOString(),
-          errors
+          success: false,
+          error: {
+            code: 'INVALID_REQUEST',
+            message: 'Request validation failed',
+            details: { errors }
+          },
+          timestamp: new Date().toISOString()
         });
       }
 
@@ -81,10 +84,13 @@ export function validateQuery(schema) {
         }, 'Query validation failed');
 
         return res.status(400).json({
-          error: 'Bad Request',
-          message: 'Query parameter validation failed',
-          timestamp: new Date().toISOString(),
-          errors
+          success: false,
+          error: {
+            code: 'INVALID_REQUEST',
+            message: 'Query parameter validation failed',
+            details: { errors }
+          },
+          timestamp: new Date().toISOString()
         });
       }
 
@@ -113,10 +119,13 @@ export function validateParams(schema) {
         }, 'Path parameter validation failed');
 
         return res.status(400).json({
-          error: 'Bad Request',
-          message: 'Path parameter validation failed',
-          timestamp: new Date().toISOString(),
-          errors
+          success: false,
+          error: {
+            code: 'INVALID_REQUEST',
+            message: 'Path parameter validation failed',
+            details: { errors }
+          },
+          timestamp: new Date().toISOString()
         });
       }
 

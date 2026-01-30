@@ -32,8 +32,8 @@ const logger = createComponentLogger('DuplicateDetectionPipeline');
  * Main execution
  */
 async function main() {
-  const cronSchedule = config.duplicateScanCronSchedule || process.env.DUPLICATE_SCAN_CRON_SCHEDULE || '0 2 * * *';
-  const runOnStartup = process.env.RUN_ON_STARTUP === 'true';
+  const cronSchedule = config.duplicateScanCronSchedule || '0 2 * * *';
+  const runOnStartup = config.runOnStartup;
 
   console.log('╔══════════════════════════════════════════════════════════╗');
   console.log('║     DUPLICATE DETECTION AUTOMATED PIPELINE              ║');
@@ -43,9 +43,9 @@ async function main() {
     // Initialize worker
     const worker = new DuplicateDetectionWorker({
       maxConcurrentScans: config.maxConcurrentDuplicateScans || 3,
-      enablePRCreation: process.env.ENABLE_PR_CREATION === 'true',
-      baseBranch: process.env.PR_BASE_BRANCH || 'main',
-      dryRun: process.env.PR_DRY_RUN === 'true'
+      enablePRCreation: config.enablePRCreation,
+      baseBranch: config.gitBaseBranch,
+      dryRun: config.prDryRun
     });
 
     // Event listeners for job lifecycle

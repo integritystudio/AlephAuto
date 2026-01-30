@@ -97,8 +97,11 @@ router.get('/:filename', async (req, res, next) => {
     // Security: prevent directory traversal
     if (filename.includes('..') || filename.includes('/')) {
       return res.status(400).json({
-        error: 'Bad Request',
-        message: 'Invalid filename',
+        success: false,
+        error: {
+          code: 'INVALID_REQUEST',
+          message: 'Invalid filename'
+        },
         timestamp: new Date().toISOString()
       });
     }
@@ -136,8 +139,11 @@ router.get('/:filename', async (req, res, next) => {
           } else {
             logger.warn({ filename, jobType, ext }, 'No matching reports found');
             return res.status(404).json({
-              error: 'Not Found',
-              message: `Report '${filename}' not found`,
+              success: false,
+              error: {
+                code: 'NOT_FOUND',
+                message: `Report '${filename}' not found`
+              },
               timestamp: new Date().toISOString()
             });
           }
@@ -148,8 +154,11 @@ router.get('/:filename', async (req, res, next) => {
       } else {
         logger.warn({ filename }, 'Invalid filename pattern');
         return res.status(404).json({
-          error: 'Not Found',
-          message: `Report '${filename}' not found`,
+          success: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: `Report '${filename}' not found`
+          },
           timestamp: new Date().toISOString()
         });
       }
@@ -185,8 +194,11 @@ router.delete('/:filename', async (req, res, next) => {
     // Security: prevent directory traversal
     if (filename.includes('..') || filename.includes('/')) {
       return res.status(400).json({
-        error: 'Bad Request',
-        message: 'Invalid filename',
+        success: false,
+        error: {
+          code: 'INVALID_REQUEST',
+          message: 'Invalid filename'
+        },
         timestamp: new Date().toISOString()
       });
     }
@@ -198,8 +210,11 @@ router.delete('/:filename', async (req, res, next) => {
       await fs.access(reportPath);
     } catch {
       return res.status(404).json({
-        error: 'Not Found',
-        message: `Report '${filename}' not found`,
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: `Report '${filename}' not found`
+        },
         timestamp: new Date().toISOString()
       });
     }
@@ -234,8 +249,11 @@ router.get('/:scanId/summary', async (req, res, next) => {
 
     if (!summaryFile) {
       return res.status(404).json({
-        error: 'Not Found',
-        message: `Summary not found for scan '${scanId}'`,
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: `Summary not found for scan '${scanId}'`
+        },
         timestamp: new Date().toISOString()
       });
     }

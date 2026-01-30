@@ -78,8 +78,11 @@ router.post('/start-multi', strictRateLimiter, async (req, res, next) => {
 
     if (!repositoryPaths || !Array.isArray(repositoryPaths) || repositoryPaths.length < 2) {
       return res.status(400).json({
-        error: 'Bad Request',
-        message: 'repositoryPaths must be an array with at least 2 repositories',
+        success: false,
+        error: {
+          code: 'INVALID_REQUEST',
+          message: 'repositoryPaths must be an array with at least 2 repositories'
+        },
         timestamp: new Date().toISOString()
       });
     }

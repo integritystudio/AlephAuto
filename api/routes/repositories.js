@@ -90,8 +90,11 @@ router.get('/:name', async (req, res, next) => {
 
     if (!repository) {
       return res.status(404).json({
-        error: 'Not Found',
-        message: `Repository '${name}' not found`,
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: `Repository '${name}' not found`
+        },
         timestamp: new Date().toISOString()
       });
     }
@@ -124,8 +127,11 @@ router.post('/:name/scan', strictRateLimiter, async (req, res, next) => {
 
     if (!repository) {
       return res.status(404).json({
-        error: 'Not Found',
-        message: `Repository '${name}' not found`,
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: `Repository '${name}' not found`
+        },
         timestamp: new Date().toISOString()
       });
     }
@@ -161,8 +167,11 @@ router.get('/:name/cache', async (req, res, next) => {
 
     if (!repository) {
       return res.status(404).json({
-        error: 'Not Found',
-        message: `Repository '${name}' not found`,
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: `Repository '${name}' not found`
+        },
         timestamp: new Date().toISOString()
       });
     }
@@ -193,8 +202,11 @@ router.delete('/:name/cache', async (req, res, next) => {
 
     if (!repository) {
       return res.status(404).json({
-        error: 'Not Found',
-        message: `Repository '${name}' not found`,
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: `Repository '${name}' not found`
+        },
         timestamp: new Date().toISOString()
       });
     }
@@ -264,8 +276,11 @@ router.get('/groups/:name', async (req, res, next) => {
 
     if (!group) {
       return res.status(404).json({
-        error: 'Not Found',
-        message: `Repository group '${name}' not found`,
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: `Repository group '${name}' not found`
+        },
         timestamp: new Date().toISOString()
       });
     }

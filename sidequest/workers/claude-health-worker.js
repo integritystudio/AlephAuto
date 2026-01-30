@@ -34,10 +34,10 @@ class ClaudeHealthWorker extends SidequestServer {
       maxConcurrent: options.maxConcurrent ?? 1, // Single concurrent health check
     });
 
-    this.claudeDir = path.join(process.env.HOME, '.claude');
-    this.devDir = path.join(process.env.HOME, 'dev');
+    this.claudeDir = path.join(config.homeDir, '.claude');
+    this.devDir = path.join(config.homeDir, 'dev');
     this.healthScriptPath = path.join(
-      process.env.HOME,
+      config.homeDir,
       'code/jobs/sidequest/claude-health-check.sh'
     );
 

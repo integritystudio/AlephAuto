@@ -132,8 +132,11 @@ app.get('/api/health/doppler', async (req, res) => {
   } catch (error) {
     logger.error({ error }, 'Failed to check Doppler health');
     res.status(500).json({
-      status: 'error',
-      error: error.message,
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: error?.message || 'Failed to check Doppler health'
+      },
       timestamp: new Date().toISOString()
     });
   }
@@ -199,8 +202,11 @@ app.get('/api/status', (req, res) => {
       tags: { component: 'APIServer', endpoint: '/api/status' }
     });
     res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to retrieve system status',
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Failed to retrieve system status'
+      },
       timestamp: new Date().toISOString()
     });
   }
@@ -244,8 +250,11 @@ app.get('/api/pipeline-data-flow', async (req, res) => {
       tags: { component: 'APIServer', endpoint: '/api/pipeline-data-flow' }
     });
     res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to load documentation',
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Failed to load documentation'
+      },
       timestamp: new Date().toISOString()
     });
   }
@@ -262,8 +271,11 @@ app.use('/api/sidequest/pipeline-runners', pipelineRoutes); // Dashboard compati
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({
-    error: 'Not Found',
-    message: `Cannot ${req.method} ${req.path}`,
+    success: false,
+    error: {
+      code: 'NOT_FOUND',
+      message: `Cannot ${req.method} ${req.path}`
+    },
     timestamp: new Date().toISOString()
   });
 });
@@ -297,6 +309,52 @@ app.get('/ws/status', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+/**
+ * Emergency shutdown handler for startup failures
+ * Cleans up partially initialized resources to prevent resource leaks
+ * @private
+ */
+async function _emergencyShutdown() {
+  logger.info('Starting emergency shutdown...');
+
+  try {
+    // Stop Doppler health monitoring if started
+    dopplerMonitor.stopMonitoring();
+  } catch (err) {
+    logger.error({ error: err.message }, 'Failed to stop Doppler monitor during emergency shutdown');
+  }
+
+  try {
+    // Shutdown all workers if registry initialized
+    await workerRegistry.shutdown();
+  } catch (err) {
+    logger.error({ error: err.message }, 'Failed to shutdown worker registry during emergency shutdown');
+  }
+
+  try {
+    // Close WebSocket server if created
+    if (wss?.clients) {
+      await new Promise((resolve) => {
+        wss.close(() => {
+          logger.info('WebSocket server closed during emergency shutdown');
+          resolve();
+        });
+      });
+    }
+  } catch (err) {
+    logger.error({ error: err.message }, 'Failed to close WebSocket server during emergency shutdown');
+  }
+
+  try {
+    // Close job repository if initialized
+    jobRepository.close();
+  } catch (err) {
+    logger.error({ error: err.message }, 'Failed to close job repository during emergency shutdown');
+  }
+
+  logger.info('Emergency shutdown complete');
+}
 
 // Start server with port fallback
 const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (default: 8080)
@@ -358,6 +416,10 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
     Sentry.captureException(error, {
       tags: { component: 'APIServer', phase: 'startup' }
     });
+
+    // Emergency shutdown: cleanup partially initialized resources
+    await _emergencyShutdown();
+
     process.exit(1);
   }
 })();

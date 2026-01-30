@@ -7,6 +7,7 @@
 
 import net from 'net';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { PORT } from '../../sidequest/core/constants.js';
 
 const logger = createComponentLogger('PortManager');
 
@@ -97,7 +98,7 @@ export async function killProcessOnPort(port) {
     }
 
     // Wait for port to be released
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, PORT.RELEASE_DELAY_MS));
 
     return true;
   } catch (error) {
@@ -117,7 +118,7 @@ export async function killProcessOnPort(port) {
 export function setupGracefulShutdown(httpServer, options = {}) {
   const {
     onShutdown = () => {},
-    timeout = 10000
+    timeout = PORT.DEFAULT_SHUTDOWN_TIMEOUT_MS
   } = options;
 
   let isShuttingDown = false;

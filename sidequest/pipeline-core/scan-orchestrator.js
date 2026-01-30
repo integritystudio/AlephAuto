@@ -16,11 +16,13 @@ import { HTMLReportGenerator } from './reports/html-report-generator.js';
 import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
 import { InterProjectScanner } from './inter-project-scanner.js';
 import { createComponentLogger } from '../utils/logger.js';
-import { spawn, execSync } from 'child_process';
+import { DependencyValidator } from '../utils/dependency-validator.js';
+import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
 import * as Sentry from '@sentry/node';
+import { TIMEOUTS } from '../core/constants.js';
 const logger = createComponentLogger('ScanOrchestrator');
 // ============================================================================
 // Main ScanOrchestrator Class
@@ -32,6 +34,8 @@ export class ScanOrchestrator {
     repositoryScanner;
     patternDetector;
     pythonPath;
+    _pythonValidated;
+    _dependenciesValidated = false;
     extractorScript;
     reportConfig;
     outputDir;
@@ -41,7 +45,6 @@ export class ScanOrchestrator {
         // JavaScript components
         this.repositoryScanner = new RepositoryScanner(options.scanner || {});
         this.patternDetector = new AstGrepPatternDetector(options.detector || {});
-
         // Python components (called via subprocess)
         // Intelligent Python path detection (lazy - validated on first use):
         // 1. Use explicitly provided pythonPath if given
@@ -50,13 +53,13 @@ export class ScanOrchestrator {
         if (options.pythonPath) {
             this.pythonPath = options.pythonPath;
             this._pythonValidated = false; // Will validate on first use
-        } else {
+        }
+        else {
             // Defer Python detection/validation until first scan
             // This allows server to start without Python for health checks
             this.pythonPath = null;
             this._pythonValidated = false;
         }
-
         this.extractorScript = options.extractorScript || path.join(process.cwd(), 'sidequest/pipeline-core/extractors/extract_blocks.py');
         // Report generation configuration
         this.reportConfig = options.reports || {};
@@ -65,56 +68,39 @@ export class ScanOrchestrator {
         // Configuration
         this.config = options.config || {};
     }
-
     /**
-     * Validate and detect Python path (lazy initialization)
+     * Detect Python path (lazy initialization)
      * Only called when Python is actually needed for a scan
+     * Note: DependencyValidator.validateAll() handles the actual validation
      */
-    _validatePython() {
+    _detectPythonPath() {
         if (this._pythonValidated) {
-            return; // Already validated
+            return; // Already detected
         }
-
         if (this.pythonPath) {
-            // Explicitly provided path - validate it exists
+            // Explicitly provided path - use it
             this._pythonValidated = true;
             return;
         }
-
-        // Auto-detect Python path
+        // Auto-detect Python path (validation done by DependencyValidator)
         const venvPython = path.join(process.cwd(), 'venv/bin/python3');
         const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
-
         if (existsSync(venvPython) && !isCI) {
             // Local development: use venv Python
             this.pythonPath = venvPython;
             logger.info({ pythonPath: venvPython }, 'Using venv Python');
-        } else {
-            // CI/production: use system Python
-            try {
-                // Verify system Python is available and has required packages
-                execSync('python3 -c "import pydantic"', {
-                    stdio: 'ignore',
-                    timeout: 3000
-                });
-                this.pythonPath = 'python3';
-                logger.info({
-                    pythonPath: 'python3',
-                    isCI,
-                    reason: existsSync(venvPython) ? 'CI environment detected' : 'venv not found'
-                }, 'Using system Python');
-            } catch (error) {
-                logger.error({ error }, 'Python validation failed');
-                throw new Error(
-                    'Python not available. Please install Python 3.11+ with pydantic package, ' +
-                    'or run in an environment with venv/bin/python3'
-                );
-            }
         }
-
+        else {
+            // CI/production: use system Python
+            this.pythonPath = 'python3';
+            logger.info({
+                pythonPath: 'python3',
+                isCI,
+                reason: existsSync(venvPython) ? 'CI environment detected' : 'venv not found'
+            }, 'Using system Python');
+        }
         this._pythonValidated = true;
     }
-
     /**
      * Scan a single repository for duplicates
      */
@@ -140,6 +126,11 @@ export class ScanOrchestrator {
         }
         logger.info({ repoPath }, 'Starting repository duplicate scan');
         try {
+            // Validate dependencies once per scanner instance
+            if (!this._dependenciesValidated) {
+                await DependencyValidator.validateAll();
+                this._dependenciesValidated = true;
+            }
             // Stage 1: Repository scanning
             logger.info('Stage 1/7: Scanning repository with repomix');
             const repoScan = await this.repositoryScanner.scanRepository(repoPath, scanConfig.scan_config || {});
@@ -191,16 +182,99 @@ export class ScanOrchestrator {
         }
     }
     /**
+     * Handle process close event - reduced nesting via early returns
+     */
+    _handleProcessClose(code, signal, stdout, stderr) {
+        if (code === 0)
+            return this._handleSuccess(stdout, stderr);
+        if (code === null)
+            return this._handleSignalTermination(signal, stdout, stderr);
+        return this._handleError(code, stderr);
+    }
+    /**
+     * Handle successful process exit (code 0)
+     */
+    _handleSuccess(stdout, stderr) {
+        try {
+            const result = JSON.parse(stdout);
+            return { success: true, data: result };
+        }
+        catch (error) {
+            logger.error({ stdout: stdout.slice(-500), stderr: stderr.slice(-500) }, 'Failed to parse Python pipeline output');
+            return {
+                success: false,
+                error: new Error(`Failed to parse Python output: ${error.message}`)
+            };
+        }
+    }
+    /**
+     * Handle signal termination (code null)
+     */
+    _handleSignalTermination(signal, stdout, stderr) {
+        // Try to parse stdout anyway - the work may have completed before the signal
+        if (stdout.trim()) {
+            try {
+                const result = JSON.parse(stdout);
+                logger.warn({ signal, stderrTail: stderr.slice(-200) }, `Python pipeline was killed by signal ${signal} but produced valid output - treating as success`);
+                return { success: true, data: result };
+            }
+            catch {
+                // stdout exists but isn't valid JSON - continue to error handling
+            }
+        }
+        // No valid output - report the signal
+        const timeoutMsg = signal === 'SIGTERM'
+            ? ' (likely due to timeout - consider increasing timeout or optimizing the scan)'
+            : '';
+        logger.error({ signal, stderrTail: stderr.slice(-500) }, `Python pipeline killed by signal: ${signal}`);
+        return {
+            success: false,
+            error: new Error(`Python pipeline was killed by signal ${signal}${timeoutMsg}\n` +
+                `stderr (last 200 chars): ${stderr.slice(-200)}`)
+        };
+    }
+    /**
+     * Handle error exit (non-zero code)
+     */
+    _handleError(code, stderr) {
+        logger.error({ code, stderrTail: stderr.slice(-500) }, 'Python pipeline failed');
+        return {
+            success: false,
+            error: new Error(`Python pipeline exited with code ${code}: ${stderr.slice(-500)}`)
+        };
+    }
+    /**
+     * Calculate dynamic timeout based on workload
+     * @param data - Pipeline input data
+     * @returns Timeout in milliseconds
+     */
+    _calculateTimeout(data) {
+        const baseTimeout = TIMEOUTS.PYTHON_PIPELINE_BASE_MS;
+        const patternCount = data.pattern_matches?.length ?? 0;
+        const fileCount = data.repository_info?.totalFiles ?? 0;
+        // Dynamic timeout based on workload
+        const dynamicTimeout = baseTimeout +
+            (patternCount * TIMEOUTS.PYTHON_PIPELINE_PER_PATTERN_MS) +
+            (fileCount * TIMEOUTS.PYTHON_PIPELINE_PER_FILE_MS);
+        logger.debug({
+            baseTimeout,
+            patternCount,
+            fileCount,
+            dynamicTimeout
+        }, 'Calculated dynamic timeout for Python pipeline');
+        return dynamicTimeout;
+    }
+    /**
      * Run Python pipeline for extraction, grouping, and reporting
      */
     async runPythonPipeline(data) {
-        // Lazy validation: Only validate Python when actually needed
-        this._validatePython();
-
+        // Lazy detection: Only detect Python path when actually needed
+        this._detectPythonPath();
         return new Promise((resolve, reject) => {
             logger.debug('Launching Python extraction pipeline');
+            const timeoutMs = this._calculateTimeout(data);
             const proc = spawn(this.pythonPath, [this.extractorScript], {
-                timeout: 600000, // 10 minute timeout
+                timeout: timeoutMs,
             });
             let stdout = '';
             let stderr = '';
@@ -227,56 +301,8 @@ export class ScanOrchestrator {
                 }
             });
             proc.on('close', (code, signal) => {
-                // Success case: exit code 0
-                if (code === 0) {
-                    try {
-                        const result = JSON.parse(stdout);
-                        resolve(result);
-                    }
-                    catch (error) {
-                        logger.error({ stdout: stdout.slice(-500), stderr: stderr.slice(-500) }, 'Failed to parse Python pipeline output');
-                        reject(new Error(`Failed to parse Python output: ${error.message}`));
-                    }
-                    return;
-                }
-
-                // Handle null exit code (process killed by signal)
-                // This can happen when:
-                // 1. Process times out (spawn timeout option)
-                // 2. Process receives SIGTERM/SIGKILL
-                // 3. Process crashes due to signal
-                if (code === null) {
-                    // Try to parse stdout anyway - the work may have completed before the signal
-                    if (stdout.trim()) {
-                        try {
-                            const result = JSON.parse(stdout);
-                            logger.warn(
-                                { signal, stderrTail: stderr.slice(-200) },
-                                `Python pipeline was killed by signal ${signal} but produced valid output - treating as success`
-                            );
-                            resolve(result);
-                            return;
-                        }
-                        catch {
-                            // stdout exists but isn't valid JSON - continue to error handling
-                        }
-                    }
-
-                    // No valid output - report the signal
-                    const timeoutMsg = signal === 'SIGTERM'
-                        ? ' (likely due to timeout - consider increasing timeout or optimizing the scan)'
-                        : '';
-                    logger.error({ signal, stderrTail: stderr.slice(-500) }, `Python pipeline killed by signal: ${signal}`);
-                    reject(new Error(
-                        `Python pipeline was killed by signal ${signal}${timeoutMsg}\n` +
-                        `stderr (last 200 chars): ${stderr.slice(-200)}`
-                    ));
-                    return;
-                }
-
-                // Non-zero exit code
-                logger.error({ code, stderrTail: stderr.slice(-500) }, 'Python pipeline failed');
-                reject(new Error(`Python pipeline exited with code ${code}: ${stderr.slice(-500)}`));
+                const result = this._handleProcessClose(code, signal, stdout, stderr);
+                result.success ? resolve(result.data) : reject(result.error);
             });
             proc.on('error', (error) => {
                 if (error.code === 'ENOENT') {

@@ -493,6 +493,117 @@ export class ScanOrchestrator {
   }
 
   /**
+   * Handle process close event - reduced nesting via early returns
+   */
+  private _handleProcessClose(
+    code: number | null,
+    signal: string | null,
+    stdout: string,
+    stderr: string
+  ): { success: boolean; data?: PythonPipelineOutput; error?: Error } {
+    if (code === 0) return this._handleSuccess(stdout, stderr);
+    if (code === null) return this._handleSignalTermination(signal, stdout, stderr);
+    return this._handleError(code, stderr);
+  }
+
+  /**
+   * Handle successful process exit (code 0)
+   */
+  private _handleSuccess(
+    stdout: string,
+    stderr: string
+  ): { success: boolean; data?: PythonPipelineOutput; error?: Error } {
+    try {
+      const result: PythonPipelineOutput = JSON.parse(stdout);
+      return { success: true, data: result };
+    } catch (error) {
+      logger.error(
+        { stdout: stdout.slice(-500), stderr: stderr.slice(-500) },
+        'Failed to parse Python pipeline output'
+      );
+      return {
+        success: false,
+        error: new Error(`Failed to parse Python output: ${(error as Error).message}`)
+      };
+    }
+  }
+
+  /**
+   * Handle signal termination (code null)
+   */
+  private _handleSignalTermination(
+    signal: string | null,
+    stdout: string,
+    stderr: string
+  ): { success: boolean; data?: PythonPipelineOutput; error?: Error } {
+    // Try to parse stdout anyway - the work may have completed before the signal
+    if (stdout.trim()) {
+      try {
+        const result: PythonPipelineOutput = JSON.parse(stdout);
+        logger.warn(
+          { signal, stderrTail: stderr.slice(-200) },
+          `Python pipeline was killed by signal ${signal} but produced valid output - treating as success`
+        );
+        return { success: true, data: result };
+      } catch {
+        // stdout exists but isn't valid JSON - continue to error handling
+      }
+    }
+
+    // No valid output - report the signal
+    const timeoutMsg = signal === 'SIGTERM'
+      ? ' (likely due to timeout - consider increasing timeout or optimizing the scan)'
+      : '';
+    logger.error({ signal, stderrTail: stderr.slice(-500) }, `Python pipeline killed by signal: ${signal}`);
+    return {
+      success: false,
+      error: new Error(
+        `Python pipeline was killed by signal ${signal}${timeoutMsg}\n` +
+        `stderr (last 200 chars): ${stderr.slice(-200)}`
+      )
+    };
+  }
+
+  /**
+   * Handle error exit (non-zero code)
+   */
+  private _handleError(
+    code: number,
+    stderr: string
+  ): { success: boolean; data?: PythonPipelineOutput; error?: Error } {
+    logger.error({ code, stderrTail: stderr.slice(-500) }, 'Python pipeline failed');
+    return {
+      success: false,
+      error: new Error(`Python pipeline exited with code ${code}: ${stderr.slice(-500)}`)
+    };
+  }
+
+  /**
+   * Calculate dynamic timeout based on workload
+   * @param data - Pipeline input data
+   * @returns Timeout in milliseconds
+   */
+  private _calculateTimeout(data: PythonPipelineInput): number {
+    const baseTimeout = TIMEOUTS.PYTHON_PIPELINE_BASE_MS;
+    const patternCount = data.pattern_matches?.length ?? 0;
+    const fileCount = data.repository_info?.totalFiles ?? 0;
+
+    // Dynamic timeout based on workload
+    const dynamicTimeout = baseTimeout +
+      (patternCount * TIMEOUTS.PYTHON_PIPELINE_PER_PATTERN_MS) +
+      (fileCount * TIMEOUTS.PYTHON_PIPELINE_PER_FILE_MS);
+
+    logger.debug({
+      baseTimeout,
+      patternCount,
+      fileCount,
+      dynamicTimeout
+    }, 'Calculated dynamic timeout for Python pipeline');
+
+    return dynamicTimeout;
+  }
+
+  /**
    * Run Python pipeline for extraction, grouping, and reporting
    */
   private async runPythonPipeline(data: PythonPipelineInput): Promise<PythonPipelineOutput> {
@@ -502,8 +613,9 @@ export class ScanOrchestrator {
     return new Promise<PythonPipelineOutput>((resolve, reject) => {
       logger.debug('Launching Python extraction pipeline');
 
+      const timeoutMs = this._calculateTimeout(data);
       const proc: ChildProcess = spawn(this.pythonPath!, [this.extractorScript], {
-        timeout: TIMEOUTS.PYTHON_PIPELINE_MS,
+        timeout: timeoutMs,
       });
 
       let stdout = '';
@@ -535,54 +647,8 @@ export class ScanOrchestrator {
       });
 
       proc.on('close', (code: number | null, signal: string | null) => {
-        // Success case: exit code 0
-        if (code === 0) {
-          try {
-            const result: PythonPipelineOutput = JSON.parse(stdout);
-            resolve(result);
-          } catch (error) {
-            logger.error({ stdout: stdout.slice(-500), stderr: stderr.slice(-500) }, 'Failed to parse Python pipeline output');
-            reject(new Error(`Failed to parse Python output: ${(error as Error).message}`));
-          }
-          return;
-        }
-
-        // Handle null exit code (process killed by signal)
-        // This can happen when:
-        // 1. Process times out (spawn timeout option)
-        // 2. Process receives SIGTERM/SIGKILL
-        // 3. Process crashes due to signal
-        if (code === null) {
-          // Try to parse stdout anyway - the work may have completed before the signal
-          if (stdout.trim()) {
-            try {
-              const result: PythonPipelineOutput = JSON.parse(stdout);
-              logger.warn(
-                { signal, stderrTail: stderr.slice(-200) },
-                `Python pipeline was killed by signal ${signal} but produced valid output - treating as success`
-              );
-              resolve(result);
-              return;
-            } catch {
-              // stdout exists but isn't valid JSON - continue to error handling
-            }
-          }
-
-          // No valid output - report the signal
-          const timeoutMsg = signal === 'SIGTERM'
-            ? ' (likely due to timeout - consider increasing timeout or optimizing the scan)'
-            : '';
-          logger.error({ signal, stderrTail: stderr.slice(-500) }, `Python pipeline killed by signal: ${signal}`);
-          reject(new Error(
-            `Python pipeline was killed by signal ${signal}${timeoutMsg}\n` +
-            `stderr (last 200 chars): ${stderr.slice(-200)}`
-          ));
-          return;
-        }
-
-        // Non-zero exit code
-        logger.error({ code, stderrTail: stderr.slice(-500) }, 'Python pipeline failed');
-        reject(new Error(`Python pipeline exited with code ${code}: ${stderr.slice(-500)}`));
+        const result = this._handleProcessClose(code, signal, stdout, stderr);
+        result.success ? resolve(result.data!) : reject(result.error!);
       });
 
       proc.on('error', (error: Error & { code?: string }) => {

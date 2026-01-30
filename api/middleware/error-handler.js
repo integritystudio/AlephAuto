@@ -42,16 +42,19 @@ export function errorHandler(err, req, res, next) {
   // Determine status code
   const statusCode = err.statusCode || err.status || 500;
 
-  // Prepare error response
+  // Prepare standardized error response
   const errorResponse = {
-    error: err.name || 'Internal Server Error',
-    message: err.message || 'An unexpected error occurred',
+    success: false,
+    error: {
+      code: err.code || (statusCode >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST'),
+      message: err.message || 'An unexpected error occurred'
+    },
     timestamp: new Date().toISOString()
   };
 
   // Include stack trace in development
   if (process.env.NODE_ENV === 'development') {
-    errorResponse.stack = err.stack;
+    errorResponse.error.stack = err.stack;
   }
 
   // Send error response

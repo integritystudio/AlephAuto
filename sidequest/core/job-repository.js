@@ -26,8 +26,21 @@ const logger = createComponentLogger('JobRepository');
  * Job Repository - abstracts database access for job operations
  */
 class JobRepository {
-  constructor() {
+  /**
+   * Create a new JobRepository instance
+   * @param {Object} [options={}] - Configuration options
+   * @param {boolean} [options.autoInitialize=false] - Auto-initialize on construction
+   */
+  constructor(options = {}) {
     this._initialized = false;
+    this._options = options;
+
+    // Auto-initialize if requested (useful for testing)
+    if (options.autoInitialize) {
+      this.initialize().catch(err => {
+        logger.error({ error: err }, 'Failed to auto-initialize JobRepository');
+      });
+    }
   }
 
   /**
@@ -156,10 +169,42 @@ class JobRepository {
     this._initialized = false;
     logger.debug('JobRepository closed');
   }
+
+  /**
+   * Reset the repository state (primarily for testing)
+   * Closes the database and clears internal state
+   */
+  reset() {
+    if (this._initialized) {
+      this.close();
+    }
+    this._initialized = false;
+    logger.debug('JobRepository reset');
+  }
 }
 
-// Export singleton instance for convenience
-export const jobRepository = new JobRepository();
+/**
+ * Factory function to create a new JobRepository instance
+ *
+ * @param {Object} [options={}] - Configuration options
+ * @param {boolean} [options.autoInitialize=false] - Auto-initialize on construction
+ * @returns {JobRepository} New JobRepository instance
+ *
+ * @example
+ * // Create a custom instance for testing
+ * const testRepo = createJobRepository({ autoInitialize: true });
+ *
+ * @example
+ * // Create instance with custom configuration
+ * const customRepo = createJobRepository();
+ * await customRepo.initialize();
+ */
+export function createJobRepository(options = {}) {
+  return new JobRepository(options);
+}
 
-// Export class for testing or custom instances
+// Export singleton instance for convenience and backward compatibility
+export const jobRepository = createJobRepository();
+
+// Export class for advanced use cases
 export { JobRepository };

@@ -11,8 +11,14 @@
  * Timeout values in milliseconds
  */
 export const TIMEOUTS = {
-  /** Python pipeline execution timeout (10 minutes) */
-  PYTHON_PIPELINE_MS: 600000,
+  /** Base Python pipeline execution timeout (10 minutes) */
+  PYTHON_PIPELINE_BASE_MS: 600000,
+
+  /** Additional timeout per pattern match (100ms) */
+  PYTHON_PIPELINE_PER_PATTERN_MS: 100,
+
+  /** Additional timeout per file (10ms) */
+  PYTHON_PIPELINE_PER_FILE_MS: 10,
 
   /** Database auto-save interval (30 seconds) */
   DATABASE_SAVE_INTERVAL_MS: 30000,
@@ -46,4 +52,26 @@ export const PAGINATION = {
 
   /** Default page size for all jobs listing */
   DEFAULT_ALL_LIMIT: 100,
+
+  /** Maximum allowed page size to prevent memory issues */
+  MAX_LIMIT: 1000,
+};
+
+/**
+ * Input validation patterns
+ */
+export const VALIDATION = {
+  /** Job ID pattern - alphanumeric, hyphens, underscores, max 100 chars */
+  JOB_ID_PATTERN: /^[a-zA-Z0-9_-]{1,100}$/,
+};
+
+/**
+ * Port management constants
+ */
+export const PORT = {
+  /** Delay before releasing a port after process kill (1 second) */
+  RELEASE_DELAY_MS: 1000,
+
+  /** Default shutdown timeout for graceful shutdown (10 seconds) */
+  DEFAULT_SHUTDOWN_TIMEOUT_MS: 10000,
 };
