@@ -149,6 +149,11 @@ class WorkerRegistry {
    * - Concurrency limiting to prevent thundering herd
    * - Circuit breaker for repeated initialization failures
    *
+   * RACE CONDITION FIX: The promise is stored in _initializing SYNCHRONOUSLY
+   * before any await points. This ensures concurrent callers always see the
+   * pending initialization and await the same promise, preventing duplicate
+   * worker instances.
+   *
    * @param {string} pipelineId - Pipeline identifier
    * @returns {Promise<import('../../sidequest/core/server.js').SidequestServer>} Worker instance
    * @throws {Error} If pipeline ID is unknown or initialization fails
@@ -192,88 +197,113 @@ class WorkerRegistry {
       return await this._initializing.get(pipelineId);
     }
 
-    // Concurrency limiting: wait if too many initializations in progress
-    if (this._activeInits >= this._maxConcurrentInits) {
-      logger.info({ pipelineId, activeInits: this._activeInits }, 'Queuing worker initialization (concurrency limit reached)');
-      await new Promise(resolve => this._initQueue.push(resolve));
-    }
-
-    this._activeInits++;
-
-    // Create initialization promise with proper cleanup via finally
-    const initPromise = (async () => {
-      let worker = null;
-      try {
-        worker = await this._initializeWorker(pipelineId);
-
-        // Atomic check-and-set: ensure only one worker instance exists
-        // This prevents race conditions where multiple concurrent calls
-        // might create duplicate workers
-        const existingWorker = this._workers.get(pipelineId);
-        if (existingWorker) {
-          // Another concurrent call won the race - shut down duplicate
-          logger.info({ pipelineId }, 'Duplicate worker detected, shutting down duplicate and using existing');
-          // @ts-ignore - shutdown() exists on worker instances but not in base type
-          if (worker.shutdown && typeof worker.shutdown === 'function') {
-            // @ts-ignore
-            await worker.shutdown().catch(shutdownError => {
-              logger.error({ error: shutdownError.message, pipelineId }, 'Failed to shutdown duplicate worker');
-            });
-          }
-          return existingWorker;
-        }
-
-        // Connect to activity feed BEFORE storing in _workers
-        // This ensures no events are missed
-        if (this._activityFeed) {
-          this._activityFeed.listenToWorker(worker);
-          logger.info({ pipelineId }, 'Worker connected to activity feed');
-        }
-
-        // Store worker before cleanup to prevent race between
-        // _initializing.delete and _workers.set
-        this._workers.set(pipelineId, worker);
-
-        // Clear failure count on success
-        initFailures.delete(pipelineId);
-
-        return worker;
-      } catch (error) {
-        // If we created a worker but failed after (e.g., activity feed connection),
-        // clean it up to prevent resource leaks
-        // @ts-ignore - shutdown() exists on worker instances but not in base type
-        if (worker && worker.shutdown && typeof worker.shutdown === 'function') {
-          // @ts-ignore
-          await worker.shutdown().catch(shutdownError => {
-            logger.error({ error: shutdownError.message, pipelineId }, 'Failed to cleanup worker after init failure');
-          });
-        }
-
-        // Track initialization failures for circuit breaker
-        const existing = initFailures.get(pipelineId) || { count: 0, lastAttempt: 0 };
-        initFailures.set(pipelineId, {
-          count: existing.count + 1,
-          lastAttempt: Date.now()
-        });
-        logger.error({ pipelineId, failureCount: existing.count + 1, error: error.message }, 'Worker initialization failed');
-        throw error;
-      } finally {
-        // Always cleanup _initializing, whether success or failure
-        this._initializing.delete(pipelineId);
-
-        // Release concurrency slot and process queue
-        this._activeInits--;
-        if (this._initQueue.length > 0) {
-          const next = this._initQueue.shift();
-          next();
-        }
-      }
-    })();
-
-    // Store promise for concurrent callers before awaiting
+    // CRITICAL: Create and store promise SYNCHRONOUSLY before any await points
+    // This prevents race conditions where concurrent callers could both pass
+    // the _initializing.has() check before either stores their promise
+    /** @type {(value: import('../../sidequest/core/server.js').SidequestServer) => void} */
+    let resolveInit;
+    /** @type {(reason: Error) => void} */
+    let rejectInit;
+    const initPromise = new Promise((resolve, reject) => {
+      resolveInit = resolve;
+      rejectInit = reject;
+    });
     this._initializing.set(pipelineId, initPromise);
 
-    return await initPromise;
+    // Now safe to await - concurrent callers will see _initializing has this
+    // pipelineId and await the same promise
+    try {
+      // Concurrency limiting: wait if too many initializations in progress
+      if (this._activeInits >= this._maxConcurrentInits) {
+        logger.info({ pipelineId, activeInits: this._activeInits }, 'Queuing worker initialization (concurrency limit reached)');
+        await new Promise(resolve => this._initQueue.push(resolve));
+      }
+
+      this._activeInits++;
+
+      const worker = await this._performWorkerInitialization(pipelineId);
+      // @ts-ignore - resolveInit is assigned in Promise constructor above
+      resolveInit(worker);
+      return worker;
+    } catch (error) {
+      // @ts-ignore - rejectInit is assigned in Promise constructor above
+      rejectInit(error);
+      throw error;
+    } finally {
+      // Always cleanup _initializing, whether success or failure
+      this._initializing.delete(pipelineId);
+
+      // Release concurrency slot and process queue
+      this._activeInits--;
+      if (this._initQueue.length > 0) {
+        const next = this._initQueue.shift();
+        next();
+      }
+    }
+  }
+
+  /**
+   * Perform the actual worker initialization with cleanup handling
+   *
+   * @private
+   * @param {string} pipelineId - Pipeline identifier
+   * @returns {Promise<import('../../sidequest/core/server.js').SidequestServer>} Worker instance
+   */
+  async _performWorkerInitialization(pipelineId) {
+    let worker = null;
+    try {
+      worker = await this._initializeWorker(pipelineId);
+
+      // Defense in depth: check if another worker exists
+      // With the synchronous promise storage, this should never trigger,
+      // but we keep it as a safety net
+      const existingWorker = this._workers.get(pipelineId);
+      if (existingWorker) {
+        logger.warn({ pipelineId }, 'Duplicate worker detected (unexpected) - shutting down duplicate');
+        // @ts-ignore - shutdown() exists on worker instances but not in base type
+        if (worker.shutdown && typeof worker.shutdown === 'function') {
+          // @ts-ignore
+          await worker.shutdown().catch(shutdownError => {
+            logger.error({ error: shutdownError.message, pipelineId }, 'Failed to shutdown duplicate worker');
+          });
+        }
+        return existingWorker;
+      }
+
+      // Connect to activity feed BEFORE storing in _workers
+      // This ensures no events are missed
+      if (this._activityFeed) {
+        this._activityFeed.listenToWorker(worker);
+        logger.info({ pipelineId }, 'Worker connected to activity feed');
+      }
+
+      // Store worker
+      this._workers.set(pipelineId, worker);
+
+      // Clear failure count on success
+      initFailures.delete(pipelineId);
+
+      return worker;
+    } catch (error) {
+      // If we created a worker but failed after (e.g., activity feed connection),
+      // clean it up to prevent resource leaks
+      // @ts-ignore - shutdown() exists on worker instances but not in base type
+      if (worker && worker.shutdown && typeof worker.shutdown === 'function') {
+        // @ts-ignore
+        await worker.shutdown().catch(shutdownError => {
+          logger.error({ error: shutdownError.message, pipelineId }, 'Failed to cleanup worker after init failure');
+        });
+      }
+
+      // Track initialization failures for circuit breaker
+      const existing = initFailures.get(pipelineId) || { count: 0, lastAttempt: 0 };
+      initFailures.set(pipelineId, {
+        count: existing.count + 1,
+        lastAttempt: Date.now()
+      });
+      logger.error({ pipelineId, failureCount: existing.count + 1, error: error.message }, 'Worker initialization failed');
+      throw error;
+    }
   }
 
   /**
