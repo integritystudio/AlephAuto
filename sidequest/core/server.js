@@ -87,22 +87,7 @@ export class SidequestServer extends EventEmitter {
     this.queue.push(jobId);
 
     // Persist to SQLite immediately so job is visible in dashboard
-    try {
-      jobRepository.saveJob({
-        id: job.id,
-        pipelineId: this.jobType,
-        status: job.status,
-        createdAt: job.createdAt?.toISOString?.() || job.createdAt,
-        startedAt: job.startedAt,
-        completedAt: job.completedAt,
-        data: job.data,
-        result: job.result,
-        error: job.error,
-        git: job.git
-      });
-    } catch (dbErr) {
-      logger.error({ error: dbErr.message, jobId }, 'Failed to persist new job to database');
-    }
+    this._persistJob(job);
 
     Sentry.addBreadcrumb({
       category: 'job',
@@ -570,22 +555,7 @@ export class SidequestServer extends EventEmitter {
     job.error = { message: 'Job cancelled by user', cancelled: true };
 
     // Persist to database
-    try {
-      jobRepository.saveJob({
-        id: job.id,
-        pipelineId: this.jobType,
-        status: job.status,
-        createdAt: job.createdAt?.toISOString(),
-        startedAt: job.startedAt?.toISOString(),
-        completedAt: job.completedAt?.toISOString(),
-        data: job.data,
-        result: job.result,
-        error: job.error,
-        git: job.git
-      });
-    } catch (dbError) {
-      logger.error({ error: dbError.message, jobId }, 'Failed to persist cancelled job to database');
-    }
+    this._persistJob(job);
 
     // Emit cancellation event
     this.emit('job:cancelled', job);
@@ -651,22 +621,7 @@ export class SidequestServer extends EventEmitter {
     job.pausedAt = new Date();
 
     // Persist to database
-    try {
-      jobRepository.saveJob({
-        id: job.id,
-        pipelineId: this.jobType,
-        status: job.status,
-        createdAt: job.createdAt?.toISOString(),
-        startedAt: job.startedAt?.toISOString(),
-        completedAt: job.completedAt?.toISOString(),
-        data: job.data,
-        result: job.result,
-        error: job.error,
-        git: job.git
-      });
-    } catch (dbError) {
-      logger.error({ error: dbError.message, jobId }, 'Failed to persist paused job to database');
-    }
+    this._persistJob(job);
 
     // Emit pause event
     this.emit('job:paused', job);
@@ -724,22 +679,7 @@ export class SidequestServer extends EventEmitter {
     this.queue.push(jobId);
 
     // Persist to database
-    try {
-      jobRepository.saveJob({
-        id: job.id,
-        pipelineId: this.jobType,
-        status: job.status,
-        createdAt: job.createdAt?.toISOString(),
-        startedAt: job.startedAt?.toISOString(),
-        completedAt: job.completedAt?.toISOString(),
-        data: job.data,
-        result: job.result,
-        error: job.error,
-        git: job.git
-      });
-    } catch (dbError) {
-      logger.error({ error: dbError.message, jobId }, 'Failed to persist resumed job to database');
-    }
+    this._persistJob(job);
 
     // Emit resume event
     this.emit('job:resumed', job);
