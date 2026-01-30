@@ -8,6 +8,7 @@ import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.js';
 import { GitWorkflowManager } from './git-workflow-manager.js';
 import { jobRepository } from './job-repository.js';
 import { CONCURRENCY } from './constants.js';
+import { toISOString } from '../utils/time-helpers.js';
 import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '../../api/types/job-status.js';
 
 const logger = createComponentLogger('SidequestServer');
@@ -193,13 +194,7 @@ export class SidequestServer extends EventEmitter {
     }
 
     try {
-      // Normalize timestamps - ensure consistent ISO string format
-      const toISOString = (val) => {
-        if (!val) return null;
-        if (val instanceof Date) return val.toISOString();
-        return val; // Already a string
-      };
-
+      // Use shared timestamp normalization utility
       jobRepository.saveJob({
         id: job.id,
         pipelineId: this.jobType,

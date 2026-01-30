@@ -5,7 +5,21 @@ import { WebSocket } from 'ws';
 import { createWebSocketServer } from '../../api/websocket.js';
 import { ScanEventBroadcaster } from '../../api/event-broadcaster.js';
 
-// TODO: Fix race conditions and hanging tests - skipping until proper async cleanup is implemented
+/**
+ * SKIPPED: WebSocket Server Tests
+ *
+ * Issue: Race conditions in WebSocket connection/disconnection during tests
+ * Root cause: Async cleanup not completing before next test starts
+ * Impact: Tests hang intermittently, blocking CI pipeline
+ *
+ * Fix required:
+ * 1. Implement proper WebSocket connection draining
+ * 2. Add connection state tracking for cleanup verification
+ * 3. Use test isolation with unique ports per test
+ *
+ * Tracking: Technical debt - async cleanup patterns (Q1 2026)
+ * Related: sidequest-server.test.js, mcp-server.test.js (same pattern)
+ */
 describe.skip('WebSocket Server', () => {
   let httpServer;
   let wss;

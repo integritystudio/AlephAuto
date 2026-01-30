@@ -19,6 +19,7 @@ import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 import { createComponentLogger } from '../sidequest/utils/logger.js';
 import { config } from '../sidequest/core/config.js';
+import { CONCURRENCY } from '../sidequest/core/constants.js';
 import { authMiddleware } from './middleware/auth.js';
 import { rateLimiter } from './middleware/rate-limit.js';
 import { errorHandler } from './middleware/error-handler.js';
@@ -183,10 +184,13 @@ app.get('/api/status', (req, res) => {
     });
 
     // Calculate aggregated queue stats from all workers
+    // Capacity is percentage of max concurrent jobs currently in use
     const queueStats = {
       active: workerStats.active || 0,
       queued: workerStats.queued || 0,
-      capacity: workerStats.active > 0 ? Math.min(100, (workerStats.active / 5) * 100) : 0
+      capacity: workerStats.active > 0
+        ? Math.min(100, (workerStats.active / CONCURRENCY.DEFAULT_MAX_JOBS) * 100)
+        : 0
     };
 
     res.json({

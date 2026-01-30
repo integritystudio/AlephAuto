@@ -1,7 +1,23 @@
 /**
  * Tests for MigrationTransformer
  *
- * Tests AST-based code transformation for consolidation migrations
+ * Tests AST-based code transformation for consolidation migrations.
+ *
+ * SKIPPED TESTS NOTE:
+ * Several tests in this file are marked as .skip with "requires file detection" comments.
+ * These tests represent future enhancements to MigrationTransformer:
+ *
+ * Current behavior:
+ * - MigrationTransformer requires explicit file paths in code_example comments
+ * - Format: // filename.js at the start of code_example
+ *
+ * Future enhancement (Q2 2026):
+ * - Automatic file detection based on migration step descriptions
+ * - Pattern matching to find affected files in the codebase
+ * - Semantic analysis to identify files containing target symbols
+ *
+ * The skipped tests serve as documentation for the expected behavior
+ * once enhanced file detection is implemented.
  */
 
 import { describe, it, before, after } from 'node:test';
