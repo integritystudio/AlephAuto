@@ -14,6 +14,7 @@ import { fileURLToPath } from 'url';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from './config.js';
 import { isValidJobStatus } from '../../api/types/job-status.js';
+import { VALIDATION } from './constants.js';
 import * as Sentry from '@sentry/node';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -264,39 +265,47 @@ function _attemptRecovery() {
 }
 
 /**
+ * Maximum write queue size to prevent unbounded memory growth
+ * @private
+ */
+const MAX_WRITE_QUEUE_SIZE = 10000;
+
+/**
  * Process queued writes after recovery
+ *
+ * IMPORTANT: All queued jobs are already in the in-memory database.
+ * We just need to persist once to disk, then clear the queue.
  * @private
  */
 function _processWriteQueue() {
   if (writeQueue.length === 0) return;
 
-  logger.info({ queueSize: writeQueue.length }, 'Processing queued writes after recovery');
+  const queueSize = writeQueue.length;
+  logger.info({ queueSize }, 'Processing queued writes after recovery');
 
-  const processed = [];
-  const failed = [];
+  try {
+    // Single export/write for all queued items - they're already in memory
+    const data = db.export();
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(DB_PATH, buffer);
 
-  while (writeQueue.length > 0) {
-    const job = writeQueue.shift();
-    try {
-      // Re-save the job (already in memory, now persist to disk)
-      const data = db.export();
-      const buffer = Buffer.from(data);
-      fs.writeFileSync(DB_PATH, buffer);
-      processed.push(job.id);
-    } catch (error) {
-      logger.error({ jobId: job.id, error: error.message }, 'Failed to process queued write');
-      failed.push(job.id);
-      // Put it back in queue for next recovery attempt
-      writeQueue.push(job);
-      break; // Stop processing if we hit another failure
-    }
+    // Success - clear entire queue atomically
+    const processedIds = writeQueue.map(job => job.id);
+    writeQueue.length = 0; // Clear queue
+
+    logger.info({
+      processed: processedIds.length,
+      dbSizeBytes: buffer.length
+    }, 'Write queue cleared - all jobs persisted');
+  } catch (error) {
+    // Leave queue intact for next recovery attempt
+    logger.error({
+      error: error.message,
+      code: error.code,
+      queueSize,
+      dbPath: DB_PATH
+    }, 'Failed to process write queue - will retry on next recovery');
   }
-
-  logger.info({
-    processed: processed.length,
-    failed: failed.length,
-    remaining: writeQueue.length
-  }, 'Write queue processing completed');
 }
 
 /**
@@ -386,6 +395,26 @@ export function saveJob(job) {
 
   // Queue write if in degraded mode
   if (isDegradedMode) {
+    // Enforce max queue size to prevent unbounded memory growth
+    if (writeQueue.length >= MAX_WRITE_QUEUE_SIZE) {
+      const droppedJob = writeQueue.shift(); // Remove oldest
+      logger.error({
+        queueSize: writeQueue.length,
+        maxSize: MAX_WRITE_QUEUE_SIZE,
+        droppedJobId: droppedJob?.id,
+        newJobId: job.id
+      }, 'Write queue at capacity, dropping oldest entry');
+
+      Sentry.captureMessage('Database write queue at capacity', {
+        level: 'warning',
+        tags: { component: 'database', mode: 'degraded' },
+        extra: {
+          droppedJobId: droppedJob?.id,
+          queueSize: MAX_WRITE_QUEUE_SIZE
+        }
+      });
+    }
+
     // Only queue if not already queued (prevent duplicates)
     const alreadyQueued = writeQueue.some(qJob => qJob.id === job.id);
     if (!alreadyQueued) {
@@ -811,14 +840,14 @@ export function closeDatabase() {
 
 /**
  * Validate job ID format to prevent injection attacks
- * Allows alphanumeric, hyphens, underscores, and periods
+ * Uses centralized VALIDATION.JOB_ID_PATTERN for consistency
  * @param {string} id - Job ID to validate
  * @returns {boolean} True if valid
  */
 function isValidJobId(id) {
   if (!id || typeof id !== 'string') return false;
-  // Allow alphanumeric, hyphens, underscores, periods (common in UUIDs and timestamps)
-  return /^[a-zA-Z0-9_.-]+$/.test(id) && id.length <= 255;
+  // Use centralized pattern - alphanumeric, hyphens, underscores only (no periods to prevent path traversal)
+  return VALIDATION.JOB_ID_PATTERN.test(id);
 }
 
 /**

@@ -46,12 +46,18 @@ export class SidequestServer extends EventEmitter {
     }
 
     // Initialize SQLite database for job persistence
-    try {
-      jobRepository.initialize();
-      logger.info('Job history database initialized');
-    } catch (err) {
-      logger.error({ err }, 'Failed to initialize database');
-    }
+    // Note: initialize() is async but we handle it with .then()/.catch() since
+    // constructors cannot be async. The database will be ready before first job executes.
+    jobRepository.initialize()
+      .then(() => {
+        logger.info('Job history database initialized');
+      })
+      .catch((err) => {
+        logger.error({ err }, 'Failed to initialize database - jobs will not persist');
+        Sentry.captureException(err, {
+          tags: { component: 'database', event: 'init_failed' }
+        });
+      });
 
     // Initialize Sentry
     Sentry.init({

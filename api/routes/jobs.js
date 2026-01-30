@@ -4,6 +4,7 @@
  */
 
 import express from 'express';
+import crypto from 'crypto';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import { jobRepository } from '../../sidequest/core/job-repository.js';
 import { workerRegistry } from '../utils/worker-registry.js';
@@ -11,6 +12,32 @@ import { config } from '../../sidequest/core/config.js';
 import { getPipelineName } from '../../sidequest/utils/pipeline-names.js';
 import { isValidJobStatus, JOB_STATUS } from '../types/job-status.js';
 import { PAGINATION, VALIDATION } from '../../sidequest/core/constants.js';
+
+/**
+ * Timing-safe string comparison to prevent timing attacks
+ * Returns false for mismatched lengths without leaking length info through timing
+ *
+ * @param {string} a - First string
+ * @param {string} b - Second string
+ * @returns {boolean} True if strings are equal
+ */
+function timingSafeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+
+  // Use a fixed-length comparison to avoid leaking length information
+  // If lengths differ, still compare against a buffer of the expected length
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+
+  // If lengths don't match, compare a against itself to maintain constant time
+  // but return false
+  if (bufA.length !== bufB.length) {
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 const router = express.Router();
 const logger = createComponentLogger('JobsAPI');
@@ -182,7 +209,7 @@ router.post('/bulk-import', (req, res) => {
       });
     }
 
-    if (apiKey !== migrationKey) {
+    if (!timingSafeEqual(apiKey, migrationKey)) {
       logger.warn('Bulk import attempted with invalid API key');
       return res.status(401).json({
         success: false,
