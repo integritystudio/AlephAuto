@@ -50,34 +50,43 @@ class WorkerRegistry {
   /**
    * Get worker instance for a pipeline ID
    *
+   * Uses async lock pattern to prevent duplicate initialization when
+   * multiple concurrent calls request the same worker.
+   *
    * @param {string} pipelineId - Pipeline identifier
    * @returns {Promise<import('../../sidequest/core/server.js').SidequestServer>} Worker instance
    * @throws {Error} If pipeline ID is unknown
    */
   async getWorker(pipelineId) {
-    // Check if already initialized
+    // Fast path: already initialized
     if (this._workers.has(pipelineId)) {
       return this._workers.get(pipelineId);
     }
 
-    // Check if currently initializing (prevent duplicate initialization)
+    // Concurrent initialization protection: await existing initialization
     if (this._initializing.has(pipelineId)) {
-      return this._initializing.get(pipelineId);
+      // All concurrent callers await the same promise
+      return await this._initializing.get(pipelineId);
     }
 
-    // Start initialization
-    const initPromise = this._initializeWorker(pipelineId);
+    // Create initialization promise with proper cleanup via finally
+    const initPromise = (async () => {
+      try {
+        const worker = await this._initializeWorker(pipelineId);
+        // Store worker before cleanup to prevent race between
+        // _initializing.delete and _workers.set
+        this._workers.set(pipelineId, worker);
+        return worker;
+      } finally {
+        // Always cleanup _initializing, whether success or failure
+        this._initializing.delete(pipelineId);
+      }
+    })();
+
+    // Store promise for concurrent callers before awaiting
     this._initializing.set(pipelineId, initPromise);
 
-    try {
-      const worker = await initPromise;
-      this._workers.set(pipelineId, worker);
-      this._initializing.delete(pipelineId);
-      return worker;
-    } catch (error) {
-      this._initializing.delete(pipelineId);
-      throw error;
-    }
+    return await initPromise;
   }
 
   /**
