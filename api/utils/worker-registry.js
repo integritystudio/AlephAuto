@@ -19,6 +19,12 @@ import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import { jobRepository } from '../../sidequest/core/job-repository.js';
 import { CONCURRENCY } from '../../sidequest/core/constants.js';
 
+/**
+ * Worker initialization timeout in milliseconds (30 seconds)
+ * Prevents indefinite hangs if a worker's constructor or initialize() method blocks
+ */
+const WORKER_INIT_TIMEOUT_MS = 30000;
+
 const logger = createComponentLogger('WorkerRegistry');
 
 /**
@@ -256,14 +262,15 @@ class WorkerRegistry {
   }
 
   /**
-   * Initialize worker for a specific pipeline
+   * Initialize worker for a specific pipeline with timeout protection
    *
    * @private
    * @param {string} pipelineId - Pipeline identifier
    * @returns {Promise<import('../../sidequest/core/server.js').SidequestServer>} Worker instance
+   * @throws {Error} If initialization times out or fails
    */
   async _initializeWorker(pipelineId) {
-    logger.info({ pipelineId }, 'Initializing worker');
+    logger.info({ pipelineId, timeoutMs: WORKER_INIT_TIMEOUT_MS }, 'Initializing worker');
 
     const pipelineConfig = PIPELINE_CONFIGS[pipelineId];
 
@@ -275,6 +282,35 @@ class WorkerRegistry {
       throw new Error(`${pipelineId} pipeline is temporarily disabled (${pipelineConfig.disabledReason})`);
     }
 
+    // Wrap initialization in timeout to prevent indefinite hangs
+    const initPromise = this._doWorkerInit(pipelineId, pipelineConfig);
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Worker initialization timed out after ${WORKER_INIT_TIMEOUT_MS}ms`));
+      }, WORKER_INIT_TIMEOUT_MS);
+    });
+
+    try {
+      return await Promise.race([initPromise, timeoutPromise]);
+    } catch (error) {
+      logger.error({
+        error: error.message,
+        pipelineId,
+        timeoutMs: WORKER_INIT_TIMEOUT_MS
+      }, 'Worker initialization failed or timed out');
+      throw error;
+    }
+  }
+
+  /**
+   * Perform actual worker initialization (called by _initializeWorker with timeout wrapper)
+   *
+   * @private
+   * @param {string} pipelineId - Pipeline identifier
+   * @param {Object} pipelineConfig - Pipeline configuration
+   * @returns {Promise<import('../../sidequest/core/server.js').SidequestServer>} Worker instance
+   */
+  async _doWorkerInit(pipelineId, pipelineConfig) {
     let worker;
     try {
       const options = pipelineConfig.getOptions();

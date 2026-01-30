@@ -324,9 +324,11 @@ function persistDatabase() {
     return;
   }
 
+  // Declare buffer outside try block so it's available in catch for error context
+  let buffer;
   try {
     const data = db.export();
-    const buffer = Buffer.from(data);
+    buffer = Buffer.from(data);
     fs.writeFileSync(DB_PATH, buffer);
     logger.debug({ dbPath: DB_PATH, size: buffer.length }, 'Database persisted to file');
 
@@ -337,8 +339,12 @@ function persistDatabase() {
     logger.error({
       error: error.message,
       code: error.code,
+      stack: error.stack,
       failureCount: persistFailureCount,
-      maxFailures: MAX_PERSIST_FAILURES
+      maxFailures: MAX_PERSIST_FAILURES,
+      dbPath: DB_PATH,
+      dbSizeBytes: buffer?.length,
+      timestamp: new Date().toISOString()
     }, 'Failed to persist database');
 
     // Enter degraded mode after repeated failures
