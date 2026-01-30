@@ -12,7 +12,8 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createComponentLogger } from '../utils/logger.js';
-import { TIMEOUTS } from './constants.js';
+import { config } from './config.js';
+import { isValidJobStatus } from '../../api/types/job-status.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logger = createComponentLogger('Database');
@@ -101,7 +102,7 @@ export async function initDatabase() {
     }
     saveTimer = setInterval(() => {
       persistDatabase();
-    }, TIMEOUTS.DATABASE_SAVE_INTERVAL_MS);
+    }, config.database.saveIntervalMs);
 
     logger.info({ dbPath: DB_PATH }, 'Database initialized');
     return db;
@@ -552,6 +553,18 @@ export function closeDatabase() {
 }
 
 /**
+ * Validate job ID format to prevent injection attacks
+ * Allows alphanumeric, hyphens, underscores, and periods
+ * @param {string} id - Job ID to validate
+ * @returns {boolean} True if valid
+ */
+function isValidJobId(id) {
+  if (!id || typeof id !== 'string') return false;
+  // Allow alphanumeric, hyphens, underscores, periods (common in UUIDs and timestamps)
+  return /^[a-zA-Z0-9_.-]+$/.test(id) && id.length <= 255;
+}
+
+/**
  * Bulk import jobs (for database migration)
  * Skips jobs that already exist (by ID)
  * @param {Array} jobs - Array of job objects
@@ -565,6 +578,18 @@ export function bulkImportJobs(jobs) {
 
   for (const job of jobs) {
     try {
+      // Validate job ID format
+      if (!isValidJobId(job.id)) {
+        errors.push(`Job ${job.id}: Invalid job ID format (must be alphanumeric with hyphens/underscores, max 255 chars)`);
+        continue;
+      }
+
+      // Validate job status
+      if (!isValidJobStatus(job.status)) {
+        errors.push(`Job ${job.id}: Invalid status '${job.status}'`);
+        continue;
+      }
+
       // Check if job already exists
       const existing = queryOne('SELECT id FROM jobs WHERE id = ?', [job.id]);
       if (existing) {

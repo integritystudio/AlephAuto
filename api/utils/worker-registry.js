@@ -250,6 +250,12 @@ class WorkerRegistry {
     let worker;
     try {
       const options = pipelineConfig.getOptions();
+
+      // Validate options is a valid object
+      if (!options || typeof options !== 'object') {
+        throw new Error(`getOptions() must return an object, got ${typeof options}`);
+      }
+
       worker = new pipelineConfig.WorkerClass(options);
     } catch (error) {
       logger.error({ error, pipelineId }, 'Failed to create worker');

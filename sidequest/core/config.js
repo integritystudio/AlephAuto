@@ -128,6 +128,12 @@ export const config = {
   // Migration API key for bulk import operations
   // Used to authenticate database migration requests
   migrationApiKey: process.env.MIGRATION_API_KEY || null,
+
+  // Database settings
+  database: {
+    // Auto-save interval in milliseconds (default: 30 seconds)
+    saveIntervalMs: parseInt(process.env.DATABASE_SAVE_INTERVAL_MS || '30000', 10),
+  },
 };
 
 /**
@@ -171,6 +177,11 @@ function validateConfig() {
 
   if (config.doppler.maxBackoffMs < 1000) {
     errors.push('DOPPLER_MAX_BACKOFF_MS must be at least 1000ms');
+  }
+
+  // Database validation
+  if (config.database.saveIntervalMs < 1000) {
+    errors.push('DATABASE_SAVE_INTERVAL_MS must be at least 1000ms');
   }
 
   if (errors.length > 0) {

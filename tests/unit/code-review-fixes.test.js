@@ -259,6 +259,69 @@ describe('JobRepository close() idempotency', () => {
   });
 });
 
+describe('Database bulkImportJobs validation', () => {
+  beforeEach(async () => {
+    const { initDatabase, isDatabaseReady } = await import('../../sidequest/core/database.js');
+    if (!isDatabaseReady()) {
+      await initDatabase();
+    }
+  });
+
+  it('should reject jobs with invalid ID format', async () => {
+    const { bulkImportJobs } = await import('../../sidequest/core/database.js');
+
+    const result = bulkImportJobs([
+      { id: 'valid-job-123', status: 'completed' },
+      { id: 'invalid job with spaces', status: 'completed' },
+      { id: 'invalid<script>alert(1)</script>', status: 'completed' },
+    ]);
+
+    assert.ok(result.errors.length >= 2, 'Should have errors for invalid IDs');
+    assert.ok(result.errors.some(e => e.includes('Invalid job ID')));
+  });
+
+  it('should reject jobs with invalid status', async () => {
+    const { bulkImportJobs } = await import('../../sidequest/core/database.js');
+
+    const result = bulkImportJobs([
+      { id: `valid-status-${Date.now()}`, status: 'completed' },
+      { id: `invalid-status-${Date.now()}`, status: 'not-a-valid-status' },
+    ]);
+
+    assert.ok(result.errors.length >= 1, 'Should have error for invalid status');
+    assert.ok(result.errors.some(e => e.includes('Invalid status')));
+  });
+
+  it('should accept valid job IDs', async () => {
+    const { bulkImportJobs } = await import('../../sidequest/core/database.js');
+
+    const validIds = [
+      `simple-${Date.now()}`,
+      `with_underscore_${Date.now()}`,
+      `with.period.${Date.now()}`,
+      `UUID-like-a1b2c3d4-${Date.now()}`,
+    ];
+
+    const result = bulkImportJobs(
+      validIds.map(id => ({ id, status: 'completed' }))
+    );
+
+    // Should have no format errors (may have skip errors if already exists)
+    const formatErrors = result.errors.filter(e => e.includes('Invalid job ID'));
+    assert.strictEqual(formatErrors.length, 0, 'Should accept all valid IDs');
+  });
+});
+
+describe('Config database settings', () => {
+  it('should have database.saveIntervalMs configuration', async () => {
+    const { config } = await import('../../sidequest/core/config.js');
+
+    assert.ok(config.database, 'Should have database config');
+    assert.ok(typeof config.database.saveIntervalMs === 'number', 'Should have saveIntervalMs');
+    assert.ok(config.database.saveIntervalMs >= 1000, 'Should be at least 1000ms');
+  });
+});
+
 describe('Timestamp normalization', () => {
   it('should handle Date objects correctly', () => {
     const date = new Date('2025-01-01T12:00:00.000Z');
