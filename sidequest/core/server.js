@@ -8,6 +8,7 @@ import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.js';
 import { GitWorkflowManager } from './git-workflow-manager.js';
 import { jobRepository } from './job-repository.js';
 import { CONCURRENCY } from './constants.js';
+import { JOB_STATUS, TERMINAL_STATUSES } from '../../api/types/job-status.js';
 
 const logger = createComponentLogger('SidequestServer');
 
@@ -66,7 +67,7 @@ export class SidequestServer extends EventEmitter {
   createJob(jobId, jobData) {
     const job = {
       id: jobId,
-      status: 'queued',
+      status: JOB_STATUS.QUEUED,
       data: jobData,
       createdAt: new Date(),
       startedAt: null,
@@ -195,7 +196,7 @@ export class SidequestServer extends EventEmitter {
    * @private
    */
   _prepareJobForExecution(job) {
-    job.status = 'running';
+    job.status = JOB_STATUS.RUNNING;
     job.startedAt = new Date();
     this.emit('job:started', job);
     this._persistJob(job);
@@ -244,7 +245,7 @@ export class SidequestServer extends EventEmitter {
    * @private
    */
   async _finalizeJobSuccess(job, result, branchCreated) {
-    job.status = 'completed';
+    job.status = JOB_STATUS.COMPLETED;
     job.completedAt = new Date();
     job.result = result;
 
@@ -277,7 +278,7 @@ export class SidequestServer extends EventEmitter {
    * @private
    */
   async _finalizeJobFailure(job, error, branchCreated) {
-    job.status = 'failed';
+    job.status = JOB_STATUS.FAILED;
     job.completedAt = new Date();
     job.error = safeErrorMessage(error);
 
@@ -508,8 +509,8 @@ export class SidequestServer extends EventEmitter {
       total: this.jobs.size,
       queued: this.queue.length,
       active: this.activeJobs,
-      completed: this.jobHistory.filter(j => j.status === 'completed').length,
-      failed: this.jobHistory.filter(j => j.status === 'failed').length,
+      completed: this.jobHistory.filter(j => j.status === JOB_STATUS.COMPLETED).length,
+      failed: this.jobHistory.filter(j => j.status === JOB_STATUS.FAILED).length,
     };
   }
 
@@ -532,8 +533,8 @@ export class SidequestServer extends EventEmitter {
       };
     }
 
-    // Cannot cancel completed or failed jobs
-    if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
+    // Cannot cancel terminal jobs
+    if (TERMINAL_STATUSES.includes(job.status)) {
       return {
         success: false,
         message: `Cannot cancel job with status '${job.status}'`,
@@ -542,7 +543,7 @@ export class SidequestServer extends EventEmitter {
     }
 
     // If queued, remove from queue
-    if (job.status === 'queued') {
+    if (job.status === JOB_STATUS.QUEUED) {
       const queueIndex = this.queue.indexOf(jobId);
       if (queueIndex > -1) {
         this.queue.splice(queueIndex, 1);
@@ -550,7 +551,7 @@ export class SidequestServer extends EventEmitter {
     }
 
     // Mark job as cancelled
-    job.status = 'cancelled';
+    job.status = JOB_STATUS.CANCELLED;
     job.completedAt = new Date();
     job.error = { message: 'Job cancelled by user', cancelled: true };
 
@@ -597,8 +598,8 @@ export class SidequestServer extends EventEmitter {
       };
     }
 
-    // Cannot pause completed, failed, cancelled, or already paused jobs
-    if (['completed', 'failed', 'cancelled', 'paused'].includes(job.status)) {
+    // Cannot pause terminal or already paused jobs
+    if (TERMINAL_STATUSES.includes(job.status) || job.status === JOB_STATUS.PAUSED) {
       return {
         success: false,
         message: `Cannot pause job with status '${job.status}'`,
@@ -609,7 +610,7 @@ export class SidequestServer extends EventEmitter {
     const previousStatus = job.status;
 
     // If queued, remove from queue
-    if (job.status === 'queued') {
+    if (job.status === JOB_STATUS.QUEUED) {
       const queueIndex = this.queue.indexOf(jobId);
       if (queueIndex > -1) {
         this.queue.splice(queueIndex, 1);
@@ -617,7 +618,7 @@ export class SidequestServer extends EventEmitter {
     }
 
     // Mark job as paused
-    job.status = 'paused';
+    job.status = JOB_STATUS.PAUSED;
     job.pausedAt = new Date();
 
     // Persist to database
@@ -663,7 +664,7 @@ export class SidequestServer extends EventEmitter {
     }
 
     // Can only resume paused jobs
-    if (job.status !== 'paused') {
+    if (job.status !== JOB_STATUS.PAUSED) {
       return {
         success: false,
         message: `Cannot resume job with status '${job.status}'. Only paused jobs can be resumed.`,
@@ -672,7 +673,7 @@ export class SidequestServer extends EventEmitter {
     }
 
     // Mark job as queued and add back to queue
-    job.status = 'queued';
+    job.status = JOB_STATUS.QUEUED;
     job.resumedAt = new Date();
     delete job.pausedAt;
 

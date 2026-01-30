@@ -73,11 +73,13 @@ export async function initDatabase() {
     db.run('CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at DESC)');
 
     // Save database periodically
-    if (!saveTimer) {
-      saveTimer = setInterval(() => {
-        persistDatabase();
-      }, TIMEOUTS.DATABASE_SAVE_INTERVAL_MS);
+    // Clear any existing timer to prevent memory leaks on re-initialization
+    if (saveTimer) {
+      clearInterval(saveTimer);
     }
+    saveTimer = setInterval(() => {
+      persistDatabase();
+    }, TIMEOUTS.DATABASE_SAVE_INTERVAL_MS);
 
     logger.info({ dbPath: DB_PATH }, 'Database initialized');
     return db;

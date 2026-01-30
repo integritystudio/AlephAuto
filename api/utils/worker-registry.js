@@ -21,6 +21,80 @@ import { jobRepository } from '../../sidequest/core/job-repository.js';
 const logger = createComponentLogger('WorkerRegistry');
 
 /**
+ * Pipeline configuration - single source of truth for all pipeline definitions
+ *
+ * @type {Record<string, {WorkerClass: Function, getOptions: () => Object, disabled?: boolean, disabledReason?: string}>}
+ */
+const PIPELINE_CONFIGS = {
+  'duplicate-detection': {
+    WorkerClass: DuplicateDetectionWorker,
+    getOptions: () => ({
+      maxConcurrentScans: 3,
+      logDir: config.logDir,
+      sentryDsn: config.sentryDsn
+    })
+  },
+  'schema-enhancement': {
+    WorkerClass: SchemaEnhancementWorker,
+    getOptions: () => ({
+      maxConcurrent: config.maxConcurrent || 2,
+      logDir: config.logDir,
+      sentryDsn: config.sentryDsn,
+      gitWorkflowEnabled: config.enableGitWorkflow,
+      gitBranchPrefix: 'docs',
+      gitBaseBranch: config.gitBaseBranch,
+      gitDryRun: config.gitDryRun
+    })
+  },
+  'git-activity': {
+    WorkerClass: GitActivityWorker,
+    getOptions: () => ({
+      maxConcurrent: config.maxConcurrent || 3,
+      logDir: config.logDir,
+      sentryDsn: config.sentryDsn
+    })
+  },
+  'gitignore-manager': {
+    WorkerClass: GitignoreWorker,
+    getOptions: () => ({
+      maxConcurrent: config.maxConcurrent || 3,
+      logDir: config.logDir,
+      sentryDsn: config.sentryDsn
+    })
+  },
+  'repomix': {
+    WorkerClass: RepomixWorker,
+    getOptions: () => ({
+      maxConcurrent: config.maxConcurrent || 3,
+      logDir: config.logDir,
+      sentryDsn: config.sentryDsn
+    })
+  },
+  'claude-health': {
+    WorkerClass: ClaudeHealthWorker,
+    getOptions: () => ({
+      maxConcurrent: config.maxConcurrent || 3,
+      logDir: config.logDir,
+      sentryDsn: config.sentryDsn
+    })
+  },
+  'repo-cleanup': {
+    WorkerClass: RepoCleanupWorker,
+    getOptions: () => ({
+      maxConcurrent: config.maxConcurrent || 3,
+      logDir: config.logDir,
+      sentryDsn: config.sentryDsn
+    })
+  },
+  'test-refactor': {
+    WorkerClass: null,
+    getOptions: () => ({}),
+    disabled: true,
+    disabledReason: 'TypeScript compilation required'
+  }
+};
+
+/**
  * Worker registry - lazy initialization pattern
  * Workers are created on first access to avoid unnecessary resource consumption
  */
@@ -99,79 +173,23 @@ class WorkerRegistry {
   async _initializeWorker(pipelineId) {
     logger.info({ pipelineId }, 'Initializing worker');
 
+    const pipelineConfig = PIPELINE_CONFIGS[pipelineId];
+
+    if (!pipelineConfig) {
+      throw new Error(`Unknown pipeline ID: ${pipelineId}`);
+    }
+
+    if (pipelineConfig.disabled) {
+      throw new Error(`${pipelineId} pipeline is temporarily disabled (${pipelineConfig.disabledReason})`);
+    }
+
     let worker;
-
-    switch (pipelineId) {
-      case 'duplicate-detection':
-        try {
-          worker = new DuplicateDetectionWorker({
-            maxConcurrentScans: 3,
-            logDir: config.logDir,
-            sentryDsn: config.sentryDsn
-          });
-        } catch (error) {
-          logger.error({ error, pipelineId }, 'Failed to create DuplicateDetectionWorker');
-          throw new Error(`Failed to initialize duplicate-detection worker: ${error.message}`);
-        }
-        break;
-
-      case 'schema-enhancement':
-        worker = new SchemaEnhancementWorker({
-          maxConcurrent: config.maxConcurrent || 2,
-          logDir: config.logDir,
-          sentryDsn: config.sentryDsn,
-          gitWorkflowEnabled: config.enableGitWorkflow,
-          gitBranchPrefix: 'docs',
-          gitBaseBranch: config.gitBaseBranch,
-          gitDryRun: config.gitDryRun
-        });
-        break;
-
-      case 'git-activity':
-        worker = new GitActivityWorker({
-          maxConcurrent: config.maxConcurrent || 3,
-          logDir: config.logDir,
-          sentryDsn: config.sentryDsn
-        });
-        break;
-
-      case 'gitignore-manager':
-        worker = new GitignoreWorker({
-          maxConcurrent: config.maxConcurrent || 3,
-          logDir: config.logDir,
-          sentryDsn: config.sentryDsn
-        });
-        break;
-
-      case 'repomix':
-        worker = new RepomixWorker({
-          maxConcurrent: config.maxConcurrent || 3,
-          logDir: config.logDir,
-          sentryDsn: config.sentryDsn
-        });
-        break;
-
-      case 'claude-health':
-        worker = new ClaudeHealthWorker({
-          maxConcurrent: config.maxConcurrent || 3,
-          logDir: config.logDir,
-          sentryDsn: config.sentryDsn
-        });
-        break;
-
-      case 'repo-cleanup':
-        worker = new RepoCleanupWorker({
-          maxConcurrent: config.maxConcurrent || 3,
-          logDir: config.logDir,
-          sentryDsn: config.sentryDsn
-        });
-        break;
-
-      case 'test-refactor':
-        throw new Error('test-refactor pipeline is temporarily disabled (TypeScript compilation required)');
-
-      default:
-        throw new Error(`Unknown pipeline ID: ${pipelineId}`);
+    try {
+      const options = pipelineConfig.getOptions();
+      worker = new pipelineConfig.WorkerClass(options);
+    } catch (error) {
+      logger.error({ error, pipelineId }, 'Failed to create worker');
+      throw new Error(`Failed to initialize ${pipelineId} worker: ${error.message}`);
     }
 
     // Initialize worker if it has an initialize method
@@ -199,18 +217,7 @@ class WorkerRegistry {
    * @returns {boolean} True if pipeline is supported
    */
   isSupported(pipelineId) {
-    const supportedPipelines = [
-      'duplicate-detection',
-      'schema-enhancement',
-      'git-activity',
-      'gitignore-manager',
-      'repomix',
-      'claude-health',
-      'repo-cleanup',
-      'test-refactor'
-    ];
-
-    return supportedPipelines.includes(pipelineId);
+    return pipelineId in PIPELINE_CONFIGS;
   }
 
   /**
@@ -219,16 +226,7 @@ class WorkerRegistry {
    * @returns {string[]} Array of supported pipeline IDs
    */
   getSupportedPipelines() {
-    return [
-      'duplicate-detection',
-      'schema-enhancement',
-      'git-activity',
-      'gitignore-manager',
-      'repomix',
-      'claude-health',
-      'repo-cleanup',
-      'test-refactor'
-    ];
+    return Object.keys(PIPELINE_CONFIGS);
   }
 
   /**
