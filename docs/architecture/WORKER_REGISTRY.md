@@ -1,7 +1,7 @@
 # Worker Registry Architecture
 
-**Version:** 1.6.6
-**Last Updated:** 2025-11-25
+**Version:** 1.8.1
+**Last Updated:** 2026-01-30
 
 ## Overview
 
@@ -317,6 +317,34 @@ if (this._initializing.has(pipelineId)) {
   return this._initializing.get(pipelineId);
 }
 ```
+
+### Race Condition Fix (v1.8.1)
+
+The worker registry implements an atomic check-and-set pattern to prevent race conditions:
+
+```javascript
+const initPromise = (async () => {
+  const worker = await this._initializeWorker(pipelineId);
+
+  // Atomic check-and-set: another concurrent call may have stored a worker
+  const existing = this._workers.get(pipelineId);
+  if (existing) {
+    // Duplicate detected - shut down the extra instance
+    await worker.shutdown?.();
+    return existing;
+  }
+
+  this._workers.set(pipelineId, worker);
+  return worker;
+})();
+```
+
+**Problem solved:** Without this fix, multiple concurrent `getWorker()` calls could create duplicate worker instances, causing:
+- Memory leaks from unclosed workers
+- Undefined behavior when multiple workers process the same job
+- Resource exhaustion
+
+**Solution:** After initialization completes, check if another concurrent call already stored a worker. If so, shut down the duplicate and return the existing instance.
 
 ## Benefits
 

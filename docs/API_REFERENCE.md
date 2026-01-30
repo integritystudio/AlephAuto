@@ -2,15 +2,67 @@
 
 **Base URL:** `http://localhost:8080`
 **WebSocket:** `ws://localhost:8080/ws`
+**Version:** 1.8.1
 
 ## Table of Contents
 
+- [Error Response Format](#error-response-format)
 - [Health & Status](#health--status)
 - [Scans](#scans)
 - [Repositories](#repositories)
 - [Reports](#reports)
 - [Pipelines](#pipelines)
 - [WebSocket Events](#websocket-events)
+
+---
+
+## Error Response Format
+
+All API endpoints return standardized error responses (v1.8.1+):
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INVALID_REQUEST",
+    "message": "Human-readable error message",
+    "details": { }
+  },
+  "timestamp": "2026-01-30T12:00:00.000Z"
+}
+```
+
+### Error Codes
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `INVALID_REQUEST` | 400 | Validation failed, bad input |
+| `NOT_FOUND` | 404 | Resource not found |
+| `UNAUTHORIZED` | 401 | Authentication required |
+| `INTERNAL_ERROR` | 500 | Server error |
+| `WORKER_NOT_FOUND` | 404 | Pipeline worker unavailable |
+| `CANCEL_FAILED` | 400 | Job cancellation failed |
+
+### Validation Errors
+
+Validation errors include field-level details:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INVALID_REQUEST",
+    "message": "Request validation failed",
+    "details": {
+      "errors": [
+        { "field": "repositoryPath", "message": "Required", "code": "invalid_type" },
+        { "field": "limit", "message": "Must be positive", "code": "too_small" }
+      ]
+    }
+  },
+  "timestamp": "2026-01-30T12:00:00.000Z"
+}
+```
 
 ---
 

@@ -100,6 +100,20 @@ this.gitWorkflowManager.createJobBranch(repoPath, jobInfo);  // Correct
 this.branchManager.createJobBranch(repoPath, jobInfo);       // Wrong - use wrapper
 ```
 
+### 10. API Error Responses: Use ApiError Utilities
+```javascript
+import { sendError, sendNotFoundError } from '../utils/api-error.js';
+sendError(res, 'INVALID_REQUEST', 'Missing field', 400);     // Correct
+res.status(400).json({ error: 'Missing field' });            // Wrong - inconsistent format
+```
+
+### 11. Input Validation: Validate Job IDs and Pagination
+```javascript
+import { VALIDATION, PAGINATION } from './sidequest/core/constants.js';
+if (!VALIDATION.JOB_ID_PATTERN.test(jobId)) { ... }          // Correct
+const limit = Math.min(limit, PAGINATION.MAX_LIMIT);         // Correct (max 1000)
+```
+
 ## Architecture
 
 ### Multi-Language Pipeline (JS ↔ Python)
@@ -191,6 +205,7 @@ doppler setup --project bottleneck --config prd   # Production
 | Error classifier | `sidequest/pipeline-core/errors/error-classifier.js` |
 | Worker registry | `api/utils/worker-registry.js` |
 | Port manager | `api/utils/port-manager.js` |
+| API error utilities | `api/utils/api-error.js` |
 | Test helpers | `tests/fixtures/test-helpers.js` |
 
 ## Documentation
@@ -212,4 +227,4 @@ doppler setup --project bottleneck --config prd   # Production
 
 ---
 
-**Version:** 1.8.0 | **Updated:** 2026-01-29 | **Status:** Production Ready
+**Version:** 1.8.1 | **Updated:** 2026-01-30 | **Status:** Production Ready
