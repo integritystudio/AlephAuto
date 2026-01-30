@@ -9,6 +9,8 @@ import { jobRepository } from '../../sidequest/core/job-repository.js';
 import { workerRegistry } from '../utils/worker-registry.js';
 import { config } from '../../sidequest/core/config.js';
 import { getPipelineName } from '../../sidequest/utils/pipeline-names.js';
+import { isValidJobStatus, JOB_STATUS } from '../types/job-status.js';
+import { PAGINATION } from '../../sidequest/core/constants.js';
 
 const router = express.Router();
 const logger = createComponentLogger('JobsAPI');
@@ -24,7 +26,19 @@ const logger = createComponentLogger('JobsAPI');
  */
 router.get('/', (req, res) => {
   try {
-    const { status, limit = 50, offset = 0 } = req.query;
+    const { status, limit = PAGINATION.DEFAULT_LIMIT, offset = 0 } = req.query;
+
+    // Validate status if provided
+    if (status && !isValidJobStatus(status)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: `Invalid status '${status}'. Must be one of: ${Object.values(JOB_STATUS).join(', ')}`,
+          code: 'INVALID_STATUS'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
 
     // Get all jobs from database
     const allJobs = jobRepository.getAllJobs();
@@ -106,7 +120,8 @@ router.post('/bulk-import', (req, res) => {
     const { jobs, apiKey } = req.body;
 
     // Validate API key for migration operations
-    const migrationKey = config.migrationApiKey || process.env.MIGRATION_API_KEY;
+    // Note: config.migrationApiKey is loaded via Doppler - never use process.env directly
+    const migrationKey = config.migrationApiKey;
     if (!migrationKey) {
       return res.status(503).json({
         success: false,

@@ -32,4 +32,18 @@ export const RETRY = {
 export const CONCURRENCY = {
   /** Default maximum concurrent jobs per worker */
   DEFAULT_MAX_JOBS: 5,
+
+  /** Maximum concurrent worker initializations */
+  MAX_WORKER_INITS: 3,
+};
+
+/**
+ * Pagination defaults
+ */
+export const PAGINATION = {
+  /** Default page size for job listings */
+  DEFAULT_LIMIT: 50,
+
+  /** Default page size for all jobs listing */
+  DEFAULT_ALL_LIMIT: 100,
 };

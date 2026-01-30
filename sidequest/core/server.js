@@ -8,7 +8,7 @@ import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.js';
 import { GitWorkflowManager } from './git-workflow-manager.js';
 import { jobRepository } from './job-repository.js';
 import { CONCURRENCY } from './constants.js';
-import { JOB_STATUS, TERMINAL_STATUSES } from '../../api/types/job-status.js';
+import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '../../api/types/job-status.js';
 
 const logger = createComponentLogger('SidequestServer');
 
@@ -173,14 +173,32 @@ export class SidequestServer extends EventEmitter {
    * @private
    */
   _persistJob(job) {
+    // Validate required fields to prevent database constraint violations
+    if (!job?.id) {
+      logger.error({ job }, 'Cannot persist job without ID');
+      return;
+    }
+
+    if (!isValidJobStatus(job.status)) {
+      logger.error({ jobId: job.id, status: job.status }, 'Invalid job status, skipping persistence');
+      return;
+    }
+
     try {
+      // Normalize timestamps - ensure consistent ISO string format
+      const toISOString = (val) => {
+        if (!val) return null;
+        if (val instanceof Date) return val.toISOString();
+        return val; // Already a string
+      };
+
       jobRepository.saveJob({
         id: job.id,
         pipelineId: this.jobType,
         status: job.status,
-        createdAt: job.createdAt?.toISOString?.() || job.createdAt,
-        startedAt: job.startedAt?.toISOString?.() || job.startedAt,
-        completedAt: job.completedAt?.toISOString?.() || job.completedAt,
+        createdAt: toISOString(job.createdAt),
+        startedAt: toISOString(job.startedAt),
+        completedAt: toISOString(job.completedAt),
         data: job.data,
         result: job.result,
         error: job.error,
@@ -188,6 +206,9 @@ export class SidequestServer extends EventEmitter {
       });
     } catch (dbErr) {
       logger.error({ error: dbErr.message, jobId: job.id }, 'Failed to persist job to database');
+      Sentry.captureException(dbErr, {
+        tags: { jobId: job.id, operation: 'persist' }
+      });
     }
   }
 

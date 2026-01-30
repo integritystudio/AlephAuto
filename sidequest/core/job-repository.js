@@ -142,8 +142,16 @@ class JobRepository {
 
   /**
    * Close the repository (and underlying database)
+   *
+   * Note: closeDatabase() already calls persistDatabase() before closing,
+   * ensuring all pending data is written to disk.
    */
   close() {
+    if (!this._initialized) {
+      logger.debug('JobRepository already closed or not initialized');
+      return;
+    }
+
     dbCloseDatabase();
     this._initialized = false;
     logger.debug('JobRepository closed');

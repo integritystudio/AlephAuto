@@ -17,13 +17,24 @@ import { RepoCleanupWorker } from '../../sidequest/workers/repo-cleanup-worker.j
 import { config } from '../../sidequest/core/config.js';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
 import { jobRepository } from '../../sidequest/core/job-repository.js';
+import { CONCURRENCY } from '../../sidequest/core/constants.js';
 
 const logger = createComponentLogger('WorkerRegistry');
 
 /**
+ * Track initialization failures for circuit breaker pattern
+ * @type {Map<string, {count: number, lastAttempt: number}>}
+ */
+const initFailures = new Map();
+
+/**
+ * @typedef {new (options: object) => import('../../sidequest/core/server.js').SidequestServer} WorkerConstructor
+ */
+
+/**
  * Pipeline configuration - single source of truth for all pipeline definitions
  *
- * @type {Record<string, {WorkerClass: Function, getOptions: () => Object, disabled?: boolean, disabledReason?: string}>}
+ * @type {Record<string, {WorkerClass: WorkerConstructor | null, getOptions: () => Object, disabled?: boolean, disabledReason?: string}>}
  */
 const PIPELINE_CONFIGS = {
   'duplicate-detection': {
@@ -103,6 +114,9 @@ class WorkerRegistry {
     this._workers = new Map();
     this._initializing = new Map();
     this._activityFeed = null;
+    this._activeInits = 0;
+    this._maxConcurrentInits = CONCURRENCY.MAX_WORKER_INITS;
+    this._initQueue = [];
   }
 
   /**
@@ -125,16 +139,30 @@ class WorkerRegistry {
    * Get worker instance for a pipeline ID
    *
    * Uses async lock pattern to prevent duplicate initialization when
-   * multiple concurrent calls request the same worker.
+   * multiple concurrent calls request the same worker. Includes:
+   * - Concurrency limiting to prevent thundering herd
+   * - Circuit breaker for repeated initialization failures
    *
    * @param {string} pipelineId - Pipeline identifier
    * @returns {Promise<import('../../sidequest/core/server.js').SidequestServer>} Worker instance
-   * @throws {Error} If pipeline ID is unknown
+   * @throws {Error} If pipeline ID is unknown or initialization fails
    */
   async getWorker(pipelineId) {
     // Fast path: already initialized
     if (this._workers.has(pipelineId)) {
       return this._workers.get(pipelineId);
+    }
+
+    // Circuit breaker: check for repeated failures
+    const failureInfo = initFailures.get(pipelineId);
+    if (failureInfo && failureInfo.count >= 3) {
+      const cooldownMs = 60000; // 1 minute cooldown
+      const timeSinceLastAttempt = Date.now() - failureInfo.lastAttempt;
+      if (timeSinceLastAttempt < cooldownMs) {
+        throw new Error(`${pipelineId} worker initialization is in cooldown after ${failureInfo.count} failures. Retry in ${Math.ceil((cooldownMs - timeSinceLastAttempt) / 1000)}s`);
+      }
+      // Reset after cooldown
+      initFailures.delete(pipelineId);
     }
 
     // Concurrent initialization protection: await existing initialization
@@ -143,17 +171,53 @@ class WorkerRegistry {
       return await this._initializing.get(pipelineId);
     }
 
+    // Concurrency limiting: wait if too many initializations in progress
+    if (this._activeInits >= this._maxConcurrentInits) {
+      logger.info({ pipelineId, activeInits: this._activeInits }, 'Queuing worker initialization (concurrency limit reached)');
+      await new Promise(resolve => this._initQueue.push(resolve));
+    }
+
+    this._activeInits++;
+
     // Create initialization promise with proper cleanup via finally
     const initPromise = (async () => {
       try {
         const worker = await this._initializeWorker(pipelineId);
+
+        // Connect to activity feed BEFORE storing in _workers
+        // This ensures no events are missed
+        if (this._activityFeed) {
+          this._activityFeed.listenToWorker(worker);
+          logger.info({ pipelineId }, 'Worker connected to activity feed');
+        }
+
         // Store worker before cleanup to prevent race between
         // _initializing.delete and _workers.set
         this._workers.set(pipelineId, worker);
+
+        // Clear failure count on success
+        initFailures.delete(pipelineId);
+
         return worker;
+      } catch (error) {
+        // Track initialization failures for circuit breaker
+        const existing = initFailures.get(pipelineId) || { count: 0, lastAttempt: 0 };
+        initFailures.set(pipelineId, {
+          count: existing.count + 1,
+          lastAttempt: Date.now()
+        });
+        logger.error({ pipelineId, failureCount: existing.count + 1, error: error.message }, 'Worker initialization failed');
+        throw error;
       } finally {
         // Always cleanup _initializing, whether success or failure
         this._initializing.delete(pipelineId);
+
+        // Release concurrency slot and process queue
+        this._activeInits--;
+        if (this._initQueue.length > 0) {
+          const next = this._initQueue.shift();
+          next();
+        }
       }
     })();
 
@@ -195,18 +259,19 @@ class WorkerRegistry {
     // Initialize worker if it has an initialize method
     // @ts-ignore - initialize() exists on DuplicateDetectionWorker but not all workers
     if (worker.initialize && typeof worker.initialize === 'function') {
-      // @ts-ignore
-      await worker.initialize();
-    }
-
-    // Connect worker to activity feed for real-time WebSocket updates
-    if (this._activityFeed) {
-      this._activityFeed.listenToWorker(worker);
-      logger.info({ pipelineId }, 'Worker connected to activity feed for WebSocket broadcasts');
+      try {
+        // @ts-ignore
+        await worker.initialize();
+      } catch (initError) {
+        logger.error({ error: initError, pipelineId }, 'Worker initialize() method failed');
+        throw new Error(`Failed to initialize ${pipelineId} worker: ${initError.message}`);
+      }
     }
 
     logger.info({ pipelineId }, 'Worker initialized successfully');
 
+    // Note: Activity feed connection is handled in getWorker() to ensure
+    // it happens atomically with storing the worker in _workers map
     return worker;
   }
 
@@ -293,7 +358,17 @@ class WorkerRegistry {
    * @returns {Promise<void>}
    */
   async shutdown() {
-    logger.info({ workerCount: this._workers.size }, 'Shutting down workers');
+    logger.info({
+      workerCount: this._workers.size,
+      initializingCount: this._initializing.size
+    }, 'Shutting down workers');
+
+    // Wait for any in-flight initializations to complete before shutdown
+    // This prevents resource leaks from workers that complete after shutdown starts
+    if (this._initializing.size > 0) {
+      logger.info({ count: this._initializing.size }, 'Waiting for in-flight worker initializations');
+      await Promise.allSettled(Array.from(this._initializing.values()));
+    }
 
     const shutdownPromises = [];
 

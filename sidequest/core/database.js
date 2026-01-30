@@ -23,6 +23,26 @@ const DB_PATH = path.join(__dirname, '../../data/jobs.db');
 let db = null;
 let SQL = null;
 let saveTimer = null;
+let persistFailureCount = 0;
+const MAX_PERSIST_FAILURES = 5;
+
+/**
+ * Safely parse JSON with fallback on error
+ * Prevents crashes from corrupted database data
+ *
+ * @param {string|null} str - JSON string to parse
+ * @param {*} fallback - Value to return on parse error
+ * @returns {*} Parsed object or fallback
+ */
+function safeJsonParse(str, fallback = null) {
+  if (!str) return fallback;
+  try {
+    return JSON.parse(str);
+  } catch (error) {
+    logger.error({ error: error.message, preview: str.substring(0, 100) }, 'Failed to parse JSON from database');
+    return fallback;
+  }
+}
 
 /**
  * Initialize sql.js and the database
@@ -71,8 +91,10 @@ export async function initDatabase() {
     db.run('CREATE INDEX IF NOT EXISTS idx_jobs_pipeline_id ON jobs(pipeline_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)');
     db.run('CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at DESC)');
+    // Composite index for efficient pipeline+status queries
+    db.run('CREATE INDEX IF NOT EXISTS idx_jobs_pipeline_status ON jobs(pipeline_id, status)');
 
-    // Save database periodically
+    // All initialization succeeded - now safe to start the save timer
     // Clear any existing timer to prevent memory leaks on re-initialization
     if (saveTimer) {
       clearInterval(saveTimer);
@@ -84,6 +106,12 @@ export async function initDatabase() {
     logger.info({ dbPath: DB_PATH }, 'Database initialized');
     return db;
   } catch (error) {
+    // Don't leave timer running if init failed
+    // (timer is only set after indexes, so this is defensive)
+    if (saveTimer) {
+      clearInterval(saveTimer);
+      saveTimer = null;
+    }
     logger.error({ error: error.message }, 'Failed to initialize database');
     throw error;
   }
@@ -91,6 +119,9 @@ export async function initDatabase() {
 
 /**
  * Persist database to file
+ *
+ * Includes failure tracking with circuit breaker to prevent infinite error logs
+ * when disk is full or permissions are denied.
  */
 function persistDatabase() {
   if (!db) return;
@@ -100,8 +131,25 @@ function persistDatabase() {
     const buffer = Buffer.from(data);
     fs.writeFileSync(DB_PATH, buffer);
     logger.debug({ dbPath: DB_PATH, size: buffer.length }, 'Database persisted to file');
+
+    // Reset failure count on success
+    persistFailureCount = 0;
   } catch (error) {
-    logger.error({ error: error.message }, 'Failed to persist database');
+    persistFailureCount++;
+    logger.error({
+      error: error.message,
+      failureCount: persistFailureCount,
+      maxFailures: MAX_PERSIST_FAILURES
+    }, 'Failed to persist database');
+
+    // Stop auto-save after repeated failures to prevent infinite error logs
+    if (persistFailureCount >= MAX_PERSIST_FAILURES) {
+      logger.error('Database persistence failed too many times, stopping auto-save. Manual intervention required.');
+      if (saveTimer) {
+        clearInterval(saveTimer);
+        saveTimer = null;
+      }
+    }
   }
 }
 
@@ -240,7 +288,7 @@ export function getJobs(pipelineId, options = {}) {
 
   const rows = queryAll(query, params);
 
-  // Parse JSON fields
+  // Parse JSON fields with safe fallback to prevent crashes from corrupted data
   const jobs = rows.map(row => ({
     id: row.id,
     pipelineId: row.pipeline_id,
@@ -248,10 +296,10 @@ export function getJobs(pipelineId, options = {}) {
     createdAt: row.created_at,
     startedAt: row.started_at,
     completedAt: row.completed_at,
-    data: row.data ? JSON.parse(row.data) : null,
-    result: row.result ? JSON.parse(row.result) : null,
-    error: row.error ? JSON.parse(row.error) : null,
-    git: row.git ? JSON.parse(row.git) : null
+    data: safeJsonParse(row.data),
+    result: safeJsonParse(row.result),
+    error: safeJsonParse(row.error),
+    git: safeJsonParse(row.git)
   }));
 
   // Return with or without total count based on includeTotal option
@@ -320,10 +368,10 @@ export function getLastJob(pipelineId) {
     createdAt: row.created_at,
     startedAt: row.started_at,
     completedAt: row.completed_at,
-    data: row.data ? JSON.parse(row.data) : null,
-    result: row.result ? JSON.parse(row.result) : null,
-    error: row.error ? JSON.parse(row.error) : null,
-    git: row.git ? JSON.parse(row.git) : null
+    data: safeJsonParse(row.data),
+    result: safeJsonParse(row.result),
+    error: safeJsonParse(row.error),
+    git: safeJsonParse(row.git)
   };
 }
 
