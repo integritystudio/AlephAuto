@@ -71,21 +71,21 @@ class TestOperationExtraction:
         """Test filter operation detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="users.filter(u => u.active)")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'filter' in ann.operations
 
     def test_array_map_operation(self):
         """Test map operation detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="items.map(i => i.name)")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'map' in ann.operations
 
     def test_array_reduce_operation(self):
         """Test reduce operation detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="nums.reduce((a, b) => a + b, 0)")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'reduce' in ann.operations
 
     def test_multiple_array_operations(self):
@@ -94,7 +94,7 @@ class TestOperationExtraction:
         block = MockCodeBlock(
             source_code="users.filter(u => u.active).map(u => u.name).sort()"
         )
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'filter' in ann.operations
         assert 'map' in ann.operations
         assert 'sort' in ann.operations
@@ -103,49 +103,49 @@ class TestOperationExtraction:
         """Test for loop detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="for (const item of items) { }")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'iterate' in ann.operations
 
     def test_crud_read_operation(self):
         """Test read/fetch operation detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="await api.get('/users')")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'read' in ann.operations
 
     def test_crud_create_operation(self):
         """Test create operation detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="await db.create({ name })")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'create' in ann.operations
 
     def test_fetch_api(self):
         """Test fetch API detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="await fetch('/api/data')")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'fetch' in ann.operations
 
     def test_json_parse(self):
         """Test JSON.parse detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="const data = JSON.parse(text)")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'parse' in ann.operations
 
     def test_json_stringify(self):
         """Test JSON.stringify detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="JSON.stringify(data, null, 2)")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'serialize' in ann.operations
 
     def test_validate_function(self):
         """Test validation function detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="if (!isValid(email)) return")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'validate' in ann.operations
 
 
@@ -156,35 +156,35 @@ class TestDomainExtraction:
         """Test user domain detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="const user = await getUser(userId)")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'user' in ann.domains
 
     def test_auth_domain(self):
         """Test auth domain detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="const token = await authenticate(credentials)")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'auth' in ann.domains
 
     def test_payment_domain(self):
         """Test payment domain detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="await stripe.createCharge(payment)")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'payment' in ann.domains
 
     def test_database_domain(self):
         """Test database domain detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="await prisma.user.findMany()")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'database' in ann.domains
 
     def test_api_domain(self):
         """Test API domain detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="router.get('/endpoint', handler)")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'api' in ann.domains
 
     def test_multiple_domains(self):
@@ -193,7 +193,7 @@ class TestDomainExtraction:
         block = MockCodeBlock(
             source_code="await api.post('/users', { user, token })"
         )
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'api' in ann.domains
         assert 'user' in ann.domains
 
@@ -204,7 +204,7 @@ class TestDomainExtraction:
             source_code="doSomething()",
             tags=['payment-processing']
         )
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'payment' in ann.domains
 
 
@@ -215,70 +215,70 @@ class TestPatternExtraction:
         """Test guard clause detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="if (!user) return null")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'guard_clause' in ann.patterns
 
     def test_null_check_equality(self):
         """Test null check detection (equality)."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="if (value === null) throw new Error()")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'null_check' in ann.patterns
 
     def test_null_check_nullish_coalescing(self):
         """Test null check detection (nullish coalescing)."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="const name = user ?? 'anonymous'")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'null_check' in ann.patterns
 
     def test_null_check_optional_chaining(self):
         """Test null check detection (optional chaining)."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="const name = user?.profile?.name")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'null_check' in ann.patterns
 
     def test_error_handling_try_catch(self):
         """Test error handling detection (try-catch)."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="try { doWork() } catch (e) { }")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'error_handling' in ann.patterns
 
     def test_error_handling_promise_catch(self):
         """Test error handling detection (promise catch)."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="fetch(url).catch(handleError)")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'error_handling' in ann.patterns
 
     def test_async_await_pattern(self):
         """Test async/await pattern detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="async function getData() { await fetch() }")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'async_await' in ann.patterns
 
     def test_promise_chain_pattern(self):
         """Test promise chain detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="fetch(url).then(r => r.json())")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'promise_chain' in ann.patterns
 
     def test_promise_all(self):
         """Test Promise.all detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="await Promise.all([p1, p2])")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'promise_composition' in ann.patterns
 
     def test_pagination_pattern(self):
         """Test pagination pattern detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="const { page, limit } = query")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'pagination' in ann.patterns
 
 
@@ -289,35 +289,35 @@ class TestDataTypeExtraction:
         """Test array type detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="const items = []")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'array' in ann.data_types
 
     def test_object_type(self):
         """Test object type detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="const config = {}")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'object' in ann.data_types
 
     def test_string_type(self):
         """Test string type detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="const name = 'test'")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'string' in ann.data_types
 
     def test_promise_type(self):
         """Test promise type detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="new Promise((resolve) => resolve())")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'promise' in ann.data_types
 
     def test_date_type(self):
         """Test date type detection."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="const now = new Date()")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'date' in ann.data_types
 
 
@@ -328,14 +328,14 @@ class TestIntentInference:
         """Test intent with just operations."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="items.filter(i => i.active)")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'filter' in ann.intent
 
     def test_operation_with_domain_intent(self):
         """Test intent with operations and domains."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="users.filter(u => u.active)")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert 'filter' in ann.intent
         assert 'on:user' in ann.intent
 
@@ -345,7 +345,7 @@ class TestIntentInference:
         block = MockCodeBlock(
             source_code="if (!userId) return null; return users.filter(u => u.id === userId)"
         )
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert ann.intent != 'unknown'
         # Should have operations, domains, and patterns
 
@@ -357,7 +357,7 @@ class TestEdgeCases:
         """Test annotation of empty code."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert ann.category == 'utility'
         assert ann.operations == set()
         assert ann.domains == set()
@@ -367,7 +367,7 @@ class TestEdgeCases:
         """Test annotation of whitespace-only code."""
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="   \n\t  ")
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert ann.intent == 'unknown'
 
     def test_category_enum_handling(self):
@@ -380,7 +380,7 @@ class TestEdgeCases:
         annotator = SemanticAnnotator()
         block = MockCodeBlock(source_code="test()")
         block.category = MockCategory.UTILITY
-        ann = annotator.annotate(block)
+        ann = annotator.extract_annotation(block)
         assert ann.category == 'utility'
 
 

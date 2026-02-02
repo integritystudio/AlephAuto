@@ -317,7 +317,7 @@ class SemanticAnnotator:
 
     Usage:
         annotator = SemanticAnnotator()
-        annotation = annotator.annotate(code_block)
+        annotation = annotator.extract_annotation(code_block)
 
         # Access semantic tags
         print(annotation.operations)  # {'filter', 'map'}
@@ -325,7 +325,7 @@ class SemanticAnnotator:
         print(annotation.intent)      # 'filter+map|on:user'
     """
 
-    def annotate(self, block: CodeBlock) -> SemanticAnnotation:
+    def extract_annotation(self, block: CodeBlock) -> SemanticAnnotation:
         """Analyze code block and extract semantic metadata.
 
         Uses pattern matching to identify:

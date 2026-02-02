@@ -452,7 +452,7 @@ def group_by_similarity(
         # Annotate all ungrouped blocks
         annotator = SemanticAnnotator()
         annotations = {
-            block.block_id: annotator.annotate(block)
+            block.block_id: annotator.extract_annotation(block)
             for block in ungrouped_blocks
         }
 

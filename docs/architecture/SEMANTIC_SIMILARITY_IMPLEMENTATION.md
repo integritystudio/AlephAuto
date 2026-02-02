@@ -548,7 +548,7 @@ def main():
     # Stage 4: FULL Semantic Annotation (H3)
     annotator = SemanticAnnotator()
     annotations = {
-        block.block_id: annotator.annotate(block)
+        block.block_id: annotator.extract_annotation(block)
         for block in blocks
     }
 
@@ -708,7 +708,7 @@ def test_semantic_annotator_extracts_operations():
     annotator = SemanticAnnotator()
     code = "users.filter(u => u.active).map(u => u.name)"
 
-    ann = annotator.annotate(CodeBlock(source_code=code, ...))
+    ann = annotator.extract_annotation(CodeBlock(source_code=code, ...))
 
     assert 'filter' in ann.operations
     assert 'map' in ann.operations
