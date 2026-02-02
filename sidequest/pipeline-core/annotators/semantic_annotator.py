@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..models.code_block import CodeBlock
+    from ..utils.timing import TimingMetrics
 
 
 @dataclass
@@ -323,7 +324,42 @@ class SemanticAnnotator:
         print(annotation.operations)  # {'filter', 'map'}
         print(annotation.domains)     # {'user'}
         print(annotation.intent)      # 'filter+map|on:user'
+
+        # With timing collection (when PIPELINE_DEBUG=1):
+        annotator = SemanticAnnotator(collect_timing=True)
+        annotation = annotator.extract_annotation(code_block)
+        print(annotator.get_timing_report())
     """
+
+    def __init__(self, collect_timing: bool = False) -> None:
+        """Initialize annotator.
+
+        Args:
+            collect_timing: If True, collect timing metrics for each extraction stage
+        """
+        self.collect_timing = collect_timing
+        self.timing: dict[str, TimingMetrics] = {}
+
+        if collect_timing:
+            try:
+                from ..utils.timing import TimingMetrics as TM
+            except ImportError:
+                from utils.timing import TimingMetrics as TM
+            self.timing = {
+                'operations': TM('operations'),
+                'domains': TM('domains'),
+                'patterns': TM('patterns'),
+                'data_types': TM('data_types'),
+                'intent': TM('intent'),
+            }
+
+    def get_timing_report(self) -> dict[str, dict]:
+        """Return timing metrics as dict.
+
+        Returns:
+            Dict mapping stage names to their timing metrics
+        """
+        return {name: m.to_dict() for name, m in self.timing.items() if m.count > 0}
 
     def extract_annotation(self, block: CodeBlock) -> SemanticAnnotation:
         """Analyze code block and extract semantic metadata.
@@ -348,11 +384,28 @@ class SemanticAnnotator:
         if hasattr(category, 'value'):
             category = category.value
 
-        operations = self._extract_operations(code)
-        domains = self._extract_domains(code, tags)
-        patterns = self._extract_patterns(code)
-        data_types = self._extract_data_types(code)
-        intent = self._infer_intent(operations, domains, patterns)
+        if self.collect_timing:
+            try:
+                from ..utils.timing import Timer
+            except ImportError:
+                from utils.timing import Timer
+
+            with Timer(self.timing['operations']):
+                operations = self._extract_operations(code)
+            with Timer(self.timing['domains']):
+                domains = self._extract_domains(code, tags)
+            with Timer(self.timing['patterns']):
+                patterns = self._extract_patterns(code)
+            with Timer(self.timing['data_types']):
+                data_types = self._extract_data_types(code)
+            with Timer(self.timing['intent']):
+                intent = self._infer_intent(operations, domains, patterns)
+        else:
+            operations = self._extract_operations(code)
+            domains = self._extract_domains(code, tags)
+            patterns = self._extract_patterns(code)
+            data_types = self._extract_data_types(code)
+            intent = self._infer_intent(operations, domains, patterns)
 
         return SemanticAnnotation(
             category=category,

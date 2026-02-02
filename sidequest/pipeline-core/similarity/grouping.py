@@ -449,25 +449,41 @@ def group_by_similarity(
     print(f"Layer 3: Checking {len(ungrouped_blocks)} remaining blocks for semantic similarity...", file=sys.stderr)
 
     if ungrouped_blocks:
-        # Annotate all ungrouped blocks
-        annotator = SemanticAnnotator()
+        import time
+
+        # Annotate all ungrouped blocks with optional timing
+        annotator = SemanticAnnotator(collect_timing=DEBUG)
+
+        layer3_start = time.perf_counter()
         annotations = {
             block.block_id: annotator.extract_annotation(block)
             for block in ungrouped_blocks
         }
+        annotation_time_ms = (time.perf_counter() - layer3_start) * 1000
 
         layer2_count = len(groups)
+        grouping_start = time.perf_counter()
         semantic_groups = _group_by_semantic_similarity(
             ungrouped_blocks,
             annotations,
             SEMANTIC_SIMILARITY_THRESHOLD
         )
+        grouping_time_ms = (time.perf_counter() - grouping_start) * 1000
 
         for group_blocks, similarity_score in semantic_groups:
             _try_accept_group(
                 group_blocks, similarity_score, 'semantic',
                 groups, grouped_block_ids, 'Layer 3'
             )
+
+        # Print timing summary when DEBUG
+        if DEBUG:
+            print(f"Layer 3 timing:", file=sys.stderr)
+            print(f"  Annotation: {annotation_time_ms:.1f}ms ({len(ungrouped_blocks)} blocks)", file=sys.stderr)
+            print(f"  Grouping: {grouping_time_ms:.1f}ms", file=sys.stderr)
+            timing_report = annotator.get_timing_report()
+            for name, m in timing_report.items():
+                print(f"    - {name}: avg={m['avg_ms']:.2f}ms, total={m['total_ms']:.1f}ms", file=sys.stderr)
 
         print(f"Layer 3: Found {len(groups) - layer2_count} semantic duplicate groups", file=sys.stderr)
     else:
