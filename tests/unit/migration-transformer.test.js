@@ -82,7 +82,7 @@ writeJsonFile('output.json', data);
     });
 
     it.skip('should parse replace call step (requires file detection)', async () => {
-      // See file header for explanation of skipped tests
+      // TODO(Q2-2026): Requires enhanced file detection - see file header
       const suggestion = {
         suggestion_id: 'test-2',
         migration_steps: [
@@ -113,7 +113,7 @@ writeJsonFile('output.json', data);
     });
 
     it.skip('should parse add import step (requires file detection)', async () => {
-      // See file header for explanation of skipped tests
+      // TODO(Q2-2026): Requires enhanced file detection - see file header
       const suggestion = {
         suggestion_id: 'test-3',
         migration_steps: [
@@ -143,7 +143,7 @@ console.log(data);
     });
 
     it.skip('should parse remove declaration step (requires file detection)', async () => {
-      // See file header for explanation of skipped tests
+      // TODO(Q2-2026): Requires enhanced file detection - see file header
       const suggestion = {
         suggestion_id: 'test-4',
         migration_steps: [
@@ -180,7 +180,7 @@ function otherFunction() {
 
   describe('AST transformations', () => {
     it.skip('should update import paths (requires file detection)', async () => {
-      // See file header for explanation of skipped tests
+      // TODO(Q2-2026): Requires enhanced file detection - see file header
       const testFile = path.join(tempDir, 'import-test.js');
       await fs.writeFile(testFile, `
 import { foo } from './old-path.js';
@@ -208,7 +208,7 @@ import bar from '../another-path.js';
     });
 
     it.skip('should replace function calls with namespaced calls (requires file detection)', async () => {
-      // See file header for explanation of skipped tests
+      // TODO(Q2-2026): Requires enhanced file detection - see file header
       const testFile = path.join(tempDir, 'call-test.js');
       await fs.writeFile(testFile, `
 import { oldFunc } from './utils.js';
@@ -236,7 +236,7 @@ const result2 = oldFunc(3, 4);
     });
 
     it.skip('should handle multiple transformations in one file (requires file detection)', async () => {
-      // See file header for explanation of skipped tests
+      // TODO(Q2-2026): Requires enhanced file detection - see file header
       const testFile = path.join(tempDir, 'multi-test.js');
       await fs.writeFile(testFile, `
 import { oldFunc } from './old-utils.js';
