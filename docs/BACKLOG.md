@@ -21,7 +21,7 @@ Technical debt and planned improvements extracted from codebase TODOs.
 
 | ID | Location | Description | Status |
 |----|----------|-------------|--------|
-| M1 | `semantic_annotator.py:281-295` | Inconsistent naming: `annotate()` vs `extract_*()` pattern | Open |
+| M1 | `semantic_annotator.py:281-295` | Inconsistent naming: `annotate()` vs `extract_*()` pattern | ✅ Done |
 | M2 | `similarity/grouping.py` | Missing docstrings on `_extract_function_names()`, `_run_semantic_checks()`, `_create_duplicate_group()` | ✅ Done |
 | M3 | `tests/unit/migration-transformer.test.js:84-143` | Skipped tests lack issue numbers/timeline (currently "requires file detection") | ✅ Done |
 | M4 | `semantic_annotator.py:137-155` | Duplicate 'auth' pattern across category dictionaries | ✅ Done |
@@ -86,11 +86,11 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | Priority | Count | Theme |
 |----------|-------|-------|
 | High | 0 | ~~Layer 3 semantic similarity (Stages 4-7)~~ ✅ Complete |
-| Medium | 1 | M1 needs clarification (naming convention) |
+| Medium | 0 | ~~Code quality from 2026-02-01 review~~ ✅ Complete |
 | Low | 2 | L2 (type stubs), L3 (timing metrics) |
 | Test | 0 | ~~TestWorker retry behavior~~ ✅ Fixed ([#7](https://github.com/aledlie/AlephAuto/issues/7)) |
 | Organization | 0 | ~~Code cleanup~~ ✅ Complete |
-| **Total** | **3** | 3 open (medium/low priority) |
+| **Total** | **2** | 2 open (low priority only) |
 
 ## Next Steps
 
@@ -98,10 +98,9 @@ Technical debt and planned improvements extracted from codebase TODOs.
 - ✅ Layer 3 semantic similarity fully implemented
 - ✅ Critical security fixes (C1-C3): input validation, race conditions, type safety
 - ✅ High priority fixes (H1-H6): config centralization, ReDoS prevention, refactoring
-- ✅ M2-M6: Docstrings, metrics, error messages, auth patterns, test timeline
+- ✅ M1-M6: All medium priority items complete (naming, docstrings, metrics, errors, patterns, tests)
 - ✅ L1: Debug logging cleanup
 
 ### Recommended Next Actions
-1. **M1 (Code):** Clarify naming convention requirement (annotate vs extract)
-2. **L2 (Tooling):** Generate .pyi type stubs for Python files
-3. **L3 (Metrics):** Add timing/performance metrics to Layer 3
+1. **L2 (Tooling):** Generate .pyi type stubs for Python files
+2. **L3 (Metrics):** Add timing/performance metrics to Layer 3

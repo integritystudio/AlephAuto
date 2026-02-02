@@ -227,7 +227,7 @@ class SemanticAnnotation:
 class SemanticAnnotator:
     """Stage 4: Full semantic annotation of code blocks."""
 
-    def annotate(self, block: CodeBlock) -> SemanticAnnotation:
+    def extract_annotation(self, block: CodeBlock) -> SemanticAnnotation:
         """
         Analyze code block and extract semantic metadata.
 
