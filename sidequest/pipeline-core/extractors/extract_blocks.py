@@ -887,7 +887,9 @@ def main():
         try:
             validated_input = PipelineInput(**raw_input)
         except Exception as validation_error:
-            print(f"Input validation failed: {validation_error}", file=sys.stderr)
+            # Include available context for debugging
+            repo_hint = raw_input.get('repository_info', {}).get('path', 'unknown') if isinstance(raw_input, dict) else 'invalid_input'
+            print(f"Input validation failed: {validation_error} (repo={repo_hint})", file=sys.stderr)
             sys.exit(2)  # Distinct exit code for validation errors
 
         # Convert validated models to dicts for compatibility
@@ -926,7 +928,9 @@ def main():
         json.dump(result, sys.stdout, indent=2)
 
     except Exception as e:
-        print(f"Error in extraction pipeline: {e}", file=sys.stderr)
+        repo_path = repository_info.get('path', 'unknown') if 'repository_info' in dir() else 'unknown'
+        match_count = len(pattern_matches) if 'pattern_matches' in dir() else 0
+        print(f"Error in extraction pipeline: {e} (repo={repo_path}, matches={match_count})", file=sys.stderr)
         import traceback
         traceback.print_exc(file=sys.stderr)
         sys.exit(1)
