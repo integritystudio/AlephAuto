@@ -4,6 +4,7 @@
 
 import { spawn } from 'child_process';
 import { createComponentLogger } from '../../utils/logger.js';
+import { createTimer, captureProcessOutput } from '../utils/index.js';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -28,7 +29,7 @@ export class AstGrepPatternDetector {
    * @returns {Promise<object>}
    */
   async detectPatterns(repoPath, detectConfig = {}) {
-    const startTime = Date.now();
+    const timer = createTimer();
 
     logger.info({ repoPath }, 'Starting pattern detection');
 
@@ -44,7 +45,7 @@ export class AstGrepPatternDetector {
       // Normalize matches
       const normalized = matches.map(m => this.normalizeMatch(m, repoPath));
 
-      const duration = (Date.now() - startTime) / 1000;
+      const duration = timer.elapsed();
 
       const statistics = {
         total_matches: normalized.length,
@@ -95,22 +96,12 @@ export class AstGrepPatternDetector {
         // Large output is handled by accumulating stdout chunks
       });
 
-      let stdout = '';
-      let stderr = '';
-
-      if (proc.stdout) {
-        proc.stdout.on('data', (data) => {
-          stdout += data.toString();
-        });
-      }
-
-      if (proc.stderr) {
-        proc.stderr.on('data', (data) => {
-          stderr += data.toString();
-        });
-      }
+      const output = captureProcessOutput(proc);
 
       proc.on('close', (code) => {
+        const stdout = output.getStdout();
+        const stderr = output.getStderr();
+
         if (code === 0 || code === null) {
           try {
             // Parse JSON output - ast-grep outputs a single JSON array

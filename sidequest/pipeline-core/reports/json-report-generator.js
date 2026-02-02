@@ -7,6 +7,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { ensureParentDir } from '../utils/index.js';
 
 /**
  * Generate JSON reports from scan results
@@ -113,7 +114,7 @@ export class JSONReportGenerator {
    */
   static async saveReport(scanResult, outputPath, options = {}) {
     const report = this.generateReport(scanResult, options);
-    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+    await ensureParentDir(outputPath);
     const prettyPrint = options.prettyPrint !== false;
     const json = prettyPrint ? JSON.stringify(report, null, 2) : JSON.stringify(report);
     await fs.writeFile(outputPath, json);
@@ -128,7 +129,7 @@ export class JSONReportGenerator {
    */
   static async saveSummary(scanResult, outputPath) {
     const summary = this.generateSummary(scanResult);
-    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+    await ensureParentDir(outputPath);
     await fs.writeFile(outputPath, JSON.stringify(summary, null, 2));
     return outputPath;
   }

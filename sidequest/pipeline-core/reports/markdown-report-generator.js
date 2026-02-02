@@ -7,6 +7,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { ensureParentDir } from '../utils/index.js';
 
 /**
  * Generate Markdown summary reports from scan results
@@ -94,7 +95,7 @@ export class MarkdownReportGenerator {
    */
   static async saveReport(scanResult, outputPath, options = {}) {
     const markdown = this.generateReport(scanResult, options);
-    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+    await ensureParentDir(outputPath);
     await fs.writeFile(outputPath, markdown);
     return outputPath;
   }
@@ -107,7 +108,7 @@ export class MarkdownReportGenerator {
    */
   static async saveSummary(scanResult, outputPath) {
     const markdown = this.generateSummary(scanResult);
-    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+    await ensureParentDir(outputPath);
     await fs.writeFile(outputPath, markdown);
     return outputPath;
   }

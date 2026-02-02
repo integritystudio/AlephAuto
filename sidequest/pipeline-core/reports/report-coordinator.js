@@ -9,6 +9,7 @@ import { HTMLReportGenerator } from './html-report-generator.js';
 import { MarkdownReportGenerator } from './markdown-report-generator.js';
 import { JSONReportGenerator } from './json-report-generator.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import { createTimer, ensureDir } from '../utils/index.js';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -30,7 +31,7 @@ export class ReportCoordinator {
    * @returns {Promise<Object>} - Paths to generated reports
    */
   async generateAllReports(scanResult, options = {}) {
-    const startTime = Date.now();
+    const timer = createTimer();
     const isInterProject = scanResult.scan_type === 'inter-project';
     const scanType = isInterProject ? 'inter-project' : 'intra-project';
 
@@ -44,7 +45,7 @@ export class ReportCoordinator {
 
     try {
       // Ensure output directory exists
-      await fs.mkdir(this.outputDir, { recursive: true });
+      await ensureDir(this.outputDir);
 
       // Generate all formats in parallel
       const [htmlPath, markdownPath, jsonPath, summaryPath] = await Promise.all([
@@ -54,7 +55,7 @@ export class ReportCoordinator {
         this.generateJSONSummary(scanResult, baseFilename)
       ]);
 
-      const duration = (Date.now() - startTime) / 1000;
+      const duration = timer.elapsed();
 
       const result = {
         html: htmlPath,

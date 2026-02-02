@@ -6,6 +6,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { ensureParentDir } from '../utils/index.js';
 
 export class HTMLReportGenerator {
   /**
@@ -53,7 +54,7 @@ export class HTMLReportGenerator {
    */
   static async saveReport(scanResult, outputPath, options = {}) {
     const html = this.generateReport(scanResult, options);
-    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+    await ensureParentDir(outputPath);
     await fs.writeFile(outputPath, html);
     return outputPath;
   }
