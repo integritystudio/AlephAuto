@@ -22,7 +22,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Dict, List
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -45,6 +45,54 @@ from duplicate_group import DuplicateGroup
 from consolidation_suggestion import ConsolidationSuggestion, MigrationStep
 from scan_report import ScanReport, RepositoryInfo, ScanConfiguration, ScanMetrics
 from similarity.grouping import group_by_similarity
+
+
+# ---------------------------------------------------------------------------
+# Language Detection
+# ---------------------------------------------------------------------------
+
+LANGUAGE_MAP: dict[str, str] = {
+    '.js': 'javascript',
+    '.jsx': 'javascript',
+    '.mjs': 'javascript',
+    '.cjs': 'javascript',
+    '.ts': 'typescript',
+    '.tsx': 'typescript',
+    '.mts': 'typescript',
+    '.cts': 'typescript',
+    '.py': 'python',
+    '.rb': 'ruby',
+    '.go': 'go',
+    '.rs': 'rust',
+    '.java': 'java',
+    '.kt': 'kotlin',
+    '.swift': 'swift',
+    '.c': 'c',
+    '.cpp': 'cpp',
+    '.cc': 'cpp',
+    '.cxx': 'cpp',
+    '.h': 'c',
+    '.hpp': 'cpp',
+    '.cs': 'csharp',
+    '.php': 'php',
+    '.scala': 'scala',
+    '.vue': 'vue',
+    '.svelte': 'svelte',
+}
+
+
+def detect_language(file_path: str) -> str:
+    """Detect programming language from file extension.
+
+    Args:
+        file_path: Path to the source file (can be absolute or relative)
+
+    Returns:
+        Language identifier string (e.g., 'javascript', 'typescript', 'python')
+        Returns 'unknown' if extension is not recognized.
+    """
+    ext = Path(file_path).suffix.lower()
+    return LANGUAGE_MAP.get(ext, 'unknown')
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +331,7 @@ def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> L
                 ),
                 relative_path=match['file_path'],  # Already relative from ast-grep
                 source_code=source_code,
-                language='javascript',  # TODO: Detect from file extension
+                language=detect_language(match['file_path']),
                 category=category,
                 repository_path=repository_info['path'],
                 line_count=match.get('line_end', match['line_start']) - match['line_start'] + 1,
@@ -664,6 +712,89 @@ def _estimate_effort(group: DuplicateGroup, complexity: str) -> float:
     return round(hours, 1)
 
 
+def calculate_metrics(
+    blocks: List[CodeBlock],
+    groups: List[DuplicateGroup],
+    suggestions: List[ConsolidationSuggestion],
+    total_repo_lines: int = 0
+) -> Dict[str, Any]:
+    """Calculate comprehensive duplication metrics.
+
+    Args:
+        blocks: All extracted code blocks
+        groups: All duplicate groups found
+        suggestions: Generated consolidation suggestions
+        total_repo_lines: Total lines in repository (for percentage calc)
+
+    Returns:
+        Dict with all metrics
+    """
+    # Count by similarity method
+    exact_groups = [g for g in groups if g.similarity_method == 'exact_match']
+    structural_groups = [g for g in groups if g.similarity_method == 'structural']
+    semantic_groups = [g for g in groups if g.similarity_method == 'semantic']
+
+    total_duplicated_lines = sum(g.total_lines for g in groups)
+
+    # Calculate potential LOC reduction (keep one copy of each group)
+    potential_loc_reduction = sum(
+        g.total_lines - (g.total_lines // g.occurrence_count)
+        for g in groups
+    )
+
+    # Calculate duplication percentage
+    # If total_repo_lines not provided, estimate from blocks
+    if total_repo_lines <= 0:
+        total_repo_lines = sum(b.line_count for b in blocks)
+
+    duplication_percentage = (
+        (total_duplicated_lines / total_repo_lines * 100)
+        if total_repo_lines > 0 else 0.0
+    )
+
+    # Identify quick wins (simple to fix)
+    quick_wins = [
+        g for g in groups
+        if g.occurrence_count <= 3 and len(g.affected_files) == 1
+    ]
+
+    # Identify high-impact suggestions (significant refactoring value)
+    high_impact = [
+        g for g in groups
+        if g.total_lines >= 20 or g.occurrence_count >= 5
+    ]
+
+    return {
+        # Block counts
+        'total_code_blocks': len(blocks),
+        'total_duplicate_groups': len(groups),
+
+        # By similarity method
+        'exact_duplicates': len(exact_groups),
+        'structural_duplicates': len(structural_groups),
+        'semantic_duplicates': len(semantic_groups),
+
+        # Line metrics
+        'total_duplicated_lines': total_duplicated_lines,
+        'potential_loc_reduction': potential_loc_reduction,
+        'duplication_percentage': round(duplication_percentage, 2),
+
+        # Suggestion metrics
+        'total_suggestions': len(suggestions),
+        'quick_wins': len(quick_wins),
+        'high_impact_suggestions': len(high_impact),
+
+        # Detailed by complexity
+        'trivial_suggestions': len([s for s in suggestions if s.complexity == 'trivial']),
+        'simple_suggestions': len([s for s in suggestions if s.complexity == 'simple']),
+        'moderate_suggestions': len([s for s in suggestions if s.complexity == 'moderate']),
+        'complex_suggestions': len([s for s in suggestions if s.complexity == 'complex']),
+
+        # High priority (by impact score)
+        'high_priority_suggestions': len([s for s in suggestions if s.impact_score >= 75]),
+    }
+
+
 def main():
     """
     Main pipeline execution
@@ -681,29 +812,18 @@ def main():
         # Stage 3.5: Deduplicate blocks (Priority 4)
         blocks = deduplicate_blocks(blocks)
 
-        # Stage 4: Semantic annotation (TODO: Implement full annotator)
-        # For now, blocks already have basic category from extraction
+        # Stage 4: Semantic annotation
+        # Note: Full semantic annotation happens in Layer 3 grouping
+        # Blocks have basic category from extraction; rich annotation in grouping.py
 
-        # Stage 5: Group duplicates
+        # Stage 5: Group duplicates (Layers 1-3)
         groups = group_duplicates(blocks)
 
         # Stage 6: Generate suggestions
         suggestions = generate_suggestions(groups)
 
         # Stage 7: Calculate metrics
-        metrics = {
-            'total_code_blocks': len(blocks),
-            'total_duplicate_groups': len(groups),
-            'exact_duplicates': len([g for g in groups if g.similarity_method == 'exact']),
-            'structural_duplicates': len([g for g in groups if g.similarity_method == 'structural']),
-            'semantic_duplicates': 0,  # TODO: Implement semantic grouping
-            'total_duplicated_lines': sum(g.total_lines for g in groups),
-            'potential_loc_reduction': sum(g.total_lines - g.total_lines // g.occurrence_count for g in groups),
-            'duplication_percentage': 0.0,  # TODO: Calculate properly
-            'total_suggestions': len(suggestions),
-            'quick_wins': len([s for s in suggestions if s.complexity == 'trivial']),
-            'high_priority_suggestions': len([s for s in suggestions if s.impact_score >= 75])
-        }
+        metrics = calculate_metrics(blocks, groups, suggestions)
 
         # Output result as JSON (use mode='json' to serialize datetime objects)
         result = {

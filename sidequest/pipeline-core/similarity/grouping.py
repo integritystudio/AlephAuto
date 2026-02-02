@@ -28,15 +28,34 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from code_block import CodeBlock
 from duplicate_group import DuplicateGroup
 
-from .structural import (
-    calculate_structural_similarity,
-    calculate_ast_hash,
-    extract_logical_operators,
-    extract_http_status_codes,
-    extract_semantic_methods,
-    extract_method_chain
-)
-from .semantic import are_semantically_compatible, validate_duplicate_group
+# Import semantic annotator (handle both module and standalone execution)
+try:
+    from ..annotators.semantic_annotator import SemanticAnnotator, SemanticAnnotation
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).parent.parent / 'annotators'))
+    from semantic_annotator import SemanticAnnotator, SemanticAnnotation
+
+# Import similarity modules (handle both module and standalone execution)
+try:
+    from .structural import (
+        calculate_structural_similarity,
+        calculate_ast_hash,
+        extract_logical_operators,
+        extract_http_status_codes,
+        extract_semantic_methods,
+        extract_method_chain
+    )
+    from .semantic import are_semantically_compatible, validate_duplicate_group
+except ImportError:
+    from structural import (
+        calculate_structural_similarity,
+        calculate_ast_hash,
+        extract_logical_operators,
+        extract_http_status_codes,
+        extract_semantic_methods,
+        extract_method_chain
+    )
+    from semantic import are_semantically_compatible, validate_duplicate_group
 
 # Minimum complexity threshold for duplicate detection
 # IMPORTANT: Keep this low to avoid filtering out genuine duplicates
@@ -384,8 +403,34 @@ def group_by_similarity(
 
     print(f"Layer 2: Found {len(groups) - layer1_count} structural duplicate groups", file=sys.stderr)
 
-    # TODO: Layer 3 - Semantic similarity
-    # Group remaining blocks by category + semantic tags
+    # Layer 3: Semantic similarity (for remaining ungrouped blocks)
+    ungrouped_blocks = [b for b in complex_blocks if b.block_id not in grouped_block_ids]
+    print(f"Layer 3: Checking {len(ungrouped_blocks)} remaining blocks for semantic similarity...", file=sys.stderr)
+
+    if ungrouped_blocks:
+        # Annotate all ungrouped blocks
+        annotator = SemanticAnnotator()
+        annotations = {
+            block.block_id: annotator.annotate(block)
+            for block in ungrouped_blocks
+        }
+
+        layer2_count = len(groups)
+        semantic_groups = _group_by_semantic_similarity(
+            ungrouped_blocks,
+            annotations,
+            SEMANTIC_SIMILARITY_THRESHOLD
+        )
+
+        for group_blocks, similarity_score in semantic_groups:
+            _try_accept_group(
+                group_blocks, similarity_score, 'semantic',
+                groups, grouped_block_ids, 'Layer 3'
+            )
+
+        print(f"Layer 3: Found {len(groups) - layer2_count} semantic duplicate groups", file=sys.stderr)
+    else:
+        print(f"Layer 3: No ungrouped blocks remaining", file=sys.stderr)
 
     print(f"Total: {len(groups)} duplicate groups found", file=sys.stderr)
     return groups
@@ -469,6 +514,173 @@ def _group_by_structural_similarity(
             else:
                 # Group failed semantic validation
                 print(f"Warning: Group rejected by semantic validation: {[b.block_id for b in group]}", file=sys.stderr)
+
+    return groups
+
+
+# ---------------------------------------------------------------------------
+# Layer 3: Semantic Similarity
+# ---------------------------------------------------------------------------
+
+# Weights for semantic similarity calculation
+SEMANTIC_WEIGHTS = {
+    'operations': 0.40,  # What the code does
+    'domains': 0.25,     # What domain it operates on
+    'patterns': 0.20,    # What patterns it uses
+    'data_types': 0.15,  # What data types it processes
+}
+
+# Threshold for semantic similarity matching (lower than structural)
+SEMANTIC_SIMILARITY_THRESHOLD = float(os.getenv('SEMANTIC_SIMILARITY_THRESHOLD', '0.70'))
+
+
+def _calculate_jaccard_similarity(set1: set[str], set2: set[str]) -> float:
+    """Calculate Jaccard similarity between two sets.
+
+    Args:
+        set1: First set of strings
+        set2: Second set of strings
+
+    Returns:
+        Jaccard similarity coefficient (0.0 - 1.0)
+    """
+    if not set1 and not set2:
+        return 1.0  # Both empty = compatible
+    if not set1 or not set2:
+        return 0.5  # One empty = partial match
+    intersection = len(set1 & set2)
+    union = len(set1 | set2)
+    return intersection / union if union > 0 else 0.0
+
+
+def _calculate_semantic_similarity(
+    ann1: SemanticAnnotation,
+    ann2: SemanticAnnotation
+) -> float:
+    """Calculate weighted semantic similarity between two annotations.
+
+    Uses Jaccard similarity on each tag category with predefined weights:
+    - Operations: 40%
+    - Domains: 25%
+    - Patterns: 20%
+    - Data types: 15%
+
+    Args:
+        ann1: First semantic annotation
+        ann2: Second semantic annotation
+
+    Returns:
+        Weighted similarity score (0.0 - 1.0)
+    """
+    op_sim = _calculate_jaccard_similarity(ann1.operations, ann2.operations)
+    domain_sim = _calculate_jaccard_similarity(ann1.domains, ann2.domains)
+    pattern_sim = _calculate_jaccard_similarity(ann1.patterns, ann2.patterns)
+    type_sim = _calculate_jaccard_similarity(ann1.data_types, ann2.data_types)
+
+    return (
+        op_sim * SEMANTIC_WEIGHTS['operations'] +
+        domain_sim * SEMANTIC_WEIGHTS['domains'] +
+        pattern_sim * SEMANTIC_WEIGHTS['patterns'] +
+        type_sim * SEMANTIC_WEIGHTS['data_types']
+    )
+
+
+def _intents_compatible(intent1: str, intent2: str) -> bool:
+    """Check if two intents describe compatible operations.
+
+    Two intents are compatible if they share at least one operation.
+
+    Args:
+        intent1: First intent string (e.g., "filter+map|on:user")
+        intent2: Second intent string
+
+    Returns:
+        True if intents are compatible
+    """
+    # Unknown intents are never compatible (even with each other)
+    if intent1 == 'unknown' or intent2 == 'unknown':
+        return False
+
+    # Extract operation components (first part before |)
+    op_str1 = intent1.split('|')[0] if intent1 else ''
+    op_str2 = intent2.split('|')[0] if intent2 else ''
+
+    # Filter out empty strings when splitting
+    ops1 = set(op for op in op_str1.split('+') if op)
+    ops2 = set(op for op in op_str2.split('+') if op)
+
+    # Empty operation sets are not compatible
+    if not ops1 or not ops2:
+        return False
+
+    # At least one common operation required
+    return bool(ops1 & ops2)
+
+
+def _group_by_semantic_similarity(
+    blocks: List['CodeBlock'],
+    annotations: Dict[str, SemanticAnnotation],
+    threshold: float = SEMANTIC_SIMILARITY_THRESHOLD
+) -> List[tuple[List['CodeBlock'], float]]:
+    """Layer 3: Group blocks by semantic equivalence.
+
+    Matches blocks with:
+    - Same category
+    - Similar semantic tags (>= threshold)
+    - Compatible operation intent
+
+    Args:
+        blocks: List of code blocks to group
+        annotations: Dict mapping block_id to SemanticAnnotation
+        threshold: Minimum similarity threshold (default 0.70)
+
+    Returns:
+        List of (group_blocks, similarity_score) tuples
+    """
+    if not blocks:
+        return []
+
+    groups = []
+    used = set()
+
+    for i, block1 in enumerate(blocks):
+        if i in used:
+            continue
+
+        ann1 = annotations.get(block1.block_id)
+        if not ann1:
+            continue
+
+        group = [block1]
+        similarities = []
+
+        for j in range(i + 1, len(blocks)):
+            if j in used:
+                continue
+
+            block2 = blocks[j]
+            ann2 = annotations.get(block2.block_id)
+            if not ann2:
+                continue
+
+            # Must have same category
+            if ann1.category != ann2.category:
+                continue
+
+            # Calculate semantic similarity
+            similarity = _calculate_semantic_similarity(ann1, ann2)
+
+            if similarity >= threshold:
+                # Validate intent compatibility
+                if _intents_compatible(ann1.intent, ann2.intent):
+                    group.append(block2)
+                    similarities.append(similarity)
+                    used.add(j)
+
+        if len(group) >= 2:
+            used.add(i)
+            avg_similarity = sum(similarities) / len(similarities) if similarities else 1.0
+            groups.append((group, avg_similarity))
 
     return groups
 
