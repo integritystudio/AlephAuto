@@ -467,12 +467,12 @@ When updating this documentation:
 
 ### Component Documentation
 - [AlephAuto Framework](../../sidequest/README.md) - Job queue system
-- [AST-Grep Rules](../../.ast-grep/README.md) - Pattern detection rules (TODO)
-- [Pydantic Models](../../lib/models/README.md) - Data model specifications (TODO)
+- [AST-Grep Rules](../../.ast-grep/README.md) - Pattern detection rules
+- [Pydantic Models](../../sidequest/pipeline-core/models/README.md) - Data model specifications
 
 ### Test Documentation
-- [Test Suite Overview](../../test/README.md) - Test coverage and results (TODO)
-- [Accuracy Tests](../../test/accuracy/README.md) - Ground truth validation (TODO)
+- [Test Suite Overview](../../tests/README.md) - Test coverage and results
+- [Accuracy Tests](../../tests/accuracy/README.md) - Ground truth validation
 
 ---
 
