@@ -109,4 +109,4 @@ The main project documentation remains in the root-level files:
 
 ---
 
-**Last Updated:** January 2026
+**Last Updated:** February 2026

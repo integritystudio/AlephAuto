@@ -16,13 +16,15 @@ Node.js automation toolkit for managing code repositories at scale.
 
 ## Overview
 
-AlephAuto provides three production-ready automation pipelines for managing multiple code repositories:
+AlephAuto provides five production-ready automation pipelines for managing multiple code repositories:
 
-1. **Repomix Pipeline** - Automated code condensation across all repositories
-2. **Documentation Enhancement Pipeline** - Schema.org markup injection for better SEO
-3. **Gitignore Manager** - Batch `.gitignore` updates across multiple repos
+1. **Duplicate Detection** - 7-stage multi-language pipeline (JS + Python) for code duplication detection
+2. **Repomix Pipeline** - Automated code condensation across all repositories
+3. **Documentation Enhancement Pipeline** - Schema.org markup injection for better SEO
+4. **Git Activity Reporter** - Weekly/monthly reports with commit analytics
+5. **Gitignore Manager** - Batch `.gitignore` updates across multiple repos
 
-Built on a robust job queue architecture with Sentry error tracking, event-driven monitoring, and configurable concurrency.
+Built on a robust job queue architecture with Sentry error tracking, event-driven monitoring, job persistence (Redis/SQLite), and configurable concurrency.
 
 ## Features
 
@@ -160,15 +162,17 @@ See [GITIGNORE_UPDATER_README.md](./GITIGNORE_UPDATER_README.md) for detailed do
 │  - Concurrency control              │
 │  - Event emission                   │
 │  - Sentry integration               │
+│  - JobRepository for persistence    │
+│  - GitWorkflowManager for PR ops    │
 └─────────────────────────────────────┘
               ▲
               │ extends
-    ┌─────────┴──────────┐
-    │                    │
-┌───────────────┐  ┌─────────────────────┐
-│ RepomixWorker │  │ SchemaEnhancement   │
-│               │  │ Worker              │
-└───────────────┘  └─────────────────────┘
+    ┌─────────┴──────────┬──────────────┬──────────────┐
+    │                    │              │              │
+┌───────────────┐  ┌─────────────────────┐  ┌────────────────┐  ┌────────────────┐
+│ RepomixWorker │  │ SchemaEnhancement   │  │ GitActivity    │  │ Duplicate      │
+│               │  │ Worker              │  │ Worker         │  │ Detection      │
+└───────────────┘  └─────────────────────┘  └────────────────┘  └────────────────┘
 ```
 
 ### Component Overview
