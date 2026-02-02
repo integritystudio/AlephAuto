@@ -139,7 +139,18 @@ SEMANTIC_CHECKS: list[Callable[[str, str], SemanticCheckResult]] = [
 
 
 def _extract_function_names(blocks: list) -> list[str]:
-    """Extract function names from block tags."""
+    """Extract function names from block tags for debug logging.
+
+    Scans each block's tags for 'function:' prefixed entries and extracts
+    the function name portion. Used to provide readable identifiers in
+    debug output when validating duplicate groups.
+
+    Args:
+        blocks: List of CodeBlock objects to scan for function tags
+
+    Returns:
+        List of function names found (one per block max, empty if no tags)
+    """
     func_names = []
     for block in blocks:
         for tag in block.tags:
@@ -150,7 +161,26 @@ def _extract_function_names(blocks: list) -> list[str]:
 
 
 def _run_semantic_checks(code1: str, code2: str) -> SemanticCheckResult:
-    """Run all semantic checks on a code pair."""
+    """Run all registered semantic checks on a code pair.
+
+    Iterates through SEMANTIC_CHECKS registry and runs each check function.
+    Returns immediately on first failure to enable fast rejection of
+    semantically incompatible code pairs.
+
+    Checks include:
+    - Method chain differences (e.g., .sort() vs .sort().reverse())
+    - HTTP status code mismatches (200 vs 201)
+    - Opposite logical operators (!== vs ===)
+    - Semantic method opposites (Math.max vs Math.min)
+
+    Args:
+        code1: Source code of first block
+        code2: Source code of second block
+
+    Returns:
+        SemanticCheckResult with is_valid=True if all checks pass,
+        or first failing check result with reason and details
+    """
     for check in SEMANTIC_CHECKS:
         result = check(code1, code2)
         if not result.is_valid:
@@ -700,7 +730,26 @@ def _create_duplicate_group(
     similarity_score: float,
     similarity_method: str
 ) -> 'DuplicateGroup':
-    """Create a DuplicateGroup from a list of similar blocks."""
+    """Create a DuplicateGroup from validated similar blocks.
+
+    Constructs a DuplicateGroup instance with computed metadata from the
+    member blocks. Uses the first block's content hash as the group ID
+    seed and aggregates statistics across all members.
+
+    Args:
+        blocks: List of CodeBlock objects forming the duplicate group (min 2)
+        similarity_score: Calculated similarity between blocks (0.0-1.0)
+        similarity_method: Algorithm used ('exact_match', 'structural', 'semantic')
+
+    Returns:
+        DuplicateGroup with:
+        - group_id: Unique identifier based on content hash
+        - pattern_id/category/language: From first block (all should match)
+        - member_block_ids: IDs of all blocks in group
+        - occurrence_count: Number of duplicates
+        - total_lines: Sum of line counts across all members
+        - affected_files/repositories: Deduplicated locations
+    """
 
     return DuplicateGroup(
         group_id=f"dg_{blocks[0].content_hash[:12]}",
