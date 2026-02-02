@@ -39,9 +39,9 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | L3 | `docs/architecture/README.md:471` | Create Pydantic Models README | ✅ Done |
 | L4 | `docs/architecture/README.md:474` | Create Test Suite Overview README | ✅ Done |
 | L5 | `docs/architecture/README.md:475` | Create Accuracy Tests README | ✅ Done |
-| L6 | `docs/architecture/similarity-algorithm.md:61` | Document Category + Tags Matching | Pending |
-| L7 | `docs/architecture/similarity-algorithm.md:783` | Link Accuracy Test Results | Pending |
-| L8 | `docs/architecture/WORKER_REGISTRY.md:367` | Document actual job triggering with worker | Pending |
+| L6 | `docs/architecture/similarity-algorithm.md:61` | Document Category + Tags Matching | ✅ Done |
+| L7 | `docs/architecture/similarity-algorithm.md:783` | Link Accuracy Test Results | ✅ Done |
+| L8 | `docs/architecture/WORKER_REGISTRY.md:367` | Document actual job triggering with worker | ✅ Done |
 
 ## Code Organization
 
@@ -58,12 +58,12 @@ Technical debt and planned improvements extracted from codebase TODOs.
 |----------|-------|-------|
 | High | 5 | Layer 3 semantic similarity (Stages 4-7) |
 | Medium | 7 | Test infrastructure improvements |
-| Low | 4 | Documentation gaps |
+| Low | 1 | Documentation gaps |
 | Organization | 0 | ~~Code cleanup~~ ✅ Complete |
-| **Total** | **16** | |
+| **Total** | **13** | |
 
 ## Next Steps
 
 1. **H1-H5**: Implement Layer 3 semantic similarity - core feature gap
 2. **M2-M7**: Consolidate migration transformer tests (6 similar TODOs)
-3. **L1, L6-L8**: Remaining documentation can be addressed incrementally
+3. **L1**: Document Layer 3 Semantic Similarity in architecture README

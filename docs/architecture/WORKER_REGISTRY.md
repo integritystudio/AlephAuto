@@ -1,7 +1,7 @@
 # Worker Registry Architecture
 
-**Version:** 1.8.1
-**Last Updated:** 2026-01-30
+**Version:** 1.8.2
+**Last Updated:** 2026-02-01
 
 ## Overview
 
@@ -395,6 +395,146 @@ async function triggerPipelineJob(
 
   return job.id;
 }
+```
+
+## Job Triggering Internals
+
+### Complete Flow: API Request → Job Execution
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 1. API Request                                                          │
+│    POST /api/pipelines/:pipelineId/trigger                              │
+│    Body: { parameters: { ... } }                                        │
+└────────────────────────────┬────────────────────────────────────────────┘
+                             ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 2. Worker Resolution (workerRegistry.getWorker)                         │
+│    ├── Check cache → Return if exists                                   │
+│    ├── Check initializing → Wait if in progress                         │
+│    ├── Circuit breaker → Reject if failed 3+ times                      │
+│    └── Initialize → Create worker, cache, connect activity feed         │
+└────────────────────────────┬────────────────────────────────────────────┘
+                             ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 3. Job Creation (worker.createJob)                                      │
+│    ├── Create job object with status: 'queued'                          │
+│    ├── Store in worker.jobs Map                                         │
+│    ├── Add to worker.queue                                              │
+│    ├── Persist to SQLite (jobRepository)                                │
+│    ├── Emit 'job:created' event                                         │
+│    └── Trigger processQueue()                                           │
+└────────────────────────────┬────────────────────────────────────────────┘
+                             ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 4. Queue Processing (worker.processQueue)                               │
+│    ├── Check: isRunning && activeJobs < maxConcurrent                   │
+│    ├── Dequeue next job                                                 │
+│    └── Call executeJob(jobId)                                           │
+└────────────────────────────┬────────────────────────────────────────────┘
+                             ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 5. Job Execution (worker.executeJob)                                    │
+│    ├── Set status: 'running', emit 'job:started'                        │
+│    ├── Create git branch (if gitWorkflowEnabled)                        │
+│    ├── Run handler (implemented by worker subclass)                     │
+│    ├── Handle result:                                                   │
+│    │   ├── Success → status: 'completed', emit 'job:completed'          │
+│    │   └── Failure → status: 'failed', emit 'job:failed'                │
+│    ├── Commit changes, create PR (if git workflow)                      │
+│    ├── Persist final state to SQLite                                    │
+│    └── Decrement activeJobs, call processQueue()                        │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### createJob() Implementation
+
+**Location:** `sidequest/core/server.js:74-111`
+
+```javascript
+createJob(jobId, jobData) {
+  const job = {
+    id: jobId,
+    status: 'queued',           // Initial status
+    data: jobData,              // User-provided parameters
+    createdAt: new Date(),
+    startedAt: null,
+    completedAt: null,
+    error: null,
+    result: null,
+    git: {                      // Git workflow metadata
+      branchName: null,
+      originalBranch: null,
+      commitSha: null,
+      prUrl: null,
+      changedFiles: []
+    }
+  };
+
+  this.jobs.set(jobId, job);    // In-memory store
+  this.queue.push(jobId);       // Add to processing queue
+  this._persistJob(job);        // SQLite persistence
+
+  Sentry.addBreadcrumb({ ... }); // Observability
+  this.emit('job:created', job); // Event for activity feed
+  this.processQueue();           // Trigger processing
+
+  return job;
+}
+```
+
+### Job Status Lifecycle
+
+```
+queued → running → completed
+                 ↘ failed
+```
+
+| Status | Description | Transitions To |
+|--------|-------------|----------------|
+| `queued` | Job created, waiting for worker slot | `running` |
+| `running` | Job actively executing | `completed`, `failed` |
+| `completed` | Job finished successfully | (terminal) |
+| `failed` | Job encountered error | (terminal) |
+
+### Event System
+
+Workers emit events that the ActivityFeedManager listens to for real-time dashboard updates:
+
+| Event | Payload | Dashboard Action |
+|-------|---------|------------------|
+| `job:created` | `{ id, status, data, createdAt }` | Add to job list |
+| `job:started` | `{ id, status, startedAt }` | Update status pill |
+| `job:progress` | `{ id, progress, message }` | Update progress bar |
+| `job:completed` | `{ id, status, result, completedAt }` | Mark complete |
+| `job:failed` | `{ id, status, error, completedAt }` | Show error |
+
+### Concurrency Control
+
+```javascript
+// Worker processes up to maxConcurrent jobs simultaneously
+this.maxConcurrent = options.maxConcurrent ?? 5;  // Default: 5
+this.activeJobs = 0;  // Currently executing
+
+// processQueue() respects the limit:
+while (this.queue.length > 0 && this.activeJobs < this.maxConcurrent) {
+  // Dequeue and execute
+}
+```
+
+### Persistence Layer
+
+Jobs are persisted to SQLite for dashboard visibility and crash recovery:
+
+```javascript
+// Immediate persistence on creation
+this._persistJob(job);
+
+// Update on status changes
+await jobRepository.saveJob(job);
+
+// Query for dashboard
+const jobs = await jobRepository.getJobsByPipeline(pipelineId, { limit, offset });
 ```
 
 ## Future Enhancements

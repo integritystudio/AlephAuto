@@ -1,7 +1,7 @@
 # Multi-Layer Similarity Algorithm Documentation
 
-**Last Updated:** 2025-11-17
-**Version:** 1.0
+**Last Updated:** 2026-02-01
+**Version:** 1.1
 **Author:** System Architecture Documentation
 
 ## Table of Contents
@@ -58,7 +58,10 @@ graph TB
     J --> K{Similarity ≥ 0.90?}
     K -->|Yes| L[Group as Structural Match]
     K -->|No| M[Layer 3: Semantic Similarity]
-    M --> N[TODO: Category + Tags Matching]
+    M --> N[Category + Tags Matching]
+    N --> O{Compatible Category?}
+    O -->|Yes| P[Group as Semantic Match]
+    O -->|No| Q[No Match - Unique Block]
 
     style L0 fill:#ffd,stroke:#333
     style C fill:#bbf,stroke:#333
@@ -75,7 +78,7 @@ graph TB
 | **Layer 0** | Complexity Filter | Remove trivial code | N/A | Instant |
 | **Layer 1** | Exact Hash | Identical code detection | 100% | O(1) |
 | **Layer 2** | Structural | AST-based similarity | 95%+ | O(n²) |
-| **Layer 3** | Semantic | Category/tag matching | TBD | O(n²) |
+| **Layer 3** | Semantic | Category/tag matching | ~70% | O(n²) |
 
 ---
 
@@ -601,6 +604,134 @@ This prevents code with opposite semantics from being grouped as duplicates.
 
 ---
 
+## Layer 3: Category + Tags Matching
+
+### Purpose
+
+Layer 3 provides a fallback grouping mechanism for code blocks that don't meet the 90% structural similarity threshold but share semantic characteristics. This catches "conceptual duplicates" - code with similar intent but different implementation.
+
+### Category-Based Grouping
+
+Code blocks are assigned categories during extraction based on their semantic purpose:
+
+| Category | Examples | Grouping Criteria |
+|----------|----------|-------------------|
+| `error-handler` | try-catch, error responses | Same error type handling |
+| `api-endpoint` | Express routes, handlers | Same HTTP method + path pattern |
+| `data-transform` | map, filter, reduce chains | Same transformation type |
+| `validation` | Input validation, schema checks | Same validation target |
+| `database-query` | Prisma/SQL operations | Same query pattern |
+| `config-access` | Environment variables, settings | Same config namespace |
+
+### Tag-Based Matching
+
+Each code block has semantic tags extracted during annotation:
+
+```python
+@dataclass
+class CodeBlock:
+    category: str                    # Primary category
+    tags: List[str]                  # Semantic tags like "function:getUserById"
+    source_code: str
+    location: SourceLocation
+```
+
+### Matching Algorithm
+
+```python
+def calculate_semantic_match(block1: CodeBlock, block2: CodeBlock) -> float:
+    """
+    Calculate semantic similarity based on category and tags.
+
+    Returns:
+        0.0 - No match
+        0.5 - Same category only
+        0.7 - Same category + overlapping tags
+        1.0 - Same category + identical tags
+    """
+    # Must share category
+    if block1.category != block2.category:
+        return 0.0
+
+    # Calculate tag overlap
+    tags1 = set(block1.tags)
+    tags2 = set(block2.tags)
+
+    if not tags1 or not tags2:
+        return 0.5  # Category match only
+
+    intersection = tags1 & tags2
+    union = tags1 | tags2
+
+    jaccard = len(intersection) / len(union)
+
+    # Scale: 0.5 (category only) to 1.0 (identical tags)
+    return 0.5 + (jaccard * 0.5)
+```
+
+### When Layer 3 Applies
+
+Layer 3 activates for blocks that:
+1. Passed Layer 0 complexity filter (non-trivial code)
+2. Failed Layer 1 exact hash match
+3. Failed Layer 2 structural similarity (< 90% threshold)
+4. Have assigned categories and tags
+
+### Example: Conceptual Duplicates
+
+```javascript
+// Block 1: getUserById (category: database-query, tags: [function:getUserById, prisma:findUnique])
+export async function getUserById(id) {
+  return prisma.user.findUnique({ where: { id } });
+}
+
+// Block 2: getProductById (category: database-query, tags: [function:getProductById, prisma:findUnique])
+export async function getProductById(id) {
+  return prisma.product.findUnique({ where: { id } });
+}
+
+// Layer 2 structural similarity: 0.78 (< 0.90 threshold) - different table names
+// Layer 3 semantic match:
+//   - Same category: database-query ✓
+//   - Tag overlap: prisma:findUnique (1/3 = 0.33 Jaccard)
+//   - Score: 0.5 + (0.33 * 0.5) = 0.67
+// Result: Grouped as "semantic duplicates" for manual review
+```
+
+### Grouping Threshold
+
+| Match Type | Threshold | Confidence |
+|------------|-----------|------------|
+| Category only | 0.5 | Low - requires manual review |
+| Category + partial tags | 0.6-0.8 | Medium - likely related |
+| Category + identical tags | 0.9+ | High - conceptual duplicates |
+
+### Output Format
+
+Layer 3 groups are marked distinctly in the output:
+
+```json
+{
+  "groups": [
+    {
+      "match_type": "semantic",
+      "confidence": 0.67,
+      "category": "database-query",
+      "shared_tags": ["prisma:findUnique"],
+      "blocks": [...]
+    }
+  ]
+}
+```
+
+### Limitations
+
+- **Lower precision**: Semantic matching has higher false positive rate (~30%)
+- **Manual review required**: Results should be reviewed by developers
+- **Category dependency**: Requires accurate category assignment in Stage 4
+
+---
+
 ## Implementation Examples
 
 ### Complete End-to-End Example
@@ -780,7 +911,7 @@ for i in range(match_line - 1, match_line - 11, -1):
 
 - [Pipeline Data Flow Documentation](./pipeline-data-flow.md)
 - [Grouping Algorithm Documentation](../../lib/similarity/grouping.py) (see inline comments)
-- [Accuracy Test Results](../../test/accuracy/README.md) (TODO)
+- [Accuracy Test Results](../../tests/accuracy/README.md)
 
 ---
 
@@ -852,6 +983,6 @@ def calculate_structural_similarity(code1, code2, threshold=0.90):
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2025-11-17
+**Document Version:** 1.1
+**Last Updated:** 2026-02-01
 **Maintainer:** Architecture Team
