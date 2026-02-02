@@ -34,8 +34,8 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | ID | Location | Description | Status |
 |----|----------|-------------|--------|
 | L1 | `extractors/extract_blocks.py:275-281` | Verbose debug logging - extract to logging helper | ✅ Done |
-| L2 | Python files | Missing `.pyi` type stubs for IDE support | Open |
-| L3 | Layer 3 semantic annotation | No timing/performance metrics collected | Open |
+| L2 | Python files | Missing `.pyi` type stubs for IDE support | ✅ Done |
+| L3 | Layer 3 semantic annotation | No timing/performance metrics collected | ✅ Done |
 | L4 | `semantic_annotator.py:350-352` | Regex patterns compiled on every `extract_annotation()` call - should pre-compile | ✅ Done |
 
 ---
@@ -87,10 +87,10 @@ Technical debt and planned improvements extracted from codebase TODOs.
 |----------|-------|-------|
 | High | 0 | ~~Layer 3 semantic similarity (Stages 4-7)~~ ✅ Complete |
 | Medium | 0 | ~~Code quality from 2026-02-01 review~~ ✅ Complete |
-| Low | 2 | L2 (type stubs), L3 (timing metrics) |
+| Low | 0 | ~~L2 (type stubs), L3 (timing metrics)~~ ✅ Complete |
 | Test | 0 | ~~TestWorker retry behavior~~ ✅ Fixed ([#7](https://github.com/aledlie/AlephAuto/issues/7)) |
 | Organization | 0 | ~~Code cleanup~~ ✅ Complete |
-| **Total** | **2** | 2 open (low priority only) |
+| **Total** | **0** | All items complete |
 
 ## Next Steps
 
@@ -107,7 +107,10 @@ Technical debt and planned improvements extracted from codebase TODOs.
 - ✅ M5: Added semantic annotation coverage metrics
 - ✅ M6: Added context to error messages
 - ✅ L1: Removed redundant DEBUG checks
+- ✅ L2: Added 14 .pyi type stubs + py.typed marker for IDE support
+- ✅ L3: Added timing metrics to Layer 3 (SemanticAnnotator + grouping.py)
 
 ### Recommended Next Actions
-1. **L2 (Tooling):** Generate .pyi type stubs for Python files
-2. **L3 (Metrics):** Add timing/performance metrics to Layer 3
+All backlog items complete. Consider:
+1. Run full pipeline with `PIPELINE_DEBUG=1` to verify timing output
+2. Test type hints in IDE (hover over CodeBlock, SemanticAnnotator, etc.)
