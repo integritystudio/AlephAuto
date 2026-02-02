@@ -12,7 +12,7 @@ export const logger: Logger;
 /**
  * Create a child logger with additional context
  */
-export function createChildLogger(bindings: Record<string, any>): Logger;
+export function createChildLogger(bindings: Record<string, unknown>): Logger;
 
 /**
  * Create a logger for a specific component

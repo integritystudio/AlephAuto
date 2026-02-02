@@ -1,8 +1,8 @@
-import pino from 'pino';
+import { createLogger as createBaseLogger, createChildLogger as createBaseChildLogger, createComponentLogger as createBaseComponentLogger } from '@shared/logging';
 import { config } from '../core/config.js';
 
 /**
- * Create a structured logger instance using Pino
+ * Main logger instance configured for this application
  *
  * Logs are JSON-formatted for easy parsing and analysis.
  * Use pino-pretty in development for human-readable output.
@@ -16,38 +16,10 @@ import { config } from '../core/config.js';
  *   logger.info({ jobId: 'job-123', path: '/foo' }, 'Job started');
  *   logger.error({ err }, 'Operation failed');
  */
-export const logger = pino({
+export const logger = createBaseLogger({
   level: config.logLevel,
-
-  // Base fields included in every log
-  base: {
-    pid: process.pid,
-    hostname: undefined, // Exclude hostname for cleaner logs
-  },
-
-  // Timestamp format
-  timestamp: pino.stdTimeFunctions.isoTime,
-
-  // Error serialization
-  serializers: {
-    err: pino.stdSerializers.err,
-    error: pino.stdSerializers.err,
-  },
-
-  // Pretty printing for development (disabled in production for performance)
-  // Note: transport with destination sends to stderr
-  transport: config.nodeEnv !== 'production' ? {
-    target: 'pino-pretty',
-    options: {
-      colorize: true,
-      translateTime: 'SYS:standard',
-      ignore: 'pid,hostname',
-      singleLine: false,
-      messageFormat: '{levelLabel} - {msg}',
-      destination: 2, // stderr (fd 2) for MCP compatibility
-    }
-  } : undefined,
-}, config.nodeEnv === 'production' ? pino.destination(2) : undefined);
+  nodeEnv: config.nodeEnv,
+});
 
 /**
  * Create a child logger with additional context
@@ -60,7 +32,7 @@ export const logger = pino({
  * jobLogger.info('Job started'); // Automatically includes jobId in log
  */
 export function createChildLogger(bindings) {
-  return logger.child(bindings);
+  return createBaseChildLogger(logger, bindings);
 }
 
 /**
@@ -74,7 +46,7 @@ export function createChildLogger(bindings) {
  * workerLogger.info('Worker initialized');
  */
 export function createComponentLogger(component) {
-  return logger.child({ component });
+  return createBaseComponentLogger(logger, component);
 }
 
 export default logger;

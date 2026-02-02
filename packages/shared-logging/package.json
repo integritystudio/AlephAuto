@@ -1,0 +1,22 @@
+{
+  "name": "@shared/logging",
+  "version": "1.0.0",
+  "description": "Shared logging utilities for AlephAuto",
+  "type": "module",
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.js",
+      "types": "./src/index.d.ts"
+    }
+  },
+  "peerDependencies": {
+    "pino": "^9.0.0",
+    "pino-pretty": "^11.0.0"
+  },
+  "files": [
+    "src"
+  ],
+  "license": "MIT"
+}

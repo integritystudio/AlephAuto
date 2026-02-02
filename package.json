@@ -4,6 +4,9 @@
   "description": "Automated job management with sidequest server - repomix runner and documentation enhancement pipeline",
   "main": "index.js",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "start": "node index.js",
     "start:api": "node api/server.js",
@@ -70,6 +73,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@shared/logging": "workspace:*",
     "@babel/core": "^7.26.0",
     "@babel/generator": "^7.26.0",
     "@babel/traverse": "^7.26.0",
