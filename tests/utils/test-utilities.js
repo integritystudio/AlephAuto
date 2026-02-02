@@ -31,12 +31,14 @@ export class TestWorker extends SidequestServer {
    * @param {Object} options - Worker configuration options
    * @param {string} [options.jobType='test-worker'] - Job type identifier
    * @param {number} [options.maxConcurrent=1] - Max concurrent jobs
+   * @param {number} [options.maxRetries=0] - Max retry attempts (disabled by default for predictable test behavior)
    * @param {boolean} [options.enableSentry=false] - Enable real Sentry (disabled by default in tests)
    */
   constructor(options = {}) {
     super({
       jobType: options.jobType || 'test-worker',
       maxConcurrent: options.maxConcurrent ?? 1,
+      maxRetries: options.maxRetries ?? 0, // T1 fix: disable retries by default for predictable tests
       sentryDsn: options.enableSentry ? undefined : null, // Disable real Sentry in tests
       ...options
     });

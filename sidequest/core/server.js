@@ -31,6 +31,9 @@ export class SidequestServer extends EventEmitter {
     // Defaults to true for production, tests can set false
     this.isRunning = options.autoStart !== false;
 
+    // Retry configuration (T1 fix: allow override for tests)
+    this.maxRetries = options.maxRetries ?? RETRY.MAX_ABSOLUTE_ATTEMPTS;
+
     // Git workflow options
     this.gitWorkflowEnabled = options.gitWorkflowEnabled ?? false;
     this.gitBranchPrefix = options.gitBranchPrefix || 'automated';
@@ -310,8 +313,8 @@ export class SidequestServer extends EventEmitter {
    * @private
    */
   async _finalizeJobFailure(job, error, branchCreated) {
-    // Check if we should retry
-    const canRetry = isRetryable(error) && job.retryCount < RETRY.MAX_ABSOLUTE_ATTEMPTS;
+    // Check if we should retry (use instance maxRetries for testability)
+    const canRetry = isRetryable(error) && job.retryCount < this.maxRetries;
 
     if (canRetry) {
       // Increment retry count
@@ -324,7 +327,7 @@ export class SidequestServer extends EventEmitter {
       logger.info({
         jobId: job.id,
         retryCount: job.retryCount,
-        maxRetries: RETRY.MAX_ABSOLUTE_ATTEMPTS,
+        maxRetries: this.maxRetries,
         errorCode: error?.code,
         retryDelay
       }, 'Scheduling job retry');
@@ -338,7 +341,7 @@ export class SidequestServer extends EventEmitter {
       // Emit retry event for activity feed
       this.emit('retry:created', job, {
         attempt: job.retryCount,
-        maxAttempts: RETRY.MAX_ABSOLUTE_ATTEMPTS,
+        maxAttempts: this.maxRetries,
         reason: classification.reason,
         delay: retryDelay
       });
