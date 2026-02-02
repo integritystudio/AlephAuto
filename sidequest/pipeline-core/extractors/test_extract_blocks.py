@@ -32,6 +32,7 @@ class MockCodeBlock:
     block_id: str
     line_count: int = 5
     location: MockLocation = field(default_factory=MockLocation)
+    tags: list = field(default_factory=list)
 
 
 @dataclass
@@ -287,6 +288,40 @@ def test_calculate_metrics_high_priority():
     assert metrics['high_priority_suggestions'] == 2
 
 
+def test_calculate_metrics_semantic_annotation_coverage():
+    """Test semantic annotation coverage metrics."""
+    blocks = [
+        MockCodeBlock('b1', tags=['utility', 'async']),  # 2 tags
+        MockCodeBlock('b2', tags=['validator']),         # 1 tag
+        MockCodeBlock('b3', tags=[]),                    # 0 tags
+        MockCodeBlock('b4', tags=['logger', 'io', 'fs']),  # 3 tags
+        MockCodeBlock('b5', tags=[]),                    # 0 tags
+    ]
+
+    metrics = calculate_metrics(blocks, [], [])
+
+    # 3 out of 5 blocks have tags
+    assert metrics['blocks_with_tags'] == 3
+    # 3/5 = 60%
+    assert metrics['blocks_with_tags_percentage'] == 60.0
+    # (2+1+0+3+0)/5 = 6/5 = 1.2
+    assert metrics['avg_tags_per_block'] == 1.2
+
+
+def test_calculate_metrics_empty_semantic_annotation():
+    """Test semantic annotation metrics with no tagged blocks."""
+    blocks = [
+        MockCodeBlock('b1', tags=[]),
+        MockCodeBlock('b2', tags=[]),
+    ]
+
+    metrics = calculate_metrics(blocks, [], [])
+
+    assert metrics['blocks_with_tags'] == 0
+    assert metrics['blocks_with_tags_percentage'] == 0.0
+    assert metrics['avg_tags_per_block'] == 0.0
+
+
 def main():
     """Run tests without pytest."""
     print("\n" + "=" * 60)
@@ -314,6 +349,8 @@ def main():
         test_calculate_metrics_high_impact,
         test_calculate_metrics_suggestion_complexity,
         test_calculate_metrics_high_priority,
+        test_calculate_metrics_semantic_annotation_coverage,
+        test_calculate_metrics_empty_semantic_annotation,
     ]
 
     passed = 0
