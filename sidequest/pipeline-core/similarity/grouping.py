@@ -138,7 +138,7 @@ SEMANTIC_CHECKS: list[Callable[[str, str], SemanticCheckResult]] = [
 ]
 
 
-def _extract_function_names(blocks: list) -> list[str]:
+def _extract_function_names(blocks: List['CodeBlock']) -> list[str]:
     """Extract function names from block tags for debug logging.
 
     Scans each block's tags for 'function:' prefixed entries and extracts
@@ -149,7 +149,7 @@ def _extract_function_names(blocks: list) -> list[str]:
         blocks: List of CodeBlock objects to scan for function tags
 
     Returns:
-        List of function names found (one per block max, empty if no tags)
+        List of function names (max one per block, may be empty)
     """
     func_names = []
     for block in blocks:
@@ -179,7 +179,8 @@ def _run_semantic_checks(code1: str, code2: str) -> SemanticCheckResult:
 
     Returns:
         SemanticCheckResult with is_valid=True if all checks pass,
-        or first failing check result with reason and details
+        or first failing check result with reason and details.
+        Returns success immediately if no checks are registered.
     """
     for check in SEMANTIC_CHECKS:
         result = check(code1, code2)
@@ -744,11 +745,11 @@ def _create_duplicate_group(
     Returns:
         DuplicateGroup with:
         - group_id: Unique identifier based on content hash
-        - pattern_id/category/language: From first block (all should match)
+        - pattern_id/category/language: From first block (assumes homogeneity)
         - member_block_ids: IDs of all blocks in group
-        - occurrence_count: Number of duplicates
+        - occurrence_count: Number of blocks in group
         - total_lines: Sum of line counts across all members
-        - affected_files/repositories: Deduplicated locations
+        - affected_files/repositories: Deduplicated list of locations
     """
 
     return DuplicateGroup(
