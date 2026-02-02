@@ -22,21 +22,21 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | ID | Location | Description | Status |
 |----|----------|-------------|--------|
 | M1 | `semantic_annotator.py:281-295` | Inconsistent naming: `annotate()` vs `extract_*()` pattern | Open |
-| M2 | `similarity/grouping.py` | Missing docstrings on `_extract_function_names()`, `_run_semantic_checks()`, `_create_duplicate_group()` | Open |
-| M3 | `tests/unit/migration-transformer.test.js:84-143` | Skipped tests lack issue numbers/timeline (currently "requires file detection") | Open |
-| M4 | `semantic_annotator.py:137-155` | Duplicate 'auth' pattern across category dictionaries | Open |
-| M5 | `extractors/extract_blocks.py:733-735` | Missing semantic annotation metrics (% blocks with tags, avg tags/block) | Open |
-| M6 | `extractors/extract_blocks.py:349,839` | Generic error messages not actionable (add file:line context) | Open |
+| M2 | `similarity/grouping.py` | Missing docstrings on `_extract_function_names()`, `_run_semantic_checks()`, `_create_duplicate_group()` | ✅ Done |
+| M3 | `tests/unit/migration-transformer.test.js:84-143` | Skipped tests lack issue numbers/timeline (currently "requires file detection") | ✅ Done |
+| M4 | `semantic_annotator.py:137-155` | Duplicate 'auth' pattern across category dictionaries | ✅ Done |
+| M5 | `extractors/extract_blocks.py:733-735` | Missing semantic annotation metrics (% blocks with tags, avg tags/block) | ✅ Done |
+| M6 | `extractors/extract_blocks.py:349,839` | Generic error messages not actionable (add file:line context) | ✅ Done |
 | M7 | `api/activity-feed.js:372` | Already fixed in H2 (nullish coalescing) | ✅ Done |
 
 ### Low Priority - Performance & Tooling
 
 | ID | Location | Description | Status |
 |----|----------|-------------|--------|
-| L1 | `extractors/extract_blocks.py:275-281` | Verbose debug logging - extract to logging helper | Open |
+| L1 | `extractors/extract_blocks.py:275-281` | Verbose debug logging - extract to logging helper | ✅ Done |
 | L2 | Python files | Missing `.pyi` type stubs for IDE support | Open |
 | L3 | Layer 3 semantic annotation | No timing/performance metrics collected | Open |
-| L4 | `semantic_annotator.py:350-352` | Regex patterns compiled on every `annotate()` call - should pre-compile | Open |
+| L4 | `semantic_annotator.py:350-352` | Regex patterns compiled on every `annotate()` call - should pre-compile | ✅ Done |
 
 ---
 
@@ -86,11 +86,11 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | Priority | Count | Theme |
 |----------|-------|-------|
 | High | 0 | ~~Layer 3 semantic similarity (Stages 4-7)~~ ✅ Complete |
-| Medium | 6 | Code quality from 2026-02-01 review |
-| Low | 4 | Performance/tooling improvements |
+| Medium | 1 | M1 needs clarification (naming convention) |
+| Low | 2 | L2 (type stubs), L3 (timing metrics) |
 | Test | 0 | ~~TestWorker retry behavior~~ ✅ Fixed ([#7](https://github.com/aledlie/AlephAuto/issues/7)) |
 | Organization | 0 | ~~Code cleanup~~ ✅ Complete |
-| **Total** | **10** | 10 open (medium/low priority) |
+| **Total** | **3** | 3 open (medium/low priority) |
 
 ## Next Steps
 
@@ -98,9 +98,10 @@ Technical debt and planned improvements extracted from codebase TODOs.
 - ✅ Layer 3 semantic similarity fully implemented
 - ✅ Critical security fixes (C1-C3): input validation, race conditions, type safety
 - ✅ High priority fixes (H1-H6): config centralization, ReDoS prevention, refactoring
+- ✅ M2-M6: Docstrings, metrics, error messages, auth patterns, test timeline
+- ✅ L1: Debug logging cleanup
 
 ### Recommended Next Actions
-1. **M2 (Docs):** Add missing docstrings to grouping.py helpers
-2. **L4 (Perf):** Pre-compile regex patterns in SemanticAnnotator
-3. **M5 (Metrics):** Add semantic annotation coverage metrics
-4. **M1 (Code):** Standardize naming convention (annotate vs extract)
+1. **M1 (Code):** Clarify naming convention requirement (annotate vs extract)
+2. **L2 (Tooling):** Generate .pyi type stubs for Python files
+3. **L3 (Metrics):** Add timing/performance metrics to Layer 3
