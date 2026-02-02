@@ -224,6 +224,7 @@ export class SidequestServer extends EventEmitter {
   _prepareJobForExecution(job) {
     job.status = JOB_STATUS.RUNNING;
     job.startedAt = new Date();
+    job.retryPending = false;  // H5 fix: clear retry pending flag on execution
     this.emit('job:started', job);
     this._persistJob(job);
 
@@ -316,9 +317,9 @@ export class SidequestServer extends EventEmitter {
       // Increment retry count
       job.retryCount++;
 
-      // Get retry delay from error classification
+      // Get retry delay from error classification (H2 fix: use optional chaining)
       const classification = classifyError(error);
-      const retryDelay = classification.suggestedDelay || 5000;
+      const retryDelay = classification?.suggestedDelay ?? 5000;
 
       logger.info({
         jobId: job.id,
@@ -332,6 +333,7 @@ export class SidequestServer extends EventEmitter {
       job.status = JOB_STATUS.QUEUED;
       job.startedAt = null;
       job.error = null;
+      job.retryPending = true;  // H5 fix: prevent duplicate retry timers
 
       // Emit retry event for activity feed
       this.emit('retry:created', job, {
@@ -343,9 +345,33 @@ export class SidequestServer extends EventEmitter {
 
       this._persistJob(job);
 
-      // Re-queue with delay
+      // Re-queue with delay (C3 fix: check job still exists and is queued)
+      const jobId = job.id;
       setTimeout(() => {
-        this.queue.push(job.id);
+        // Verify job still exists (may have been deleted during delay)
+        if (!this.jobs.has(jobId)) {
+          logger.warn({ jobId }, 'Job deleted during retry delay, skipping retry');
+          return;
+        }
+
+        const currentJob = this.jobs.get(jobId);
+
+        // H5 fix: check retry pending flag to prevent duplicate timers
+        if (!currentJob.retryPending) {
+          logger.warn({ jobId }, 'Retry already processed or cancelled, skipping');
+          return;
+        }
+
+        // Verify job is still in QUEUED state (may have been modified)
+        if (currentJob.status !== JOB_STATUS.QUEUED) {
+          logger.warn({ jobId, status: currentJob.status }, 'Job status changed during retry delay, skipping retry');
+          currentJob.retryPending = false;
+          return;
+        }
+
+        // Clear pending flag and queue for execution
+        currentJob.retryPending = false;
+        this.queue.push(jobId);
         this.processQueue();
       }, retryDelay);
 

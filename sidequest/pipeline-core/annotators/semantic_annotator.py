@@ -60,75 +60,78 @@ class SemanticAnnotation:
 # ---------------------------------------------------------------------------
 # Pattern Libraries
 # ---------------------------------------------------------------------------
+# NOTE: All regex patterns use bounded quantifiers (\s{0,20} instead of \s*)
+# to prevent ReDoS (Regular Expression Denial of Service) attacks. (H3 fix)
+# Max 20 whitespace chars is sufficient for all valid code patterns.
 
 # Array/collection operations
 ARRAY_OPERATION_PATTERNS: dict[str, str] = {
-    r'\.filter\s*\(': 'filter',
-    r'\.map\s*\(': 'map',
-    r'\.reduce\s*\(': 'reduce',
-    r'\.find\s*\(': 'find',
-    r'\.findIndex\s*\(': 'find',
-    r'\.some\s*\(': 'some',
-    r'\.every\s*\(': 'every',
-    r'\.sort\s*\(': 'sort',
-    r'\.includes\s*\(': 'includes',
-    r'\.indexOf\s*\(': 'find',
-    r'\.forEach\s*\(': 'iterate',
-    r'for\s*\(\s*(?:const|let|var)\s+\w+\s+(?:of|in)': 'iterate',
-    r'for\s*\(\s*(?:let|var)\s+\w+\s*=': 'iterate',
-    r'while\s*\(': 'iterate',
-    r'\.flat\s*\(': 'flatten',
-    r'\.flatMap\s*\(': 'flatten',
-    r'\.concat\s*\(': 'concat',
-    r'\.slice\s*\(': 'slice',
-    r'\.splice\s*\(': 'splice',
-    r'\.push\s*\(': 'append',
-    r'\.pop\s*\(': 'remove',
-    r'\.shift\s*\(': 'remove',
-    r'\.unshift\s*\(': 'prepend',
+    r'\.filter\s{0,20}\(': 'filter',
+    r'\.map\s{0,20}\(': 'map',
+    r'\.reduce\s{0,20}\(': 'reduce',
+    r'\.find\s{0,20}\(': 'find',
+    r'\.findIndex\s{0,20}\(': 'find',
+    r'\.some\s{0,20}\(': 'some',
+    r'\.every\s{0,20}\(': 'every',
+    r'\.sort\s{0,20}\(': 'sort',
+    r'\.includes\s{0,20}\(': 'includes',
+    r'\.indexOf\s{0,20}\(': 'find',
+    r'\.forEach\s{0,20}\(': 'iterate',
+    r'for\s{0,20}\(\s{0,20}(?:const|let|var)\s{1,20}\w+\s{1,20}(?:of|in)': 'iterate',
+    r'for\s{0,20}\(\s{0,20}(?:let|var)\s{1,20}\w+\s{0,20}=': 'iterate',
+    r'while\s{0,20}\(': 'iterate',
+    r'\.flat\s{0,20}\(': 'flatten',
+    r'\.flatMap\s{0,20}\(': 'flatten',
+    r'\.concat\s{0,20}\(': 'concat',
+    r'\.slice\s{0,20}\(': 'slice',
+    r'\.splice\s{0,20}\(': 'splice',
+    r'\.push\s{0,20}\(': 'append',
+    r'\.pop\s{0,20}\(': 'remove',
+    r'\.shift\s{0,20}\(': 'remove',
+    r'\.unshift\s{0,20}\(': 'prepend',
 }
 
 # CRUD/data operations
 CRUD_OPERATION_PATTERNS: dict[str, str] = {
-    r'\.(get|fetch|read|load|retrieve)\s*\(': 'read',
-    r'\.(post|create|insert|add|save|write)\s*\(': 'create',
-    r'\.(put|update|patch|modify|set)\s*\(': 'update',
-    r'\.(delete|remove|destroy|clear)\s*\(': 'delete',
-    r'fetch\s*\(': 'fetch',
-    r'axios\.(get|post|put|patch|delete)\s*\(': 'fetch',
-    r'http\.(get|post|put|patch|delete)\s*\(': 'fetch',
+    r'\.(get|fetch|read|load|retrieve)\s{0,20}\(': 'read',
+    r'\.(post|create|insert|add|save|write)\s{0,20}\(': 'create',
+    r'\.(put|update|patch|modify|set)\s{0,20}\(': 'update',
+    r'\.(delete|remove|destroy|clear)\s{0,20}\(': 'delete',
+    r'fetch\s{0,20}\(': 'fetch',
+    r'axios\.(get|post|put|patch|delete)\s{0,20}\(': 'fetch',
+    r'http\.(get|post|put|patch|delete)\s{0,20}\(': 'fetch',
 }
 
 # Transformation operations
 TRANSFORM_OPERATION_PATTERNS: dict[str, str] = {
-    r'JSON\.parse\s*\(': 'parse',
-    r'JSON\.stringify\s*\(': 'serialize',
-    r'\.toString\s*\(': 'transform',
-    r'\.toUpperCase\s*\(': 'transform',
-    r'\.toLowerCase\s*\(': 'transform',
-    r'\.trim\s*\(': 'transform',
-    r'\.split\s*\(': 'split',
-    r'\.join\s*\(': 'join',
-    r'\.replace\s*\(': 'replace',
-    r'parseInt\s*\(': 'parse',
-    r'parseFloat\s*\(': 'parse',
-    r'Number\s*\(': 'transform',
-    r'String\s*\(': 'transform',
-    r'Boolean\s*\(': 'transform',
-    r'Object\.keys\s*\(': 'extract',
-    r'Object\.values\s*\(': 'extract',
-    r'Object\.entries\s*\(': 'extract',
-    r'Object\.assign\s*\(': 'merge',
+    r'JSON\.parse\s{0,20}\(': 'parse',
+    r'JSON\.stringify\s{0,20}\(': 'serialize',
+    r'\.toString\s{0,20}\(': 'transform',
+    r'\.toUpperCase\s{0,20}\(': 'transform',
+    r'\.toLowerCase\s{0,20}\(': 'transform',
+    r'\.trim\s{0,20}\(': 'transform',
+    r'\.split\s{0,20}\(': 'split',
+    r'\.join\s{0,20}\(': 'join',
+    r'\.replace\s{0,20}\(': 'replace',
+    r'parseInt\s{0,20}\(': 'parse',
+    r'parseFloat\s{0,20}\(': 'parse',
+    r'Number\s{0,20}\(': 'transform',
+    r'String\s{0,20}\(': 'transform',
+    r'Boolean\s{0,20}\(': 'transform',
+    r'Object\.keys\s{0,20}\(': 'extract',
+    r'Object\.values\s{0,20}\(': 'extract',
+    r'Object\.entries\s{0,20}\(': 'extract',
+    r'Object\.assign\s{0,20}\(': 'merge',
     r'\.\.\.\w+': 'spread',
 }
 
 # Validation operations
 VALIDATION_OPERATION_PATTERNS: dict[str, str] = {
-    r'(validate|isValid|check|verify|assert)\s*\(': 'validate',
-    r'\.test\s*\(': 'validate',
-    r'\.match\s*\(': 'validate',
-    r'schema\.(validate|parse|safeParse)\s*\(': 'validate',
-    r'z\.\w+\s*\(': 'validate',
+    r'(validate|isValid|check|verify|assert)\s{0,20}\(': 'validate',
+    r'\.test\s{0,20}\(': 'validate',
+    r'\.match\s{0,20}\(': 'validate',
+    r'schema\.(validate|parse|safeParse)\s{0,20}\(': 'validate',
+    r'z\.\w+\s{0,20}\(': 'validate',
     r'joi\.\w+': 'validate',
     r'yup\.\w+': 'validate',
 }
@@ -151,30 +154,30 @@ DOMAIN_PATTERNS: dict[str, str] = {
     r'\b(event|events|emit|publish|subscribe|listener)\b': 'event',
     r'\b(log|logs|logger|logging|trace|debug|info|warn|error)\b': 'logging',
     r'\b(config|configuration|settings|options|env|environment)\b': 'config',
-    r'\b(test|tests|spec|describe|it\s*\(|expect\s*\()\b': 'test',
+    r'\b(test|tests|spec|describe|it\s{0,20}\(|expect\s{0,20}\()\b': 'test',
 }
 
 # Code patterns
 CODE_PATTERN_PATTERNS: dict[str, str] = {
     # Guard clause / early return
-    r'if\s*\([^)]+\)\s*(?:return|throw)': 'guard_clause',
-    r'if\s*\(\s*!\s*\w+\s*\)\s*(?:return|throw)': 'guard_clause',
+    r'if\s{0,20}\([^)]+\)\s{0,20}(?:return|throw)': 'guard_clause',
+    r'if\s{0,20}\(\s{0,20}!\s{0,20}\w+\s{0,20}\)\s{0,20}(?:return|throw)': 'guard_clause',
 
     # Null/undefined checks
-    r'===?\s*null\b': 'null_check',
-    r'!==?\s*null\b': 'null_check',
-    r'===?\s*undefined\b': 'null_check',
-    r'!==?\s*undefined\b': 'null_check',
+    r'===?\s{0,20}null\b': 'null_check',
+    r'!==?\s{0,20}null\b': 'null_check',
+    r'===?\s{0,20}undefined\b': 'null_check',
+    r'!==?\s{0,20}undefined\b': 'null_check',
     r'\?\?': 'null_check',
-    r'\?\s*\.': 'null_check',
-    r'typeof\s+\w+\s*[!=]==?\s*["\']undefined["\']': 'null_check',
+    r'\?\s{0,20}\.': 'null_check',
+    r'typeof\s{1,20}\w+\s{0,20}[!=]==?\s{0,20}["\']undefined["\']': 'null_check',
 
     # Error handling
-    r'try\s*\{': 'error_handling',
-    r'catch\s*\(': 'error_handling',
-    r'\.catch\s*\(': 'error_handling',
-    r'finally\s*\{': 'error_handling',
-    r'throw\s+new\s+\w*Error': 'error_handling',
+    r'try\s{0,20}\{': 'error_handling',
+    r'catch\s{0,20}\(': 'error_handling',
+    r'\.catch\s{0,20}\(': 'error_handling',
+    r'finally\s{0,20}\{': 'error_handling',
+    r'throw\s{1,20}new\s{1,20}\w*Error': 'error_handling',
 
     # Retry logic
     r'retry|retries|attempts|maxAttempts|backoff': 'retry_logic',
@@ -183,11 +186,11 @@ CODE_PATTERN_PATTERNS: dict[str, str] = {
     r'timeout|setTimeout|setInterval|clearTimeout|clearInterval': 'timeout',
 
     # Async patterns
-    r'async\s+': 'async_await',
-    r'await\s+': 'async_await',
-    r'\.then\s*\(': 'promise_chain',
-    r'Promise\.(all|race|allSettled|any)\s*\(': 'promise_composition',
-    r'new\s+Promise\s*\(': 'promise_creation',
+    r'async\s{1,20}': 'async_await',
+    r'await\s{1,20}': 'async_await',
+    r'\.then\s{0,20}\(': 'promise_chain',
+    r'Promise\.(all|race|allSettled|any)\s{0,20}\(': 'promise_composition',
+    r'new\s{1,20}Promise\s{0,20}\(': 'promise_creation',
 
     # Caching patterns
     r'cache\.(get|set|has|delete)': 'caching',
@@ -212,60 +215,60 @@ CODE_PATTERN_PATTERNS: dict[str, str] = {
 # Data type patterns
 DATA_TYPE_PATTERNS: dict[str, str] = {
     # Array
-    r'\[\s*\]': 'array',
+    r'\[\s{0,20}\]': 'array',
     r'\bArray\b': 'array',
     r'\.length\b': 'array',
-    r'Array\.isArray\s*\(': 'array',
-    r'\.push\s*\(': 'array',
+    r'Array\.isArray\s{0,20}\(': 'array',
+    r'\.push\s{0,20}\(': 'array',
 
     # Object
-    r'\{\s*\}': 'object',
+    r'\{\s{0,20}\}': 'object',
     r'\bObject\b': 'object',
-    r'\.keys\s*\(': 'object',
-    r'\.values\s*\(': 'object',
-    r'\.entries\s*\(': 'object',
-    r'\.hasOwnProperty\s*\(': 'object',
+    r'\.keys\s{0,20}\(': 'object',
+    r'\.values\s{0,20}\(': 'object',
+    r'\.entries\s{0,20}\(': 'object',
+    r'\.hasOwnProperty\s{0,20}\(': 'object',
 
     # String
     r'["\'][^"\']*["\']': 'string',
     r'`[^`]*`': 'string',
-    r'\.toString\s*\(': 'string',
-    r'\.trim\s*\(': 'string',
-    r'\.substring\s*\(': 'string',
-    r'\.substr\s*\(': 'string',
+    r'\.toString\s{0,20}\(': 'string',
+    r'\.trim\s{0,20}\(': 'string',
+    r'\.substring\s{0,20}\(': 'string',
+    r'\.substr\s{0,20}\(': 'string',
 
     # Number
     r'\b\d+\.?\d*\b': 'number',
-    r'Number\s*\(': 'number',
-    r'parseInt\s*\(': 'number',
-    r'parseFloat\s*\(': 'number',
+    r'Number\s{0,20}\(': 'number',
+    r'parseInt\s{0,20}\(': 'number',
+    r'parseFloat\s{0,20}\(': 'number',
     r'Math\.\w+': 'number',
 
     # Boolean
     r'\b(true|false)\b': 'boolean',
-    r'Boolean\s*\(': 'boolean',
+    r'Boolean\s{0,20}\(': 'boolean',
 
     # Date
-    r'new\s+Date\s*\(': 'date',
-    r'Date\.(now|parse)\s*\(': 'date',
-    r'\.toISOString\s*\(': 'date',
-    r'moment\s*\(': 'date',
-    r'dayjs\s*\(': 'date',
+    r'new\s{1,20}Date\s{0,20}\(': 'date',
+    r'Date\.(now|parse)\s{0,20}\(': 'date',
+    r'\.toISOString\s{0,20}\(': 'date',
+    r'moment\s{0,20}\(': 'date',
+    r'dayjs\s{0,20}\(': 'date',
 
     # Promise/async
     r'\bPromise\b': 'promise',
-    r'\.then\s*\(': 'promise',
-    r'async\s+': 'promise',
-    r'await\s+': 'promise',
+    r'\.then\s{0,20}\(': 'promise',
+    r'async\s{1,20}': 'promise',
+    r'await\s{1,20}': 'promise',
 
     # Null/undefined
     r'\bnull\b': 'null',
     r'\bundefined\b': 'undefined',
 
     # Map/Set
-    r'new\s+Map\s*\(': 'map',
-    r'new\s+Set\s*\(': 'set',
-    r'\.has\s*\(': 'collection',
+    r'new\s{1,20}Map\s{0,20}\(': 'map',
+    r'new\s{1,20}Set\s{0,20}\(': 'set',
+    r'\.has\s{0,20}\(': 'collection',
 
     # Buffer/Binary
     r'\bBuffer\b': 'buffer',
@@ -274,7 +277,7 @@ DATA_TYPE_PATTERNS: dict[str, str] = {
 
     # Regex
     r'/[^/]+/[gim]*': 'regex',
-    r'new\s+RegExp\s*\(': 'regex',
+    r'new\s{1,20}RegExp\s{0,20}\(': 'regex',
 }
 
 

@@ -22,13 +22,82 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field, field_validator
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-# Debug mode - set PIPELINE_DEBUG=1 to enable verbose output
-DEBUG = os.environ.get('PIPELINE_DEBUG', '').lower() in ('1', 'true', 'yes')
+
+# ---------------------------------------------------------------------------
+# Input Validation Models (C2 Security Fix)
+# ---------------------------------------------------------------------------
+
+class PatternMatchInput(BaseModel):
+    """Validated pattern match from ast-grep pipeline input"""
+    file_path: str = Field(..., max_length=500, description="Relative file path")
+    rule_id: str = Field(..., max_length=100, description="ast-grep rule ID")
+    matched_text: str = Field(..., max_length=100_000, description="Matched source code")
+    line_start: int = Field(..., ge=1, le=1_000_000, description="Start line number")
+    line_end: int = Field(..., ge=1, le=1_000_000, description="End line number")
+    column_start: Optional[int] = Field(None, ge=0, le=10_000)
+    column_end: Optional[int] = Field(None, ge=0, le=10_000)
+    severity: Optional[str] = Field(None, max_length=20)
+    confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
+
+    @field_validator('file_path')
+    @classmethod
+    def validate_file_path(cls, v: str) -> str:
+        """Prevent path traversal attacks"""
+        if '..' in v:
+            raise ValueError('Path traversal detected: ".." not allowed in file_path')
+        if v.startswith('/'):
+            raise ValueError('Absolute paths not allowed in file_path')
+        return v
+
+    @field_validator('line_end')
+    @classmethod
+    def validate_line_range(cls, v: int, info) -> int:
+        """Ensure line_end >= line_start"""
+        line_start = info.data.get('line_start')
+        if line_start is not None and v < line_start:
+            raise ValueError('line_end must be >= line_start')
+        return v
+
+
+class RepositoryInfoInput(BaseModel):
+    """Validated repository information from pipeline input"""
+    path: str = Field(..., max_length=1000, description="Repository path")
+    name: Optional[str] = Field(None, max_length=200)
+    git_remote: Optional[str] = Field(None, max_length=500)
+    git_branch: Optional[str] = Field(None, max_length=200)
+    git_commit: Optional[str] = Field(None, max_length=50)
+
+
+class PipelineInput(BaseModel):
+    """Validated pipeline input from stdin"""
+    repository_info: RepositoryInfoInput
+    pattern_matches: List[PatternMatchInput] = Field(
+        ...,
+        max_length=50_000,
+        description="Pattern matches (max 50k to prevent DoS)"
+    )
+
+    model_config = {
+        'str_strip_whitespace': True,
+        'extra': 'ignore'  # Ignore unexpected fields
+    }
+
+# Add lib/models and lib/similarity to Python path
+sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Import config for DEBUG flag (H1 fix: use config module)
+from similarity.config import SimilarityConfig
+
+# Debug mode from centralized config
+DEBUG = SimilarityConfig.DEBUG
 
 
 def _debug(msg: str) -> None:
@@ -36,9 +105,6 @@ def _debug(msg: str) -> None:
     if DEBUG:
         print(f"DEBUG {msg}", file=sys.stderr)
 
-# Add lib/models and lib/similarity to Python path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from code_block import CodeBlock, SourceLocation, ASTNode
 from duplicate_group import DuplicateGroup
@@ -78,6 +144,31 @@ LANGUAGE_MAP: dict[str, str] = {
     '.scala': 'scala',
     '.vue': 'vue',
     '.svelte': 'svelte',
+}
+
+# ---------------------------------------------------------------------------
+# Pattern to Category Mapping (H4 fix: extract constant to reduce function length)
+# ---------------------------------------------------------------------------
+
+PATTERN_CATEGORY_MAP: dict[str, str] = {
+    'object-manipulation': 'utility',
+    'array-map-filter': 'utility',
+    'string-manipulation': 'utility',
+    'type-checking': 'utility',
+    'validation': 'validator',
+    'express-route-handlers': 'api_handler',
+    'auth-checks': 'auth_check',
+    'error-responses': 'error_handler',
+    'request-validation': 'validator',
+    'prisma-operations': 'database_operation',
+    'query-builders': 'database_operation',
+    'connection-handling': 'database_operation',
+    'await-patterns': 'async_pattern',
+    'promise-chains': 'async_pattern',
+    'env-variables': 'config_access',
+    'config-objects': 'config_access',
+    'console-statements': 'logger',
+    'logger-patterns': 'logger',
 }
 
 
@@ -267,81 +358,58 @@ def deduplicate_blocks(blocks: list[CodeBlock]) -> list[CodeBlock]:
     return unique_blocks
 
 
+def _create_code_block(match: Dict, repository_info: Dict) -> CodeBlock:
+    """Create a CodeBlock from a pattern match (H4 fix: extracted helper)."""
+    # Generate unique block ID
+    block_key = f"{match['file_path']}:{match['line_start']}"
+    block_hash = hashlib.sha256(block_key.encode()).hexdigest()[:12]
+    block_id = f"cb_{block_hash}"
+
+    # Map pattern_id to category
+    category = PATTERN_CATEGORY_MAP.get(match['rule_id'], 'utility')
+
+    # Extract function name from source code
+    source_code = match.get('matched_text', '')
+    function_name = extract_function_name(
+        source_code,
+        file_path=match['file_path'],
+        line_start=match['line_start'],
+        repo_path=repository_info['path']
+    )
+
+    return CodeBlock(
+        block_id=block_id,
+        pattern_id=match['rule_id'],
+        location=SourceLocation(
+            file_path=match['file_path'],
+            line_start=match['line_start'],
+            line_end=match.get('line_end', match['line_start'])
+        ),
+        relative_path=match['file_path'],
+        source_code=source_code,
+        language=detect_language(match['file_path']),
+        category=category,
+        repository_path=repository_info['path'],
+        line_count=match.get('line_end', match['line_start']) - match['line_start'] + 1,
+        tags=[f"function:{function_name}"] if function_name else []
+    )
+
+
 def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> List[CodeBlock]:
-    """
-    Extract CodeBlock models from pattern matches
-    """
-    if DEBUG:
-        print(f"DEBUG extract_code_blocks: repository_info={repository_info}", file=sys.stderr)
-        print(f"DEBUG extract_code_blocks: got {len(pattern_matches)} pattern matches", file=sys.stderr)
+    """Extract CodeBlock models from pattern matches."""
+    _debug(f"extract_code_blocks: repository_info={repository_info}")
+    _debug(f"extract_code_blocks: got {len(pattern_matches)} pattern matches")
+
     blocks = []
-
     for i, match in enumerate(pattern_matches):
-        if DEBUG and i == 0:  # Debug first match only
-            print(f"DEBUG first match: file_path={match.get('file_path')}, line_start={match.get('line_start')}", file=sys.stderr)
+        if DEBUG and i == 0:
+            _debug(f"first match: file_path={match.get('file_path')}, line_start={match.get('line_start')}")
+
         try:
-            # Generate unique block ID
-            # Python 3.11 doesn't support nested f-strings, so construct the string first
-            block_key = f"{match['file_path']}:{match['line_start']}"
-            block_hash = hashlib.sha256(block_key.encode()).hexdigest()[:12]
-            block_id = f"cb_{block_hash}"
+            block = _create_code_block(match, repository_info)
 
-            # Map pattern_id to category (must match SemanticCategory enum)
-            category_map = {
-                'object-manipulation': 'utility',
-                'array-map-filter': 'utility',
-                'string-manipulation': 'utility',
-                'type-checking': 'utility',
-                'validation': 'validator',
-                'express-route-handlers': 'api_handler',
-                'auth-checks': 'auth_check',
-                'error-responses': 'error_handler',
-                'request-validation': 'validator',
-                'prisma-operations': 'database_operation',
-                'query-builders': 'database_operation',
-                'connection-handling': 'database_operation',
-                'await-patterns': 'async_pattern',
-                'promise-chains': 'async_pattern',
-                'env-variables': 'config_access',
-                'config-objects': 'config_access',
-                'console-statements': 'logger',
-                'logger-patterns': 'logger'
-            }
-
-            category = category_map.get(match['rule_id'], 'utility')
-
-            # Extract function name from source code (Priority 1: Function-Level Extraction)
-            source_code = match.get('matched_text', '')
-            function_name = extract_function_name(
-                source_code,
-                file_path=match['file_path'],
-                line_start=match['line_start'],
-                repo_path=repository_info['path']
-            )
-
-            # Create CodeBlock
-            # Note: file_path from ast-grep is already relative to repository root
-            block = CodeBlock(
-                block_id=block_id,
-                pattern_id=match['rule_id'],
-                location=SourceLocation(
-                    file_path=match['file_path'],
-                    line_start=match['line_start'],
-                    line_end=match.get('line_end', match['line_start'])
-                ),
-                relative_path=match['file_path'],  # Already relative from ast-grep
-                source_code=source_code,
-                language=detect_language(match['file_path']),
-                category=category,
-                repository_path=repository_info['path'],
-                line_count=match.get('line_end', match['line_start']) - match['line_start'] + 1,
-                # Store function name in tags field
-                tags=[f"function:{function_name}"] if function_name else []
-            )
-
-            # Debug: confirm tags are set
-            if DEBUG and i < 3:  # Only log first 3 blocks
-                print(f"DEBUG block created: file={block.relative_path}, line={block.location.line_start}, tags={block.tags}", file=sys.stderr)
+            if DEBUG and i < 3:
+                _debug(f"block created: file={block.relative_path}, line={block.location.line_start}, tags={block.tags}")
 
             blocks.append(block)
 
@@ -800,11 +868,20 @@ def main():
     Main pipeline execution
     """
     try:
-        # Read input from stdin
-        input_data = json.load(sys.stdin)
+        # Read and validate input from stdin (C2 security fix)
+        raw_input = json.load(sys.stdin)
 
-        repository_info = input_data['repository_info']
-        pattern_matches = input_data['pattern_matches']
+        try:
+            validated_input = PipelineInput(**raw_input)
+        except Exception as validation_error:
+            print(f"Input validation failed: {validation_error}", file=sys.stderr)
+            sys.exit(2)  # Distinct exit code for validation errors
+
+        # Convert validated models to dicts for compatibility
+        repository_info = validated_input.repository_info.model_dump()
+        pattern_matches = [m.model_dump() for m in validated_input.pattern_matches]
+
+        _debug(f"Validated {len(pattern_matches)} pattern matches from {repository_info.get('path', 'unknown')}")
 
         # Stage 3: Extract code blocks
         blocks = extract_code_blocks(pattern_matches, repository_info)

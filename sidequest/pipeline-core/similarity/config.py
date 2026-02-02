@@ -11,6 +11,9 @@ import os
 class SimilarityConfig:
     """Configuration for multi-layer similarity algorithm."""
 
+    # Debug mode - set PIPELINE_DEBUG=1 to enable verbose output
+    DEBUG = os.environ.get('PIPELINE_DEBUG', '').lower() in ('1', 'true', 'yes')
+
     # Layer 0: Complexity filtering
     MIN_LINE_COUNT = int(os.getenv('MIN_LINE_COUNT', '1'))
     MIN_UNIQUE_TOKENS = int(os.getenv('MIN_UNIQUE_TOKENS', '3'))
@@ -29,6 +32,7 @@ class SimilarityConfig:
 
     # Layer 3: Semantic validation
     MIN_COMPLEXITY_RATIO = float(os.getenv('MIN_COMPLEXITY_RATIO', '0.5'))
+    SEMANTIC_SIMILARITY_THRESHOLD = float(os.getenv('SEMANTIC_SIMILARITY_THRESHOLD', '0.70'))
 
     # Layer 4: Quality filtering
     MIN_GROUP_QUALITY = float(os.getenv('MIN_GROUP_QUALITY', '0.70'))
@@ -38,6 +42,16 @@ class SimilarityConfig:
     QUALITY_WEIGHT_SIZE = float(os.getenv('QUALITY_WEIGHT_SIZE', '0.2'))
     QUALITY_WEIGHT_COMPLEXITY = float(os.getenv('QUALITY_WEIGHT_COMPLEXITY', '0.2'))
     QUALITY_WEIGHT_SEMANTIC = float(os.getenv('QUALITY_WEIGHT_SEMANTIC', '0.2'))
+
+    # Quality normalization factors (H6 fix: avoid magic numbers)
+    SIZE_NORMALIZATION = float(os.getenv('SIZE_NORMALIZATION', '4.0'))  # 4+ members = full score
+    COMPLEXITY_NORMALIZATION = float(os.getenv('COMPLEXITY_NORMALIZATION', '10.0'))  # 10+ lines = full score
+
+    # Semantic consistency scores
+    SEMANTIC_PERFECT_CONSISTENCY = 1.0  # Same category AND pattern
+    SEMANTIC_SAME_CATEGORY = 0.7        # Same category, different patterns
+    SEMANTIC_SAME_PATTERN = 0.5         # Same pattern, different categories
+    SEMANTIC_MIXED = 0.3                # Mixed categories and patterns
 
     @classmethod
     def to_dict(cls) -> dict:
@@ -59,6 +73,7 @@ class SimilarityConfig:
             },
             'semantic': {
                 'min_complexity_ratio': cls.MIN_COMPLEXITY_RATIO,
+                'similarity_threshold': cls.SEMANTIC_SIMILARITY_THRESHOLD,
             },
             'quality': {
                 'min_group_quality': cls.MIN_GROUP_QUALITY,
@@ -68,7 +83,18 @@ class SimilarityConfig:
                     'complexity': cls.QUALITY_WEIGHT_COMPLEXITY,
                     'semantic': cls.QUALITY_WEIGHT_SEMANTIC,
                 },
+                'normalization': {
+                    'size': cls.SIZE_NORMALIZATION,
+                    'complexity': cls.COMPLEXITY_NORMALIZATION,
+                },
+                'semantic_scores': {
+                    'perfect': cls.SEMANTIC_PERFECT_CONSISTENCY,
+                    'same_category': cls.SEMANTIC_SAME_CATEGORY,
+                    'same_pattern': cls.SEMANTIC_SAME_PATTERN,
+                    'mixed': cls.SEMANTIC_MIXED,
+                },
             },
+            'debug': cls.DEBUG,
         }
 
     @classmethod

@@ -8,6 +8,24 @@
 // @ts-check
 /** @typedef {import('../sidequest/core/server.js').SidequestServer} SidequestServer */
 
+/**
+ * @typedef {Object} Job
+ * @property {string} id - Unique job identifier
+ * @property {string} status - Job status (queued, running, completed, failed)
+ * @property {number} [retryCount] - Number of retry attempts
+ * @property {Object} [data] - Job data payload
+ * @property {string} [data.type] - Job type identifier
+ * @property {string} [data.pipelineId] - Pipeline identifier
+ */
+
+/**
+ * @typedef {Object} RetryInfo
+ * @property {number} attempt - Current retry attempt number
+ * @property {number} maxAttempts - Maximum allowed attempts
+ * @property {string} [reason] - Reason for retry
+ * @property {number} [delay] - Delay in ms before retry
+ */
+
 import { createComponentLogger } from '../sidequest/utils/logger.js';
 import * as Sentry from '@sentry/node';
 import { safeErrorMessage, toErrorObject } from '../sidequest/pipeline-core/utils/error-helpers.js';
@@ -361,7 +379,10 @@ export class ActivityFeedManager {
       });
 
       // Retry created
-      worker.on('retry:created', (job, retryInfo) => {
+      worker.on('retry:created', (
+        /** @type {Job} */ job,
+        /** @type {RetryInfo} */ retryInfo
+      ) => {
         try {
           // Defensive: ensure required parameters exist
           if (!job?.id) {
@@ -369,7 +390,7 @@ export class ActivityFeedManager {
             return;
           }
 
-          const { attempt, maxAttempts, reason, delay } = retryInfo || {};
+          const { attempt, maxAttempts, reason, delay } = retryInfo ?? {};
 
           this.addActivity({
             type: 'retry:created',

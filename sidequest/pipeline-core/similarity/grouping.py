@@ -16,10 +16,12 @@ from typing import List, Dict, Set, Callable, Any
 from collections import defaultdict
 from pathlib import Path
 import sys
-import os
 
-# Debug mode - set PIPELINE_DEBUG=1 to enable verbose output
-DEBUG = os.environ.get('PIPELINE_DEBUG', '').lower() in ('1', 'true', 'yes')
+# Import centralized config (H1 fix: use config module instead of os.environ)
+from .config import SimilarityConfig
+
+# Debug mode from config
+DEBUG = SimilarityConfig.DEBUG
 
 # Import models from correct path (relative to pipeline-core)
 sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
@@ -64,8 +66,8 @@ MIN_COMPLEXITY_THRESHOLD = {
     'min_unique_tokens': 3,  # At least 3 meaningful tokens (very permissive)
 }
 
-# Minimum quality threshold for duplicate groups
-MIN_GROUP_QUALITY = float(os.getenv('MIN_GROUP_QUALITY', '0.70'))  # Groups must score at least 70% quality
+# Minimum quality threshold for duplicate groups (from config)
+MIN_GROUP_QUALITY = SimilarityConfig.MIN_GROUP_QUALITY
 
 # Opposite logical operator pairs for semantic validation
 OPPOSITE_OPERATOR_PAIRS: list[tuple[set[str], set[str]]] = [
@@ -224,33 +226,41 @@ def calculate_group_quality_score(group_blocks: List['CodeBlock'], similarity_sc
     if not group_blocks or len(group_blocks) < 2:
         return 0.0
 
-    # Factor 1: Similarity score (40% weight)
-    similarity_factor = similarity_score * 0.4
+    # Get weights from config (H6 fix: use constants instead of magic numbers)
+    w_sim = SimilarityConfig.QUALITY_WEIGHT_SIMILARITY
+    w_size = SimilarityConfig.QUALITY_WEIGHT_SIZE
+    w_complexity = SimilarityConfig.QUALITY_WEIGHT_COMPLEXITY
+    w_semantic = SimilarityConfig.QUALITY_WEIGHT_SEMANTIC
 
-    # Factor 2: Group size (20% weight)
+    # Factor 1: Similarity score
+    similarity_factor = similarity_score * w_sim
+
+    # Factor 2: Group size
     # Larger groups more likely to be genuine duplicates
-    # 2 members = 0.5, 3 members = 0.75, 4+ members = 1.0
-    size_factor = min(len(group_blocks) / 4.0, 1.0) * 0.2
+    size_norm = SimilarityConfig.SIZE_NORMALIZATION
+    size_factor = min(len(group_blocks) / size_norm, 1.0) * w_size
 
-    # Factor 3: Code complexity (20% weight)
+    # Factor 3: Code complexity
     # More complex code = higher confidence in duplicate
     avg_line_count = sum(b.line_count for b in group_blocks) / len(group_blocks)
-    complexity_factor = min(avg_line_count / 10.0, 1.0) * 0.2
+    complexity_norm = SimilarityConfig.COMPLEXITY_NORMALIZATION
+    complexity_factor = min(avg_line_count / complexity_norm, 1.0) * w_complexity
 
-    # Factor 4: Semantic consistency (20% weight)
+    # Factor 4: Semantic consistency
     # All blocks same category = 1.0, mixed = lower
     categories = set(b.category for b in group_blocks)
     pattern_ids = set(b.pattern_id for b in group_blocks)
 
-    semantic_factor = 0.0
     if len(categories) == 1 and len(pattern_ids) == 1:
-        semantic_factor = 1.0 * 0.2  # Perfect consistency
+        semantic_score = SimilarityConfig.SEMANTIC_PERFECT_CONSISTENCY
     elif len(categories) == 1:
-        semantic_factor = 0.7 * 0.2  # Same category, different patterns
+        semantic_score = SimilarityConfig.SEMANTIC_SAME_CATEGORY
     elif len(pattern_ids) == 1:
-        semantic_factor = 0.5 * 0.2  # Same pattern, different categories
+        semantic_score = SimilarityConfig.SEMANTIC_SAME_PATTERN
     else:
-        semantic_factor = 0.3 * 0.2  # Mixed
+        semantic_score = SimilarityConfig.SEMANTIC_MIXED
+
+    semantic_factor = semantic_score * w_semantic
 
     total_quality = similarity_factor + size_factor + complexity_factor + semantic_factor
 
@@ -530,8 +540,8 @@ SEMANTIC_WEIGHTS = {
     'data_types': 0.15,  # What data types it processes
 }
 
-# Threshold for semantic similarity matching (lower than structural)
-SEMANTIC_SIMILARITY_THRESHOLD = float(os.getenv('SEMANTIC_SIMILARITY_THRESHOLD', '0.70'))
+# Threshold for semantic similarity matching (from config)
+SEMANTIC_SIMILARITY_THRESHOLD = SimilarityConfig.SEMANTIC_SIMILARITY_THRESHOLD
 
 
 def _calculate_jaccard_similarity(set1: set[str], set2: set[str]) -> float:
