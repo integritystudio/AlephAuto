@@ -139,8 +139,7 @@ VALIDATION_OPERATION_PATTERNS: dict[str, str] = {
 # Domain patterns
 DOMAIN_PATTERNS: dict[str, str] = {
     r'\b(user|users|account|accounts|profile|profiles|member)\b': 'user',
-    r'\b(auth|authentication|login|logout|signin|signout|token|session|jwt|oauth)\b': 'auth',
-    r'\b(password|credential|secret|apikey|api_key)\b': 'auth',
+    r'\b(auth|authentication|login|logout|signin|signout|token|session|jwt|oauth|password|credential|secret|apikey|api_key)\b': 'auth',
     r'\b(payment|charge|invoice|billing|subscription|stripe|paypal)\b': 'payment',
     r'\b(order|orders|cart|checkout|purchase)\b': 'commerce',
     r'\b(email|mail|notification|alert|notify|message|sms)\b': 'notification',
@@ -280,6 +279,35 @@ DATA_TYPE_PATTERNS: dict[str, str] = {
     r'new\s{1,20}RegExp\s{0,20}\(': 'regex',
 }
 
+# ---------------------------------------------------------------------------
+# Pre-compiled Regex Patterns (L4 fix - avoid recompilation on each call)
+# ---------------------------------------------------------------------------
+
+
+def _compile_patterns(
+    patterns: dict[str, str], flags: int = 0
+) -> list[tuple[re.Pattern[str], str]]:
+    """Pre-compile regex patterns for efficient reuse."""
+    return [(re.compile(pattern, flags), tag) for pattern, tag in patterns.items()]
+
+
+# Compiled pattern lists (module-level for one-time compilation)
+_COMPILED_ARRAY_OPS = _compile_patterns(ARRAY_OPERATION_PATTERNS, re.IGNORECASE)
+_COMPILED_CRUD_OPS = _compile_patterns(CRUD_OPERATION_PATTERNS, re.IGNORECASE)
+_COMPILED_TRANSFORM_OPS = _compile_patterns(TRANSFORM_OPERATION_PATTERNS, re.IGNORECASE)
+_COMPILED_VALIDATION_OPS = _compile_patterns(VALIDATION_OPERATION_PATTERNS, re.IGNORECASE)
+_COMPILED_DOMAIN = _compile_patterns(DOMAIN_PATTERNS, re.IGNORECASE)
+_COMPILED_CODE_PATTERNS = _compile_patterns(CODE_PATTERN_PATTERNS, re.IGNORECASE)
+_COMPILED_DATA_TYPES = _compile_patterns(DATA_TYPE_PATTERNS)
+
+# Combined operation patterns for _extract_operations
+_COMPILED_ALL_OPERATIONS = (
+    _COMPILED_ARRAY_OPS
+    + _COMPILED_CRUD_OPS
+    + _COMPILED_TRANSFORM_OPS
+    + _COMPILED_VALIDATION_OPS
+)
+
 
 class SemanticAnnotator:
     """Stage 4: Full semantic annotation of code blocks.
@@ -343,15 +371,8 @@ class SemanticAnnotator:
         """
         operations: set[str] = set()
 
-        all_patterns = {
-            **ARRAY_OPERATION_PATTERNS,
-            **CRUD_OPERATION_PATTERNS,
-            **TRANSFORM_OPERATION_PATTERNS,
-            **VALIDATION_OPERATION_PATTERNS,
-        }
-
-        for pattern, op in all_patterns.items():
-            if re.search(pattern, code, re.IGNORECASE):
+        for compiled_pattern, op in _COMPILED_ALL_OPERATIONS:
+            if compiled_pattern.search(code):
                 operations.add(op)
 
         return operations
@@ -366,8 +387,8 @@ class SemanticAnnotator:
         # Combine code and tags for analysis
         text = code + ' ' + ' '.join(tags)
 
-        for pattern, domain in DOMAIN_PATTERNS.items():
-            if re.search(pattern, text, re.IGNORECASE):
+        for compiled_pattern, domain in _COMPILED_DOMAIN:
+            if compiled_pattern.search(text):
                 domains.add(domain)
 
         return domains
@@ -380,8 +401,8 @@ class SemanticAnnotator:
         """
         patterns: set[str] = set()
 
-        for pattern, name in CODE_PATTERN_PATTERNS.items():
-            if re.search(pattern, code, re.IGNORECASE):
+        for compiled_pattern, name in _COMPILED_CODE_PATTERNS:
+            if compiled_pattern.search(code):
                 patterns.add(name)
 
         return patterns
@@ -393,8 +414,8 @@ class SemanticAnnotator:
         """
         data_types: set[str] = set()
 
-        for pattern, dtype in DATA_TYPE_PATTERNS.items():
-            if re.search(pattern, code):
+        for compiled_pattern, dtype in _COMPILED_DATA_TYPES:
+            if compiled_pattern.search(code):
                 data_types.add(dtype)
 
         return data_types
