@@ -832,6 +832,14 @@ def calculate_metrics(
         if g.total_lines >= 20 or g.occurrence_count >= 5
     ]
 
+    # Semantic annotation metrics
+    blocks_with_tags = sum(1 for b in blocks if b.tags)
+    total_tags = sum(len(b.tags) for b in blocks)
+    blocks_with_tags_percentage = (
+        round(blocks_with_tags / len(blocks) * 100, 2) if blocks else 0.0
+    )
+    avg_tags_per_block = round(total_tags / len(blocks), 2) if blocks else 0.0
+
     return {
         # Block counts
         'total_code_blocks': len(blocks),
@@ -860,6 +868,11 @@ def calculate_metrics(
 
         # High priority (by impact score)
         'high_priority_suggestions': len([s for s in suggestions if s.impact_score >= 75]),
+
+        # Semantic annotation coverage
+        'blocks_with_tags': blocks_with_tags,
+        'blocks_with_tags_percentage': blocks_with_tags_percentage,
+        'avg_tags_per_block': avg_tags_per_block,
     }
 
 
