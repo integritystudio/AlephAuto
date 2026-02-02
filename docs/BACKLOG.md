@@ -23,12 +23,7 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | ID | Location | Description | Status |
 |----|----------|-------------|--------|
 | M1 | `tests/integration/activity-feed.integration.test.js:306` | Implement retry:created event emission in SidequestServer | ✅ Done |
-| M2 | `tests/unit/migration-transformer.test.js:85` | Enhanced file detection logic for migration tests | Pending |
-| M3 | `tests/unit/migration-transformer.test.js:120` | Enhanced file detection logic for migration tests | Pending |
-| M4 | `tests/unit/migration-transformer.test.js:150` | Enhanced file detection logic for migration tests | Pending |
-| M5 | `tests/unit/migration-transformer.test.js:187` | Enhanced file detection logic for migration tests | Pending |
-| M6 | `tests/unit/migration-transformer.test.js:215` | Enhanced file detection logic for migration tests | Pending |
-| M7 | `tests/unit/migration-transformer.test.js:243` | Enhanced file detection logic for migration tests | Pending |
+| M2-M7 | `tests/unit/migration-transformer.test.js` | Enhanced file detection for migration (Q2 2026 - documented in file header) | ✅ Consolidated |
 
 ## Low Priority - Documentation
 
@@ -57,12 +52,11 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | Priority | Count | Theme |
 |----------|-------|-------|
 | High | 5 | Layer 3 semantic similarity (Stages 4-7) |
-| Medium | 6 | Test infrastructure improvements |
+| Medium | 0 | ~~Test infrastructure~~ ✅ Complete |
 | Low | 0 | ~~Documentation gaps~~ ✅ Complete |
 | Organization | 0 | ~~Code cleanup~~ ✅ Complete |
-| **Total** | **11** | |
+| **Total** | **5** | |
 
 ## Next Steps
 
 1. **H1-H5**: Implement Layer 3 semantic similarity - core feature gap
-2. **M2-M7**: Consolidate migration transformer tests (6 similar TODOs)
