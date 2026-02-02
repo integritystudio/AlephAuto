@@ -236,6 +236,7 @@ export class JSONReportGenerator {
         impact_score: group.impact_score,
         similarity_score: group.similarity_score,
         similarity_method: group.similarity_method,
+        member_block_ids: group.member_block_ids || [],
         affected_files: group.affected_files || [],
         ...(isInterProject ? {
           repository_count: group.repository_count,
