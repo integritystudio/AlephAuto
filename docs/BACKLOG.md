@@ -6,6 +6,40 @@ Technical debt and planned improvements extracted from codebase TODOs.
 
 ---
 
+## Code Review Issues (2026-02-01)
+
+> **Source:** Enterprise code review of commits `0c4027f^..c07f736`
+> **Fixed:** C1-C3 (Critical), H1-H6 (High) in commit `e6a9044`
+
+### Test Infrastructure
+
+| ID | Location | Description | Status | Issue |
+|----|----------|-------------|--------|-------|
+| T1 | `tests/utils/test-utilities.js:36` | TestWorker should disable retries by default (`maxRetries: 0`) | Open | [#7](https://github.com/aledlie/AlephAuto/issues/7) |
+
+### Medium Priority - Code Quality
+
+| ID | Location | Description | Status |
+|----|----------|-------------|--------|
+| M1 | `semantic_annotator.py:281-295` | Inconsistent naming: `annotate()` vs `extract_*()` pattern | Open |
+| M2 | `similarity/grouping.py` | Missing docstrings on `_extract_function_names()`, `_run_semantic_checks()`, `_create_duplicate_group()` | Open |
+| M3 | `tests/unit/migration-transformer.test.js:84-143` | Skipped tests lack issue numbers/timeline (currently "requires file detection") | Open |
+| M4 | `semantic_annotator.py:137-155` | Duplicate 'auth' pattern across category dictionaries | Open |
+| M5 | `extractors/extract_blocks.py:733-735` | Missing semantic annotation metrics (% blocks with tags, avg tags/block) | Open |
+| M6 | `extractors/extract_blocks.py:349,839` | Generic error messages not actionable (add file:line context) | Open |
+| M7 | `api/activity-feed.js:372` | Already fixed in H2 (nullish coalescing) | ✅ Done |
+
+### Low Priority - Performance & Tooling
+
+| ID | Location | Description | Status |
+|----|----------|-------------|--------|
+| L1 | `extractors/extract_blocks.py:275-281` | Verbose debug logging - extract to logging helper | Open |
+| L2 | Python files | Missing `.pyi` type stubs for IDE support | Open |
+| L3 | Layer 3 semantic annotation | No timing/performance metrics collected | Open |
+| L4 | `semantic_annotator.py:350-352` | Regex patterns compiled on every `annotate()` call - should pre-compile | Open |
+
+---
+
 ## High Priority - Feature Implementation
 
 > **Implementation Plan:** [SEMANTIC_SIMILARITY_IMPLEMENTATION.md](architecture/SEMANTIC_SIMILARITY_IMPLEMENTATION.md)
@@ -52,17 +86,21 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | Priority | Count | Theme |
 |----------|-------|-------|
 | High | 0 | ~~Layer 3 semantic similarity (Stages 4-7)~~ ✅ Complete |
-| Medium | 0 | ~~Test infrastructure~~ ✅ Complete |
-| Low | 0 | ~~Documentation gaps~~ ✅ Complete |
+| Medium | 6 | Code quality from 2026-02-01 review |
+| Low | 4 | Performance/tooling improvements |
+| Test | 1 | TestWorker retry behavior ([#7](https://github.com/aledlie/AlephAuto/issues/7)) |
 | Organization | 0 | ~~Code cleanup~~ ✅ Complete |
-| **Total** | **0** | ✅ All items complete |
+| **Total** | **11** | 10 open, 1 with issue |
 
 ## Next Steps
 
-✅ **All high-priority items complete!**
+### Completed (2026-02-01)
+- ✅ Layer 3 semantic similarity fully implemented
+- ✅ Critical security fixes (C1-C3): input validation, race conditions, type safety
+- ✅ High priority fixes (H1-H6): config centralization, ReDoS prevention, refactoring
 
-Layer 3 semantic similarity has been fully implemented:
-- Phase 1: Language detection from file extension
-- Phase 2: Semantic annotator with operation/domain/pattern/data_type extraction
-- Phase 3: Layer 3 grouping with weighted Jaccard similarity
-- Phase 4: Comprehensive metrics calculation
+### Recommended Next Actions
+1. **T1 (Test):** Fix TestWorker retry default - quick win, unblocks 2 tests
+2. **M2 (Docs):** Add missing docstrings to grouping.py helpers
+3. **L4 (Perf):** Pre-compile regex patterns in SemanticAnnotator
+4. **M5 (Metrics):** Add semantic annotation coverage metrics
