@@ -565,53 +565,108 @@ export function expectMinimumInputs(form: HTMLElement, minCount: number) {
 `;
 }
 
+interface CategorizedStrings {
+  navigation: string[];
+  actions: string[];
+  accessibility: string[];
+  messages: string[];
+  headings: string[];
+  labels: string[];
+  misc: string[];
+}
+
+/**
+ * Categorize strings into meaningful groups based on content patterns
+ */
+function categorizeStrings(strings: string[]): CategorizedStrings {
+  const categories: CategorizedStrings = {
+    navigation: [],
+    actions: [],
+    accessibility: [],
+    messages: [],
+    headings: [],
+    labels: [],
+    misc: []
+  };
+
+  const navPatterns = /^(home|about|contact|services|portfolio|blog|faq|help|login|signup|sign up|sign in|register|logout|sign out|menu|nav)/i;
+  const actionPatterns = /^(submit|cancel|save|delete|edit|update|add|remove|create|confirm|continue|next|back|previous|send|close|open|reset|clear|apply|done)/i;
+  const a11yPatterns = /(open menu|close menu|toggle|expand|collapse|skip to|screen reader|aria|accessibility|keyboard|focus)/i;
+  const messagePatterns = /(error|success|warning|info|failed|invalid|required|please|thank you|completed|saved|deleted|updated|loading|processing)/i;
+  const headingPatterns = /^(welcome|get started|our |the |why |how |what |about us|contact us|frequently asked)/i;
+  const labelPatterns = /^(name|email|phone|address|password|username|message|subject|company|title|description|date|time|location|price|quantity|total)$/i;
+
+  for (const str of strings) {
+    const trimmed = str.trim();
+    if (!trimmed) continue;
+
+    if (navPatterns.test(trimmed)) {
+      categories.navigation.push(trimmed);
+    } else if (actionPatterns.test(trimmed)) {
+      categories.actions.push(trimmed);
+    } else if (a11yPatterns.test(trimmed)) {
+      categories.accessibility.push(trimmed);
+    } else if (messagePatterns.test(trimmed)) {
+      categories.messages.push(trimmed);
+    } else if (headingPatterns.test(trimmed)) {
+      categories.headings.push(trimmed);
+    } else if (labelPatterns.test(trimmed)) {
+      categories.labels.push(trimmed);
+    } else {
+      categories.misc.push(trimmed);
+    }
+  }
+
+  return categories;
+}
+
+/**
+ * Generate a constant export for an array of strings
+ */
+function generateArrayExport(name: string, strings: string[], comment: string): string {
+  if (strings.length === 0) return '';
+  const escaped = strings.map(s => `  '${s.replace(/'/g, "\\'")}',`).join('\n');
+  return `// ${comment}\nexport const ${name} = [\n${escaped}\n] as const;\n`;
+}
+
 /**
  * Generate the test constants file template
  */
 function generateConstantsTemplate(hardcodedStrings: string[]): string {
-  const uniqueStrings = [...new Set(hardcodedStrings)].slice(0, 20);
+  const uniqueStrings = [...new Set(hardcodedStrings)].slice(0, 50);
+  const categories = categorizeStrings(uniqueStrings);
+
+  const sections: string[] = [];
+
+  sections.push(generateArrayExport('NAV_STRINGS', categories.navigation, 'Navigation labels'));
+  sections.push(generateArrayExport('ACTION_STRINGS', categories.actions, 'Button and action labels'));
+  sections.push(generateArrayExport('A11Y_STRINGS', categories.accessibility, 'Accessibility labels'));
+  sections.push(generateArrayExport('MESSAGE_STRINGS', categories.messages, 'User-facing messages'));
+  sections.push(generateArrayExport('HEADING_STRINGS', categories.headings, 'Headings and titles'));
+  sections.push(generateArrayExport('LABEL_STRINGS', categories.labels, 'Form field labels'));
+  sections.push(generateArrayExport('MISC_STRINGS', categories.misc, 'Other extracted strings'));
+
+  const nonEmpty = sections.filter(s => s.length > 0).join('\n');
 
   return `/**
  * Test Constants
  *
  * Centralized content strings and expected data for tests.
  * Makes tests more maintainable when content changes.
+ * Auto-categorized by string content patterns.
  */
 
-// TODO: Organize these strings into meaningful groups
-export const EXTRACTED_STRINGS = [
-${uniqueStrings.map(s => `  '${s.replace(/'/g, "\\'")}',`).join('\n')}
+${nonEmpty}
+// Combined export for convenience
+export const ALL_STRINGS = [
+  ...NAV_STRINGS,
+  ...ACTION_STRINGS,
+  ...A11Y_STRINGS,
+  ...MESSAGE_STRINGS,
+  ...HEADING_STRINGS,
+  ...LABEL_STRINGS,
+  ...MISC_STRINGS,
 ] as const;
-
-// Example constant groups - customize for your project:
-
-// Navigation links
-export const NAV_LINKS = [
-  { label: 'Home', href: '/' },
-  { label: 'About', href: '#about' },
-  // Add more...
-] as const;
-
-// Company/App info
-export const APP_INFO = {
-  name: 'Your App Name',
-  email: 'contact@example.com',
-  // Add more...
-} as const;
-
-// Form field names
-export const FORM_FIELDS = {
-  name: 'name',
-  email: 'email',
-  message: 'message',
-} as const;
-
-// Accessibility labels
-export const A11Y_LABELS = {
-  openMenu: 'Open menu',
-  closeMenu: 'Close menu',
-  // Add more...
-} as const;
 `;
 }
 
