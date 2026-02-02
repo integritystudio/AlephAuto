@@ -14,7 +14,7 @@
 
 **Directory:** `/docs/architecture/`
 **Last Updated:** 2026-02-01
-**Version:** 1.8.1
+**Version:** 1.8.2
 
 ## Overview
 
@@ -103,6 +103,7 @@ This directory contains comprehensive architectural documentation for the Code C
 - Penalty calculations (multiplicative, not additive)
 - Method chain comparison
 - Levenshtein similarity with adjustments
+- Layer 3 category + tags matching for conceptual duplicates
 - Common implementation pitfalls
 
 **Use This Document When:**
@@ -144,8 +145,10 @@ This directory contains comprehensive architectural documentation for the Code C
 Layer 0: Complexity Filter   → Remove trivial code (< 3 tokens)
 Layer 1: Exact Hash Match    → Identical code (100% precision)
 Layer 2: Structural Similarity → AST-based (90%+ threshold)
-Layer 3: Semantic Similarity → Category + tags [TODO]
+Layer 3: Semantic Similarity → Category + tags (~70% precision)
 ```
+
+**Layer 3 Details:** Code blocks that fail Layer 2 structural matching can still be grouped by semantic category and tags. This catches "conceptual duplicates" - code with similar intent but different implementation (e.g., `getUserById` and `getProductById` both using `prisma.findUnique`). See [Similarity Algorithm - Layer 3](./similarity-algorithm.md#layer-3-category--tags-matching) for full documentation.
 
 ### Two-Phase Similarity
 
@@ -479,7 +482,7 @@ When updating this documentation:
 ## Document Metadata
 
 **Created:** 2025-11-17
-**Version:** 1.8.1
+**Version:** 1.8.2
 **Last Updated:** 2026-02-01
 **Maintainer:** Architecture Team
 **Review Schedule:** Quarterly or after major architectural changes

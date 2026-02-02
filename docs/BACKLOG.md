@@ -34,7 +34,7 @@ Technical debt and planned improvements extracted from codebase TODOs.
 
 | ID | Location | Description | Status |
 |----|----------|-------------|--------|
-| L1 | `docs/architecture/README.md:147` | Document Layer 3: Semantic Similarity | Pending |
+| L1 | `docs/architecture/README.md:147` | Document Layer 3: Semantic Similarity | ✅ Done |
 | L2 | `docs/architecture/README.md:470` | Create AST-Grep Rules README | ✅ Done |
 | L3 | `docs/architecture/README.md:471` | Create Pydantic Models README | ✅ Done |
 | L4 | `docs/architecture/README.md:474` | Create Test Suite Overview README | ✅ Done |
@@ -58,12 +58,11 @@ Technical debt and planned improvements extracted from codebase TODOs.
 |----------|-------|-------|
 | High | 5 | Layer 3 semantic similarity (Stages 4-7) |
 | Medium | 7 | Test infrastructure improvements |
-| Low | 1 | Documentation gaps |
+| Low | 0 | ~~Documentation gaps~~ ✅ Complete |
 | Organization | 0 | ~~Code cleanup~~ ✅ Complete |
-| **Total** | **13** | |
+| **Total** | **12** | |
 
 ## Next Steps
 
 1. **H1-H5**: Implement Layer 3 semantic similarity - core feature gap
 2. **M2-M7**: Consolidate migration transformer tests (6 similar TODOs)
-3. **L1**: Document Layer 3 Semantic Similarity in architecture README
