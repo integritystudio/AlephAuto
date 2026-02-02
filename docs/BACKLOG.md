@@ -15,7 +15,7 @@ Technical debt and planned improvements extracted from codebase TODOs.
 
 | ID | Location | Description | Status | Issue |
 |----|----------|-------------|--------|-------|
-| T1 | `tests/utils/test-utilities.js:36` | TestWorker should disable retries by default (`maxRetries: 0`) | Open | [#7](https://github.com/aledlie/AlephAuto/issues/7) |
+| T1 | `tests/utils/test-utilities.js:36` | TestWorker should disable retries by default (`maxRetries: 0`) | ✅ Done | [#7](https://github.com/aledlie/AlephAuto/issues/7) |
 
 ### Medium Priority - Code Quality
 
@@ -88,9 +88,9 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | High | 0 | ~~Layer 3 semantic similarity (Stages 4-7)~~ ✅ Complete |
 | Medium | 6 | Code quality from 2026-02-01 review |
 | Low | 4 | Performance/tooling improvements |
-| Test | 1 | TestWorker retry behavior ([#7](https://github.com/aledlie/AlephAuto/issues/7)) |
+| Test | 0 | ~~TestWorker retry behavior~~ ✅ Fixed ([#7](https://github.com/aledlie/AlephAuto/issues/7)) |
 | Organization | 0 | ~~Code cleanup~~ ✅ Complete |
-| **Total** | **11** | 10 open, 1 with issue |
+| **Total** | **10** | 10 open (medium/low priority) |
 
 ## Next Steps
 
@@ -100,7 +100,7 @@ Technical debt and planned improvements extracted from codebase TODOs.
 - ✅ High priority fixes (H1-H6): config centralization, ReDoS prevention, refactoring
 
 ### Recommended Next Actions
-1. **T1 (Test):** Fix TestWorker retry default - quick win, unblocks 2 tests
-2. **M2 (Docs):** Add missing docstrings to grouping.py helpers
-3. **L4 (Perf):** Pre-compile regex patterns in SemanticAnnotator
-4. **M5 (Metrics):** Add semantic annotation coverage metrics
+1. **M2 (Docs):** Add missing docstrings to grouping.py helpers
+2. **L4 (Perf):** Pre-compile regex patterns in SemanticAnnotator
+3. **M5 (Metrics):** Add semantic annotation coverage metrics
+4. **M1 (Code):** Standardize naming convention (annotate vs extract)
