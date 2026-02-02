@@ -300,10 +300,7 @@ describe('Activity Feed - Integration Tests', () => {
     assert(started.id > created.id, 'Started should have higher ID than created');
   });
 
-  it.skip('Scenario 7: Retry activities tracking', async () => {
-    // SKIP: SidequestServer does not currently emit retry:created events
-    // This test is skipped until retry event emission is implemented in server.js
-    // TODO: Implement retry:created event emission in SidequestServer when retrying jobs
+  it('Scenario 7: Retry activities tracking', async () => {
     const jobId = 'test-job-7';
     worker.createJob(jobId, {
       type: 'test-job',
@@ -315,8 +312,7 @@ describe('Activity Feed - Integration Tests', () => {
       attempts++;
       if (attempts === 1) {
         const error = new Error('Temporary failure');
-        error.code = 'ETIMEDOUT';
-        error.retryable = true;
+        error.code = 'ETIMEDOUT'; // Retryable network error
         throw error;
       }
       return { success: true };
@@ -324,16 +320,19 @@ describe('Activity Feed - Integration Tests', () => {
 
     worker.start();
 
-    // Wait for retry and completion
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Wait for first attempt to fail and retry:created to be emitted
+    // The retry:created event is emitted immediately, only re-queue is delayed
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     const activities = activityFeed.getRecentActivities(20);
 
     // Should have retry:created activity
     const retryActivity = activities.find(a => a.type === 'retry:created' && a.jobId === jobId);
-    assert(retryActivity, 'Should create retry activity');
+    assert(retryActivity, 'Should create retry activity when retryable error occurs');
     assert.equal(retryActivity.icon, '🔄');
     assert.equal(retryActivity.status, 'retry');
+    assert.equal(retryActivity.attempt, 1, 'Should be first retry attempt');
+    assert.equal(retryActivity.maxAttempts, 5, 'Should have max attempts from RETRY constant');
   });
 
   it('Scenario 8: Activity stats calculation', async () => {

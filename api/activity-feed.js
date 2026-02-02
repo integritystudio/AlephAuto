@@ -361,53 +361,65 @@ export class ActivityFeedManager {
       });
 
       // Retry created
-      worker.on('retry:created', (jobId, attempt, error) => {
+      worker.on('retry:created', (job, retryInfo) => {
         try {
           // Defensive: ensure required parameters exist
-          if (!jobId) {
-            logger.warn('retry:created event received with no jobId');
+          if (!job?.id) {
+            logger.warn('retry:created event received with no job');
             return;
           }
 
-          const errorMessage = safeErrorMessage(error);
-          /** @type {any} */
-          const errorAny2 = error;
-          const errorCode = errorAny2?.code;
+          const { attempt, maxAttempts, reason, delay } = retryInfo || {};
 
           this.addActivity({
             type: 'retry:created',
             event: 'Retry Scheduled',
-            message: `Job ${jobId} scheduled for retry (attempt ${attempt})`,
-            jobId,
+            message: `Job ${job.id} scheduled for retry (attempt ${attempt}/${maxAttempts})`,
+            jobId: job.id,
+            jobType: job.data?.type || 'unknown',
             attempt,
+            maxAttempts,
+            delay,
+            reason,
             status: 'retry',
-            error: {
-              message: errorMessage,
-              code: errorCode
-            },
             icon: '🔄'
           });
+
+          // Broadcast retry event for dashboard real-time updates
+          if (this.broadcaster) {
+            this.broadcaster.broadcast({
+              type: 'retry:created',
+              job: {
+                id: job.id,
+                status: job.status,
+                pipelineId: job.data?.pipelineId || worker.jobType,
+                retryCount: job.retryCount,
+                data: job.data
+              },
+              retryInfo: { attempt, maxAttempts, reason, delay }
+            }, 'jobs');
+          }
 
           // Add breadcrumb for retry
           Sentry.addBreadcrumb({
             category: 'retry',
-            message: `Job ${jobId} retry attempt ${attempt}`,
+            message: `Job ${job.id} retry attempt ${attempt}/${maxAttempts}`,
             level: 'warning',
             data: {
-              jobId,
-              attempt: attempt || 'unknown',
-              errorCode: errorCode,
-              errorMessage: errorMessage
+              jobId: job.id,
+              attempt,
+              maxAttempts,
+              reason,
+              delay
             }
           });
         } catch (activityError) {
-          logger.error({ error: activityError, jobId }, 'Failed to add retry:created activity');
+          logger.error({ error: activityError, jobId: job?.id }, 'Failed to add retry:created activity');
           Sentry.captureException(activityError, {
             tags: { component: 'ActivityFeed', event: 'retry:created' },
             extra: {
-              jobId: jobId || 'unknown',
-              attempt: attempt || 'unknown',
-              originalError: safeErrorMessage(error)
+              jobId: job?.id || 'unknown',
+              retryInfo
             }
           });
         }

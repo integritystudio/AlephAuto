@@ -22,7 +22,7 @@ Technical debt and planned improvements extracted from codebase TODOs.
 
 | ID | Location | Description | Status |
 |----|----------|-------------|--------|
-| M1 | `tests/integration/activity-feed.integration.test.js:306` | Implement retry:created event emission in SidequestServer | Pending |
+| M1 | `tests/integration/activity-feed.integration.test.js:306` | Implement retry:created event emission in SidequestServer | ✅ Done |
 | M2 | `tests/unit/migration-transformer.test.js:85` | Enhanced file detection logic for migration tests | Pending |
 | M3 | `tests/unit/migration-transformer.test.js:120` | Enhanced file detection logic for migration tests | Pending |
 | M4 | `tests/unit/migration-transformer.test.js:150` | Enhanced file detection logic for migration tests | Pending |
@@ -57,10 +57,10 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | Priority | Count | Theme |
 |----------|-------|-------|
 | High | 5 | Layer 3 semantic similarity (Stages 4-7) |
-| Medium | 7 | Test infrastructure improvements |
+| Medium | 6 | Test infrastructure improvements |
 | Low | 0 | ~~Documentation gaps~~ ✅ Complete |
 | Organization | 0 | ~~Code cleanup~~ ✅ Complete |
-| **Total** | **12** | |
+| **Total** | **11** | |
 
 ## Next Steps
 

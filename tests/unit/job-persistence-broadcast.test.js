@@ -42,7 +42,10 @@ class TestServer extends SidequestServer {
     await new Promise(resolve => setTimeout(resolve, delay));
 
     if (job.data?.shouldFail) {
-      throw new Error(job.data.errorMessage || 'Simulated failure');
+      const error = new Error(job.data.errorMessage || 'Simulated failure');
+      // Use ENOENT code to make error non-retryable (prevents retry loop in tests)
+      error.code = 'ENOENT';
+      throw error;
     }
 
     return { success: true, processedAt: new Date().toISOString() };

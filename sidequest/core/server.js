@@ -7,7 +7,8 @@ import { createComponentLogger } from '../utils/logger.js';
 import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.js';
 import { GitWorkflowManager } from './git-workflow-manager.js';
 import { jobRepository } from './job-repository.js';
-import { CONCURRENCY } from './constants.js';
+import { CONCURRENCY, RETRY } from './constants.js';
+import { isRetryable, classifyError } from '../pipeline-core/errors/error-classifier.js';
 import { toISOString } from '../utils/time-helpers.js';
 import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '../../api/types/job-status.js';
 
@@ -81,6 +82,7 @@ export class SidequestServer extends EventEmitter {
       completedAt: null,
       error: null,
       result: null,
+      retryCount: 0,
       // Git workflow metadata
       git: {
         branchName: null,
@@ -299,9 +301,58 @@ export class SidequestServer extends EventEmitter {
 
   /**
    * Finalize failed job execution
+   *
+   * Checks if error is retryable and retry count is below max.
+   * If so, re-queues the job and emits 'retry:created'.
+   * Otherwise, marks job as failed.
+   *
    * @private
    */
   async _finalizeJobFailure(job, error, branchCreated) {
+    // Check if we should retry
+    const canRetry = isRetryable(error) && job.retryCount < RETRY.MAX_ABSOLUTE_ATTEMPTS;
+
+    if (canRetry) {
+      // Increment retry count
+      job.retryCount++;
+
+      // Get retry delay from error classification
+      const classification = classifyError(error);
+      const retryDelay = classification.suggestedDelay || 5000;
+
+      logger.info({
+        jobId: job.id,
+        retryCount: job.retryCount,
+        maxRetries: RETRY.MAX_ABSOLUTE_ATTEMPTS,
+        errorCode: error?.code,
+        retryDelay
+      }, 'Scheduling job retry');
+
+      // Reset job state for retry
+      job.status = JOB_STATUS.QUEUED;
+      job.startedAt = null;
+      job.error = null;
+
+      // Emit retry event for activity feed
+      this.emit('retry:created', job, {
+        attempt: job.retryCount,
+        maxAttempts: RETRY.MAX_ABSOLUTE_ATTEMPTS,
+        reason: classification.reason,
+        delay: retryDelay
+      });
+
+      this._persistJob(job);
+
+      // Re-queue with delay
+      setTimeout(() => {
+        this.queue.push(job.id);
+        this.processQueue();
+      }, retryDelay);
+
+      return;
+    }
+
+    // No retry - mark as failed
     job.status = JOB_STATUS.FAILED;
     job.completedAt = new Date();
     job.error = safeErrorMessage(error);

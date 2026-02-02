@@ -190,106 +190,111 @@ describe('ActivityFeedManager - Error Handling', () => {
     });
   });
 
-  describe('retry:created event with various error types', () => {
-    it('should handle standard Error objects', () => {
-      const jobId = 'retry-job-1';
-      const attempt = 1;
-      const error = new Error('Retry error');
+  describe('retry:created event with various retry info', () => {
+    it('should handle retry with full retryInfo', () => {
+      const job = { id: 'retry-job-1', data: { type: 'test' } };
+      const retryInfo = {
+        attempt: 1,
+        maxAttempts: 5,
+        reason: 'Connection timed out',
+        delay: 10000
+      };
 
       assert.doesNotThrow(() => {
-        mockWorker.emit('retry:created', jobId, attempt, error);
+        mockWorker.emit('retry:created', job, retryInfo);
       });
 
       const activities = activityFeed.getRecentActivities(1);
       assert.strictEqual(activities.length, 1);
       assert.strictEqual(activities[0].type, 'retry:created');
-      assert.strictEqual(activities[0].error.message, 'Retry error');
+      assert.strictEqual(activities[0].attempt, 1);
+      assert.strictEqual(activities[0].maxAttempts, 5);
+      assert.strictEqual(activities[0].reason, 'Connection timed out');
     });
 
-    it('should handle undefined error', () => {
-      const jobId = 'retry-job-2';
-      const attempt = 2;
-      const error = undefined;
+    it('should handle retry with undefined retryInfo', () => {
+      const job = { id: 'retry-job-2', data: { type: 'test' } };
+      const retryInfo = undefined;
 
       assert.doesNotThrow(() => {
-        mockWorker.emit('retry:created', jobId, attempt, error);
-      });
-
-      const activities = activityFeed.getRecentActivities(1);
-      assert.strictEqual(activities.length, 1);
-      assert.strictEqual(activities[0].error.message, 'Unknown error');
-    });
-
-    it('should handle null error', () => {
-      const jobId = 'retry-job-3';
-      const attempt = 1;
-      const error = null;
-
-      assert.doesNotThrow(() => {
-        mockWorker.emit('retry:created', jobId, attempt, error);
-      });
-
-      const activities = activityFeed.getRecentActivities(1);
-      assert.strictEqual(activities.length, 1);
-      assert.strictEqual(activities[0].error.message, 'Unknown error');
-    });
-
-    it('should handle string error', () => {
-      const jobId = 'retry-job-4';
-      const attempt = 1;
-      const error = 'String retry error';
-
-      assert.doesNotThrow(() => {
-        mockWorker.emit('retry:created', jobId, attempt, error);
-      });
-
-      const activities = activityFeed.getRecentActivities(1);
-      assert.strictEqual(activities.length, 1);
-      assert.strictEqual(activities[0].error.message, 'String retry error');
-    });
-
-    it('should handle error with code property', () => {
-      const jobId = 'retry-job-5';
-      const attempt = 1;
-      const error = new Error('Network timeout');
-      error.code = 'ETIMEDOUT';
-
-      assert.doesNotThrow(() => {
-        mockWorker.emit('retry:created', jobId, attempt, error);
-      });
-
-      const activities = activityFeed.getRecentActivities(1);
-      assert.strictEqual(activities.length, 1);
-      assert.strictEqual(activities[0].error.code, 'ETIMEDOUT');
-      assert.strictEqual(activities[0].error.message, 'Network timeout');
-    });
-
-    it('should handle missing jobId gracefully', () => {
-      const jobId = null;
-      const attempt = 1;
-      const error = new Error('Test error');
-
-      assert.doesNotThrow(() => {
-        mockWorker.emit('retry:created', jobId, attempt, error);
-      });
-
-      // Should not add activity when jobId is missing
-      const activities = activityFeed.getRecentActivities(1);
-      assert.strictEqual(activities.length, 0);
-    });
-
-    it('should handle missing attempt number', () => {
-      const jobId = 'retry-job-6';
-      const attempt = undefined;
-      const error = new Error('Test error');
-
-      assert.doesNotThrow(() => {
-        mockWorker.emit('retry:created', jobId, attempt, error);
+        mockWorker.emit('retry:created', job, retryInfo);
       });
 
       const activities = activityFeed.getRecentActivities(1);
       assert.strictEqual(activities.length, 1);
       assert.strictEqual(activities[0].attempt, undefined);
+    });
+
+    it('should handle retry with null retryInfo', () => {
+      const job = { id: 'retry-job-3', data: { type: 'test' } };
+      const retryInfo = null;
+
+      assert.doesNotThrow(() => {
+        mockWorker.emit('retry:created', job, retryInfo);
+      });
+
+      const activities = activityFeed.getRecentActivities(1);
+      assert.strictEqual(activities.length, 1);
+      assert.strictEqual(activities[0].jobId, 'retry-job-3');
+    });
+
+    it('should handle retry with partial retryInfo', () => {
+      const job = { id: 'retry-job-4', data: { type: 'test' } };
+      const retryInfo = { attempt: 2 }; // Only attempt, missing other fields
+
+      assert.doesNotThrow(() => {
+        mockWorker.emit('retry:created', job, retryInfo);
+      });
+
+      const activities = activityFeed.getRecentActivities(1);
+      assert.strictEqual(activities.length, 1);
+      assert.strictEqual(activities[0].attempt, 2);
+      assert.strictEqual(activities[0].maxAttempts, undefined);
+    });
+
+    it('should handle retry with delay info', () => {
+      const job = { id: 'retry-job-5', data: { type: 'test' } };
+      const retryInfo = {
+        attempt: 1,
+        maxAttempts: 5,
+        reason: 'ETIMEDOUT',
+        delay: 10000
+      };
+
+      assert.doesNotThrow(() => {
+        mockWorker.emit('retry:created', job, retryInfo);
+      });
+
+      const activities = activityFeed.getRecentActivities(1);
+      assert.strictEqual(activities.length, 1);
+      assert.strictEqual(activities[0].delay, 10000);
+      assert.strictEqual(activities[0].reason, 'ETIMEDOUT');
+    });
+
+    it('should handle missing job gracefully', () => {
+      const job = null;
+      const retryInfo = { attempt: 1, maxAttempts: 5 };
+
+      assert.doesNotThrow(() => {
+        mockWorker.emit('retry:created', job, retryInfo);
+      });
+
+      // Should not add activity when job is missing
+      const activities = activityFeed.getRecentActivities(1);
+      assert.strictEqual(activities.length, 0);
+    });
+
+    it('should handle job without id gracefully', () => {
+      const job = { data: { type: 'test' } }; // Missing id
+      const retryInfo = { attempt: 1, maxAttempts: 5 };
+
+      assert.doesNotThrow(() => {
+        mockWorker.emit('retry:created', job, retryInfo);
+      });
+
+      // Should not add activity when job.id is missing
+      const activities = activityFeed.getRecentActivities(1);
+      assert.strictEqual(activities.length, 0);
     });
   });
 
@@ -852,10 +857,10 @@ describe('ActivityFeedManager - Worker Events', () => {
       mockWorker.emit('job:created', job);
       mockWorker.emit('job:started', job);
       mockWorker.emit('job:failed', job, new Error('First attempt failed'));
-      mockWorker.emit('retry:created', job.id, 1, new Error('Retrying'));
+      mockWorker.emit('retry:created', job, { attempt: 1, maxAttempts: 5, reason: 'Retrying' });
       mockWorker.emit('job:started', job);
       mockWorker.emit('job:failed', job, new Error('Second attempt failed'));
-      mockWorker.emit('retry:created', job.id, 2, new Error('Retrying again'));
+      mockWorker.emit('retry:created', job, { attempt: 2, maxAttempts: 5, reason: 'Retrying again' });
       mockWorker.emit('retry:max-attempts', job.id, 2);
 
       const activities = activityFeed.getRecentActivities(10);
