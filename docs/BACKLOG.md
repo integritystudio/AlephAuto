@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements extracted from codebase TODOs.
 
-**Last Updated:** 2026-02-01
+**Last Updated:** 2026-02-02
 
 ---
 
@@ -36,7 +36,7 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | L1 | `extractors/extract_blocks.py:275-281` | Verbose debug logging - extract to logging helper | ✅ Done |
 | L2 | Python files | Missing `.pyi` type stubs for IDE support | Open |
 | L3 | Layer 3 semantic annotation | No timing/performance metrics collected | Open |
-| L4 | `semantic_annotator.py:350-352` | Regex patterns compiled on every `annotate()` call - should pre-compile | ✅ Done |
+| L4 | `semantic_annotator.py:350-352` | Regex patterns compiled on every `extract_annotation()` call - should pre-compile | ✅ Done |
 
 ---
 
@@ -98,8 +98,15 @@ Technical debt and planned improvements extracted from codebase TODOs.
 - ✅ Layer 3 semantic similarity fully implemented
 - ✅ Critical security fixes (C1-C3): input validation, race conditions, type safety
 - ✅ High priority fixes (H1-H6): config centralization, ReDoS prevention, refactoring
-- ✅ M1-M6: All medium priority items complete (naming, docstrings, metrics, errors, patterns, tests)
-- ✅ L1: Debug logging cleanup
+
+### Completed (2026-02-02)
+- ✅ M1: Renamed `annotate()` → `extract_annotation()` for naming consistency
+- ✅ M2: Added docstrings to grouping.py helpers
+- ✅ M3: Added Q2-2026 timeline markers to skipped tests
+- ✅ M4: Consolidated duplicate auth patterns
+- ✅ M5: Added semantic annotation coverage metrics
+- ✅ M6: Added context to error messages
+- ✅ L1: Removed redundant DEBUG checks
 
 ### Recommended Next Actions
 1. **L2 (Tooling):** Generate .pyi type stubs for Python files
