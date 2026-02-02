@@ -343,7 +343,7 @@ def deduplicate_blocks(blocks: list[CodeBlock]) -> list[CodeBlock]:
     for i, block in enumerate(blocks):
         function_name = _get_function_name_from_tags(block.tags)
 
-        if DEBUG and i < 10:
+        if i < 10:
             _debug(f"dedup block {i}: {block.location.file_path}:{block.location.line_start}, func={function_name}")
 
         if function_name:
@@ -402,13 +402,13 @@ def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> L
 
     blocks = []
     for i, match in enumerate(pattern_matches):
-        if DEBUG and i == 0:
+        if i == 0:
             _debug(f"first match: file_path={match.get('file_path')}, line_start={match.get('line_start')}")
 
         try:
             block = _create_code_block(match, repository_info)
 
-            if DEBUG and i < 3:
+            if i < 3:
                 _debug(f"block created: file={block.relative_path}, line={block.location.line_start}, tags={block.tags}")
 
             blocks.append(block)
