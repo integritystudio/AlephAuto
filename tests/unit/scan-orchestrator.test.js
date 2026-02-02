@@ -173,16 +173,16 @@ describe('ScanOrchestrator', () => {
     });
   });
 
-  describe('_validatePython', () => {
-    it('should skip validation if already validated', () => {
+  describe('_detectPythonPath', () => {
+    it('should skip detection if already validated', () => {
       const orchestrator = new ScanOrchestrator({
         pythonPath: '/usr/bin/python3'
       });
 
       orchestrator._pythonValidated = true;
 
-      // Should not throw
-      assert.doesNotThrow(() => orchestrator._validatePython());
+      // Should not throw and should return early
+      assert.doesNotThrow(() => orchestrator._detectPythonPath());
     });
 
     it('should set validated flag when pythonPath is provided', () => {
@@ -190,7 +190,7 @@ describe('ScanOrchestrator', () => {
         pythonPath: '/usr/bin/python3'
       });
 
-      orchestrator._validatePython();
+      orchestrator._detectPythonPath();
 
       assert.strictEqual(orchestrator._pythonValidated, true);
     });

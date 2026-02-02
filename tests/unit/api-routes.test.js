@@ -114,11 +114,11 @@ describe('API Routes', () => {
           .send({});
 
         assert.strictEqual(response.status, 400);
-        assert.strictEqual(response.body.error, 'Bad Request');
-        // Validation middleware returns errors in errors array with field names
+        assert.strictEqual(response.body.error.code, 'INVALID_REQUEST');
+        // Validation middleware returns errors in error.details.errors array with field names
         assert.ok(
-          response.body.message.includes('repositoryPath') ||
-          (response.body.errors && response.body.errors.some(e => e.field === 'repositoryPath')),
+          response.body.error.message.includes('repositoryPath') ||
+          (response.body.error.details?.errors?.some(e => e.field === 'repositoryPath')),
           'Error should mention repositoryPath field'
         );
       });
@@ -156,7 +156,7 @@ describe('API Routes', () => {
           .send({});
 
         assert.strictEqual(response.status, 400);
-        assert.ok(response.body.message.includes('repositoryPaths'));
+        assert.ok(response.body.error.message.includes('repositoryPaths'));
       });
 
       test('should reject request with single repository', async () => {
@@ -167,7 +167,7 @@ describe('API Routes', () => {
           });
 
         assert.strictEqual(response.status, 400);
-        assert.ok(response.body.message.includes('at least 2 repositories'));
+        assert.ok(response.body.error.message.includes('at least 2 repositories'));
       });
 
       test('should accept valid multi-repo scan request', async () => {
@@ -305,7 +305,8 @@ describe('API Routes', () => {
 
       assert.strictEqual(response.status, 400);
       assert.ok(response.body.error);
-      assert.ok(response.body.message);
+      assert.ok(response.body.error.code);
+      assert.ok(response.body.error.message);
       assert.ok(response.body.timestamp);
     });
   });
@@ -431,7 +432,7 @@ describe('API Routes', () => {
 
         // 404 if reports dir exists but file doesn't, 500 if dir doesn't exist (CI)
         if (response.status === 404) {
-          assert.strictEqual(response.body.error, 'Not Found');
+          assert.strictEqual(response.body.error.code, 'NOT_FOUND');
         } else {
           assert.strictEqual(response.status, 500);
         }
@@ -488,7 +489,7 @@ describe('API Routes', () => {
           .delete('/api/reports/non-existent-report-xyz.html');
 
         assert.strictEqual(response.status, 404);
-        assert.strictEqual(response.body.error, 'Not Found');
+        assert.strictEqual(response.body.error.code, 'NOT_FOUND');
       });
     });
 
@@ -499,8 +500,8 @@ describe('API Routes', () => {
 
         // 404 if reports dir exists but summary not found, 500 if dir doesn't exist
         if (response.status === 404) {
-          assert.strictEqual(response.body.error, 'Not Found');
-          assert.ok(response.body.message.includes('Summary not found'));
+          assert.strictEqual(response.body.error.code, 'NOT_FOUND');
+          assert.ok(response.body.error.message.includes('Summary not found'));
         } else {
           assert.strictEqual(response.status, 500);
         }
@@ -559,8 +560,8 @@ describe('API Routes', () => {
           .get('/api/repositories/non-existent-repo-xyz');
 
         assert.strictEqual(response.status, 404);
-        assert.strictEqual(response.body.error, 'Not Found');
-        assert.ok(response.body.message.includes('not found'));
+        assert.strictEqual(response.body.error.code, 'NOT_FOUND');
+        assert.ok(response.body.error.message.includes('not found'));
       });
 
       test('should return repository details when found', async () => {
@@ -587,7 +588,7 @@ describe('API Routes', () => {
           .send({});
 
         assert.strictEqual(response.status, 404);
-        assert.strictEqual(response.body.error, 'Not Found');
+        assert.strictEqual(response.body.error.code, 'NOT_FOUND');
       });
 
       test('should trigger scan for existing repository', async () => {
@@ -615,7 +616,7 @@ describe('API Routes', () => {
           .get('/api/repositories/non-existent-repo-xyz/cache');
 
         assert.strictEqual(response.status, 404);
-        assert.strictEqual(response.body.error, 'Not Found');
+        assert.strictEqual(response.body.error.code, 'NOT_FOUND');
       });
 
       test('should return cache status for existing repository', async () => {
@@ -640,7 +641,7 @@ describe('API Routes', () => {
           .delete('/api/repositories/non-existent-repo-xyz/cache');
 
         assert.strictEqual(response.status, 404);
-        assert.strictEqual(response.body.error, 'Not Found');
+        assert.strictEqual(response.body.error.code, 'NOT_FOUND');
       });
 
       test('should invalidate cache for existing repository', async () => {
@@ -687,8 +688,8 @@ describe('API Routes', () => {
           .get('/api/repositories/groups/non-existent-group-xyz');
 
         assert.strictEqual(response.status, 404);
-        assert.strictEqual(response.body.error, 'Not Found');
-        assert.ok(response.body.message.includes('not found'));
+        assert.strictEqual(response.body.error.code, 'NOT_FOUND');
+        assert.ok(response.body.error.message.includes('not found'));
       });
 
       test('should return group details when found', async () => {

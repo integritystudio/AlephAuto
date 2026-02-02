@@ -298,11 +298,11 @@ describe('Database bulkImportJobs validation', () => {
     const validIds = [
       `simple-${Date.now()}`,
       `with_underscore_${Date.now()}`,
-      `with.period.${Date.now()}`,
+      `with-hyphen-${Date.now()}`,
       `UUID-like-a1b2c3d4-${Date.now()}`,
     ];
 
-    const result = bulkImportJobs(
+    const result = await bulkImportJobs(
       validIds.map(id => ({ id, status: 'completed' }))
     );
 
