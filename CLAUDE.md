@@ -16,7 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | Task | Command |
 |------|---------|
-| Run duplicate detection | `doppler run -- RUN_ON_STARTUP=true node sidequest/pipeline-runners/duplicate-detection-pipeline.js` |
+| Run duplicate detection | `RUN_ON_STARTUP=true doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js` |
 | Test routes | `npm run test:integration` |
 | Dashboard | `npm run dashboard` → http://localhost:8080 |
 | Deploy | `./scripts/deploy-traditional-server.sh --update` |
