@@ -9,12 +9,12 @@ Technical debt and planned improvements extracted from codebase TODOs.
 ## Logging DRY Utilities (2026-02-03)
 
 > **Source:** Logging DRY refactoring session
-> **Commits:** `8a5b601`, `cbb99c3`, `cb3c532`, `e0da404`
-> **Review Score:** 9/10 maintainability
+> **Commits:** `8a5b601`, `cbb99c3`, `cb3c532`, `e0da404`, `e0af94d`, `2aed025`
+> **Review Score:** 9.8/10 maintainability
 
 ### Completed
 - ✅ Added `logStage`, `logMetrics`, `logRetry` utilities to logger.js
-- ✅ Adopted `logStart` across 18 production files
+- ✅ Adopted `logStart` across 20 production files
 - ✅ Adopted `logStage` across 4 pipeline files (12 stage logs)
 - ✅ Adopted `logRetry` across 2 retry-handling files
 
@@ -140,7 +140,7 @@ Technical debt and planned improvements extracted from codebase TODOs.
 
 ### Completed (2026-02-03)
 - ✅ Added `logStage`, `logMetrics`, `logRetry` utilities
-- ✅ Adopted `logStart` across 18 files (pipeline-runners, workers, scanners, API, scripts)
+- ✅ Adopted `logStart` across 20 files (pipeline-runners, workers, scanners, API, scripts, bug-fixes)
 - ✅ Adopted `logStage` across 4 files (12 stage log statements)
 - ✅ Adopted `logRetry` across 2 files (retry handling)
 
