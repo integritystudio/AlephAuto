@@ -2,7 +2,34 @@
 
 Technical debt and planned improvements extracted from codebase TODOs.
 
-**Last Updated:** 2026-02-02
+**Last Updated:** 2026-02-03
+
+---
+
+## Logging DRY Utilities (2026-02-03)
+
+> **Source:** Logging DRY refactoring session
+> **Commits:** `8a5b601`, `cbb99c3`, `cb3c532`, `e0da404`
+> **Review Score:** 9/10 maintainability
+
+### Completed
+- ✅ Added `logStage`, `logMetrics`, `logRetry` utilities to logger.js
+- ✅ Adopted `logStart` across 18 production files
+- ✅ Adopted `logStage` across 4 pipeline files (12 stage logs)
+- ✅ Adopted `logRetry` across 2 retry-handling files
+
+### Low Priority - Remaining Opportunities
+
+| ID | Location | Description | Status |
+|----|----------|-------------|--------|
+| LOG1 | `sidequest/utils/logger.js:125` | `logMetrics` utility created but not yet adopted - reserve for future metrics logging | Deferred |
+| LOG2 | `api/routes/jobs.js:377` | Misleading message `'Retrying job'` - should be `logStart(logger, 'job retry', {...})` since it's user-initiated, not automatic retry | Open |
+| LOG3 | `sidequest/bug-fixes/index.js:77` | `'Starting automated bugfix audit'` pattern could use `logStart` for consistency | Open |
+
+### Notes
+- Test files intentionally not refactored (keep magic strings for clarity)
+- Example files (`doppler-resilience.example.js`) not refactored
+- Scanners using `this.logger` injected pattern not refactored (different logging architecture)
 
 ---
 
@@ -87,10 +114,11 @@ Technical debt and planned improvements extracted from codebase TODOs.
 |----------|-------|-------|
 | High | 0 | ~~Layer 3 semantic similarity (Stages 4-7)~~ ✅ Complete |
 | Medium | 0 | ~~Code quality from 2026-02-01 review~~ ✅ Complete |
-| Low | 0 | ~~L2 (type stubs), L3 (timing metrics)~~ ✅ Complete |
+| Low | 2 | Logging DRY adoption (LOG2, LOG3) |
+| Deferred | 1 | `logMetrics` utility adoption (LOG1) |
 | Test | 0 | ~~TestWorker retry behavior~~ ✅ Fixed ([#7](https://github.com/aledlie/AlephAuto/issues/7)) |
 | Organization | 0 | ~~Code cleanup~~ ✅ Complete |
-| **Total** | **0** | All items complete |
+| **Total** | **3** | 2 low priority, 1 deferred |
 
 ## Next Steps
 
@@ -110,7 +138,14 @@ Technical debt and planned improvements extracted from codebase TODOs.
 - ✅ L2: Added 14 .pyi type stubs + py.typed marker for IDE support
 - ✅ L3: Added timing metrics to Layer 3 (SemanticAnnotator + grouping.py)
 
+### Completed (2026-02-03)
+- ✅ Added `logStage`, `logMetrics`, `logRetry` utilities
+- ✅ Adopted `logStart` across 18 files (pipeline-runners, workers, scanners, API, scripts)
+- ✅ Adopted `logStage` across 4 files (12 stage log statements)
+- ✅ Adopted `logRetry` across 2 files (retry handling)
+
 ### Recommended Next Actions
-All backlog items complete. Consider:
-1. Run full pipeline with `PIPELINE_DEBUG=1` to verify timing output
-2. Test type hints in IDE (hover over CodeBlock, SemanticAnnotator, etc.)
+Low priority remaining items:
+1. **LOG2**: Fix misleading API route message in `api/routes/jobs.js:377`
+2. **LOG3**: Apply `logStart` to `sidequest/bug-fixes/index.js:77`
+3. **LOG1**: Adopt `logMetrics` when metrics logging patterns emerge
