@@ -5,7 +5,7 @@
 #
 # Note: This hook works standalone without husky.sh dependency
 
-echo "🔍 Running pre-commit checks..."
+echo "[pre-commit] Running checks..."
 
 # Auto-sync Cloudflare tunnel files if needed
 echo "Syncing Cloudflare tunnel files..."
@@ -14,14 +14,14 @@ SYNC_STATUS=$?
 
 if [ $SYNC_STATUS -ne 0 ]; then
   echo ""
-  echo "❌ Cloudflare tunnel sync failed!"
+  echo "FAILED: Cloudflare tunnel sync failed!"
   echo "$SYNC_OUTPUT"
   exit 1
 fi
 
 # Check if any files were synced (not already in sync)
 if echo "$SYNC_OUTPUT" | grep -q "SYNCED:"; then
-  echo "📦 Auto-synced Cloudflare tunnel files, staging them..."
+  echo "Auto-synced Cloudflare tunnel files, staging them..."
   # Stage the synced destination files
   git add api/routes/routes/*.js api/routes/middleware/*.js 2>/dev/null || true
 fi
@@ -32,7 +32,7 @@ EVAL_FILES=$(git diff --cached --name-only --diff-filter=ACMR | xargs grep -l "e
 
 if [ -n "$EVAL_FILES" ]; then
   echo ""
-  echo "❌ Pre-commit validation failed!"
+  echo "FAILED: Pre-commit validation failed!"
   echo "Dangerous eval() usage detected in staged files:"
   echo ""
   for file in $EVAL_FILES; do
@@ -56,7 +56,7 @@ npm run test:validate-paths
 
 if [ $? -ne 0 ]; then
   echo ""
-  echo "❌ Pre-commit validation failed!"
+  echo "FAILED: Pre-commit validation failed!"
   echo "Fix hardcoded paths in test files before committing."
   echo ""
   echo "Run 'npm run test:validate-paths' to see issues."
@@ -74,14 +74,14 @@ for file in api/server.js sidequest/pipeline-runners/*.js; do
   if [ -f "$file" ]; then
     # Check executable permissions
     if [ ! -x "$file" ]; then
-      echo "❌ Missing executable permission: $file"
+      echo "FAILED: Missing executable permission: $file"
       MISSING_EXEC=1
     fi
 
     # Check shebang
     FIRST_LINE=$(head -n 1 "$file")
     if [ "$FIRST_LINE" != "#!/usr/bin/env node" ]; then
-      echo "❌ Missing or incorrect shebang in: $file"
+      echo "FAILED: Missing or incorrect shebang in: $file"
       echo "   Expected: #!/usr/bin/env node"
       echo "   Found: $FIRST_LINE"
       MISSING_SHEBANG=1
@@ -91,7 +91,7 @@ done
 
 if [ $MISSING_EXEC -eq 1 ]; then
   echo ""
-  echo "❌ Pre-commit validation failed!"
+  echo "FAILED: Pre-commit validation failed!"
   echo "Pipeline files must be executable for PM2/Doppler to run them."
   echo ""
   echo "Fix with: chmod +x api/server.js sidequest/pipeline-runners/*.js"
@@ -101,7 +101,7 @@ fi
 
 if [ $MISSING_SHEBANG -eq 1 ]; then
   echo ""
-  echo "❌ Pre-commit validation failed!"
+  echo "FAILED: Pre-commit validation failed!"
   echo "All pipeline runner files must have shebang: #!/usr/bin/env node"
   echo ""
   echo "This ensures they can be executed directly by Doppler/PM2."
@@ -109,5 +109,5 @@ if [ $MISSING_SHEBANG -eq 1 ]; then
   exit 1
 fi
 
-echo "✅ All pre-commit checks passed!"
+echo "OK: All pre-commit checks passed!"
 exit 0
