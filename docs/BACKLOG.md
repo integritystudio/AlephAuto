@@ -23,8 +23,8 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | ID | Location | Description | Status |
 |----|----------|-------------|--------|
 | LOG1 | `sidequest/utils/logger.js:125` | `logMetrics` utility created but not yet adopted - reserve for future metrics logging | Deferred |
-| LOG2 | `api/routes/jobs.js:377` | Misleading message `'Retrying job'` - should be `logStart(logger, 'job retry', {...})` since it's user-initiated, not automatic retry | Open |
-| LOG3 | `sidequest/bug-fixes/index.js:77` | `'Starting automated bugfix audit'` pattern could use `logStart` for consistency | Open |
+| LOG2 | `api/routes/jobs.js:377` | Misleading message `'Retrying job'` - should be `logStart(logger, 'job retry', {...})` since it's user-initiated, not automatic retry | ✅ Done |
+| LOG3 | `sidequest/bug-fixes/index.js:77` | `'Starting automated bugfix audit'` pattern could use `logStart` for consistency | ✅ Done |
 
 ### Notes
 - Test files intentionally not refactored (keep magic strings for clarity)
@@ -114,11 +114,11 @@ Technical debt and planned improvements extracted from codebase TODOs.
 |----------|-------|-------|
 | High | 0 | ~~Layer 3 semantic similarity (Stages 4-7)~~ ✅ Complete |
 | Medium | 0 | ~~Code quality from 2026-02-01 review~~ ✅ Complete |
-| Low | 2 | Logging DRY adoption (LOG2, LOG3) |
+| Low | 0 | ~~Logging DRY adoption (LOG2, LOG3)~~ ✅ Complete |
 | Deferred | 1 | `logMetrics` utility adoption (LOG1) |
 | Test | 0 | ~~TestWorker retry behavior~~ ✅ Fixed ([#7](https://github.com/aledlie/AlephAuto/issues/7)) |
 | Organization | 0 | ~~Code cleanup~~ ✅ Complete |
-| **Total** | **3** | 2 low priority, 1 deferred |
+| **Total** | **1** | 1 deferred |
 
 ## Next Steps
 
@@ -144,8 +144,10 @@ Technical debt and planned improvements extracted from codebase TODOs.
 - ✅ Adopted `logStage` across 4 files (12 stage log statements)
 - ✅ Adopted `logRetry` across 2 files (retry handling)
 
+### Completed (2026-02-03 - Session 2)
+- ✅ LOG2: Fixed misleading API route message in `api/routes/jobs.js:377` → `logStart`
+- ✅ LOG3: Applied `logStart` to `sidequest/bug-fixes/index.js:77`
+
 ### Recommended Next Actions
-Low priority remaining items:
-1. **LOG2**: Fix misleading API route message in `api/routes/jobs.js:377`
-2. **LOG3**: Apply `logStart` to `sidequest/bug-fixes/index.js:77`
-3. **LOG1**: Adopt `logMetrics` when metrics logging patterns emerge
+Deferred items (adopt when patterns emerge):
+1. **LOG1**: Adopt `logMetrics` when metrics logging patterns emerge
