@@ -14,7 +14,7 @@ import { fileURLToPath } from 'url';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from './config.js';
 import { isValidJobStatus } from '../../api/types/job-status.js';
-import { VALIDATION } from './constants.js';
+import { VALIDATION, RETRY, LIMITS } from './constants.js';
 import * as Sentry from '@sentry/node';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -33,7 +33,7 @@ const MAX_PERSIST_FAILURES = 5;
 let isDegradedMode = false;
 let recoveryAttempts = 0;
 const MAX_RECOVERY_ATTEMPTS = 10;
-const BASE_RECOVERY_DELAY_MS = 5000; // 5 seconds
+const BASE_RECOVERY_DELAY_MS = RETRY.DATABASE_RECOVERY_BASE_MS;
 let recoveryTimer = null;
 
 // Write queue for retry during degraded mode
@@ -187,7 +187,7 @@ function _scheduleRecovery() {
   }
 
   // Exponential backoff: 5s, 10s, 20s, 40s, 80s, 160s (capped at ~5 min)
-  const delay = Math.min(BASE_RECOVERY_DELAY_MS * Math.pow(2, recoveryAttempts), 300000);
+  const delay = Math.min(BASE_RECOVERY_DELAY_MS * Math.pow(2, recoveryAttempts), RETRY.DATABASE_RECOVERY_MAX_MS);
 
   logger.info({
     attempt: recoveryAttempts + 1,
@@ -268,7 +268,7 @@ function _attemptRecovery() {
  * Maximum write queue size to prevent unbounded memory growth
  * @private
  */
-const MAX_WRITE_QUEUE_SIZE = 10000;
+const MAX_WRITE_QUEUE_SIZE = LIMITS.MAX_WRITE_QUEUE_SIZE;
 
 /**
  * Process queued writes after recovery

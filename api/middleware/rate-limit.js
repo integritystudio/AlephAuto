@@ -6,6 +6,7 @@
 
 import rateLimit from 'express-rate-limit';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { RATE_LIMIT } from '../../sidequest/core/constants.js';
 
 const logger = createComponentLogger('RateLimiter');
 
@@ -14,7 +15,7 @@ const logger = createComponentLogger('RateLimiter');
  * Higher limit for dashboard UI that makes multiple parallel requests
  */
 export const rateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: RATE_LIMIT.STANDARD_WINDOW_MS,
   max: 500, // Limit each IP to 500 requests per window (increased for dashboard)
   message: {
     error: 'Too Many Requests',
@@ -55,7 +56,7 @@ export const rateLimiter = rateLimit({
  */
 const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
 const strictLimitMax = isDevelopment ? 100 : 10;
-const strictLimitWindow = 60 * 60 * 1000; // 1 hour
+const strictLimitWindow = RATE_LIMIT.STRICT_WINDOW_MS;
 
 export const strictRateLimiter = rateLimit({
   windowMs: strictLimitWindow,
@@ -87,7 +88,7 @@ export const strictRateLimiter = rateLimit({
  * Prevents DoS via expensive bulk database operations
  */
 export const bulkImportRateLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
+  windowMs: RATE_LIMIT.STRICT_WINDOW_MS,
   max: isDevelopment ? 50 : 5, // 5 in production, 50 in dev/test
   message: {
     error: 'Too Many Requests',

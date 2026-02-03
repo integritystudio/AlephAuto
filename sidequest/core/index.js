@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { RepomixWorker } from '../workers/repomix-worker.js';
 import { DirectoryScanner } from '../utils/directory-scanner.js';
 import { config } from './config.js';
+import { TIMEOUTS, TIME } from './constants.js';
 import path from 'path';
 import fs from 'fs/promises';
 import { createComponentLogger, logError } from '../utils/logger.js';
@@ -100,7 +101,7 @@ class RepomixCronApp {
       const stats = this.worker.getStats();
 
       logger.info({
-        durationSeconds: Math.round(duration / 1000),
+        durationSeconds: Math.round(duration / TIME.SECOND),
         totalJobs: stats.total,
         completed: stats.completed,
         failed: stats.failed
@@ -126,7 +127,7 @@ class RepomixCronApp {
           clearInterval(checkInterval);
           resolve();
         }
-      }, 1000);
+      }, TIMEOUTS.POLL_INTERVAL_MS);
     });
   }
 

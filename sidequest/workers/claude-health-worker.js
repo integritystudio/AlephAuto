@@ -16,6 +16,7 @@
 
 import { SidequestServer } from '../core/server.js';
 import { config } from '../core/config.js';
+import { TIMEOUTS } from '../core/constants.js';
 import { createComponentLogger, logError, logWarn, logStart } from '../utils/logger.js';
 import { generateReport } from '../utils/report-generator.js';
 import { exec } from 'child_process';
@@ -44,7 +45,7 @@ class ClaudeHealthWorker extends SidequestServer {
     this.thresholds = {
       maxPlugins: 30,
       warnPlugins: 20,
-      maxHookExecutionTime: 1000, // ms
+      maxHookExecutionTime: TIMEOUTS.POLL_INTERVAL_MS, // Max hook execution time
       minDiskSpace: 1024 * 1024 * 100, // 100MB
       maxLogSize: 1024 * 1024 * 10 // 10MB
     };

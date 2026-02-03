@@ -169,7 +169,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
   async _handleRetry(job, error) {
     const scanConfig = this.configLoader.getScanConfig();
     const maxRetries = scanConfig.retryAttempts || 0;
-    const baseDelay = scanConfig.retryDelay || 60000;
+    const baseDelay = scanConfig.retryDelay || RETRY.RATE_LIMIT_DELAY_MS;
 
     // Get original job ID to track retries correctly
     const originalJobId = this._getOriginalJobId(job.id);

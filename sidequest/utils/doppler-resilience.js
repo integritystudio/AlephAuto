@@ -22,6 +22,7 @@
  */
 
 import { createComponentLogger, logError } from './logger.js';
+import { TIMEOUTS, RETRY, CACHE } from '../core/constants.js';
 import Sentry from '@sentry/node';
 import fs from 'fs/promises';
 import path from 'path';
@@ -41,11 +42,11 @@ export class DopplerResilience {
     // Circuit breaker configuration
     this.failureThreshold = options.failureThreshold || 3; // Open circuit after N failures
     this.successThreshold = options.successThreshold || 2; // Close circuit after N successes in HALF_OPEN
-    this.timeout = options.timeout || 5000; // 5s timeout before attempting HALF_OPEN
-    this.maxBackoffMs = options.maxBackoffMs || 10000; // 10s max backoff
+    this.timeout = options.timeout || TIMEOUTS.SHORT_MS; // Timeout before attempting HALF_OPEN
+    this.maxBackoffMs = options.maxBackoffMs || RETRY.MAX_BACKOFF_MS;
 
     // Exponential backoff configuration
-    this.baseDelayMs = options.baseDelayMs || 1000; // Start with 1s
+    this.baseDelayMs = options.baseDelayMs || RETRY.BASE_BACKOFF_MS;
     this.backoffMultiplier = options.backoffMultiplier || 2; // Double each retry
 
     // State tracking
@@ -178,7 +179,7 @@ export class DopplerResilience {
     if (!this.cacheLoadedAt) return true;
 
     const cacheAgeMs = Date.now() - this.cacheLoadedAt;
-    const staleThresholdMs = 5 * 60 * 1000; // 5 minutes
+    const staleThresholdMs = CACHE.STALE_THRESHOLD_MS;
 
     return cacheAgeMs > staleThresholdMs;
   }

@@ -15,6 +15,7 @@ import { TestRefactorWorker } from '../workers/test-refactor-worker.js';
 import { DirectoryScanner } from '../utils/directory-scanner.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../core/config.js';
+import { TIMEOUTS } from '../core/constants.js';
 import cron from 'node-cron';
 import path from 'path';
 
@@ -180,7 +181,7 @@ function waitForCompletion(worker: TestRefactorWorker): Promise<void> {
       if (stats.queued === 0 && stats.active === 0) {
         resolve();
       } else {
-        setTimeout(checkCompletion, 1000);
+        setTimeout(checkCompletion, TIMEOUTS.POLL_INTERVAL_MS);
       }
     };
     checkCompletion();

@@ -19,6 +19,7 @@ import {
 } from '../types/scan-requests.js';
 import { getJobs } from '../../sidequest/core/database.js';
 import { JOB_STATUS } from '../types/job-status.js';
+import { PAGINATION } from '../../sidequest/core/constants.js';
 import path from 'path';
 
 const router = express.Router();
@@ -150,14 +151,14 @@ router.get('/:scanId/results', async (req, res, next) => {
 
     // Query database for the scan job
     // First try duplicate-detection pipeline (most scans)
-    let jobs = getJobs('duplicate-detection', { limit: 1000 });
+    let jobs = getJobs('duplicate-detection', { limit: PAGINATION.MAX_LIMIT });
     let job = jobs.find(j => j.id === scanId);
 
     // If not found, check all pipeline types in the database
     if (!job) {
       const allPipelines = ['repomix', 'schema-enhancement', 'git-activity', 'gitignore-manager', 'plugin-manager', 'claude-health'];
       for (const pipelineId of allPipelines) {
-        jobs = getJobs(pipelineId, { limit: 1000 });
+        jobs = getJobs(pipelineId, { limit: PAGINATION.MAX_LIMIT });
         job = jobs.find(j => j.id === scanId);
         if (job) break;
       }

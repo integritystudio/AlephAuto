@@ -28,6 +28,7 @@ import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.j
 import { PRCreator } from '../pipeline-core/git/pr-creator.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../core/config.js';
+import { TIMEOUTS, RETRY } from '../core/constants.js';
 import { isRetryable, getErrorInfo } from '../pipeline-core/errors/error-classifier.js';
 import * as cron from 'node-cron';
 import * as path from 'path';
@@ -388,7 +389,7 @@ class DuplicateDetectionWorker extends SidequestServer {
   private async _handleRetry(job: Job, error: Error): Promise<boolean> {
     const scanConfig = this.configLoader.getScanConfig();
     const maxRetries = scanConfig.retryAttempts || 0;
-    const baseDelay = scanConfig.retryDelay || 60000;
+    const baseDelay = scanConfig.retryDelay || RETRY.RATE_LIMIT_DELAY_MS;
 
     // Get original job ID to track retries correctly
     const originalJobId = this._getOriginalJobId(job.id);
@@ -961,7 +962,7 @@ async function main(): Promise<void> {
       // The cron scheduler keeps the event loop active, but we add this as a safeguard
       setInterval(() => {
         logger.debug('Worker keep-alive heartbeat');
-      }, 300000); // 5 minutes
+      }, TIMEOUTS.FIVE_MINUTES_MS);
     } else {
       console.log('▶️  Running scan immediately (RUN_ON_STARTUP=true)\n');
       await worker.runNightlyScan();

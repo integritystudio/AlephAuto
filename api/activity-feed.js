@@ -27,6 +27,7 @@
  */
 
 import { createComponentLogger, logError } from '../sidequest/utils/logger.js';
+import { TIMEOUTS, TIME } from '../sidequest/core/constants.js';
 import * as Sentry from '@sentry/node';
 import { safeErrorMessage, toErrorObject } from '../sidequest/pipeline-core/utils/error-helpers.js';
 
@@ -122,8 +123,8 @@ export class ActivityFeedManager {
    */
   getStats() {
     const now = Date.now();
-    const oneHourAgo = now - (60 * 60 * 1000);
-    const oneDayAgo = now - (24 * 60 * 60 * 1000);
+    const oneHourAgo = now - TIMEOUTS.ONE_HOUR_MS;
+    const oneDayAgo = now - TIMEOUTS.ONE_DAY_MS;
 
     const recentActivities = {
       lastHour: 0,
@@ -242,7 +243,7 @@ export class ActivityFeedManager {
           if (!durationSeconds && job.startedAt && job.completedAt) {
             const startTime = job.startedAt instanceof Date ? job.startedAt : new Date(job.startedAt);
             const endTime = job.completedAt instanceof Date ? job.completedAt : new Date(job.completedAt);
-            durationSeconds = (endTime.getTime() - startTime.getTime()) / 1000;
+            durationSeconds = (endTime.getTime() - startTime.getTime()) / TIME.SECOND;
           }
 
           const duration = durationSeconds != null

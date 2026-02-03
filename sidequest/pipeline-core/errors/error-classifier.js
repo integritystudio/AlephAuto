@@ -17,6 +17,7 @@
  */
 
 // @ts-check
+import { RETRY } from '../../core/constants.js';
 /** @typedef {import('./types').HTTPError} HTTPError */
 /** @typedef {import('./types').ClassifiedError} ClassifiedError */
 /** @typedef {import('./error-types').ExtendedError} ExtendedError */
@@ -75,13 +76,13 @@ const ERROR_CODE_CONFIG = {
   // -------------------------------------------------------------------------
   // Network errors - transient (retryable)
   // -------------------------------------------------------------------------
-  ETIMEDOUT: { retryable: true, description: 'Connection timed out', delay: 10000, group: 'network' },
-  ECONNRESET: { retryable: true, description: 'Connection reset by peer', delay: 5000, group: 'network' },
-  EHOSTUNREACH: { retryable: true, description: 'Host unreachable', delay: 5000, group: 'network' },
-  ENETUNREACH: { retryable: true, description: 'Network unreachable', delay: 5000, group: 'network' },
-  EPIPE: { retryable: true, description: 'Broken pipe', delay: 5000, group: 'network' },
-  EAGAIN: { retryable: true, description: 'Resource temporarily unavailable', delay: 5000, group: 'network' },
-  EBUSY: { retryable: true, description: 'Resource busy', delay: 5000, group: 'network' },
+  ETIMEDOUT: { retryable: true, description: 'Connection timed out', delay: RETRY.SERVER_ERROR_DELAY_MS, group: 'network' },
+  ECONNRESET: { retryable: true, description: 'Connection reset by peer', delay: RETRY.NETWORK_ERROR_DELAY_MS, group: 'network' },
+  EHOSTUNREACH: { retryable: true, description: 'Host unreachable', delay: RETRY.NETWORK_ERROR_DELAY_MS, group: 'network' },
+  ENETUNREACH: { retryable: true, description: 'Network unreachable', delay: RETRY.NETWORK_ERROR_DELAY_MS, group: 'network' },
+  EPIPE: { retryable: true, description: 'Broken pipe', delay: RETRY.NETWORK_ERROR_DELAY_MS, group: 'network' },
+  EAGAIN: { retryable: true, description: 'Resource temporarily unavailable', delay: RETRY.NETWORK_ERROR_DELAY_MS, group: 'network' },
+  EBUSY: { retryable: true, description: 'Resource busy', delay: RETRY.NETWORK_ERROR_DELAY_MS, group: 'network' },
 
   // -------------------------------------------------------------------------
   // Application errors (non-retryable)
@@ -106,10 +107,10 @@ const ERROR_CODE_CONFIG = {
   // -------------------------------------------------------------------------
   // HTTP error codes (retryable server errors)
   // -------------------------------------------------------------------------
-  ERR_HTTP_500: { retryable: true, description: 'Internal Server Error', delay: 10000, group: 'http' },
-  ERR_HTTP_502: { retryable: true, description: 'Bad Gateway', delay: 10000, group: 'http' },
-  ERR_HTTP_503: { retryable: true, description: 'Service Unavailable', delay: 10000, group: 'http' },
-  ERR_HTTP_504: { retryable: true, description: 'Gateway Timeout', delay: 10000, group: 'http' }
+  ERR_HTTP_500: { retryable: true, description: 'Internal Server Error', delay: RETRY.SERVER_ERROR_DELAY_MS, group: 'http' },
+  ERR_HTTP_502: { retryable: true, description: 'Bad Gateway', delay: RETRY.SERVER_ERROR_DELAY_MS, group: 'http' },
+  ERR_HTTP_503: { retryable: true, description: 'Service Unavailable', delay: RETRY.SERVER_ERROR_DELAY_MS, group: 'http' },
+  ERR_HTTP_504: { retryable: true, description: 'Gateway Timeout', delay: RETRY.SERVER_ERROR_DELAY_MS, group: 'http' }
 };
 
 // =============================================================================
@@ -122,7 +123,7 @@ const ERROR_CODE_CONFIG = {
 const HTTP_STATUS_CONFIG = {
   /** Rate limit status code - retryable with long delay */
   RATE_LIMIT: 429,
-  RATE_LIMIT_DELAY: 60000,
+  RATE_LIMIT_DELAY: RETRY.RATE_LIMIT_DELAY_MS,
 
   /** Client error range (4xx) - non-retryable except 429 */
   CLIENT_ERROR_MIN: 400,
@@ -131,7 +132,7 @@ const HTTP_STATUS_CONFIG = {
   /** Server error range (5xx) - retryable */
   SERVER_ERROR_MIN: 500,
   SERVER_ERROR_MAX: 599,
-  SERVER_ERROR_DELAY: 10000
+  SERVER_ERROR_DELAY: RETRY.SERVER_ERROR_DELAY_MS
 };
 
 // =============================================================================
@@ -167,14 +168,14 @@ const MESSAGE_PATTERNS = [
   { pattern: 'schema error', retryable: false, delay: 0 },
 
   // Retryable patterns
-  { pattern: 'rate limit', retryable: true, delay: 60000 },
-  { pattern: 'too many requests', retryable: true, delay: 60000 },
-  { pattern: 'timeout', retryable: true, delay: 5000 },
-  { pattern: 'timed out', retryable: true, delay: 5000 },
-  { pattern: 'connection reset', retryable: true, delay: 5000 },
-  { pattern: 'service unavailable', retryable: true, delay: 5000 },
-  { pattern: 'temporarily unavailable', retryable: true, delay: 5000 },
-  { pattern: 'try again', retryable: true, delay: 5000 }
+  { pattern: 'rate limit', retryable: true, delay: RETRY.RATE_LIMIT_DELAY_MS },
+  { pattern: 'too many requests', retryable: true, delay: RETRY.RATE_LIMIT_DELAY_MS },
+  { pattern: 'timeout', retryable: true, delay: RETRY.NETWORK_ERROR_DELAY_MS },
+  { pattern: 'timed out', retryable: true, delay: RETRY.NETWORK_ERROR_DELAY_MS },
+  { pattern: 'connection reset', retryable: true, delay: RETRY.NETWORK_ERROR_DELAY_MS },
+  { pattern: 'service unavailable', retryable: true, delay: RETRY.NETWORK_ERROR_DELAY_MS },
+  { pattern: 'temporarily unavailable', retryable: true, delay: RETRY.NETWORK_ERROR_DELAY_MS },
+  { pattern: 'try again', retryable: true, delay: RETRY.NETWORK_ERROR_DELAY_MS }
 ];
 
 // =============================================================================
@@ -188,7 +189,7 @@ const MESSAGE_PATTERNS = [
 const DEFAULT_CLASSIFICATION = {
   category: ErrorCategory.RETRYABLE,
   reason: 'Unknown error type - defaulting to retryable',
-  suggestedDelay: 5000
+  suggestedDelay: RETRY.DEFAULT_DELAY_MS
 };
 
 /**

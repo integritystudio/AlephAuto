@@ -3,6 +3,7 @@
 import cron from 'node-cron';
 import { PluginManagerWorker } from '../utils/plugin-manager.js';
 import { config } from '../core/config.js';
+import { TIMEOUTS } from '../core/constants.js';
 import { createComponentLogger, logError } from '../utils/logger.js';
 
 const logger = createComponentLogger('PluginPipeline');
@@ -138,7 +139,7 @@ class PluginManagementPipeline {
           clearInterval(checkInterval);
           resolve();
         }
-      }, 1000);
+      }, TIMEOUTS.POLL_INTERVAL_MS);
     });
   }
 

@@ -19,7 +19,7 @@ import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 import { createComponentLogger, logError } from '../sidequest/utils/logger.js';
 import { config } from '../sidequest/core/config.js';
-import { CONCURRENCY } from '../sidequest/core/constants.js';
+import { CONCURRENCY, PORT } from '../sidequest/core/constants.js';
 import { authMiddleware } from './middleware/auth.js';
 import { rateLimiter } from './middleware/rate-limit.js';
 import { errorHandler } from './middleware/error-handler.js';
@@ -393,7 +393,7 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
 
     // Setup graceful shutdown handlers
     setupGracefulShutdown(httpServer, {
-      timeout: 10000,
+      timeout: PORT.DEFAULT_SHUTDOWN_TIMEOUT_MS,
       onShutdown: async (signal) => {
         logger.info({ signal }, 'Running custom shutdown handlers');
 

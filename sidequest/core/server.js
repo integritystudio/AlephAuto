@@ -322,7 +322,7 @@ export class SidequestServer extends EventEmitter {
 
       // Get retry delay from error classification (H2 fix: use optional chaining)
       const classification = classifyError(error);
-      const retryDelay = classification?.suggestedDelay ?? 5000;
+      const retryDelay = classification?.suggestedDelay ?? RETRY.DEFAULT_DELAY_MS;
 
       logger.info({
         jobId: job.id,

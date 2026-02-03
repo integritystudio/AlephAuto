@@ -6,6 +6,8 @@
  * @module sidequest/utils/time-helpers
  */
 
+import { TIME } from '../core/constants.js';
+
 /**
  * Normalize a value to ISO string format
  *
@@ -45,7 +47,7 @@ export function calculateDurationSeconds(startTime, endTime) {
 
   if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
 
-  return Math.round((end.getTime() - start.getTime()) / 1000);
+  return Math.round((end.getTime() - start.getTime()) / TIME.SECOND);
 }
 
 /**

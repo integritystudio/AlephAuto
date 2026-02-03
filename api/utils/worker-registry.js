@@ -17,13 +17,13 @@ import { RepoCleanupWorker } from '../../sidequest/workers/repo-cleanup-worker.j
 import { config } from '../../sidequest/core/config.js';
 import { createComponentLogger, logError } from '../../sidequest/utils/logger.js';
 import { jobRepository } from '../../sidequest/core/job-repository.js';
-import { CONCURRENCY } from '../../sidequest/core/constants.js';
+import { CONCURRENCY, TIMEOUTS, TIME, WORKER_COOLDOWN } from '../../sidequest/core/constants.js';
 
 /**
- * Worker initialization timeout in milliseconds (30 seconds)
+ * Worker initialization timeout
  * Prevents indefinite hangs if a worker's constructor or initialize() method blocks
  */
-const WORKER_INIT_TIMEOUT_MS = 30000;
+const WORKER_INIT_TIMEOUT_MS = TIMEOUTS.WORKER_INIT_MS;
 
 const logger = createComponentLogger('WorkerRegistry');
 
@@ -169,11 +169,11 @@ class WorkerRegistry {
     if (failureInfo && failureInfo.count >= 3) {
       // Exponential backoff: 1min, 2min, 4min, 8min (capped at 10min)
       const cooldownAttempts = failureInfo.cooldownAttempts || 0;
-      const cooldownMs = Math.min(60000 * Math.pow(2, cooldownAttempts), 600000);
+      const cooldownMs = Math.min(WORKER_COOLDOWN.BASE_MS * Math.pow(2, cooldownAttempts), WORKER_COOLDOWN.MAX_MS);
       const timeSinceLastAttempt = Date.now() - failureInfo.lastAttempt;
 
       if (timeSinceLastAttempt < cooldownMs) {
-        throw new Error(`${pipelineId} worker initialization is in cooldown after ${failureInfo.count} failures. Retry in ${Math.ceil((cooldownMs - timeSinceLastAttempt) / 1000)}s`);
+        throw new Error(`${pipelineId} worker initialization is in cooldown after ${failureInfo.count} failures. Retry in ${Math.ceil((cooldownMs - timeSinceLastAttempt) / TIME.SECOND)}s`);
       }
 
       // Half-open state: allow ONE attempt, don't fully reset

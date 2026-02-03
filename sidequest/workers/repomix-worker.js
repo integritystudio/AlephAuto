@@ -8,6 +8,7 @@ import path from 'path';
 import os from 'os';
 import { createComponentLogger, logError } from '../utils/logger.js';
 import { config } from '../core/config.js';
+import { TIMEOUTS, LIMITS } from '../core/constants.js';
 
 const logger = createComponentLogger('RepomixWorker');
 
@@ -59,7 +60,7 @@ export class RepomixWorker extends SidequestServer {
     try {
       execSync('npx repomix --version', {
         stdio: 'ignore',
-        timeout: 30000, // 30 seconds - allow time during heavy system load
+        timeout: TIMEOUTS.LONG_MS, // Allow time during heavy system load
         env: process.env, // Inherit full PATH from parent
       });
       logger.info('Pre-flight check: repomix is available');
@@ -200,7 +201,7 @@ export class RepomixWorker extends SidequestServer {
 
       const proc = spawn('npx', args, {
         cwd,
-        timeout: 600000, // 10 minute timeout
+        timeout: TIMEOUTS.REPOMIX_MS,
         maxBuffer: 50 * 1024 * 1024, // 50MB buffer
         env: process.env, // Inherit full PATH from parent to locate npx
       });
@@ -217,8 +218,8 @@ export class RepomixWorker extends SidequestServer {
             code,
             cwd,
             args,
-            stdout: stdout.slice(-1000),
-            stderr: stderr.slice(-1000)
+            stdout: stdout.slice(-LIMITS.MAX_OUTPUT_CHARS),
+            stderr: stderr.slice(-LIMITS.MAX_OUTPUT_CHARS)
           }, `repomix exited with code ${code}`);
 
           const error = new Error(

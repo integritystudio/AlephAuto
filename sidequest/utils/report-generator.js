@@ -20,6 +20,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { createComponentLogger, logError } from './logger.js';
+import { TIME } from '../core/constants.js';
 
 const logger = createComponentLogger('ReportGenerator');
 
@@ -132,7 +133,7 @@ function generateHTMLReport(data) {
     timestamp
   } = data;
 
-  const duration = endTime && startTime ? ((endTime - startTime) / 1000).toFixed(2) : 'N/A';
+  const duration = endTime && startTime ? ((endTime - startTime) / TIME.SECOND).toFixed(2) : 'N/A';
   const title = getJobTypeTitle(jobType);
   const statusClass = status === 'completed' ? 'success' : status === 'failed' ? 'error' : 'warning';
 
@@ -183,7 +184,7 @@ function generateJSONReport(data) {
       id: jobId,
       type: jobType,
       status,
-      duration_seconds: endTime && startTime ? (endTime - startTime) / 1000 : null,
+      duration_seconds: endTime && startTime ? (endTime - startTime) / TIME.SECOND : null,
       started_at: startTime ? new Date(startTime).toISOString() : null,
       completed_at: endTime ? new Date(endTime).toISOString() : null
     },

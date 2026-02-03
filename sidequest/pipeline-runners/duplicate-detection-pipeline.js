@@ -23,6 +23,7 @@
 import { DuplicateDetectionWorker } from '../workers/duplicate-detection-worker.js';
 import { createComponentLogger, logError } from '../utils/logger.js';
 import { config } from '../core/config.js';
+import { TIMEOUTS } from '../core/constants.js';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
 
@@ -207,7 +208,7 @@ async function main() {
       // The cron scheduler keeps the event loop active, but we add this as a safeguard
       setInterval(() => {
         logger.debug('Worker keep-alive heartbeat');
-      }, 300000); // 5 minutes
+      }, TIMEOUTS.FIVE_MINUTES_MS);
 
       // Graceful shutdown handlers
       process.on('SIGTERM', () => {
@@ -233,7 +234,7 @@ async function main() {
               clearInterval(checkInterval);
               resolve();
             }
-          }, 1000);
+          }, TIMEOUTS.POLL_INTERVAL_MS);
         });
       };
 

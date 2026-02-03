@@ -9,6 +9,7 @@
 
 import { WebSocketServer } from 'ws';
 import { createComponentLogger, logError } from '../sidequest/utils/logger.js';
+import { WEBSOCKET } from '../sidequest/core/constants.js';
 import crypto from 'crypto';
 
 const logger = createComponentLogger('WebSocketServer');
@@ -85,7 +86,7 @@ export function createWebSocketServer(httpServer) {
       } else {
         clearInterval(heartbeat);
       }
-    }, 30000); // 30 seconds
+    }, WEBSOCKET.HEARTBEAT_INTERVAL_MS);
 
     ws.on('pong', () => {
       logger.debug({ clientId }, 'Heartbeat received');

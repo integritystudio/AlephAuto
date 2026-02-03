@@ -6,6 +6,8 @@
  * @module lib/utils/timing-helpers
  */
 
+import { TIME } from '../../core/constants.js';
+
 /**
  * Creates a timer for measuring operation duration
  *
@@ -21,7 +23,7 @@ export function createTimer() {
 
   return {
     /** Returns elapsed time in seconds */
-    elapsed: () => (Date.now() - startTime) / 1000,
+    elapsed: () => (Date.now() - startTime) / TIME.SECOND,
 
     /** Returns elapsed time in milliseconds */
     elapsedMs: () => Date.now() - startTime,
@@ -29,9 +31,9 @@ export function createTimer() {
     /** Returns formatted elapsed time string */
     elapsedFormatted: () => {
       const ms = Date.now() - startTime;
-      if (ms < 1000) return `${ms}ms`;
-      if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`;
-      return `${(ms / 60000).toFixed(2)}m`;
+      if (ms < TIME.SECOND) return `${ms}ms`;
+      if (ms < TIME.MINUTE) return `${(ms / TIME.SECOND).toFixed(2)}s`;
+      return `${(ms / TIME.MINUTE).toFixed(2)}m`;
     }
   };
 }
@@ -58,7 +60,7 @@ export async function withTiming(fn, label) {
   return {
     result,
     durationMs,
-    durationSec: durationMs / 1000
+    durationSec: durationMs / TIME.SECOND
   };
 }
 

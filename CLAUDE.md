@@ -88,10 +88,14 @@ import { saveJob } from './sidequest/core/database.js';  // Wrong - use reposito
 
 ### 8. Constants: No Magic Numbers
 ```javascript
-import { TIMEOUTS, RETRY, CONCURRENCY } from './sidequest/core/constants.js';
+import { TIMEOUTS, RETRY, CONCURRENCY, TIME, CACHE } from './sidequest/core/constants.js';
 const timeout = TIMEOUTS.PYTHON_PIPELINE_MS;     // Correct (600000ms)
 const timeout = 600000;                           // Wrong - magic number
+const oneDay = TIME.DAY;                          // Correct (86400000ms)
+const oneDay = 24 * 60 * 60 * 1000;               // Wrong - magic expression
 ```
+
+Available constant groups: `TIMEOUTS`, `RETRY`, `CONCURRENCY`, `PAGINATION`, `VALIDATION`, `PORT`, `CACHE`, `WEBSOCKET`, `WORKER_COOLDOWN`, `RATE_LIMIT`, `LIMITS`, `TIME`
 
 ### 9. Git Operations: Use GitWorkflowManager
 ```javascript
@@ -243,4 +247,6 @@ Pino-based logging. Import from `@shared/logging`.
 
 ---
 
-**Version:** 1.8.2 | **Updated:** 2026-02-03 | **Status:** Production Ready
+**Version:** 1.8.3 | **Updated:** 2026-02-03 | **Status:** Production Ready
+
+See `docs/SESSION_HISTORY.md` for development session logs.

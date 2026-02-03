@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { SchemaEnhancementWorker } from '../workers/schema-enhancement-worker.js';
 import { config } from '../core/config.js';
+import { TIMEOUTS } from '../core/constants.js';
 import { createComponentLogger, logError } from '../utils/logger.js';
 import cron from 'node-cron';
 import fs from 'fs/promises';
@@ -222,7 +223,7 @@ class SchemaEnhancementPipeline {
           clearInterval(checkInterval);
           resolve();
         }
-      }, 1000);
+      }, TIMEOUTS.POLL_INTERVAL_MS);
     });
   }
 

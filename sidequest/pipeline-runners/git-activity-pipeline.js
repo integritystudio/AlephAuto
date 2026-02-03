@@ -2,6 +2,7 @@
 import cron from 'node-cron';
 import { GitActivityWorker } from '../workers/git-activity-worker.js';
 import { config } from '../core/config.js';
+import { TIMEOUTS } from '../core/constants.js';
 import { createComponentLogger, logError } from '../utils/logger.js';
 
 const logger = createComponentLogger('GitActivityPipeline');
@@ -120,7 +121,7 @@ class GitActivityPipeline {
           clearInterval(checkInterval);
           resolve();
         }
-      }, 1000);
+      }, TIMEOUTS.POLL_INTERVAL_MS);
     });
   }
 

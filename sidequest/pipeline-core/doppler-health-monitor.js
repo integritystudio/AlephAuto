@@ -14,6 +14,7 @@
  */
 
 import { createComponentLogger, logError } from '../utils/logger.js';
+import { CACHE, TIME } from '../core/constants.js';
 import Sentry from '@sentry/node';
 import fs from 'fs/promises';
 import path from 'path';
@@ -28,10 +29,10 @@ export class DopplerHealthMonitor {
     this.cacheDir = options.cacheDir || path.join(os.homedir(), '.doppler', 'fallback');
 
     // Max cache age before triggering alerts (default: 24 hours)
-    this.maxCacheAge = options.maxCacheAge || 24 * 60 * 60 * 1000;
+    this.maxCacheAge = options.maxCacheAge || CACHE.MAX_AGE_MS;
 
     // Warning threshold (default: 12 hours)
-    this.warningThreshold = options.warningThreshold || 12 * 60 * 60 * 1000;
+    this.warningThreshold = options.warningThreshold || CACHE.WARNING_THRESHOLD_MS;
 
     this.monitoringInterval = null;
   }
@@ -82,8 +83,8 @@ export class DopplerHealthMonitor {
       }
 
       const cacheAge = Date.now() - newestMtime;
-      const cacheAgeHours = Math.floor(cacheAge / (60 * 60 * 1000));
-      const cacheAgeMinutes = Math.floor((cacheAge % (60 * 60 * 1000)) / (60 * 1000));
+      const cacheAgeHours = Math.floor(cacheAge / TIME.HOUR);
+      const cacheAgeMinutes = Math.floor((cacheAge % (60 * 60 * 1000)) / TIME.MINUTE);
 
       const status = {
         healthy: cacheAge <= this.maxCacheAge,
@@ -111,7 +112,7 @@ export class DopplerHealthMonitor {
             cacheAgeHours,
             cacheAgeMinutes,
             lastModified: new Date(newestMtime).toISOString(),
-            threshold: this.maxCacheAge / (60 * 60 * 1000),
+            threshold: this.maxCacheAge / TIME.HOUR,
             newestFile,
             fileCount: secretFiles.length
           },
@@ -133,7 +134,7 @@ export class DopplerHealthMonitor {
             cacheAgeHours,
             cacheAgeMinutes,
             lastModified: new Date(newestMtime).toISOString(),
-            threshold: this.warningThreshold / (60 * 60 * 1000),
+            threshold: this.warningThreshold / TIME.HOUR,
             newestFile,
             fileCount: secretFiles.length
           },
@@ -216,8 +217,8 @@ export class DopplerHealthMonitor {
 
     logger.info({
       intervalMinutes,
-      maxCacheAgeHours: this.maxCacheAge / (60 * 60 * 1000),
-      warningThresholdHours: this.warningThreshold / (60 * 60 * 1000)
+      maxCacheAgeHours: this.maxCacheAge / TIME.HOUR,
+      warningThresholdHours: this.warningThreshold / TIME.HOUR
     }, 'Starting Doppler health monitoring');
 
     // Initial check
@@ -227,7 +228,7 @@ export class DopplerHealthMonitor {
     // Periodic checks
     this.monitoringInterval = setInterval(async () => {
       await this.checkCacheHealth();
-    }, intervalMinutes * 60 * 1000);
+    }, intervalMinutes * TIME.MINUTE);
 
     return initialHealth;
   }

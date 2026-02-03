@@ -9,6 +9,7 @@
 
 import { execSync } from 'child_process';
 import { createComponentLogger } from './logger.js';
+import { TIMEOUTS } from '../core/constants.js';
 
 const logger = createComponentLogger('DependencyValidator');
 
@@ -66,7 +67,7 @@ export class DependencyValidator {
     try {
       execSync('npx repomix --version', {
         stdio: 'ignore',
-        timeout: 30000,
+        timeout: TIMEOUTS.DEPENDENCY_CHECK_MS,
         env: process.env
       });
       logger.debug('repomix validation passed');
@@ -88,7 +89,7 @@ export class DependencyValidator {
     try {
       execSync('sg --version', {
         stdio: 'ignore',
-        timeout: 5000
+        timeout: TIMEOUTS.VERSION_CHECK_MS
       });
       logger.debug('ast-grep validation passed (global binary)');
       return;
@@ -100,7 +101,7 @@ export class DependencyValidator {
     try {
       execSync('npx @ast-grep/cli --version', {
         stdio: 'ignore',
-        timeout: 30000,
+        timeout: TIMEOUTS.DEPENDENCY_CHECK_MS,
         env: process.env
       });
       logger.debug('ast-grep validation passed (via npx)');
@@ -129,7 +130,7 @@ export class DependencyValidator {
       try {
         const version = execSync(`${pythonPath} --version`, {
           encoding: 'utf-8',
-          timeout: 5000
+          timeout: TIMEOUTS.VERSION_CHECK_MS
         });
 
         const match = version.match(/Python (\d+)\.(\d+)/);

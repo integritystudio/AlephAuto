@@ -7,6 +7,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { createComponentLogger } from '../utils/logger.js';
+import { TIMEOUTS, TIME } from '../core/constants.js';
 
 const logger = createComponentLogger('GitActivityWorker');
 
@@ -178,7 +179,7 @@ export class GitActivityWorker extends SidequestServer {
 
       const proc = spawn('python3', [this.pythonScript, ...args], {
         cwd: path.dirname(this.pythonScript),
-        timeout: 300000, // 5 minute timeout
+        timeout: TIMEOUTS.GIT_REPORT_MS,
         maxBuffer: 10 * 1024 * 1024, // 10MB buffer
       });
 
@@ -286,7 +287,7 @@ export class GitActivityWorker extends SidequestServer {
     const since = new Date(sinceDate);
     const until = new Date(untilDate);
     const diffTime = Math.abs(until - since);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.ceil(diffTime / TIME.DAY);
 
     return diffDays;
   }
