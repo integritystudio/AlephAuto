@@ -4,7 +4,7 @@ import { BugfixAuditWorker } from './bugfix-audit-worker.js';
 import { config } from '../core/config.js';
 import path from 'path';
 import fs from 'fs/promises';
-import { createComponentLogger, logError } from '../utils/logger.js';
+import { createComponentLogger, logError, logStart } from '../utils/logger.js';
 
 const logger = createComponentLogger('BugfixAuditApp');
 
@@ -74,7 +74,7 @@ class BugfixAuditApp {
    * Run bug fix audit on all active projects
    */
   async runBugfixAudit() {
-    logger.info({ timestamp: new Date().toISOString() }, 'Starting automated bugfix audit');
+    logStart(logger, 'automated bugfix audit', { timestamp: new Date().toISOString() });
 
     const startTime = Date.now();
 
