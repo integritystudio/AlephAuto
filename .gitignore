@@ -58,3 +58,4 @@ coverage/
 
 # Schema cache (generated)
 .schema_cache/
+.claude/tsc-cache/
