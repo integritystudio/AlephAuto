@@ -7,18 +7,23 @@
 
 echo "🔍 Running pre-commit checks..."
 
-# Check Cloudflare tunnel files are in sync
-echo "Checking Cloudflare tunnel files sync..."
-node scripts/sync-cloudflare-tunnel-files.js --check-only
+# Auto-sync Cloudflare tunnel files if needed
+echo "Syncing Cloudflare tunnel files..."
+SYNC_OUTPUT=$(node scripts/sync-cloudflare-tunnel-files.js 2>&1)
+SYNC_STATUS=$?
 
-if [ $? -ne 0 ]; then
+if [ $SYNC_STATUS -ne 0 ]; then
   echo ""
-  echo "❌ Pre-commit validation failed!"
-  echo "Cloudflare tunnel files are out of sync."
-  echo ""
-  echo "Run 'node scripts/sync-cloudflare-tunnel-files.js' to sync them."
-  echo ""
+  echo "❌ Cloudflare tunnel sync failed!"
+  echo "$SYNC_OUTPUT"
   exit 1
+fi
+
+# Check if any files were synced (not already in sync)
+if echo "$SYNC_OUTPUT" | grep -q "SYNCED:"; then
+  echo "📦 Auto-synced Cloudflare tunnel files, staging them..."
+  # Stage the synced destination files
+  git add api/routes/routes/*.js api/routes/middleware/*.js 2>/dev/null || true
 fi
 
 # Check for dangerous eval() usage (CWE-95 security vulnerability)
