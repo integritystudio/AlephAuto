@@ -17,7 +17,7 @@
 // @ts-check
 /** @typedef {import('../errors/error-types').ProcessError} ProcessError */
 
-import { spawn } from 'child_process';
+import { runCommand } from '@shared/process-io';
 import { createComponentLogger } from '../../utils/logger.js';
 import * as Sentry from '@sentry/node';
 
@@ -483,35 +483,6 @@ export class BranchManager {
    * @private
    */
   async _runCommand(cwd, command, args) {
-    return new Promise((resolve, reject) => {
-      const proc = spawn(command, args, { cwd });
-
-      let stdout = '';
-      let stderr = '';
-
-      proc.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      proc.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      proc.on('close', (code) => {
-        if (code === 0) {
-          resolve(stdout.trim());
-        } else {
-          const error = /** @type {ProcessError} */ (new Error(`Command failed: ${command} ${args.join(' ')}\n${stderr}`));
-          error.code = code;
-          error.stdout = stdout;
-          error.stderr = stderr;
-          reject(error);
-        }
-      });
-
-      proc.on('error', (error) => {
-        reject(error);
-      });
-    });
+    return runCommand(cwd, command, args);
   }
 }

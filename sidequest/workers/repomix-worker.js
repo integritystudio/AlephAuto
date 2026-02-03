@@ -1,12 +1,12 @@
 // @ts-nocheck
 import { SidequestServer } from '../core/server.js';
 import { generateReport } from '../utils/report-generator.js';
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
+import { captureProcessOutput } from '@shared/process-io';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { createComponentLogger } from '../utils/logger.js';
-import { execSync } from 'child_process';
 import { config } from '../core/config.js';
 
 const logger = createComponentLogger('RepomixWorker');
@@ -205,18 +205,11 @@ export class RepomixWorker extends SidequestServer {
         env: process.env, // Inherit full PATH from parent to locate npx
       });
 
-      let stdout = '';
-      let stderr = '';
-
-      proc.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      proc.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
+      const output = captureProcessOutput(proc);
 
       proc.on('close', (code) => {
+        const stdout = output.getStdout();
+        const stderr = output.getStderr();
         if (code === 0) {
           resolve({ stdout, stderr });
         } else {
@@ -241,6 +234,8 @@ export class RepomixWorker extends SidequestServer {
       });
 
       proc.on('error', (spawnError) => {
+        const stdout = output.getStdout();
+        const stderr = output.getStderr();
         // Enhance error message for common spawn failures
         let enhancedError = spawnError;
         if (spawnError.syscall === 'uv_cwd' || spawnError.syscall === 'spawn') {

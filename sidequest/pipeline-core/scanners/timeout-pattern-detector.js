@@ -16,6 +16,7 @@
 /** @typedef {import('../errors/error-types').NodeError} NodeError */
 
 import { spawn } from 'child_process';
+import { captureProcessOutput } from '@shared/process-io';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -314,18 +315,11 @@ useEffect(() => {
         timeout: 30000 // 30 second timeout
       });
 
-      let stdout = '';
-      let stderr = '';
-
-      proc.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      proc.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
+      const output = captureProcessOutput(proc);
 
       proc.on('close', (code) => {
+        const stdout = output.getStdout();
+        const stderr = output.getStderr();
         if (code === 0 || code === null) {
           try {
             const results = stdout.trim() ? JSON.parse(stdout) : [];

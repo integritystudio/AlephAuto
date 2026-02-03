@@ -29,6 +29,9 @@ importers:
       '@shared/logging':
         specifier: workspace:*
         version: link:packages/shared-logging
+      '@shared/process-io':
+        specifier: workspace:*
+        version: link:packages/shared-process-io
       better-sqlite3:
         specifier: ^12.6.2
         version: 12.6.2
@@ -115,6 +118,8 @@ importers:
       pino-pretty:
         specifier: ^11.0.0
         version: 11.3.0
+
+  packages/shared-process-io: {}
 
 packages:
 

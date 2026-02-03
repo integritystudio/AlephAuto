@@ -1,0 +1,18 @@
+{
+  "name": "@shared/process-io",
+  "version": "1.0.0",
+  "description": "Shared process I/O utilities for spawning child processes with output capture",
+  "type": "module",
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.js",
+      "types": "./src/index.d.ts"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "license": "MIT"
+}

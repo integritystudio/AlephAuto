@@ -2,6 +2,7 @@
 import { SidequestServer } from '../core/server.js';
 import { generateReport } from '../utils/report-generator.js';
 import { spawn } from 'child_process';
+import { captureProcessOutput } from '@shared/process-io';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -181,18 +182,11 @@ export class GitActivityWorker extends SidequestServer {
         maxBuffer: 10 * 1024 * 1024, // 10MB buffer
       });
 
-      let stdout = '';
-      let stderr = '';
-
-      proc.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      proc.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
+      const output = captureProcessOutput(proc);
 
       proc.on('close', (code) => {
+        const stdout = output.getStdout();
+        const stderr = output.getStderr();
         if (code === 0) {
           // Extract output files from stdout if present
           const outputFiles = this.#extractOutputFiles(stdout);
@@ -207,8 +201,8 @@ export class GitActivityWorker extends SidequestServer {
       });
 
       proc.on('error', (error) => {
-        error.stdout = stdout;
-        error.stderr = stderr;
+        error.stdout = output.getStdout();
+        error.stderr = output.getStderr();
         reject(error);
       });
     });

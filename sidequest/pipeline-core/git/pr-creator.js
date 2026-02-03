@@ -16,7 +16,7 @@
 // @ts-check
 /** @typedef {import('../errors/error-types').ProcessError} ProcessError */
 
-import { spawn } from 'child_process';
+import { runCommand } from '@shared/process-io';
 import fs from 'fs/promises';
 import path from 'path';
 import { createComponentLogger } from '../../utils/logger.js';
@@ -321,36 +321,7 @@ export class PRCreator {
    * @private
    */
   async _runGitCommand(cwd, args) {
-    return new Promise((resolve, reject) => {
-      const proc = spawn('git', args, { cwd });
-
-      let stdout = '';
-      let stderr = '';
-
-      proc.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      proc.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      proc.on('close', (code) => {
-        if (code === 0) {
-          resolve(stdout.trim());
-        } else {
-          const error = /** @type {ProcessError} */ (new Error(`Git command failed: git ${args.join(' ')}`));
-          error.code = code;
-          error.stdout = stdout;
-          error.stderr = stderr;
-          reject(error);
-        }
-      });
-
-      proc.on('error', (error) => {
-        reject(error);
-      });
-    });
+    return runCommand(cwd, 'git', args);
   }
 
   /**
@@ -364,45 +335,14 @@ export class PRCreator {
    * @private
    */
   async _createPR(cwd, branch, title, body) {
-    return new Promise((resolve, reject) => {
-      const proc = spawn('gh', [
-        'pr',
-        'create',
-        '--title', title,
-        '--body', body,
-        '--base', this.baseBranch,
-        '--head', branch
-      ], { cwd });
-
-      let stdout = '';
-      let stderr = '';
-
-      proc.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      proc.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      proc.on('close', (code) => {
-        if (code === 0) {
-          // gh CLI returns the PR URL in stdout
-          const prUrl = stdout.trim();
-          resolve(prUrl);
-        } else {
-          const error = /** @type {ProcessError} */ (new Error(`Failed to create PR: ${stderr}`));
-          error.code = code;
-          error.stdout = stdout;
-          error.stderr = stderr;
-          reject(error);
-        }
-      });
-
-      proc.on('error', (error) => {
-        reject(error);
-      });
-    });
+    return runCommand(cwd, 'gh', [
+      'pr',
+      'create',
+      '--title', title,
+      '--body', body,
+      '--base', this.baseBranch,
+      '--head', branch
+    ]);
   }
 
   /**
