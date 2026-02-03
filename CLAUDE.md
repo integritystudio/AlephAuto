@@ -183,6 +183,9 @@ doppler setup --project bottleneck --config prd   # Production
 │   ├── types/             # Zod schemas (job-status.ts, etc.)
 │   ├── utils/             # Worker registry, port manager
 │   └── middleware/        # Validation
+├── packages/              # Shared workspace packages
+│   ├── shared-logging/    # @shared/logging - Pino logger utilities
+│   └── shared-process-io/ # @shared/process-io - Child process utilities
 ├── sidequest/             # Job queue framework
 │   ├── core/              # server.js, job-repository.js, git-workflow-manager.js, constants.js
 │   ├── workers/           # Worker implementations
@@ -207,6 +210,7 @@ doppler setup --project bottleneck --config prd   # Production
 | Port manager | `api/utils/port-manager.js` |
 | API error utilities | `api/utils/api-error.js` |
 | Test helpers | `tests/fixtures/test-helpers.js` |
+| Process I/O utilities | `packages/shared-process-io/src/index.js` |
 
 ## Documentation
 
@@ -217,6 +221,18 @@ doppler setup --project bottleneck --config prd   # Production
 - `docs/architecture/TYPE_SYSTEM.md` - Zod + TypeScript patterns
 - `docs/runbooks/pipeline-execution.md` - Pipeline execution patterns, PM2/Doppler
 - `docs/runbooks/troubleshooting.md` - Debugging guide
+- `docs/SESSION_HISTORY.md` - Development session log
+
+## Shared Packages
+
+### @shared/process-io
+Child process execution utilities. Import from `@shared/process-io`:
+- `captureProcessOutput(proc)` - Capture stdout/stderr from ChildProcess
+- `execCommand(cmd, args, opts)` - Execute with full result (stdout, stderr, code)
+- `runCommand(cwd, cmd, args)` - Simple API returning trimmed stdout
+
+### @shared/logging
+Pino-based logging. Import from `@shared/logging`.
 
 ## Contributing
 
@@ -227,4 +243,4 @@ doppler setup --project bottleneck --config prd   # Production
 
 ---
 
-**Version:** 1.8.1 | **Updated:** 2026-01-30 | **Status:** Production Ready
+**Version:** 1.8.2 | **Updated:** 2026-02-03 | **Status:** Production Ready
