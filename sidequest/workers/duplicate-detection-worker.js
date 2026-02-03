@@ -19,7 +19,7 @@ import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.js';
 import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.js';
 import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.js';
 import { PRCreator } from '../pipeline-core/git/pr-creator.js';
-import { createComponentLogger, logError, logWarn, logStart } from '../utils/logger.js';
+import { createComponentLogger, logError, logWarn, logStart, logRetry } from '../utils/logger.js';
 import { isRetryable, getErrorInfo } from '../pipeline-core/errors/error-classifier.js';
 import path from 'path';
 import * as Sentry from '@sentry/node';
@@ -329,7 +329,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
 
     // Schedule retry
     setTimeout(() => {
-      logger.info({ jobId: job.id, originalJobId, attempt: retryInfo.attempts }, 'Retrying failed job');
+      logRetry(logger, 'failed job', retryInfo.attempts, retryInfo.maxAttempts, { jobId: job.id, originalJobId });
       // Use original job ID + retry count for new job ID
       this.createJob(`${originalJobId}-retry${retryInfo.attempts}`, job.data);
     }, delay);
