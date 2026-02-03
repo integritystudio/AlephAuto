@@ -169,6 +169,10 @@ PATTERN_CATEGORY_MAP: dict[str, str] = {
     'config-objects': 'config_access',
     'console-statements': 'logger',
     'logger-patterns': 'logger',
+    # New categories for previously miscategorized patterns
+    'process-io': 'process_io',
+    'timing-patterns': 'timing',
+    'tracing-patterns': 'tracing',
 }
 
 

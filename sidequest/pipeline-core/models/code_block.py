@@ -43,6 +43,9 @@ class SemanticCategory(str, Enum):
     CONFIG_ACCESS = "config_access"
     FILE_OPERATION = "file_operation"
     ASYNC_PATTERN = "async_pattern"
+    PROCESS_IO = "process_io"
+    TIMING = "timing"
+    TRACING = "tracing"
     UNKNOWN = "unknown"
 
 
