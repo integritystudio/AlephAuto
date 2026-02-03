@@ -23,6 +23,13 @@ from pathlib import Path
 
 # Configuration
 CODE_DIR = Path.home() / 'code'
+REPORTS_DIR = Path.home() / 'reports'
+HOME_DIR = Path.home()
+ADDITIONAL_REPOS = [
+    Path.home() / 'schema-org-file-system',
+    Path.home() / 'claude-tool-use',
+    Path.home() / 'dotfiles',
+]
 EXCLUDE_PATTERNS = ['vim/bundle', 'node_modules', '.git', 'venv', '.venv']
 DEFAULT_MAX_DEPTH = 2
 
@@ -52,18 +59,63 @@ LANGUAGE_EXTENSIONS = {
 }
 
 
-def find_git_repos(max_depth=DEFAULT_MAX_DEPTH):
-    """Find all git repositories, excluding specified patterns"""
+def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=True):
+    """Find all git repositories, excluding specified patterns.
+
+    Args:
+        max_depth: Maximum directory depth to scan
+        include_dotfiles: Also scan ~/.<name> directories for git repos
+    """
+    repos = []
+
+    # Scan main code directory
     print(f"Scanning for repositories in {CODE_DIR} (depth: {max_depth})...")
     cmd = f"find {CODE_DIR} -maxdepth {max_depth} -name .git -type d"
     result = subprocess.run(cmd.split(), capture_output=True, text=True)
 
-    repos = []
     for line in result.stdout.strip().split('\n'):
         if line:
             repo_path = Path(line).parent
             # Exclude patterns
             if not any(pattern in str(repo_path) for pattern in EXCLUDE_PATTERNS):
+                repos.append(repo_path)
+
+    # Scan reports directory
+    if REPORTS_DIR.exists():
+        print(f"Scanning for repositories in {REPORTS_DIR} (depth: {max_depth})...")
+        cmd = f"find {REPORTS_DIR} -maxdepth {max_depth} -name .git -type d"
+        result = subprocess.run(cmd.split(), capture_output=True, text=True)
+
+        for line in result.stdout.strip().split('\n'):
+            if line:
+                repo_path = Path(line).parent
+                if not any(pattern in str(repo_path) for pattern in EXCLUDE_PATTERNS):
+                    repos.append(repo_path)
+
+    # Scan dotfile directories in home folder
+    if include_dotfiles:
+        print(f"Scanning dotfile directories in {HOME_DIR}...")
+        for entry in HOME_DIR.iterdir():
+            if entry.is_dir() and entry.name.startswith('.') and entry.name != '.git':
+                try:
+                    # Check if directory itself is a git repo
+                    if (entry / '.git').exists():
+                        if not any(pattern in str(entry) for pattern in EXCLUDE_PATTERNS):
+                            repos.append(entry)
+                    # Also check subdirectories (depth 1 within dotfile dirs)
+                    for subentry in entry.iterdir():
+                        if subentry.is_dir() and (subentry / '.git').exists():
+                            if not any(pattern in str(subentry) for pattern in EXCLUDE_PATTERNS):
+                                repos.append(subentry)
+                except PermissionError:
+                    # Skip directories we can't access (e.g., .Trash)
+                    continue
+
+    # Add explicit additional repositories
+    for repo_path in ADDITIONAL_REPOS:
+        if repo_path.exists() and (repo_path / '.git').exists():
+            if repo_path not in repos:
+                print(f"Adding explicit repository: {repo_path}")
                 repos.append(repo_path)
 
     print(f"Found {len(repos)} repositories")
@@ -92,7 +144,14 @@ def get_repo_stats(repo_path, since_date, until_date=None):
         files = [f for f in result.stdout.strip().split('\n') if f]
 
         # Get parent directory (for organization/grouping)
-        parent = repo_path.parent.name if repo_path.parent != CODE_DIR else None
+        if repo_path.parent == CODE_DIR or repo_path.parent == REPORTS_DIR:
+            parent = None
+        elif repo_path.parent == HOME_DIR:
+            parent = '~'  # Dotfile at home root
+        elif str(repo_path.parent).startswith(str(HOME_DIR)) and repo_path.parent.parent == HOME_DIR:
+            parent = repo_path.parent.name  # Inside a dotfile directory
+        else:
+            parent = repo_path.parent.name
 
         return {
             'path': str(repo_path),

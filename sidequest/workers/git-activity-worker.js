@@ -257,9 +257,26 @@ export class GitActivityWorker extends SidequestServer {
         stats.totalRepositories = data.repositories?.length || 0;
         stats.linesAdded = data.total_additions || 0;
         stats.linesDeleted = data.total_deletions || 0;
+        return stats;
       }
     } catch (error) {
-      logger.warn({ error: error.message }, 'Could not parse stats from output');
+      logger.debug({ error: error.message }, 'Could not parse JSON stats, trying text format');
+    }
+
+    // Fallback: parse from text summary output
+    const commitsMatch = stdout.match(/Total commits:\s*(\d+)/i);
+    if (commitsMatch) {
+      stats.totalCommits = parseInt(commitsMatch[1], 10);
+    }
+
+    const reposMatch = stdout.match(/Active repositories:\s*(\d+)/i);
+    if (reposMatch) {
+      stats.totalRepositories = parseInt(reposMatch[1], 10);
+    }
+
+    const filesMatch = stdout.match(/File changes:\s*(\d+)/i);
+    if (filesMatch) {
+      stats.filesChanged = parseInt(filesMatch[1], 10);
     }
 
     return stats;

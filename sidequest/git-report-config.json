@@ -4,6 +4,13 @@
 
   "scanning": {
     "code_directory": "~/code",
+    "reports_directory": "~/reports",
+    "additional_repositories": [
+      "~/schema-org-file-system",
+      "~/claude-tool-use",
+      "~/dotfiles"
+    ],
+    "include_dotfiles": true,
     "max_depth": 2,
     "exclude_patterns": [
       "vim/bundle",
