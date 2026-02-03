@@ -4,7 +4,7 @@ import { DirectoryScanner } from '../utils/directory-scanner.js';
 import { config } from './config.js';
 import path from 'path';
 import fs from 'fs/promises';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logError } from '../utils/logger.js';
 
 const logger = createComponentLogger('RepomixCronApp');
 
@@ -110,7 +110,7 @@ class RepomixCronApp {
       await this.saveRunSummary(stats, duration);
 
     } catch (error) {
-      logger.error({ err: error }, 'Error during repomix run');
+      logError(logger, error, 'Error during repomix run');
       throw error;
     }
   }
@@ -156,7 +156,7 @@ class RepomixCronApp {
       try {
         await this.runRepomixOnAllDirectories();
       } catch (error) {
-        logger.error({ err: error }, 'Cron job failed');
+        logError(logger, error, 'Cron job failed');
       }
     });
 
@@ -191,6 +191,6 @@ class RepomixCronApp {
 // Start the application
 const app = new RepomixCronApp();
 app.start().catch((error) => {
-  logger.error({ err: error }, 'Fatal error');
+  logError(logger, error, 'Fatal error');
   process.exit(1);
 });

@@ -49,4 +49,62 @@ export function createComponentLogger(component) {
   return createBaseComponentLogger(logger, component);
 }
 
+/**
+ * Log operation start
+ * @param {pino.Logger} log - Logger instance
+ * @param {string} operation - Operation name
+ * @param {Object} context - Additional context
+ */
+export function logStart(log, operation, context = {}) {
+  log.info(context, `Starting ${operation}`);
+}
+
+/**
+ * Log operation completion with duration
+ * @param {pino.Logger} log - Logger instance
+ * @param {string} operation - Operation name
+ * @param {number} startTime - Start timestamp from Date.now()
+ * @param {Object} context - Additional context
+ */
+export function logComplete(log, operation, startTime, context = {}) {
+  log.info({ ...context, duration: Date.now() - startTime }, `${operation} completed`);
+}
+
+/**
+ * Log error with standardized format
+ * @param {pino.Logger} log - Logger instance
+ * @param {Error} error - Error object
+ * @param {string} message - Error message
+ * @param {Object} context - Additional context
+ */
+export function logError(log, error, message, context = {}) {
+  log.error({ err: error, ...context }, message);
+}
+
+/**
+ * Log warning with optional error
+ * @param {pino.Logger} log - Logger instance
+ * @param {Error|null} error - Error object (or null if no error)
+ * @param {string} message - Warning message
+ * @param {Object} context - Additional context
+ */
+export function logWarn(log, error, message, context = {}) {
+  if (error) {
+    log.warn({ err: error, ...context }, message);
+  } else {
+    log.warn(context, message);
+  }
+}
+
+/**
+ * Log skip reason (debug level)
+ * @param {pino.Logger} log - Logger instance
+ * @param {string} what - What is being skipped
+ * @param {string} reason - Why it's being skipped
+ * @param {Object} context - Additional context
+ */
+export function logSkip(log, what, reason, context = {}) {
+  log.debug(context, `Skipping ${what}: ${reason}`);
+}
+
 export default logger;

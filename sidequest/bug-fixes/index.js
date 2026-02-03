@@ -4,7 +4,7 @@ import { BugfixAuditWorker } from './bugfix-audit-worker.js';
 import { config } from '../core/config.js';
 import path from 'path';
 import fs from 'fs/promises';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logError } from '../utils/logger.js';
 
 const logger = createComponentLogger('BugfixAuditApp');
 
@@ -106,7 +106,7 @@ class BugfixAuditApp {
       await this.saveRunSummary(stats, duration, jobs);
 
     } catch (error) {
-      logger.error({ err: error }, 'Error during bugfix audit');
+      logError(logger, error, 'Error during bugfix audit');
       throw error;
     }
   }
@@ -165,7 +165,7 @@ class BugfixAuditApp {
       try {
         await this.runBugfixAudit();
       } catch (error) {
-        logger.error({ err: error }, 'Cron job failed');
+        logError(logger, error, 'Cron job failed');
       }
     });
 
@@ -200,7 +200,7 @@ class BugfixAuditApp {
       try {
         await this.runBugfixAudit();
       } catch (error) {
-        logger.error({ err: error }, 'One-time job failed');
+        logError(logger, error, 'One-time job failed');
       }
     }, delay);
   }
@@ -259,7 +259,7 @@ if (!options.oneTime && !options.recurring && !options.runNow) {
 // Start the application
 const app = new BugfixAuditApp();
 app.start(options).catch((error) => {
-  logger.error({ err: error }, 'Fatal error');
+  logError(logger, error, 'Fatal error');
   process.exit(1);
 });
 

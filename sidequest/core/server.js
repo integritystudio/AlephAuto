@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/node';
 import { config } from './config.js';
 import fs from 'fs/promises';
 import path from 'path';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logError, logWarn } from '../utils/logger.js';
 import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.js';
 import { GitWorkflowManager } from './git-workflow-manager.js';
 import { jobRepository } from './job-repository.js';
@@ -58,7 +58,7 @@ export class SidequestServer extends EventEmitter {
         logger.info('Job history database initialized');
       })
       .catch((err) => {
-        logger.error({ err }, 'Failed to initialize database - jobs will not persist');
+        logError(logger, err, 'Failed to initialize database - jobs will not persist');
         Sentry.captureException(err, {
           tags: { component: 'database', event: 'init_failed' }
         });
@@ -132,7 +132,7 @@ export class SidequestServer extends EventEmitter {
 
       this.activeJobs++;
       this.executeJob(jobId).catch(error => {
-        logger.error({ err: error, jobId }, 'Error executing job');
+        logError(logger, error, 'Error executing job', { jobId });
       });
     }
   }
@@ -213,7 +213,7 @@ export class SidequestServer extends EventEmitter {
         git: job.git
       });
     } catch (dbErr) {
-      logger.error({ err: dbErr, jobId: job.id }, 'Failed to persist job to database');
+      logError(logger, dbErr, 'Failed to persist job to database', { jobId: job.id });
       Sentry.captureException(dbErr, {
         tags: { jobId: job.id, operation: 'persist' }
       });
@@ -264,7 +264,7 @@ export class SidequestServer extends EventEmitter {
         return true;
       }
     } catch (gitError) {
-      logger.warn({ err: gitError, jobId: job.id }, 'Failed to create branch, continuing without git workflow');
+      logWarn(logger, gitError, 'Failed to create branch, continuing without git workflow', { jobId: job.id });
     }
 
     return false;
@@ -284,7 +284,7 @@ export class SidequestServer extends EventEmitter {
       try {
         await this._handleGitWorkflowSuccess(job);
       } catch (gitError) {
-        logger.error({ err: gitError, jobId: job.id }, 'Git workflow failed, but job completed successfully');
+        logError(logger, gitError, 'Git workflow failed, but job completed successfully', { jobId: job.id });
         Sentry.captureException(gitError, {
           tags: { component: 'git-workflow', jobId: job.id }
         });
@@ -396,7 +396,7 @@ export class SidequestServer extends EventEmitter {
         );
         logger.info({ jobId: job.id, branchName: job.git.branchName }, 'Cleaned up branch after job failure');
       } catch (cleanupError) {
-        logger.warn({ err: cleanupError, jobId: job.id }, 'Failed to cleanup branch');
+        logWarn(logger, cleanupError, 'Failed to cleanup branch', { jobId: job.id });
       }
     }
 
@@ -412,7 +412,7 @@ export class SidequestServer extends EventEmitter {
     });
 
     await this.logJobFailure(job, error);
-    logger.error({ err: error, jobId: job.id, jobData: job.data }, 'Job failed');
+    logError(logger, error, 'Job failed', { jobId: job.id, jobData: job.data });
   }
 
   /**
@@ -566,9 +566,9 @@ export class SidequestServer extends EventEmitter {
       const sanitizedId = path.basename(job.id);
       const logPath = path.join(this.logDir, `${sanitizedId}.json`);
       await fs.writeFile(logPath, JSON.stringify(job, null, 2));
-    } catch (logError) {
+    } catch (writeError) {
       // If we can't write logs, at least log to console
-      logger.error({ err: logError, jobId: job.id }, 'Failed to write completion log file');
+      logError(logger, writeError, 'Failed to write completion log file', { jobId: job.id });
     }
   }
 
@@ -590,9 +590,9 @@ export class SidequestServer extends EventEmitter {
           stack: error.stack,
         },
       }, null, 2));
-    } catch (logError) {
+    } catch (writeError) {
       // If we can't write logs, at least log to console
-      logger.error({ err: logError, jobId: job.id }, 'Failed to write error log file');
+      logError(logger, writeError, 'Failed to write error log file', { jobId: job.id });
     }
   }
 

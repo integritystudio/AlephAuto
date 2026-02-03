@@ -10,7 +10,7 @@
 
 import { SidequestServer } from './server.js';
 import { config } from '../core/config.js';
-import { createComponentLogger } from './logger.js';
+import { createComponentLogger, logStart, logComplete, logError, logWarn } from './logger.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
@@ -36,9 +36,7 @@ class PluginManagerWorker extends SidequestServer {
       warnPlugins: 20
     };
 
-    logger.info('Plugin Manager Worker initialized', {
-      auditScriptPath: this.auditScriptPath
-    });
+    logger.info({ auditScriptPath: this.auditScriptPath }, 'Plugin Manager Worker initialized');
   }
 
   /**
@@ -50,7 +48,7 @@ class PluginManagerWorker extends SidequestServer {
    */
   async runJobHandler(job) {
     const startTime = Date.now();
-    logger.info('Starting plugin audit', { jobId: job.id, detailed: job.data?.detailed });
+    logStart(logger, 'plugin audit', { jobId: job.id, detailed: job.data?.detailed });
 
     try {
       // Run audit script
@@ -70,16 +68,16 @@ class PluginManagerWorker extends SidequestServer {
         recommendations
       };
 
-      logger.info('Plugin audit completed', {
+      logger.info({
         jobId: job.id,
         totalPlugins: analysis.totalPlugins,
         duplicateCount: analysis.duplicateCategories?.length || 0,
         duration: result.duration
-      });
+      }, 'Plugin audit completed');
 
       return result;
     } catch (error) {
-      logger.error({ err: error, jobId: job.id }, 'Plugin audit failed');
+      logError(logger, error, 'Plugin audit failed', { jobId: job.id });
       throw error;
     }
   }
@@ -101,7 +99,7 @@ class PluginManagerWorker extends SidequestServer {
       const { stdout, stderr } = await execAsync(cmd);
 
       if (stderr) {
-        logger.warn('Audit script warnings', { stderr });
+        logWarn(logger, null, 'Audit script warnings', { stderr });
       }
 
       return JSON.parse(stdout);
@@ -111,7 +109,7 @@ class PluginManagerWorker extends SidequestServer {
         try {
           return JSON.parse(error.stdout);
         } catch (parseError) {
-          logger.error({ err: parseError }, 'Failed to parse audit output');
+          logError(logger, parseError, 'Failed to parse audit output');
           throw parseError;
         }
       }
@@ -170,7 +168,7 @@ class PluginManagerWorker extends SidequestServer {
         lastModified: (await fs.stat(this.configPath)).mtime
       };
     } catch (error) {
-      logger.warn({ err: error }, 'Failed to load plugin metadata');
+      logWarn(logger, error, 'Failed to load plugin metadata');
       return {};
     }
   }

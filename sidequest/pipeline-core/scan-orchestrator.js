@@ -15,7 +15,7 @@ import { AstGrepPatternDetector } from './scanners/ast-grep-detector.js';
 import { HTMLReportGenerator } from './reports/html-report-generator.js';
 import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
 import { InterProjectScanner } from './inter-project-scanner.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logStart, logWarn, logError } from '../utils/logger.js';
 import { DependencyValidator } from '../utils/dependency-validator.js';
 import { spawn } from 'child_process';
 import * as path from 'path';
@@ -124,7 +124,7 @@ export class ScanOrchestrator {
             });
             throw error;
         }
-        logger.info({ repoPath }, 'Starting repository duplicate scan');
+        logStart(logger, 'repository duplicate scan', { repoPath });
         try {
             // Validate dependencies once per scanner instance
             if (!this._dependenciesValidated) {
@@ -169,13 +169,13 @@ export class ScanOrchestrator {
                     logger.info({ reportPaths }, 'Reports auto-generated successfully');
                 }
                 catch (error) {
-                    logger.warn({ error }, 'Report auto-generation failed, continuing');
+                    logWarn(logger, error, 'Report auto-generation failed, continuing');
                 }
             }
             return scanResult;
         }
         catch (error) {
-            logger.error({ repoPath, error }, 'Repository scan failed');
+            logError(logger, error, 'Repository scan failed', { repoPath });
             throw new ScanError(`Scan failed for ${repoPath}: ${error.message}`, {
                 cause: error
             });
@@ -362,7 +362,7 @@ export class ScanOrchestrator {
             return reportPaths;
         }
         catch (error) {
-            logger.error({ error }, 'Report generation failed');
+            logError(logger, error, 'Report generation failed');
             throw new ScanError(`Report generation failed: ${error.message}`, {
                 cause: error
             });
@@ -414,9 +414,9 @@ export class ScanOrchestrator {
             };
         }
         catch (error) {
-            logger.error({ error }, 'Multi-repository scan failed');
+            logError(logger, error, 'Multi-repository scan failed');
             // Fallback: scan each repository individually without cross-repo analysis
-            logger.warn('Falling back to individual repository scans without cross-repository analysis');
+            logWarn(logger, null, 'Falling back to individual repository scans without cross-repository analysis');
             const results = [];
             for (const repoPath of repoPaths) {
                 try {
@@ -424,7 +424,7 @@ export class ScanOrchestrator {
                     results.push(result);
                 }
                 catch (scanError) {
-                    logger.warn({ repoPath, error: scanError }, 'Repository scan failed, continuing');
+                    logWarn(logger, scanError, 'Repository scan failed, continuing', { repoPath });
                     results.push({
                         error: scanError.message,
                         repository_path: repoPath

@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { createComponentLogger } from './logger.js';
+import { createComponentLogger, logError, logWarn } from './logger.js';
 
 const logger = createComponentLogger('GitignoreRepomixUpdater');
 
@@ -82,7 +82,7 @@ export class GitignoreRepomixUpdater {
       }
     } catch (error) {
       // Log but don't fail on permission errors
-      logger.warn({ path: currentPath, error: error.message }, 'Cannot access directory');
+      logWarn(logger, null, 'Cannot access directory', { path: currentPath, errorMessage: error.message });
     }
   }
 
@@ -282,7 +282,7 @@ export async function main() {
     await updater.saveResults(results, outputPath);
 
   } catch (error) {
-    logger.error({ err: error }, 'Fatal error');
+    logError(logger, error, 'Fatal error');
     process.exit(1);
   }
 }

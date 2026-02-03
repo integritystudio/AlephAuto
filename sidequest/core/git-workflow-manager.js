@@ -11,7 +11,7 @@
  */
 
 import { BranchManager } from '../pipeline-core/git/branch-manager.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logError, logWarn } from '../utils/logger.js';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('GitWorkflowManager');
@@ -77,7 +77,7 @@ export class GitWorkflowManager {
 
       return branchInfo;
     } catch (error) {
-      logger.warn({ err: error, jobId: jobInfo.jobId }, 'Failed to create branch');
+      logWarn(logger, error, 'Failed to create branch', { jobId: jobInfo.jobId });
       return null;
     }
   }
@@ -131,7 +131,7 @@ export class GitWorkflowManager {
 
       return commitSha;
     } catch (error) {
-      logger.error({ err: error, jobId: commitContext.jobId }, 'Failed to commit changes');
+      logError(logger, error, 'Failed to commit changes', { jobId: commitContext.jobId });
       throw error;
     }
   }
@@ -150,12 +150,12 @@ export class GitWorkflowManager {
       if (pushed) {
         logger.info({ branchName }, 'Branch pushed to remote');
       } else {
-        logger.warn({ branchName }, 'Failed to push branch');
+        logWarn(logger, null, 'Failed to push branch', { branchName });
       }
 
       return pushed;
     } catch (error) {
-      logger.error({ err: error, branchName }, 'Error pushing branch');
+      logError(logger, error, 'Error pushing branch', { branchName });
       return false;
     }
   }
@@ -187,7 +187,7 @@ export class GitWorkflowManager {
 
       return prUrl;
     } catch (error) {
-      logger.error({ err: error }, 'Failed to create pull request');
+      logError(logger, error, 'Failed to create pull request');
       return null;
     }
   }
@@ -205,7 +205,7 @@ export class GitWorkflowManager {
       await this.branchManager.cleanupBranch(repositoryPath, branchName, originalBranch);
       logger.info({ branchName }, 'Branch cleaned up');
     } catch (error) {
-      logger.warn({ err: error, branchName }, 'Failed to cleanup branch');
+      logWarn(logger, error, 'Failed to cleanup branch', { branchName });
     }
   }
 

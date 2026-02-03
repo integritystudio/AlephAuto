@@ -16,7 +16,7 @@
 
 import { SidequestServer } from '../core/server.js';
 import { config } from '../core/config.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logError, logWarn, logStart } from '../utils/logger.js';
 import { generateReport } from '../utils/report-generator.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -111,7 +111,7 @@ class ClaudeHealthWorker extends SidequestServer {
 
       return result;
     } catch (error) {
-      logger.error({ err: error, jobId: job.id }, 'Claude health check failed');
+      logError(logger, error, 'Claude health check failed', { jobId: job.id });
       throw error;
     }
   }
@@ -208,7 +208,7 @@ class ClaudeHealthWorker extends SidequestServer {
       checks.direnvAllowed = Object.values(checks.envVars).every(v => v !== null);
 
     } catch (error) {
-      logger.warn({ err: error }, 'Error checking environment');
+      logWarn(logger, error, 'Error checking environment');
     }
 
     return checks;
@@ -374,11 +374,11 @@ class ClaudeHealthWorker extends SidequestServer {
         const settings = JSON.parse(data);
         checks.registeredHooks = settings.hooks ? Object.keys(settings.hooks).length : 0;
       } catch (e) {
-        logger.warn({ err: e }, 'Could not check registered hooks');
+        logWarn(logger, e, 'Could not check registered hooks');
       }
 
     } catch (error) {
-      logger.warn({ err: error }, 'Error checking hooks');
+      logWarn(logger, error, 'Error checking hooks');
     }
 
     return checks;
@@ -443,7 +443,7 @@ class ClaudeHealthWorker extends SidequestServer {
       }
 
     } catch (error) {
-      logger.warn({ err: error }, 'Error checking components');
+      logWarn(logger, error, 'Error checking components');
     }
 
     return counts;
@@ -484,7 +484,7 @@ class ClaudeHealthWorker extends SidequestServer {
         }
       };
     } catch (error) {
-      logger.warn({ err: error }, 'Error checking plugins');
+      logWarn(logger, error, 'Error checking plugins');
       return null;
     }
   }
@@ -533,7 +533,7 @@ class ClaudeHealthWorker extends SidequestServer {
           message: 'Performance log not created yet'
         };
       }
-      logger.warn({ err: error }, 'Error checking performance');
+      logWarn(logger, error, 'Error checking performance');
       return null;
     }
   }

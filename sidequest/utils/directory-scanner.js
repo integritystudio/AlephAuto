@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { createComponentLogger } from './logger.js';
+import { createComponentLogger, logWarn } from './logger.js';
 
 const logger = createComponentLogger('DirectoryScanner');
 
@@ -110,7 +110,7 @@ export class DirectoryScanner {
       }
     } catch (error) {
       // Log but don't fail on permission errors
-      logger.warn({ path: currentPath, error: error.message }, 'Cannot access directory');
+      logWarn(logger, null, 'Cannot access directory', { path: currentPath, errorMessage: error.message });
     }
   }
 

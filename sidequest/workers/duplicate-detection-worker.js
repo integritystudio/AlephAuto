@@ -19,7 +19,7 @@ import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.js';
 import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.js';
 import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.js';
 import { PRCreator } from '../pipeline-core/git/pr-creator.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logError, logWarn, logStart } from '../utils/logger.js';
 import { isRetryable, getErrorInfo } from '../pipeline-core/errors/error-classifier.js';
 import path from 'path';
 import * as Sentry from '@sentry/node';
@@ -98,7 +98,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
         stats
       });
     } catch (error) {
-      logger.error({ err: error }, 'Failed to initialize duplicate detection worker');
+      logError(logger, error, 'Failed to initialize duplicate detection worker');
       Sentry.captureException(error);
       throw error;
     }
@@ -110,12 +110,12 @@ export class DuplicateDetectionWorker extends SidequestServer {
   async runJobHandler(job) {
     const { scanType, repositories, groupName } = job.data;
 
-    logger.info({
+    logStart(logger, 'duplicate detection scan job', {
       jobId: job.id,
       scanType,
       repositories: repositories?.length || 0,
       groupName
-    }, 'Starting duplicate detection scan job');
+    });
 
     this.emit('pipeline:status', {
       status: 'scanning',
@@ -140,7 +140,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
         logger.info({ jobId: job.id }, 'Job will be retried');
         throw error; // Re-throw to mark job as failed, will be retried by retry handler
       } else {
-        logger.error({ err: error, jobId: job.id }, 'Job failed after all retry attempts');
+        logError(logger, error, 'Job failed after all retry attempts', { jobId: job.id });
         this.emit('pipeline:status', {
           status: 'failed',
           jobId: job.id,
@@ -483,7 +483,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
         });
 
       } catch (error) {
-        logger.error({ err: error }, 'Failed to create PRs for suggestions');
+        logError(logger, error, 'Failed to create PRs for suggestions');
         this.scanMetrics.prCreationErrors++;
         Sentry.captureException(error, {
           tags: {
@@ -578,10 +578,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
           duplicatesFound
         });
       } catch (error) {
-        logger.warn({
-          err: error,
-          repository: repoConfig.name
-        }, 'Failed to update repository config');
+        logWarn(logger, error, 'Failed to update repository config', { repository: repoConfig.name });
       }
     }
   }

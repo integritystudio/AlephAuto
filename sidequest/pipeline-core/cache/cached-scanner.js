@@ -8,7 +8,7 @@
 import { GitCommitTracker } from './git-tracker.js';
 import { ScanResultCache } from './scan-cache.js';
 import { ScanOrchestrator } from '../scan-orchestrator.js';
-import { createComponentLogger } from '../../utils/logger.js';
+import { createComponentLogger, logStart, logComplete, logError, logWarn, logSkip } from '../../utils/logger.js';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('CachedScanner');
@@ -119,7 +119,7 @@ export class CachedScanner {
         }
       };
     } catch (error) {
-      logger.error({ error, repoPath }, 'Cached scan failed');
+      logError(logger, error, 'Cached scan failed', { repoPath });
       Sentry.captureException(error, {
         tags: {
           component: 'cached-scanner',
@@ -141,25 +141,25 @@ export class CachedScanner {
   async _shouldUseCache(repoPath, repoStatus, options) {
     // Never use cache if forced refresh
     if (options.forceRefresh || this.forceRefresh) {
-      logger.debug({ repoPath }, 'Skipping cache: forced refresh');
+      logSkip(logger, 'cache', 'forced refresh', { repoPath });
       return false;
     }
 
     // Never use cache if caching disabled
     if (!this.cacheEnabled || !this.cache) {
-      logger.debug({ repoPath }, 'Skipping cache: caching disabled');
+      logSkip(logger, 'cache', 'caching disabled', { repoPath });
       return false;
     }
 
     // Never use cache if not a Git repository
     if (!repoStatus.is_git_repository) {
-      logger.debug({ repoPath }, 'Skipping cache: not a git repository');
+      logSkip(logger, 'cache', 'not a git repository', { repoPath });
       return false;
     }
 
     // Check for uncommitted changes
     if (this.trackUncommitted && repoStatus.has_uncommitted_changes) {
-      logger.debug({ repoPath }, 'Skipping cache: has uncommitted changes');
+      logSkip(logger, 'cache', 'has uncommitted changes', { repoPath });
       return false;
     }
 
@@ -194,7 +194,7 @@ export class CachedScanner {
 
       return null;
     } catch (error) {
-      logger.warn({ error, repoPath }, 'Failed to get cached result');
+      logWarn(logger, error, 'Failed to get cached result', { repoPath });
       return null;
     }
   }
@@ -210,7 +210,7 @@ export class CachedScanner {
     try {
       await this.cache.cacheScan(repoPath, commitHash, scanResult);
     } catch (error) {
-      logger.warn({ error, repoPath }, 'Failed to cache scan result (non-fatal)');
+      logWarn(logger, error, 'Failed to cache scan result (non-fatal)', { repoPath });
       // Don't throw - caching failure shouldn't fail the scan
     }
   }
@@ -222,7 +222,7 @@ export class CachedScanner {
    */
   async invalidateCache(repoPath) {
     if (!this.cache) {
-      logger.warn({ repoPath }, 'Cannot invalidate cache: cache not initialized');
+      logWarn(logger, null, 'Cannot invalidate cache: cache not initialized', { repoPath });
       return 0;
     }
 
@@ -238,7 +238,7 @@ export class CachedScanner {
 
       return deletedCount;
     } catch (error) {
-      logger.error({ error, repoPath }, 'Failed to invalidate cache');
+      logError(logger, error, 'Failed to invalidate cache', { repoPath });
       throw error;
     }
   }
@@ -273,7 +273,7 @@ export class CachedScanner {
         repository_status: repoStatus
       };
     } catch (error) {
-      logger.error({ error, repoPath }, 'Failed to get cache status');
+      logError(logger, error, 'Failed to get cache status', { repoPath });
       throw error;
     }
   }
@@ -330,7 +330,7 @@ export class CachedScanner {
           error: error.message
         });
 
-        logger.error({ error, repoPath }, 'Failed to scan repository for cache warm-up');
+        logError(logger, error, 'Failed to scan repository for cache warm-up', { repoPath });
       }
     }
 
