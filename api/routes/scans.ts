@@ -18,6 +18,7 @@ import {
   type ScanResults
 } from '../types/scan-requests.js';
 import { getJobs } from '../../sidequest/core/database.js';
+import { JOB_STATUS } from '../types/job-status.js';
 import path from 'path';
 
 const router = express.Router();
@@ -187,7 +188,7 @@ router.get('/:scanId/results', async (req, res, next) => {
     }
 
     // Add results for completed jobs
-    if (job.status === 'completed' && job.result) {
+    if (job.status === JOB_STATUS.COMPLETED && job.result) {
       response.results = {
         scanType: job.data?.scanType,
         totalDuplicates: job.result.totalDuplicates ?? job.result.duplicates ?? job.result.crossRepoDuplicates,
@@ -203,7 +204,7 @@ router.get('/:scanId/results', async (req, res, next) => {
     }
 
     // Add error for failed jobs
-    if (job.status === 'failed' && job.error) {
+    if (job.status === JOB_STATUS.FAILED && job.error) {
       response.error = {
         message: typeof job.error === 'string' ? job.error : job.error.message,
         code: typeof job.error === 'object' ? job.error.code : undefined,
