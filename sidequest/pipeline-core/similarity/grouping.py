@@ -60,10 +60,10 @@ except ImportError:
     from semantic import are_semantically_compatible, validate_duplicate_group
 
 # Minimum complexity threshold for duplicate detection
-# IMPORTANT: Keep this low to avoid filtering out genuine duplicates
+# Uses values from SimilarityConfig for consistency
 MIN_COMPLEXITY_THRESHOLD = {
-    'min_line_count': 1,  # At least 1 line of code (very permissive)
-    'min_unique_tokens': 3,  # At least 3 meaningful tokens (very permissive)
+    'min_line_count': SimilarityConfig.MIN_LINE_COUNT,
+    'min_unique_tokens': SimilarityConfig.MIN_UNIQUE_TOKENS,
 }
 
 # Minimum quality threshold for duplicate groups (from config)

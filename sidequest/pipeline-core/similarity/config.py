@@ -16,7 +16,7 @@ class SimilarityConfig:
 
     # Layer 0: Complexity filtering
     MIN_LINE_COUNT = int(os.getenv('MIN_LINE_COUNT', '1'))
-    MIN_UNIQUE_TOKENS = int(os.getenv('MIN_UNIQUE_TOKENS', '3'))
+    MIN_UNIQUE_TOKENS = int(os.getenv('MIN_UNIQUE_TOKENS', '5'))
 
     # Layer 2: Structural similarity
     STRUCTURAL_THRESHOLD = float(os.getenv('STRUCTURAL_THRESHOLD', '0.90'))
