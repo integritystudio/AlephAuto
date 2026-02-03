@@ -44,4 +44,19 @@ export function logWarn(log: Logger, error: Error | null, message: string, conte
  */
 export function logSkip(log: Logger, what: string, reason: string, context?: Record<string, unknown>): void;
 
+/**
+ * Log pipeline stage transition
+ */
+export function logStage(log: Logger, stage: string, context?: Record<string, unknown>): void;
+
+/**
+ * Log metrics/stats for an operation
+ */
+export function logMetrics(log: Logger, operation: string, metrics?: Record<string, unknown>): void;
+
+/**
+ * Log retry attempt
+ */
+export function logRetry(log: Logger, operation: string, attempt: number, maxAttempts: number, context?: Record<string, unknown>): void;
+
 export default logger;

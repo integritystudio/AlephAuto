@@ -107,4 +107,36 @@ export function logSkip(log, what, reason, context = {}) {
   log.debug(context, `Skipping ${what}: ${reason}`);
 }
 
+/**
+ * Log pipeline stage transition
+ * @param {pino.Logger} log - Logger instance
+ * @param {string} stage - Stage name (e.g., 'extraction', 'similarity')
+ * @param {Object} context - Additional context
+ */
+export function logStage(log, stage, context = {}) {
+  log.info(context, `Stage: ${stage}`);
+}
+
+/**
+ * Log metrics/stats for an operation
+ * @param {pino.Logger} log - Logger instance
+ * @param {string} operation - Operation name
+ * @param {Object} metrics - Metrics object (counts, durations, etc.)
+ */
+export function logMetrics(log, operation, metrics = {}) {
+  log.info({ metrics }, `${operation} metrics`);
+}
+
+/**
+ * Log retry attempt
+ * @param {pino.Logger} log - Logger instance
+ * @param {string} operation - Operation being retried
+ * @param {number} attempt - Current attempt number (1-based)
+ * @param {number} maxAttempts - Maximum attempts allowed
+ * @param {Object} context - Additional context (error, delay, etc.)
+ */
+export function logRetry(log, operation, attempt, maxAttempts, context = {}) {
+  log.warn(context, `Retry ${attempt}/${maxAttempts}: ${operation}`);
+}
+
 export default logger;
