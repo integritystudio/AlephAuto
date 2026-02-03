@@ -2,10 +2,27 @@ id: logger-patterns
 language: javascript
 rule:
   any:
-    - pattern: logger.$LEVEL($$$)
-    - pattern: $LOGGER.$LEVEL($$$)
-    - pattern: logger.$LEVEL({ $$$}, $MSG)
+    # Explicit logger variable patterns
+    - pattern: logger.info($$$)
+    - pattern: logger.warn($$$)
+    - pattern: logger.error($$$)
+    - pattern: logger.debug($$$)
+    - pattern: logger.trace($$$)
+    - pattern: logger.fatal($$$)
+    - pattern: logger.log($$$)
+    # Logger with object context (pino style)
+    - pattern: logger.info({ $$$}, $MSG)
+    - pattern: logger.warn({ $$$}, $MSG)
+    - pattern: logger.error({ $$$}, $MSG)
+    - pattern: logger.debug({ $$$}, $MSG)
+    # Child logger creation
+    - pattern: logger.child($$$)
     - pattern: $LOGGER.child($$$)
+    # Common logger library names
+    - pattern: log.info($$$)
+    - pattern: log.warn($$$)
+    - pattern: log.error($$$)
+    - pattern: log.debug($$$)
 message: Structured logger usage
 severity: info
 note: Track logger usage patterns for consistency analysis

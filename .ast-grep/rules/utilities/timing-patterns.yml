@@ -1,0 +1,19 @@
+id: timing-patterns
+language: javascript
+rule:
+  any:
+    # Date-based timing
+    - pattern: Date.now()
+    - pattern: new Date()
+    - pattern: new Date($$$)
+    # Performance API
+    - pattern: performance.now()
+    - pattern: performance.mark($$$)
+    - pattern: performance.measure($$$)
+    # Common timing variables
+    - pattern: const $VAR = Date.now()
+    - pattern: let $VAR = Date.now()
+    - pattern: const $VAR = performance.now()
+message: Timing/performance measurement pattern
+severity: info
+note: Track timing patterns for potential utility consolidation

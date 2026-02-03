@@ -1,0 +1,17 @@
+id: process-io
+language: javascript
+rule:
+  any:
+    # Process stdout/stderr event handlers
+    - pattern: $PROC.stdout.on($$$)
+    - pattern: $PROC.stderr.on($$$)
+    - pattern: process.stdout.on($$$)
+    - pattern: process.stderr.on($$$)
+    - pattern: process.stdin.on($$$)
+    # Pipe operations
+    - pattern: $STREAM.pipe($$$)
+    - pattern: $PROC.stdout.pipe($$$)
+    - pattern: $PROC.stderr.pipe($$$)
+message: Process I/O pattern
+severity: info
+note: Track process stream handling for potential utility consolidation

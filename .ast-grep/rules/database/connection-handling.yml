@@ -2,12 +2,28 @@ id: connection-handling
 language: javascript
 rule:
   any:
-    - pattern: $DB.connect($$$)
-    - pattern: $DB.disconnect($$$)
-    - pattern: $DB.close($$$)
-    - pattern: $POOL.getConnection($$$)
-    - pattern: $CONN.release($$$)
-    - pattern: $CONN.end($$$)
+    # Database/pool connection patterns
+    - pattern: db.connect($$$)
+    - pattern: db.disconnect($$$)
+    - pattern: db.close($$$)
+    - pattern: database.connect($$$)
+    - pattern: database.disconnect($$$)
+    - pattern: database.close($$$)
+    - pattern: connection.connect($$$)
+    - pattern: connection.disconnect($$$)
+    - pattern: connection.close($$$)
+    - pattern: connection.release($$$)
+    - pattern: connection.end($$$)
+    - pattern: conn.connect($$$)
+    - pattern: conn.close($$$)
+    - pattern: conn.release($$$)
+    - pattern: conn.end($$$)
+    - pattern: pool.getConnection($$$)
+    - pattern: pool.connect($$$)
+    - pattern: pool.end($$$)
+    - pattern: client.connect($$$)
+    - pattern: client.end($$$)
+    - pattern: client.release($$$)
 message: Database connection handling pattern
 severity: info
 note: Connection management patterns that could be consolidated

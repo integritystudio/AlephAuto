@@ -1,0 +1,23 @@
+id: tracing-patterns
+language: javascript
+rule:
+  any:
+    # OpenTelemetry span operations
+    - pattern: $SPAN.end()
+    - pattern: $SPAN.end($$$)
+    - pattern: $SPAN.setAttribute($$$)
+    - pattern: $SPAN.setAttributes($$$)
+    - pattern: $SPAN.addEvent($$$)
+    - pattern: $SPAN.recordException($$$)
+    - pattern: $SPAN.setStatus($$$)
+    # Tracer operations
+    - pattern: tracer.startSpan($$$)
+    - pattern: tracer.startActiveSpan($$$)
+    - pattern: $TRACER.startSpan($$$)
+    - pattern: $TRACER.startActiveSpan($$$)
+    # Context propagation
+    - pattern: context.active()
+    - pattern: context.with($$$)
+message: Distributed tracing pattern
+severity: info
+note: Track OpenTelemetry/tracing patterns for consistency analysis
