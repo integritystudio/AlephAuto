@@ -34,7 +34,10 @@ const CRON_SCHEDULE = process.env.GITIGNORE_CRON_SCHEDULE || '0 4 * * *'; // Dai
 const BASE_DIR = process.env.GITIGNORE_BASE_DIR || path.join(os.homedir(), 'code');
 const MAX_DEPTH = parseInt(process.env.GITIGNORE_MAX_DEPTH || '10', 10);
 const DRY_RUN = process.env.GITIGNORE_DRY_RUN === 'true';
-const RUN_ON_STARTUP = process.env.RUN_ON_STARTUP === 'true';
+
+// Support both env var and --run-now flag
+const args = process.argv.slice(2);
+const RUN_ON_STARTUP = process.env.RUN_ON_STARTUP === 'true' || args.includes('--run-now') || args.includes('--run');
 
 async function main() {
   logger.info({

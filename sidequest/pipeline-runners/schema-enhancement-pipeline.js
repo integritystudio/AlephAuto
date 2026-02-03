@@ -253,7 +253,6 @@ class SchemaEnhancementPipeline {
 
 // Run if executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const runOnStartup = process.env.RUN_ON_STARTUP === 'true';
   const cronSchedule = process.env.SCHEMA_ENHANCEMENT_CRON_SCHEDULE || '0 3 * * 0'; // Sunday 3 AM
 
   // Parse command line arguments
@@ -264,9 +263,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   };
 
   let directory = config.codeBaseDir || process.env.HOME;
+  let runNow = process.env.RUN_ON_STARTUP === 'true';
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--dry-run') {
+    if (args[i] === '--run-now' || args[i] === '--run') {
+      runNow = true;
+    } else if (args[i] === '--dry-run') {
       options.dryRun = true;
     } else if (args[i] === '--dir' && args[i + 1]) {
       directory = args[i + 1];
@@ -280,7 +282,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   const pipeline = new SchemaEnhancementPipeline(options);
 
-  if (runOnStartup) {
+  if (runNow) {
     logger.info({ directory, options }, 'Running schema enhancement immediately');
 
     pipeline.runEnhancement(directory)

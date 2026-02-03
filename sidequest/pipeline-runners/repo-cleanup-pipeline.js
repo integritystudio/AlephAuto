@@ -37,7 +37,10 @@ const logger = createComponentLogger('RepoCleanupPipeline');
 const CRON_SCHEDULE = process.env.CLEANUP_CRON_SCHEDULE || '0 3 * * 0'; // Weekly Sunday 3 AM
 const TARGET_DIR = process.env.CLEANUP_TARGET_DIR || path.join(os.homedir(), 'code');
 const DRY_RUN = process.env.CLEANUP_DRY_RUN === 'true';
-const RUN_ON_STARTUP = process.env.RUN_ON_STARTUP === 'true';
+
+// Support both env var and --run-now flag
+const args = process.argv.slice(2);
+const RUN_ON_STARTUP = process.env.RUN_ON_STARTUP === 'true' || args.includes('--run-now') || args.includes('--run');
 
 async function main() {
   logger.info({

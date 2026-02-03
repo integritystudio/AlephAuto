@@ -15,6 +15,7 @@ import { workerRegistry } from '../../utils/worker-registry.js';
 import * as Sentry from '@sentry/node';
 import { getJobs, getJobCounts } from '../../../sidequest/core/database.js';
 import { getPipelineName } from '../../../sidequest/utils/pipeline-names.js';
+import { JOB_STATUS } from '../../types/job-status.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -440,7 +441,7 @@ async function fetchJobsForPipeline(pipelineId, options) {
 
         // Filter by tab context
         if (tab === 'failed') {
-            filteredJobs = filteredJobs.filter(job => job.status === 'failed');
+            filteredJobs = filteredJobs.filter(job => job.status === JOB_STATUS.FAILED);
         }
         else if (tab === 'recent') {
             filteredJobs = filteredJobs.slice(0, 10);

@@ -178,32 +178,34 @@ class GitActivityPipeline {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const pipeline = new GitActivityPipeline();
 
-  const runOnStartup = process.env.RUN_ON_STARTUP === 'true';
   const gitCronSchedule = process.env.GIT_CRON_SCHEDULE || '0 20 * * 0'; // Sunday 8 PM
 
-  if (runOnStartup) {
-    logger.info('Running git activity report immediately');
+  // Parse command line arguments
+  const args = process.argv.slice(2);
+  const options = {};
+  let runNow = process.env.RUN_ON_STARTUP === 'true';
 
-    // Parse command line arguments
-    const args = process.argv.slice(2);
-    const options = {};
-
-    for (let i = 0; i < args.length; i++) {
-      if (args[i] === '--weekly') {
-        options.reportType = 'weekly';
-      } else if (args[i] === '--monthly') {
-        options.reportType = 'monthly';
-      } else if (args[i] === '--since' && args[i + 1]) {
-        options.sinceDate = args[i + 1];
-        i++;
-      } else if (args[i] === '--until' && args[i + 1]) {
-        options.untilDate = args[i + 1];
-        i++;
-      } else if (args[i] === '--days' && args[i + 1]) {
-        options.days = parseInt(args[i + 1], 10);
-        i++;
-      }
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--run-now' || args[i] === '--run') {
+      runNow = true;
+    } else if (args[i] === '--weekly') {
+      options.reportType = 'weekly';
+    } else if (args[i] === '--monthly') {
+      options.reportType = 'monthly';
+    } else if (args[i] === '--since' && args[i + 1]) {
+      options.sinceDate = args[i + 1];
+      i++;
+    } else if (args[i] === '--until' && args[i + 1]) {
+      options.untilDate = args[i + 1];
+      i++;
+    } else if (args[i] === '--days' && args[i + 1]) {
+      options.days = parseInt(args[i + 1], 10);
+      i++;
     }
+  }
+
+  if (runNow) {
+    logger.info('Running git activity report immediately');
 
     // Default to weekly if no options specified
     if (!options.reportType && !options.sinceDate && !options.days) {

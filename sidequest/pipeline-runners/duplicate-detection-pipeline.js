@@ -33,7 +33,9 @@ const logger = createComponentLogger('DuplicateDetectionPipeline');
  */
 async function main() {
   const cronSchedule = config.duplicateScanCronSchedule || '0 2 * * *';
-  const runOnStartup = config.runOnStartup;
+  // Support both config/env var and --run-now flag
+  const args = process.argv.slice(2);
+  const runOnStartup = config.runOnStartup || args.includes('--run-now') || args.includes('--run');
 
   console.log('╔══════════════════════════════════════════════════════════╗');
   console.log('║     DUPLICATE DETECTION AUTOMATED PIPELINE              ║');
