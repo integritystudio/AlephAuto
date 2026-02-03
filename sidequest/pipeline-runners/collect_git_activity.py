@@ -490,15 +490,12 @@ categories: [git-activity, development-metrics]
 tags: [git, commits, repositories, weekly-report, automation]
 excerpt: "{data['total_commits']} commits across {data['total_repositories']} repositories with {data['total_files']} file changes."
 header:
-  overlay_image: /images/cover-reports.png
-  teaser: /images/cover-reports.png
+  image: /assets/images/cover-reports.png
 ---
 """
 
-    # Build report content
+    # Build report content (no # title - Jekyll uses frontmatter title)
     content = f"""
-# {report_type} Git Activity Report
-
 **Report Period**: {start_date} to {end_date}
 **Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M')}
 **Report Type**: Automated Git Activity Analysis
