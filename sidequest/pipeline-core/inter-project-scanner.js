@@ -6,7 +6,7 @@
  */
 
 import { ScanOrchestrator } from './scan-orchestrator.js';
-import { createComponentLogger, logError } from '../utils/logger.js';
+import { createComponentLogger, logError, logStart, logStage } from '../utils/logger.js';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -31,14 +31,14 @@ export class InterProjectScanner {
   async scanRepositories(repoPaths, scanConfig = {}) {
     const startTime = Date.now();
 
-    logger.info({
+    logStart(logger, 'inter-project scan', {
       repositoryCount: repoPaths.length,
       repositories: repoPaths
-    }, 'Starting inter-project scan');
+    });
 
     try {
       // Stage 1: Scan each repository individually
-      logger.info('Stage 1: Scanning individual repositories');
+      logStage(logger, '1/4: Scanning individual repositories');
       const repositoryScans = [];
 
       for (const repoPath of repoPaths) {
@@ -75,7 +75,7 @@ export class InterProjectScanner {
       }
 
       // Stage 2: Aggregate code blocks across all repositories
-      logger.info('Stage 2: Aggregating code blocks across repositories');
+      logStage(logger, '2/4: Aggregating code blocks across repositories');
       const allCodeBlocks = this._aggregateCodeBlocks(repositoryScans);
 
       logger.info({
@@ -84,7 +84,7 @@ export class InterProjectScanner {
       }, 'Code blocks aggregated');
 
       // Stage 3: Detect cross-repository duplicates
-      logger.info('Stage 3: Detecting cross-repository duplicates');
+      logStage(logger, '3/4: Detecting cross-repository duplicates');
       const crossRepoDuplicates = this._detectCrossRepoDuplicates(allCodeBlocks);
 
       logger.info({
@@ -92,7 +92,7 @@ export class InterProjectScanner {
       }, 'Cross-repository duplicates detected');
 
       // Stage 4: Generate cross-repository consolidation suggestions
-      logger.info('Stage 4: Generating cross-repository suggestions');
+      logStage(logger, '4/4: Generating cross-repository suggestions');
       const crossRepoSuggestions = this._generateCrossRepoSuggestions(
         crossRepoDuplicates,
         repositoryScans

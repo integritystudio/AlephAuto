@@ -15,7 +15,7 @@ import { AstGrepPatternDetector } from './scanners/ast-grep-detector.js';
 import { HTMLReportGenerator } from './reports/html-report-generator.js';
 import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
 import { InterProjectScanner } from './inter-project-scanner.js';
-import { createComponentLogger, logStart, logWarn, logError } from '../utils/logger.js';
+import { createComponentLogger, logStart, logStage, logWarn, logError } from '../utils/logger.js';
 import { DependencyValidator } from '../utils/dependency-validator.js';
 import { spawn } from 'child_process';
 import * as path from 'path';
@@ -132,13 +132,13 @@ export class ScanOrchestrator {
                 this._dependenciesValidated = true;
             }
             // Stage 1: Repository scanning
-            logger.info('Stage 1/7: Scanning repository with repomix');
+            logStage(logger, '1/7: Scanning repository with repomix');
             const repoScan = await this.repositoryScanner.scanRepository(repoPath, scanConfig.scan_config || {});
             // Stage 2: Pattern detection
-            logger.info('Stage 2/7: Detecting patterns with ast-grep');
+            logStage(logger, '2/7: Detecting patterns with ast-grep');
             const patterns = await this.patternDetector.detectPatterns(repoPath, scanConfig.pattern_config || {});
             // Stage 3-7: Python pipeline
-            logger.info('Stage 3-7: Running Python extraction and analysis pipeline');
+            logStage(logger, '3-7: Running Python extraction and analysis pipeline');
             const pythonResult = await this.runPythonPipeline({
                 repository_info: repoScan.repository_info,
                 pattern_matches: patterns.matches,

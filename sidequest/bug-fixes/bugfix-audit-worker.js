@@ -3,7 +3,7 @@ import { SidequestServer } from '../core/server.js';
 import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
-import { createComponentLogger, logError } from '../utils/logger.js';
+import { createComponentLogger, logError, logStage } from '../utils/logger.js';
 import { config } from '../core/config.js';
 
 const logger = createComponentLogger('BugfixAuditWorker');
@@ -309,7 +309,7 @@ export class BugfixAuditWorker extends SidequestServer {
       const markdownContent = await fs.readFile(markdownFile, 'utf-8');
 
       // Stage 1: bugfix-planner agent
-      logger.info({ stage: 1 }, 'Running bugfix-planner agent');
+      logStage(logger, '1/5: Running bugfix-planner agent');
       const plannerPrompt = `Analyze this markdown file and create a comprehensive bug fix plan:\n\n${markdownContent}`;
 
       try {
@@ -335,7 +335,7 @@ export class BugfixAuditWorker extends SidequestServer {
       }
 
       // Stage 2: bug-detective plugin
-      logger.info({ stage: 2 }, 'Running bug-detective plugin');
+      logStage(logger, '2/5: Running bug-detective plugin');
       try {
         const detectiveResult = await this.runSlashCommand('/bug-detective:bug-detective', repoPath);
         results.stages.push({
@@ -358,7 +358,7 @@ export class BugfixAuditWorker extends SidequestServer {
       }
 
       // Stage 3: audit plugin
-      logger.info({ stage: 3 }, 'Running audit plugin');
+      logStage(logger, '3/5: Running audit plugin');
       try {
         const auditResult = await this.runSlashCommand('/audit:audit', repoPath);
         results.stages.push({
@@ -384,7 +384,7 @@ export class BugfixAuditWorker extends SidequestServer {
       await this.commitChanges(repoPath, '🔍 Automated audit: bugfix plan, detective report, security audit\n\n🤖 Generated with Claude Code AlephAuto\n\nCo-Authored-By: Claude <noreply@anthropic.com>');
 
       // Stage 4: ceo-quality-controller-agent
-      logger.info({ stage: 4 }, 'Running ceo-quality-controller-agent');
+      logStage(logger, '4/5: Running ceo-quality-controller-agent');
       try {
         const qualityPrompt = 'Review all audit reports and validate quality standards before implementing fixes';
         const qualityResult = await this.runClaudeAgent('ceo-quality-controller-agent', qualityPrompt, repoPath);
@@ -411,7 +411,7 @@ export class BugfixAuditWorker extends SidequestServer {
       await this.commitChanges(repoPath, '✅ Quality control validation complete\n\n🤖 Generated with Claude Code AlephAuto\n\nCo-Authored-By: Claude <noreply@anthropic.com>');
 
       // Stage 5: refractor plugin - implement fixes
-      logger.info({ stage: 5 }, 'Running refractor plugin to implement fixes');
+      logStage(logger, '5/5: Running refractor plugin to implement fixes');
       try {
         const refractorResult = await this.runSlashCommand('/refractor:refractor', repoPath);
         results.stages.push({
