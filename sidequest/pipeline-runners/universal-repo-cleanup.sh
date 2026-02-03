@@ -159,7 +159,7 @@ count_files() {
 ################################################################################
 
 scan_venvs() {
-    print_info "Scanning for Python virtual environments..."
+    print_info "Scanning for Python virtual environments..." >&2
     local found=()
 
     for pattern in "${VENV_PATTERNS[@]}"; do
@@ -171,12 +171,12 @@ scan_venvs() {
         done < <(find "$TARGET_DIR" -maxdepth 3 -type d -name "$pattern" -print0 2>/dev/null)
     done
 
-    # Remove duplicates
-    printf '%s\n' "${found[@]}" | sort -u
+    # Remove duplicates (handle empty array safely)
+    [ ${#found[@]} -gt 0 ] && printf '%s\n' "${found[@]}" | sort -u
 }
 
 scan_temp_files() {
-    print_info "Scanning for temporary/cache files..."
+    print_info "Scanning for temporary/cache files..." >&2
     local found=()
 
     for pattern in "${TEMP_FILE_PATTERNS[@]}"; do
@@ -185,11 +185,11 @@ scan_temp_files() {
         done < <(find "$TARGET_DIR" -name "$pattern" -print0 2>/dev/null)
     done
 
-    printf '%s\n' "${found[@]}" | sort -u
+    [ ${#found[@]} -gt 0 ] && printf '%s\n' "${found[@]}" | sort -u
 }
 
 scan_output_files() {
-    print_info "Scanning for output/generated files..."
+    print_info "Scanning for output/generated files..." >&2
     local found=()
 
     for pattern in "${OUTPUT_FILE_PATTERNS[@]}"; do
@@ -201,11 +201,11 @@ scan_output_files() {
         done < <(find "$TARGET_DIR" -name "$pattern" -print0 2>/dev/null)
     done
 
-    printf '%s\n' "${found[@]}" | sort -u
+    [ ${#found[@]} -gt 0 ] && printf '%s\n' "${found[@]}" | sort -u
 }
 
 scan_build_artifacts() {
-    print_info "Scanning for build artifacts..."
+    print_info "Scanning for build artifacts..." >&2
     local found=()
 
     for artifact in "${BUILD_ARTIFACTS[@]}"; do
@@ -215,11 +215,11 @@ scan_build_artifacts() {
         fi
     done
 
-    printf '%s\n' "${found[@]}" | sort -u
+    [ ${#found[@]} -gt 0 ] && printf '%s\n' "${found[@]}" | sort -u
 }
 
 scan_redundant_dirs() {
-    print_info "Scanning for redundant directories..."
+    print_info "Scanning for redundant directories..." >&2
     local found=()
 
     for dir_name in "${REDUNDANT_DIRS[@]}"; do
@@ -234,7 +234,7 @@ scan_redundant_dirs() {
         fi
     done
 
-    printf '%s\n' "${found[@]}" | sort -u
+    [ ${#found[@]} -gt 0 ] && printf '%s\n' "${found[@]}" | sort -u
 }
 
 ################################################################################
