@@ -374,7 +374,7 @@ router.post('/:jobId/retry', async (req, res) => {
     }
 
     const sanitizedJobId = validation.sanitized;
-    logger.info({ jobId: sanitizedJobId }, 'Retrying job');
+    logStart(logger, 'job retry', { jobId: sanitizedJobId });
 
     // Get job details to determine pipeline
     const allJobs = jobRepository.getAllJobs();
