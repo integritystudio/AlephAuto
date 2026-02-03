@@ -26,7 +26,7 @@ import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.js';
 import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.js';
 import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.js';
 import { PRCreator } from '../pipeline-core/git/pr-creator.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logStart } from '../utils/logger.js';
 import { config } from '../core/config.js';
 import { TIMEOUTS, RETRY } from '../core/constants.js';
 import { isRetryable, getErrorInfo } from '../pipeline-core/errors/error-classifier.js';
@@ -812,7 +812,7 @@ class DuplicateDetectionWorker extends SidequestServer {
    * Run nightly scan (called by cron)
    */
   public async runNightlyScan(): Promise<void> {
-    logger.info('Starting nightly duplicate detection scan');
+    logStart(logger, 'nightly duplicate detection scan');
 
     const scanConfig = this.configLoader.getScanConfig();
 

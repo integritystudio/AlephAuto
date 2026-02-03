@@ -5,7 +5,7 @@
 
 import express from 'express';
 import crypto from 'crypto';
-import { createComponentLogger, logError } from '../../sidequest/utils/logger.js';
+import { createComponentLogger, logError, logStart } from '../../sidequest/utils/logger.js';
 import { jobRepository } from '../../sidequest/core/job-repository.js';
 import { workerRegistry } from '../utils/worker-registry.js';
 import { config } from '../../sidequest/core/config.js';
@@ -232,7 +232,7 @@ router.post('/bulk-import', bulkImportRateLimiter, (req, res) => {
       }
     }
 
-    logger.info({ jobCount: jobs.length }, 'Starting bulk import');
+    logStart(logger, 'bulk import', { jobCount: jobs.length });
 
     // Perform bulk import
     const result = jobRepository.bulkImport(jobs);

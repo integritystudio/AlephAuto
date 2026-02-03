@@ -17,7 +17,7 @@ import { fileURLToPath } from 'url';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
-import { createComponentLogger, logError } from '../sidequest/utils/logger.js';
+import { createComponentLogger, logError, logStart } from '../sidequest/utils/logger.js';
 import { config } from '../sidequest/core/config.js';
 import { CONCURRENCY, PORT } from '../sidequest/core/constants.js';
 import { authMiddleware } from './middleware/auth.js';
@@ -320,7 +320,7 @@ app.get('/ws/status', (req, res) => {
  * @private
  */
 async function _emergencyShutdown() {
-  logger.info('Starting emergency shutdown...');
+  logStart(logger, 'emergency shutdown');
 
   try {
     // Stop Doppler health monitoring if started

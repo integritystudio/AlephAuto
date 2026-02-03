@@ -8,7 +8,7 @@
 
 import { initDatabase, getAllJobs, saveJob } from '../sidequest/core/database.js';
 import { generateReport } from '../sidequest/utils/report-generator.js';
-import { createComponentLogger, logError } from '../sidequest/utils/logger.js';
+import { createComponentLogger, logError, logStart } from '../sidequest/utils/logger.js';
 
 const logger = createComponentLogger('RetroactiveReports');
 
@@ -75,7 +75,7 @@ function updateJobResult(jobId, job, reportPaths) {
  */
 async function main() {
   try {
-    logger.info('Starting retroactive report generation');
+    logStart(logger, 'retroactive report generation');
 
     // Initialize database (async with sql.js)
     await initDatabase();

@@ -372,7 +372,7 @@ export class ScanOrchestrator {
      * Scan multiple repositories (inter-project analysis)
      */
     async scanMultipleRepositories(repoPaths, scanConfig = {}) {
-        logger.info({ count: repoPaths.length }, 'Starting multi-repository scan');
+        logStart(logger, 'multi-repository scan', { count: repoPaths.length });
         // Use InterProjectScanner for cross-repository analysis
         const interProjectScanner = new InterProjectScanner({
             orchestrator: {

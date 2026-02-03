@@ -57,7 +57,7 @@ export class CachedScanner {
     const startTime = Date.now();
 
     try {
-      logger.info({ repoPath, options }, 'Starting cached repository scan');
+      logStart(logger, 'cached repository scan', { repoPath, options });
 
       // Get repository Git status
       const repoStatus = await this.gitTracker.getRepositoryStatus(repoPath);
@@ -301,7 +301,7 @@ export class CachedScanner {
    * @returns {Promise<Object>} - Warm-up results
    */
   async warmCache(repoPaths, options = {}) {
-    logger.info({ repositoryCount: repoPaths.length }, 'Starting cache warm-up');
+    logStart(logger, 'cache warm-up', { repositoryCount: repoPaths.length });
 
     const results = {
       total: repoPaths.length,

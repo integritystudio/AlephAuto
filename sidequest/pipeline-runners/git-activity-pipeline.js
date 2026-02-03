@@ -3,7 +3,7 @@ import cron from 'node-cron';
 import { GitActivityWorker } from '../workers/git-activity-worker.js';
 import { config } from '../core/config.js';
 import { TIMEOUTS } from '../core/constants.js';
-import { createComponentLogger, logError } from '../utils/logger.js';
+import { createComponentLogger, logError, logStart } from '../utils/logger.js';
 
 const logger = createComponentLogger('GitActivityPipeline');
 
@@ -72,7 +72,7 @@ class GitActivityPipeline {
    * Run a single report
    */
   async runReport(options = {}) {
-    logger.info({ options }, 'Starting git activity report');
+    logStart(logger, 'git activity report', { options });
 
     const startTime = Date.now();
 
@@ -220,7 +220,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         process.exit(1);
       });
   } else {
-    logger.info({ cronSchedule: gitCronSchedule }, 'Starting git activity pipeline in scheduled mode');
+    logStart(logger, 'git activity pipeline in scheduled mode', { cronSchedule: gitCronSchedule });
     pipeline.scheduleWeeklyReports(gitCronSchedule);
     logger.info('Git activity pipeline running. Press Ctrl+C to stop.');
   }

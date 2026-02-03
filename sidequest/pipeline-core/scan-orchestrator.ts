@@ -16,7 +16,7 @@ import { AstGrepPatternDetector } from './scanners/ast-grep-detector.js';
 import { HTMLReportGenerator } from './reports/html-report-generator.js';
 import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
 import { InterProjectScanner } from './inter-project-scanner.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logStart } from '../utils/logger.js';
 import { DependencyValidator } from '../utils/dependency-validator.js';
 import { spawn, ChildProcess, execSync } from 'child_process';
 import * as path from 'path';
@@ -420,7 +420,7 @@ export class ScanOrchestrator {
       throw error;
     }
 
-    logger.info({ repoPath }, 'Starting repository duplicate scan');
+    logStart(logger, 'repository duplicate scan', { repoPath });
 
     try {
       // Validate dependencies once per scanner instance
@@ -736,7 +736,7 @@ export class ScanOrchestrator {
     repoPaths: string[],
     scanConfig: ScanConfig = {}
   ): Promise<MultiRepositoryScanResult> {
-    logger.info({ count: repoPaths.length }, 'Starting multi-repository scan');
+    logStart(logger, 'multi-repository scan', { count: repoPaths.length });
 
     // Use InterProjectScanner for cross-repository analysis
     const interProjectScanner = new InterProjectScanner({

@@ -29,7 +29,7 @@
  */
 
 import { ClaudeHealthWorker } from '../workers/claude-health-worker.js';
-import { createComponentLogger, logError } from '../utils/logger.js';
+import { createComponentLogger, logError, logStart } from '../utils/logger.js';
 import { config } from '../core/config.js';
 import cron from 'node-cron';
 
@@ -111,7 +111,7 @@ class ClaudeHealthPipeline {
    * @param {Object} options - Check options
    */
   async runHealthCheck(options = {}) {
-    logger.info({ options }, 'Starting health check');
+    logStart(logger, 'health check', { options });
 
     const startTime = Date.now();
 

@@ -8,7 +8,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.js';
 import { InterProjectScanner } from '../../sidequest/pipeline-core/inter-project-scanner.js';
 import { DuplicateDetectionWorker } from '../../sidequest/pipeline-runners/duplicate-detection-pipeline.js';
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { createComponentLogger, logStart } from '../../sidequest/utils/logger.js';
 import { strictRateLimiter } from '../middleware/rate-limit.js';
 import { validateRequest } from '../middleware/validation.js';
 import {
@@ -51,7 +51,7 @@ router.post(
       // Request body is now type-safe and validated
       const { repositoryPath, options = {} } = req.body;
 
-      logger.info({ repositoryPath, options }, 'Starting scan via API');
+      logStart(logger, 'scan via API', { repositoryPath, options });
 
       // Start scan asynchronously - use the actual job ID from scheduleScan
       const job = worker.scheduleScan('intra-project', [{
@@ -89,7 +89,7 @@ router.post('/start-multi', strictRateLimiter, async (req, res, next) => {
       });
     }
 
-    logger.info({ repositoryPaths, groupName }, 'Starting inter-project scan via API');
+    logStart(logger, 'inter-project scan via API', { repositoryPaths, groupName });
 
     // Start inter-project scan
     const repositories = repositoryPaths.map(repoPath => ({

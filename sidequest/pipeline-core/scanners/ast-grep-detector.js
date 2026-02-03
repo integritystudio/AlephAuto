@@ -3,7 +3,7 @@
 /** @typedef {import('../errors/error-types').NodeError} NodeError */
 
 import { spawn } from 'child_process';
-import { createComponentLogger } from '../../utils/logger.js';
+import { createComponentLogger, logStart } from '../../utils/logger.js';
 import { createTimer, captureProcessOutput } from '../utils/index.js';
 import fs from 'fs/promises';
 import path from 'path';
@@ -31,7 +31,7 @@ export class AstGrepPatternDetector {
   async detectPatterns(repoPath, detectConfig = {}) {
     const timer = createTimer();
 
-    logger.info({ repoPath }, 'Starting pattern detection');
+    logStart(logger, 'pattern detection', { repoPath });
 
     try {
       // Load rules

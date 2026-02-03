@@ -650,7 +650,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
    * Run nightly scan (called by cron or startup)
    */
   async runNightlyScan() {
-    logger.info('Starting nightly duplicate detection scan');
+    logStart(logger, 'nightly duplicate detection scan');
 
     const scanConfig = this.configLoader.getScanConfig();
 

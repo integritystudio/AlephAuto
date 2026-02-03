@@ -5,7 +5,7 @@ import { config } from './config.js';
 import { TIMEOUTS, TIME } from './constants.js';
 import path from 'path';
 import fs from 'fs/promises';
-import { createComponentLogger, logError } from '../utils/logger.js';
+import { createComponentLogger, logError, logStart } from '../utils/logger.js';
 
 const logger = createComponentLogger('RepomixCronApp');
 
@@ -65,7 +65,7 @@ class RepomixCronApp {
    * Run repomix on all directories
    */
   async runRepomixOnAllDirectories() {
-    logger.info({ baseDir: this.scanner.baseDir }, 'Starting repomix run');
+    logStart(logger, 'repomix run', { baseDir: this.scanner.baseDir });
 
     const startTime = Date.now();
 

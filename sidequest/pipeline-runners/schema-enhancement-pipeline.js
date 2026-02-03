@@ -2,7 +2,7 @@
 import { SchemaEnhancementWorker } from '../workers/schema-enhancement-worker.js';
 import { config } from '../core/config.js';
 import { TIMEOUTS } from '../core/constants.js';
-import { createComponentLogger, logError } from '../utils/logger.js';
+import { createComponentLogger, logError, logStart } from '../utils/logger.js';
 import cron from 'node-cron';
 import fs from 'fs/promises';
 import path from 'path';
@@ -164,7 +164,7 @@ class SchemaEnhancementPipeline {
    * Run enhancement on directory
    */
   async runEnhancement(directory = this.baseDir) {
-    logger.info({ directory }, 'Starting schema enhancement pipeline');
+    logStart(logger, 'schema enhancement pipeline', { directory });
 
     const startTime = Date.now();
 
@@ -295,7 +295,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         process.exit(1);
       });
   } else {
-    logger.info({ cronSchedule }, 'Starting schema enhancement pipeline in scheduled mode');
+    logStart(logger, 'schema enhancement pipeline in scheduled mode', { cronSchedule });
     pipeline.scheduleEnhancements(cronSchedule);
     logger.info('Schema enhancement pipeline running. Press Ctrl+C to stop.');
   }

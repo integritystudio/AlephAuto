@@ -67,7 +67,7 @@ class ClaudeHealthWorker extends SidequestServer {
    */
   async runJobHandler(job) {
     const startTime = Date.now();
-    logger.info('Starting Claude health check', { jobId: job.id });
+    logStart(logger, 'Claude health check', { jobId: job.id });
 
     try {
       const checks = await this.runAllChecks(job.data || {});

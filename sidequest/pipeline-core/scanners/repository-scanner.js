@@ -1,5 +1,5 @@
 import { RepomixWorker } from '../../workers/repomix-worker.js';
-import { createComponentLogger } from '../../utils/logger.js';
+import { createComponentLogger, logStart } from '../../utils/logger.js';
 import { config } from '../../core/config.js';
 import fs from 'fs/promises';
 import path from 'path';
@@ -35,7 +35,7 @@ export class RepositoryScanner {
   async scanRepository(repoPath, scanConfig = {}) {
     const startTime = Date.now();
 
-    logger.info({ repoPath }, 'Starting repository scan');
+    logStart(logger, 'repository scan', { repoPath });
 
     try {
       // Validate repository path

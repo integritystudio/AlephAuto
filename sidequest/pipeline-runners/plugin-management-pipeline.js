@@ -4,7 +4,7 @@ import cron from 'node-cron';
 import { PluginManagerWorker } from '../utils/plugin-manager.js';
 import { config } from '../core/config.js';
 import { TIMEOUTS } from '../core/constants.js';
-import { createComponentLogger, logError } from '../utils/logger.js';
+import { createComponentLogger, logError, logStart } from '../utils/logger.js';
 
 const logger = createComponentLogger('PluginPipeline');
 
@@ -98,7 +98,7 @@ class PluginManagementPipeline {
    * @param {Object} options - Audit options
    */
   async runAudit(options = {}) {
-    logger.info({ options }, 'Starting plugin audit');
+    logStart(logger, 'plugin audit', { options });
 
     const startTime = Date.now();
 
@@ -190,7 +190,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         process.exit(1);
       });
   } else {
-    logger.info('Starting plugin audit scheduler', { cronSchedule: pluginCronSchedule });
+    logStart(logger, 'plugin audit scheduler', { cronSchedule: pluginCronSchedule });
     pipeline.scheduleAudits(pluginCronSchedule);
 
     // Keep process alive
