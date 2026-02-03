@@ -28,7 +28,7 @@ import path from 'path';
 import { createGzip } from 'zlib';
 import { pipeline } from 'stream/promises';
 import { createReadStream, createWriteStream } from 'fs';
-import { createComponentLogger } from '../sidequest/utils/logger.js';
+import { createComponentLogger, logError } from '../sidequest/utils/logger.js';
 
 const logger = createComponentLogger('ErrorLogCleanup');
 
@@ -229,7 +229,7 @@ async function archiveOldLogs(errorLogs, retentionDays, dryRun, verbose) {
         archivedCount++;
         totalSize += log.sizeBytes;
       } catch (error) {
-        logger.error({ error, file: log.name }, 'Failed to archive error log');
+        logError(logger, error, 'Failed to archive error log', { file: log.name });
       }
     }
   }
@@ -270,7 +270,7 @@ async function deleteOldArchives(archivedLogs, retentionDays, dryRun, verbose) {
         deletedCount++;
         totalSize += log.sizeBytes;
       } catch (error) {
-        logger.error({ error, file: log.name }, 'Failed to delete archived log');
+        logError(logger, error, 'Failed to delete archived log', { file: log.name });
       }
     }
   }
@@ -365,7 +365,7 @@ async function main() {
     await cleanup(options);
     process.exit(0);
   } catch (error) {
-    logger.error({ error }, 'Cleanup failed');
+    logError(logger, error, 'Cleanup failed');
     console.error('\n❌ Cleanup failed:', error.message);
     process.exit(1);
   }

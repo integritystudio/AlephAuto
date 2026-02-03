@@ -9,7 +9,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import os from 'os';
-import { createComponentLogger } from '../../utils/logger.js';
+import { createComponentLogger, logError } from '../../utils/logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logger = createComponentLogger('RepositoryConfigLoader');
@@ -44,7 +44,7 @@ export class RepositoryConfigLoader {
 
       return this.config;
     } catch (error) {
-      logger.error({ error, configPath: this.configPath }, 'Failed to load configuration');
+      logError(logger, error, 'Failed to load configuration', { configPath: this.configPath });
       throw new Error(`Failed to load configuration from ${this.configPath}: ${error.message}`);
     }
   }
@@ -278,7 +278,7 @@ export class RepositoryConfigLoader {
 
       logger.info({ configPath: this.configPath }, 'Configuration saved');
     } catch (error) {
-      logger.error({ error, configPath: this.configPath }, 'Failed to save configuration');
+      logError(logger, error, 'Failed to save configuration', { configPath: this.configPath });
       throw new Error(`Failed to save configuration: ${error.message}`);
     }
   }

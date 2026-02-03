@@ -5,7 +5,7 @@
  * Provides fast retrieval of scan results for unchanged repositories.
  */
 
-import { createComponentLogger } from '../../utils/logger.js';
+import { createComponentLogger, logError } from '../../utils/logger.js';
 import crypto from 'crypto';
 
 const logger = createComponentLogger('ScanResultCache');
@@ -96,7 +96,7 @@ export class ScanResultCache {
         }
       };
     } catch (error) {
-      logger.error({ error, cacheKey, repoPath }, 'Failed to retrieve cached scan');
+      logError(logger, error, 'Failed to retrieve cached scan', { cacheKey, repoPath });
       return null;
     }
   }
@@ -166,7 +166,7 @@ export class ScanResultCache {
 
       return true;
     } catch (error) {
-      logger.error({ error, cacheKey, repoPath }, 'Failed to cache scan result');
+      logError(logger, error, 'Failed to cache scan result', { cacheKey, repoPath });
       return false;
     }
   }
@@ -244,7 +244,7 @@ export class ScanResultCache {
 
       return deletedCount;
     } catch (error) {
-      logger.error({ error, repoPath }, 'Failed to invalidate cache');
+      logError(logger, error, 'Failed to invalidate cache', { repoPath });
       return 0;
     }
   }
@@ -273,7 +273,7 @@ export class ScanResultCache {
 
       return stats;
     } catch (error) {
-      logger.error({ error }, 'Failed to get cache statistics');
+      logError(logger, error, 'Failed to get cache statistics');
       return {
         total_cached_scans: 0,
         cache_enabled: this.enabled,
@@ -302,7 +302,7 @@ export class ScanResultCache {
 
       return cachedScans;
     } catch (error) {
-      logger.error({ error }, 'Failed to list cached scans');
+      logError(logger, error, 'Failed to list cached scans');
       return [];
     }
   }
@@ -329,7 +329,7 @@ export class ScanResultCache {
 
       return metadata;
     } catch (error) {
-      logger.error({ error, cacheKey, repoPath }, 'Failed to get cache metadata');
+      logError(logger, error, 'Failed to get cache metadata', { cacheKey, repoPath });
       return null;
     }
   }
@@ -355,7 +355,7 @@ export class ScanResultCache {
 
       return deletedCount;
     } catch (error) {
-      logger.error({ error }, 'Failed to clear all cached scans');
+      logError(logger, error, 'Failed to clear all cached scans');
       return 0;
     }
   }
@@ -376,7 +376,7 @@ export class ScanResultCache {
 
       return exists;
     } catch (error) {
-      logger.error({ error, cacheKey, repoPath }, 'Failed to check if scan is cached');
+      logError(logger, error, 'Failed to check if scan is cached', { cacheKey, repoPath });
       return false;
     }
   }

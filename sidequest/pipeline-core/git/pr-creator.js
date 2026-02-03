@@ -19,7 +19,7 @@
 import { runCommand } from '@shared/process-io';
 import fs from 'fs/promises';
 import path from 'path';
-import { createComponentLogger } from '../../utils/logger.js';
+import { createComponentLogger, logError } from '../../utils/logger.js';
 import * as Sentry from '@sentry/node';
 import { MigrationTransformer } from './migration-transformer.js';
 
@@ -111,7 +111,7 @@ export class PRCreator {
           results.skipped += batch.length;
         }
       } catch (error) {
-        logger.error({ error, batch: i + 1 }, 'Failed to create PR for batch');
+        logError(logger, error, 'Failed to create PR for batch', { batch: i + 1 });
         results.errors.push({
           batch: i + 1,
           error: error.message,
@@ -204,7 +204,7 @@ export class PRCreator {
       return prUrl;
 
     } catch (error) {
-      logger.error({ error, branchName }, 'Failed to create PR');
+      logError(logger, error, 'Failed to create PR', { branchName });
 
       // Attempt cleanup
       try {
@@ -281,10 +281,9 @@ export class PRCreator {
           } catch (migrationError) {
             // Log migration error but don't fail the entire suggestion
             // The consolidated file has still been created
-            logger.error({
-              error: migrationError,
+            logError(logger, migrationError, 'Failed to apply migration steps', {
               suggestionId: suggestion.suggestion_id
-            }, 'Failed to apply migration steps');
+            });
 
             Sentry.captureException(migrationError, {
               tags: {
@@ -300,10 +299,9 @@ export class PRCreator {
         }
 
       } catch (error) {
-        logger.error({
-          error,
+        logError(logger, error, 'Failed to apply suggestion', {
           suggestionId: suggestion.suggestion_id
-        }, 'Failed to apply suggestion');
+        });
 
         // Continue with other suggestions
       }

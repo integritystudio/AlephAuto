@@ -21,7 +21,7 @@
  */
 
 import { DuplicateDetectionWorker } from '../workers/duplicate-detection-worker.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logError } from '../utils/logger.js';
 import { config } from '../core/config.js';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
@@ -190,7 +190,7 @@ async function main() {
         try {
           await worker.runNightlyScan();
         } catch (error) {
-          logger.error({ error }, 'Nightly scan failed');
+          logError(logger, error, 'Nightly scan failed');
           Sentry.captureException(error);
         }
       });
@@ -269,7 +269,7 @@ async function main() {
 
   } catch (error) {
     console.error('\n❌ Error:', error.message);
-    logger.error({ error }, 'Pipeline initialization failed');
+    logError(logger, error, 'Pipeline initialization failed');
     Sentry.captureException(error);
     process.exit(1);
   }

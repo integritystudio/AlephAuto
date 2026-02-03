@@ -20,7 +20,7 @@ import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanne
 import { InterProjectScanner } from '../../sidequest/pipeline-core/inter-project-scanner.js';
 import { RepositoryConfigLoader } from '../../sidequest/pipeline-core/config/repository-config-loader.js';
 import { ReportCoordinator } from '../../sidequest/pipeline-core/reports/report-coordinator.js';
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { createComponentLogger, logError } from '../../sidequest/utils/logger.js';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -48,7 +48,7 @@ try {
   await configLoader.load();
   logger.info('Configuration loaded successfully');
 } catch (error) {
-  logger.error({ error }, 'Failed to load configuration');
+  logError(logger, error, 'Failed to load configuration');
 }
 
 /**
@@ -247,7 +247,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         throw new Error(`Unknown tool: ${name}`);
     }
   } catch (error) {
-    logger.error({ error, toolName: name }, 'Tool execution failed');
+    logError(logger, error, 'Tool execution failed', { toolName: name });
 
     return {
       content: [{
@@ -598,7 +598,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
         throw new Error(`Unknown resource: ${uri}`);
     }
   } catch (error) {
-    logger.error({ error, uri }, 'Failed to read resource');
+    logError(logger, error, 'Failed to read resource', { uri });
     throw error;
   }
 });
@@ -690,6 +690,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  logger.error({ error }, 'Server error');
+  logError(logger, error, 'Server error');
   process.exit(1);
 });

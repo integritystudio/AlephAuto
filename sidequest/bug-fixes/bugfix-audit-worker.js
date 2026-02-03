@@ -3,7 +3,7 @@ import { SidequestServer } from '../core/server.js';
 import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logError } from '../utils/logger.js';
 import { config } from '../core/config.js';
 
 const logger = createComponentLogger('BugfixAuditWorker');
@@ -325,7 +325,7 @@ export class BugfixAuditWorker extends SidequestServer {
         await fs.writeFile(planPath, plannerResult.stdout);
         logger.info({ planPath }, 'Bug fix plan saved');
       } catch (error) {
-        logger.error({ error }, 'bugfix-planner failed');
+        logError(logger, error, 'bugfix-planner failed');
         results.stages.push({
           name: 'bugfix-planner',
           status: 'failed',
@@ -348,7 +348,7 @@ export class BugfixAuditWorker extends SidequestServer {
         await fs.writeFile(detectivePath, detectiveResult.stdout);
         logger.info({ detectivePath }, 'Bug detective report saved');
       } catch (error) {
-        logger.error({ error }, 'bug-detective failed');
+        logError(logger, error, 'bug-detective failed');
         results.stages.push({
           name: 'bug-detective',
           status: 'failed',
@@ -371,7 +371,7 @@ export class BugfixAuditWorker extends SidequestServer {
         await fs.writeFile(auditPath, auditResult.stdout);
         logger.info({ auditPath }, 'Security audit saved');
       } catch (error) {
-        logger.error({ error }, 'audit failed');
+        logError(logger, error, 'audit failed');
         results.stages.push({
           name: 'audit',
           status: 'failed',
@@ -398,7 +398,7 @@ export class BugfixAuditWorker extends SidequestServer {
         await fs.writeFile(qualityPath, qualityResult.stdout);
         logger.info({ qualityPath }, 'Quality control report saved');
       } catch (error) {
-        logger.error({ error }, 'quality-controller failed');
+        logError(logger, error, 'quality-controller failed');
         results.stages.push({
           name: 'ceo-quality-controller',
           status: 'failed',
@@ -424,7 +424,7 @@ export class BugfixAuditWorker extends SidequestServer {
         await fs.writeFile(refractorPath, refractorResult.stdout);
         logger.info({ refractorPath }, 'Refactor implementation saved');
       } catch (error) {
-        logger.error({ error }, 'refractor failed');
+        logError(logger, error, 'refractor failed');
         results.stages.push({
           name: 'refractor',
           status: 'failed',
@@ -474,7 +474,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>`;
       return results;
 
     } catch (error) {
-      logger.error({ error, jobId: job.id }, 'Bug fix workflow failed');
+      logError(logger, error, 'Bug fix workflow failed', { jobId: job.id });
 
       // Save partial results
       const errorPath = path.join(outputDir, 'workflow-error.json');
@@ -539,7 +539,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>`;
         await this.createGitBranch(repoPath, branchName);
         logger.info({ repoPath, branchName }, 'Branch created');
       } catch (error) {
-        logger.error({ error, repoPath }, 'Failed to create branch, skipping');
+        logError(logger, error, 'Failed to create branch, skipping', { repoPath });
         continue;
       }
 

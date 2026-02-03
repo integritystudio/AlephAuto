@@ -9,7 +9,7 @@
 import express from 'express';
 import { validateQuery, validateRequest } from '../middleware/validation.js';
 import { JobQueryParamsSchema, ManualTriggerRequestSchema, PipelineDocsParamsSchema, PipelineHtmlParamsSchema } from '../types/pipeline-requests.js';
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { createComponentLogger, logError } from '../../sidequest/utils/logger.js';
 import { worker } from './scans.js';
 import { workerRegistry } from '../utils/worker-registry.js';
 import * as Sentry from '@sentry/node';
@@ -76,11 +76,10 @@ async (req, res, next) => {
         res.json(response);
     }
     catch (error) {
-        logger.error({
-            error,
+        logError(logger, error, 'Failed to fetch pipeline jobs', {
             pipelineId,
             queryParams: { status, limit, offset, tab }
-        }, 'Failed to fetch pipeline jobs');
+        });
         Sentry.captureException(error, {
             tags: {
                 component: 'PipelineAPI',
@@ -127,11 +126,10 @@ async (req, res, next) => {
         res.status(201).json(response);
     }
     catch (error) {
-        logger.error({
-            error,
+        logError(logger, error, 'Failed to trigger pipeline job', {
             pipelineId,
             parameters
-        }, 'Failed to trigger pipeline job');
+        });
         Sentry.captureException(error, {
             tags: {
                 component: 'PipelineAPI',
@@ -214,7 +212,7 @@ router.post('/:pipelineId/pause', async (req, res, next) => {
         res.json(response);
 
     } catch (error) {
-        logger.error({ error, pipelineId }, 'Failed to pause pipeline');
+        logError(logger, error, 'Failed to pause pipeline', { pipelineId });
 
         Sentry.captureException(error, {
             tags: {
@@ -295,7 +293,7 @@ router.post('/:pipelineId/resume', async (req, res, next) => {
         res.json(response);
 
     } catch (error) {
-        logger.error({ error, pipelineId }, 'Failed to resume pipeline');
+        logError(logger, error, 'Failed to resume pipeline', { pipelineId });
 
         Sentry.captureException(error, {
             tags: {
@@ -360,7 +358,7 @@ router.get('/:pipelineId/status', async (req, res, next) => {
         res.json(response);
 
     } catch (error) {
-        logger.error({ error, pipelineId }, 'Failed to get pipeline status');
+        logError(logger, error, 'Failed to get pipeline status', { pipelineId });
 
         Sentry.captureException(error, {
             tags: {
@@ -631,7 +629,7 @@ async function triggerPipelineJob(pipelineId, parameters) {
             });
             // Run enhancement asynchronously (don't await - let it run in background)
             pipeline.runEnhancement(parameters.directory).catch(error => {
-                logger.error({ error, pipelineId, directory: parameters.directory }, 'Directory scan failed');
+                logError(logger, error, 'Directory scan failed', { pipelineId, directory: parameters.directory });
             });
         } else {
             // Single file mode - use worker directly
@@ -748,7 +746,7 @@ router.get('/:pipelineId/docs', async (req, res, next) => {
 
         res.json(response);
     } catch (error) {
-        logger.error({ error, pipelineId }, 'Failed to fetch pipeline documentation');
+        logError(logger, error, 'Failed to fetch pipeline documentation', { pipelineId });
 
         Sentry.captureException(error, {
             tags: {
@@ -827,7 +825,7 @@ router.get('/:pipelineId/html', async (req, res, next) => {
                     });
                 }
             } catch (readErr) {
-                logger.error({ error: readErr, reportsDir }, 'Failed to read reports directory');
+                logError(logger, readErr, 'Failed to read reports directory', { reportsDir });
                 throw readErr;
             }
         }
@@ -835,7 +833,7 @@ router.get('/:pipelineId/html', async (req, res, next) => {
         // Serve the HTML file
         res.sendFile(htmlPath, (err) => {
             if (err) {
-                logger.error({ error: err, htmlPath }, 'Failed to send HTML file');
+                logError(logger, err, 'Failed to send HTML file', { htmlPath });
 
                 Sentry.captureException(err, {
                     tags: {
@@ -861,7 +859,7 @@ router.get('/:pipelineId/html', async (req, res, next) => {
         });
 
     } catch (error) {
-        logger.error({ error, pipelineId }, 'Failed to fetch HTML report');
+        logError(logger, error, 'Failed to fetch HTML report', { pipelineId });
 
         Sentry.captureException(error, {
             tags: {

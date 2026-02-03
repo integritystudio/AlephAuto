@@ -21,7 +21,7 @@
  *   const health = doppler.getHealth();
  */
 
-import { createComponentLogger } from './logger.js';
+import { createComponentLogger, logError } from './logger.js';
 import Sentry from '@sentry/node';
 import fs from 'fs/promises';
 import path from 'path';
@@ -152,7 +152,7 @@ export class DopplerResilience {
 
       return this.cachedSecrets;
     } catch (error) {
-      logger.error({ error, cacheFile: this.cacheFile }, 'Failed to load fallback secrets');
+      logError(logger, error, 'Failed to load fallback secrets', { cacheFile: this.cacheFile });
 
       Sentry.captureException(error, {
         tags: {

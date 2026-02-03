@@ -5,7 +5,7 @@
  */
 
 import express from 'express';
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { createComponentLogger, logError } from '../../sidequest/utils/logger.js';
 import { validateQuery } from '../middleware/validation.js';
 import { ReportQuerySchema } from '../types/report-requests.js';
 import fs from 'fs/promises';
@@ -148,7 +148,7 @@ router.get('/:filename', async (req, res, next) => {
             });
           }
         } catch (readErr) {
-          logger.error({ error: readErr }, 'Failed to read reports directory');
+          logError(logger, readErr, 'Failed to read reports directory');
           throw readErr;
         }
       } else {

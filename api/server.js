@@ -17,7 +17,7 @@ import { fileURLToPath } from 'url';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
-import { createComponentLogger } from '../sidequest/utils/logger.js';
+import { createComponentLogger, logError } from '../sidequest/utils/logger.js';
 import { config } from '../sidequest/core/config.js';
 import { CONCURRENCY } from '../sidequest/core/constants.js';
 import { authMiddleware } from './middleware/auth.js';
@@ -131,7 +131,7 @@ app.get('/api/health/doppler', async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    logger.error({ error }, 'Failed to check Doppler health');
+    logError(logger, error, 'Failed to check Doppler health');
     res.status(500).json({
       success: false,
       error: {
@@ -201,7 +201,7 @@ app.get('/api/status', (req, res) => {
       recentActivity
     });
   } catch (error) {
-    logger.error({ error }, 'Failed to get system status');
+    logError(logger, error, 'Failed to get system status');
     Sentry.captureException(error, {
       tags: { component: 'APIServer', endpoint: '/api/status' }
     });
@@ -249,7 +249,7 @@ app.get('/api/pipeline-data-flow', async (req, res) => {
     res.setHeader('Content-Type', 'text/html');
     res.send(html);
   } catch (error) {
-    logger.error({ error }, 'Failed to load pipeline data flow documentation');
+    logError(logger, error, 'Failed to load pipeline data flow documentation');
     Sentry.captureException(error, {
       tags: { component: 'APIServer', endpoint: '/api/pipeline-data-flow' }
     });

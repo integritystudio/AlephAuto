@@ -18,7 +18,7 @@ import {
   bulkImportJobs as dbBulkImportJobs,
   closeDatabase as dbCloseDatabase,
 } from './database.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logError } from '../utils/logger.js';
 
 const logger = createComponentLogger('JobRepository');
 
@@ -38,7 +38,7 @@ class JobRepository {
     // Auto-initialize if requested (useful for testing)
     if (options.autoInitialize) {
       this.initialize().catch(err => {
-        logger.error({ error: err }, 'Failed to auto-initialize JobRepository');
+        logError(logger, err, 'Failed to auto-initialize JobRepository');
       });
     }
   }

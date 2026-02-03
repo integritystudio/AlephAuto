@@ -19,7 +19,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { createComponentLogger } from './logger.js';
+import { createComponentLogger, logError } from './logger.js';
 
 const logger = createComponentLogger('ReportGenerator');
 
@@ -109,7 +109,7 @@ export async function generateReport(options) {
     return reportPaths;
 
   } catch (error) {
-    logger.error({ error }, 'Report generation failed');
+    logError(logger, error, 'Report generation failed');
     throw new Error(`Report generation failed: ${error.message}`);
   }
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { SchemaEnhancementWorker } from '../workers/schema-enhancement-worker.js';
 import { config } from '../core/config.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logError } from '../utils/logger.js';
 import cron from 'node-cron';
 import fs from 'fs/promises';
 import path from 'path';
@@ -71,11 +71,10 @@ class SchemaEnhancementPipeline {
     });
 
     this.worker.on('job:failed', (job) => {
-      logger.error({
+      logError(logger, /** @type {Error} */ (job.error), 'Schema enhancement job failed', {
         jobId: job.id,
-        readmePath: job.data.relativePath,
-        error: job.error
-      }, 'Schema enhancement job failed');
+        readmePath: job.data.relativePath
+      });
     });
   }
 
@@ -207,7 +206,7 @@ class SchemaEnhancementPipeline {
         jobs: jobStats
       };
     } catch (error) {
-      logger.error({ error }, 'Schema enhancement pipeline failed');
+      logError(logger, error, 'Schema enhancement pipeline failed');
       throw error;
     }
   }
@@ -242,7 +241,7 @@ class SchemaEnhancementPipeline {
       try {
         await this.runEnhancement();
       } catch (error) {
-        logger.error({ error }, 'Scheduled enhancement failed');
+        logError(logger, error, 'Scheduled enhancement failed');
       }
     });
 
@@ -291,7 +290,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         process.exit(0);
       })
       .catch((error) => {
-        logger.error({ error }, 'Enhancement failed');
+        logError(logger, error, 'Enhancement failed');
         process.exit(1);
       });
   } else {

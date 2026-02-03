@@ -23,7 +23,7 @@ import generate from '@babel/generator';
 import * as t from '@babel/types';
 import fs from 'fs/promises';
 import path from 'path';
-import { createComponentLogger } from '../../utils/logger.js';
+import { createComponentLogger, logError } from '../../utils/logger.js';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('MigrationTransformer');
@@ -176,7 +176,7 @@ export class MigrationTransformer {
           }
 
         } catch (error) {
-          logger.error({ error, filePath }, 'Failed to transform file');
+          logError(logger, error, 'Failed to transform file', { filePath });
           results.errors.push({
             file: filePath,
             error: error.message
@@ -204,7 +204,7 @@ export class MigrationTransformer {
       return results;
 
     } catch (error) {
-      logger.error({ error }, 'Failed to apply migration steps');
+      logError(logger, error, 'Failed to apply migration steps');
 
       // Attempt rollback on error
       if (results.filesModified.length > 0) {
@@ -313,10 +313,7 @@ export class MigrationTransformer {
             logger.warn({ type: transformation.type }, 'Unknown transformation type');
         }
       } catch (transformError) {
-        logger.error({
-          transformError,
-          transformation
-        }, 'Transformation failed');
+        logError(logger, transformError, 'Transformation failed', { transformation });
       }
     }
 
@@ -642,7 +639,7 @@ export class MigrationTransformer {
       logger.info({ filesRestored: files.length }, 'Rollback completed');
 
     } catch (error) {
-      logger.error({ error, backupPath }, 'Rollback failed');
+      logError(logger, error, 'Rollback failed', { backupPath });
       Sentry.captureException(error, {
         tags: { component: 'migration-transformer', operation: 'rollback' },
         extra: { backupPath, repositoryPath }

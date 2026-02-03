@@ -8,7 +8,7 @@
 
 import { initDatabase, getAllJobs, saveJob } from '../sidequest/core/database.js';
 import { generateReport } from '../sidequest/utils/report-generator.js';
-import { createComponentLogger } from '../sidequest/utils/logger.js';
+import { createComponentLogger, logError } from '../sidequest/utils/logger.js';
 
 const logger = createComponentLogger('RetroactiveReports');
 
@@ -148,11 +148,10 @@ async function main() {
 
       } catch (error) {
         errorCount++;
-        logger.error({
-          error: error.message,
+        logError(logger, error, 'Failed to generate report', {
           jobId: job.id,
           pipelineId: job.pipelineId
-        }, 'Failed to generate report');
+        });
       }
     }
 
@@ -170,7 +169,7 @@ async function main() {
     console.log(`\n✨ Reports saved to: output/reports/\n`);
 
   } catch (error) {
-    logger.error({ error }, 'Fatal error in retroactive report generation');
+    logError(logger, error, 'Fatal error in retroactive report generation');
     console.error('❌ Error:', error.message);
     process.exit(1);
   }

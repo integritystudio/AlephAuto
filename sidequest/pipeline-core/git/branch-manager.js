@@ -18,7 +18,7 @@
 /** @typedef {import('../errors/error-types').ProcessError} ProcessError */
 
 import { runCommand } from '@shared/process-io';
-import { createComponentLogger } from '../../utils/logger.js';
+import { createComponentLogger, logError } from '../../utils/logger.js';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('BranchManager');
@@ -173,7 +173,7 @@ export class BranchManager {
 
     } catch (error) {
       span?.setStatus('internal_error');
-      logger.error({ error, repositoryPath, jobContext }, 'Failed to create job branch');
+      logError(logger, error, 'Failed to create job branch', { repositoryPath, jobContext });
 
       Sentry.captureException(error, {
         tags: {
@@ -243,7 +243,7 @@ export class BranchManager {
 
     } catch (error) {
       span?.setStatus('internal_error');
-      logger.error({ error, repositoryPath, commitContext }, 'Failed to commit changes');
+      logError(logger, error, 'Failed to commit changes', { repositoryPath, commitContext });
 
       Sentry.captureException(error, {
         tags: {
@@ -294,7 +294,7 @@ export class BranchManager {
 
     } catch (error) {
       span?.setStatus('internal_error');
-      logger.error({ error, repositoryPath, branchName }, 'Failed to push branch');
+      logError(logger, error, 'Failed to push branch', { repositoryPath, branchName });
 
       Sentry.captureException(error, {
         tags: {
@@ -368,7 +368,7 @@ export class BranchManager {
 
     } catch (error) {
       span?.setStatus('internal_error');
-      logger.error({ error, repositoryPath, prContext }, 'Failed to create pull request');
+      logError(logger, error, 'Failed to create pull request', { repositoryPath, prContext });
 
       Sentry.captureException(error, {
         tags: {

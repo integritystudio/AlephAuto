@@ -15,7 +15,7 @@ import { RepomixWorker } from '../../sidequest/workers/repomix-worker.js';
 import { ClaudeHealthWorker } from '../../sidequest/workers/claude-health-worker.js';
 import { RepoCleanupWorker } from '../../sidequest/workers/repo-cleanup-worker.js';
 import { config } from '../../sidequest/core/config.js';
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { createComponentLogger, logError } from '../../sidequest/utils/logger.js';
 import { jobRepository } from '../../sidequest/core/job-repository.js';
 import { CONCURRENCY } from '../../sidequest/core/constants.js';
 
@@ -367,7 +367,7 @@ class WorkerRegistry {
 
       worker = new pipelineConfig.WorkerClass(options);
     } catch (error) {
-      logger.error({ error, pipelineId }, 'Failed to create worker');
+      logError(logger, error, 'Failed to create worker', { pipelineId });
       throw new Error(`Failed to initialize ${pipelineId} worker: ${error.message}`);
     }
 
@@ -378,7 +378,7 @@ class WorkerRegistry {
         // @ts-ignore
         await worker.initialize();
       } catch (initError) {
-        logger.error({ error: initError, pipelineId }, 'Worker initialize() method failed');
+        logError(logger, initError, 'Worker initialize() method failed', { pipelineId });
         throw new Error(`Failed to initialize ${pipelineId} worker: ${initError.message}`);
       }
     }
@@ -491,7 +491,7 @@ class WorkerRegistry {
       if (worker.shutdown && typeof worker.shutdown === 'function') {
         shutdownPromises.push(
           worker.shutdown().catch(error => {
-            logger.error({ error, pipelineId }, 'Worker shutdown failed');
+            logError(logger, error, 'Worker shutdown failed', { pipelineId });
           })
         );
       }

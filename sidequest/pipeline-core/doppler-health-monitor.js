@@ -13,7 +13,7 @@
  *   const health = await monitor.checkCacheHealth();
  */
 
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logError } from '../utils/logger.js';
 import Sentry from '@sentry/node';
 import fs from 'fs/promises';
 import path from 'path';
@@ -168,7 +168,7 @@ export class DopplerHealthMonitor {
         };
       }
 
-      logger.error({ error, cacheDir: this.cacheDir }, 'Failed to check Doppler cache health');
+      logError(logger, error, 'Failed to check Doppler cache health', { cacheDir: this.cacheDir });
 
       Sentry.captureException(error, {
         tags: {

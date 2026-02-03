@@ -8,7 +8,7 @@
 import { HTMLReportGenerator } from './html-report-generator.js';
 import { MarkdownReportGenerator } from './markdown-report-generator.js';
 import { JSONReportGenerator } from './json-report-generator.js';
-import { createComponentLogger } from '../../utils/logger.js';
+import { createComponentLogger, logError } from '../../utils/logger.js';
 import { createTimer, ensureDir } from '../utils/index.js';
 import path from 'path';
 import fs from 'fs/promises';
@@ -73,7 +73,7 @@ export class ReportCoordinator {
 
       return result;
     } catch (error) {
-      logger.error({ error }, 'Failed to generate reports');
+      logError(logger, error, 'Failed to generate reports');
       throw error;
     }
   }

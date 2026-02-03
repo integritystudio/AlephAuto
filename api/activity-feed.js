@@ -26,7 +26,7 @@
  * @property {number} [delay] - Delay in ms before retry
  */
 
-import { createComponentLogger } from '../sidequest/utils/logger.js';
+import { createComponentLogger, logError } from '../sidequest/utils/logger.js';
 import * as Sentry from '@sentry/node';
 import { safeErrorMessage, toErrorObject } from '../sidequest/pipeline-core/utils/error-helpers.js';
 
@@ -89,7 +89,7 @@ export class ActivityFeedManager {
 
       return activityEntry;
     } catch (error) {
-      logger.error({ error, activity }, 'Failed to add activity to feed');
+      logError(logger, error, 'Failed to add activity to feed', { activity });
       Sentry.captureException(error, {
         tags: { component: 'ActivityFeed', operation: 'addActivity' },
         extra: { activity }
@@ -191,7 +191,7 @@ export class ActivityFeedManager {
             }, 'jobs');
           }
         } catch (error) {
-          logger.error({ error, job }, 'Failed to add job:created activity');
+          logError(logger, error, 'Failed to add job:created activity', { job });
           Sentry.captureException(error, {
             tags: { component: 'ActivityFeed', event: 'job:created' },
             extra: { jobId: job.id }
@@ -226,7 +226,7 @@ export class ActivityFeedManager {
             }, 'jobs');
           }
         } catch (error) {
-          logger.error({ error, job }, 'Failed to add job:started activity');
+          logError(logger, error, 'Failed to add job:started activity', { job });
           Sentry.captureException(error, {
             tags: { component: 'ActivityFeed', event: 'job:started' },
             extra: { jobId: job.id }
@@ -275,7 +275,7 @@ export class ActivityFeedManager {
             }, 'jobs');
           }
         } catch (error) {
-          logger.error({ error, job }, 'Failed to add job:completed activity');
+          logError(logger, error, 'Failed to add job:completed activity', { job });
           Sentry.captureException(error, {
             tags: { component: 'ActivityFeed', event: 'job:completed' },
             extra: { jobId: job.id }
@@ -367,7 +367,7 @@ export class ActivityFeedManager {
             }
           });
         } catch (activityError) {
-          logger.error({ error: activityError, job }, 'Failed to add job:failed activity');
+          logError(logger, activityError, 'Failed to add job:failed activity', { job });
           Sentry.captureException(activityError, {
             tags: { component: 'ActivityFeed', event: 'job:failed:activity-error' },
             extra: {
@@ -435,7 +435,7 @@ export class ActivityFeedManager {
             }
           });
         } catch (activityError) {
-          logger.error({ error: activityError, jobId: job?.id }, 'Failed to add retry:created activity');
+          logError(logger, activityError, 'Failed to add retry:created activity', { jobId: job?.id });
           Sentry.captureException(activityError, {
             tags: { component: 'ActivityFeed', event: 'retry:created' },
             extra: {
@@ -470,7 +470,7 @@ export class ActivityFeedManager {
             }
           });
         } catch (activityError) {
-          logger.error({ error: activityError, jobId }, 'Failed to add retry:max-attempts activity');
+          logError(logger, activityError, 'Failed to add retry:max-attempts activity', { jobId });
           Sentry.captureException(activityError, {
             tags: { component: 'ActivityFeed', event: 'retry:max-attempts' },
             extra: { jobId, attempts }
@@ -487,7 +487,7 @@ export class ActivityFeedManager {
         level: 'info'
       });
     } catch (error) {
-      logger.error({ error }, 'Failed to set up worker event listeners');
+      logError(logger, error, 'Failed to set up worker event listeners');
       Sentry.captureException(error, {
         tags: { component: 'ActivityFeed', operation: 'listenToWorker' }
       });

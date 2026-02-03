@@ -8,7 +8,7 @@ import express from 'express';
 import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.js';
 import { InterProjectScanner } from '../../sidequest/pipeline-core/inter-project-scanner.js';
 import { DuplicateDetectionWorker } from '../../sidequest/pipeline-runners/duplicate-detection-pipeline.js';
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { createComponentLogger, logError } from '../../sidequest/utils/logger.js';
 import { strictRateLimiter } from '../middleware/rate-limit.js';
 import { validateRequest } from '../middleware/validation.js';
 import { StartScanRequestSchema } from '../types/scan-requests.js';
@@ -28,7 +28,7 @@ export { worker };
 
 // Initialize worker
 worker.initialize().catch(error => {
-  logger.error({ error }, 'Failed to initialize worker');
+  logError(logger, error, 'Failed to initialize worker');
 });
 
 /**

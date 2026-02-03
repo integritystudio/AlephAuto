@@ -73,7 +73,7 @@ export function logComplete(log, operation, startTime, context = {}) {
 /**
  * Log error with standardized format
  * @param {pino.Logger} log - Logger instance
- * @param {Error} error - Error object
+ * @param {Error | unknown} error - Error object (accepts any error-like object)
  * @param {string} message - Error message
  * @param {Object} context - Additional context
  */

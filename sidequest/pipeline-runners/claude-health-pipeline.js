@@ -29,7 +29,7 @@
  */
 
 import { ClaudeHealthWorker } from '../workers/claude-health-worker.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logError } from '../utils/logger.js';
 import { config } from '../core/config.js';
 import cron from 'node-cron';
 
@@ -86,10 +86,7 @@ class ClaudeHealthPipeline {
     });
 
     this.worker.on('job:failed', (job) => {
-      logger.error({
-        jobId: job.id,
-        error: job.error
-      }, 'Health check job failed');
+      logError(logger, job.error, 'Health check job failed', { jobId: job.id });
     });
   }
 
@@ -143,7 +140,7 @@ class ClaudeHealthPipeline {
 
       return stats;
     } catch (error) {
-      logger.error({ error }, 'Health check pipeline failed');
+      logError(logger, error, 'Health check pipeline failed');
       throw error;
     }
   }
@@ -174,7 +171,7 @@ class ClaudeHealthPipeline {
     const task = cron.schedule(cronSchedule, () => {
       logger.info('Cron triggered health check');
       this.runHealthCheck().catch(error => {
-        logger.error({ error }, 'Scheduled health check failed');
+        logError(logger, error, 'Scheduled health check failed');
       });
     });
 
@@ -378,7 +375,7 @@ logger.info('Claude Health Pipeline initialized', {
       process.exit(hasFailures ? 1 : 0);
     }
   } catch (error) {
-    logger.error({ error }, 'Pipeline execution failed');
+    logError(logger, error, 'Pipeline execution failed');
     process.exit(1);
   }
 })();

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @ts-nocheck
 import { GitignoreWorker } from '../workers/gitignore-worker.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logError } from '../utils/logger.js';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
 import path from 'path';
@@ -99,11 +99,7 @@ async function main() {
   });
 
   worker.on('job:failed', (job) => {
-    logger.error({
-      jobId: job.id,
-      error: job.error,
-      retries: job.retries
-    }, 'Job failed');
+    logError(logger, job.error, 'Job failed', { jobId: job.id, retries: job.retries });
 
     Sentry.captureException(new Error(job.error), {
       tags: {
@@ -133,7 +129,7 @@ async function main() {
         dryRun: DRY_RUN
       }, 'Startup job created');
     } catch (error) {
-      logger.error({ error }, 'Failed to create startup job');
+      logError(logger, error, 'Failed to create startup job');
       Sentry.captureException(error, {
         tags: { component: 'gitignore-pipeline', phase: 'startup' },
       });
@@ -157,7 +153,7 @@ async function main() {
         dryRun: DRY_RUN
       }, 'Scheduled job created');
     } catch (error) {
-      logger.error({ error }, 'Failed to create scheduled job');
+      logError(logger, error, 'Failed to create scheduled job');
       Sentry.captureException(error, {
         tags: { component: 'gitignore-pipeline', phase: 'cron' },
       });
@@ -180,7 +176,7 @@ async function main() {
 
 // Run the pipeline
 main().catch((error) => {
-  logger.error({ error }, 'Fatal error in gitignore pipeline');
+  logError(logger, error, 'Fatal error in gitignore pipeline');
   Sentry.captureException(error, {
     tags: { component: 'gitignore-pipeline', phase: 'startup' },
   });

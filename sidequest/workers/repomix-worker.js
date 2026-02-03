@@ -6,7 +6,7 @@ import { captureProcessOutput } from '@shared/process-io';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logError } from '../utils/logger.js';
 import { config } from '../core/config.js';
 
 const logger = createComponentLogger('RepomixWorker');
@@ -74,7 +74,7 @@ export class RepomixWorker extends SidequestServer {
         '  npm install\n' +
         'Or verify package.json includes "repomix" dependency.\n' +
         `PATH: ${process.env.PATH}`;
-      logger.error({ error }, errorMessage);
+      logError(logger, error, errorMessage);
       throw new Error(errorMessage);
     }
   }

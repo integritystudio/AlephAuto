@@ -3,7 +3,7 @@
 import cron from 'node-cron';
 import { PluginManagerWorker } from '../utils/plugin-manager.js';
 import { config } from '../core/config.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logError } from '../utils/logger.js';
 
 const logger = createComponentLogger('PluginPipeline');
 
@@ -53,10 +53,7 @@ class PluginManagementPipeline {
     });
 
     this.worker.on('job:failed', (job) => {
-      logger.error({
-        jobId: job.id,
-        error: job.error
-      }, 'Plugin audit failed');
+      logError(logger, job.error, 'Plugin audit failed', { jobId: job.id });
     });
   }
 
@@ -125,7 +122,7 @@ class PluginManagementPipeline {
 
       return stats;
     } catch (error) {
-      logger.error({ error }, 'Plugin audit pipeline failed');
+      logError(logger, error, 'Plugin audit pipeline failed');
       throw error;
     }
   }
@@ -162,7 +159,7 @@ class PluginManagementPipeline {
       try {
         await this.runAudit({ detailed: false });
       } catch (error) {
-        logger.error({ error }, 'Scheduled plugin audit failed');
+        logError(logger, error, 'Scheduled plugin audit failed');
       }
     });
 
@@ -188,7 +185,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         process.exit(0);
       })
       .catch((error) => {
-        logger.error({ error }, 'Plugin audit failed');
+        logError(logger, error, 'Plugin audit failed');
         process.exit(1);
       });
   } else {

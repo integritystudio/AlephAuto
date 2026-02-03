@@ -5,7 +5,7 @@
  */
 
 import { ZodError } from 'zod';
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { createComponentLogger, logError } from '../../sidequest/utils/logger.js';
 
 const logger = createComponentLogger('ValidationMiddleware');
 
@@ -56,7 +56,7 @@ export function validateRequest(schema) {
       }
 
       // Unknown error - pass to error handler
-      logger.error({ error }, 'Unknown validation error');
+      logError(logger, error, 'Unknown validation error');
       next(error);
     }
   };

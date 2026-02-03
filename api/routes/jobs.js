@@ -5,7 +5,7 @@
 
 import express from 'express';
 import crypto from 'crypto';
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { createComponentLogger, logError } from '../../sidequest/utils/logger.js';
 import { jobRepository } from '../../sidequest/core/job-repository.js';
 import { workerRegistry } from '../utils/worker-registry.js';
 import { config } from '../../sidequest/core/config.js';
@@ -181,7 +181,7 @@ router.get('/', (req, res) => {
     });
 
   } catch (error) {
-    logger.error({ error }, 'Failed to get jobs');
+    logError(logger, error, 'Failed to get jobs');
     return sendInternalError(res, 'Failed to retrieve jobs');
   }
 });
@@ -254,7 +254,7 @@ router.post('/bulk-import', bulkImportRateLimiter, (req, res) => {
     });
 
   } catch (error) {
-    logger.error({ error }, 'Bulk import failed');
+    logError(logger, error, 'Bulk import failed');
     return sendError(res, ERROR_CODES.INTERNAL_ERROR, 'Bulk import failed', 500, { details: error.message });
   }
 });
@@ -304,7 +304,7 @@ router.get('/:jobId', (req, res) => {
     });
 
   } catch (error) {
-    logger.error({ error, jobId: req.params.jobId }, 'Failed to get job details');
+    logError(logger, error, 'Failed to get job details', { jobId: req.params.jobId });
     return sendInternalError(res, 'Failed to retrieve job details');
   }
 });
@@ -354,7 +354,7 @@ router.post('/:jobId/cancel', async (req, res) => {
     }
 
   } catch (error) {
-    logger.error({ error, jobId: req.params.jobId }, 'Failed to cancel job');
+    logError(logger, error, 'Failed to cancel job', { jobId: req.params.jobId });
     return sendInternalError(res, 'Failed to cancel job');
   }
 });
@@ -431,7 +431,7 @@ router.post('/:jobId/retry', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error({ error, jobId: req.params.jobId }, 'Failed to retry job');
+    logError(logger, error, 'Failed to retry job', { jobId: req.params.jobId });
     return sendInternalError(res, 'Failed to retry job');
   }
 });

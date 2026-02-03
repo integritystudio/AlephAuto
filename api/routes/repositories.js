@@ -7,7 +7,7 @@
 import express from 'express';
 import { RepositoryConfigLoader } from '../../sidequest/pipeline-core/config/repository-config-loader.js';
 import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.js';
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { createComponentLogger, logError } from '../../sidequest/utils/logger.js';
 import { strictRateLimiter } from '../middleware/rate-limit.js';
 import { validateQuery } from '../middleware/validation.js';
 import { RepositoryQuerySchema, RepositoryGroupQuerySchema } from '../types/repository-requests.js';
@@ -21,7 +21,7 @@ const cachedScanner = new CachedScanner({ cacheEnabled: true });
 
 // Load configuration
 configLoader.load().catch(error => {
-  logger.error({ error }, 'Failed to load configuration');
+  logError(logger, error, 'Failed to load configuration');
 });
 
 /**

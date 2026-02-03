@@ -6,7 +6,7 @@
  */
 
 import { ScanOrchestrator } from './scan-orchestrator.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logError } from '../utils/logger.js';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -142,7 +142,7 @@ export class InterProjectScanner {
       return result;
 
     } catch (error) {
-      logger.error({ error }, 'Inter-project scan failed');
+      logError(logger, error, 'Inter-project scan failed');
       throw error;
     }
   }

@@ -8,7 +8,7 @@
 /** @typedef {import('http').Server} HttpServer */
 
 import { WebSocketServer } from 'ws';
-import { createComponentLogger } from '../sidequest/utils/logger.js';
+import { createComponentLogger, logError } from '../sidequest/utils/logger.js';
 import crypto from 'crypto';
 
 const logger = createComponentLogger('WebSocketServer');
@@ -55,7 +55,7 @@ export function createWebSocketServer(httpServer) {
         const message = JSON.parse(data.toString());
         handleClientMessage(clientId, message, clients);
       } catch (error) {
-        logger.error({ error, clientId }, 'Failed to parse client message');
+        logError(logger, error, 'Failed to parse client message', { clientId });
         ws.send(JSON.stringify({
           type: 'error',
           error: 'Invalid message format',
@@ -75,7 +75,7 @@ export function createWebSocketServer(httpServer) {
 
     // Handle errors
     ws.on('error', (error) => {
-      logger.error({ error, clientId }, 'WebSocket error');
+      logError(logger, error, 'WebSocket error', { clientId });
     });
 
     // Set up heartbeat
@@ -93,7 +93,7 @@ export function createWebSocketServer(httpServer) {
   });
 
   wss.on('error', (error) => {
-    logger.error({ error }, 'WebSocket server error');
+    logError(logger, error, 'WebSocket server error');
   });
 
   // Broadcast function

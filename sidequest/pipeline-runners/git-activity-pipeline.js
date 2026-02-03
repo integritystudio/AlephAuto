@@ -2,7 +2,7 @@
 import cron from 'node-cron';
 import { GitActivityWorker } from '../workers/git-activity-worker.js';
 import { config } from '../core/config.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logError } from '../utils/logger.js';
 
 const logger = createComponentLogger('GitActivityPipeline');
 
@@ -63,10 +63,7 @@ class GitActivityPipeline {
     });
 
     this.worker.on('job:failed', (job) => {
-      logger.error({
-        jobId: job.id,
-        error: job.error
-      }, 'Job failed');
+      logError(logger, /** @type {Error} */ (job.error), 'Job failed', { jobId: job.id });
     });
   }
 
@@ -107,7 +104,7 @@ class GitActivityPipeline {
 
       return stats;
     } catch (error) {
-      logger.error({ error }, 'Git activity report pipeline failed');
+      logError(logger, error, 'Git activity report pipeline failed');
       throw error;
     }
   }
@@ -142,7 +139,7 @@ class GitActivityPipeline {
       try {
         await this.runReport({ reportType: 'weekly' });
       } catch (error) {
-        logger.error({ error }, 'Scheduled weekly report failed');
+        logError(logger, error, 'Scheduled weekly report failed');
       }
     });
 
@@ -165,7 +162,7 @@ class GitActivityPipeline {
       try {
         await this.runReport({ reportType: 'monthly' });
       } catch (error) {
-        logger.error({ error }, 'Scheduled monthly report failed');
+        logError(logger, error, 'Scheduled monthly report failed');
       }
     });
 
@@ -218,7 +215,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         process.exit(0);
       })
       .catch((error) => {
-        logger.error({ error }, 'Report failed');
+        logError(logger, error, 'Report failed');
         process.exit(1);
       });
   } else {
