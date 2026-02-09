@@ -4,6 +4,54 @@ Chronological log of development sessions. For current architecture, see CLAUDE.
 
 ---
 
+## 2026-02-09: Serve Vite Build Output from Express
+
+### Summary
+Replaced the deleted vanilla JS dashboard (`public/`) with the new React frontend (`frontend/`). Wired Express to serve the Vite build output and added SPA fallback for client-side routing. Updated deploy script, Render build config, and tracked frontend source in git.
+
+### Problems Solved
+- Express static middleware pointed at deleted `public/` directory
+- No SPA fallback for React Router — deep links returned 404
+- Deploy script used `npm ci` but project uses pnpm workspaces (no `package-lock.json`)
+- PM2 ecosystem config path was wrong in deploy script (`ecosystem.config.cjs` vs `config/ecosystem.config.cjs`)
+- Frontend `ActivityType` enum values used as string literals causing TypeScript build failure
+- Frontend source was gitignored, not version-controlled
+
+### Key Technical Decisions
+1. **Static path**: `express.static(path.join(__dirname, '../frontend/dist'))` — serves Vite build output
+2. **SPA fallback**: Catch-all GET middleware before 404 handler, excludes `/api/`, `/ws/`, `/health` prefixes
+3. **Deploy script**: Switched from `npm ci` to `pnpm install --frozen-lockfile`, added `npm run build:frontend` step
+4. **Git tracking**: Removed `frontend/` from root `.gitignore`; `frontend/.gitignore` still excludes `node_modules/` and `dist/`
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `api/server.js` | Static path → `frontend/dist`, added SPA fallback middleware |
+| `package.json` | Added `build:frontend` script |
+| `render.yaml` | Added `npm run build:frontend` to build command |
+| `frontend/src/services/websocket.ts` | Fixed ActivityType enum import and usage |
+| `.gitignore` | Removed `frontend/` entry |
+| `scripts/deploy-traditional-server.sh` | pnpm, frontend build, PM2 config path fix |
+
+### Commits
+- `d48a811` - feat(api): serve Vite build output and add SPA fallback
+- `2f0411f` - feat(frontend): track React dashboard source and fix ActivityType enum
+- `ad010bb` - fix(deploy): use pnpm, add frontend build, fix PM2 config path
+
+### Verification
+- TypeScript: `npm run typecheck` passes
+- Unit tests: 1175 pass, 0 fail
+- Frontend build: `tsc && vite build` succeeds (115 modules)
+- Deploy: `./scripts/deploy-traditional-server.sh --update` succeeds
+- Health check: `/health` returns `{"status":"healthy"}`
+- Dashboard: `GET /` returns `index.html` (HTTP 200, 466 bytes)
+- API routes: `/api/status` returns JSON correctly
+
+### Status
+✅ Complete — deployed to production
+
+---
+
 ## 2026-02-03: Create @shared/process-io Package
 
 ### Summary

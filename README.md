@@ -26,13 +26,16 @@ Five automated systems built on the **AlephAuto** job queue framework with Sentr
 
 ```bash
 # 1. Install dependencies
-npm install
+pnpm install
 
-# 2. Configure environment (Doppler recommended, see docs/setup/)
+# 2. Build frontend (React dashboard)
+npm run build:frontend
+
+# 3. Configure environment (Doppler recommended, see docs/setup/)
 cp .env.example .env
 # Edit .env and add your Sentry DSN
 
-# 3. Verify setup
+# 4. Verify setup
 npm run verify
 ```
 
@@ -360,9 +363,13 @@ python3 lib/scanners/timeout_detector.py ~/code/myproject
 ```
 jobs/
 ├── api/                    # REST API & WebSocket Server
-│   ├── server.js          # Express app + WebSocket
+│   ├── server.js          # Express app + WebSocket (serves frontend/dist/)
 │   ├── routes/            # API endpoints (scans, repositories, reports, jobs)
 │   └── middleware/        # Express middleware
+│
+├── frontend/              # React Dashboard (Vite + TypeScript)
+│   ├── src/               # Components, services, store, types
+│   └── dist/              # Vite build output (served by Express)
 │
 ├── sidequest/             # AlephAuto Job Queue Framework
 │   ├── server.js         # Base job queue manager

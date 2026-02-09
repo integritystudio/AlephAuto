@@ -304,10 +304,13 @@ git clone <your-repo-url> .
 cd /var/www/aleph-dashboard
 
 # Install production dependencies only
-npm ci --production
+pnpm install --frozen-lockfile
+
+# Build frontend (React dashboard)
+npm run build:frontend
 
 # Verify critical files exist
-ls -la public/index.html api/server.js
+ls -la frontend/dist/index.html api/server.js
 ```
 
 ### 3. Install Python Dependencies
@@ -878,7 +881,10 @@ cd /var/www/aleph-dashboard
 git pull origin main
 
 # Install new dependencies
-npm ci --production
+pnpm install --frozen-lockfile
+
+# Build frontend (React dashboard)
+npm run build:frontend
 
 # Update Python dependencies
 source venv/bin/activate
@@ -1270,7 +1276,8 @@ sudo systemctl reload nginx
 # Update application
 cd /var/www/aleph-dashboard
 git pull
-npm ci --production
+pnpm install --frozen-lockfile
+npm run build:frontend
 pm2 restart all
 ```
 
@@ -1337,7 +1344,7 @@ sudo kill -9 $(sudo lsof -t -i:8080)
 
 ---
 
-**Last Updated:** 2025-11-30
+**Last Updated:** 2026-02-09
 **Deployment Method:** Traditional Server (PM2 + Doppler + Nginx)
 **Difficulty:** Intermediate
 **Estimated Setup Time:** 1-2 hours

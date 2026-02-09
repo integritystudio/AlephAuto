@@ -18,6 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |------|---------|
 | Run duplicate detection | `doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js --run-now` |
 | Test routes | `npm run test:integration` |
+| Build frontend | `npm run build:frontend` |
 | Dashboard | `npm run dashboard` → http://localhost:8080 |
 | Deploy | `./scripts/deploy-traditional-server.sh --update` |
 | Type check | `npm run typecheck` |
@@ -157,6 +158,7 @@ api/types/*.ts (Zod schemas) → api/middleware/validation.js → api/routes/*.t
 # Development
 doppler run -- npm start        # Server
 npm run dashboard               # Dashboard UI
+npm run build:frontend          # Build React dashboard (frontend/dist/)
 
 # Testing
 npm test                        # Unit tests
@@ -190,11 +192,13 @@ doppler setup --project bottleneck --config prd   # Production
 ├── packages/              # Shared workspace packages
 │   ├── shared-logging/    # @shared/logging - Pino logger utilities
 │   └── shared-process-io/ # @shared/process-io - Child process utilities
+├── frontend/              # React dashboard (Vite + TypeScript)
+│   ├── src/               # Components, services, store, types
+│   └── dist/              # Vite build output (served by Express)
 ├── sidequest/             # Job queue framework
 │   ├── core/              # server.js, job-repository.js, git-workflow-manager.js, constants.js
 │   ├── workers/           # Worker implementations
 │   └── pipeline-core/     # Business logic, scan orchestrator
-├── public/                # Dashboard UI
 ├── tests/                 # Unit, integration, accuracy tests
 └── config/                # PM2, ecosystem configs
 ```
@@ -247,6 +251,6 @@ Pino-based logging. Import from `@shared/logging`.
 
 ---
 
-**Version:** 1.8.3 | **Updated:** 2026-02-03 | **Status:** Production Ready
+**Version:** 1.9.0 | **Updated:** 2026-02-09 | **Status:** Production Ready
 
 See `docs/SESSION_HISTORY.md` for development session logs.
