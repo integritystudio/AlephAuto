@@ -17,6 +17,7 @@ This directory contains all project documentation organized by category.
 
 ```
 docs/
+├── ADDING_PIPELINES.md      # How to add a new pipeline/job type
 ├── API_REFERENCE.md         # REST API endpoints (22 endpoints)
 ├── MCP_SERVERS.md           # MCP server configuration (Sentry, Redis, etc.)
 │
@@ -68,6 +69,7 @@ docs/
 ## Quick Links
 
 ### Getting Started
+- [Adding New Pipelines](./ADDING_PIPELINES.md) - Step-by-step guide to adding a new job type
 - [Setup Guide](./setup/DOPPLER_SENTRY_SETUP.md) - Doppler and Sentry configuration
 - [Sidequest Installation](./components/INSTALL.md) - Framework installation
 - [Discord Quickstart](./setup/DISCORD_QUICKSTART.md) - Alert notifications

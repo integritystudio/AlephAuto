@@ -59,7 +59,10 @@
     "verify:bugfixes:pre": "./scripts/verify-bugfixes.sh --pre",
     "verify:bugfixes:post": "./scripts/verify-bugfixes.sh --post",
     "verify:bugfixes:health": "./scripts/verify-bugfixes.sh --health",
-    "verify:bugfixes:smoke": "./scripts/verify-bugfixes.sh --smoke"
+    "verify:bugfixes:smoke": "./scripts/verify-bugfixes.sh --smoke",
+    "bugfix:once": "doppler run -- node sidequest/pipeline-runners/bugfix-audit-pipeline.js --run-now",
+    "bugfix:schedule": "doppler run -- node sidequest/pipeline-runners/bugfix-audit-pipeline.js --recurring",
+    "bugfix:tonight": "doppler run -- node sidequest/pipeline-runners/bugfix-audit-pipeline.js --once"
   },
   "keywords": [
     "repomix",
