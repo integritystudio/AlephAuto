@@ -27,7 +27,7 @@ class WebSocketService {
    */
   connect(): void {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = import.meta.env.VITE_WS_HOST || 'localhost:8080';
+    const host = import.meta.env.VITE_WS_HOST || window.location.host;
     const WS_URL = `${protocol}//${host}/ws`;
 
     console.log('[WebSocket] Connecting to:', WS_URL);
