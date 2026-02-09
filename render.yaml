@@ -32,8 +32,9 @@ services:
       echo "deb [signed-by=/usr/share/keyrings/doppler-archive-keyring.gpg] https://packages.doppler.com/public/cli/deb/debian any-version main" | tee /etc/apt/sources.list.d/doppler-cli.list
       apt-get update && apt-get install -y doppler python3 python3-pip python3-venv build-essential
 
-      # Install Node.js dependencies
+      # Install Node.js dependencies and build frontend
       pnpm install
+      npm run build:frontend
 
       # Force rebuild better-sqlite3 native module for Linux
       # pnpm's symlink structure can cause issues, so use npm to rebuild

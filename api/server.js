@@ -86,8 +86,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static files from public directory (dashboard)
-app.use(express.static(path.join(__dirname, '../public')));
+// Serve static files from Vite build output (React dashboard)
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 // Logging middleware
 app.use((req, res, next) => {
@@ -271,6 +271,14 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/pipelines', pipelineRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/sidequest/pipeline-runners', pipelineRoutes); // Dashboard compatibility
+
+// SPA fallback: serve index.html for non-API routes so client-side routing works
+app.use((req, res, next) => {
+  if (req.method === 'GET' && !req.path.startsWith('/api/') && !req.path.startsWith('/ws/') && !req.path.startsWith('/health')) {
+    return res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+  }
+  next();
+});
 
 // 404 handler
 app.use((req, res) => {
