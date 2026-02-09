@@ -84,7 +84,7 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | ID | Location | Description | Status |
 |----|----------|-------------|--------|
 | M1 | `tests/integration/activity-feed.integration.test.js:306` | Implement retry:created event emission in SidequestServer | ✅ Done |
-| M2-M7 | `tests/unit/migration-transformer.test.js` | Enhanced file detection for migration (Q2 2026 - documented in file header) | ✅ Consolidated |
+| M2-M7 | `tests/unit/migration-transformer.test.js` | Enhanced file detection for migration | ✅ Done (2026-02-08) |
 
 ## Low Priority - Documentation
 
@@ -147,6 +147,9 @@ Technical debt and planned improvements extracted from codebase TODOs.
 ### Completed (2026-02-03 - Session 2)
 - ✅ LOG2: Fixed misleading API route message in `api/routes/jobs.js:377` → `logStart`
 - ✅ LOG3: Applied `logStart` to `sidequest/bug-fixes/index.js:77`
+
+### Completed (2026-02-08)
+- ✅ M2-M7: Pattern-based file detection for MigrationTransformer (6 skipped tests now active)
 
 ### Recommended Next Actions
 Deferred items (adopt when patterns emerge):

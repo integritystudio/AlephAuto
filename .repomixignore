@@ -166,3 +166,7 @@ coverage/
 
 # Repomix outputs
 repomix-output.xml
+
+# Analysis reports (large generated files)
+analysis_reports/quality/*.json
+analysis_reports/quality/*.txt

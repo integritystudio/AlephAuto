@@ -6,6 +6,181 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.8.5] - 2026-02-08
+
+### Summary
+Pattern-based file detection for MigrationTransformer. Steps without `code_example` hints now automatically find affected files by scanning the repository. Also fixes Babel ESM/CJS interop bug that prevented AST transformations from executing.
+
+### Added
+- `_findRepositoryFiles()` - Glob scan for JS/TS files respecting `config.excludeDirs`
+- `_contentMatchesStep()` - Regex matching per step type (update-import, replace-call, remove-declaration)
+- `_resolveAffectedFiles()` - Single-pass file scanning: reads N files once, tests M steps against each
+- `add-import` association logic: inherits files from sibling steps in the same suggestion
+
+### Fixed
+- Babel `@babel/traverse` and `@babel/generator` ESM/CJS interop (`.default` unwrapping)
+- `_groupStepsByFile()` no longer falls back to sentinel keys (`__inferred_importers__`, etc.) that never resolve
+
+### Changed
+- `_groupStepsByFile()` now async with 2-pass approach (pass 1: code_example, pass 2: file detection)
+- 6 previously-skipped migration transformer tests now active
+
+---
+
+## [1.8.4] - 2026-02-03
+
+### Summary
+Magic string to enum migration using Ralph Wiggum iterative loop. Created 6 new enums to centralize status values, eliminating scattered string literals across 13 files.
+
+### Added
+- `api/types/scan-result-status.ts` - `SCAN_RESULT_STATUS` enum (success, failure)
+- `api/types/activity-status.ts` - `ACTIVITY_STATUS` and `ACTIVITY_ICONS` enums
+- `HEALTH_STATUS` enum in `sidequest/core/constants.js` (healthy, warning, critical, degraded, not_initialized)
+- `PIPELINE_PHASES` enum in `sidequest/core/constants.js` (startup, cron, manual, scheduled)
+- `SCAN_STAGES` enum in `sidequest/core/constants.js` (scanning, extraction, analysis, comparison)
+- `JOB_STATUS_VALUES` array export in `api/types/job-status.ts` for SQL/Zod usage
+- `ACTIVE_STATUSES` constant for filtering non-terminal jobs
+- `docs/SESSION_HISTORY.md` - Development session log
+
+### Changed
+- `api/types/scan-requests.ts` - Import `JOB_STATUS` from job-status.ts instead of duplicating z.enum
+- `sidequest/workers/duplicate-detection-worker.js` - Use `SCAN_RESULT_STATUS`, `PIPELINE_PHASES`, `SCAN_STAGES`
+- `sidequest/workers/claude-health-worker.js` - Use `HEALTH_STATUS` enum
+- `sidequest/core/database.js` - Use `HEALTH_STATUS` for health status reporting
+- `sidequest/pipeline-core/doppler-health-monitor.js` - Use `HEALTH_STATUS` for severity levels
+- `sidequest/pipeline-runners/gitignore-pipeline.js` - Use `PIPELINE_PHASES` for logging tags
+- `sidequest/pipeline-runners/repo-cleanup-pipeline.js` - Use `PIPELINE_PHASES` for logging tags
+- `api/server.js` - Use `HEALTH_STATUS` and `PIPELINE_PHASES` enums
+- `api/activity-feed.js` - Use `ACTIVITY_STATUS` and `ACTIVITY_ICONS` enums
+
+### Fixed
+- Duplicate z.enum definitions in scan-requests.ts (DRY violation)
+
+### Commits
+```
+85c119f chore: remove ralph-prompt.md after enum migration complete
+48d1c37 refactor(constants): add SCAN_STAGES enum for progress tracking
+f68d1c7 refactor(types): add ACTIVITY_STATUS and ACTIVITY_ICONS enums
+7cfdbdf refactor(constants): add PIPELINE_PHASES enum for execution context
+ee03652 refactor(constants): add HEALTH_STATUS enum for system monitoring
+312a9e8 refactor(types): add SCAN_RESULT_STATUS enum for pipeline outcomes
+c529fc4 refactor(types): deduplicate job status enums in scan-requests
+```
+
+---
+
+## [1.8.3] - 2026-02-02
+
+### Summary
+Major DRY refactoring introducing BasePipeline class for pipeline runners. Improved DRY score from 72 → 97.
+
+### Added
+- `sidequest/core/base-pipeline.js` - Abstract base class for pipeline runners
+  - `setupEventListeners()` - Standardized job lifecycle event handling
+  - `waitForCompletion()` - Polling for job queue completion
+  - `scheduleCron()` - Centralized cron scheduling with validation
+  - `runWithTiming()` - Consistent operation timing and logging
+  - `calculateDuration()` - Duration calculation helper
+
+### Changed
+- **GitActivityPipeline** - Now extends BasePipeline (was standalone class)
+- **PluginManagementPipeline** - Now extends BasePipeline
+- **SchemaEnhancementPipeline** - Now extends BasePipeline
+- **ClaudeHealthPipeline** - Now extends BasePipeline (with 100ms polling)
+- Eliminated ~600 lines of duplicate code across 4 pipeline files
+- Standardized event listener patterns using `EVENT_TYPES` constants
+- Centralized cron schedule validation
+
+### Patterns Established
+```javascript
+// Creating a new pipeline
+import { BasePipeline } from '../core/base-pipeline.js';
+import { createComponentLogger } from '../utils/logger.js';
+
+const logger = createComponentLogger('MyPipeline');
+
+class MyPipeline extends BasePipeline {
+  constructor(options = {}) {
+    const worker = new MyWorker({ ...options });
+    super(worker, { logger });
+  }
+
+  // Override for custom event handling
+  onJobCompleted(job) {
+    const duration = this.calculateDuration(job);
+    this.logger.info({ jobId: job.id, duration }, 'Job completed');
+  }
+
+  // Use runWithTiming for consistent timing
+  async runTask(options = {}) {
+    return this.runWithTiming('my task', async () => {
+      const job = this.worker.createJob(options);
+      this.logger.info({ jobId: job.id }, 'Task started');
+    });
+  }
+
+  // Use scheduleCron for consistent scheduling
+  scheduleTask(cronSchedule = '0 * * * *') {
+    return this.scheduleCron(cronSchedule, () => this.runTask(), 'tasks');
+  }
+}
+```
+
+### Migration Notes
+Pipelines extending BasePipeline no longer need to implement:
+- `setupEventListeners()` - Provided by base class (override for custom)
+- `waitForCompletion()` - Provided by base class
+- Cron validation - Handled by `scheduleCron()`
+- Duration calculation - Use `this.calculateDuration(job)`
+
+---
+
+## [1.8.2] - 2026-02-02
+
+### Summary
+Two rounds of code review fixes addressing code quality, performance, and consistency issues.
+
+### Fixed (2026-02-01 Code Review)
+- **M1:** Renamed `annotate()` → `extract_annotation()` for naming consistency in semantic_annotator.py
+- **M2:** Added docstrings to grouping.py helpers (`_extract_function_names`, `_run_semantic_checks`, `_create_duplicate_group`)
+- **M3:** Added Q2-2026 timeline markers to skipped tests in migration-transformer.test.js
+- **M4:** Consolidated duplicate auth patterns in semantic_annotator.py
+- **M5:** Added semantic annotation coverage metrics (% blocks with tags, avg tags/block)
+- **M6:** Added file:line context to error messages in extract_blocks.py
+- **L1:** Removed redundant DEBUG checks in verbose logging
+- **L2:** Added 14 `.pyi` type stubs + `py.typed` marker for IDE support
+- **L3:** Added timing metrics to Layer 3 (SemanticAnnotator + grouping.py)
+- **L4:** Pre-compiled regex patterns in semantic_annotator.py (was recompiling on every call)
+
+### Fixed (2026-02-02 Code Review)
+- **H1:** Memory leak in `_consolidateSuggestionsByTarget` - removed unnecessary `member_suggestions` storage
+- **H2:** DRY violation in database.js - extracted `buildStatusFilter()` helper
+- **H3:** Integration test failures - Activity Feed used undefined error codes, getJobCounts returned null
+- **M1:** Added dev-only console.warn logging to silent catch in extractComponentName
+- **M2:** Used SHA256 hash for suggestion IDs to prevent path collision
+- **M3:** Added `validate_report_path()` with size/type checks in Python scripts
+- **M4:** Added timeout validation in execCommand (positive finite number)
+- **M5:** Created custom error class for CommandError (replaced JSDoc casting)
+- **M6:** Centralized CI detection - added `config.isCI`, updated 6 files to use it
+- **L1:** Module-level import with fallback in semantic_annotator.py
+- **L3:** Consistent stdout/stderr truncation (both 500 chars) in error messages
+- **L4:** Extracted suggestion ID prefixes to constants
+- **L5:** Optimized Set operations - internal `_affectedReposSet` converted to array only in finalize step
+- **L6:** Activity Feed test now uses known non-retryable error codes (ENOENT, EINVAL, etc.)
+- **L7:** `getJobCounts()` returns 0 instead of null for empty result sets
+
+### Changed
+- Refactored consolidation into 4 smaller methods (cyclomatic complexity ≤5 each)
+- Logic bug fix: `category in [array]` → `.includes()` in inter-project-scanner
+- Type safety: `code` → `exitCode` in CommandError
+- URL validation: try-catch in extractComponentName
+- Input validation: status param validated in getJobs
+
+### Tests
+- **T1:** TestWorker now disables retries by default (`maxRetries: 0`) - [#7](https://github.com/aledlie/AlephAuto/issues/7)
+
+---
+
 ## [1.8.1] - 2026-01-30
 
 ### Summary

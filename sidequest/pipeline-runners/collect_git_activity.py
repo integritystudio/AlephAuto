@@ -31,7 +31,7 @@ ADDITIONAL_REPOS = [
     Path.home() / 'dotfiles',
 ]
 EXCLUDE_PATTERNS = ['vim/bundle', 'node_modules', '.git', 'venv', '.venv']
-DEFAULT_MAX_DEPTH = 2
+DEFAULT_MAX_DEPTH = 3
 
 # Language/File Type Mapping
 LANGUAGE_EXTENSIONS = {
