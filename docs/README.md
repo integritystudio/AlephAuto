@@ -96,6 +96,7 @@ docs/
 
 ### Component Documentation
 - [Sidequest Framework](./components/sidequest-alephauto-framework.md) - Core job queue
+- [Bugfix Audit](./components/bugfix-audit.md) - Automated bug detection and fixing
 - [Git Activity Reporter](./components/GIT-ACTIVITY-REPORTER-README.md)
 - [Plugin Manager](./components/plugin-manager.md)
 

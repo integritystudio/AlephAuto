@@ -1,7 +1,7 @@
 # AlephAuto Pipeline Data Flow Documentation
 
-**Last Updated:** 2025-11-24
-**Version:** 2.0
+**Last Updated:** 2026-02-09
+**Version:** 2.1
 **Author:** System Architecture Documentation
 
 ## Table of Contents
@@ -19,6 +19,7 @@
    - [Claude Health Monitor Pipeline](#7-claude-health-monitor-pipeline)
    - [Test Refactor Pipeline](#8-test-refactor-pipeline)
    - [Repository Cleanup Pipeline](#9-repository-cleanup-pipeline)
+   - [Bugfix Audit Pipeline](#10-bugfix-audit-pipeline)
 5. [Git Workflow Integration](#git-workflow-integration)
 6. [Common Patterns](#common-patterns)
 7. [Error Handling & Resilience](#error-handling--resilience)
@@ -27,7 +28,7 @@
 
 ## Overview
 
-The AlephAuto automation system consists of 9 specialized pipelines built on a unified job queue framework. Each pipeline follows event-driven architecture with automatic retry logic, Sentry error tracking, and real-time dashboard updates via WebSocket.
+The AlephAuto automation system consists of 10 specialized pipelines built on a unified job queue framework. Each pipeline follows event-driven architecture with automatic retry logic, Sentry error tracking, and real-time dashboard updates via WebSocket.
 
 ### System Characteristics
 
@@ -43,6 +44,7 @@ The AlephAuto automation system consists of 9 specialized pipelines built on a u
 | Category | Pipelines | Language Stack |
 |----------|-----------|----------------|
 | **Code Analysis** | Duplicate Detection, Test Refactor | JavaScript + Python + TypeScript |
+| **Code Quality** | Bugfix Audit | JavaScript + Shell |
 | **Documentation** | Schema Enhancement | JavaScript |
 | **Operations** | Repomix, Gitignore, Repository Cleanup | JavaScript + Shell |
 | **Reporting** | Git Activity, Plugin Manager, Claude Health | JavaScript + Python + Shell |
@@ -150,6 +152,7 @@ graph LR
 | 7 | Claude Health | `claude-health-check` | `claude-health-pipeline.js` | `claude-health-worker.js` | ❌ No | JS + Shell |
 | 8 | Test Refactor | `test-refactor` | `test-refactor-pipeline.ts` | `test-refactor-worker.ts` | ✅ Optional | TypeScript |
 | 9 | Repository Cleanup | `repo-cleanup` | `repo-cleanup-pipeline.js` | `repo-cleanup-worker.js` | ❌ No | JS + Shell |
+| 10 | Bugfix Audit | `bugfix-audit` | `bugfix-audit-pipeline.js` | `bugfix-audit-worker.js` | ✅ Multi-commit | JS + Shell |
 
 ---
 
@@ -1388,6 +1391,138 @@ npm run cleanup:dryrun    # Preview without deletion
 
 ---
 
+### 10. Bugfix Audit Pipeline
+
+**Purpose:** Automated 5-stage bug detection, security audit, and fix workflow
+**Job Type:** `bugfix-audit`
+**Languages:** JavaScript + Shell (Claude Code CLI)
+**Git Workflow:** ✅ Multi-commit (manual GitWorkflowManager, not base-class single-commit)
+
+#### Data Flow
+
+```mermaid
+graph TB
+    A[~/dev/active/*.md] --> B[BugfixAuditPipeline]
+    B --> C[Scan for Markdown Files]
+    C --> D[Resolve Repository Paths]
+    D --> E[Create Jobs per Project]
+    E --> F[BugfixAuditWorker.runJobHandler]
+    F --> G[Create Feature Branch]
+    G --> S1[Stage 1: bugfix-planner agent]
+    S1 --> S2[Stage 2: bug-detective plugin]
+    S2 --> S3[Stage 3: audit plugin]
+    S3 --> C1[Commit: audit results]
+    C1 --> S4[Stage 4: ceo-quality-controller agent]
+    S4 --> C2[Commit: quality control]
+    C2 --> S5[Stage 5: refractor plugin]
+    S5 --> C3[Commit: bug fixes]
+    C3 --> Push[Push Branch]
+    Push --> PR[Create Pull Request]
+    PR --> Done([Job Complete])
+
+    style G fill:#bbf,stroke:#333
+    style S1 fill:#bfb,stroke:#333
+    style S2 fill:#bfb,stroke:#333
+    style S3 fill:#bfb,stroke:#333
+    style S4 fill:#bfb,stroke:#333
+    style S5 fill:#bfb,stroke:#333
+    style C1 fill:#ff9,stroke:#333
+    style C2 fill:#ff9,stroke:#333
+    style C3 fill:#ff9,stroke:#333
+    style PR fill:#9f9,stroke:#333
+```
+
+#### Stage Breakdown
+
+**Stage 1: bugfix-planner agent**
+- Input: Markdown content from `~/dev/active/<project>/`
+- Process: Claude Code agent analyzes markdown and creates bug fix plan
+- Output: `01-bugfix-plan.md`
+
+**Stage 2: bug-detective plugin**
+- Input: Repository path
+- Process: Systematic debugging via `/bug-detective:bug-detective` slash command
+- Output: `02-bug-detective-report.md`
+
+**Stage 3: audit plugin**
+- Input: Repository path
+- Process: Security audit via `/audit:audit` slash command
+- Output: `03-security-audit.md`
+- **Commit:** audit results (plan + detective + audit)
+
+**Stage 4: ceo-quality-controller agent**
+- Input: Repository path (with audit reports present)
+- Process: Claude Code agent validates quality standards
+- Output: `04-quality-control.md`
+- **Commit:** quality control validation
+
+**Stage 5: refractor plugin**
+- Input: Repository path
+- Process: Implement fixes via `/refractor:refractor` slash command
+- Output: `05-refactor-implementation.md`
+- **Commit:** bug fixes implemented
+- **Push + PR:** Branch pushed, PR created against base branch
+
+#### Git Workflow (Multi-Commit)
+
+Unlike pipelines that use `gitWorkflowEnabled: true` (single commit at end), bugfix-audit manages git operations directly via `GitWorkflowManager`:
+
+```
+createJobBranch()     → bugfix/bugfix-audit-<project>-<timestamp>
+commitChanges() ×3    → after stages 3, 4, and 5
+pushBranch()          → push to remote
+createPullRequest()   → PR to main with stage summary
+```
+
+This pattern is documented in [Adding New Pipelines](../ADDING_PIPELINES.md) as "Option B — Manual multi-commit."
+
+#### Job Data Format
+
+```javascript
+// Input
+{
+  markdownFile: "/Users/dev/active/my-project/context.md",
+  projectName: "my-project",
+  repoPath: "/Users/code/my-project"
+}
+
+// Output
+{
+  markdownFile: "/Users/dev/active/my-project/context.md",
+  projectName: "my-project",
+  repoPath: "/Users/code/my-project",
+  branchName: "bugfix/bugfix-audit-my-project-1707500000",
+  stages: [
+    { name: "bugfix-planner", status: "completed" },
+    { name: "bug-detective", status: "completed" },
+    { name: "audit", status: "completed" },
+    { name: "ceo-quality-controller", status: "completed" },
+    { name: "refractor", status: "completed" }
+  ],
+  pullRequestUrl: "https://github.com/user/my-project/pull/42",
+  timestamp: "2026-02-09T01:00:00.000Z"
+}
+```
+
+#### File Locations
+
+| Component | Path |
+|-----------|------|
+| Worker | `sidequest/workers/bugfix-audit-worker.js` |
+| Runner | `sidequest/pipeline-runners/bugfix-audit-pipeline.js` |
+| Output | `~/code/jobs/sidequest/bug-fixes/output/<project>/<date>/` |
+| Logs | `~/code/jobs/sidequest/bug-fixes/logs/` |
+
+#### Scheduling
+
+```bash
+npm run bugfix:once       # Run immediately
+npm run bugfix:tonight    # One-time at 1 AM
+npm run bugfix:schedule   # Recurring daily at 1 AM
+```
+
+---
+
 ## Git Workflow Integration
 
 ### Overview
@@ -1516,6 +1651,7 @@ async _generatePRContext(job) {
 | Worker | Enabled | Branch Prefix | PR Labels |
 |--------|---------|---------------|-----------|
 | Schema Enhancement | ✅ Yes | `docs` | `documentation`, `seo`, `schema-org`, `automated` |
+| Bugfix Audit | ✅ Multi-commit | `bugfix` | `automated`, `bugfix` |
 | Test Refactor | ✅ Optional | `test-refactor` | `testing`, `refactoring`, `automated` |
 | Duplicate Detection | ⚠️ Custom | N/A | Custom PRCreator implementation |
 | Gitignore | ❌ No | N/A | Batch operations, not supported |
@@ -1873,6 +2009,7 @@ signals.forEach((signal) => {
 
 ## Related Documentation
 
+- [Adding New Pipelines](../ADDING_PIPELINES.md)
 - [Similarity Algorithm Documentation](./similarity-algorithm.md)
 - [Error Handling Architecture](./ERROR_HANDLING.md)
 - [Type System Documentation](./TYPE_SYSTEM.md)
@@ -1882,6 +2019,6 @@ signals.forEach((signal) => {
 
 ---
 
-**Document Version:** 2.0
-**Last Updated:** 2025-11-24
+**Document Version:** 2.1
+**Last Updated:** 2026-02-09
 **Maintainer:** Architecture Team
