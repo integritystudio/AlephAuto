@@ -7,7 +7,7 @@
 #
 # Note: Requires bash 4+ for associative arrays
 #       macOS users: brew install bash
-
+# TODO: make sure integrated with sidequest core library
 set -euo pipefail
 
 # Check bash version

@@ -9,6 +9,8 @@ import path from 'path';
 
 const logger = createComponentLogger('SchemaEnhancementPipeline');
 
+
+//TODO: automatically updates README and CLAUDE files from directory commit data
 /**
  * Schema Enhancement Pipeline
  * Automatically enhances README files with Schema.org structured data
