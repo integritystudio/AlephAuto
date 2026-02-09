@@ -333,9 +333,17 @@ update_application() {
     # Install Node.js dependencies
     log "Installing Node.js dependencies..."
     if $IS_MACOS; then
-        npm ci --production
+        pnpm install --frozen-lockfile
     else
-        sudo -u "$DEPLOY_USER" npm ci --production
+        sudo -u "$DEPLOY_USER" pnpm install --frozen-lockfile
+    fi
+
+    # Build frontend
+    log "Building frontend..."
+    if $IS_MACOS; then
+        npm run build:frontend
+    else
+        sudo -u "$DEPLOY_USER" npm run build:frontend
     fi
 
     # Install/Update Python dependencies
@@ -380,10 +388,10 @@ update_application() {
     # Restart PM2 processes
     log "Restarting PM2 processes..."
     if $IS_MACOS; then
-        cd "$APP_DIR" && pm2 restart all || pm2 start ecosystem.config.cjs
+        cd "$APP_DIR" && pm2 restart all || pm2 start config/ecosystem.config.cjs
         pm2 save
     else
-        sudo -u "$DEPLOY_USER" bash -c "cd $APP_DIR && pm2 restart all || pm2 start ecosystem.config.cjs"
+        sudo -u "$DEPLOY_USER" bash -c "cd $APP_DIR && pm2 restart all || pm2 start config/ecosystem.config.cjs"
         sudo -u "$DEPLOY_USER" pm2 save
     fi
 
@@ -454,10 +462,12 @@ rollback_application() {
     # Reinstall dependencies
     log "Reinstalling dependencies..."
     if $IS_MACOS; then
-        npm ci --production
+        pnpm install --frozen-lockfile
+        npm run build:frontend
         source venv/bin/activate && pip install -r requirements.txt
     else
-        sudo -u "$DEPLOY_USER" npm ci --production
+        sudo -u "$DEPLOY_USER" pnpm install --frozen-lockfile
+        sudo -u "$DEPLOY_USER" npm run build:frontend
         sudo -u "$DEPLOY_USER" bash -c "source venv/bin/activate && pip install -r requirements.txt"
     fi
 
