@@ -18,15 +18,30 @@
 
 // @ts-check
 import { parse } from '@babel/parser';
-import traverse from '@babel/traverse';
-import generate from '@babel/generator';
+import _traverse from '@babel/traverse';
+import _generate from '@babel/generator';
+
+// ESM/CJS interop: Babel packages export { default: fn } in ESM
+const traverse = _traverse.default ?? _traverse;
+const generate = _generate.default ?? _generate;
 import * as t from '@babel/types';
 import fs from 'fs/promises';
 import path from 'path';
+import { glob } from 'glob';
 import { createComponentLogger, logError } from '../../utils/logger.js';
+import { config } from '../../core/config.js';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('MigrationTransformer');
+
+/**
+ * Escape special regex characters in a string
+ * @param {string} str
+ * @returns {string}
+ */
+function escapeRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 /**
  * Parse migration step description to extract transformation details
@@ -145,8 +160,8 @@ export class MigrationTransformer {
         parseableSteps: parsedSteps.length
       }, 'Parsed migration steps');
 
-      // Group steps by affected file (extracted from code_example or inferred)
-      const fileGroups = this._groupStepsByFile(parsedSteps, suggestion);
+      // Group steps by affected file (extracted from code_example or detected in repo)
+      const fileGroups = await this._groupStepsByFile(parsedSteps, suggestion, repositoryPath);
 
       // Apply transformations to each file
       for (const [filePath, steps] of Object.entries(fileGroups)) {
@@ -517,18 +532,21 @@ export class MigrationTransformer {
   /**
    * Group migration steps by affected file
    *
-   * Tries to infer file from code_example or uses suggestion context
+   * Pass 1: Extract from code_example comments (existing behavior)
+   * Pass 2: Scan repository for files matching unresolved steps
    *
    * @param {Array} parsedSteps - Parsed migration steps
    * @param {Object} suggestion - Full suggestion
-   * @returns {Object} Map of file paths to steps
+   * @param {string} repositoryPath - Repository root path
+   * @returns {Promise<Object>} Map of file paths to steps
    * @private
    */
-  _groupStepsByFile(parsedSteps, suggestion) {
+  async _groupStepsByFile(parsedSteps, suggestion, repositoryPath) {
     const fileGroups = {};
+    const unresolvedSteps = [];
 
+    // Pass 1: Extract from code_example comments
     for (const step of parsedSteps) {
-      // Try to extract file path from code_example (e.g., "// src/utils/json.js")
       let filePath = null;
 
       if (step.code_example) {
@@ -538,33 +556,163 @@ export class MigrationTransformer {
         }
       }
 
-      // Fallback: Use transformation type to infer
-      if (!filePath) {
-        switch (step.parsed.type) {
-          case 'update-import':
-          case 'add-import':
-            // Assume these apply to files that import the old code
-            filePath = '__inferred_importers__';
-            break;
-          case 'remove-declaration':
-            // Assume this applies to files where duplicates exist
-            filePath = '__inferred_duplicate_locations__';
-            break;
-          case 'replace-call':
-            // Assume this applies to all files using the old function
-            filePath = '__inferred_callers__';
-            break;
+      if (filePath) {
+        if (!fileGroups[filePath]) {
+          fileGroups[filePath] = [];
+        }
+        fileGroups[filePath].push(step);
+      } else {
+        unresolvedSteps.push(step);
+      }
+    }
+
+    // Pass 2: Detect affected files for unresolved steps
+    if (unresolvedSteps.length > 0 && repositoryPath) {
+      const resolved = await this._resolveAffectedFiles(unresolvedSteps, repositoryPath);
+
+      // Collect files found by non-add-import steps for association
+      const associatedFiles = new Set();
+      for (const step of unresolvedSteps) {
+        if (step.parsed.type !== 'add-import') {
+          const paths = resolved.get(step.index) ?? [];
+          for (const p of paths) {
+            associatedFiles.add(p);
+          }
         }
       }
 
-      if (!fileGroups[filePath]) {
-        fileGroups[filePath] = [];
+      for (const step of unresolvedSteps) {
+        let paths = resolved.get(step.index) ?? [];
+
+        // add-import inherits files from sibling steps in the same suggestion
+        if (step.parsed.type === 'add-import' && paths.length === 0) {
+          paths = [...associatedFiles];
+        }
+
+        for (const filePath of paths) {
+          if (!fileGroups[filePath]) {
+            fileGroups[filePath] = [];
+          }
+          fileGroups[filePath].push(step);
+        }
       }
-      fileGroups[filePath].push(step);
     }
 
     logger.debug({ fileCount: Object.keys(fileGroups).length }, 'Grouped steps by file');
     return fileGroups;
+  }
+
+  /**
+   * Find JS/TS files in repository, respecting exclude dirs
+   *
+   * @param {string} repositoryPath - Repository root path
+   * @returns {Promise<string[]>} Relative file paths
+   * @private
+   */
+  async _findRepositoryFiles(repositoryPath) {
+    try {
+      const ignorePatterns = (config.excludeDirs ?? []).map(dir => `**/${dir}/**`);
+      return await glob('**/*.{js,ts,jsx,tsx}', {
+        cwd: repositoryPath,
+        ignore: ignorePatterns,
+        nodir: true,
+      });
+    } catch (error) {
+      logger.warn({ error, repositoryPath }, 'Failed to scan repository files');
+      return [];
+    }
+  }
+
+  /**
+   * Test whether file content matches a parsed migration step
+   *
+   * @param {string} content - File content
+   * @param {Object} parsed - Parsed step from parseMigrationStep()
+   * @returns {boolean} True if content matches
+   * @private
+   */
+  _contentMatchesStep(content, parsed) {
+    switch (parsed.type) {
+      case 'update-import': {
+        const escaped = escapeRegExp(parsed.oldPath);
+        return new RegExp(`from\\s+['"]${escaped}['"]`).test(content);
+      }
+      case 'replace-call': {
+        const escaped = escapeRegExp(parsed.oldName);
+        return new RegExp(`\\b${escaped}\\s*\\(`).test(content);
+      }
+      case 'remove-declaration': {
+        const escaped = escapeRegExp(parsed.name);
+        return new RegExp(`(?:function|const|let|var|class)\\s+${escaped}\\b`).test(content);
+      }
+      case 'add-import':
+        // Can't grep for an import that doesn't exist yet; resolved by association
+        return false;
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Resolve affected files for unresolved migration steps by scanning the repository
+   *
+   * Reads each file once and tests all unresolved steps against it (O(N*M) string ops).
+   *
+   * @param {Array<{index: number, parsed: Object}>} unresolvedSteps - Steps without file paths
+   * @param {string} repositoryPath - Repository root path
+   * @returns {Promise<Map<number, string[]>>} Map of step index to resolved relative paths
+   * @private
+   */
+  async _resolveAffectedFiles(unresolvedSteps, repositoryPath) {
+    const files = await this._findRepositoryFiles(repositoryPath);
+    /** @type {Map<number, string[]>} */
+    const resolved = new Map(unresolvedSteps.map(s => [s.index, []]));
+
+    for (const relPath of files) {
+      await this._matchFileAgainstSteps(relPath, repositoryPath, unresolvedSteps, resolved);
+    }
+
+    if (this.dryRun) {
+      this._logResolvedFiles(resolved);
+    }
+
+    return resolved;
+  }
+
+  /**
+   * Read a single file and test all unresolved steps against it
+   *
+   * @param {string} relPath - Relative file path
+   * @param {string} repositoryPath - Repository root
+   * @param {Array} unresolvedSteps - Steps to match
+   * @param {Map<number, string[]>} resolved - Accumulator map
+   * @private
+   */
+  async _matchFileAgainstSteps(relPath, repositoryPath, unresolvedSteps, resolved) {
+    let content;
+    try {
+      content = await fs.readFile(path.join(repositoryPath, relPath), 'utf-8');
+    } catch {
+      return;
+    }
+
+    for (const step of unresolvedSteps) {
+      if (this._contentMatchesStep(content, step.parsed)) {
+        resolved.get(step.index).push(relPath);
+      }
+    }
+  }
+
+  /**
+   * @param {Map<number, string[]>} resolved
+   * @private
+   */
+  _logResolvedFiles(resolved) {
+    for (const [idx, paths] of resolved) {
+      if (paths.length > 0) {
+        logger.info({ stepIndex: idx, files: paths }, 'Detected affected files');
+      }
+    }
   }
 
   /**
