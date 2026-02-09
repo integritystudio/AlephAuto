@@ -50,8 +50,6 @@ data/*.db
 data/*.db-shm
 data/*.db-wal
 
-# Frontend React app (development only)
-frontend/
 
 # Coverage reports
 coverage/

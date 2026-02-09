@@ -1,0 +1,4 @@
+/* App root styles using Tailwind */
+.app {
+  @apply min-h-screen flex flex-col bg-slate-950;
+}
