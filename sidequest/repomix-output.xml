@@ -64,6 +64,12 @@ core/
 pipeline-core/
   .claude/
     settings.local.json
+  annotators/
+    __init__.py
+    __init__.pyi
+    semantic_annotator.py
+    semantic_annotator.pyi
+    test_semantic_annotator.py
   cache/
     cached-scanner.js
     git-tracker.js
@@ -76,16 +82,22 @@ pipeline-core/
     types.d.ts
   extractors/
     extract_blocks.py
+    test_extract_blocks.py
   git/
     branch-manager.js
     migration-transformer.js
     pr-creator.js
   models/
     __init__.py
+    __init__.pyi
     code_block.py
+    code_block.pyi
     consolidation_suggestion.py
+    consolidation_suggestion.pyi
     duplicate_group.py
+    duplicate_group.pyi
     scan_report.py
+    scan_report.pyi
     test_models.py
   reports/
     html-report-generator.js
@@ -101,17 +113,32 @@ pipeline-core/
     timeout-pattern-detector.js
   similarity/
     __init__.py
+    __init__.pyi
     config.py
+    config.pyi
     grouping.py
+    grouping.pyi
     semantic.py
+    semantic.pyi
     structural.py
+    structural.pyi
+    test_grouping_layer3.py
   types/
     scan-orchestrator-types.js
     scan-orchestrator-types.ts
   utils/
+    __init__.py
+    __init__.pyi
     error-helpers.js
+    fs-helpers.js
+    index.js
+    process-helpers.js
+    timing-helpers.js
+    timing.py
+    timing.pyi
   doppler-health-monitor.js
   inter-project-scanner.js
+  py.typed
   scan-orchestrator.d.ts
   scan-orchestrator.js
   scan-orchestrator.ts
@@ -554,6 +581,384 @@ resumeJob(jobId)
 }
 </file>
 
+<file path="pipeline-core/annotators/__init__.py">
+__all__ = ['SemanticAnnotation', 'SemanticAnnotator']
+</file>
+
+<file path="pipeline-core/annotators/__init__.pyi">
+"""Type stubs for annotators package."""
+
+from .semantic_annotator import (
+    SemanticAnnotation as SemanticAnnotation,
+    SemanticAnnotator as SemanticAnnotator,
+)
+
+__all__: list[str]
+</file>
+
+<file path="pipeline-core/annotators/semantic_annotator.py">
+@dataclass
+class SemanticAnnotation
+⋮----
+category: str
+operations: set[str] = field(default_factory=set)
+domains: set[str] = field(default_factory=set)
+patterns: set[str] = field(default_factory=set)
+data_types: set[str] = field(default_factory=set)
+intent: str = ""
+def all_tags(self) -> set[str]
+⋮----
+"""Return all semantic tags as a single set."""
+⋮----
+def to_dict(self) -> dict
+⋮----
+"""Convert to dictionary for serialization."""
+⋮----
+# ---------------------------------------------------------------------------
+# Pattern Libraries
+⋮----
+# NOTE: All regex patterns use bounded quantifiers (\s{0,20} instead of \s*)
+# to prevent ReDoS (Regular Expression Denial of Service) attacks. (H3 fix)
+# Max 20 whitespace chars is sufficient for all valid code patterns.
+# Array/collection operations
+ARRAY_OPERATION_PATTERNS: dict[str, str] = {
+# CRUD/data operations
+CRUD_OPERATION_PATTERNS: dict[str, str] = {
+# Transformation operations
+TRANSFORM_OPERATION_PATTERNS: dict[str, str] = {
+# Validation operations
+VALIDATION_OPERATION_PATTERNS: dict[str, str] = {
+# Domain patterns
+DOMAIN_PATTERNS: dict[str, str] = {
+# Code patterns
+CODE_PATTERN_PATTERNS: dict[str, str] = {
+⋮----
+# Guard clause / early return
+⋮----
+# Null/undefined checks
+⋮----
+# Error handling
+⋮----
+# Retry logic
+⋮----
+# Timeout handling
+⋮----
+# Async patterns
+⋮----
+# Caching patterns
+⋮----
+# Pagination
+⋮----
+# Batching
+⋮----
+# Streaming
+⋮----
+# Locking/mutex
+⋮----
+# Rate limiting
+⋮----
+# Data type patterns
+DATA_TYPE_PATTERNS: dict[str, str] = {
+⋮----
+# Array
+⋮----
+# Object
+⋮----
+# String
+⋮----
+_COMPILED_ARRAY_OPS = _compile_patterns(ARRAY_OPERATION_PATTERNS, re.IGNORECASE)
+_COMPILED_CRUD_OPS = _compile_patterns(CRUD_OPERATION_PATTERNS, re.IGNORECASE)
+_COMPILED_TRANSFORM_OPS = _compile_patterns(TRANSFORM_OPERATION_PATTERNS, re.IGNORECASE)
+_COMPILED_VALIDATION_OPS = _compile_patterns(VALIDATION_OPERATION_PATTERNS, re.IGNORECASE)
+_COMPILED_DOMAIN = _compile_patterns(DOMAIN_PATTERNS, re.IGNORECASE)
+_COMPILED_CODE_PATTERNS = _compile_patterns(CODE_PATTERN_PATTERNS, re.IGNORECASE)
+_COMPILED_DATA_TYPES = _compile_patterns(DATA_TYPE_PATTERNS)
+_COMPILED_ALL_OPERATIONS = (
+class SemanticAnnotator
+⋮----
+def __init__(self, collect_timing: bool = False) -> None
+def get_timing_report(self) -> dict[str, dict]
+def extract_annotation(self, block: CodeBlock) -> SemanticAnnotation
+⋮----
+code = block.source_code
+tags = block.tags if hasattr(block, 'tags') else []
+category = block.category if hasattr(block, 'category') else 'unknown'
+⋮----
+category = category.value
+⋮----
+operations = self._extract_operations(code)
+⋮----
+domains = self._extract_domains(code, tags)
+⋮----
+patterns = self._extract_patterns(code)
+⋮----
+data_types = self._extract_data_types(code)
+⋮----
+intent = self._infer_intent(operations, domains, patterns)
+⋮----
+def _extract_operations(self, code: str) -> set[str]
+⋮----
+operations: set[str] = set()
+⋮----
+def _extract_domains(self, code: str, tags: list[str]) -> set[str]
+⋮----
+domains: set[str] = set()
+text = code + ' ' + ' '.join(tags)
+⋮----
+def _extract_patterns(self, code: str) -> set[str]
+⋮----
+patterns: set[str] = set()
+⋮----
+def _extract_data_types(self, code: str) -> set[str]
+⋮----
+data_types: set[str] = set()
+⋮----
+parts: list[str] = []
+</file>
+
+<file path="pipeline-core/annotators/semantic_annotator.pyi">
+"""Type stubs for semantic_annotator module."""
+
+from dataclasses import dataclass
+
+from ..models.code_block import CodeBlock
+from ..utils.timing import TimingMetrics
+
+
+@dataclass
+class SemanticAnnotation:
+    """Rich semantic metadata for a code block."""
+
+    category: str
+    operations: set[str]
+    domains: set[str]
+    patterns: set[str]
+    data_types: set[str]
+    intent: str
+
+    def all_tags(self) -> set[str]: ...
+    def to_dict(self) -> dict: ...
+
+
+class SemanticAnnotator:
+    """Stage 4: Full semantic annotation of code blocks."""
+
+    collect_timing: bool
+    timing: dict[str, TimingMetrics]
+
+    def __init__(self, collect_timing: bool = ...) -> None: ...
+    def get_timing_report(self) -> dict[str, dict]: ...
+    def extract_annotation(self, block: CodeBlock) -> SemanticAnnotation: ...
+
+
+# Pattern dictionaries (module-level)
+ARRAY_OPERATION_PATTERNS: dict[str, str]
+CRUD_OPERATION_PATTERNS: dict[str, str]
+TRANSFORM_OPERATION_PATTERNS: dict[str, str]
+VALIDATION_OPERATION_PATTERNS: dict[str, str]
+DOMAIN_PATTERNS: dict[str, str]
+CODE_PATTERN_PATTERNS: dict[str, str]
+DATA_TYPE_PATTERNS: dict[str, str]
+</file>
+
+<file path="pipeline-core/annotators/test_semantic_annotator.py">
+@dataclass
+class MockCodeBlock
+⋮----
+source_code: str
+category: str = 'utility'
+tags: list = None
+def __post_init__(self)
+class TestSemanticAnnotation
+⋮----
+def test_all_tags_combines_sets(self)
+⋮----
+ann = SemanticAnnotation(
+all_tags = ann.all_tags()
+⋮----
+def test_to_dict_serialization(self)
+⋮----
+d = ann.to_dict()
+⋮----
+class TestOperationExtraction
+⋮----
+def test_array_filter_operation(self)
+⋮----
+annotator = SemanticAnnotator()
+block = MockCodeBlock(source_code="users.filter(u => u.active)")
+ann = annotator.extract_annotation(block)
+⋮----
+def test_array_map_operation(self)
+⋮----
+block = MockCodeBlock(source_code="items.map(i => i.name)")
+⋮----
+def test_array_reduce_operation(self)
+⋮----
+block = MockCodeBlock(source_code="nums.reduce((a, b) => a + b, 0)")
+⋮----
+def test_multiple_array_operations(self)
+⋮----
+block = MockCodeBlock(
+⋮----
+def test_for_loop_iterate(self)
+⋮----
+block = MockCodeBlock(source_code="for (const item of items) { }")
+⋮----
+def test_crud_read_operation(self)
+⋮----
+block = MockCodeBlock(source_code="await api.get('/users')")
+⋮----
+def test_crud_create_operation(self)
+⋮----
+block = MockCodeBlock(source_code="await db.create({ name })")
+⋮----
+def test_fetch_api(self)
+⋮----
+block = MockCodeBlock(source_code="await fetch('/api/data')")
+⋮----
+def test_json_parse(self)
+⋮----
+block = MockCodeBlock(source_code="const data = JSON.parse(text)")
+⋮----
+def test_json_stringify(self)
+⋮----
+block = MockCodeBlock(source_code="JSON.stringify(data, null, 2)")
+⋮----
+def test_validate_function(self)
+⋮----
+block = MockCodeBlock(source_code="if (!isValid(email)) return")
+⋮----
+class TestDomainExtraction
+⋮----
+def test_user_domain(self)
+⋮----
+block = MockCodeBlock(source_code="const user = await getUser(userId)")
+⋮----
+def test_auth_domain(self)
+⋮----
+block = MockCodeBlock(source_code="const token = await authenticate(credentials)")
+⋮----
+def test_payment_domain(self)
+⋮----
+block = MockCodeBlock(source_code="await stripe.createCharge(payment)")
+⋮----
+def test_database_domain(self)
+⋮----
+block = MockCodeBlock(source_code="await prisma.user.findMany()")
+⋮----
+def test_api_domain(self)
+⋮----
+block = MockCodeBlock(source_code="router.get('/endpoint', handler)")
+⋮----
+def test_multiple_domains(self)
+def test_domain_from_tags(self)
+class TestPatternExtraction
+⋮----
+def test_guard_clause(self)
+⋮----
+block = MockCodeBlock(source_code="if (!user) return null")
+⋮----
+def test_null_check_equality(self)
+⋮----
+block = MockCodeBlock(source_code="if (value === null) throw new Error()")
+⋮----
+def test_null_check_nullish_coalescing(self)
+⋮----
+block = MockCodeBlock(source_code="const name = user ?? 'anonymous'")
+⋮----
+def test_null_check_optional_chaining(self)
+⋮----
+block = MockCodeBlock(source_code="const name = user?.profile?.name")
+⋮----
+def test_error_handling_try_catch(self)
+⋮----
+block = MockCodeBlock(source_code="try { doWork() } catch (e) { }")
+⋮----
+def test_error_handling_promise_catch(self)
+⋮----
+block = MockCodeBlock(source_code="fetch(url).catch(handleError)")
+⋮----
+def test_async_await_pattern(self)
+⋮----
+block = MockCodeBlock(source_code="async function getData() { await fetch() }")
+⋮----
+def test_promise_chain_pattern(self)
+⋮----
+block = MockCodeBlock(source_code="fetch(url).then(r => r.json())")
+⋮----
+def test_promise_all(self)
+⋮----
+block = MockCodeBlock(source_code="await Promise.all([p1, p2])")
+⋮----
+def test_pagination_pattern(self)
+⋮----
+block = MockCodeBlock(source_code="const { page, limit } = query")
+⋮----
+class TestDataTypeExtraction
+⋮----
+def test_array_type(self)
+⋮----
+block = MockCodeBlock(source_code="const items = []")
+⋮----
+def test_object_type(self)
+⋮----
+block = MockCodeBlock(source_code="const config = {}")
+⋮----
+def test_string_type(self)
+⋮----
+block = MockCodeBlock(source_code="const name = 'test'")
+⋮----
+def test_promise_type(self)
+⋮----
+block = MockCodeBlock(source_code="new Promise((resolve) => resolve())")
+⋮----
+def test_date_type(self)
+⋮----
+block = MockCodeBlock(source_code="const now = new Date()")
+⋮----
+class TestIntentInference
+⋮----
+def test_simple_operation_intent(self)
+⋮----
+block = MockCodeBlock(source_code="items.filter(i => i.active)")
+⋮----
+def test_operation_with_domain_intent(self)
+def test_full_intent(self)
+class TestEdgeCases
+⋮----
+def test_empty_code(self)
+⋮----
+block = MockCodeBlock(source_code="")
+⋮----
+def test_whitespace_only(self)
+⋮----
+"""Test annotation of whitespace-only code."""
+⋮----
+block = MockCodeBlock(source_code="   \n\t  ")
+⋮----
+def test_category_enum_handling(self)
+⋮----
+"""Test handling of enum category values."""
+⋮----
+class MockCategory(Enum)
+⋮----
+UTILITY = 'utility'
+⋮----
+block = MockCodeBlock(source_code="test()")
+⋮----
+def run_tests()
+⋮----
+"""Run all tests without pytest."""
+⋮----
+test_classes = [
+passed = 0
+failed = 0
+⋮----
+instance = test_class()
+⋮----
+method = getattr(instance, name)
+</file>
+
 <file path="pipeline-core/cache/cached-scanner.js">
 export class CachedScanner
 ⋮----
@@ -718,11 +1123,66 @@ export function isClassifiedError(error: Error): error is ClassifiedError;
 </file>
 
 <file path="pipeline-core/extractors/extract_blocks.py">
-DEBUG = os.environ.get('PIPELINE_DEBUG', '').lower() in ('1', 'true', 'yes')
+class PatternMatchInput(BaseModel)
+⋮----
+file_path: str = Field(..., max_length=500, description="Relative file path")
+rule_id: str = Field(..., max_length=100, description="ast-grep rule ID")
+matched_text: str = Field(..., max_length=100_000, description="Matched source code")
+line_start: int = Field(..., ge=1, le=1_000_000, description="Start line number")
+line_end: int = Field(..., ge=1, le=1_000_000, description="End line number")
+column_start: Optional[int] = Field(None, ge=0, le=10_000)
+column_end: Optional[int] = Field(None, ge=0, le=10_000)
+severity: Optional[str] = Field(None, max_length=20)
+confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
+⋮----
+@field_validator('file_path')
+@classmethod
+    def validate_file_path(cls, v: str) -> str
+⋮----
+@field_validator('line_end')
+@classmethod
+    def validate_line_range(cls, v: int, info) -> int
+⋮----
+line_start = info.data.get('line_start')
+⋮----
+class RepositoryInfoInput(BaseModel)
+⋮----
+path: str = Field(..., max_length=1000, description="Repository path")
+name: Optional[str] = Field(None, max_length=200)
+git_remote: Optional[str] = Field(None, max_length=500)
+git_branch: Optional[str] = Field(None, max_length=200)
+git_commit: Optional[str] = Field(None, max_length=50)
+class PipelineInput(BaseModel)
+⋮----
+repository_info: RepositoryInfoInput
+pattern_matches: List[PatternMatchInput] = Field(
+model_config = {
+⋮----
+DEBUG = SimilarityConfig.DEBUG
 def _debug(msg: str) -> None
-# Add lib/models and lib/similarity to Python path
 ⋮----
 # ---------------------------------------------------------------------------
+# Language Detection
+⋮----
+LANGUAGE_MAP: dict[str, str] = {
+⋮----
+# Pattern to Category Mapping (H4 fix: extract constant to reduce function length)
+⋮----
+PATTERN_CATEGORY_MAP: dict[str, str] = {
+⋮----
+# New categories for previously miscategorized patterns
+⋮----
+def detect_language(file_path: str) -> str
+⋮----
+"""Detect programming language from file extension.
+    Args:
+        file_path: Path to the source file (can be absolute or relative)
+    Returns:
+        Language identifier string (e.g., 'javascript', 'typescript', 'python')
+        Returns 'unknown' if extension is not recognized.
+    """
+ext = Path(file_path).suffix.lower()
+⋮----
 # Function Name Extraction Patterns
 ⋮----
 FUNCTION_NAME_PATTERNS: tuple[str, ...] = (
@@ -801,37 +1261,26 @@ function_name = _get_function_name_from_tags(block.tags)
 ⋮----
 removed = len(blocks) - len(unique_blocks)
 ⋮----
-def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> List[CodeBlock]
+def _create_code_block(match: Dict, repository_info: Dict) -> CodeBlock
 ⋮----
-"""
-    Extract CodeBlock models from pattern matches
-    """
-⋮----
-blocks = []
-⋮----
+"""Create a CodeBlock from a pattern match (H4 fix: extracted helper)."""
 # Generate unique block ID
-# Python 3.11 doesn't support nested f-strings, so construct the string first
 block_key = f"{match['file_path']}:{match['line_start']}"
 block_hash = hashlib.sha256(block_key.encode()).hexdigest()[:12]
 block_id = f"cb_{block_hash}"
-# Map pattern_id to category (must match SemanticCategory enum)
-category_map = {
-category = category_map.get(match['rule_id'], 'utility')
-# Extract function name from source code (Priority 1: Function-Level Extraction)
+# Map pattern_id to category
+category = PATTERN_CATEGORY_MAP.get(match['rule_id'], 'utility')
+# Extract function name from source code
 source_code = match.get('matched_text', '')
 function_name = extract_function_name(
-# Create CodeBlock
-# Note: file_path from ast-grep is already relative to repository root
-block = CodeBlock(
 ⋮----
-relative_path=match['file_path'],  # Already relative from ast-grep
+def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> List[CodeBlock]
 ⋮----
-language='javascript',  # TODO: Detect from file extension
+"""Extract CodeBlock models from pattern matches."""
 ⋮----
-# Store function name in tags field
+blocks = []
 ⋮----
-# Debug: confirm tags are set
-if DEBUG and i < 3:  # Only log first 3 blocks
+block = _create_code_block(match, repository_info)
 ⋮----
 def group_duplicates(blocks: List[CodeBlock]) -> List[DuplicateGroup]
 ⋮----
@@ -929,35 +1378,185 @@ hours = base_hours.get(complexity, 2.0)
 ⋮----
 # Add time for testing
 ⋮----
+"""Calculate comprehensive duplication metrics.
+    Args:
+        blocks: All extracted code blocks
+        groups: All duplicate groups found
+        suggestions: Generated consolidation suggestions
+        total_repo_lines: Total lines in repository (for percentage calc)
+    Returns:
+        Dict with all metrics
+    """
+# Count by similarity method
+exact_groups = [g for g in groups if g.similarity_method == 'exact_match']
+structural_groups = [g for g in groups if g.similarity_method == 'structural']
+semantic_groups = [g for g in groups if g.similarity_method == 'semantic']
+total_duplicated_lines = sum(g.total_lines for g in groups)
+# Calculate potential LOC reduction (keep one copy of each group)
+potential_loc_reduction = sum(
+# Calculate duplication percentage
+# If total_repo_lines not provided, estimate from blocks
+⋮----
+total_repo_lines = sum(b.line_count for b in blocks)
+duplication_percentage = (
+# Identify quick wins (simple to fix)
+quick_wins = [
+# Identify high-impact suggestions (significant refactoring value)
+high_impact = [
+# Semantic annotation metrics
+blocks_with_tags = sum(1 for b in blocks if b.tags)
+total_tags = sum(len(b.tags) for b in blocks)
+blocks_with_tags_percentage = (
+avg_tags_per_block = round(total_tags / len(blocks), 2) if blocks else 0.0
+⋮----
+# Block counts
+⋮----
+# By similarity method
+⋮----
+# Line metrics
+⋮----
+# Suggestion metrics
+⋮----
+# Detailed by complexity
+⋮----
+# High priority (by impact score)
+⋮----
+# Semantic annotation coverage
+⋮----
 def main()
 ⋮----
 """
     Main pipeline execution
     """
 ⋮----
-# Read input from stdin
-input_data = json.load(sys.stdin)
-repository_info = input_data['repository_info']
-pattern_matches = input_data['pattern_matches']
+# Read and validate input from stdin (C2 security fix)
+raw_input = json.load(sys.stdin)
+⋮----
+validated_input = PipelineInput(**raw_input)
+⋮----
+# Include available context for debugging
+repo_hint = raw_input.get('repository_info', {}).get('path', 'unknown') if isinstance(raw_input, dict) else 'invalid_input'
+⋮----
+sys.exit(2)  # Distinct exit code for validation errors
+# Convert validated models to dicts for compatibility
+repository_info = validated_input.repository_info.model_dump()
+pattern_matches = [m.model_dump() for m in validated_input.pattern_matches]
+⋮----
 # Stage 3: Extract code blocks
 blocks = extract_code_blocks(pattern_matches, repository_info)
 # Stage 3.5: Deduplicate blocks (Priority 4)
 blocks = deduplicate_blocks(blocks)
-# Stage 4: Semantic annotation (TODO: Implement full annotator)
-# For now, blocks already have basic category from extraction
-# Stage 5: Group duplicates
+# Stage 4: Semantic annotation
+# Note: Full semantic annotation happens in Layer 3 grouping
+# Blocks have basic category from extraction; rich annotation in grouping.py
+# Stage 5: Group duplicates (Layers 1-3)
 groups = group_duplicates(blocks)
 # Stage 6: Generate suggestions
 suggestions = generate_suggestions(groups)
 # Stage 7: Calculate metrics
-metrics = {
-⋮----
-'semantic_duplicates': 0,  # TODO: Implement semantic grouping
-⋮----
-'duplication_percentage': 0.0,  # TODO: Calculate properly
-⋮----
+metrics = calculate_metrics(blocks, groups, suggestions)
 # Output result as JSON (use mode='json' to serialize datetime objects)
 result = {
+⋮----
+repo_path = repository_info.get('path', 'unknown') if 'repository_info' in dir() else 'unknown'
+match_count = len(pattern_matches) if 'pattern_matches' in dir() else 0
+</file>
+
+<file path="pipeline-core/extractors/test_extract_blocks.py">
+@dataclass
+class MockLocation
+⋮----
+file_path: str = '/test/file.js'
+line_start: int = 1
+line_end: int = 5
+⋮----
+@dataclass
+class MockCodeBlock
+⋮----
+block_id: str
+line_count: int = 5
+location: MockLocation = field(default_factory=MockLocation)
+tags: list = field(default_factory=list)
+⋮----
+@dataclass
+class MockDuplicateGroup
+⋮----
+group_id: str
+similarity_method: str
+occurrence_count: int
+total_lines: int
+affected_files: list = field(default_factory=list)
+def __post_init__(self)
+⋮----
+@dataclass
+class MockSuggestion
+⋮----
+suggestion_id: str
+complexity: str
+impact_score: float
+def test_detect_language_javascript()
+def test_detect_language_typescript()
+def test_detect_language_python()
+def test_detect_language_other_languages()
+def test_detect_language_case_insensitive()
+def test_detect_language_unknown()
+def test_detect_language_with_paths()
+def test_language_map_has_expected_entries()
+⋮----
+expected = {'.js', '.jsx', '.ts', '.tsx', '.py', '.go', '.rs', '.java'}
+⋮----
+def test_calculate_metrics_empty()
+⋮----
+metrics = calculate_metrics([], [], [])
+⋮----
+def test_calculate_metrics_counts_by_method()
+⋮----
+blocks = [MockCodeBlock(f'b{i}', line_count=5) for i in range(10)]
+groups = [
+suggestions = []
+metrics = calculate_metrics(blocks, groups, suggestions)
+⋮----
+def test_calculate_metrics_line_totals()
+⋮----
+blocks = [MockCodeBlock('b1', line_count=100)]
+⋮----
+metrics = calculate_metrics(blocks, groups, [])
+⋮----
+def test_calculate_metrics_loc_reduction()
+def test_calculate_metrics_duplication_percentage()
+⋮----
+blocks = [MockCodeBlock(f'b{i}', line_count=10) for i in range(10)]
+# 25 lines duplicated
+groups = [MockDuplicateGroup('g1', 'exact_match', 5, 25)]
+⋮----
+def test_calculate_metrics_duplication_percentage_with_total()
+⋮----
+blocks = [MockCodeBlock('b1', line_count=10)]
+groups = [MockDuplicateGroup('g1', 'exact_match', 2, 50)]
+metrics = calculate_metrics(blocks, groups, [], total_repo_lines=1000)
+⋮----
+def test_calculate_metrics_quick_wins()
+⋮----
+blocks = [MockCodeBlock('b1')]
+⋮----
+def test_calculate_metrics_high_impact()
+def test_calculate_metrics_suggestion_complexity()
+⋮----
+suggestions = [
+metrics = calculate_metrics(blocks, [], suggestions)
+⋮----
+def test_calculate_metrics_high_priority()
+def test_calculate_metrics_semantic_annotation_coverage()
+⋮----
+blocks = [
+metrics = calculate_metrics(blocks, [], [])
+⋮----
+def test_calculate_metrics_empty_semantic_annotation()
+def main()
+⋮----
+tests = [
+passed = 0
+failed = 0
 </file>
 
 <file path="pipeline-core/git/branch-manager.js">
@@ -1045,6 +1644,38 @@ __all__ = [
 __version__ = '1.0.0'
 </file>
 
+<file path="pipeline-core/models/__init__.pyi">
+"""Type stubs for models package."""
+
+from .code_block import (
+    CodeBlock as CodeBlock,
+    SourceLocation as SourceLocation,
+    ASTNode as ASTNode,
+    LanguageType as LanguageType,
+    SemanticCategory as SemanticCategory,
+)
+from .duplicate_group import (
+    DuplicateGroup as DuplicateGroup,
+    SimilarityMethod as SimilarityMethod,
+)
+from .consolidation_suggestion import (
+    ConsolidationSuggestion as ConsolidationSuggestion,
+    ConsolidationStrategy as ConsolidationStrategy,
+    ImplementationComplexity as ImplementationComplexity,
+    MigrationRisk as MigrationRisk,
+    MigrationStep as MigrationStep,
+)
+from .scan_report import (
+    ScanReport as ScanReport,
+    RepositoryInfo as RepositoryInfo,
+    ScanConfiguration as ScanConfiguration,
+    ScanMetrics as ScanMetrics,
+)
+
+__all__: list[str]
+__version__: str
+</file>
+
 <file path="pipeline-core/models/code_block.py">
 class LanguageType(str, Enum)
 ⋮----
@@ -1072,6 +1703,9 @@ LOGGER = "logger"
 CONFIG_ACCESS = "config_access"
 FILE_OPERATION = "file_operation"
 ASYNC_PATTERN = "async_pattern"
+PROCESS_IO = "process_io"
+TIMING = "timing"
+TRACING = "tracing"
 UNKNOWN = "unknown"
 class SourceLocation(BaseModel)
 ⋮----
@@ -1126,6 +1760,91 @@ normalized = ' '.join(self.source_code.split())
 def to_dict_for_comparison(self) -> Dict[str, Any]
 def __hash__(self) -> int
 def __eq__(self, other: object) -> bool
+</file>
+
+<file path="pipeline-core/models/code_block.pyi">
+"""Type stubs for code_block module."""
+
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel
+
+
+class LanguageType(str, Enum):
+    JAVASCRIPT = ...
+    TYPESCRIPT = ...
+    PYTHON = ...
+    JAVA = ...
+    GO = ...
+    RUST = ...
+    C = ...
+    CPP = ...
+    CSHARP = ...
+    PHP = ...
+    RUBY = ...
+
+
+class SemanticCategory(str, Enum):
+    UTILITY = ...
+    HELPER = ...
+    VALIDATOR = ...
+    API_HANDLER = ...
+    AUTH_CHECK = ...
+    DATABASE_OPERATION = ...
+    ERROR_HANDLER = ...
+    LOGGER = ...
+    CONFIG_ACCESS = ...
+    FILE_OPERATION = ...
+    ASYNC_PATTERN = ...
+    UNKNOWN = ...
+
+
+class SourceLocation(BaseModel):
+    file_path: str
+    line_start: int
+    line_end: int
+    column_start: Optional[int]
+    column_end: Optional[int]
+
+    def __str__(self) -> str: ...
+
+
+class ASTNode(BaseModel):
+    node_type: str
+    children: List[ASTNode]
+    properties: Dict[str, Any]
+
+
+class CodeBlock(BaseModel):
+    block_id: str
+    pattern_id: str
+    location: SourceLocation
+    relative_path: str
+    source_code: str
+    normalized_code: Optional[str]
+    ast_structure: Optional[ASTNode]
+    ast_hash: Optional[str]
+    language: LanguageType
+    category: SemanticCategory
+    tags: List[str]
+    match_context: Dict[str, Any]
+    repository_path: str
+    repository_name: Optional[str]
+    git_commit: Optional[str]
+    detected_at: datetime
+    line_count: int
+    complexity_score: Optional[float]
+
+    @property
+    def content_hash(self) -> str: ...
+    @property
+    def structural_hash(self) -> str: ...
+
+    def to_dict_for_comparison(self) -> Dict[str, Any]: ...
+    def __hash__(self) -> int: ...
+    def __eq__(self, other: object) -> bool: ...
 </file>
 
 <file path="pipeline-core/models/consolidation_suggestion.py">
@@ -1220,6 +1939,99 @@ def __hash__(self) -> int
 def __eq__(self, other: object) -> bool
 </file>
 
+<file path="pipeline-core/models/consolidation_suggestion.pyi">
+"""Type stubs for consolidation_suggestion module."""
+
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel
+
+
+class ConsolidationStrategy(str, Enum):
+    LOCAL_UTIL = ...
+    SHARED_PACKAGE = ...
+    MCP_SERVER = ...
+    AUTONOMOUS_AGENT = ...
+    NO_ACTION = ...
+
+
+class ImplementationComplexity(str, Enum):
+    TRIVIAL = ...
+    SIMPLE = ...
+    MODERATE = ...
+    COMPLEX = ...
+    VERY_COMPLEX = ...
+
+
+class MigrationRisk(str, Enum):
+    MINIMAL = ...
+    LOW = ...
+    MEDIUM = ...
+    HIGH = ...
+    CRITICAL = ...
+
+
+class MigrationStep(BaseModel):
+    step_number: int
+    description: str
+    code_example: Optional[str]
+    automated: bool
+    estimated_time: Optional[str]
+
+
+class ConsolidationSuggestion(BaseModel):
+    suggestion_id: str
+    duplicate_group_id: str
+    strategy: ConsolidationStrategy
+    strategy_rationale: str
+    impact_score: float
+    complexity: ImplementationComplexity
+    migration_risk: MigrationRisk
+    breaking_changes: bool
+    migration_steps: List[MigrationStep]
+    target_location: Optional[str]
+    target_name: Optional[str]
+    proposed_implementation: Optional[str]
+    usage_example: Optional[str]
+    estimated_effort_hours: Optional[float]
+    loc_reduction: Optional[int]
+    affected_files_count: int
+    affected_repositories_count: int
+    dependencies: List[str]
+    prerequisite_suggestions: List[str]
+    test_strategy: Optional[str]
+    rollback_plan: Optional[str]
+    confidence: float
+    automated_refactor_possible: bool
+    requires_human_review: bool
+    benefits: List[str]
+    drawbacks: List[str]
+    notes: Optional[str]
+    created_at: datetime
+
+    @property
+    def priority(self) -> str: ...
+    @property
+    def roi_score(self) -> float: ...
+    @property
+    def is_quick_win(self) -> bool: ...
+
+    def add_migration_step(
+        self,
+        description: str,
+        code_example: Optional[str] = ...,
+        automated: bool = ...,
+        estimated_time: Optional[str] = ...,
+    ) -> None: ...
+    def add_benefit(self, benefit: str) -> None: ...
+    def add_drawback(self, drawback: str) -> None: ...
+    def to_markdown_summary(self) -> str: ...
+    def __hash__(self) -> int: ...
+    def __eq__(self, other: object) -> bool: ...
+</file>
+
 <file path="pipeline-core/models/duplicate_group.py">
 class SimilarityMethod(str, Enum)
 ⋮----
@@ -1284,6 +2096,59 @@ def remove_member(self, block_id: str) -> None
 def set_canonical(self, block_id: str) -> None
 def __hash__(self) -> int
 def __eq__(self, other: object) -> bool
+</file>
+
+<file path="pipeline-core/models/duplicate_group.pyi">
+"""Type stubs for duplicate_group module."""
+
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel
+
+
+class SimilarityMethod(str, Enum):
+    EXACT_MATCH = ...
+    STRUCTURAL = ...
+    SEMANTIC = ...
+    HYBRID = ...
+
+
+class DuplicateGroup(BaseModel):
+    group_id: str
+    pattern_id: str
+    member_block_ids: List[str]
+    similarity_score: float
+    similarity_method: SimilarityMethod
+    canonical_block_id: Optional[str]
+    category: str
+    language: str
+    occurrence_count: int
+    total_lines: int
+    affected_files: List[str]
+    affected_repositories: List[str]
+    consolidation_complexity: Optional[str]
+    breaking_changes_risk: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    notes: Optional[str]
+    metadata: Dict[str, Any]
+
+    @property
+    def deduplication_potential(self) -> int: ...
+    @property
+    def impact_score(self) -> float: ...
+    @property
+    def is_cross_repository(self) -> bool: ...
+    @property
+    def priority_level(self) -> str: ...
+
+    def add_member(self, block_id: str) -> None: ...
+    def remove_member(self, block_id: str) -> None: ...
+    def set_canonical(self, block_id: str) -> None: ...
+    def __hash__(self) -> int: ...
+    def __eq__(self, other: object) -> bool: ...
 </file>
 
 <file path="pipeline-core/models/scan_report.py">
@@ -1383,6 +2248,91 @@ summary = f"""
 def to_summary_dict(self) -> Dict[str, Any]
 def __hash__(self) -> int
 def __eq__(self, other: object) -> bool
+</file>
+
+<file path="pipeline-core/models/scan_report.pyi">
+"""Type stubs for scan_report module."""
+
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel
+
+
+class RepositoryInfo(BaseModel):
+    repository_path: str
+    repository_name: str
+    git_remote: Optional[str]
+    git_branch: Optional[str]
+    git_commit: Optional[str]
+    total_files: int
+    total_lines: int
+    languages: List[str]
+
+
+class ScanConfiguration(BaseModel):
+    rules_used: List[str]
+    excluded_paths: List[str]
+    min_similarity_threshold: float
+    min_duplicate_size: int
+
+
+class ScanMetrics(BaseModel):
+    total_code_blocks: int
+    code_blocks_by_category: Dict[str, int]
+    code_blocks_by_language: Dict[str, int]
+    total_duplicate_groups: int
+    exact_duplicates: int
+    structural_duplicates: int
+    semantic_duplicates: int
+    total_duplicated_lines: int
+    potential_loc_reduction: int
+    duplication_percentage: float
+    total_suggestions: int
+    quick_wins: int
+    high_priority_suggestions: int
+    cross_repository_duplicates: int
+
+
+class ScanReport(BaseModel):
+    report_id: str
+    scan_name: Optional[str]
+    scanned_at: datetime
+    scan_duration_seconds: Optional[float]
+    scanner_version: str
+    configuration: ScanConfiguration
+    repositories: List[RepositoryInfo]
+    code_block_ids: List[str]
+    duplicate_group_ids: List[str]
+    suggestion_ids: List[str]
+    metrics: ScanMetrics
+    executive_summary: Optional[str]
+    recommendations: List[str]
+    warnings: List[str]
+    output_directory: str
+    report_files: Dict[str, str]
+    tags: List[str]
+    metadata: Dict[str, Any]
+
+    @property
+    def is_multi_repository(self) -> bool: ...
+    @property
+    def total_scanned_files(self) -> int: ...
+    @property
+    def total_scanned_lines(self) -> int: ...
+    @property
+    def duplication_severity(self) -> str: ...
+    @property
+    def consolidation_opportunity_score(self) -> float: ...
+
+    def add_repository(self, repo_info: RepositoryInfo) -> None: ...
+    def add_code_block_id(self, block_id: str) -> None: ...
+    def add_duplicate_group_id(self, group_id: str) -> None: ...
+    def add_suggestion_id(self, suggestion_id: str) -> None: ...
+    def generate_executive_summary(self) -> str: ...
+    def to_summary_dict(self) -> Dict[str, Any]: ...
+    def __hash__(self) -> int: ...
+    def __eq__(self, other: object) -> bool: ...
 </file>
 
 <file path="pipeline-core/models/test_models.py">
@@ -1738,11 +2688,26 @@ export function createTimeoutPatternDetector(options)
 __all__ = [
 </file>
 
+<file path="pipeline-core/similarity/__init__.pyi">
+"""Type stubs for similarity package."""
+
+from typing import List, Tuple
+
+from .structural import (
+    calculate_structural_similarity as calculate_structural_similarity,
+    normalize_code as normalize_code,
+)
+from .grouping import group_by_similarity as group_by_similarity
+
+__all__: list[str]
+</file>
+
 <file path="pipeline-core/similarity/config.py">
 class SimilarityConfig
 ⋮----
+DEBUG = os.environ.get('PIPELINE_DEBUG', '').lower() in ('1', 'true', 'yes')
 MIN_LINE_COUNT = int(os.getenv('MIN_LINE_COUNT', '1'))
-MIN_UNIQUE_TOKENS = int(os.getenv('MIN_UNIQUE_TOKENS', '3'))
+MIN_UNIQUE_TOKENS = int(os.getenv('MIN_UNIQUE_TOKENS', '5'))
 STRUCTURAL_THRESHOLD = float(os.getenv('STRUCTURAL_THRESHOLD', '0.90'))
 OPPOSITE_LOGIC_PENALTY = float(os.getenv('OPPOSITE_LOGIC_PENALTY', '0.8'))
 STATUS_CODE_PENALTY = float(os.getenv('STATUS_CODE_PENALTY', '0.7'))
@@ -1750,11 +2715,18 @@ SEMANTIC_METHOD_PENALTY = float(os.getenv('SEMANTIC_METHOD_PENALTY', '0.85'))
 CHAIN_WEIGHT_LEVENSHTEIN = float(os.getenv('CHAIN_WEIGHT_LEVENSHTEIN', '0.7'))
 CHAIN_WEIGHT_CHAIN = float(os.getenv('CHAIN_WEIGHT_CHAIN', '0.3'))
 MIN_COMPLEXITY_RATIO = float(os.getenv('MIN_COMPLEXITY_RATIO', '0.5'))
+SEMANTIC_SIMILARITY_THRESHOLD = float(os.getenv('SEMANTIC_SIMILARITY_THRESHOLD', '0.70'))
 MIN_GROUP_QUALITY = float(os.getenv('MIN_GROUP_QUALITY', '0.70'))
 QUALITY_WEIGHT_SIMILARITY = float(os.getenv('QUALITY_WEIGHT_SIMILARITY', '0.4'))
 QUALITY_WEIGHT_SIZE = float(os.getenv('QUALITY_WEIGHT_SIZE', '0.2'))
 QUALITY_WEIGHT_COMPLEXITY = float(os.getenv('QUALITY_WEIGHT_COMPLEXITY', '0.2'))
 QUALITY_WEIGHT_SEMANTIC = float(os.getenv('QUALITY_WEIGHT_SEMANTIC', '0.2'))
+SIZE_NORMALIZATION = float(os.getenv('SIZE_NORMALIZATION', '4.0'))
+COMPLEXITY_NORMALIZATION = float(os.getenv('COMPLEXITY_NORMALIZATION', '10.0'))
+SEMANTIC_PERFECT_CONSISTENCY = 1.0
+SEMANTIC_SAME_CATEGORY = 0.7
+SEMANTIC_SAME_PATTERN = 0.5
+SEMANTIC_MIXED = 0.3
 ⋮----
 @classmethod
     def to_dict(cls) -> dict
@@ -1764,11 +2736,69 @@ QUALITY_WEIGHT_SEMANTIC = float(os.getenv('QUALITY_WEIGHT_SEMANTIC', '0.2'))
 config = SimilarityConfig()
 </file>
 
+<file path="pipeline-core/similarity/config.pyi">
+"""Type stubs for similarity config module."""
+
+
+class SimilarityConfig:
+    """Configuration for multi-layer similarity algorithm."""
+
+    # Debug mode
+    DEBUG: bool
+
+    # Layer 0: Complexity filtering
+    MIN_LINE_COUNT: int
+    MIN_UNIQUE_TOKENS: int
+
+    # Layer 2: Structural similarity
+    STRUCTURAL_THRESHOLD: float
+
+    # Penalties
+    OPPOSITE_LOGIC_PENALTY: float
+    STATUS_CODE_PENALTY: float
+    SEMANTIC_METHOD_PENALTY: float
+
+    # Method chain validation
+    CHAIN_WEIGHT_LEVENSHTEIN: float
+    CHAIN_WEIGHT_CHAIN: float
+
+    # Layer 3: Semantic validation
+    MIN_COMPLEXITY_RATIO: float
+    SEMANTIC_SIMILARITY_THRESHOLD: float
+
+    # Layer 4: Quality filtering
+    MIN_GROUP_QUALITY: float
+
+    # Quality score weights
+    QUALITY_WEIGHT_SIMILARITY: float
+    QUALITY_WEIGHT_SIZE: float
+    QUALITY_WEIGHT_COMPLEXITY: float
+    QUALITY_WEIGHT_SEMANTIC: float
+
+    # Quality normalization factors
+    SIZE_NORMALIZATION: float
+    COMPLEXITY_NORMALIZATION: float
+
+    # Semantic consistency scores
+    SEMANTIC_PERFECT_CONSISTENCY: float
+    SEMANTIC_SAME_CATEGORY: float
+    SEMANTIC_SAME_PATTERN: float
+    SEMANTIC_MIXED: float
+
+    @classmethod
+    def to_dict(cls) -> dict: ...
+    @classmethod
+    def print_config(cls) -> None: ...
+
+
+config: SimilarityConfig
+</file>
+
 <file path="pipeline-core/similarity/grouping.py">
-DEBUG = os.environ.get('PIPELINE_DEBUG', '').lower() in ('1', 'true', 'yes')
+DEBUG = SimilarityConfig.DEBUG
 ⋮----
 MIN_COMPLEXITY_THRESHOLD = {
-MIN_GROUP_QUALITY = float(os.getenv('MIN_GROUP_QUALITY', '0.70'))
+MIN_GROUP_QUALITY = SimilarityConfig.MIN_GROUP_QUALITY
 OPPOSITE_OPERATOR_PAIRS: list[tuple[set[str], set[str]]] = [
 ⋮----
 @dataclass
@@ -1800,7 +2830,7 @@ methods1 = extract_semantic_methods(code1)
 methods2 = extract_semantic_methods(code2)
 ⋮----
 SEMANTIC_CHECKS: list[Callable[[str, str], SemanticCheckResult]] = [
-def _extract_function_names(blocks: list) -> list[str]
+def _extract_function_names(blocks: List['CodeBlock']) -> list[str]
 ⋮----
 func_names = []
 ⋮----
@@ -1823,21 +2853,27 @@ complexity = calculate_code_complexity(block.source_code)
 ⋮----
 def calculate_group_quality_score(group_blocks: List['CodeBlock'], similarity_score: float) -> float
 ⋮----
-similarity_factor = similarity_score * 0.4
-size_factor = min(len(group_blocks) / 4.0, 1.0) * 0.2
+w_sim = SimilarityConfig.QUALITY_WEIGHT_SIMILARITY
+w_size = SimilarityConfig.QUALITY_WEIGHT_SIZE
+w_complexity = SimilarityConfig.QUALITY_WEIGHT_COMPLEXITY
+w_semantic = SimilarityConfig.QUALITY_WEIGHT_SEMANTIC
+similarity_factor = similarity_score * w_sim
+size_norm = SimilarityConfig.SIZE_NORMALIZATION
+size_factor = min(len(group_blocks) / size_norm, 1.0) * w_size
 avg_line_count = sum(b.line_count for b in group_blocks) / len(group_blocks)
-complexity_factor = min(avg_line_count / 10.0, 1.0) * 0.2
+complexity_norm = SimilarityConfig.COMPLEXITY_NORMALIZATION
+complexity_factor = min(avg_line_count / complexity_norm, 1.0) * w_complexity
 categories = set(b.category for b in group_blocks)
 pattern_ids = set(b.pattern_id for b in group_blocks)
-semantic_factor = 0.0
 ⋮----
-semantic_factor = 1.0 * 0.2
+semantic_score = SimilarityConfig.SEMANTIC_PERFECT_CONSISTENCY
 ⋮----
-semantic_factor = 0.7 * 0.2
+semantic_score = SimilarityConfig.SEMANTIC_SAME_CATEGORY
 ⋮----
-semantic_factor = 0.5 * 0.2
+semantic_score = SimilarityConfig.SEMANTIC_SAME_PATTERN
 ⋮----
-semantic_factor = 0.3 * 0.2
+semantic_score = SimilarityConfig.SEMANTIC_MIXED
+semantic_factor = semantic_score * w_semantic
 total_quality = similarity_factor + size_factor + complexity_factor + semantic_factor
 ⋮----
 def validate_exact_group_semantics(group_blocks: List['CodeBlock']) -> tuple
@@ -1880,6 +2916,20 @@ ungrouped_blocks = [b for b in complex_blocks if b.block_id not in grouped_block
 structural_groups = _group_by_structural_similarity(ungrouped_blocks, similarity_threshold)
 layer1_count = len(groups)
 ⋮----
+# Annotate all ungrouped blocks with optional timing
+annotator = SemanticAnnotator(collect_timing=DEBUG)
+layer3_start = time.perf_counter()
+annotations = {
+annotation_time_ms = (time.perf_counter() - layer3_start) * 1000
+layer2_count = len(groups)
+grouping_start = time.perf_counter()
+semantic_groups = _group_by_semantic_similarity(
+grouping_time_ms = (time.perf_counter() - grouping_start) * 1000
+⋮----
+# Print timing summary when DEBUG
+⋮----
+timing_report = annotator.get_timing_report()
+⋮----
 def _group_by_exact_hash(blocks: List['CodeBlock']) -> Dict[str, List['CodeBlock']]
 ⋮----
 hash_groups = defaultdict(list)
@@ -1921,7 +2971,95 @@ avg_similarity = sum(similarities) / len(similarities) if similarities else 1.0
 ⋮----
 # Group failed semantic validation
 ⋮----
-"""Create a DuplicateGroup from a list of similar blocks."""
+# ---------------------------------------------------------------------------
+# Layer 3: Semantic Similarity
+⋮----
+# Weights for semantic similarity calculation
+SEMANTIC_WEIGHTS = {
+⋮----
+'operations': 0.40,  # What the code does
+'domains': 0.25,     # What domain it operates on
+'patterns': 0.20,    # What patterns it uses
+'data_types': 0.15,  # What data types it processes
+⋮----
+# Threshold for semantic similarity matching (from config)
+SEMANTIC_SIMILARITY_THRESHOLD = SimilarityConfig.SEMANTIC_SIMILARITY_THRESHOLD
+def _calculate_jaccard_similarity(set1: set[str], set2: set[str]) -> float
+⋮----
+"""Calculate Jaccard similarity between two sets.
+    Args:
+        set1: First set of strings
+        set2: Second set of strings
+    Returns:
+        Jaccard similarity coefficient (0.0 - 1.0)
+    """
+⋮----
+return 1.0  # Both empty = compatible
+⋮----
+return 0.5  # One empty = partial match
+intersection = len(set1 & set2)
+union = len(set1 | set2)
+⋮----
+"""Calculate weighted semantic similarity between two annotations.
+    Uses Jaccard similarity on each tag category with predefined weights:
+    - Operations: 40%
+    - Domains: 25%
+    - Patterns: 20%
+    - Data types: 15%
+    Args:
+        ann1: First semantic annotation
+        ann2: Second semantic annotation
+    Returns:
+        Weighted similarity score (0.0 - 1.0)
+    """
+op_sim = _calculate_jaccard_similarity(ann1.operations, ann2.operations)
+domain_sim = _calculate_jaccard_similarity(ann1.domains, ann2.domains)
+pattern_sim = _calculate_jaccard_similarity(ann1.patterns, ann2.patterns)
+type_sim = _calculate_jaccard_similarity(ann1.data_types, ann2.data_types)
+⋮----
+def _intents_compatible(intent1: str, intent2: str) -> bool
+⋮----
+intent2: Second intent string
+</file>
+
+<file path="pipeline-core/similarity/grouping.pyi">
+"""Type stubs for grouping module."""
+
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Set, Tuple
+
+from ..models.code_block import CodeBlock
+from ..models.duplicate_group import DuplicateGroup
+from ..annotators.semantic_annotator import SemanticAnnotation
+
+
+@dataclass
+class SemanticCheckResult:
+    """Result of a semantic compatibility check."""
+    is_valid: bool
+    reason: str
+    details: Tuple[Any, Any] | None = ...
+
+
+# Module constants
+MIN_COMPLEXITY_THRESHOLD: Dict[str, int]
+MIN_GROUP_QUALITY: float
+OPPOSITE_OPERATOR_PAIRS: List[Tuple[Set[str], Set[str]]]
+SEMANTIC_CHECKS: List[Callable[[str, str], SemanticCheckResult]]
+SEMANTIC_WEIGHTS: Dict[str, float]
+SEMANTIC_SIMILARITY_THRESHOLD: float
+DEBUG: bool
+
+
+def calculate_code_complexity(source_code: str) -> dict: ...
+def is_complex_enough(block: CodeBlock) -> bool: ...
+def calculate_group_quality_score(
+    group_blocks: List[CodeBlock], similarity_score: float
+) -> float: ...
+def validate_exact_group_semantics(group_blocks: List[CodeBlock]) -> tuple: ...
+def group_by_similarity(
+    blocks: List[CodeBlock], similarity_threshold: float = ...
+) -> List[DuplicateGroup]: ...
 </file>
 
 <file path="pipeline-core/similarity/semantic.py">
@@ -1945,6 +3083,19 @@ def validate_duplicate_group(blocks: List['CodeBlock']) -> bool
 pattern_ids = set(b.pattern_id for b in blocks)
 ⋮----
 categories = set(b.category for b in blocks)
+</file>
+
+<file path="pipeline-core/similarity/semantic.pyi">
+"""Type stubs for semantic similarity module."""
+
+from typing import List, Optional
+
+from ..models.code_block import CodeBlock
+
+
+def are_semantically_compatible(block1: CodeBlock, block2: CodeBlock) -> bool: ...
+def calculate_tag_overlap(block1: CodeBlock, block2: CodeBlock) -> float: ...
+def validate_duplicate_group(blocks: List[CodeBlock]) -> bool: ...
 </file>
 
 <file path="pipeline-core/similarity/structural.py">
@@ -2025,6 +3176,150 @@ features2: Semantic features from second code block
 Returns:
 </file>
 
+<file path="pipeline-core/similarity/structural.pyi">
+"""Type stubs for structural similarity module."""
+
+from dataclasses import dataclass
+from typing import Set, Tuple
+
+
+@dataclass
+class SemanticFeatures:
+    """Semantic features extracted from original code before normalization."""
+    http_status_codes: Set[int]
+    logical_operators: Set[str]
+    semantic_methods: Set[str]
+
+
+def extract_semantic_features(source_code: str) -> SemanticFeatures: ...
+def normalize_code(source_code: str) -> str: ...
+def calculate_ast_hash(source_code: str) -> str: ...
+def calculate_levenshtein_similarity(str1: str, str2: str) -> float: ...
+def extract_logical_operators(source_code: str) -> set: ...
+def extract_http_status_codes(source_code: str) -> set: ...
+def extract_semantic_methods(source_code: str) -> set: ...
+def extract_method_chain(source_code: str) -> list: ...
+def compare_method_chains(code1: str, code2: str) -> float: ...
+def calculate_semantic_penalty(
+    features1: SemanticFeatures, features2: SemanticFeatures
+) -> float: ...
+def calculate_structural_similarity(
+    code1: str, code2: str, threshold: float = ...
+) -> Tuple[float, str]: ...
+def are_structurally_similar(
+    code1: str, code2: str, threshold: float = ...
+) -> bool: ...
+</file>
+
+<file path="pipeline-core/similarity/test_grouping_layer3.py">
+@dataclass
+class MockCodeBlock
+⋮----
+block_id: str
+source_code: str
+category: str = 'utility'
+tags: list = field(default_factory=list)
+pattern_id: str = 'test-pattern'
+line_count: int = 5
+location: object = None
+repository_path: str = '/test'
+language: str = 'javascript'
+content_hash: str = 'abc123'
+def __post_init__(self)
+class TestJaccardSimilarity
+⋮----
+def test_identical_sets(self)
+⋮----
+result = _calculate_jaccard_similarity({'a', 'b', 'c'}, {'a', 'b', 'c'})
+⋮----
+def test_disjoint_sets(self)
+⋮----
+result = _calculate_jaccard_similarity({'a', 'b'}, {'c', 'd'})
+⋮----
+def test_partial_overlap(self)
+⋮----
+result = _calculate_jaccard_similarity({'a', 'b', 'c'}, {'b', 'c', 'd'})
+⋮----
+def test_both_empty(self)
+⋮----
+result = _calculate_jaccard_similarity(set(), set())
+⋮----
+def test_one_empty(self)
+⋮----
+result = _calculate_jaccard_similarity({'a', 'b'}, set())
+⋮----
+result = _calculate_jaccard_similarity(set(), {'a', 'b'})
+⋮----
+def test_subset(self)
+⋮----
+result = _calculate_jaccard_similarity({'a'}, {'a', 'b'})
+⋮----
+class TestSemanticSimilarity
+⋮----
+def test_identical_annotations(self)
+⋮----
+ann = SemanticAnnotation(
+result = _calculate_semantic_similarity(ann, ann)
+⋮----
+def test_different_operations_major_impact(self)
+⋮----
+ann1 = SemanticAnnotation(
+ann2 = SemanticAnnotation(
+result = _calculate_semantic_similarity(ann1, ann2)
+expected = 0.0 * 0.4 + 1.0 * 0.25 + 1.0 * 0.20 + 1.0 * 0.15
+⋮----
+def test_different_domains_moderate_impact(self)
+⋮----
+expected = 1.0 * 0.4 + 0.0 * 0.25 + 1.0 * 0.20 + 1.0 * 0.15
+⋮----
+def test_similar_operations_high_score(self)
+def test_weights_sum_to_one(self)
+⋮----
+total = sum(SEMANTIC_WEIGHTS.values())
+⋮----
+class TestIntentCompatibility
+⋮----
+def test_identical_intents(self)
+def test_shared_operation(self)
+def test_no_shared_operation(self)
+def test_unknown_intent(self)
+def test_both_unknown(self)
+def test_empty_operations(self)
+class TestSemanticGrouping
+⋮----
+def test_groups_same_category_similar_operations(self)
+⋮----
+blocks = [
+annotations = {
+groups = _group_by_semantic_similarity(blocks, annotations, threshold=0.70)
+⋮----
+def test_different_categories_not_grouped(self)
+def test_incompatible_intents_not_grouped(self)
+def test_below_threshold_not_grouped(self)
+⋮----
+groups = _group_by_semantic_similarity(blocks, annotations, threshold=0.90)
+⋮----
+def test_empty_blocks_returns_empty(self)
+⋮----
+groups = _group_by_semantic_similarity([], {}, threshold=0.70)
+⋮----
+def test_single_block_returns_empty(self)
+⋮----
+blocks = [MockCodeBlock(block_id='b1', source_code='code1')]
+⋮----
+def test_multiple_groups_formed(self)
+def test_missing_annotation_skipped(self)
+def run_tests()
+⋮----
+test_classes = [
+passed = 0
+failed = 0
+⋮----
+instance = test_class()
+⋮----
+method = getattr(instance, name)
+</file>
+
 <file path="pipeline-core/types/scan-orchestrator-types.js">
 
 </file>
@@ -2046,6 +3341,18 @@ export type ReportOptions = z.infer<typeof ReportOptionsSchema>;
 export type ScanOrchestratorOptions = z.infer<typeof ScanOrchestratorOptionsSchema>;
 </file>
 
+<file path="pipeline-core/utils/__init__.py">
+__all__ = ['TimingMetrics', 'Timer']
+</file>
+
+<file path="pipeline-core/utils/__init__.pyi">
+"""Type stubs for utils package."""
+
+from .timing import TimingMetrics as TimingMetrics, Timer as Timer
+
+__all__: list[str]
+</file>
+
 <file path="pipeline-core/utils/error-helpers.js">
 export function safeErrorMessage(error, fallback = 'Unknown error')
 export function safeErrorStack(error)
@@ -2055,6 +3362,92 @@ export function isErrorLike(value)
 export function serializeError(error, includeStack = true)
 export function formatErrorMessage(error, options =
 export function combineErrors(errors, separator = '; ')
+</file>
+
+<file path="pipeline-core/utils/fs-helpers.js">
+export async function ensureDir(dirPath)
+export async function ensureParentDir(filePath)
+export async function writeFileWithDir(filePath, content, options =
+export async function readFileIfExists(filePath, encoding = 'utf-8')
+export async function pathExists(filePath)
+export function joinLines(lines)
+</file>
+
+<file path="pipeline-core/utils/index.js">
+
+</file>
+
+<file path="pipeline-core/utils/process-helpers.js">
+
+</file>
+
+<file path="pipeline-core/utils/timing-helpers.js">
+export function createTimer()
+⋮----
+elapsed: ()
+elapsedMs: ()
+elapsedFormatted: () =>
+⋮----
+export async function withTiming(fn, label)
+export function measureSync(fn)
+</file>
+
+<file path="pipeline-core/utils/timing.py">
+@dataclass
+class TimingMetrics
+⋮----
+stage_name: str
+total_ms: float = 0.0
+count: int = 0
+min_ms: float = field(default=float('inf'))
+max_ms: float = 0.0
+def record(self, duration_ms: float) -> None
+⋮----
+@property
+    def avg_ms(self) -> float
+def to_dict(self) -> dict
+class Timer
+⋮----
+def __init__(self, metrics: TimingMetrics | None = None) -> None
+⋮----
+@property
+    def elapsed_ms(self) -> float
+def __enter__(self) -> Timer
+def __exit__(self, *args) -> None
+⋮----
+end_time = time.perf_counter()
+</file>
+
+<file path="pipeline-core/utils/timing.pyi">
+"""Type stubs for timing module."""
+
+from dataclasses import dataclass
+
+
+@dataclass
+class TimingMetrics:
+    """Collected timing metrics for a processing stage."""
+
+    stage_name: str
+    total_ms: float
+    count: int
+    min_ms: float
+    max_ms: float
+
+    def record(self, duration_ms: float) -> None: ...
+    @property
+    def avg_ms(self) -> float: ...
+    def to_dict(self) -> dict: ...
+
+
+class Timer:
+    """Context manager for timing code blocks."""
+
+    def __init__(self, metrics: TimingMetrics | None = ...) -> None: ...
+    @property
+    def elapsed_ms(self) -> float: ...
+    def __enter__(self) -> Timer: ...
+    def __exit__(self, *args) -> None: ...
 </file>
 
 <file path="pipeline-core/doppler-health-monitor.js">
@@ -2083,6 +3476,10 @@ _suggestCrossRepoLocation(group, strategy)
 _calculateCrossRepoROI(group, complexity, risk)
 _calculateInterProjectMetrics(repositoryScans, crossRepoDuplicates, suggestions)
 async saveResults(results, filename = 'inter-project-scan.json')
+</file>
+
+<file path="pipeline-core/py.typed">
+
 </file>
 
 <file path="pipeline-core/scan-orchestrator.d.ts">
@@ -2318,7 +3715,7 @@ import { AstGrepPatternDetector } from './scanners/ast-grep-detector.js';
 import { HTMLReportGenerator } from './reports/html-report-generator.js';
 import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
 import { InterProjectScanner } from './inter-project-scanner.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logStart, logStage } from '../utils/logger.js';
 import { DependencyValidator } from '../utils/dependency-validator.js';
 import { spawn, ChildProcess, execSync } from 'child_process';
 ⋮----
@@ -2603,16 +4000,30 @@ function formatBytes(bytes)
 
 <file path="pipeline-runners/collect_git_activity.py">
 CODE_DIR = Path.home() / 'code'
+REPORTS_DIR = Path.home() / 'reports'
+HOME_DIR = Path.home()
+ADDITIONAL_REPOS = [
 EXCLUDE_PATTERNS = ['vim/bundle', 'node_modules', '.git', 'venv', '.venv']
 DEFAULT_MAX_DEPTH = 2
 LANGUAGE_EXTENSIONS = {
-def find_git_repos(max_depth=DEFAULT_MAX_DEPTH)
+def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=True)
+⋮----
+repos = []
 ⋮----
 cmd = f"find {CODE_DIR} -maxdepth {max_depth} -name .git -type d"
 result = subprocess.run(cmd.split(), capture_output=True, text=True)
-repos = []
 ⋮----
 repo_path = Path(line).parent
+⋮----
+cmd = f"find {REPORTS_DIR} -maxdepth {max_depth} -name .git -type d"
+⋮----
+# Check if directory itself is a git repo
+⋮----
+# Also check subdirectories (depth 1 within dotfile dirs)
+⋮----
+# Skip directories we can't access (e.g., .Trash)
+⋮----
+# Add explicit additional repositories
 ⋮----
 def get_repo_stats(repo_path, since_date, until_date=None)
 ⋮----
@@ -2625,7 +4036,14 @@ git_cmd = f"git log --since={since_date} --all --name-only --pretty=format:"
 ⋮----
 files = [f for f in result.stdout.strip().split('\n') if f]
 # Get parent directory (for organization/grouping)
-parent = repo_path.parent.name if repo_path.parent != CODE_DIR else None
+⋮----
+parent = None
+⋮----
+parent = '~'  # Dotfile at home root
+⋮----
+parent = repo_path.parent.name  # Inside a dotfile directory
+⋮----
+parent = repo_path.parent.name
 ⋮----
 def analyze_languages(all_files)
 ⋮----
@@ -2836,8 +4254,9 @@ import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.js';
 import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.js';
 import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.js';
 import { PRCreator } from '../pipeline-core/git/pr-creator.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logStart, logRetry } from '../utils/logger.js';
 import { config } from '../core/config.js';
+import { TIMEOUTS, RETRY } from '../core/constants.js';
 import { isRetryable, getErrorInfo } from '../pipeline-core/errors/error-classifier.js';
 ⋮----
 import type { Logger } from 'pino';
@@ -3065,6 +4484,7 @@ import { TestRefactorWorker } from '../workers/test-refactor-worker.js';
 import { DirectoryScanner } from '../utils/directory-scanner.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../core/config.js';
+import { TIMEOUTS } from '../core/constants.js';
 import cron from 'node-cron';
 import path from 'path';
 ⋮----
@@ -3817,13 +5237,29 @@ export async function main()
 <file path="utils/logger.d.ts">
 import type { Logger } from 'pino';
 ⋮----
-export function createChildLogger(bindings: Record<string, any>): Logger;
+export function createChildLogger(bindings: Record<string, unknown>): Logger;
 export function createComponentLogger(component: string): Logger;
+export function logStart(log: Logger, operation: string, context?: Record<string, unknown>): void;
+export function logComplete(log: Logger, operation: string, startTime: number, context?: Record<string, unknown>): void;
+export function logError(log: Logger, error: Error, message: string, context?: Record<string, unknown>): void;
+export function logWarn(log: Logger, error: Error | null, message: string, context?: Record<string, unknown>): void;
+export function logSkip(log: Logger, what: string, reason: string, context?: Record<string, unknown>): void;
+export function logStage(log: Logger, stage: string, context?: Record<string, unknown>): void;
+export function logMetrics(log: Logger, operation: string, metrics?: Record<string, unknown>): void;
+export function logRetry(log: Logger, operation: string, attempt: number, maxAttempts: number, context?: Record<string, unknown>): void;
 </file>
 
 <file path="utils/logger.js">
 export function createChildLogger(bindings)
 export function createComponentLogger(component)
+export function logStart(log, operation, context =
+export function logComplete(log, operation, startTime, context =
+export function logError(log, error, message, context =
+export function logWarn(log, error, message, context =
+export function logSkip(log, what, reason, context =
+export function logStage(log, stage, context =
+export function logMetrics(log, operation, metrics =
+export function logRetry(log, operation, attempt, maxAttempts, context =
 </file>
 
 <file path="utils/pipeline-names.js">
@@ -3895,25 +5331,27 @@ function generateSemanticValidatorsFile(framework: string): string
  * Generate the form helpers utility file
  */
 function generateFormHelpersFile(): string
+interface CategorizedStrings {
+  navigation: string[];
+  actions: string[];
+  accessibility: string[];
+  messages: string[];
+  headings: string[];
+  labels: string[];
+  misc: string[];
+}
 /**
- * Generate the test constants file template
+ * Categorize strings into meaningful groups based on content patterns
  */
+function categorizeStrings(strings: string[]): CategorizedStrings
+/**
+ * Generate a constant export for an array of strings
+ */
+function generateArrayExport(name: string, strings: string[], comment: string): string
 function generateConstantsTemplate(hardcodedStrings: string[]): string
-/**
- * Generate the render helpers to add to test-utils
- */
 function generateRenderHelpers(): string
-/**
- * Generate E2E navigation fixtures for Playwright
- */
 function generateE2EFixtures(): string
-/**
- * Generate index file for clean imports
- */
 function generateIndexFile(): string
-/**
- * Main execution
- */
 async function main()
 </file>
 
@@ -4165,7 +5603,6 @@ interface Stats {
   completed: number;
   failed: number;
 }
-export class TestRefactorWorker extends SidequestServer
 ⋮----
 constructor(options: TestRefactorWorkerOptions =
 queueProject(projectPath: string, options: Partial<JobData> =
@@ -4226,14 +5663,24 @@ generateSemanticValidatorsContent(framework: string): string
    */
 generateFormHelpersContent(): string
 /**
-   * Generate test-constants.ts content
+   * Categorize strings into meaningful groups based on content patterns
    */
-generateConstantsContent(hardcodedStrings: string[]): string
-generateIndexContent(generatedFiles: string[]): string
-generateE2EFixturesContent(): string
-async _generateCommitMessage(job: RefactorJob): Promise<
-getMetrics(): Metrics
-getStats(): Stats
+categorizeStrings(strings: string[]):
+/**
+   * Generate a constant export for an array of strings
+   */
+generateArrayExport(name: string, strings: string[], comment: string): string
+⋮----
+return `/**
+ * Test Constants
+ * Generated by AlephAuto TestRefactorWorker
+ *
+ * Auto-categorized by string content patterns.
+ */
+⋮----
+// Combined export for convenience
+⋮----
+.join('\n');
 </file>
 
 <file path=".env.example">
@@ -4395,6 +5842,13 @@ build/
 
   "scanning": {
     "code_directory": "~/code",
+    "reports_directory": "~/reports",
+    "additional_repositories": [
+      "~/schema-org-file-system",
+      "~/claude-tool-use",
+      "~/dotfiles"
+    ],
+    "include_dotfiles": true,
     "max_depth": 2,
     "exclude_patterns": [
       "vim/bundle",
