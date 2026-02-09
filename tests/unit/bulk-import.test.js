@@ -256,10 +256,11 @@ describe('Bulk Import Migration', () => {
   describe('Migration scenarios', () => {
     it('should handle typical migration payload structure', () => {
       // This mimics the actual data structure from SQLite dump
-      const timestamp = Date.now();
+      // Use a unique prefix to avoid timestamp collisions with other tests
+      const uniqueKey = `migration-payload-${Date.now()}`;
       const jobs = [
         {
-          id: `custom-${timestamp}-0`,
+          id: `${uniqueKey}-0`,
           pipeline_id: 'test-worker',
           status: 'failed',
           created_at: '2026-01-17T02:15:50.116Z',
@@ -271,7 +272,7 @@ describe('Bulk Import Migration', () => {
           git: '{"branchName":null,"originalBranch":null,"commitSha":null,"prUrl":null,"changedFiles":[]}'
         },
         {
-          id: `test-job-${timestamp}-1`,
+          id: `${uniqueKey}-1`,
           pipeline_id: 'test-worker',
           status: 'completed',
           created_at: '2026-01-17T02:15:50.117Z',
@@ -290,9 +291,9 @@ describe('Bulk Import Migration', () => {
       assert.strictEqual(result.skipped, 0);
       assert.strictEqual(result.errors.length, 0);
 
-      // Verify jobs are retrievable
+      // Verify jobs are retrievable by their unique prefix
       const allJobs = getAllJobs();
-      const importedJobs = allJobs.filter(j => j.id.includes(`${timestamp}`));
+      const importedJobs = allJobs.filter(j => j.id.startsWith(uniqueKey));
       assert.strictEqual(importedJobs.length, 2);
     });
 
