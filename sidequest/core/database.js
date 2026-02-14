@@ -11,7 +11,7 @@ import initSqlJs from 'sql.js';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger, logMetrics } from '../utils/logger.js';
 import { config } from './config.js';
 import { isValidJobStatus } from '../../api/types/job-status.js';
 import { VALIDATION, RETRY, LIMITS } from './constants.js';
@@ -694,7 +694,7 @@ export async function importReportsToDatabase(reportsDir) {
     }
   }
 
-  logger.info({ imported, total: files.length }, 'Imported existing reports');
+  logMetrics(logger, 'report import', { imported, total: files.length });
   return imported;
 }
 
@@ -767,7 +767,7 @@ export async function importLogsToDatabase(logsDir) {
     }
   }
 
-  logger.info({ imported, total: files.length }, 'Imported existing logs');
+  logMetrics(logger, 'log import', { imported, total: files.length });
   return imported;
 }
 
@@ -939,7 +939,7 @@ export function bulkImportJobs(jobs) {
   // Persist after bulk import
   persistDatabase();
 
-  logger.info({ imported, skipped, errorCount: errors.length }, 'Bulk import completed');
+  logMetrics(logger, 'bulk import', { imported, skipped, errorCount: errors.length });
   return { imported, skipped, errors };
 }
 
