@@ -63,7 +63,11 @@
     "verify:bugfixes:smoke": "./scripts/verify-bugfixes.sh --smoke",
     "bugfix:once": "doppler run -- node sidequest/pipeline-runners/bugfix-audit-pipeline.js --run-now",
     "bugfix:schedule": "doppler run -- node sidequest/pipeline-runners/bugfix-audit-pipeline.js --recurring",
-    "bugfix:tonight": "doppler run -- node sidequest/pipeline-runners/bugfix-audit-pipeline.js --once"
+    "bugfix:tonight": "doppler run -- node sidequest/pipeline-runners/bugfix-audit-pipeline.js --once",
+    "dashboard:populate": "RUN_ON_STARTUP=true node sidequest/pipeline-runners/dashboard-populate-pipeline.js --run-now",
+    "dashboard:populate:full": "RUN_ON_STARTUP=true node sidequest/pipeline-runners/dashboard-populate-pipeline.js --run-now --no-seed",
+    "dashboard:populate:dry": "RUN_ON_STARTUP=true node sidequest/pipeline-runners/dashboard-populate-pipeline.js --run-now --dry-run",
+    "dashboard:populate:schedule": "node sidequest/pipeline-runners/dashboard-populate-pipeline.js"
   },
   "keywords": [
     "repomix",
