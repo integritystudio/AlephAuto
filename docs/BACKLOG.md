@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements extracted from codebase TODOs.
 
-**Last Updated:** 2026-02-03
+**Last Updated:** 2026-02-14
 
 ---
 
@@ -22,7 +22,7 @@ Technical debt and planned improvements extracted from codebase TODOs.
 
 | ID | Location | Description | Status |
 |----|----------|-------------|--------|
-| LOG1 | `sidequest/utils/logger.js:125` | `logMetrics` utility created but not yet adopted - reserve for future metrics logging | Deferred |
+| LOG1 | `sidequest/core/database.js` | `logMetrics` adopted in database.js (3 import functions) | ✅ Done |
 | LOG2 | `api/routes/jobs.js:377` | Misleading message `'Retrying job'` - should be `logStart(logger, 'job retry', {...})` since it's user-initiated, not automatic retry | ✅ Done |
 | LOG3 | `sidequest/bug-fixes/index.js:77` | `'Starting automated bugfix audit'` pattern could use `logStart` for consistency | ✅ Done |
 
@@ -115,10 +115,10 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | High | 0 | ~~Layer 3 semantic similarity (Stages 4-7)~~ ✅ Complete |
 | Medium | 0 | ~~Code quality from 2026-02-01 review~~ ✅ Complete |
 | Low | 0 | ~~Logging DRY adoption (LOG2, LOG3)~~ ✅ Complete |
-| Deferred | 1 | `logMetrics` utility adoption (LOG1) |
+| Deferred | 0 | ~~`logMetrics` utility adoption (LOG1)~~ ✅ Complete |
 | Test | 0 | ~~TestWorker retry behavior~~ ✅ Fixed ([#7](https://github.com/aledlie/AlephAuto/issues/7)) |
 | Organization | 0 | ~~Code cleanup~~ ✅ Complete |
-| **Total** | **1** | 1 deferred |
+| **Total** | **0** | All items complete |
 
 ## Next Steps
 
@@ -151,6 +151,8 @@ Technical debt and planned improvements extracted from codebase TODOs.
 ### Completed (2026-02-08)
 - ✅ M2-M7: Pattern-based file detection for MigrationTransformer (6 skipped tests now active)
 
+### Completed (2026-02-14)
+- ✅ LOG1: Adopted `logMetrics` in `database.js` (3 import functions: reports, logs, bulk)
+
 ### Recommended Next Actions
-Deferred items (adopt when patterns emerge):
-1. **LOG1**: Adopt `logMetrics` when metrics logging patterns emerge
+No remaining items. Backlog is clear.
