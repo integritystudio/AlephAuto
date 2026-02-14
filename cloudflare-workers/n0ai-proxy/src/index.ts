@@ -10,6 +10,7 @@ import type { ExecutionContext } from '@cloudflare/workers-types';
 export interface Env {
   TARGET_URL: string;
   ALLOWED_ORIGINS: string;
+  QUALITY_METRICS_API_URL: string;
 }
 
 // Cache settings
@@ -226,6 +227,56 @@ export default {
         });
       }
 
+      // Dashboard quality metrics - proxy to quality-metrics-api worker
+      if (path.startsWith('/api/dashboard')) {
+        const cache = await (caches as any).open('default');
+        const queryString = url.search || '';
+        const metricsUrl = `${env.QUALITY_METRICS_API_URL}${path}${queryString}`;
+        const cacheKey = new Request(metricsUrl, request);
+        let cachedResponse = await cache.match(cacheKey);
+
+        if (cachedResponse) {
+          const cachedData = await cachedResponse.json();
+          return new Response(JSON.stringify({ ...cachedData, cached: true }), {
+            headers: {
+              ...headersToObject(corsHeaders),
+              'Content-Type': 'application/json',
+              'Cache-Control': `public, max-age=${API_CACHE_TTL}`,
+              'X-Cache': 'HIT',
+            },
+          });
+        }
+
+        const result = await fetchContent(metricsUrl, 'application/json');
+
+        let data;
+        try {
+          data = JSON.parse(result.content);
+        } catch {
+          data = { error: 'Failed to parse quality metrics response' };
+        }
+
+        const responseData = {
+          ...data,
+          cached: false,
+          fetchedAt: new Date().toISOString(),
+        };
+
+        const response = new Response(JSON.stringify(responseData), {
+          status: result.status,
+          headers: {
+            ...headersToObject(corsHeaders),
+            'Content-Type': 'application/json',
+            'Cache-Control': `public, max-age=${API_CACHE_TTL}`,
+            'X-Cache': 'MISS',
+          },
+        });
+
+        ctx.waitUntil(cache.put(cacheKey, response.clone()));
+
+        return response;
+      }
+
       // Proxy any other path to n0ai.app
       if (path.startsWith('/proxy')) {
         const targetPath = path.replace('/proxy', '') || '/';
@@ -255,7 +306,7 @@ export default {
         JSON.stringify({
           error: 'Not found',
           path,
-          availableEndpoints: ['/', '/html', '/status', '/api/status', '/health', '/target-health', '/proxy/*'],
+          availableEndpoints: ['/', '/html', '/status', '/api/status', '/api/dashboard', '/health', '/target-health', '/proxy/*'],
         }),
         {
           status: 404,

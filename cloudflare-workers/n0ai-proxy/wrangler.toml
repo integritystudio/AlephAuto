@@ -8,4 +8,5 @@ workers_dev = true
 
 [vars]
 TARGET_URL = "https://n0ai.app"
-ALLOWED_ORIGINS = "http://localhost:3000,http://localhost:5173,https://aleph-analytics.app,https://n0ai.app"
+ALLOWED_ORIGINS = "http://localhost:3000,http://localhost:5173,https://aleph-analytics.app,https://n0ai.app,https://integritystudio.dev"
+QUALITY_METRICS_API_URL = "https://quality-metrics-api.alyshia-b38.workers.dev"
