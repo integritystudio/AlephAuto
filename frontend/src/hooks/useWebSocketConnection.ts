@@ -83,6 +83,31 @@ export const useWebSocketConnection = () => {
 
         store.setPipelines(pipelines);
 
+        // Set active and queued jobs from database
+        if (statusData.activeJobs?.length > 0) {
+          store.setActiveJobs(statusData.activeJobs.map((j: any) => ({
+            '@type': 'https://schema.org/Action' as const,
+            id: j.id,
+            pipelineId: j.pipelineId,
+            pipelineName: j.pipelineName,
+            status: j.status,
+            createdAt: j.createdAt,
+            startedAt: j.startedAt,
+            progress: j.progress,
+            currentOperation: j.currentOperation,
+          })));
+        }
+        if (statusData.queuedJobs?.length > 0) {
+          store.setQueuedJobs(statusData.queuedJobs.map((j: any) => ({
+            '@type': 'https://schema.org/Action' as const,
+            id: j.id,
+            pipelineId: j.pipelineId,
+            pipelineName: j.pipelineName,
+            status: j.status,
+            createdAt: j.createdAt,
+          })));
+        }
+
         // Set system status
         store.setSystemStatus({
           '@type': 'https://schema.org/Report',
@@ -149,6 +174,31 @@ export const useWebSocketConnection = () => {
             queuedJobs: statusData.queue?.queued || 0,
             lastUpdate: new Date().toISOString(),
           });
+
+          // Refresh job arrays from database
+          if (statusData.activeJobs) {
+            store.setActiveJobs(statusData.activeJobs.map((j: any) => ({
+              '@type': 'https://schema.org/Action' as const,
+              id: j.id,
+              pipelineId: j.pipelineId,
+              pipelineName: j.pipelineName,
+              status: j.status,
+              createdAt: j.createdAt,
+              startedAt: j.startedAt,
+              progress: j.progress,
+              currentOperation: j.currentOperation,
+            })));
+          }
+          if (statusData.queuedJobs) {
+            store.setQueuedJobs(statusData.queuedJobs.map((j: any) => ({
+              '@type': 'https://schema.org/Action' as const,
+              id: j.id,
+              pipelineId: j.pipelineId,
+              pipelineName: j.pipelineName,
+              status: j.status,
+              createdAt: j.createdAt,
+            })));
+          }
         } catch (error) {
           console.error('[Dashboard] Polling failed:', error);
         }

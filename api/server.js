@@ -193,10 +193,30 @@ app.get('/api/status', (req, res) => {
         : 0
     };
 
+    // Fetch active (running) and queued jobs from the database
+    // so the dashboard can render them on initial load without waiting for WebSocket events
+    const runningJobs = jobRepository.getAllJobs({ status: 'running', limit: 20 });
+    const queuedJobs2 = jobRepository.getAllJobs({ status: 'queued', limit: 20 });
+
+    const mapJobForApi = (job) => ({
+      '@type': 'https://schema.org/Action',
+      id: job.id,
+      pipelineId: job.pipeline_id,
+      pipelineName: getPipelineName(job.pipeline_id),
+      status: job.status,
+      createdAt: job.created_at,
+      startedAt: job.started_at,
+      completedAt: job.completed_at,
+      progress: job.progress,
+      currentOperation: job.current_operation,
+    });
+
     res.json({
       timestamp: new Date().toISOString(),
       pipelines,
       queue: queueStats,
+      activeJobs: runningJobs.map(mapJobForApi),
+      queuedJobs: queuedJobs2.map(mapJobForApi),
       retryMetrics: scanMetrics.retryMetrics || null,
       recentActivity
     });
