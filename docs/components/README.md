@@ -16,13 +16,14 @@ Node.js automation toolkit for managing code repositories at scale.
 
 ## Overview
 
-AlephAuto provides five production-ready automation pipelines for managing multiple code repositories:
+AlephAuto provides six production-ready automation pipelines for managing multiple code repositories:
 
 1. **Duplicate Detection** - 7-stage multi-language pipeline (JS + Python) for code duplication detection
 2. **Repomix Pipeline** - Automated code condensation across all repositories
 3. **Documentation Enhancement Pipeline** - Schema.org markup injection for better SEO
 4. **Git Activity Reporter** - Weekly/monthly reports with commit analytics
 5. **Gitignore Manager** - Batch `.gitignore` updates across multiple repos
+6. **Dashboard Populate** - Quality metrics pipeline (rule-based + LLM-as-Judge → Cloudflare KV)
 
 Built on a robust job queue architecture with Sentry error tracking, event-driven monitoring, job persistence (Redis/SQLite), and configurable concurrency.
 

@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 3. **Git Activity Reporter** - Weekly/monthly reports
 4. **Repository Cleanup** - Automated cleanup of venvs, build artifacts
 5. **Dashboard UI** - Real-time monitoring (WebSocket + REST API)
+6. **Dashboard Populate** - Quality metrics pipeline (rule-based + LLM-as-Judge → KV)
 
 ## Quick Reference
 
@@ -22,6 +23,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Dashboard | `npm run dashboard` → http://localhost:8080 |
 | Deploy | `./scripts/deploy-traditional-server.sh --update` |
 | Type check | `npm run typecheck` |
+| Dashboard populate (seed) | `npm run dashboard:populate` |
+| Dashboard populate (LLM) | `npm run dashboard:populate:full` |
 
 ## Code Quality Standards
 

@@ -5,20 +5,21 @@
   "@context": "https://schema.org",
   "@type": "HowTo",
   "name": "Automated Code & Documentation Pipeline",
-  "description": "Five automated systems built on the **AlephAuto** job queue framework with Sentry error logging:",
+  "description": "Six automated systems built on the **AlephAuto** job queue framework with Sentry error logging:",
   "dateModified": "2026-01-19T02:09:57.570Z",
   "inLanguage": "en-US"
 }
 </script>
 
 
-Five automated systems built on the **AlephAuto** job queue framework with Sentry error logging:
+Six automated systems built on the **AlephAuto** job queue framework with Sentry error logging:
 
 1. **Repomix Pipeline**: Recursively processes all directories in `~/code` with repomix and stores outputs in a matching directory structure
 2. **Documentation Enhancement Pipeline**: Automatically adds Schema.org structured data to README files for improved SEO and rich search results
 3. **Git Activity Reporter**: Automated weekly/monthly git activity reports with visualizations (fully integrated with AlephAuto)
 4. **Gitignore Manager**: Batch updates `.gitignore` files across all git repositories
 5. **Codebase Health Scanners**: Detect timeout patterns and analyze root directory clutter for code quality improvements
+6. **Dashboard Populate Pipeline**: Populates quality-metrics-dashboard with 7 metrics from Claude Code telemetry (rule-based + LLM-as-Judge → Cloudflare KV)
 
 ## Quick Start
 
@@ -77,6 +78,7 @@ npm run git:weekly
 | **Repo Cleanup** | Python venvs, temp files, build artifacts removal | Cleanup summary logs |
 | **Repomix** | Recursive scanning, .gitignore respect, parallel processing | `./condense/` |
 | **Health Scanners** | Timeout detection, AST analysis, migration plans | Markdown/JSON reports |
+| **Dashboard Populate** | Rule-based + LLM-as-Judge metrics, KV sync | Cloudflare KV + HTML/JSON reports |
 
 For detailed feature explanations, see [dev/archive/FEATURES.md](dev/archive/FEATURES.md).
 
@@ -336,6 +338,27 @@ python3 lib/scanners/timeout_detector.py ~/code/myproject
 
 **Output:** Markdown/JSON reports with migration plans
 
+### 7. Dashboard Populate Pipeline
+
+**Purpose:** Populates the quality-metrics-dashboard with 7 quality metrics derived from Claude Code session telemetry. Runs twice daily via cron.
+
+**3-Step Pipeline:**
+1. **derive-evaluations** — Rule-based metrics (tool_correctness, evaluation_latency, task_completion)
+2. **judge-evaluations** — LLM-as-Judge metrics (relevance, coherence, faithfulness, hallucination)
+3. **sync-to-kv** — Aggregate + upload to Cloudflare Workers KV
+
+**Usage:**
+```bash
+npm run dashboard:populate             # Run once with --seed (offline)
+npm run dashboard:populate:full        # Run once with real LLM judge
+npm run dashboard:populate:dry         # Dry run preview
+npm run dashboard:populate:schedule    # Start cron scheduler (6 AM/6 PM)
+```
+
+**Output:** Cloudflare KV entries + HTML/JSON reports in `output/reports/`
+
+---
+
 ## Architecture
 
 ### High-Level Overview
@@ -407,6 +430,7 @@ LOG_LEVEL=info                        # Logging level
 CRON_SCHEDULE="0 2 * * *"            # Repomix (2 AM daily)
 DOC_CRON_SCHEDULE="0 3 * * *"        # Docs (3 AM daily)
 GIT_CRON_SCHEDULE="0 20 * * 0"       # Git Activity (Sunday 8 PM)
+DASHBOARD_CRON_SCHEDULE="0 6,18 * * *"  # Dashboard Populate (6 AM/6 PM)
 RUN_ON_STARTUP=true                  # Run immediately on startup
 
 # Sentry monitoring
@@ -455,6 +479,12 @@ node sidequest/gitignore-repomix-updater.js ~/code              # Apply
 
 # Python timeout scanner (no ast-grep required)
 python3 lib/scanners/timeout_detector.py ~/code/myproject
+
+# Dashboard Populate Pipeline
+npm run dashboard:populate             # Run once with --seed (offline)
+npm run dashboard:populate:full        # Run once with real LLM judge
+npm run dashboard:populate:dry         # Dry run preview
+npm run dashboard:populate:schedule    # Start cron (6 AM/6 PM daily)
 ```
 
 ## API Reference

@@ -15,7 +15,7 @@
                     │       JOB QUEUE FRAMEWORK      │
                     │       (SidequestServer)        │
                     │   ┌─────┬─────┬─────┬─────┐   │
-                    │   │ DD  │ SE  │ GA  │ RC  │   │  9 Workers
+                    │   │ DD  │ SE  │ GA  │ RC  │   │  10 Workers
                     │   └─────┴─────┴─────┴─────┘   │
                     └───────────────┬───────────────┘
                                     │
@@ -34,7 +34,7 @@
 | **Frontend** | React + Vite + Zustand | Real-time dashboard UI |
 | **API** | Express 5 + WebSocket | REST API + real-time events |
 | **Queue** | SidequestServer | Job lifecycle management |
-| **Workers** | 9 specialized workers | Pipeline execution |
+| **Workers** | 10 specialized workers | Pipeline execution |
 | **Database** | SQLite (WAL) | Job persistence |
 | **Config** | Doppler | Secrets management |
 | **Monitoring** | Sentry v8 | Error tracking |
