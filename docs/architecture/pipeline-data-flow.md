@@ -1,7 +1,7 @@
 # AlephAuto Pipeline Data Flow Documentation
 
-**Last Updated:** 2026-02-09
-**Version:** 2.1
+**Last Updated:** 2026-02-13
+**Version:** 2.2
 **Author:** System Architecture Documentation
 
 ## Table of Contents
@@ -20,6 +20,7 @@
    - [Test Refactor Pipeline](#8-test-refactor-pipeline)
    - [Repository Cleanup Pipeline](#9-repository-cleanup-pipeline)
    - [Bugfix Audit Pipeline](#10-bugfix-audit-pipeline)
+   - [Dashboard Populate Pipeline](#11-dashboard-populate-pipeline)
 5. [Git Workflow Integration](#git-workflow-integration)
 6. [Common Patterns](#common-patterns)
 7. [Error Handling & Resilience](#error-handling--resilience)
@@ -28,7 +29,7 @@
 
 ## Overview
 
-The AlephAuto automation system consists of 10 specialized pipelines built on a unified job queue framework. Each pipeline follows event-driven architecture with automatic retry logic, Sentry error tracking, and real-time dashboard updates via WebSocket.
+The AlephAuto automation system consists of 11 specialized pipelines built on a unified job queue framework. Each pipeline follows event-driven architecture with automatic retry logic, Sentry error tracking, and real-time dashboard updates via WebSocket.
 
 ### System Characteristics
 
@@ -47,6 +48,7 @@ The AlephAuto automation system consists of 10 specialized pipelines built on a 
 | **Code Quality** | Bugfix Audit | JavaScript + Shell |
 | **Documentation** | Schema Enhancement | JavaScript |
 | **Operations** | Repomix, Gitignore, Repository Cleanup | JavaScript + Shell |
+| **Observability** | Dashboard Populate | TypeScript (external) |
 | **Reporting** | Git Activity, Plugin Manager, Claude Health | JavaScript + Python + Shell |
 
 ---
@@ -153,6 +155,7 @@ graph LR
 | 8 | Test Refactor | `test-refactor` | `test-refactor-pipeline.ts` | `test-refactor-worker.ts` | ✅ Optional | TypeScript |
 | 9 | Repository Cleanup | `repo-cleanup` | `repo-cleanup-pipeline.js` | `repo-cleanup-worker.js` | ❌ No | JS + Shell |
 | 10 | Bugfix Audit | `bugfix-audit` | `bugfix-audit-pipeline.js` | `bugfix-audit-worker.js` | ✅ Multi-commit | JS + Shell |
+| 11 | Dashboard Populate | `dashboard-populate` | `dashboard-populate-pipeline.js` | `dashboard-populate-worker.js` | ❌ No | JS → TypeScript |
 
 ---
 
@@ -1523,6 +1526,110 @@ npm run bugfix:schedule   # Recurring daily at 1 AM
 
 ---
 
+### 11. Dashboard Populate Pipeline
+
+**Purpose:** Populate quality-metrics-dashboard with 7 metrics from Claude Code session telemetry
+**Job Type:** `dashboard-populate`
+**Languages:** JavaScript (worker) → TypeScript (external scripts)
+**Git Workflow:** ❌ No (data pipeline only)
+
+#### Data Flow
+
+```mermaid
+graph TB
+    A[Cron / Manual Trigger] --> B[DashboardPopulateWorker]
+    B --> C{Skip Sync?}
+    C -->|No| D[npm run build<br/>observability-toolkit]
+    C -->|Yes| E[Skip build]
+    D --> F[npm run populate]
+    E --> F
+    F --> S1[Step 1: derive-evaluations.ts<br/>Rule-based metrics]
+    S1 --> S2[Step 2: judge-evaluations.ts<br/>LLM-based metrics]
+    S2 --> S3[Step 3: sync-to-kv.ts<br/>Aggregate + KV upload]
+    S1 -.->|--dry-run| Skip1[Skipped]
+    S2 -.->|--skip-judge| Skip2[Skipped]
+    S3 -.->|--skip-sync| Skip3[Skipped]
+    S3 --> G[Parse Step Timings]
+    G --> H[Generate Report]
+    H --> I[Return Job Result]
+
+    style S1 fill:#bbf,stroke:#333
+    style S2 fill:#bfb,stroke:#333
+    style S3 fill:#9f9,stroke:#333
+```
+
+#### Metrics Produced
+
+| Step | Metrics | Method |
+|------|---------|--------|
+| derive-evaluations | tool_correctness, evaluation_latency, task_completion | Rule-based (trace analysis) |
+| judge-evaluations | relevance, coherence, faithfulness, hallucination | LLM-as-Judge (or `--seed` for synthetic) |
+| sync-to-kv | Aggregated summaries per period (24h, 7d, 30d) + role views | Cloudflare KV upload |
+
+#### External Script Locations
+
+| Script | Path |
+|--------|------|
+| Orchestrator | `~/.claude/mcp-servers/observability-toolkit/dashboard/scripts/populate-dashboard.ts` |
+| Derive | `~/.claude/mcp-servers/observability-toolkit/dashboard/scripts/derive-evaluations.ts` |
+| Judge | `~/.claude/mcp-servers/observability-toolkit/dashboard/scripts/judge-evaluations.ts` |
+| Sync | `~/.claude/mcp-servers/observability-toolkit/dashboard/scripts/sync-to-kv.ts` |
+
+#### Job Data Format
+
+```javascript
+// Input
+{
+  type: "populate",
+  seed: true,           // Use synthetic judge scores (offline)
+  dryRun: false,        // Preview only, no writes
+  skipJudge: false,     // Skip LLM-based metrics
+  skipSync: false,      // Skip KV upload
+  limit: undefined      // Max turns to judge
+}
+
+// Output
+{
+  seed: true,
+  dryRun: false,
+  skipJudge: false,
+  skipSync: false,
+  steps: [
+    { name: "derive-evaluations", ms: 1234 },
+    { name: "judge-evaluations", ms: 5678 },
+    { name: "sync-to-kv", ms: 2345 }
+  ],
+  durationMs: 9257,
+  stdout: "...",        // last 2KB
+  timestamp: "2026-02-13T06:00:00.000Z"
+}
+```
+
+#### Scheduling
+
+**Cron Schedule (twice daily):**
+```bash
+DASHBOARD_CRON_SCHEDULE="0 6,18 * * *"  # 6 AM and 6 PM
+```
+
+**Manual Execution:**
+```bash
+npm run dashboard:populate        # Run once with --seed (offline)
+npm run dashboard:populate:full   # Run once with real LLM judge
+npm run dashboard:populate:dry    # Dry run preview
+npm run dashboard:populate:schedule  # Start cron scheduler
+```
+
+#### File Locations
+
+| Component | Path |
+|-----------|------|
+| Worker | `sidequest/workers/dashboard-populate-worker.js` |
+| Runner | `sidequest/pipeline-runners/dashboard-populate-pipeline.js` |
+| External | `~/.claude/mcp-servers/observability-toolkit/dashboard/` |
+
+---
+
 ## Git Workflow Integration
 
 ### Overview
@@ -2019,6 +2126,6 @@ signals.forEach((signal) => {
 
 ---
 
-**Document Version:** 2.1
-**Last Updated:** 2026-02-09
+**Document Version:** 2.2
+**Last Updated:** 2026-02-13
 **Maintainer:** Architecture Team
