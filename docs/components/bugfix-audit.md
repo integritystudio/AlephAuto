@@ -292,7 +292,6 @@ Set `GIT_DRY_RUN=true` in Doppler (or pass `gitDryRun: true`) to run the full wo
 | Worker | `sidequest/workers/bugfix-audit-worker.js` |
 | Pipeline runner | `sidequest/pipeline-runners/bugfix-audit-pipeline.js` |
 | Registry entry | `api/utils/worker-registry.js` |
-| Launch script | `sidequest/bug-fixes/launch-tonight.sh` |
 | Output | `sidequest/bug-fixes/output/` |
 | Logs | `sidequest/bug-fixes/logs/` |
 

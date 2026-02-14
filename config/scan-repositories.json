@@ -33,8 +33,32 @@
         "*.test.js",
         "*.spec.js"
       ],
-      "lastScannedAt": "2026-02-04T07:11:13.756Z",
+      "lastScannedAt": "2026-02-13T07:00:46.755Z",
       "scanHistory": [
+        {
+          "timestamp": "2026-02-13T07:00:46.756Z",
+          "status": "success",
+          "duration": 46.563,
+          "duplicatesFound": 498
+        },
+        {
+          "timestamp": "2026-02-13T07:00:39.173Z",
+          "status": "success",
+          "duration": 38.966,
+          "duplicatesFound": 177
+        },
+        {
+          "timestamp": "2026-02-12T07:00:53.654Z",
+          "status": "success",
+          "duration": 48.728,
+          "duplicatesFound": 496
+        },
+        {
+          "timestamp": "2026-02-12T07:00:44.887Z",
+          "status": "success",
+          "duration": 44.518,
+          "duplicatesFound": 177
+        },
         {
           "timestamp": "2026-02-04T07:11:13.757Z",
           "status": "success",
@@ -70,30 +94,6 @@
           "status": "success",
           "duration": 183.432,
           "duplicatesFound": 443
-        },
-        {
-          "timestamp": "2026-01-29T16:41:26.360Z",
-          "status": "success",
-          "duration": 8.129,
-          "duplicatesFound": 0
-        },
-        {
-          "timestamp": "2026-01-29T16:29:31.645Z",
-          "status": "success",
-          "duration": 30.73,
-          "duplicatesFound": 0
-        },
-        {
-          "timestamp": "2026-01-29T16:10:44.377Z",
-          "status": "success",
-          "duration": 6.122,
-          "duplicatesFound": 0
-        },
-        {
-          "timestamp": "2026-01-29T15:55:01.713Z",
-          "status": "success",
-          "duration": 7.013,
-          "duplicatesFound": 0
         }
       ]
     },
@@ -111,8 +111,32 @@
         "*.test.js",
         "*.spec.js"
       ],
-      "lastScannedAt": "2026-02-04T07:11:13.757Z",
+      "lastScannedAt": "2026-02-13T07:00:46.757Z",
       "scanHistory": [
+        {
+          "timestamp": "2026-02-13T07:00:46.758Z",
+          "status": "success",
+          "duration": 46.563,
+          "duplicatesFound": 498
+        },
+        {
+          "timestamp": "2026-02-13T07:00:30.527Z",
+          "status": "success",
+          "duration": 30.351,
+          "duplicatesFound": 81
+        },
+        {
+          "timestamp": "2026-02-12T07:00:53.656Z",
+          "status": "success",
+          "duration": 48.728,
+          "duplicatesFound": 496
+        },
+        {
+          "timestamp": "2026-02-12T07:00:36.292Z",
+          "status": "success",
+          "duration": 32.616,
+          "duplicatesFound": 81
+        },
         {
           "timestamp": "2026-02-04T07:11:13.758Z",
           "status": "success",
@@ -148,30 +172,6 @@
           "status": "success",
           "duration": 79.453,
           "duplicatesFound": 198
-        },
-        {
-          "timestamp": "2026-01-29T16:41:26.360Z",
-          "status": "success",
-          "duration": 8.129,
-          "duplicatesFound": 0
-        },
-        {
-          "timestamp": "2026-01-29T16:29:31.646Z",
-          "status": "success",
-          "duration": 30.73,
-          "duplicatesFound": 0
-        },
-        {
-          "timestamp": "2026-01-29T16:10:44.377Z",
-          "status": "success",
-          "duration": 6.122,
-          "duplicatesFound": 0
-        },
-        {
-          "timestamp": "2026-01-29T15:55:01.714Z",
-          "status": "success",
-          "duration": 7.013,
-          "duplicatesFound": 0
         }
       ]
     },

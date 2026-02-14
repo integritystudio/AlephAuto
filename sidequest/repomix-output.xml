@@ -47,11 +47,6 @@ The content is organized as follows:
 <directory_structure>
 .claude/
   settings.local.json
-bug-fixes/
-  bugfix-audit-worker.js
-  index.js
-  launch-tonight.sh
-  package.json
 core/
   config.js
   constants.js
@@ -143,12 +138,15 @@ pipeline-core/
   scan-orchestrator.js
   scan-orchestrator.ts
 pipeline-runners/
+  bugfix-audit-pipeline.js
   claude-health-pipeline.js
   collect_git_activity.py
+  dashboard-populate-pipeline.js
   duplicate-detection-pipeline.js
   duplicate-detection-pipeline.ts
   git-activity-pipeline.js
   gitignore-pipeline.js
+  plugin-management-audit.sh
   plugin-management-pipeline.js
   repo-cleanup-pipeline.js
   schema-enhancement-pipeline.js
@@ -172,7 +170,9 @@ utils/
   schema-mcp-tools.js
   time-helpers.js
 workers/
+  bugfix-audit-worker.js
   claude-health-worker.js
+  dashboard-populate-worker.js
   duplicate-detection-worker.js
   git-activity-worker.js
   gitignore-worker.js
@@ -183,7 +183,6 @@ workers/
 .env.example
 .gitignore
 git-report-config.json
-plugin-management-audit.sh
 repomix.config.json
 </directory_structure>
 
@@ -211,155 +210,6 @@ This section contains the contents of the repository's files.
     ],
     "deny": [],
     "ask": []
-  }
-}
-</file>
-
-<file path="bug-fixes/bugfix-audit-worker.js">
-export class BugfixAuditWorker extends SidequestServer
-⋮----
-async findMarkdownFiles()
-⋮----
-async function scanDirectory(dir)
-⋮----
-getRepositoryFromPath(markdownPath)
-/**
-   * Run Claude Code agent via CLI
-   */
-async runClaudeAgent(agentType, prompt, cwd)
-async runSlashCommand(command, cwd)
-async createGitBranch(repoPath, branchName)
-async commitChanges(repoPath, message)
-async createPullRequest(repoPath, title, body)
-async runJobHandler(job)
-async createJobsForAllMarkdownFiles()
-</file>
-
-<file path="bug-fixes/index.js">
-class BugfixAuditApp
-⋮----
-setupEventListeners()
-async runBugfixAudit()
-async waitForCompletion()
-async saveRunSummary(stats, duration, jobs)
-setupCronJob(schedule = '0 1 * * *')
-setupOneTimeJob()
-async start(options =
-</file>
-
-<file path="bug-fixes/launch-tonight.sh">
-set -e
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd "$SCRIPT_DIR"
-echo "🤖 BugfixAudit - Automated Bug Detection & Fixing"
-echo "=================================================="
-echo ""
-# Check if npm packages are installed
-if [ ! -d "node_modules" ]; then
-    echo "📦 Installing dependencies..."
-    npm install
-    echo "✅ Dependencies installed"
-    echo ""
-fi
-# Check for required tools
-echo "🔍 Checking required tools..."
-if ! command -v git &> /dev/null; then
-    echo "❌ git is not installed"
-    exit 1
-fi
-echo "  ✅ git"
-if ! command -v gh &> /dev/null; then
-    echo "❌ gh CLI is not installed"
-    echo "   Install with: brew install gh"
-    exit 1
-fi
-echo "  ✅ gh"
-if ! command -v doppler &> /dev/null; then
-    echo "❌ doppler is not installed"
-    echo "   Install with: brew install dopplerhq/cli/doppler"
-    exit 1
-fi
-echo "  ✅ doppler"
-if ! command -v node &> /dev/null; then
-    echo "❌ node is not installed"
-    exit 1
-fi
-echo "  ✅ node $(node --version)"
-echo ""
-# Calculate time until 1 AM
-current_hour=$(date +%H)
-current_minute=$(date +%M)
-if [ "$current_hour" -lt 1 ]; then
-    hours_until=$((1 - current_hour))
-    minutes_until=$((60 - current_minute))
-else
-    hours_until=$((25 - current_hour))
-    minutes_until=$((60 - current_minute))
-fi
-echo "⏰ Scheduling execution for tonight at 1:00 AM"
-echo "   Current time: $(date '+%H:%M')"
-echo "   Time until execution: ${hours_until}h ${minutes_until}m"
-echo ""
-echo "📋 Workflow:"
-echo "   1. Scan ~/dev/active for markdown files"
-echo "   2. Create git branches for each project"
-echo "   3. Run analysis: bugfix-planner, bug-detective, audit, quality-controller"
-echo "   4. Implement fixes with refractor"
-echo "   5. Commit after each stage"
-echo "   6. Create pull requests"
-echo ""
-echo "📂 Output will be saved to:"
-echo "   ~/code/jobs/sidequest/bug-fixes/output/"
-echo ""
-echo "🚀 Starting background process..."
-echo ""
-# Run in background and detach
-nohup npm run start:once > logs/bugfix-audit-$(date +%Y%m%d-%H%M%S).log 2>&1 &
-PID=$!
-echo "✅ Process started with PID: $PID"
-echo ""
-echo "📊 Monitor progress:"
-echo "   tail -f logs/bugfix-audit-*.log"
-echo ""
-echo "🛑 Stop execution:"
-echo "   kill $PID"
-echo ""
-echo "💤 The process will run at 1 AM and then exit."
-echo "   You can close this terminal."
-echo ""
-</file>
-
-<file path="bug-fixes/package.json">
-{
-  "name": "@alephauto/bugfix-audit",
-  "version": "1.0.0",
-  "description": "Automated bug detection and fixing using Claude Code agents and plugins",
-  "type": "module",
-  "main": "index.js",
-  "scripts": {
-    "start": "doppler run -- node index.js",
-    "start:now": "doppler run -- node index.js --now",
-    "start:once": "doppler run -- node index.js --once",
-    "start:recurring": "doppler run -- node index.js --recurring",
-    "dev": "doppler run -- node --watch index.js --now",
-    "test": "echo \"No tests yet\" && exit 0"
-  },
-  "keywords": [
-    "automation",
-    "bugfix",
-    "audit",
-    "claude-code",
-    "alephauto"
-  ],
-  "author": "Alyshia Ledlie",
-  "license": "MIT",
-  "dependencies": {
-    "node-cron": "^3.0.3",
-    "pino": "^8.17.2",
-    "pino-pretty": "^10.3.1"
-  },
-  "engines": {
-    "node": ">=18.0.0"
   }
 }
 </file>
@@ -1598,6 +1448,7 @@ async _runCommand(cwd, command, args)
 </file>
 
 <file path="pipeline-core/git/migration-transformer.js">
+function escapeRegExp(str)
 function parseMigrationStep(description)
 export class MigrationTransformer
 ⋮----
@@ -1618,7 +1469,12 @@ FunctionDeclaration(path)
 ClassDeclaration(path)
 VariableDeclarator(path)
 ⋮----
-_groupStepsByFile(parsedSteps, suggestion)
+async _groupStepsByFile(parsedSteps, suggestion, repositoryPath)
+async _findRepositoryFiles(repositoryPath)
+_contentMatchesStep(content, parsed)
+async _resolveAffectedFiles(unresolvedSteps, repositoryPath)
+async _matchFileAgainstSteps(relPath, repositoryPath, unresolvedSteps, resolved)
+_logResolvedFiles(resolved)
 async _createBackup(repositoryPath)
 async _backupFile(filePath, backupPath)
 async rollback(backupPath, repositoryPath)
@@ -3969,6 +3825,17 @@ export class ScanError extends Error
 constructor(message: string, options?:
 </file>
 
+<file path="pipeline-runners/bugfix-audit-pipeline.js">
+class BugfixAuditPipeline
+⋮----
+setupEventListeners()
+async runBugfixAudit()
+async waitForCompletion()
+async saveRunSummary(stats, duration, jobs)
+scheduleAudits(cronSchedule = '0 1 * * *')
+scheduleTonight()
+</file>
+
 <file path="pipeline-runners/claude-health-pipeline.js">
 class ClaudeHealthPipeline
 ⋮----
@@ -4004,7 +3871,7 @@ REPORTS_DIR = Path.home() / 'reports'
 HOME_DIR = Path.home()
 ADDITIONAL_REPOS = [
 EXCLUDE_PATTERNS = ['vim/bundle', 'node_modules', '.git', 'venv', '.venv']
-DEFAULT_MAX_DEPTH = 2
+DEFAULT_MAX_DEPTH = 3
 LANGUAGE_EXTENSIONS = {
 def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=True)
 ⋮----
@@ -4241,6 +4108,10 @@ report_file = default_report_dir / f'{report_date}-git-activity-report.md'
 output_dir = _resolve_output_dir(args)
 </file>
 
+<file path="pipeline-runners/dashboard-populate-pipeline.js">
+async function main()
+</file>
+
 <file path="pipeline-runners/duplicate-detection-pipeline.js">
 async function main()
 ⋮----
@@ -4449,6 +4320,159 @@ scheduleMonthlyReports(cronSchedule = '0 0 1 * *')
 async function main()
 </file>
 
+<file path="pipeline-runners/plugin-management-audit.sh">
+set -euo pipefail
+if [[ "${BASH_VERSINFO[0]}" -lt 4 ]]; then
+    echo "Error: This script requires bash 4 or higher (current: $BASH_VERSION)"
+    echo "macOS users can install with: brew install bash"
+    echo "Then run with: /usr/local/bin/bash $0 $@"
+    exit 1
+fi
+CLAUDE_CONFIG="${HOME}/.claude/settings.json"
+OUTPUT_FORMAT="human"
+DETAILED=false
+while [[ $
+    case $1 in
+        --json)
+            OUTPUT_FORMAT="json"
+            shift
+            ;;
+        --detailed)
+            DETAILED=true
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [--json] [--detailed]"
+            exit 1
+            ;;
+    esac
+done
+if [[ ! -f "$CLAUDE_CONFIG" ]]; then
+    echo "Error: Claude config not found at $CLAUDE_CONFIG"
+    exit 1
+fi
+ENABLED_PLUGINS=$(jq -r '.enabledPlugins | keys[]' "$CLAUDE_CONFIG" 2>/dev/null || echo "")
+PLUGIN_COUNT=$(echo "$ENABLED_PLUGINS" | grep -v '^$' | wc -l | tr -d ' ')
+declare -A categories
+while IFS= read -r plugin; do
+    [[ -z "$plugin" ]] && continue
+    if [[ "$plugin" =~ documentation|document ]]; then
+        categories["documentation"]+="$plugin "
+    elif [[ "$plugin" =~ git|github ]]; then
+        categories["git"]+="$plugin "
+    elif [[ "$plugin" =~ test|testing ]]; then
+        categories["testing"]+="$plugin "
+    elif [[ "$plugin" =~ deploy|deployment ]]; then
+        categories["deployment"]+="$plugin "
+    elif [[ "$plugin" =~ lint|format ]]; then
+        categories["linting"]+="$plugin "
+    elif [[ "$plugin" =~ docker|container ]]; then
+        categories["containers"]+="$plugin "
+    elif [[ "$plugin" =~ api|rest|graphql ]]; then
+        categories["api"]+="$plugin "
+    elif [[ "$plugin" =~ db|database|sql ]]; then
+        categories["database"]+="$plugin "
+    fi
+done <<< "$ENABLED_PLUGINS"
+if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+    echo "{"
+    echo "  \"total_enabled\": $PLUGIN_COUNT,"
+    echo "  \"enabled_plugins\": ["
+    first=true
+    while IFS= read -r plugin; do
+        [[ -z "$plugin" ]] && continue
+        [[ "$first" == false ]] && echo ","
+        echo -n "    \"$plugin\""
+        first=false
+    done <<< "$ENABLED_PLUGINS"
+    echo ""
+    echo "  ],"
+    echo "  \"potential_duplicates\": {"
+    first=true
+    for category in "${!categories[@]}"; do
+        count=$(echo "${categories[$category]}" | wc -w | tr -d ' ')
+        if [[ $count -gt 1 ]]; then
+            [[ "$first" == false ]] && echo ","
+            echo -n "    \"$category\": ["
+            inner_first=true
+            for plugin in ${categories[$category]}; do
+                [[ "$inner_first" == false ]] && echo -n ", "
+                echo -n "\"$plugin\""
+                inner_first=false
+            done
+            echo -n "]"
+            first=false
+        fi
+    done
+    echo ""
+    echo "  }"
+    echo "}"
+else
+    # Human-readable output
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo "║          Claude Code Plugin Management Audit                   ║"
+    echo "╚════════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "Total Enabled Plugins: $PLUGIN_COUNT"
+    echo ""
+    if [[ "$DETAILED" == true ]]; then
+        echo "Enabled Plugins:"
+        echo "────────────────────────────────────────────────────────────────"
+        while IFS= read -r plugin; do
+            [[ -z "$plugin" ]] && continue
+            echo "  • $plugin"
+        done <<< "$ENABLED_PLUGINS"
+        echo ""
+    fi
+    # Show potential duplicates
+    has_duplicates=false
+    for category in "${!categories[@]}"; do
+        count=$(echo "${categories[$category]}" | wc -w | tr -d ' ')
+        if [[ $count -gt 1 ]]; then
+            has_duplicates=true
+        fi
+    done
+    if [[ "$has_duplicates" == true ]]; then
+        echo "⚠️  Potential Duplicate Categories:"
+        echo "────────────────────────────────────────────────────────────────"
+        for category in "${!categories[@]}"; do
+            count=$(echo "${categories[$category]}" | wc -w | tr -d ' ')
+            if [[ $count -gt 1 ]]; then
+                echo ""
+                echo "  Category: $category ($count plugins)"
+                for plugin in ${categories[$category]}; do
+                    echo "    • $plugin"
+                done
+            fi
+        done
+        echo ""
+        echo "💡 Consider reviewing these categories for consolidation."
+    else
+        echo "✅ No obvious duplicate categories detected."
+    fi
+    echo ""
+    echo "Recommendations:"
+    echo "────────────────────────────────────────────────────────────────"
+    if [[ $PLUGIN_COUNT -gt 30 ]]; then
+        echo "  • High plugin count ($PLUGIN_COUNT). Consider disabling unused plugins."
+    fi
+    if [[ "$has_duplicates" == true ]]; then
+        echo "  • Review duplicate categories above."
+        echo "  • Keep only the plugins you actively use in each category."
+    fi
+    echo "  • Run: npm run status to see plugin usage statistics"
+    echo "  • Backup before changes: npm run backup"
+    echo ""
+fi
+# Exit with status
+if [[ "$has_duplicates" == true ]] || [[ $PLUGIN_COUNT -gt 30 ]]; then
+    exit 1
+else
+    exit 0
+fi
+</file>
+
 <file path="pipeline-runners/plugin-management-pipeline.js">
 class PluginManagementPipeline
 ⋮----
@@ -4624,7 +4648,7 @@ count_files() {
     fi
 }
 scan_venvs() {
-    print_info "Scanning for Python virtual environments..."
+    print_info "Scanning for Python virtual environments..." >&2
     local found=()
     for pattern in "${VENV_PATTERNS[@]}"; do
         while IFS= read -r -d '' dir; do
@@ -4634,21 +4658,21 @@ scan_venvs() {
             fi
         done < <(find "$TARGET_DIR" -maxdepth 3 -type d -name "$pattern" -print0 2>/dev/null)
     done
-    # Remove duplicates
-    printf '%s\n' "${found[@]}" | sort -u
+    # Remove duplicates (handle empty array safely)
+    [ ${#found[@]} -gt 0 ] && printf '%s\n' "${found[@]}" | sort -u
 }
 scan_temp_files() {
-    print_info "Scanning for temporary/cache files..."
+    print_info "Scanning for temporary/cache files..." >&2
     local found=()
     for pattern in "${TEMP_FILE_PATTERNS[@]}"; do
         while IFS= read -r -d '' file; do
             found+=("$file")
         done < <(find "$TARGET_DIR" -name "$pattern" -print0 2>/dev/null)
     done
-    printf '%s\n' "${found[@]}" | sort -u
+    [ ${#found[@]} -gt 0 ] && printf '%s\n' "${found[@]}" | sort -u
 }
 scan_output_files() {
-    print_info "Scanning for output/generated files..."
+    print_info "Scanning for output/generated files..." >&2
     local found=()
     for pattern in "${OUTPUT_FILE_PATTERNS[@]}"; do
         while IFS= read -r -d '' file; do
@@ -4658,10 +4682,10 @@ scan_output_files() {
             fi
         done < <(find "$TARGET_DIR" -name "$pattern" -print0 2>/dev/null)
     done
-    printf '%s\n' "${found[@]}" | sort -u
+    [ ${#found[@]} -gt 0 ] && printf '%s\n' "${found[@]}" | sort -u
 }
 scan_build_artifacts() {
-    print_info "Scanning for build artifacts..."
+    print_info "Scanning for build artifacts..." >&2
     local found=()
     for artifact in "${BUILD_ARTIFACTS[@]}"; do
         local path="$TARGET_DIR/$artifact"
@@ -4669,10 +4693,10 @@ scan_build_artifacts() {
             found+=("$path")
         fi
     done
-    printf '%s\n' "${found[@]}" | sort -u
+    [ ${
 }
 scan_redundant_dirs() {
-    print_info "Scanning for redundant directories..."
+    print_info "Scanning for redundant directories..." >&2
     local found=()
     for dir_name in "${REDUNDANT_DIRS[@]}"; do
         local path="$TARGET_DIR/$dir_name"
@@ -4684,7 +4708,7 @@ scan_redundant_dirs() {
             fi
         fi
     done
-    printf '%s\n' "${found[@]}" | sort -u
+    [ ${
 }
 show_preview() {
     print_header "Repository Cleanup Preview"
@@ -5440,6 +5464,24 @@ export function calculateDurationSeconds(startTime, endTime)
 export function formatDuration(seconds)
 </file>
 
+<file path="workers/bugfix-audit-worker.js">
+export class BugfixAuditWorker extends SidequestServer
+⋮----
+async findMarkdownFiles()
+⋮----
+async function scanDirectory(dir)
+⋮----
+getRepositoryFromPath(markdownPath)
+/**
+   * Run Claude Code agent via CLI
+   */
+async runClaudeAgent(agentType, prompt, cwd)
+async runSlashCommand(command, cwd)
+async runJobHandler(job)
+createBugfixJob(markdownFile, projectName, repoPath)
+async createJobsForAllMarkdownFiles()
+</file>
+
 <file path="workers/claude-health-worker.js">
 class ClaudeHealthWorker extends SidequestServer
 ⋮----
@@ -5458,6 +5500,13 @@ generateRecommendations(analysis)
 generateSummary(analysis, recommendations)
 getStatusMessage(healthScore, critical, warnings)
 addJob(options =
+</file>
+
+<file path="workers/dashboard-populate-worker.js">
+export class DashboardPopulateWorker extends SidequestServer
+⋮----
+createPopulateJob(options =
+async runJobHandler(job)
 </file>
 
 <file path="workers/duplicate-detection-worker.js">
@@ -6032,159 +6081,6 @@ build/
     "Environment variable: GIT_CRON_SCHEDULE='0 20 * * 0' for custom schedule"
   ]
 }
-</file>
-
-<file path="plugin-management-audit.sh">
-set -euo pipefail
-if [[ "${BASH_VERSINFO[0]}" -lt 4 ]]; then
-    echo "Error: This script requires bash 4 or higher (current: $BASH_VERSION)"
-    echo "macOS users can install with: brew install bash"
-    echo "Then run with: /usr/local/bin/bash $0 $@"
-    exit 1
-fi
-CLAUDE_CONFIG="${HOME}/.claude/settings.json"
-OUTPUT_FORMAT="human"
-DETAILED=false
-while [[ $
-    case $1 in
-        --json)
-            OUTPUT_FORMAT="json"
-            shift
-            ;;
-        --detailed)
-            DETAILED=true
-            shift
-            ;;
-        *)
-            echo "Unknown option: $1"
-            echo "Usage: $0 [--json] [--detailed]"
-            exit 1
-            ;;
-    esac
-done
-if [[ ! -f "$CLAUDE_CONFIG" ]]; then
-    echo "Error: Claude config not found at $CLAUDE_CONFIG"
-    exit 1
-fi
-ENABLED_PLUGINS=$(jq -r '.enabledPlugins | keys[]' "$CLAUDE_CONFIG" 2>/dev/null || echo "")
-PLUGIN_COUNT=$(echo "$ENABLED_PLUGINS" | grep -v '^$' | wc -l | tr -d ' ')
-declare -A categories
-while IFS= read -r plugin; do
-    [[ -z "$plugin" ]] && continue
-    if [[ "$plugin" =~ documentation|document ]]; then
-        categories["documentation"]+="$plugin "
-    elif [[ "$plugin" =~ git|github ]]; then
-        categories["git"]+="$plugin "
-    elif [[ "$plugin" =~ test|testing ]]; then
-        categories["testing"]+="$plugin "
-    elif [[ "$plugin" =~ deploy|deployment ]]; then
-        categories["deployment"]+="$plugin "
-    elif [[ "$plugin" =~ lint|format ]]; then
-        categories["linting"]+="$plugin "
-    elif [[ "$plugin" =~ docker|container ]]; then
-        categories["containers"]+="$plugin "
-    elif [[ "$plugin" =~ api|rest|graphql ]]; then
-        categories["api"]+="$plugin "
-    elif [[ "$plugin" =~ db|database|sql ]]; then
-        categories["database"]+="$plugin "
-    fi
-done <<< "$ENABLED_PLUGINS"
-if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-    echo "{"
-    echo "  \"total_enabled\": $PLUGIN_COUNT,"
-    echo "  \"enabled_plugins\": ["
-    first=true
-    while IFS= read -r plugin; do
-        [[ -z "$plugin" ]] && continue
-        [[ "$first" == false ]] && echo ","
-        echo -n "    \"$plugin\""
-        first=false
-    done <<< "$ENABLED_PLUGINS"
-    echo ""
-    echo "  ],"
-    echo "  \"potential_duplicates\": {"
-    first=true
-    for category in "${!categories[@]}"; do
-        count=$(echo "${categories[$category]}" | wc -w | tr -d ' ')
-        if [[ $count -gt 1 ]]; then
-            [[ "$first" == false ]] && echo ","
-            echo -n "    \"$category\": ["
-            inner_first=true
-            for plugin in ${categories[$category]}; do
-                [[ "$inner_first" == false ]] && echo -n ", "
-                echo -n "\"$plugin\""
-                inner_first=false
-            done
-            echo -n "]"
-            first=false
-        fi
-    done
-    echo ""
-    echo "  }"
-    echo "}"
-else
-    # Human-readable output
-    echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║          Claude Code Plugin Management Audit                   ║"
-    echo "╚════════════════════════════════════════════════════════════════╝"
-    echo ""
-    echo "Total Enabled Plugins: $PLUGIN_COUNT"
-    echo ""
-    if [[ "$DETAILED" == true ]]; then
-        echo "Enabled Plugins:"
-        echo "────────────────────────────────────────────────────────────────"
-        while IFS= read -r plugin; do
-            [[ -z "$plugin" ]] && continue
-            echo "  • $plugin"
-        done <<< "$ENABLED_PLUGINS"
-        echo ""
-    fi
-    # Show potential duplicates
-    has_duplicates=false
-    for category in "${!categories[@]}"; do
-        count=$(echo "${categories[$category]}" | wc -w | tr -d ' ')
-        if [[ $count -gt 1 ]]; then
-            has_duplicates=true
-        fi
-    done
-    if [[ "$has_duplicates" == true ]]; then
-        echo "⚠️  Potential Duplicate Categories:"
-        echo "────────────────────────────────────────────────────────────────"
-        for category in "${!categories[@]}"; do
-            count=$(echo "${categories[$category]}" | wc -w | tr -d ' ')
-            if [[ $count -gt 1 ]]; then
-                echo ""
-                echo "  Category: $category ($count plugins)"
-                for plugin in ${categories[$category]}; do
-                    echo "    • $plugin"
-                done
-            fi
-        done
-        echo ""
-        echo "💡 Consider reviewing these categories for consolidation."
-    else
-        echo "✅ No obvious duplicate categories detected."
-    fi
-    echo ""
-    echo "Recommendations:"
-    echo "────────────────────────────────────────────────────────────────"
-    if [[ $PLUGIN_COUNT -gt 30 ]]; then
-        echo "  • High plugin count ($PLUGIN_COUNT). Consider disabling unused plugins."
-    fi
-    if [[ "$has_duplicates" == true ]]; then
-        echo "  • Review duplicate categories above."
-        echo "  • Keep only the plugins you actively use in each category."
-    fi
-    echo "  • Run: npm run status to see plugin usage statistics"
-    echo "  • Backup before changes: npm run backup"
-    echo ""
-fi
-# Exit with status
-if [[ "$has_duplicates" == true ]] || [[ $PLUGIN_COUNT -gt 30 ]]; then
-    exit 1
-else
-    exit 0
-fi
 </file>
 
 <file path="repomix.config.json">
