@@ -118,7 +118,7 @@ async function testScanCache() {
   });
 
   try {
-    const testRepoPath = '/Users/alyshialedlie/code/jobs';
+    const testRepoPath = process.cwd();
     const testCommit = 'abc123def456';
 
     // Test 2.1: Cache key generation

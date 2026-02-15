@@ -109,7 +109,7 @@ async function testMCPConfiguration() {
   const config = {
     "duplicate-detection": {
       "command": "node",
-      "args": ["/Users/alyshialedlie/code/jobs/mcp-servers/duplicate-detection/index.js"],
+      "args": [`${process.cwd()}/mcp-servers/duplicate-detection/index.js`],
       "env": {
         "NODE_ENV": "production"
       }

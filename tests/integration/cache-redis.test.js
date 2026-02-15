@@ -116,7 +116,7 @@ class RedisMCPClient {
 describe('ScanResultCache Integration Tests', { skip: isCI ? 'Requires running Redis server' : false }, () => {
   let redisClient;
   let cache;
-  const testRepoPath = '/Users/alyshialedlie/code/jobs';
+  const testRepoPath = process.cwd();
   const testCommit = 'abc123def456789012345678901234567890abcd';
 
   before(async () => {
