@@ -241,6 +241,17 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | BF-A2 | 4 TODOs in UserService.ts (cache/Redis features) | P3 | Pending |
 | BF-A3 | Jest `--detectOpenHandles` warning (async teardown) | P3 | Pending |
 
+---
+
+## Server Stability (2026-02-15)
+
+> **Source:** Integration test crash — disabled pipeline trigger causes unhandled rejection
+> **Severity:** Critical (server crash)
+
+| ID | Location | Description | Status |
+|----|----------|-------------|--------|
+| SRV-C1 | `api/utils/worker-registry.js:getWorker()` | Triggering a disabled pipeline creates an `initPromise` that rejects with no listener, causing an unhandled rejection that crashes the process. Fix: fast-fail before creating the promise. | ✅ Done |
+
 ### Summary
 
 | Repo | Pending | Theme |

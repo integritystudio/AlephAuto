@@ -202,6 +202,13 @@ class WorkerRegistry {
       });
     }
 
+    // Fast-fail for disabled pipelines before creating initPromise
+    // (avoids unhandled rejection when no concurrent caller awaits the promise)
+    const pipelineConfig = PIPELINE_CONFIGS[pipelineId];
+    if (pipelineConfig?.disabled) {
+      throw new Error(`${pipelineId} pipeline is temporarily disabled (${pipelineConfig.disabledReason})`);
+    }
+
     // Concurrent initialization protection: await existing initialization
     if (this._initializing.has(pipelineId)) {
       // All concurrent callers await the same promise
