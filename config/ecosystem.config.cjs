@@ -52,11 +52,12 @@ module.exports = {
         PATH: process.env.PATH || '/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
       },
 
-      // Logging
+      // Logging (max_size triggers pm2-logrotate)
       error_file: path.join(LOGS_DIR, 'pm2-dashboard-error.log'),
       out_file: path.join(LOGS_DIR, 'pm2-dashboard-out.log'),
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
+      max_size: '10M',
 
       // CRITICAL: Use node interpreter explicitly to prevent "fork/exec permission denied" errors
       // This tells PM2 to run: node api/server.js
@@ -114,11 +115,12 @@ module.exports = {
         PATH: process.env.PATH || '/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
       },
 
-      // Logging
+      // Logging (max_size triggers pm2-logrotate)
       error_file: path.join(LOGS_DIR, 'pm2-worker-error.log'),
       out_file: path.join(LOGS_DIR, 'pm2-worker-out.log'),
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
+      max_size: '10M',
 
       // CRITICAL: Use node interpreter explicitly to prevent "fork/exec permission denied" errors
       // This tells PM2 to run: node sidequest/pipeline-runners/duplicate-detection-pipeline.js
