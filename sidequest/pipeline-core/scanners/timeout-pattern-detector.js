@@ -19,6 +19,7 @@ import { spawn } from 'child_process';
 import { captureProcessOutput } from '@shared/process-io';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { createComponentLogger } from '../../utils/logger.js';
 
 /**
  * Timeout Pattern Detector
@@ -27,7 +28,7 @@ import * as path from 'path';
  */
 export class TimeoutPatternDetector {
   constructor(options = {}) {
-    this.logger = options.logger || console;
+    this.logger = options.logger || createComponentLogger('TimeoutPatternDetector');
     this.astGrepBinary = options.astGrepBinary || 'sg';
   }
 
