@@ -474,7 +474,7 @@ export async function pruneOldReports(outputDir = DEFAULT_OUTPUT_DIR, maxAgeMs =
   }
 
   const fileEntries = entries.filter(entry => entry.isFile());
-  const statResults = await Promise.all(
+  const statResults = await Promise.allSettled(
     fileEntries.map(async (entry) => {
       const filePath = path.join(outputDir, entry.name);
       const stat = await fs.stat(filePath);
@@ -482,11 +482,17 @@ export async function pruneOldReports(outputDir = DEFAULT_OUTPUT_DIR, maxAgeMs =
     })
   );
 
-  const toDelete = statResults.filter(r => r.isExpired);
-  await Promise.all(toDelete.map(r => fs.unlink(r.filePath)));
+  const toDelete = statResults
+    .filter(/** @returns {r is PromiseFulfilledResult<{filePath: string, isExpired: boolean}>} */ (r) => r.status === 'fulfilled' && r.value.isExpired)
+    .map(r => r.value);
 
-  if (toDelete.length > 0) {
-    logger.info({ pruned: toDelete.length, dir: outputDir }, 'Pruned old reports');
+  const deleteResults = await Promise.allSettled(
+    toDelete.map(r => fs.unlink(r.filePath))
+  );
+
+  const pruned = deleteResults.filter(r => r.status === 'fulfilled').length;
+  if (pruned > 0) {
+    logger.info({ pruned, dir: outputDir }, 'Pruned old reports');
   }
 }
 
