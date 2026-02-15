@@ -471,19 +471,20 @@ export async function pruneOldReports(outputDir = DEFAULT_OUTPUT_DIR, maxAgeMs =
     return; // directory doesn't exist yet
   }
 
-  let pruned = 0;
-  for (const entry of entries) {
-    if (!entry.isFile()) continue;
-    const filePath = path.join(outputDir, entry.name);
-    const stat = await fs.stat(filePath);
-    if (stat.mtimeMs < cutoff) {
-      await fs.unlink(filePath);
-      pruned++;
-    }
-  }
+  const fileEntries = entries.filter(entry => entry.isFile());
+  const statResults = await Promise.all(
+    fileEntries.map(async (entry) => {
+      const filePath = path.join(outputDir, entry.name);
+      const stat = await fs.stat(filePath);
+      return { filePath, isExpired: stat.mtimeMs < cutoff };
+    })
+  );
 
-  if (pruned > 0) {
-    logger.info({ pruned, dir: outputDir }, 'Pruned old reports');
+  const toDelete = statResults.filter(r => r.isExpired);
+  await Promise.all(toDelete.map(r => fs.unlink(r.filePath)));
+
+  if (toDelete.length > 0) {
+    logger.info({ pruned: toDelete.length, dir: outputDir }, 'Pruned old reports');
   }
 }
 
