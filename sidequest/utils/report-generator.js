@@ -107,6 +107,11 @@ export async function generateReport(options) {
     reportPaths.json = jsonPath;
     logger.info({ path: jsonPath }, 'JSON report generated');
 
+    // Prune old reports (fire-and-forget)
+    pruneOldReports(outputDir).catch(err =>
+      logError(logger, err, 'Report pruning failed')
+    );
+
     return reportPaths;
 
   } catch (error) {
@@ -449,6 +454,37 @@ function formatValue(value) {
     return JSON.stringify(value);
   }
   return String(value);
+}
+
+/**
+ * Remove reports older than the retention period (30 days).
+ *
+ * @param {string} outputDir - Directory containing reports
+ * @param {number} [maxAgeMs] - Max age in ms (default: 30 days)
+ */
+export async function pruneOldReports(outputDir = DEFAULT_OUTPUT_DIR, maxAgeMs = 30 * TIME.DAY) {
+  const cutoff = Date.now() - maxAgeMs;
+  let entries;
+  try {
+    entries = await fs.readdir(outputDir, { withFileTypes: true });
+  } catch {
+    return; // directory doesn't exist yet
+  }
+
+  let pruned = 0;
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const filePath = path.join(outputDir, entry.name);
+    const stat = await fs.stat(filePath);
+    if (stat.mtimeMs < cutoff) {
+      await fs.unlink(filePath);
+      pruned++;
+    }
+  }
+
+  if (pruned > 0) {
+    logger.info({ pruned, dir: outputDir }, 'Pruned old reports');
+  }
 }
 
 /**
