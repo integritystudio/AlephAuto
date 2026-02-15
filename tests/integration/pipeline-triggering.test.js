@@ -128,18 +128,19 @@ describe('POST /api/sidequest/pipeline-runners/:id/trigger Integration Tests', {
       assert.ok(response.status >= 400, 'Should return error status for invalid pipeline');
 
       const data = await response.json();
+      const message = data.error?.message ?? data.message;
 
       // Verify error message mentions the invalid pipeline
       assert.ok(
-        data.message && data.message.includes('invalid-pipeline'),
-        `Error should mention invalid pipeline: ${data.message}`
+        message && message.includes('invalid-pipeline'),
+        `Error should mention invalid pipeline: ${message}`
       );
 
       // Verify error message lists supported pipelines
       for (const supported of SUPPORTED_PIPELINES) {
         assert.ok(
-          data.message && data.message.includes(supported),
-          `Error should list supported pipeline '${supported}' in message: ${data.message}`
+          message && message.includes(supported),
+          `Error should list supported pipeline '${supported}' in message: ${message}`
         );
       }
     });
@@ -156,7 +157,8 @@ describe('POST /api/sidequest/pipeline-runners/:id/trigger Integration Tests', {
       assert.ok(response.status >= 400, 'Should return error status');
 
       const data = await response.json();
-      assert.ok(data.message, 'Error response should have message');
+      const message = data.error?.message ?? data.message;
+      assert.ok(message, 'Error response should have message');
     });
   });
 
@@ -175,9 +177,10 @@ describe('POST /api/sidequest/pipeline-runners/:id/trigger Integration Tests', {
       const data = await response.json();
 
       // Verify error mentions TypeScript compilation
+      const message = data.error?.message ?? data.message;
       assert.ok(
-        data.message && data.message.includes('TypeScript'),
-        `Error should mention TypeScript compilation: ${data.message}`
+        message && message.includes('TypeScript'),
+        `Error should mention TypeScript compilation: ${message}`
       );
     });
   });
@@ -233,8 +236,9 @@ describe('POST /api/sidequest/pipeline-runners/:id/trigger Integration Tests', {
       assert.ok(response.status >= 400, 'Should fail without repositoryPath');
 
       const data = await response.json();
+      const message = data.error?.message ?? data.message;
       assert.ok(
-        data.message && (data.message.includes('repositoryPath') || data.message.includes('repositoryPaths')),
+        message && (message.includes('repositoryPath') || message.includes('repositoryPaths')),
         'Error should mention required parameters'
       );
     });
