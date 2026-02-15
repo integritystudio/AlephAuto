@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements extracted from codebase TODOs.
 
-**Last Updated:** 2026-02-15
+**Last Updated:** 2026-02-15 (Session 2)
 
 ---
 
@@ -170,16 +170,16 @@ Technical debt and planned improvements extracted from codebase TODOs.
 
 | ID | Location | Description | Status |
 |----|----------|-------------|--------|
-| CL-M1 | `sidequest/utils/report-generator.js:475-483` | `pruneOldReports()` uses sequential `await` in loop - parallelize with `Promise.all()` for dirs with 100+ files | Pending |
-| CL-M2 | `sidequest/utils/report-generator.js` | 629-line file has no unit tests - add `tests/unit/report-generator.test.js` covering HTML escaping, metric extraction, pruning edge cases | Pending |
+| CL-M1 | `sidequest/utils/report-generator.js:475-483` | `pruneOldReports()` uses sequential `await` in loop - parallelize with `Promise.all()` for dirs with 100+ files | ✅ Done |
+| CL-M2 | `sidequest/utils/report-generator.js` | Add `pruneOldReports()` unit tests covering deletion, retention, edge cases (file already had 30+ tests for HTML/JSON generation) | ✅ Done |
 
 ### Low Priority
 
 | ID | Location | Description | Status |
 |----|----------|-------------|--------|
-| CL-L1 | `sidequest/pipeline-core/scanners/timeout-pattern-detector.js:30` | Falls back to raw `console` instead of `createComponentLogger` - inconsistent with other components | Pending |
-| CL-L2 | `config/ecosystem.config.cjs` | `max_size: '10M'` requires `pm2-logrotate` module - add install step to deployment runbook | Pending |
-| CL-L3 | `sidequest/utils/report-generator.js:111-113` | Fire-and-forget pruning errors logged but not tracked in Sentry/metrics - silent disk exhaustion risk | Pending |
+| CL-L1 | `sidequest/pipeline-core/scanners/timeout-pattern-detector.js:30` | Falls back to raw `console` instead of `createComponentLogger` - inconsistent with other components | ✅ Done |
+| CL-L2 | `config/ecosystem.config.cjs` | `max_size: '10M'` requires `pm2-logrotate` module - add install step to deployment runbook | ✅ Done |
+| CL-L3 | `sidequest/utils/report-generator.js:111-113` | Fire-and-forget pruning errors logged but not tracked in Sentry/metrics - silent disk exhaustion risk | ✅ Done |
 
 ### Deferred (Blocked / Out of Scope)
 
@@ -194,7 +194,58 @@ Technical debt and planned improvements extracted from codebase TODOs.
 
 | Priority | Count | Theme |
 |----------|-------|-------|
-| Medium | 2 | Pruning performance (CL-M1), test coverage (CL-M2) |
-| Low | 3 | Logger consistency (CL-L1), deployment docs (CL-L2), observability (CL-L3) |
+| Medium | 0 | ~~Pruning performance (CL-M1), test coverage (CL-M2)~~ ✅ Complete |
+| Low | 0 | ~~Logger consistency (CL-L1), deployment docs (CL-L2), observability (CL-L3)~~ ✅ Complete |
 | Deferred | 4 | Blocked by SQLite WASM, TS migration, or feature scope |
-| **Total** | **9** | |
+| **Total** | **4** | Only deferred items remain |
+
+---
+
+## Bugfix Audit - Open Items (2026-02-15)
+
+> **Source:** Bugfix audit pipeline scans across `~/dev/active/`
+> **Plans:** `~/dev/active/bugfix-*/plan.md`
+
+### integritystudio/reports (P3-P4)
+
+> **Plan:** `~/dev/active/bugfix-reports-2026-02-15/plan.md`
+> **Status:** P0-P2 items fixed (10/13), 3 deferred
+
+| ID | Description | Severity | Status |
+|----|-------------|----------|--------|
+| BF-R1 | Generic font stack across all base CSS files (`report-base.css`, `portal-base.css`, `competitor-base.css`) — introduce DM Sans / Source Serif Pro | P3 | Pending |
+| BF-R2 | Hub layout monotony — 10 sections with mostly 1 card each, needs varied layouts | P4 | Pending |
+| BF-R3 | 4 parallel CSS variable namespaces across `css/*.css` — consolidate | P4 | Pending |
+
+### aledlie/tcad-scraper (P1-P3)
+
+> **Plan:** `~/dev/active/bugfix-tcad-scraper-2026-02-13/plan.md`
+> **Status:** Health check passed (617/617 tests), lint issues found
+
+| ID | Description | Severity | Status |
+|----|-------------|----------|--------|
+| BF-T1 | `isNaN()` vs `Number.isNaN()` bug in `src/utils/formatters.ts:41` — potential incorrect date formatting | P1 | Pending |
+| BF-T2 | Biome format drift — 57+ files with formatting issues (auto-fixable: `npx @biomejs/biome check --write .`) | P2 | Pending |
+| BF-T3 | Unused import in `server/src/lib/__tests__/redis-cache.service.test.ts` | P2 | Pending |
+| BF-T4 | LoadingSkeleton a11y — WAI-ARIA role should use semantic HTML element | P3 | Pending |
+| BF-T5 | Import organization drift in 3 files (auto-fixable) | P3 | Pending |
+
+### aledlie/AnalyticsBot (P3)
+
+> **Plan:** `~/dev/active/bugfix-analyticsbot-2026-02-10/plan.md`
+> **Status:** Core fixes deployed (Redis, CSP, debug code), 3 low-priority remaining
+
+| ID | Description | Severity | Status |
+|----|-------------|----------|--------|
+| BF-A1 | React Router v6 deprecation warnings (v7 future flags) | P3 | Pending |
+| BF-A2 | 4 TODOs in UserService.ts (cache/Redis features) | P3 | Pending |
+| BF-A3 | Jest `--detectOpenHandles` warning (async teardown) | P3 | Pending |
+
+### Summary
+
+| Repo | Pending | Theme |
+|------|---------|-------|
+| integritystudio/reports | 3 | Typography, layout, CSS architecture |
+| aledlie/tcad-scraper | 5 | Lint, formatting, a11y |
+| aledlie/AnalyticsBot | 3 | Deprecation warnings, TODOs, test config |
+| **Total** | **11** | |
