@@ -49,7 +49,7 @@ describe('Activity Feed - Integration Tests', () => {
     worker = new SidequestServer({
       jobType: 'test-worker',
       maxConcurrent: 1,
-      retryAttempts: 1,
+      maxRetries: 0,
       autoStart: false
     });
 
@@ -301,6 +301,16 @@ describe('Activity Feed - Integration Tests', () => {
   });
 
   it('Scenario 7: Retry activities tracking', async () => {
+    // This test needs retries enabled (override the default maxRetries: 0)
+    await worker.stop();
+    worker = new SidequestServer({
+      jobType: 'test-worker',
+      maxConcurrent: 1,
+      maxRetries: 5,
+      autoStart: false
+    });
+    activityFeed.listenToWorker(worker);
+
     const jobId = 'test-job-7';
     worker.createJob(jobId, {
       type: 'test-job',
