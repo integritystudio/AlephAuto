@@ -167,6 +167,22 @@ pm2 startup systemd
 # sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u aleph --hp /home/aleph
 ```
 
+### 4b. Install PM2 Log Rotation
+
+The `ecosystem.config.cjs` uses `max_size: '10M'` for log rotation. This requires the `pm2-logrotate` module:
+
+```bash
+# Install pm2-logrotate module
+pm2 install pm2-logrotate
+
+# Configure rotation settings (optional - defaults are sensible)
+pm2 set pm2-logrotate:max_size 10M
+pm2 set pm2-logrotate:retain 10
+pm2 set pm2-logrotate:compress true
+```
+
+Without this module, `max_size` in the ecosystem config has no effect and logs grow unbounded.
+
 ### 5. Install Doppler CLI
 
 ```bash
