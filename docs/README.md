@@ -71,7 +71,7 @@ docs/
 ### Getting Started
 - [Adding New Pipelines](./ADDING_PIPELINES.md) - Step-by-step guide to adding a new job type
 - [Setup Guide](./setup/DOPPLER_SENTRY_SETUP.md) - Doppler and Sentry configuration
-- [Sidequest Installation](./components/INSTALL.md) - Framework installation
+- [Sidequest Installation](./INSTALL.md) - Framework installation
 - [Discord Quickstart](./setup/DISCORD_QUICKSTART.md) - Alert notifications
 
 ### API & Integration
