@@ -19,6 +19,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import * as Sentry from '@sentry/node';
 import { createComponentLogger, logError } from './logger.js';
 import { TIME } from '../core/constants.js';
 
@@ -108,9 +109,10 @@ export async function generateReport(options) {
     logger.info({ path: jsonPath }, 'JSON report generated');
 
     // Prune old reports (fire-and-forget)
-    pruneOldReports(outputDir).catch(err =>
-      logError(logger, err, 'Report pruning failed')
-    );
+    pruneOldReports(outputDir).catch(err => {
+      logError(logger, err, 'Report pruning failed');
+      Sentry.captureException(err, { tags: { component: 'ReportGenerator', operation: 'pruneOldReports' } });
+    });
 
     return reportPaths;
 
