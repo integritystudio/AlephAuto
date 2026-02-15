@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { generateReport } from '../../sidequest/utils/report-generator.js';
+import { generateReport, pruneOldReports } from '../../sidequest/utils/report-generator.js';
 
 describe('Report Generator', () => {
   let tempDir;
@@ -536,6 +536,71 @@ describe('Report Generator', () => {
       const htmlContent = await fs.readFile(reportPaths.html, 'utf-8');
 
       assert.ok(htmlContent.includes('N/A'));
+    });
+  });
+
+  describe('pruneOldReports', () => {
+    it('should delete files older than maxAgeMs', async () => {
+      // Create a file and backdate its mtime
+      const oldFile = path.join(tempDir, 'old-report.html');
+      await fs.writeFile(oldFile, 'old content');
+      const pastTime = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
+      await fs.utimes(oldFile, pastTime, pastTime);
+
+      await pruneOldReports(tempDir, 30 * 24 * 60 * 60 * 1000);
+
+      const exists = await fs.access(oldFile).then(() => true).catch(() => false);
+      assert.ok(!exists, 'Old file should be deleted');
+    });
+
+    it('should keep files newer than maxAgeMs', async () => {
+      const newFile = path.join(tempDir, 'new-report.html');
+      await fs.writeFile(newFile, 'new content');
+
+      await pruneOldReports(tempDir, 30 * 24 * 60 * 60 * 1000);
+
+      const exists = await fs.access(newFile).then(() => true).catch(() => false);
+      assert.ok(exists, 'New file should be kept');
+    });
+
+    it('should handle non-existent directory gracefully', async () => {
+      const nonExistent = path.join(tempDir, 'does-not-exist');
+      // Should not throw
+      await pruneOldReports(nonExistent);
+    });
+
+    it('should skip subdirectories', async () => {
+      const subDir = path.join(tempDir, 'subdir');
+      await fs.mkdir(subDir);
+
+      await pruneOldReports(tempDir, 0); // maxAge=0 means everything is "old"
+
+      const exists = await fs.access(subDir).then(() => true).catch(() => false);
+      assert.ok(exists, 'Subdirectory should not be deleted');
+    });
+
+    it('should delete mixed old and new files correctly', async () => {
+      const oldFile = path.join(tempDir, 'old.json');
+      const newFile = path.join(tempDir, 'new.json');
+
+      await fs.writeFile(oldFile, 'old');
+      await fs.writeFile(newFile, 'new');
+
+      const pastTime = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
+      await fs.utimes(oldFile, pastTime, pastTime);
+
+      await pruneOldReports(tempDir, 30 * 24 * 60 * 60 * 1000);
+
+      const oldExists = await fs.access(oldFile).then(() => true).catch(() => false);
+      const newExists = await fs.access(newFile).then(() => true).catch(() => false);
+
+      assert.ok(!oldExists, 'Old file should be deleted');
+      assert.ok(newExists, 'New file should be kept');
+    });
+
+    it('should handle empty directory', async () => {
+      // tempDir exists but is empty — should not throw
+      await pruneOldReports(tempDir);
     });
   });
 });
