@@ -6,6 +6,44 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.8.6] - 2026-02-15
+
+### Summary
+Codebase cleanup sweep clearing 8 of 12 backlog items from analyzer scan. Net -2,170 lines across 23 files. Review score: 8.5/10.
+
+### Removed
+- Duplicate documentation files: 4 docs with canonical copies elsewhere (LOG1)
+- `api/routes/routes/` and `api/routes/middleware/` duplicate directories (LOG2)
+- `scripts/sync-cloudflare-tunnel-files.js` and Cloudflare tunnel sync infrastructure (LOG2)
+- `sync:cloudflare` and `sync:cloudflare:check` package.json scripts (LOG2)
+- Pre-commit Cloudflare sync step from `.husky/pre-commit` and `.git/hooks/pre-commit` (LOG2)
+- `tsconfig.json` exclusions for removed directories (LOG2)
+
+### Fixed
+- Hardcoded `/Users/alyshialedlie/code/jobs` paths in 3 integration tests replaced with `process.cwd()` (LOG3)
+- `docs/README.md` link to `INSTALL.md` updated to canonical location (LOG1)
+
+### Changed
+- `codebase-health-scanner.js` - replaced custom logger shim with `createComponentLogger` + `logError` (LOG4)
+- `report-coordinator.js` - replaced `console.log` with `logger.info` (LOG4)
+- `ecosystem.config.cjs` - added `max_size: '10M'` to both PM2 apps for log rotation (LOG5)
+- `report-generator.js` - added `pruneOldReports()` with 30-day retention, runs after each report generation (LOG6)
+- 4 migration scripts moved to `scripts/archive/` (LOG7)
+
+### Commits
+```
+85ae6aa chore: remove duplicate documentation files
+58561e5 chore: remove duplicate route files and Cloudflare tunnel sync
+6820988 fix: replace hardcoded paths with process.cwd() in integration tests
+a536810 refactor(logging): replace console.log with structured logger
+c4b40c8 chore: configure PM2 log rotation with max_size 10M
+895a3ed feat: add 30-day report retention policy
+5417d87 chore: archive one-time migration scripts
+3ca9b8a docs: update CLEANUP.md backlog with completion status
+```
+
+---
+
 ## [1.8.5] - 2026-02-08
 
 ### Summary
