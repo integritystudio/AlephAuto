@@ -20,17 +20,11 @@
 
 import { TimeoutPatternDetector } from './timeout-pattern-detector.js';
 import { RootDirectoryAnalyzer } from './root-directory-analyzer.js';
+import { createComponentLogger, logError } from '../../utils/logger.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
-/**
- * Simple logger
- */
-const logger = {
-  info: (...args) => console.log('[INFO]', ...args),
-  warn: (...args) => console.warn('[WARN]', ...args),
-  error: (...args) => console.error('[ERROR]', ...args)
-};
+const logger = createComponentLogger('CodebaseHealthScanner');
 
 /**
  * Main CLI function
@@ -122,8 +116,7 @@ async function main() {
     process.exit(0);
 
   } catch (error) {
-    logger.error(`Scan failed: ${error.message}`);
-    console.error(error.stack);
+    logError(logger, error, 'Scan failed');
     process.exit(1);
   }
 }
@@ -233,7 +226,7 @@ export async function runHealthScan(repoPath, options = {}) {
 // @ts-ignore - import.meta is available in ESM
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch(error => {
-    console.error('Fatal error:', error);
+    logError(logger, error, 'Fatal error');
     process.exit(1);
   });
 }

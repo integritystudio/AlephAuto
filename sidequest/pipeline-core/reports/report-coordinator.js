@@ -283,6 +283,6 @@ export class ReportCoordinator {
    * @param {Object} scanResult - Scan result data
    */
   static printQuickSummary(scanResult) {
-    console.log(ReportCoordinator.generateQuickSummary(scanResult));
+    logger.info(ReportCoordinator.generateQuickSummary(scanResult));
   }
 }
