@@ -75,7 +75,10 @@ import { setupServerWithPortFallback } from './api/utils/port-manager.js';
 ```javascript
 import { jobRepository } from './sidequest/core/job-repository.js';
 await jobRepository.saveJob(job);           // Correct - never import from database.js directly
+const job = jobRepository.getJob(id);       // Returns parsed camelCase: { pipelineId, createdAt, ... }
+const count = jobRepository.getJobCount({ status });  // Efficient COUNT(*) query
 ```
+**Important:** Repository methods return **camelCase** objects with parsed JSON fields (`data`, `result`, `error`, `git`). Never access `job.pipeline_id` or `job.created_at` — use `job.pipelineId`, `job.createdAt`.
 
 ### 8. Constants: No Magic Numbers
 ```javascript
@@ -190,4 +193,4 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 
 ---
 
-**Version:** 1.9.0 | **Updated:** 2026-02-15 | **Status:** Production Ready
+**Version:** 1.9.0 | **Updated:** 2026-02-16 | **Status:** Production Ready
