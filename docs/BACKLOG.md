@@ -260,3 +260,36 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | aledlie/tcad-scraper | 5 | Lint, formatting, a11y |
 | aledlie/AnalyticsBot | 3 | Deprecation warnings, TODOs, test config |
 | **Total** | **11** | |
+
+---
+
+## JS/TS Migration - api/ Dual Files (2026-02-15)
+
+> **Source:** Codebase analyzer scan
+> **Blocked by:** LOG11 (deep relative imports deferred to TS migration Phase 9)
+> **See also:** `docs/backlog/2.0/BACKLOG.md`
+
+8 modules in `api/` have both `.js` (runtime) and `.ts` (aspirational rewrite) tracked in git. The `.js` files are imported at runtime; `.ts` files provide Zod schemas with `export type` for type-checking but have diverged from `.js` in both directions.
+
+### Affected Files
+
+| Module | .js status | .ts status | Drift |
+|--------|-----------|-----------|-------|
+| `api/types/pipeline-requests` | Stale (missing GitInfoSchema, JobErrorSchema, passthrough) | Newer schemas, helper functions | .ts ahead |
+| `api/types/scan-requests` | Stale (79 lines) | Newer (150 lines) | .ts ahead |
+| `api/types/job-status` | Stale (65 lines) | Newer (68 lines) | .ts ahead |
+| `api/types/report-requests` | Stale (missing type exports) | Newer (has type exports) | .ts ahead |
+| `api/types/repository-requests` | Stale (missing type exports) | Newer (has type exports) | .ts ahead |
+| `api/routes/pipelines` | Production (905 lines, fully evolved) | Partial rewrite (304 lines) | .js ahead |
+| `api/routes/scans` | Production (325 lines) | Partial rewrite (222 lines) | .js ahead |
+| `api/middleware/validation` | Newer (Feb 3) | Older (Dec 24) | .js ahead |
+
+### Migration Steps
+
+1. **Types first:** Backport `.ts` schema additions into `.js` files (or replace `.js` with `.ts` + Node `--experimental-strip-types`)
+2. **Routes:** Port `.js` route logic into `.ts` files (significant effort for pipelines.js)
+3. **Middleware:** Sync validation.ts with validation.js changes
+4. **Imports:** Update all `from '.../*.js'` imports once `.ts` is canonical
+5. **Cleanup:** Remove redundant `.js` files after migration
+
+### Priority: Low (deferred to TS migration phase)

@@ -7,9 +7,11 @@ node_modules/
 # Logs (keep directory structure but ignore log files)
 logs/*.json
 logs/*.log
+logs/*.gz
 logs/archive/
 logs/cleanup-logs/
 logs/duplicate-detection/
+sidequest/core/logs/
 *.log
 
 # Output directories (generated files)
