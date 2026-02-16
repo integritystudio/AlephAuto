@@ -1,21 +1,20 @@
 /**
  * SQLite Database for Job History Persistence
  *
- * Uses sql.js (pure JavaScript SQLite) for cross-platform compatibility.
- * No native bindings required - works on any platform.
+ * Uses better-sqlite3 (native file-based SQLite) for multi-process access.
+ * With WAL mode, both API server and worker processes read/write the same
+ * data/jobs.db file concurrently — no in-memory isolation.
  *
  * Located at: data/jobs.db
  */
 
-import initSqlJs from 'sql.js';
+import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createComponentLogger, logMetrics } from '../utils/logger.js';
-import { config } from './config.js';
 import { isValidJobStatus } from '../../api/types/job-status.js';
-import { VALIDATION, RETRY, LIMITS } from './constants.js';
-import * as Sentry from '@sentry/node';
+import { VALIDATION } from './constants.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logger = createComponentLogger('Database');
@@ -24,20 +23,6 @@ const logger = createComponentLogger('Database');
 const DB_PATH = path.join(__dirname, '../../data/jobs.db');
 
 let db = null;
-let SQL = null;
-let saveTimer = null;
-let persistFailureCount = 0;
-const MAX_PERSIST_FAILURES = 5;
-
-// Degraded mode state
-let isDegradedMode = false;
-let recoveryAttempts = 0;
-const MAX_RECOVERY_ATTEMPTS = 10;
-const BASE_RECOVERY_DELAY_MS = RETRY.DATABASE_RECOVERY_BASE_MS;
-let recoveryTimer = null;
-
-// Write queue for retry during degraded mode
-const writeQueue = [];
 
 /**
  * Safely parse JSON with fallback on error
@@ -58,34 +43,29 @@ function safeJsonParse(str, fallback = null) {
 }
 
 /**
- * Initialize sql.js and the database
+ * Initialize better-sqlite3 database with WAL mode
  * Must be called before any database operations
  */
 export async function initDatabase() {
   if (db) return db;
 
   try {
-    // Initialize sql.js (loads WASM)
-    SQL = await initSqlJs();
-
     // Ensure data directory exists
     const dataDir = path.dirname(DB_PATH);
     if (!fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
     }
 
-    // Load existing database or create new one
-    if (fs.existsSync(DB_PATH)) {
-      const fileBuffer = fs.readFileSync(DB_PATH);
-      db = new SQL.Database(fileBuffer);
-      logger.info({ dbPath: DB_PATH }, 'Database loaded from file');
-    } else {
-      db = new SQL.Database();
-      logger.info({ dbPath: DB_PATH }, 'New database created');
-    }
+    // Open file-based database (creates if not exists)
+    db = new Database(DB_PATH);
+
+    // Enable WAL mode for concurrent multi-process access
+    db.pragma('journal_mode = WAL');
+    // Wait up to 5s for locks instead of failing immediately
+    db.pragma('busy_timeout = 5000');
 
     // Create jobs table if not exists
-    db.run(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS jobs (
         id TEXT PRIMARY KEY,
         pipeline_id TEXT NOT NULL,
@@ -101,256 +81,17 @@ export async function initDatabase() {
     `);
 
     // Create indexes
-    db.run('CREATE INDEX IF NOT EXISTS idx_jobs_pipeline_id ON jobs(pipeline_id)');
-    db.run('CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)');
-    db.run('CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at DESC)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_jobs_pipeline_id ON jobs(pipeline_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at DESC)');
     // Composite index for efficient pipeline+status queries
-    db.run('CREATE INDEX IF NOT EXISTS idx_jobs_pipeline_status ON jobs(pipeline_id, status)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_jobs_pipeline_status ON jobs(pipeline_id, status)');
 
-    // All initialization succeeded - now safe to start the save timer
-    // Clear any existing timer to prevent memory leaks on re-initialization
-    if (saveTimer) {
-      clearInterval(saveTimer);
-    }
-    saveTimer = setInterval(() => {
-      persistDatabase();
-    }, config.database.saveIntervalMs);
-
-    logger.info({ dbPath: DB_PATH }, 'Database initialized');
+    logger.info({ dbPath: DB_PATH }, 'Database initialized with WAL mode');
     return db;
   } catch (error) {
-    // Don't leave timer running if init failed
-    // (timer is only set after indexes, so this is defensive)
-    if (saveTimer) {
-      clearInterval(saveTimer);
-      saveTimer = null;
-    }
     logger.error({ error: error.message }, 'Failed to initialize database');
     throw error;
-  }
-}
-
-/**
- * Enter degraded mode - continue accepting writes in-memory, queue for retry
- * @private
- */
-function _enterDegradedMode(initialError) {
-  if (isDegradedMode) return; // Already in degraded mode
-
-  isDegradedMode = true;
-  recoveryAttempts = 0;
-
-  // Alert Sentry with context
-  Sentry.captureException(initialError, {
-    level: 'error',
-    tags: {
-      component: 'database',
-      error_type: 'persistence_failure',
-      mode: 'degraded'
-    },
-    extra: {
-      failureCount: persistFailureCount,
-      dbPath: DB_PATH,
-      message: 'Database entered degraded mode - persistence disabled, in-memory only'
-    }
-  });
-
-  logger.error({
-    error: initialError.message,
-    failureCount: persistFailureCount,
-    dbPath: DB_PATH
-  }, 'DEGRADED MODE: Database persistence disabled. Operating in-memory only. Recovery will be attempted.');
-
-  // Start recovery attempts
-  _scheduleRecovery();
-}
-
-/**
- * Schedule next recovery attempt with exponential backoff
- * @private
- */
-function _scheduleRecovery() {
-  if (!isDegradedMode || recoveryAttempts >= MAX_RECOVERY_ATTEMPTS) {
-    if (recoveryAttempts >= MAX_RECOVERY_ATTEMPTS) {
-      logger.error({
-        recoveryAttempts,
-        maxAttempts: MAX_RECOVERY_ATTEMPTS
-      }, 'Recovery attempts exhausted. Database remains in degraded mode.');
-
-      Sentry.captureMessage('Database recovery attempts exhausted', {
-        level: 'error',
-        tags: { component: 'database', mode: 'degraded' },
-        extra: { recoveryAttempts, dbPath: DB_PATH }
-      });
-    }
-    return;
-  }
-
-  // Exponential backoff: 5s, 10s, 20s, 40s, 80s, 160s (capped at ~5 min)
-  const delay = Math.min(BASE_RECOVERY_DELAY_MS * Math.pow(2, recoveryAttempts), RETRY.DATABASE_RECOVERY_MAX_MS);
-
-  logger.info({
-    attempt: recoveryAttempts + 1,
-    maxAttempts: MAX_RECOVERY_ATTEMPTS,
-    delayMs: delay
-  }, 'Scheduling database recovery attempt');
-
-  recoveryTimer = setTimeout(() => {
-    _attemptRecovery();
-  }, delay);
-}
-
-/**
- * Attempt to recover from degraded mode
- * @private
- */
-function _attemptRecovery() {
-  if (!isDegradedMode || !db) return;
-
-  recoveryAttempts++;
-
-  logger.info({
-    attempt: recoveryAttempts,
-    maxAttempts: MAX_RECOVERY_ATTEMPTS,
-    queuedWrites: writeQueue.length
-  }, 'Attempting database recovery');
-
-  try {
-    // Test write to see if persistence is working
-    const data = db.export();
-    const buffer = Buffer.from(data);
-    fs.writeFileSync(DB_PATH, buffer);
-
-    // Success! Exit degraded mode
-    isDegradedMode = false;
-    persistFailureCount = 0;
-    recoveryAttempts = 0;
-
-    logger.info({
-      dbPath: DB_PATH,
-      size: buffer.length,
-      queuedWrites: writeQueue.length
-    }, 'Database recovery successful - persistence restored');
-
-    Sentry.captureMessage('Database persistence recovered', {
-      level: 'info',
-      tags: { component: 'database', mode: 'recovered' },
-      extra: {
-        recoveryAttempt: recoveryAttempts,
-        queuedWrites: writeQueue.length
-      }
-    });
-
-    // Process queued writes
-    _processWriteQueue();
-
-    // Restart auto-save timer if it was stopped
-    if (!saveTimer) {
-      saveTimer = setInterval(() => {
-        persistDatabase();
-      }, config.database.saveIntervalMs);
-      logger.info('Auto-save timer restarted after recovery');
-    }
-
-  } catch (error) {
-    logger.warn({
-      error: error.message,
-      attempt: recoveryAttempts,
-      maxAttempts: MAX_RECOVERY_ATTEMPTS
-    }, 'Database recovery attempt failed');
-
-    // Schedule next attempt
-    _scheduleRecovery();
-  }
-}
-
-/**
- * Maximum write queue size to prevent unbounded memory growth
- * @private
- */
-const MAX_WRITE_QUEUE_SIZE = LIMITS.MAX_WRITE_QUEUE_SIZE;
-
-/**
- * Process queued writes after recovery
- *
- * IMPORTANT: All queued jobs are already in the in-memory database.
- * We just need to persist once to disk, then clear the queue.
- * @private
- */
-function _processWriteQueue() {
-  if (writeQueue.length === 0) return;
-
-  const queueSize = writeQueue.length;
-  logger.info({ queueSize }, 'Processing queued writes after recovery');
-
-  try {
-    // Single export/write for all queued items - they're already in memory
-    const data = db.export();
-    const buffer = Buffer.from(data);
-    fs.writeFileSync(DB_PATH, buffer);
-
-    // Success - clear entire queue atomically
-    const processedIds = writeQueue.map(job => job.id);
-    writeQueue.length = 0; // Clear queue
-
-    logger.info({
-      processed: processedIds.length,
-      dbSizeBytes: buffer.length
-    }, 'Write queue cleared - all jobs persisted');
-  } catch (error) {
-    // Leave queue intact for next recovery attempt
-    logger.error({
-      error: error.message,
-      code: error.code,
-      queueSize,
-      dbPath: DB_PATH
-    }, 'Failed to process write queue - will retry on next recovery');
-  }
-}
-
-/**
- * Persist database to file
- *
- * Includes failure tracking with circuit breaker and degraded mode with recovery.
- * In degraded mode, continues accepting writes to in-memory database while
- * attempting to recover disk persistence.
- */
-function persistDatabase() {
-  if (!db) return;
-
-  // If in degraded mode, skip persistence but continue in-memory operations
-  if (isDegradedMode) {
-    logger.debug('In degraded mode - skipping disk persistence, data in-memory only');
-    return;
-  }
-
-  // Declare buffer outside try block so it's available in catch for error context
-  let buffer;
-  try {
-    const data = db.export();
-    buffer = Buffer.from(data);
-    fs.writeFileSync(DB_PATH, buffer);
-    logger.debug({ dbPath: DB_PATH, size: buffer.length }, 'Database persisted to file');
-
-    // Reset failure count on success
-    persistFailureCount = 0;
-  } catch (error) {
-    persistFailureCount++;
-    logger.error({
-      error: error.message,
-      code: error.code,
-      stack: error.stack,
-      failureCount: persistFailureCount,
-      maxFailures: MAX_PERSIST_FAILURES,
-      dbPath: DB_PATH,
-      dbSizeBytes: buffer?.length,
-      timestamp: new Date().toISOString()
-    }, 'Failed to persist database');
-
-    // Enter degraded mode after repeated failures
-    if (persistFailureCount >= MAX_PERSIST_FAILURES) {
-      _enterDegradedMode(error);
-    }
   }
 }
 
@@ -374,19 +115,15 @@ export function isDatabaseReady() {
 
 /**
  * Save a job to the database
- *
- * In normal mode: saves to in-memory database and persists to disk
- * In degraded mode: saves to in-memory database only, queues for retry
  */
 export function saveJob(job) {
   const database = getDatabase();
 
-  // Always save to in-memory database (works in both normal and degraded mode)
-  database.run(`
+  database.prepare(`
     INSERT OR REPLACE INTO jobs
     (id, pipeline_id, status, created_at, started_at, completed_at, data, result, error, git)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [
+  `).run(
     job.id,
     job.pipelineId || 'duplicate-detection',
     job.status,
@@ -397,77 +134,25 @@ export function saveJob(job) {
     job.result ? JSON.stringify(job.result) : null,
     job.error ? JSON.stringify(job.error) : null,
     job.git ? JSON.stringify(job.git) : null
-  ]);
+  );
 
-  // Queue write if in degraded mode
-  if (isDegradedMode) {
-    // Enforce max queue size to prevent unbounded memory growth
-    if (writeQueue.length >= MAX_WRITE_QUEUE_SIZE) {
-      const droppedJob = writeQueue.shift(); // Remove oldest
-      logger.error({
-        queueSize: writeQueue.length,
-        maxSize: MAX_WRITE_QUEUE_SIZE,
-        droppedJobId: droppedJob?.id,
-        newJobId: job.id
-      }, 'Write queue at capacity, dropping oldest entry');
-
-      Sentry.captureMessage('Database write queue at capacity', {
-        level: 'warning',
-        tags: { component: 'database', mode: 'degraded' },
-        extra: {
-          droppedJobId: droppedJob?.id,
-          queueSize: MAX_WRITE_QUEUE_SIZE
-        }
-      });
-    }
-
-    // Only queue if not already queued (prevent duplicates)
-    const alreadyQueued = writeQueue.some(qJob => qJob.id === job.id);
-    if (!alreadyQueued) {
-      writeQueue.push({ id: job.id, timestamp: Date.now() });
-      logger.debug({
-        jobId: job.id,
-        queueSize: writeQueue.length,
-        mode: 'degraded'
-      }, 'Job saved to memory, queued for persistence retry');
-    }
-  } else {
-    // Normal mode: persist immediately for important operations
-    persistDatabase();
-    logger.debug({ jobId: job.id, status: job.status }, 'Job saved to database');
-  }
+  logger.debug({ jobId: job.id, status: job.status }, 'Job saved to database');
 }
 
 /**
  * Execute a query and return all results as objects
  */
-function queryAll(query, params = []) {
+function queryAll(sql, params = []) {
   const database = getDatabase();
-  const stmt = database.prepare(query);
-  stmt.bind(params);
-
-  const results = [];
-  while (stmt.step()) {
-    results.push(stmt.getAsObject());
-  }
-  stmt.free();
-  return results;
+  return database.prepare(sql).all(...params);
 }
 
 /**
  * Execute a query and return the first result as object
  */
-function queryOne(query, params = []) {
+function queryOne(sql, params = []) {
   const database = getDatabase();
-  const stmt = database.prepare(query);
-  stmt.bind(params);
-
-  let result = null;
-  if (stmt.step()) {
-    result = stmt.getAsObject();
-  }
-  stmt.free();
-  return result;
+  return database.prepare(sql).get(...params) ?? null;
 }
 
 /**
@@ -833,48 +518,33 @@ export async function importLogsToDatabase(logsDir) {
 /**
  * Get database health status with comprehensive metrics
  *
- * @returns {Object} Health status with persistence state, queue info, and memory metrics
+ * @returns {Object} Health status with persistence state and metrics
  */
 export function getHealthStatus() {
-  // Calculate database size if initialized
   let dbSizeBytes = 0;
   if (db) {
     try {
-      dbSizeBytes = db.export().length;
+      dbSizeBytes = fs.statSync(DB_PATH).size;
     } catch {
-      // If export fails, we're in a bad state
       dbSizeBytes = -1;
     }
   }
 
-  // Calculate queue staleness (how long oldest item has been waiting)
-  const oldestQueuedItem = writeQueue[0];
-  const queueStalenessMs = oldestQueuedItem
-    ? Date.now() - oldestQueuedItem.timestamp
-    : 0;
-
-  // Determine memory pressure based on database size
-  // 50MB is a warning threshold for in-memory SQLite
-  const MEMORY_WARNING_THRESHOLD = 50 * 1024 * 1024;
-  const memoryPressure = dbSizeBytes > MEMORY_WARNING_THRESHOLD ? 'high' : 'normal';
-
   return {
     initialized: db !== null,
-    degradedMode: isDegradedMode,
-    persistenceWorking: !isDegradedMode,
-    persistFailureCount,
-    recoveryAttempts,
-    queuedWrites: writeQueue.length,
-    queueStalenessMs,
+    degradedMode: false,
+    persistenceWorking: db !== null,
+    persistFailureCount: 0,
+    recoveryAttempts: 0,
+    queuedWrites: 0,
+    queueStalenessMs: 0,
     dbPath: DB_PATH,
     dbSizeBytes,
-    memoryPressure,
-    status: isDegradedMode ? 'degraded' : (db ? 'healthy' : 'not_initialized'),
-    message: isDegradedMode
-      ? 'Database in degraded mode - accepting writes to memory only, attempting recovery'
-      : db
-        ? 'Database healthy - persistence working normally'
-        : 'Database not initialized'
+    memoryPressure: 'normal',
+    status: db ? 'healthy' : 'not_initialized',
+    message: db
+      ? 'Database healthy - WAL mode, direct disk writes'
+      : 'Database not initialized'
   };
 }
 
@@ -882,48 +552,9 @@ export function getHealthStatus() {
  * Close the database connection
  */
 export function closeDatabase() {
-  // Clear auto-save timer
-  if (saveTimer) {
-    clearInterval(saveTimer);
-    saveTimer = null;
-  }
-
-  // Clear recovery timer
-  if (recoveryTimer) {
-    clearTimeout(recoveryTimer);
-    recoveryTimer = null;
-  }
-
   if (db) {
-    // Attempt final persist before closing (even in degraded mode, try one last time)
-    if (isDegradedMode) {
-      logger.warn('Closing database in degraded mode - attempting final persistence');
-      try {
-        const data = db.export();
-        const buffer = Buffer.from(data);
-        fs.writeFileSync(DB_PATH, buffer);
-        logger.info('Final persistence successful before close');
-      } catch (error) {
-        logger.error({ error: error.message }, 'Final persistence failed - data may be lost');
-        Sentry.captureException(error, {
-          level: 'error',
-          tags: { component: 'database', event: 'close_failed' },
-          extra: { queuedWrites: writeQueue.length }
-        });
-      }
-    } else {
-      persistDatabase();
-    }
-
     db.close();
     db = null;
-
-    // Reset degraded mode state
-    isDegradedMode = false;
-    persistFailureCount = 0;
-    recoveryAttempts = 0;
-    writeQueue.length = 0;
-
     logger.info('Database closed');
   }
 }
@@ -952,51 +583,55 @@ export function bulkImportJobs(jobs) {
   let skipped = 0;
   const errors = [];
 
-  for (const job of jobs) {
-    try {
-      // Validate job ID format
-      if (!isValidJobId(job.id)) {
-        errors.push(`Job ${job.id}: Invalid job ID format (must be alphanumeric with hyphens/underscores, max 255 chars)`);
-        continue;
-      }
+  const insertStmt = database.prepare(`
+    INSERT INTO jobs
+    (id, pipeline_id, status, created_at, started_at, completed_at, data, result, error, git)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const checkStmt = database.prepare('SELECT id FROM jobs WHERE id = ?');
 
-      // Validate job status
-      if (!isValidJobStatus(job.status)) {
-        errors.push(`Job ${job.id}: Invalid status '${job.status}'`);
-        continue;
-      }
+  const importAll = database.transaction(() => {
+    for (const job of jobs) {
+      try {
+        // Validate job ID format
+        if (!isValidJobId(job.id)) {
+          errors.push(`Job ${job.id}: Invalid job ID format (must be alphanumeric with hyphens/underscores, max 255 chars)`);
+          continue;
+        }
 
-      // Check if job already exists
-      const existing = queryOne('SELECT id FROM jobs WHERE id = ?', [job.id]);
-      if (existing) {
-        skipped++;
-        continue;
-      }
+        // Validate job status
+        if (!isValidJobStatus(job.status)) {
+          errors.push(`Job ${job.id}: Invalid status '${job.status}'`);
+          continue;
+        }
 
-      database.run(`
-        INSERT INTO jobs
-        (id, pipeline_id, status, created_at, started_at, completed_at, data, result, error, git)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        job.id,
-        job.pipeline_id || job.pipelineId || 'unknown',
-        job.status,
-        job.created_at || job.createdAt || new Date().toISOString(),
-        job.started_at || job.startedAt || null,
-        job.completed_at || job.completedAt || null,
-        typeof job.data === 'string' ? job.data : (job.data ? JSON.stringify(job.data) : null),
-        typeof job.result === 'string' ? job.result : (job.result ? JSON.stringify(job.result) : null),
-        typeof job.error === 'string' ? job.error : (job.error ? JSON.stringify(job.error) : null),
-        typeof job.git === 'string' ? job.git : (job.git ? JSON.stringify(job.git) : null)
-      ]);
-      imported++;
-    } catch (error) {
-      errors.push(`Job ${job.id}: ${error.message}`);
+        // Check if job already exists
+        const existing = checkStmt.get(job.id);
+        if (existing) {
+          skipped++;
+          continue;
+        }
+
+        insertStmt.run(
+          job.id,
+          job.pipeline_id || job.pipelineId || 'unknown',
+          job.status,
+          job.created_at || job.createdAt || new Date().toISOString(),
+          job.started_at || job.startedAt || null,
+          job.completed_at || job.completedAt || null,
+          typeof job.data === 'string' ? job.data : (job.data ? JSON.stringify(job.data) : null),
+          typeof job.result === 'string' ? job.result : (job.result ? JSON.stringify(job.result) : null),
+          typeof job.error === 'string' ? job.error : (job.error ? JSON.stringify(job.error) : null),
+          typeof job.git === 'string' ? job.git : (job.git ? JSON.stringify(job.git) : null)
+        );
+        imported++;
+      } catch (error) {
+        errors.push(`Job ${job.id}: ${error.message}`);
+      }
     }
-  }
+  });
 
-  // Persist after bulk import
-  persistDatabase();
+  importAll();
 
   logMetrics(logger, 'bulk import', { imported, skipped, errorCount: errors.length });
   return { imported, skipped, errors };

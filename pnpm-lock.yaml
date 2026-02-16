@@ -71,9 +71,6 @@ importers:
       repomix:
         specifier: ^1.11.1
         version: 1.11.1
-      sql.js:
-        specifier: ^1.13.0
-        version: 1.13.0
       ws:
         specifier: ^8.19.0
         version: 8.19.0
@@ -1777,9 +1774,6 @@ packages:
   split2@4.2.0:
     resolution: {integrity: sha512-UcjcJOWknrNkF6PLX83qcHM6KHgVKNkV62Y8a5uYDVv9ydGQVwAHMKqHdJje1VTWpljG0WYpCDhrCdAOYH4TWg==}
     engines: {node: '>= 10.x'}
-
-  sql.js@1.13.0:
-    resolution: {integrity: sha512-RJbVP1HRDlUUXahJ7VMTcu9Rm1Nzw+EBpoPr94vnbD4LwR715F3CcxE2G2k45PewcaZ57pjetYa+LoSJLAASgA==}
 
   statuses@2.0.2:
     resolution: {integrity: sha512-DvEy55V3DB7uknRo+4iOGT5fP1slR8wQohVdknigZPMpMstaKJQWhwiYBACJE3Ul2pTnATihhBYnRhZQHGBiRw==}
@@ -3805,8 +3799,6 @@ snapshots:
   source-map@0.6.1: {}
 
   split2@4.2.0: {}
-
-  sql.js@1.13.0: {}
 
   statuses@2.0.2: {}
 

@@ -172,7 +172,7 @@ export const config = {
 
   // Database settings
   database: {
-    // Auto-save interval in milliseconds (default: 30 seconds)
+    // NOTE: saveIntervalMs is unused after migration to better-sqlite3 (WAL mode, direct disk writes)
     saveIntervalMs: safeParseInt(process.env.DATABASE_SAVE_INTERVAL_MS, 30000, 1000),
   },
 
