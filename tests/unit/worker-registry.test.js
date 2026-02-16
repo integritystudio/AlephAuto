@@ -54,6 +54,9 @@ describe('Worker Registry - Pipeline Support', () => {
         'repomix',
         'claude-health',
         'repo-cleanup',
+        'bugfix-audit',
+        'dashboard-populate',
+        'plugin-manager',
         'test-refactor'
       ];
 
