@@ -15,6 +15,8 @@ import { RepomixWorker } from '../../sidequest/workers/repomix-worker.js';
 import { ClaudeHealthWorker } from '../../sidequest/workers/claude-health-worker.js';
 import { RepoCleanupWorker } from '../../sidequest/workers/repo-cleanup-worker.js';
 import { BugfixAuditWorker } from '../../sidequest/workers/bugfix-audit-worker.js';
+import { DashboardPopulateWorker } from '../../sidequest/workers/dashboard-populate-worker.js';
+import { PluginManagerWorker } from '../../sidequest/utils/plugin-manager.js';
 import { config } from '../../sidequest/core/config.js';
 import { createComponentLogger, logError } from '../../sidequest/utils/logger.js';
 import { jobRepository } from '../../sidequest/core/job-repository.js';
@@ -112,6 +114,23 @@ const PIPELINE_CONFIGS = {
       sentryDsn: config.sentryDsn,
       gitBaseBranch: config.gitBaseBranch,
       gitDryRun: config.gitDryRun,
+    })
+  },
+  'dashboard-populate': {
+    WorkerClass: DashboardPopulateWorker,
+    getOptions: () => ({
+      maxConcurrent: 1,
+      logDir: config.logDir,
+      sentryDsn: config.sentryDsn
+    })
+  },
+  'plugin-manager': {
+    // @ts-ignore - PluginManagerWorker extends SidequestServer but TS can't verify due to @ts-nocheck in source
+    WorkerClass: PluginManagerWorker,
+    getOptions: () => ({
+      maxConcurrent: 1,
+      logDir: config.logDir,
+      sentryDsn: config.sentryDsn
     })
   },
   'test-refactor': {

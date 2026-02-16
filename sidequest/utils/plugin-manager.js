@@ -8,7 +8,7 @@
  * @extends SidequestServer
  */
 
-import { SidequestServer } from './server.js';
+import { SidequestServer } from '../core/server.js';
 import { config } from '../core/config.js';
 import { createComponentLogger, logStart, logComplete, logError, logWarn } from './logger.js';
 import { exec } from 'child_process';

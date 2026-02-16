@@ -22,6 +22,8 @@ export const PIPELINE_NAMES = {
   'test-refactor': 'Test Refactor',
   'schema-enhancement': 'Schema Enhancement',
   'bugfix-audit': 'Bugfix Audit',
+  'dashboard-populate': 'Dashboard Populate',
+  'repo-cleanup': 'Repository Cleanup',
   'unknown': 'Unknown Pipeline'
 };
 
