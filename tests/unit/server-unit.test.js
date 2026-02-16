@@ -196,11 +196,11 @@ describe('SidequestServer - processQueue', () => {
 });
 
 describe('SidequestServer - start and stop', () => {
-  it('should set isRunning to true on start', () => {
+  it('should set isRunning to true on start', async () => {
     const server = new TestSidequestServer({ autoStart: false });
     assert.strictEqual(server.isRunning, false);
 
-    server.start();
+    await server.start();
 
     assert.strictEqual(server.isRunning, true);
   });

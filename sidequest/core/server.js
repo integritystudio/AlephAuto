@@ -51,9 +51,8 @@ export class SidequestServer extends EventEmitter {
     }
 
     // Initialize SQLite database for job persistence
-    // Note: initialize() is async but we handle it with .then()/.catch() since
-    // constructors cannot be async. The database will be ready before first job executes.
-    jobRepository.initialize()
+    // Store promise so start() can await it before processing jobs
+    this._dbReady = jobRepository.initialize()
       .then(() => {
         logger.info('Job history database initialized');
       })
@@ -548,10 +547,11 @@ export class SidequestServer extends EventEmitter {
   }
 
   /**
-   * Start processing jobs (no-op, jobs auto-process when created)
-   * Provided for lifecycle compatibility with tests
+   * Start processing jobs, ensuring the database is ready first.
+   * @returns {Promise<void>}
    */
-  start() {
+  async start() {
+    await this._dbReady;
     this.isRunning = true;
     this.processQueue();
   }
@@ -684,7 +684,11 @@ export class SidequestServer extends EventEmitter {
     job.error = { message: 'Job cancelled by user', cancelled: true };
 
     // Persist to database
-    this._persistJob(job);
+    try {
+      this._persistJob(job);
+    } catch {
+      // Non-critical: in-memory state already updated
+    }
 
     // Emit cancellation event
     this.emit('job:cancelled', job);
@@ -750,7 +754,11 @@ export class SidequestServer extends EventEmitter {
     job.pausedAt = new Date();
 
     // Persist to database
-    this._persistJob(job);
+    try {
+      this._persistJob(job);
+    } catch {
+      // Non-critical: in-memory state already updated
+    }
 
     // Emit pause event
     this.emit('job:paused', job);
@@ -808,7 +816,11 @@ export class SidequestServer extends EventEmitter {
     this.queue.push(jobId);
 
     // Persist to database
-    this._persistJob(job);
+    try {
+      this._persistJob(job);
+    } catch {
+      // Non-critical: in-memory state already updated
+    }
 
     // Emit resume event
     this.emit('job:resumed', job);

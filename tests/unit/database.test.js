@@ -366,19 +366,19 @@ describe('Database Module', () => {
       const stats = getAllPipelineStats();
       if (stats.length > 0) {
         const stat = stats[0];
-        assert.ok('pipeline_id' in stat);
+        assert.ok('pipelineId' in stat);
         assert.ok('total' in stat);
         assert.ok('completed' in stat);
         assert.ok('failed' in stat);
         assert.ok('running' in stat);
         assert.ok('queued' in stat);
-        assert.ok('last_run' in stat);
+        assert.ok('lastRun' in stat);
       }
     });
 
     it('should calculate correct counts per pipeline', () => {
       const stats = getAllPipelineStats();
-      const statA = stats.find(s => s.pipeline_id === 'pipeline-stats-a');
+      const statA = stats.find(s => s.pipelineId === 'pipeline-stats-a');
 
       if (statA) {
         assert.ok(statA.total >= 1);

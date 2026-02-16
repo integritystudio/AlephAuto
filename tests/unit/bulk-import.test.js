@@ -203,7 +203,7 @@ describe('Bulk Import Migration', () => {
       const allJobs = getAllJobs();
       const importedJob = allJobs.find(j => j.id === jobId);
       assert.ok(importedJob, 'Job should exist');
-      assert.strictEqual(importedJob.pipeline_id, 'unknown');
+      assert.strictEqual(importedJob.pipelineId, 'unknown');
     });
 
     it('should handle empty jobs array', () => {

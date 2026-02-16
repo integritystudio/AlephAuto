@@ -678,18 +678,18 @@ export function getLastJob(pipelineId) {
  * Returns statistics for ALL pipelines in the database, including job counts
  * by status and last run timestamp.
  *
- * @returns {Array<{pipeline_id: string, total: number, completed: number, failed: number, running: number, queued: number, last_run: string|null}>}
+ * @returns {Array<{pipelineId: string, total: number, completed: number, failed: number, running: number, queued: number, lastRun: string|null}>}
  */
 export function getAllPipelineStats() {
   return queryAll(`
     SELECT
-      pipeline_id,
+      pipeline_id AS pipelineId,
       COUNT(*) as total,
       SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
       SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
       SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) as running,
       SUM(CASE WHEN status = 'queued' THEN 1 ELSE 0 END) as queued,
-      MAX(completed_at) as last_run
+      MAX(completed_at) AS lastRun
     FROM jobs
     GROUP BY pipeline_id
     ORDER BY pipeline_id

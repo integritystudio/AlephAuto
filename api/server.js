@@ -158,8 +158,8 @@ app.get('/api/status', (req, res) => {
     const activityFeed = req.app.get('activityFeed');
     const recentActivity = activityFeed ? activityFeed.getRecentActivities(20) : [];
 
-    // Create a map of database stats by pipeline_id
-    const statsMap = new Map(pipelineStats.map(s => [s.pipeline_id, s]));
+    // Create a map of database stats by pipelineId
+    const statsMap = new Map(pipelineStats.map(s => [s.pipelineId, s]));
 
     // Get all registered workers and merge with database stats
     const allPipelineIds = workerRegistry.getSupportedPipelines();
@@ -178,7 +178,7 @@ app.get('/api/status', (req, res) => {
         status: activeJobs > 0 ? 'running' : 'idle',
         completedJobs: dbStats.completed || 0,
         failedJobs: dbStats.failed || 0,
-        lastRun: dbStats.last_run || null,
+        lastRun: dbStats.lastRun || null,
         nextRun: null
       };
     });
