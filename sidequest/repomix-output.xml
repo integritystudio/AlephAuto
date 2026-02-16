@@ -240,6 +240,8 @@ export function saveJob(job)
 function queryAll(query, params = [])
 function queryOne(query, params = [])
 export function getJobs(pipelineId, options =
+export function getJobById(id)
+export function getJobCount(options =
 export function getAllJobs(options =
 export function getJobCounts(pipelineId)
 export function getLastJob(pipelineId)
@@ -294,6 +296,7 @@ saveJob(job)
 getJob(id)
 getJobs(pipelineId, filters =
 getAllJobs(filters =
+getJobCount(filters =
 getJobCounts(pipelineId)
 getLastJob(pipelineId)
 getAllPipelineStats()
@@ -2354,10 +2357,6 @@ export class PatternDetectionError extends Error
 </file>
 
 <file path="pipeline-core/scanners/codebase-health-scanner.js">
-info: (...args)
-warn: (...args)
-error: (...args)
-⋮----
 async function main()
 function generateMarkdownReport(results)
 ⋮----
@@ -5430,6 +5429,7 @@ function extractMetrics(result)
 function extractDetails(result)
 function getJobTypeTitle(jobType)
 function formatValue(value)
+export async function pruneOldReports(outputDir = DEFAULT_OUTPUT_DIR, maxAgeMs = 30 * TIME.DAY)
 function escapeHtml(text)
 function getHTMLStyles()
 </file>
