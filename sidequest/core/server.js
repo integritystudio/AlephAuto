@@ -100,7 +100,11 @@ export class SidequestServer extends EventEmitter {
     this.queue.push(jobId);
 
     // Persist to SQLite immediately so job is visible in dashboard
-    this._persistJob(job);
+    try {
+      this._persistJob(job);
+    } catch {
+      // Non-critical: job exists in-memory and will be persisted on next state change
+    }
 
     Sentry.addBreadcrumb({
       category: 'job',
@@ -213,10 +217,11 @@ export class SidequestServer extends EventEmitter {
         git: job.git
       });
     } catch (dbErr) {
-      logError(logger, dbErr, 'Failed to persist job to database', { jobId: job.id });
+      logError(logger, dbErr, 'Failed to persist job to database', { jobId: job.id, status: job.status });
       Sentry.captureException(dbErr, {
         tags: { jobId: job.id, operation: 'persist' }
       });
+      throw dbErr;
     }
   }
 
@@ -229,7 +234,11 @@ export class SidequestServer extends EventEmitter {
     job.startedAt = new Date();
     job.retryPending = false;  // H5 fix: clear retry pending flag on execution
     this.emit('job:started', job);
-    this._persistJob(job);
+    try {
+      this._persistJob(job);
+    } catch {
+      // Non-critical: will be persisted on completion/failure
+    }
 
     Sentry.addBreadcrumb({
       category: 'job',
@@ -346,7 +355,11 @@ export class SidequestServer extends EventEmitter {
         delay: retryDelay
       });
 
-      this._persistJob(job);
+      try {
+        this._persistJob(job);
+      } catch {
+        // Non-critical: retry state is in-memory, will be persisted on next state change
+      }
 
       // Re-queue with delay (C3 fix: check job still exists and is queued)
       const jobId = job.id;
@@ -402,7 +415,13 @@ export class SidequestServer extends EventEmitter {
 
     this.emit('job:failed', job, error);
     this.jobHistory.push({ ...job });
-    this._persistJob(job);
+    try {
+      this._persistJob(job);
+    } catch {
+      // Guard: this method runs in executeJob's catch block, so a throw here
+      // would be an unhandled rejection. The DB error is already logged/Sentry'd
+      // by _persistJob. Failure state is still in-memory via jobHistory.
+    }
 
     Sentry.captureException(error, {
       tags: { jobId: job.id, jobType: this.jobType },
