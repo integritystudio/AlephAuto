@@ -4,7 +4,7 @@ Job queue framework with real-time dashboard for automation pipelines.
 
 ```mermaid
 graph TD
-    root["AlephAuto<br/><i>v1.0.0 &bull; Node + Python</i>"]
+    root["AlephAuto<br/><i>v1.9.0 &bull; Node + Python</i>"]
 
     root --> api["api/<br/><i>REST API + WebSocket</i>"]
     root --> frontend["frontend/<br/><i>React Dashboard (Vite + TS)</i>"]
@@ -14,7 +14,7 @@ graph TD
     root --> scripts["scripts/<br/><i>Deploy, Config, Monitoring</i>"]
     root --> docs["docs/<br/><i>Architecture, Runbooks, API</i>"]
     root --> config["config/<br/><i>PM2 Ecosystem</i>"]
-    root --> output["output/<br/><i>Reports &amp; Scan Results</i>"]
+    root --> cloudflare["cloudflare-workers/<br/><i>Edge Worker (n0ai-proxy)</i>"]
 
     api --> api_routes["routes/<br/>jobs, scans, pipelines, reports"]
     api --> api_mw["middleware/<br/>auth, validation, rate-limit"]
@@ -25,8 +25,8 @@ graph TD
 
     sidequest --> sq_core["core/<br/>server, job-repo, git-workflow, constants"]
     sidequest --> sq_pipe["pipeline-core/<br/>scan-orchestrator, similarity (Python)"]
-    sidequest --> sq_runners["pipeline-runners/<br/>7 pipeline entry points"]
-    sidequest --> sq_workers["workers/<br/>repomix, git-activity, schema, cleanup"]
+    sidequest --> sq_runners["pipeline-runners/<br/>11 pipeline entry points"]
+    sidequest --> sq_workers["workers/<br/>10 worker implementations"]
 
     packages --> pkg_log["@shared/logging<br/>Pino utilities"]
     packages --> pkg_io["@shared/process-io<br/>Child process utilities"]
@@ -44,7 +44,7 @@ graph TD
     style scripts fill:#99ff99,stroke:#333,color:#000
     style docs fill:#99ff99,stroke:#333,color:#000
     style config fill:#99ff99,stroke:#333,color:#000
-    style output fill:#ffeb99,stroke:#333,color:#000
+    style cloudflare fill:#99ff99,stroke:#333,color:#000
 ```
 
 ## Pipelines
@@ -56,8 +56,12 @@ graph TD
 | 3 | **Git Activity Reporter** | JS | Sunday 8 PM | Jekyll MD + SVG |
 | 4 | **Repository Cleanup** | JS | Sunday 3 AM | Cleanup logs |
 | 5 | **Repomix** | JS | 2 AM daily | `condense/*.txt` |
-| 6 | **Codebase Health** | JS + Python | Manual | MD/JSON reports |
+| 6 | **Codebase Health** | JS + Python | 8 AM daily | MD/JSON reports |
 | 7 | **Dashboard Populate** | JS | 6 AM/6 PM | Cloudflare KV + reports |
+| 8 | **Bugfix Audit** | JS | Recurring | Audit reports |
+| 9 | **Gitignore Update** | JS | Scheduled | Updated .gitignore files |
+| 10 | **Plugin Management** | JS | Monday 9 AM | Audit reports |
+| 11 | **Test Refactor** | TS | Manual | Refactored test files |
 
 ## Quick Start
 
@@ -104,7 +108,7 @@ Multi-Language Pipeline (Duplicate Detection)
 ├── sidequest/             # AlephAuto job queue framework
 │   ├── core/              # server.js, job-repository, git-workflow, constants
 │   ├── pipeline-core/     # Scan orchestrator, similarity (Python)
-│   ├── pipeline-runners/  # 7 pipeline entry points
+│   ├── pipeline-runners/  # 11 pipeline entry points
 │   └── workers/           # Worker implementations
 ├── packages/              # pnpm workspace packages
 │   ├── shared-logging/    # @shared/logging (Pino)
@@ -113,10 +117,9 @@ Multi-Language Pipeline (Duplicate Detection)
 ├── docs/                  # Architecture, runbooks, API reference
 ├── scripts/               # Deploy, config monitoring, health checks
 ├── config/                # PM2 ecosystem configs
-├── output/                # Generated reports and scan results
 ├── cloudflare-workers/    # Edge worker (n0ai-proxy)
-├── data/                  # Static data files
-└── logs/                  # Runtime logs
+├── data/                  # SQLite database (runtime)
+└── logs/                  # Runtime logs (gzipped)
 ```
 
 ## Commands
@@ -131,8 +134,12 @@ npm run build:frontend                     # Build React app
 doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js --run-now
 npm run docs:enhance                       # Schema.org injection
 npm run git:weekly                         # Git activity report
+npm run claude:health                      # Codebase health check
 npm run dashboard:populate                 # Quality metrics (seed)
 npm run dashboard:populate:full            # Quality metrics (LLM judge)
+npm run bugfix:once                        # Bugfix audit (one-shot)
+npm run gitignore:update                   # Gitignore update
+npm run plugin:audit                       # Plugin management audit
 
 # Testing
 npm test                                   # Unit tests
@@ -167,6 +174,10 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 - [Pipeline Execution](docs/runbooks/pipeline-execution.md) - PM2/Doppler patterns
 - [Troubleshooting](docs/runbooks/troubleshooting.md) - Debugging guide
 - [MCP Servers](docs/MCP_SERVERS.md) - Sentry, Redis, TaskQueue, Filesystem
+- [Adding Pipelines](docs/ADDING_PIPELINES.md) - Pipeline creation guide
+- [Deployment](docs/DEPLOYMENT.md) - Production deployment
+- [Installation](docs/INSTALL.md) - Setup instructions
+- [Changelog](docs/CHANGELOG.md) - Version history
 
 ## License
 

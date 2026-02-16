@@ -4,45 +4,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-**AlephAuto** - Job queue framework with real-time dashboard for automation pipelines:
+**AlephAuto** - Job queue framework with real-time dashboard for automation pipelines.
 
-1. **Duplicate Detection** - 7-stage pipeline (JS stages 1-2, Python stages 3-7)
-2. **Doc Enhancement** - Schema.org structured data injection
-3. **Git Activity Reporter** - Weekly/monthly reports
-4. **Repository Cleanup** - Automated cleanup of venvs, build artifacts
-5. **Dashboard UI** - Real-time monitoring (WebSocket + REST API)
-6. **Dashboard Populate** - Quality metrics pipeline (rule-based + LLM-as-Judge → KV)
+11 pipelines: Duplicate Detection (JS+Python), Schema Enhancement, Git Activity Reporter, Repository Cleanup, Repomix, Codebase Health, Dashboard Populate, Bugfix Audit, Gitignore Update, Plugin Management, Test Refactor.
 
 ## Quick Reference
 
-| Task | Command |
-|------|---------|
-| Run duplicate detection | `doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js --run-now` |
-| Test routes | `npm run test:integration` |
-| Build frontend | `npm run build:frontend` |
-| Dashboard | `npm run dashboard` → http://localhost:8080 |
-| Deploy | `./scripts/deploy-traditional-server.sh --update` |
-| Type check | `npm run typecheck` |
-| Dashboard populate (seed) | `npm run dashboard:populate` |
-| Dashboard populate (LLM) | `npm run dashboard:populate:full` |
+```bash
+# Development
+doppler run -- npm start                   # Server
+npm run dashboard                          # Dashboard UI → http://localhost:8080
+npm run build:frontend                     # Build React dashboard
+
+# Testing
+npm test                                   # Unit tests
+npm run test:integration                   # Integration tests
+npm run typecheck                          # TypeScript checks
+
+# Production
+doppler run -c prd -- pm2 start config/ecosystem.config.cjs
+./scripts/deploy-traditional-server.sh --update
+```
 
 ## Code Quality Standards
 
-### Complexity Limits (Enforced by CI)
-- Cyclomatic Complexity: ≤10
-- Cognitive Complexity: ≤15
-- Function Length: ≤50 lines
-- Nesting Depth: ≤4 levels
-
-### Security (Blocked by pre-commit)
+- Cyclomatic Complexity: ≤10 | Cognitive Complexity: ≤15 | Function Length: ≤50 lines | Nesting Depth: ≤4
 - **NEVER** use `eval()` or `new Function()` with dynamic input
-- Validate all user input at system boundaries
-- Use parameterized queries for database access
-
-### Testing
 - Use `createTempRepository()` from test fixtures (never hardcode `/tmp/` paths)
-- Run `npm run test:integration` before PRs
-- All new features require unit tests
+- Run `npm test && npm run test:integration && npm run typecheck` before PRs
 
 ## Critical Patterns
 
@@ -80,46 +69,41 @@ const errorCode = error.code;                   // Wrong - throws if null
 ### 6. Port Conflicts: Use Port Manager
 ```javascript
 import { setupServerWithPortFallback } from './api/utils/port-manager.js';
-const actualPort = await setupServerWithPortFallback(httpServer, { preferredPort: 8080 });
 ```
 
 ### 7. Database Access: Use JobRepository
 ```javascript
 import { jobRepository } from './sidequest/core/job-repository.js';
-await jobRepository.saveJob(job);           // Correct
-import { saveJob } from './sidequest/core/database.js';  // Wrong - use repository
+await jobRepository.saveJob(job);           // Correct - never import from database.js directly
 ```
 
 ### 8. Constants: No Magic Numbers
 ```javascript
 import { TIMEOUTS, RETRY, CONCURRENCY, TIME, CACHE } from './sidequest/core/constants.js';
-const timeout = TIMEOUTS.PYTHON_PIPELINE_MS;     // Correct (600000ms)
-const timeout = 600000;                           // Wrong - magic number
-const oneDay = TIME.DAY;                          // Correct (86400000ms)
-const oneDay = 24 * 60 * 60 * 1000;               // Wrong - magic expression
+const timeout = TIMEOUTS.PYTHON_PIPELINE_MS;     // Correct
+const oneDay = TIME.DAY;                          // Correct
 ```
 
-Available constant groups: `TIMEOUTS`, `RETRY`, `CONCURRENCY`, `PAGINATION`, `VALIDATION`, `PORT`, `CACHE`, `WEBSOCKET`, `WORKER_COOLDOWN`, `RATE_LIMIT`, `LIMITS`, `TIME`
+Available groups: `TIMEOUTS`, `RETRY`, `CONCURRENCY`, `PAGINATION`, `VALIDATION`, `PORT`, `CACHE`, `WEBSOCKET`, `WORKER_COOLDOWN`, `RATE_LIMIT`, `LIMITS`, `TIME`
 
 ### 9. Git Operations: Use GitWorkflowManager
 ```javascript
-// In SidequestServer subclasses:
 this.gitWorkflowManager.createJobBranch(repoPath, jobInfo);  // Correct
-this.branchManager.createJobBranch(repoPath, jobInfo);       // Wrong - use wrapper
+this.branchManager.createJobBranch(repoPath, jobInfo);       // Wrong
 ```
 
 ### 10. API Error Responses: Use ApiError Utilities
 ```javascript
 import { sendError, sendNotFoundError } from '../utils/api-error.js';
 sendError(res, 'INVALID_REQUEST', 'Missing field', 400);     // Correct
-res.status(400).json({ error: 'Missing field' });            // Wrong - inconsistent format
+res.status(400).json({ error: 'Missing field' });            // Wrong
 ```
 
 ### 11. Input Validation: Validate Job IDs and Pagination
 ```javascript
 import { VALIDATION, PAGINATION } from './sidequest/core/constants.js';
-if (!VALIDATION.JOB_ID_PATTERN.test(jobId)) { ... }          // Correct
-const limit = Math.min(limit, PAGINATION.MAX_LIMIT);         // Correct (max 1000)
+if (!VALIDATION.JOB_ID_PATTERN.test(jobId)) { ... }
+const limit = Math.min(limit, PAGINATION.MAX_LIMIT);         // max 1000
 ```
 
 ## Architecture
@@ -134,19 +118,15 @@ JavaScript (Stages 1-2)          Python (Stages 3-7)
          └─── JSON stdin/stdout ─┘── Report generation
 ```
 
-**Key Files:**
-- `sidequest/pipeline-core/scan-orchestrator.ts` - Pipeline coordinator
-- `sidequest/pipeline-core/similarity/structural.py:231` - Feature extraction (critical)
-
 ### Job Queue Framework
 ```
 SidequestServer (Base)
 ├── Event-driven lifecycle: created → queued → running → completed/failed
 ├── Concurrency control (default: 5, via CONCURRENCY.DEFAULT_MAX_JOBS)
-├── Sentry integration
 ├── Auto-retry with circuit breaker (retryable: ETIMEDOUT, 5xx; non-retryable: ENOENT, 4xx)
+├── Sentry integration
 ├── GitWorkflowManager for branch/commit/PR operations
-├── JobRepository for database persistence
+├── JobRepository for SQLite persistence
 └── Centralized config via sidequest/core/config.js
 ```
 
@@ -155,55 +135,35 @@ SidequestServer (Base)
 api/types/*.ts (Zod schemas) → api/middleware/validation.js → api/routes/*.ts (type-safe handlers)
 ```
 
-## Commands
-
-```bash
-# Development
-doppler run -- npm start        # Server
-npm run dashboard               # Dashboard UI
-npm run build:frontend          # Build React dashboard (frontend/dist/)
-
-# Testing
-npm test                        # Unit tests
-npm run test:integration        # Integration tests
-npm run typecheck               # TypeScript checks
-
-# Production
-doppler run -c prd -- pm2 start config/ecosystem.config.cjs
-./scripts/deploy-traditional-server.sh --update
-```
-
 ## Environment Variables (Doppler)
 
 **Project:** `bottleneck` | **Environments:** `dev`, `prd`
 
-```bash
-doppler setup --project bottleneck --config dev   # Development
-doppler setup --project bottleneck --config prd   # Production
-```
-
-**Key variables:** `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENABLE_PR_CREATION`
+Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENABLE_PR_CREATION`
 
 ## Directory Structure
 
 ```
-├── api/                    # REST API + WebSocket
-│   ├── routes/            # Endpoint handlers
-│   ├── types/             # Zod schemas (job-status.ts, etc.)
-│   ├── utils/             # Worker registry, port manager
-│   └── middleware/        # Validation
-├── packages/              # Shared workspace packages
-│   ├── shared-logging/    # @shared/logging - Pino logger utilities
-│   └── shared-process-io/ # @shared/process-io - Child process utilities
+├── api/                    # REST API + WebSocket (36 endpoints)
+│   ├── routes/            # jobs, scans, pipelines, reports, repositories
+│   ├── types/             # Zod schemas
+│   ├── middleware/        # Auth, validation, rate-limit
+│   └── utils/             # Port manager, worker registry, API error helpers
 ├── frontend/              # React dashboard (Vite + TypeScript)
-│   ├── src/               # Components, services, store, types
-│   └── dist/              # Vite build output (served by Express)
 ├── sidequest/             # Job queue framework
-│   ├── core/              # server.js, job-repository.js, git-workflow-manager.js, constants.js
-│   ├── workers/           # Worker implementations
-│   └── pipeline-core/     # Business logic, scan orchestrator
+│   ├── core/              # server.js, job-repository, git-workflow, constants, config
+│   ├── pipeline-core/     # Scan orchestrator, similarity (Python)
+│   ├── pipeline-runners/  # 11 pipeline entry points
+│   └── workers/           # 10 worker implementations
+├── packages/              # pnpm workspace packages
+│   ├── shared-logging/    # @shared/logging (Pino)
+│   └── shared-process-io/ # @shared/process-io (child process utils)
 ├── tests/                 # Unit, integration, accuracy tests
-└── config/                # PM2, ecosystem configs
+├── scripts/               # Deploy, config monitoring, health checks
+├── config/                # PM2 ecosystem config (.cjs)
+├── cloudflare-workers/    # Edge worker (n0ai-proxy)
+├── data/                  # SQLite database (runtime)
+└── logs/                  # Runtime logs (gzipped)
 ```
 
 ## Key Files
@@ -211,6 +171,7 @@ doppler setup --project bottleneck --config prd   # Production
 | Purpose | File |
 |---------|------|
 | Pipeline coordinator | `sidequest/pipeline-core/scan-orchestrator.ts` |
+| Feature extraction | `sidequest/pipeline-core/similarity/structural.py:29` |
 | Base job queue | `sidequest/core/server.js` |
 | Job repository | `sidequest/core/job-repository.js` |
 | Git workflow manager | `sidequest/core/git-workflow-manager.js` |
@@ -221,39 +182,12 @@ doppler setup --project bottleneck --config prd   # Production
 | Port manager | `api/utils/port-manager.js` |
 | API error utilities | `api/utils/api-error.js` |
 | Test helpers | `tests/fixtures/test-helpers.js` |
-| Process I/O utilities | `packages/shared-process-io/src/index.js` |
-
-## Documentation
-
-- `docs/API_REFERENCE.md` - REST API (22 endpoints)
-- `docs/MCP_SERVERS.md` - MCP server configuration (Sentry, Redis, etc.)
-- `docs/architecture/SYSTEM-DATA-FLOW.md` - Complete system architecture and data flow
-- `docs/architecture/ERROR_HANDLING.md` - Retry logic, circuit breaker
-- `docs/architecture/TYPE_SYSTEM.md` - Zod + TypeScript patterns
-- `docs/runbooks/pipeline-execution.md` - Pipeline execution patterns, PM2/Doppler
-- `docs/runbooks/troubleshooting.md` - Debugging guide
-- `docs/SESSION_HISTORY.md` - Development session log
 
 ## Shared Packages
 
-### @shared/process-io
-Child process execution utilities. Import from `@shared/process-io`:
-- `captureProcessOutput(proc)` - Capture stdout/stderr from ChildProcess
-- `execCommand(cmd, args, opts)` - Execute with full result (stdout, stderr, code)
-- `runCommand(cwd, cmd, args)` - Simple API returning trimmed stdout
-
-### @shared/logging
-Pino-based logging. Import from `@shared/logging`.
-
-## Contributing
-
-1. Create feature branch from `main`
-2. Follow code quality standards (complexity ≤10, no eval())
-3. Run tests: `npm test && npm run test:integration && npm run typecheck`
-4. Submit PR with clear description
+- **@shared/process-io** - `captureProcessOutput(proc)`, `execCommand(cmd, args, opts)`, `runCommand(cwd, cmd, args)`
+- **@shared/logging** - Pino-based logging
 
 ---
 
-**Version:** 1.9.0 | **Updated:** 2026-02-09 | **Status:** Production Ready
-
-See `docs/SESSION_HISTORY.md` for development session logs.
+**Version:** 1.9.0 | **Updated:** 2026-02-15 | **Status:** Production Ready
