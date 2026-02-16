@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements extracted from codebase TODOs.
 
-**Last Updated:** 2026-02-15 (Session 2)
+**Last Updated:** 2026-02-16 (Session 3)
 
 ---
 
@@ -293,3 +293,41 @@ Technical debt and planned improvements extracted from codebase TODOs.
 5. **Cleanup:** Remove redundant `.js` files after migration
 
 ### Priority: Low (deferred to TS migration phase)
+
+---
+
+## Production Job Population Bugfix - Deferred Items (2026-02-16)
+
+> **Source:** Debug session for "jobs not populating in production"
+> **Commits:** Uncommitted (5 files modified on `main`)
+> **Fixes Applied:** `getJobById()`, `getAllJobs()` JSON parsing, API field mapping, PM2 autorestart, `getJobCount()` pagination
+
+### High Priority
+
+| ID | Location | Description | Status |
+|----|----------|-------------|--------|
+| PROD-H1 | `sidequest/core/server.js` / `sidequest/core/database.js` | **Multi-process sql.js isolation** — API server and PM2 worker each load independent in-memory SQLite databases. Worker writes (job creation, status updates) are invisible to the API server until restart. Root cause of production job population gap. Needs shared persistence layer (file-based SQLite WAL mode, Redis, or IPC). | Pending |
+| PROD-H2 | `api/utils/worker-registry.js` | **Missing pipeline registrations** — `dashboard-populate` and `plugin-manager` pipelines not registered in worker registry (8/11 present). Jobs for these pipelines return "No worker found" on cancel/retry. | Pending |
+| PROD-H3 | `sidequest/core/server.js:189-221` | **`_persistJob()` silently swallows DB errors** — Logs error + sends to Sentry but does not fail the job or propagate. Job can report "completed" while DB write failed, causing data loss. | Pending |
+
+### Medium Priority
+
+| ID | Location | Description | Status |
+|----|----------|-------------|--------|
+| PROD-M1 | `sidequest/core/server.js:56-65` | **DB init race condition** — `jobRepository.initialize()` is called in `SidequestServer` constructor but not awaited. First job could arrive before DB is ready, causing silent failures. Needs `await` in `start()` or ready gate. | Pending |
+
+### Low Priority
+
+| ID | Location | Description | Status |
+|----|----------|-------------|--------|
+| PROD-L1 | `sidequest/core/database.js:getAllPipelineStats()` | **snake_case inconsistency** — Returns `pipeline_id`, `last_run` (snake_case) while all other query functions return camelCase. Single consumer (`api/server.js:162`) compensates, but inconsistent with repository pattern. | Pending |
+| PROD-L2 | `tests/unit/database.test.js` | **Pre-existing test isolation issue** — "should import summary.json files" fails when run alongside `job-repository-factory.test.js` due to shared in-memory SQLite state. Passes in isolation (60/60). Needs test DB isolation or `beforeEach` reset. | Pending |
+
+### Summary
+
+| Priority | Count | Theme |
+|----------|-------|-------|
+| High | 3 | Multi-process DB isolation, missing workers, silent DB errors |
+| Medium | 1 | DB init race condition |
+| Low | 2 | snake_case inconsistency, test isolation |
+| **Total** | **6** | |

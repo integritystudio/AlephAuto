@@ -10,6 +10,8 @@
 import {
   initDatabase,
   saveJob as dbSaveJob,
+  getJobById as dbGetJobById,
+  getJobCount as dbGetJobCount,
   getJobs as dbGetJobs,
   getAllJobs as dbGetAllJobs,
   getJobCounts as dbGetJobCounts,
@@ -81,8 +83,7 @@ class JobRepository {
    * @returns {Object|null} Job object or null if not found
    */
   getJob(id) {
-    const jobs = dbGetAllJobs({ limit: 1 });
-    return jobs.find(j => j.id === id) || null;
+    return dbGetJobById(id);
   }
 
   /**
@@ -112,6 +113,17 @@ class JobRepository {
    */
   getAllJobs(filters = {}) {
     return dbGetAllJobs(filters);
+  }
+
+  /**
+   * Get total job count with optional status filter
+   *
+   * @param {Object} [filters={}] - Query filters
+   * @param {string} [filters.status] - Filter by status
+   * @returns {number} Total count
+   */
+  getJobCount(filters = {}) {
+    return dbGetJobCount(filters);
   }
 
   /**

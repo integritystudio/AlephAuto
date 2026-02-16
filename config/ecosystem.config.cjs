@@ -92,7 +92,7 @@ module.exports = {
       cwd: PROJECT_ROOT,
       instances: 1,
       exec_mode: 'fork',
-      autorestart: false,  // Disable autorestart to debug - worker should run indefinitely with cron
+      autorestart: true,
       watch: false,
       max_memory_restart: '1G',
 

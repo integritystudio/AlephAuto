@@ -201,14 +201,12 @@ app.get('/api/status', (req, res) => {
     const mapJobForApi = (job) => ({
       '@type': 'https://schema.org/Action',
       id: job.id,
-      pipelineId: job.pipeline_id,
-      pipelineName: getPipelineName(job.pipeline_id),
+      pipelineId: job.pipelineId,
+      pipelineName: getPipelineName(job.pipelineId),
       status: job.status,
-      createdAt: job.created_at,
-      startedAt: job.started_at,
-      completedAt: job.completed_at,
-      progress: job.progress,
-      currentOperation: job.current_operation,
+      createdAt: job.createdAt,
+      startedAt: job.startedAt,
+      completedAt: job.completedAt,
     });
 
     res.json({

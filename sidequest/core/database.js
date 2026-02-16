@@ -549,6 +549,52 @@ export function getJobs(pipelineId, options = {}) {
 }
 
 /**
+ * Get a single job by ID
+ *
+ * @param {string} id - Job ID
+ * @returns {Object|null} Parsed job object or null if not found
+ */
+export function getJobById(id) {
+  const row = queryOne('SELECT * FROM jobs WHERE id = ?', [id]);
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    pipelineId: row.pipeline_id,
+    status: row.status,
+    createdAt: row.created_at,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    data: safeJsonParse(row.data),
+    result: safeJsonParse(row.result),
+    error: safeJsonParse(row.error),
+    git: safeJsonParse(row.git)
+  };
+}
+
+/**
+ * Get total job count with optional status filter
+ *
+ * @param {Object} [options={}] - Query options
+ * @param {string} [options.status] - Filter by status
+ * @returns {number} Total count
+ */
+export function getJobCount(options = {}) {
+  const { status } = options;
+
+  let query = 'SELECT COUNT(*) as count FROM jobs';
+  const params = [];
+
+  if (status) {
+    query += ' WHERE status = ?';
+    params.push(status);
+  }
+
+  const result = queryOne(query, params);
+  return result?.count ?? 0;
+}
+
+/**
  * Get all jobs across all pipelines
  */
 export function getAllJobs(options = {}) {
@@ -565,7 +611,20 @@ export function getAllJobs(options = {}) {
   query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
   params.push(limit, offset);
 
-  return queryAll(query, params);
+  const rows = queryAll(query, params);
+
+  return rows.map(row => ({
+    id: row.id,
+    pipelineId: row.pipeline_id,
+    status: row.status,
+    createdAt: row.created_at,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    data: safeJsonParse(row.data),
+    result: safeJsonParse(row.result),
+    error: safeJsonParse(row.error),
+    git: safeJsonParse(row.git)
+  }));
 }
 
 /**
@@ -948,6 +1007,8 @@ export default {
   getDatabase,
   isDatabaseReady,
   saveJob,
+  getJobById,
+  getJobCount,
   getJobs,
   getAllJobs,
   getJobCounts,

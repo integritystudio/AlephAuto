@@ -95,24 +95,6 @@ function sanitizePaginationParams(limit, offset) {
 }
 
 /**
- * Safely parse JSON with fallback on error
- * Prevents crashes from corrupted database data
- *
- * @param {string|null} str - JSON string to parse
- * @param {*} fallback - Value to return on parse error
- * @returns {*} Parsed object or fallback
- */
-function safeJsonParse(str, fallback = null) {
-  if (!str) return fallback;
-  try {
-    return JSON.parse(str);
-  } catch (error) {
-    logger.warn({ error: error.message, preview: str.substring(0, 100) }, 'Failed to parse JSON in API response');
-    return fallback;
-  }
-}
-
-/**
  * GET /api/jobs
  * Get all jobs with optional status filtering
  *
@@ -131,48 +113,37 @@ router.get('/', (req, res) => {
         `Invalid status '${status}'. Must be one of: ${Object.values(JOB_STATUS).join(', ')}`, 400);
     }
 
-    // Get all jobs from database
-    const allJobs = jobRepository.getAllJobs();
-
-    // Filter by status if provided
-    let filteredJobs = allJobs;
-    if (status) {
-      filteredJobs = allJobs.filter(job => job.status === status);
-    }
-
     // Sanitize pagination parameters to prevent memory issues and NaN propagation
     const { limit: limitNum, offset: offsetNum } = sanitizePaginationParams(limit, offset);
-    const paginatedJobs = filteredJobs.slice(offsetNum, offsetNum + limitNum);
 
-    // Format response
-    const jobs = paginatedJobs.map(job => ({
+    // Get jobs from database with filtering and pagination
+    const allJobs = jobRepository.getAllJobs({ status: status || undefined, limit: limitNum, offset: offsetNum });
+
+    // Format response - getAllJobs now returns parsed camelCase objects
+    const jobs = allJobs.map(job => ({
       '@type': 'https://schema.org/Action',
       id: job.id,
-      pipelineId: job.pipeline_id,
-      pipelineName: getPipelineName(job.pipeline_id),
+      pipelineId: job.pipelineId,
+      pipelineName: getPipelineName(job.pipelineId),
       status: job.status,
-      createdAt: job.created_at,
-      startedAt: job.started_at,
-      completedAt: job.completed_at,
-      duration: job.duration,
-      progress: job.progress,
-      currentOperation: job.current_operation,
+      createdAt: job.createdAt,
+      startedAt: job.startedAt,
+      completedAt: job.completedAt,
       error: job.error,
-      errorType: job.error_type,
-      retryCount: job.retry_count,
-      maxRetries: job.max_retries,
-      results: safeJsonParse(job.results)
+      result: job.result,
+      data: job.data
     }));
 
-    // Calculate pagination (handle edge case of limitNum being 0)
+    // Get total count for pagination (efficient COUNT query)
+    const total = jobRepository.getJobCount({ status: status || undefined });
     const page = limitNum > 0 ? Math.floor(offsetNum / limitNum) : 0;
-    const hasMore = (offsetNum + limitNum) < filteredJobs.length;
+    const hasMore = (offsetNum + limitNum) < total;
 
     res.json({
       success: true,
       data: {
         jobs,
-        total: filteredJobs.length,
+        total,
         page,
         limit: limitNum,
         hasMore
@@ -273,8 +244,7 @@ router.get('/:jobId', (req, res) => {
       return sendError(res, ERROR_CODES.INVALID_REQUEST, validation.error, 400);
     }
 
-    const allJobs = jobRepository.getAllJobs();
-    const job = allJobs.find(j => j.id === validation.sanitized);
+    const job = jobRepository.getJob(validation.sanitized);
 
     if (!job) {
       return sendNotFoundError(res, 'Job', validation.sanitized);
@@ -285,20 +255,16 @@ router.get('/:jobId', (req, res) => {
       data: {
         '@type': 'https://schema.org/Action',
         id: job.id,
-        pipelineId: job.pipeline_id,
-        pipelineName: getPipelineName(job.pipeline_id),
+        pipelineId: job.pipelineId,
+        pipelineName: getPipelineName(job.pipelineId),
         status: job.status,
-        createdAt: job.created_at,
-        startedAt: job.started_at,
-        completedAt: job.completed_at,
-        duration: job.duration,
-        progress: job.progress,
-        currentOperation: job.current_operation,
+        createdAt: job.createdAt,
+        startedAt: job.startedAt,
+        completedAt: job.completedAt,
         error: job.error,
-        errorType: job.error_type,
-        retryCount: job.retry_count,
-        maxRetries: job.max_retries,
-        results: safeJsonParse(job.results)
+        result: job.result,
+        data: job.data,
+        git: job.git
       },
       timestamp: new Date().toISOString()
     });
@@ -377,8 +343,7 @@ router.post('/:jobId/retry', async (req, res) => {
     logStart(logger, 'job retry', { jobId: sanitizedJobId });
 
     // Get job details to determine pipeline
-    const allJobs = jobRepository.getAllJobs();
-    const job = allJobs.find(j => j.id === sanitizedJobId);
+    const job = jobRepository.getJob(sanitizedJobId);
 
     if (!job) {
       return sendNotFoundError(res, 'Job', sanitizedJobId);
@@ -390,14 +355,17 @@ router.post('/:jobId/retry', async (req, res) => {
         `Cannot retry job with status '${job.status}'. Only failed jobs can be retried.`, 400);
     }
 
+    // job.data is already parsed by the repository layer
+    const jobData = job.data ?? {};
+
     // Enforce maximum retry count to prevent infinite retry loops
-    const currentRetryCount = job.retry_count ?? 0;
+    const currentRetryCount = jobData.retryCount ?? 0;
     if (currentRetryCount >= RETRY.MAX_MANUAL_RETRIES) {
       return sendError(res, ERROR_CODES.INVALID_REQUEST,
         `Job has already been retried ${currentRetryCount} times (max: ${RETRY.MAX_MANUAL_RETRIES})`, 400);
     }
 
-    const pipelineId = job.pipeline_id;
+    const pipelineId = job.pipelineId;
 
     // Get worker for this pipeline
     const worker = await workerRegistry.getWorker(pipelineId);
@@ -410,14 +378,11 @@ router.post('/:jobId/retry', async (req, res) => {
     // Create a new job with same parameters (retry by creating duplicate)
     const newJobId = `${pipelineId}-retry-${Date.now()}`;
 
-    // Parse job data (parameters) using safe parsing
-    const jobData = job.data ? (typeof job.data === 'string' ? safeJsonParse(job.data, {}) : job.data) : {};
-
     // Create new job with retry metadata
     const newJob = worker.createJob(newJobId, {
       ...jobData,
       retriedFrom: sanitizedJobId,
-      retryCount: (job.retry_count ?? 0) + 1,
+      retryCount: currentRetryCount + 1,
       triggeredBy: 'retry',
       triggeredAt: new Date().toISOString()
     });
