@@ -7,7 +7,7 @@
  * @module api/routes/pipelines
  */
 
-import express, { Request, Response, NextFunction } from 'express';
+import express, { type Request, type Response, type NextFunction } from 'express';
 import { validateQuery, validateRequest } from '../middleware/validation.ts';
 import {
   JobQueryParamsSchema,

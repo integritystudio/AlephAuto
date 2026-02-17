@@ -4,7 +4,7 @@
  * API endpoints for managing duplicate detection scans.
  */
 
-import express, { Request, Response, NextFunction } from 'express';
+import express, { type Request, type Response, type NextFunction } from 'express';
 import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.js';
 import { InterProjectScanner } from '../../sidequest/pipeline-core/inter-project-scanner.js';
 import { DuplicateDetectionWorker } from '../../sidequest/pipeline-runners/duplicate-detection-pipeline.js';
