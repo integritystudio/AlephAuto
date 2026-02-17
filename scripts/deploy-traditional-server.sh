@@ -130,8 +130,8 @@ setup_macos() {
     # Install Node.js
     if ! command_exists node; then
         log "Installing Node.js..."
-        brew install node@20
-        brew link node@20
+        brew install node@25
+        brew link node@25
     else
         info "Node.js already installed: $(node --version)"
     fi
@@ -211,8 +211,8 @@ setup_linux() {
 
     # Install Node.js
     if ! command_exists node; then
-        log "Installing Node.js 20.x..."
-        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+        log "Installing Node.js 25.x..."
+        curl -fsSL https://deb.nodesource.com/setup_25.x | bash -
         apt-get install -y nodejs
     else
         info "Node.js already installed: $(node --version)"
@@ -374,15 +374,15 @@ update_application() {
         chown -R "$DEPLOY_USER:$DEPLOY_USER" "$APP_DIR"
         chmod -R 755 "$APP_DIR"
         # Make pipeline files and API server executable
-        chmod +x "$APP_DIR/api/server.js" "$APP_DIR"/sidequest/pipeline-runners/*.js
+        chmod +x "$APP_DIR/api/server.js" "$APP_DIR"/sidequest/pipeline-runners/*.js "$APP_DIR"/sidequest/pipeline-runners/*.ts
     fi
 
     # Set executable permissions for pipeline files (macOS and Linux)
     log "Setting executable permissions for pipeline files..."
     if $IS_MACOS; then
-        chmod +x api/server.js sidequest/pipeline-runners/*.js
+        chmod +x api/server.js sidequest/pipeline-runners/*.js sidequest/pipeline-runners/*.ts
     else
-        sudo -u "$DEPLOY_USER" chmod +x "$APP_DIR/api/server.js" "$APP_DIR"/sidequest/pipeline-runners/*.js
+        sudo -u "$DEPLOY_USER" chmod +x "$APP_DIR/api/server.js" "$APP_DIR"/sidequest/pipeline-runners/*.js "$APP_DIR"/sidequest/pipeline-runners/*.ts
     fi
 
     # Restart PM2 processes
