@@ -29,8 +29,8 @@
  */
 
 import { ClaudeHealthWorker } from '../workers/claude-health-worker.js';
-import { createComponentLogger, logError, logStart } from '../utils/logger.js';
-import { config } from '../core/config.js';
+import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
+import { config } from '../core/config.ts';
 import cron from 'node-cron';
 
 const logger = createComponentLogger('ClaudeHealthPipeline');

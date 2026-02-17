@@ -6,7 +6,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { ensureParentDir } from '../utils/index.js';
+import { ensureParentDir } from '../utils/index.ts';
 
 export class HTMLReportGenerator {
   /**

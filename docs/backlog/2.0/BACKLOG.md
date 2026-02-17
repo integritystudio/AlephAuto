@@ -1,7 +1,8 @@
 # AlephAuto 2.0: TypeScript Migration Design Doc
 
-**Status:** Draft
+**Status:** In Progress (Phases 0-3 complete)
 **Date:** 2026-02-10
+**Last Updated:** 2026-02-17
 **Scope:** Full migration of all JS source/test files to TypeScript
 **Runtime:** Node.js v25 `--strip-types` (native TS stripping, no build step)
 **Strictness:** `strict: true` in root tsconfig
@@ -69,40 +70,38 @@
 
 ### 9 Hand-Written `.d.ts` Files
 
-| File | Provides Types For |
-|------|--------------------|
-| `api/types/pipeline-requests.d.ts` | Pipeline request/response types |
-| `sidequest/core/server.d.ts` | SidequestServer class |
-| `sidequest/pipeline-core/scan-orchestrator.d.ts` | ScanOrchestrator class |
-| `sidequest/pipeline-core/errors/error-types.d.ts` | Error classification types |
-| `sidequest/pipeline-core/errors/types.d.ts` | Error handling types |
-| `sidequest/utils/logger.d.ts` | Logger utilities |
-| `packages/shared-logging/src/index.d.ts` | @shared/logging exports |
-| `packages/shared-process-io/src/index.d.ts` | @shared/process-io exports |
-| `frontend/src/vite-env.d.ts` | Vite client types (keep as-is) |
+| File | Provides Types For | Status |
+|------|--------------------|--------|
+| `api/types/pipeline-requests.d.ts` | Pipeline request/response types | ✅ Deleted (Phase 0) |
+| `sidequest/core/server.d.ts` | SidequestServer class | Pending (Phase 6) |
+| `sidequest/pipeline-core/scan-orchestrator.d.ts` | ScanOrchestrator class | ✅ Deleted (Phase 0) |
+| `sidequest/pipeline-core/errors/error-types.d.ts` | Error classification types | ✅ Deleted (Phase 3) |
+| `sidequest/pipeline-core/errors/types.d.ts` | Error handling types | ✅ Deleted (Phase 3) |
+| `sidequest/utils/logger.d.ts` | Logger utilities | ✅ Deleted (Phase 2) |
+| `packages/shared-logging/src/index.d.ts` | @shared/logging exports | ✅ Deleted (Phase 2) |
+| `packages/shared-process-io/src/index.d.ts` | @shared/process-io exports | ✅ Deleted (Phase 2) |
+| `frontend/src/vite-env.d.ts` | Vite client types (keep as-is) | N/A |
 
-All `.d.ts` files except `vite-env.d.ts` will be deleted as their corresponding `.js` sources become `.ts`.
+**7/8 deleted.** Remaining: `sidequest/core/server.d.ts` (deleted in Phase 6).
 
-### 12 JS+TS Pairs (Stale Duplicates)
+### 12 JS+TS Pairs (Stale Duplicates) — ✅ ALL RESOLVED
 
-Files where both `.js` and `.ts` exist, indicating incomplete migration:
+All 12 stale `.js` files deleted. Importers updated to `.ts` extensions.
 
-| # | Base Path | Status |
-|---|-----------|--------|
-| 1 | `api/middleware/validation` | `.ts` is canonical (has Zod validation) |
-| 2 | `api/types/job-status` | `.ts` is canonical (Zod schema source) |
-| 3 | `api/types/pipeline-requests` | `.ts` is canonical (Zod schema source) |
-| 4 | `api/types/scan-requests` | `.ts` is canonical (Zod schema source) |
-| 5 | `api/types/repository-requests` | `.ts` is canonical (Zod schema source) |
-| 6 | `api/types/report-requests` | `.ts` is canonical (Zod schema source) |
-| 7 | `api/routes/pipelines` | `.ts` is canonical (uses typed middleware) |
-| 8 | `api/routes/scans` | `.ts` is canonical (uses typed middleware) |
-| 9 | `sidequest/types/duplicate-detection-types` | ✅ `.js` deleted (Phase 0) |
-| 10 | `sidequest/pipeline-core/types/scan-orchestrator-types` | ✅ `.js` deleted (Phase 0) |
-| 11 | `sidequest/pipeline-core/scan-orchestrator` | `.ts` is canonical (829 lines vs 458 lines .js) |
-| 12 | `sidequest/pipeline-runners/duplicate-detection-pipeline` | `.ts` is canonical (1,011 lines vs .js stub) |
-
-**Resolution:** For all 12 pairs, the `.ts` file is canonical. The `.js` file should be deleted after verifying no runtime references remain.
+| # | Base Path | Resolved In |
+|---|-----------|-------------|
+| 1 | `api/middleware/validation` | Phase 0 Batch 2 (`744fad2`) |
+| 2 | `api/types/job-status` | Phase 0 Batch 1 (`a688970`) |
+| 3 | `api/types/pipeline-requests` | Phase 0 Batch 1 (`a688970`) |
+| 4 | `api/types/scan-requests` | Phase 0 Batch 1 (`a688970`) |
+| 5 | `api/types/repository-requests` | Phase 0 Batch 1 (`a688970`) |
+| 6 | `api/types/report-requests` | Phase 0 Batch 1 (`a688970`) |
+| 7 | `api/routes/pipelines` | Phase 0 Batch 3 (`f71f777`) |
+| 8 | `api/routes/scans` | Phase 0 Batch 3 (`f71f777`) |
+| 9 | `sidequest/types/duplicate-detection-types` | Phase 0 pre (`43151ae`) |
+| 10 | `sidequest/pipeline-core/types/scan-orchestrator-types` | Phase 0 pre (`43151ae`) |
+| 11 | `sidequest/pipeline-core/scan-orchestrator` | Phase 0 Batch 4 (`d6bab33`) |
+| 12 | `sidequest/pipeline-runners/duplicate-detection-pipeline` | Phase 0 Batch 4 (`d6bab33`) |
 
 ---
 
@@ -184,116 +183,71 @@ PM2 requires CommonJS config files. This file stays as `.cjs` and is excluded fr
 
 ## 3. Migration Phases
 
-### Phase 0: JS+TS Pair Cleanup (Pre-Migration) — Partial ✅
+### Phase 0: JS+TS Pair Cleanup (Pre-Migration) — ✅ COMPLETE
 
 **Goal:** Remove 12 stale `.js` files that have `.ts` replacements.
 
-**Status:** 2/12 deleted. Remaining 10 have active runtime importers using `.js` extensions — blocked on Phase 1 (`--strip-types` enablement) to update import paths from `.js` to `.ts`.
+**Status:** All 12/12 pairs resolved. Stale `.js` and `.d.ts` files deleted, importers updated to `.ts` extensions.
 
-**Deleted (2):**
-- ~~`sidequest/types/duplicate-detection-types.js`~~ — zero importers, deleted
-- ~~`sidequest/pipeline-core/types/scan-orchestrator-types.js`~~ — zero importers, deleted
-
-**Blocked on Phase 1 (10):**
-- `api/middleware/validation.js` — imported by `api/routes/pipelines.js`, `api/routes/scans.js`
-- `api/types/job-status.js` — imported by 6 route/middleware files
-- `api/types/pipeline-requests.js` — imported by `api/routes/pipelines.js`
-- `api/types/scan-requests.js` — imported by `api/routes/scans.js`
-- `api/types/repository-requests.js` — imported by `api/routes/repositories.js`
-- `api/types/report-requests.js` — imported by `api/routes/reports.js`
-- `api/routes/pipelines.js` — imported by `api/server.js`
-- `api/routes/scans.js` — imported by `api/server.js`
-- `sidequest/pipeline-core/scan-orchestrator.js` — imported by `sidequest/workers/duplicate-detection.js`
-- `sidequest/pipeline-runners/duplicate-detection-pipeline.js` — imported by `sidequest/workers/duplicate-detection.js`
-
-**Pre-check:** Verify no runtime `require()` or dynamic `import()` references the `.js` file directly. Grep for each filename across the codebase.
-
-**Verification:** `npm run typecheck && npm test && npm run test:integration`
+**Commits:**
+- `43151ae` — Batch 0: deleted `duplicate-detection-types.js`, `scan-orchestrator-types.js` (zero importers)
+- `a688970` — Batch 1: deleted 5 type `.js` files (`job-status`, `pipeline-requests`, `scan-requests`, `repository-requests`, `report-requests`), updated importers
+- `744fad2` — Batch 2: deleted `validation.js`, updated importers
+- `f71f777` — Batch 3: deleted `pipelines.js`, `scans.js` route files, updated `api/server.js`
+- `d6bab33` — Batch 4: deleted `scan-orchestrator.js`, `duplicate-detection-pipeline.js`, `pipeline-requests.d.ts`, `scan-orchestrator.d.ts`
 
 ---
 
-### Phase 1: Infrastructure
+### Phase 1: Infrastructure — ✅ COMPLETE
 
 **Goal:** Configure tooling for TypeScript-first execution.
 
-**Changes:**
+**Commit:** `b98784f` — strict mode, node16 resolution, --strip-types
 
-1. **`tsconfig.json`** (root):
-   - Set `strict: true`
-   - Change `moduleResolution` from `node` to `node16` (supports `.ts` imports)
-   - Remove `"**/*.js"` from `include` (after all files migrated, progressive)
-   - Add `"allowImportingTsExtensions": true`
+**Changes applied:**
+1. `tsconfig.json`: `strict: true`, `moduleResolution: "node16"`, `allowImportingTsExtensions: true`
+2. `tests/tsconfig.json`: `checkJs: true`, aligned with root
+3. `config/ecosystem.config.cjs`: added `--strip-types` to `node_args`
+4. `package.json`: added `--strip-types` to all `node` invocations
+5. `scripts/deploy-traditional-server.sh`: updated Node.js version requirement to v25+
 
-2. **`tests/tsconfig.json`**:
-   - Set `checkJs: true` (currently `false`)
-   - Align settings with root
-
-3. **`config/ecosystem.config.cjs`**:
-   - Add `--strip-types` to `node_args`
-   - Update `script` paths from `.js` to `.ts` (done incrementally as files migrate)
-
-4. **`package.json`** scripts:
-   - Add `--strip-types` flag to all `node` invocations
-   - Update entry point references as files migrate
-
-5. **`scripts/deploy-traditional-server.sh`**:
-   - Update Node.js version requirement to v25+
-   - Update `chmod +x` targets to include `.ts` files
-   - Update `brew install node@20` to `brew install node@25`
-
-6. **CI/pre-commit hooks:**
-   - Ensure `npm run typecheck` runs with `strict: true`
-
-**Files modified:** 4-5 config files
-**Verification:** `npm run typecheck` passes (may have new strict errors that later phases fix)
+**Follow-up fixes:**
+- `62e57c6` — resolved strict-mode TS errors in already-migrated `.ts` files (pipelines, scans, scan-orchestrator, duplicate-detection-pipeline)
+- `2ccd876` — resolved strict-mode errors in test-refactor-pipeline.ts
 
 ---
 
-### Phase 2: Foundation (0 Dependencies, High Fan-In)
+### Phase 2: Foundation (0 Dependencies, High Fan-In) — ✅ COMPLETE
 
 **Goal:** Migrate the most-imported, least-dependent files first.
 
-| File | Lines | Fan-In | Dependencies |
-|------|------:|-------:|--------------|
-| `sidequest/core/constants.js` | 228 | 34 | None |
-| `sidequest/core/config.js` | 239 | 26 | None |
-| `sidequest/utils/logger.js` | 142 | 85+ | None (wraps @shared/logging) |
-| `sidequest/utils/time-helpers.js` | 78 | ~5 | None |
-| `sidequest/utils/pipeline-names.js` | 62 | ~5 | None |
-| `sidequest/pipeline-core/utils/error-helpers.js` | 258 | ~10 | None |
-| `sidequest/pipeline-core/utils/fs-helpers.js` | 104 | ~5 | None |
-| `sidequest/pipeline-core/utils/timing-helpers.js` | 80 | ~5 | None |
-| `sidequest/pipeline-core/utils/process-helpers.js` | 15 | ~3 | None |
-| `sidequest/pipeline-core/utils/index.js` | 12 | ~10 | Above utils |
-| `packages/shared-logging/src/logger.js` | 95 | ~85 | None (pino) |
-| `packages/shared-logging/src/index.js` | 1 | ~85 | logger.js |
-| `packages/shared-process-io/src/index.js` | 161 | ~10 | None |
+**Status:** All 13 files migrated `.js` → `.ts`. 3 stale `.d.ts` files deleted. Import paths updated across ~70 downstream files. *(uncommitted — pending commit)*
 
-**Total:** ~13 files, ~1,475 lines
+**Files migrated:**
+- `sidequest/core/constants.ts`, `sidequest/core/config.ts`
+- `sidequest/utils/logger.ts`, `sidequest/utils/time-helpers.ts`, `sidequest/utils/pipeline-names.ts`
+- `sidequest/pipeline-core/utils/error-helpers.ts`, `fs-helpers.ts`, `timing-helpers.ts`, `process-helpers.ts`, `index.ts`
+- `packages/shared-logging/src/logger.ts`, `packages/shared-logging/src/index.ts`
+- `packages/shared-process-io/src/index.ts`
 
-**After this phase:** Delete `sidequest/utils/logger.d.ts`, `packages/shared-logging/src/index.d.ts`, `packages/shared-process-io/src/index.d.ts` (3 `.d.ts` files).
-
-**Verification:** `npm run typecheck && npm test`
+**Deleted `.d.ts`:** `logger.d.ts`, `shared-logging/src/index.d.ts`, `shared-process-io/src/index.d.ts`
 
 ---
 
-### Phase 3: Types & Errors
+### Phase 3: Types & Errors — ✅ COMPLETE
 
 **Goal:** Migrate type definitions and error handling.
 
-| File | Lines | Notes |
-|------|------:|-------|
-| `sidequest/pipeline-core/errors/error-classifier.js` | 433 | Depends on: constants |
-| `api/utils/api-error.js` | 144 | Express error utilities |
-| `api/preload.js` | 9 | EventEmitter setup |
+**Status:** All 3 files migrated. 2 stale `.d.ts` files deleted (`pipeline-requests.d.ts` already deleted in Phase 0 Batch 4). *(uncommitted — pending commit)*
 
-**Type files already migrated:** `api/types/*.ts`, `sidequest/types/*.ts`, `sidequest/pipeline-core/types/*.ts` (cleaned up in Phase 0).
+**Files migrated:**
+- `sidequest/pipeline-core/errors/error-classifier.ts`
+- `api/utils/api-error.ts`
+- `api/preload.ts`
 
-**After this phase:** Delete `sidequest/pipeline-core/errors/error-types.d.ts`, `sidequest/pipeline-core/errors/types.d.ts`, `api/types/pipeline-requests.d.ts` (3 `.d.ts` files).
+**Deleted `.d.ts`:** `error-types.d.ts`, `types.d.ts`
 
-**Total:** ~3 files, ~586 lines
-
-**Verification:** `npm run typecheck && npm test`
+**Note:** `ecosystem.config.cjs` updated: `--require ./api/preload.ts`
 
 ---
 
@@ -308,7 +262,7 @@ PM2 requires CommonJS config files. This file stays as `.cjs` and is excluded fr
 
 **Total:** 2 files, 1,171 lines
 
-**Note:** `database.js` is the largest core file (961 lines). Expect significant strict mode fixes around sql.js return types and null handling.
+**Note:** `database.js` is the largest core file (961 lines). Uses better-sqlite3 (migrated from sql.js). Expect significant strict mode fixes around statement return types and null handling.
 
 **Verification:** `npm run typecheck && npm test && npm run test:integration`
 
@@ -463,19 +417,19 @@ PM2 requires CommonJS config files. This file stays as `.cjs` and is excluded fr
 
 ### Phase Summary
 
-| Phase | Description | Files | Lines | Risk |
-|------:|-------------|------:|------:|------|
-| 0 | JS+TS pair cleanup | 12 deleted | -3,100 | Low |
-| 1 | Infrastructure | 4-5 configs | - | Medium |
-| 2 | Foundation | ~13 | 1,475 | Low |
-| 3 | Types & Errors | ~3 | 586 | Low |
-| 4 | Data Layer | 2 | 1,171 | Medium |
-| 5 | Git & Workflow | 4 | 2,046 | Low |
-| 6 | Core Server | 2 | 1,012 | **High** |
-| 7 | Pipeline Core | 15 | 5,849 | Medium |
-| 8 | Workers & Runners | ~15 | 5,937 | Low |
-| 9 | API Layer | 12 | 3,483 | Medium |
-| 10 | Tests, Scripts, Packages | ~102 | 32,978 | Low |
+| Phase | Description | Files | Lines | Risk | Status |
+|------:|-------------|------:|------:|------|--------|
+| 0 | JS+TS pair cleanup | 12 deleted | -3,100 | Low | ✅ Done |
+| 1 | Infrastructure | 4-5 configs | - | Medium | ✅ Done |
+| 2 | Foundation | ~13 | 1,475 | Low | ✅ Done |
+| 3 | Types & Errors | ~3 | 586 | Low | ✅ Done |
+| 4 | Data Layer | 2 | 1,171 | Medium | Pending |
+| 5 | Git & Workflow | 4 | 2,046 | Low | Pending |
+| 6 | Core Server | 2 | 1,012 | **High** | Pending |
+| 7 | Pipeline Core | 15 | 5,849 | Medium | Pending |
+| 8 | Workers & Runners | ~15 | 5,937 | Low | Pending |
+| 9 | API Layer | 12 | 3,483 | Medium | Pending |
+| 10 | Tests, Scripts, Packages | ~102 | 32,978 | Low | Pending |
 
 ---
 
@@ -600,14 +554,14 @@ After deploying each phase:
 ```
 Layer 0: External packages (zod, express, pino, sql.js, node-cron, @sentry/node)
 
-Layer 1: Foundation (Phase 2)
+Layer 1: Foundation (Phase 2) ✅
 ├── constants.ts          ← 34 importers
 ├── config.ts             ← 26 importers
 ├── @shared/logging       ← 85+ importers
 ├── @shared/process-io    ← ~10 importers
 └── utils (error-helpers, fs-helpers, timing-helpers, logger)
 
-Layer 2: Types & Errors (Phase 3)
+Layer 2: Types & Errors (Phase 3) ✅
 ├── api/types/*.ts        ← already migrated
 ├── error-classifier.ts   → constants
 └── api-error.ts          → (standalone)

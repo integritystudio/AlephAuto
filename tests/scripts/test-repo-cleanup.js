@@ -5,7 +5,7 @@
  */
 
 import { RepoCleanupWorker } from '../../sidequest/workers/repo-cleanup-worker.js';
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 import path from 'path';
 
 const logger = createComponentLogger('TestRepoCleanup');

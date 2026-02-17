@@ -1,6 +1,6 @@
 import { RepomixWorker } from '../../workers/repomix-worker.js';
-import { createComponentLogger, logStart } from '../../utils/logger.js';
-import { config } from '../../core/config.js';
+import { createComponentLogger, logStart } from '../../utils/logger.ts';
+import { config } from '../../core/config.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import { execSync } from 'child_process';

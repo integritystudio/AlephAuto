@@ -6,8 +6,8 @@ import { captureProcessOutput } from '@shared/process-io';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { createComponentLogger } from '../utils/logger.js';
-import { TIMEOUTS, TIME } from '../core/constants.js';
+import { createComponentLogger } from '../utils/logger.ts';
+import { TIMEOUTS, TIME } from '../core/constants.ts';
 
 const logger = createComponentLogger('GitActivityWorker');
 

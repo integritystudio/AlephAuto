@@ -4,7 +4,7 @@
  * Centralized error handling for API endpoints.
  */
 
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('ErrorHandler');

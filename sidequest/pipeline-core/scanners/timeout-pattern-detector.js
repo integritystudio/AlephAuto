@@ -19,7 +19,7 @@ import { spawn } from 'child_process';
 import { captureProcessOutput } from '@shared/process-io';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { createComponentLogger } from '../../utils/logger.js';
+import { createComponentLogger } from '../../utils/logger.ts';
 
 /**
  * Timeout Pattern Detector

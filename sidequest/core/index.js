@@ -1,11 +1,11 @@
 import cron from 'node-cron';
 import { RepomixWorker } from '../workers/repomix-worker.js';
 import { DirectoryScanner } from '../utils/directory-scanner.js';
-import { config } from './config.js';
-import { TIMEOUTS, TIME } from './constants.js';
+import { config } from './config.ts';
+import { TIMEOUTS, TIME } from './constants.ts';
 import path from 'path';
 import fs from 'fs/promises';
-import { createComponentLogger, logError, logStart } from '../utils/logger.js';
+import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 
 const logger = createComponentLogger('RepomixCronApp');
 

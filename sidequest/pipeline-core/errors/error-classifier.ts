@@ -16,26 +16,67 @@
  * @module lib/errors/error-classifier
  */
 
-// @ts-check
-import { RETRY } from '../../core/constants.js';
-/** @typedef {import('./types').HTTPError} HTTPError */
-/** @typedef {import('./types').ClassifiedError} ClassifiedError */
-/** @typedef {import('./error-types').ExtendedError} ExtendedError */
+import { RETRY } from '../../core/constants.ts';
 
 /**
- * @typedef {Object} ErrorClassification
- * @property {string} category - 'retryable' or 'non_retryable'
- * @property {string} reason - Human-readable explanation
- * @property {number} suggestedDelay - Retry delay in milliseconds (0 for non-retryable)
+ * HTTP Error with status code
  */
+export interface HTTPError extends Error {
+  statusCode?: number;
+  status?: number;
+}
 
 /**
- * @typedef {Object} ErrorCodeConfig
- * @property {boolean} retryable - Whether this error type is retryable
- * @property {string} description - Human-readable description
- * @property {number} delay - Suggested retry delay in milliseconds
- * @property {'filesystem' | 'network' | 'application' | 'http'} group - Error category group
+ * Combined error type with all possible properties
  */
+export interface ExtendedError extends Error {
+  code?: string | number;
+  errno?: number | string;
+  syscall?: string;
+  path?: string;
+  stdout?: string;
+  stderr?: string;
+  statusCode?: number;
+  status?: number;
+  response?: {
+    status?: number;
+    statusText?: string;
+    data?: unknown;
+  };
+}
+
+/**
+ * Classified Error with retry information
+ */
+export interface ClassifiedError extends Error {
+  retryable?: boolean;
+  classification?: {
+    category: 'network' | 'file_system' | 'http' | 'database' | 'unknown';
+    retryable: boolean;
+    severity: 'low' | 'medium' | 'high';
+  };
+  statusCode?: number;
+  status?: number;
+}
+
+export interface ErrorClassification {
+  category: string;
+  reason: string;
+  suggestedDelay: number;
+}
+
+interface ErrorCodeConfig {
+  retryable: boolean;
+  description: string;
+  delay: number;
+  group: 'filesystem' | 'network' | 'application' | 'http';
+}
+
+interface MessagePatternConfig {
+  pattern: string;
+  retryable: boolean;
+  delay: number;
+}
 
 /**
  * Error categories
@@ -43,7 +84,7 @@ import { RETRY } from '../../core/constants.js';
 export const ErrorCategory = {
   RETRYABLE: 'retryable',
   NON_RETRYABLE: 'non_retryable'
-};
+} as const;
 
 // =============================================================================
 // ERROR CODE CONFIGURATION
@@ -52,13 +93,9 @@ export const ErrorCategory = {
 /**
  * Centralized error code configuration.
  * Each error code maps to its classification properties.
- *
- * @type {Record<string, ErrorCodeConfig>}
  */
-const ERROR_CODE_CONFIG = {
-  // -------------------------------------------------------------------------
+const ERROR_CODE_CONFIG: Record<string, ErrorCodeConfig> = {
   // Filesystem errors (non-retryable)
-  // -------------------------------------------------------------------------
   ENOENT: { retryable: false, description: 'No such file or directory', delay: 0, group: 'filesystem' },
   ENOTDIR: { retryable: false, description: 'Not a directory', delay: 0, group: 'filesystem' },
   EISDIR: { retryable: false, description: 'Is a directory (when file expected)', delay: 0, group: 'filesystem' },
@@ -67,15 +104,11 @@ const ERROR_CODE_CONFIG = {
   EINVAL: { retryable: false, description: 'Invalid argument', delay: 0, group: 'filesystem' },
   EEXIST: { retryable: false, description: 'File already exists', delay: 0, group: 'filesystem' },
 
-  // -------------------------------------------------------------------------
   // Network errors - permanent (non-retryable)
-  // -------------------------------------------------------------------------
   ENOTFOUND: { retryable: false, description: 'DNS resolution failed', delay: 0, group: 'network' },
   ECONNREFUSED: { retryable: false, description: 'Connection refused (server not listening)', delay: 0, group: 'network' },
 
-  // -------------------------------------------------------------------------
   // Network errors - transient (retryable)
-  // -------------------------------------------------------------------------
   ETIMEDOUT: { retryable: true, description: 'Connection timed out', delay: RETRY.SERVER_ERROR_DELAY_MS, group: 'network' },
   ECONNRESET: { retryable: true, description: 'Connection reset by peer', delay: RETRY.NETWORK_ERROR_DELAY_MS, group: 'network' },
   EHOSTUNREACH: { retryable: true, description: 'Host unreachable', delay: RETRY.NETWORK_ERROR_DELAY_MS, group: 'network' },
@@ -84,18 +117,14 @@ const ERROR_CODE_CONFIG = {
   EAGAIN: { retryable: true, description: 'Resource temporarily unavailable', delay: RETRY.NETWORK_ERROR_DELAY_MS, group: 'network' },
   EBUSY: { retryable: true, description: 'Resource busy', delay: RETRY.NETWORK_ERROR_DELAY_MS, group: 'network' },
 
-  // -------------------------------------------------------------------------
   // Application errors (non-retryable)
-  // -------------------------------------------------------------------------
   ERR_INVALID_ARG_TYPE: { retryable: false, description: 'Invalid argument type', delay: 0, group: 'application' },
   ERR_INVALID_ARG_VALUE: { retryable: false, description: 'Invalid argument value', delay: 0, group: 'application' },
   ERR_MODULE_NOT_FOUND: { retryable: false, description: 'Module not found', delay: 0, group: 'application' },
   ERR_REQUIRE_ESM: { retryable: false, description: 'Cannot require ESM module', delay: 0, group: 'application' },
   ERR_UNKNOWN_FILE_EXTENSION: { retryable: false, description: 'Unknown file extension', delay: 0, group: 'application' },
 
-  // -------------------------------------------------------------------------
   // HTTP error codes (non-retryable client errors)
-  // -------------------------------------------------------------------------
   ERR_HTTP_400: { retryable: false, description: 'Bad Request', delay: 0, group: 'http' },
   ERR_HTTP_401: { retryable: false, description: 'Unauthorized', delay: 0, group: 'http' },
   ERR_HTTP_403: { retryable: false, description: 'Forbidden', delay: 0, group: 'http' },
@@ -104,9 +133,7 @@ const ERROR_CODE_CONFIG = {
   ERR_HTTP_409: { retryable: false, description: 'Conflict', delay: 0, group: 'http' },
   ERR_HTTP_422: { retryable: false, description: 'Unprocessable Entity', delay: 0, group: 'http' },
 
-  // -------------------------------------------------------------------------
   // HTTP error codes (retryable server errors)
-  // -------------------------------------------------------------------------
   ERR_HTTP_500: { retryable: true, description: 'Internal Server Error', delay: RETRY.SERVER_ERROR_DELAY_MS, group: 'http' },
   ERR_HTTP_502: { retryable: true, description: 'Bad Gateway', delay: RETRY.SERVER_ERROR_DELAY_MS, group: 'http' },
   ERR_HTTP_503: { retryable: true, description: 'Service Unavailable', delay: RETRY.SERVER_ERROR_DELAY_MS, group: 'http' },
@@ -117,42 +144,21 @@ const ERROR_CODE_CONFIG = {
 // HTTP STATUS CODE CONFIGURATION
 // =============================================================================
 
-/**
- * HTTP status code ranges and special cases
- */
 const HTTP_STATUS_CONFIG = {
-  /** Rate limit status code - retryable with long delay */
   RATE_LIMIT: 429,
   RATE_LIMIT_DELAY: RETRY.RATE_LIMIT_DELAY_MS,
-
-  /** Client error range (4xx) - non-retryable except 429 */
   CLIENT_ERROR_MIN: 400,
   CLIENT_ERROR_MAX: 499,
-
-  /** Server error range (5xx) - retryable */
   SERVER_ERROR_MIN: 500,
   SERVER_ERROR_MAX: 599,
   SERVER_ERROR_DELAY: RETRY.SERVER_ERROR_DELAY_MS
-};
+} as const;
 
 // =============================================================================
 // MESSAGE PATTERN CONFIGURATION
 // =============================================================================
 
-/**
- * @typedef {Object} MessagePatternConfig
- * @property {string} pattern - Substring to match (case-insensitive)
- * @property {boolean} retryable - Whether this pattern indicates retryable error
- * @property {number} delay - Suggested retry delay in milliseconds
- */
-
-/**
- * Error message patterns for classification.
- * Checked in order - first match wins.
- *
- * @type {MessagePatternConfig[]}
- */
-const MESSAGE_PATTERNS = [
+const MESSAGE_PATTERNS: MessagePatternConfig[] = [
   // Non-retryable patterns (checked first for safety)
   { pattern: 'invalid repository path', retryable: false, delay: 0 },
   { pattern: 'not a git repository', retryable: false, delay: 0 },
@@ -182,20 +188,13 @@ const MESSAGE_PATTERNS = [
 // DEFAULT CLASSIFICATION
 // =============================================================================
 
-/**
- * Default classification for unknown errors.
- * Conservative approach: treat unknown as retryable to avoid data loss.
- */
-const DEFAULT_CLASSIFICATION = {
+const DEFAULT_CLASSIFICATION: ErrorClassification = {
   category: ErrorCategory.RETRYABLE,
   reason: 'Unknown error type - defaulting to retryable',
   suggestedDelay: RETRY.DEFAULT_DELAY_MS
 };
 
-/**
- * Classification for null/undefined errors
- */
-const NULL_ERROR_CLASSIFICATION = {
+const NULL_ERROR_CLASSIFICATION: ErrorClassification = {
   category: ErrorCategory.NON_RETRYABLE,
   reason: 'No error provided',
   suggestedDelay: 0
@@ -205,14 +204,7 @@ const NULL_ERROR_CLASSIFICATION = {
 // CLASSIFICATION FUNCTIONS
 // =============================================================================
 
-/**
- * Classify error by error code lookup.
- *
- * @param {string} errorCode - The error code to classify
- * @returns {ErrorClassification | null} Classification or null if not found
- * @private
- */
-function classifyByErrorCode(errorCode) {
+function classifyByErrorCode(errorCode: string): ErrorClassification | null {
   const config = ERROR_CODE_CONFIG[errorCode];
   if (!config) return null;
 
@@ -223,15 +215,7 @@ function classifyByErrorCode(errorCode) {
   };
 }
 
-/**
- * Classify error by HTTP status code.
- *
- * @param {number} statusCode - The HTTP status code
- * @returns {ErrorClassification | null} Classification or null if not applicable
- * @private
- */
-function classifyByHttpStatus(statusCode) {
-  // Rate limit - special case, always retryable
+function classifyByHttpStatus(statusCode: number): ErrorClassification | null {
   if (statusCode === HTTP_STATUS_CONFIG.RATE_LIMIT) {
     return {
       category: ErrorCategory.RETRYABLE,
@@ -240,7 +224,6 @@ function classifyByHttpStatus(statusCode) {
     };
   }
 
-  // Client errors (4xx except 429) - non-retryable
   if (statusCode >= HTTP_STATUS_CONFIG.CLIENT_ERROR_MIN &&
       statusCode <= HTTP_STATUS_CONFIG.CLIENT_ERROR_MAX) {
     return {
@@ -250,7 +233,6 @@ function classifyByHttpStatus(statusCode) {
     };
   }
 
-  // Server errors (5xx) - retryable
   if (statusCode >= HTTP_STATUS_CONFIG.SERVER_ERROR_MIN &&
       statusCode <= HTTP_STATUS_CONFIG.SERVER_ERROR_MAX) {
     return {
@@ -263,14 +245,7 @@ function classifyByHttpStatus(statusCode) {
   return null;
 }
 
-/**
- * Classify error by message pattern matching.
- *
- * @param {string} message - The error message (lowercase)
- * @returns {ErrorClassification | null} Classification or null if no pattern matches
- * @private
- */
-function classifyByMessagePattern(message) {
+function classifyByMessagePattern(message: string): ErrorClassification | null {
   for (const config of MESSAGE_PATTERNS) {
     if (message.includes(config.pattern)) {
       return {
@@ -289,27 +264,16 @@ function classifyByMessagePattern(message) {
 
 /**
  * Classify an error as retryable or non-retryable.
- *
- * Uses a priority-based classification strategy:
- * 1. Error codes (highest priority) - direct lookup
- * 2. HTTP status codes - range-based classification
- * 3. Message patterns - substring matching
- * 4. Default (lowest priority) - conservative retryable
- *
- * @param {Error} error - The error to classify
- * @returns {ErrorClassification} Classification result
  */
-export function classifyError(error) {
-  // Handle null/undefined errors
+export function classifyError(error: Error | null | undefined): ErrorClassification {
   if (!error) {
     return NULL_ERROR_CLASSIFICATION;
   }
 
-  // Extract error properties
-  const extError = /** @type {ExtendedError} */ (error);
-  const errorCode = extError.code || extError.errno;
-  const httpError = /** @type {HTTPError} */ (error);
-  const statusCode = httpError.statusCode || httpError.status;
+  const extError = error as ExtendedError;
+  const errorCode = extError.code ?? extError.errno;
+  const httpError = error as HTTPError;
+  const statusCode = httpError.statusCode ?? httpError.status;
 
   // Priority 1: Check error code
   if (errorCode) {
@@ -324,7 +288,7 @@ export function classifyError(error) {
   }
 
   // Priority 3: Check message patterns
-  const errorMessage = error.message?.toLowerCase() || '';
+  const errorMessage = error.message?.toLowerCase() ?? '';
   if (errorMessage) {
     const messageClassification = classifyByMessagePattern(errorMessage);
     if (messageClassification) return messageClassification;
@@ -335,31 +299,52 @@ export function classifyError(error) {
 }
 
 /**
- * Check if an error is retryable.
- *
- * @param {Error} error - The error to check
- * @returns {boolean} True if the error should be retried
+ * Type guard: check if an error is an HTTPError.
  */
-export function isRetryable(error) {
+export function isHTTPError(error: Error): error is HTTPError {
+  return 'statusCode' in error || 'status' in error;
+}
+
+/**
+ * Type guard: check if an error is a ClassifiedError.
+ */
+export function isClassifiedError(error: Error): error is ClassifiedError {
+  return 'classification' in error && 'retryable' in error;
+}
+
+/**
+ * Check if an error is retryable.
+ */
+export function isRetryable(error: Error): boolean {
   return classifyError(error).category === ErrorCategory.RETRYABLE;
+}
+
+export interface ErrorInfo {
+  name: string;
+  message: string;
+  code: string | number | undefined;
+  statusCode: number | undefined;
+  category: string;
+  reason: string;
+  suggestedDelay: number;
+  retryable: boolean;
+  stack: string | undefined;
+  cause: unknown;
 }
 
 /**
  * Get detailed error information including classification.
- *
- * @param {Error} error - The error to analyze
- * @returns {Object} Detailed error information
  */
-export function getErrorInfo(error) {
+export function getErrorInfo(error: Error): ErrorInfo {
   const classification = classifyError(error);
-  const extError = /** @type {ExtendedError} */ (error);
-  const httpError = /** @type {HTTPError} */ (error);
+  const extError = error as ExtendedError;
+  const httpError = error as HTTPError;
 
   return {
-    name: error.name || 'Error',
-    message: error.message || 'Unknown error',
-    code: extError.code || extError.errno,
-    statusCode: httpError.statusCode || httpError.status,
+    name: error.name ?? 'Error',
+    message: error.message ?? 'Unknown error',
+    code: extError.code ?? extError.errno,
+    statusCode: httpError.statusCode ?? httpError.status,
     category: classification.category,
     reason: classification.reason,
     suggestedDelay: classification.suggestedDelay,
@@ -371,12 +356,8 @@ export function getErrorInfo(error) {
 
 /**
  * Determine error category group for a given error.
- *
- * @param {Error} error - The error to categorize
- * @returns {'network' | 'file_system' | 'http' | 'database' | 'unknown'} Category group
- * @private
  */
-function getErrorCategoryGroup(error) {
+function getErrorCategoryGroup(error: Error): 'network' | 'file_system' | 'http' | 'database' | 'unknown' {
   const classification = classifyError(error);
   const reason = classification.reason.toLowerCase();
 
@@ -394,31 +375,26 @@ function getErrorCategoryGroup(error) {
 
 /**
  * Create a ScanError with classification.
- *
- * @param {string} message - Error message
- * @param {Error} cause - Original error
- * @returns {Error} Classified error
  */
-export function createScanError(message, cause) {
+export function createScanError(message: string, cause: Error): Error {
   const error = new Error(message);
   error.name = 'ScanError';
   error.cause = cause;
 
-  // Cast to typed error interfaces for property assignment
-  const httpError = /** @type {HTTPError} */ (error);
-  const classifiedError = /** @type {ClassifiedError} */ (error);
+  const httpError = error as HTTPError;
+  const classifiedError = error as ClassifiedError;
 
   // Preserve original error properties
   if (cause) {
-    const extCause = /** @type {ExtendedError} */ (cause);
-    const httpCause = /** @type {HTTPError} */ (cause);
-    const extError = /** @type {ExtendedError} */ (error);
-    extError.code = extCause.code || extCause.errno;
-    httpError.statusCode = httpCause.statusCode || httpCause.status;
+    const extCause = cause as ExtendedError;
+    const httpCause = cause as HTTPError;
+    const extError = error as ExtendedError;
+    extError.code = extCause.code ?? extCause.errno;
+    httpError.statusCode = httpCause.statusCode ?? httpCause.status;
   }
 
   // Add classification
-  const errorToClassify = cause || error;
+  const errorToClassify = cause ?? error;
   const classification = classifyError(errorToClassify);
   const categoryGroup = getErrorCategoryGroup(errorToClassify);
 

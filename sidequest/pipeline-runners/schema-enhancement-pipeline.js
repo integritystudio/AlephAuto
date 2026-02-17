@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { SchemaEnhancementWorker } from '../workers/schema-enhancement-worker.js';
-import { config } from '../core/config.js';
-import { TIMEOUTS } from '../core/constants.js';
-import { createComponentLogger, logError, logStart } from '../utils/logger.js';
+import { config } from '../core/config.ts';
+import { TIMEOUTS } from '../core/constants.ts';
+import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import cron from 'node-cron';
 import fs from 'fs/promises';
 import path from 'path';

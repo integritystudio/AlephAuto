@@ -8,8 +8,8 @@
 import { HTMLReportGenerator } from './html-report-generator.js';
 import { MarkdownReportGenerator } from './markdown-report-generator.js';
 import { JSONReportGenerator } from './json-report-generator.js';
-import { createComponentLogger, logError } from '../../utils/logger.js';
-import { createTimer, ensureDir } from '../utils/index.js';
+import { createComponentLogger, logError } from '../../utils/logger.ts';
+import { createTimer, ensureDir } from '../utils/index.ts';
 import path from 'path';
 import fs from 'fs/promises';
 

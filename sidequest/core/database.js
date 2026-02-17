@@ -12,9 +12,9 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { createComponentLogger, logMetrics } from '../utils/logger.js';
+import { createComponentLogger, logMetrics } from '../utils/logger.ts';
 import { isValidJobStatus } from '../../api/types/job-status.ts';
-import { VALIDATION } from './constants.js';
+import { VALIDATION } from './constants.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logger = createComponentLogger('Database');

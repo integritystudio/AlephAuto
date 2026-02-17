@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @ts-nocheck
 import { GitignoreWorker } from '../workers/gitignore-worker.js';
-import { createComponentLogger, logError } from '../utils/logger.js';
+import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
 import path from 'path';

@@ -14,7 +14,7 @@ import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert';
 
 // Import constants first (no side effects)
-import { CONCURRENCY } from '../../sidequest/core/constants.js';
+import { CONCURRENCY } from '../../sidequest/core/constants.ts';
 
 describe('Worker Registry - Constants', () => {
 

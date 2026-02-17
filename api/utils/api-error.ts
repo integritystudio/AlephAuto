@@ -5,7 +5,8 @@
  * Format: { success: false, error: { code, message }, timestamp }
  */
 
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import type { Response } from 'express';
+import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 
 const logger = createComponentLogger('ApiError');
 
@@ -31,19 +32,17 @@ export const ERROR_CODES = {
   WORKER_NOT_FOUND: 'WORKER_NOT_FOUND',
   CANCEL_FAILED: 'CANCEL_FAILED',
   MIGRATION_NOT_CONFIGURED: 'MIGRATION_NOT_CONFIGURED'
-};
+} as const;
 
 /**
  * API Error class with standardized JSON serialization
  */
 export class ApiError extends Error {
-  /**
-   * @param {string} code - Error code (use ERROR_CODES constants)
-   * @param {string} message - Human-readable error message
-   * @param {number} status - HTTP status code (default: 400)
-   * @param {object} details - Optional additional error details
-   */
-  constructor(code, message, status = 400, details = null) {
+  code: string;
+  status: number;
+  details: object | null;
+
+  constructor(code: string, message: string, status = 400, details: object | null = null) {
     super(message);
     this.code = code;
     this.status = status;
@@ -51,11 +50,8 @@ export class ApiError extends Error {
     this.name = 'ApiError';
   }
 
-  /**
-   * Convert to standardized JSON response format
-   */
   toJSON() {
-    const response = {
+    const response: { success: false; error: { code: string; message: string; details?: object }; timestamp: string } = {
       success: false,
       error: {
         code: this.code,
@@ -64,7 +60,6 @@ export class ApiError extends Error {
       timestamp: new Date().toISOString()
     };
 
-    // Include additional details if present
     if (this.details) {
       response.error.details = this.details;
     }
@@ -75,16 +70,9 @@ export class ApiError extends Error {
 
 /**
  * Send standardized error response
- *
- * @param {object} res - Express response object
- * @param {string} code - Error code (use ERROR_CODES constants)
- * @param {string} message - Human-readable error message
- * @param {number} status - HTTP status code (default: 400)
- * @param {object} details - Optional additional error details
- * @returns {object} Express response
  */
-export function sendError(res, code, message, status = 400, details = null) {
-  const response = {
+export function sendError(res: Response, code: string, message: string, status = 400, details: object | null = null) {
+  const response: { success: false; error: { code: string; message: string; details?: object }; timestamp: string } = {
     success: false,
     error: {
       code,
@@ -93,7 +81,6 @@ export function sendError(res, code, message, status = 400, details = null) {
     timestamp: new Date().toISOString()
   };
 
-  // Include additional details if present
   if (details) {
     response.error.details = details;
   }
@@ -105,25 +92,15 @@ export function sendError(res, code, message, status = 400, details = null) {
 
 /**
  * Send validation error response
- *
- * @param {object} res - Express response object
- * @param {string} message - Validation error message
- * @param {array} errors - Array of field-level validation errors
- * @returns {object} Express response
  */
-export function sendValidationError(res, message, errors = []) {
+export function sendValidationError(res: Response, message: string, errors: unknown[] = []) {
   return sendError(res, ERROR_CODES.INVALID_REQUEST, message, 400, { errors });
 }
 
 /**
  * Send not found error response
- *
- * @param {object} res - Express response object
- * @param {string} resource - Resource type (e.g., 'Job', 'Repository')
- * @param {string} identifier - Resource identifier
- * @returns {object} Express response
  */
-export function sendNotFoundError(res, resource, identifier) {
+export function sendNotFoundError(res: Response, resource: string, identifier: string) {
   return sendError(
     res,
     ERROR_CODES.NOT_FOUND,
@@ -134,11 +111,7 @@ export function sendNotFoundError(res, resource, identifier) {
 
 /**
  * Send internal server error response
- *
- * @param {object} res - Express response object
- * @param {string} message - Error message
- * @returns {object} Express response
  */
-export function sendInternalError(res, message = 'An internal error occurred') {
+export function sendInternalError(res: Response, message = 'An internal error occurred') {
   return sendError(res, ERROR_CODES.INTERNAL_ERROR, message, 500);
 }

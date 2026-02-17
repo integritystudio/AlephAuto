@@ -6,7 +6,7 @@
  */
 
 import { RepomixWorker } from '../../sidequest/repomix-worker.js';
-import { createComponentLogger } from '../../sidequest/logger.js';
+import { createComponentLogger } from '../../sidequest/logger.ts';
 
 const logger = createComponentLogger('RepomixFixTest');
 

@@ -5,7 +5,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { VALIDATION, PAGINATION } from '../../sidequest/core/constants.js';
+import { VALIDATION, PAGINATION } from '../../sidequest/core/constants.ts';
 
 /**
  * Validate and sanitize job ID from URL parameter

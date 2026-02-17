@@ -4,8 +4,8 @@
  * API key-based authentication for REST API endpoints.
  */
 
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
-import { config } from '../../sidequest/core/config.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.ts';
+import { config } from '../../sidequest/core/config.ts';
 import crypto from 'crypto';
 
 const logger = createComponentLogger('AuthMiddleware');

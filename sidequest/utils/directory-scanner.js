@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { createComponentLogger, logWarn } from './logger.js';
+import { createComponentLogger, logWarn } from './logger.ts';
 
 const logger = createComponentLogger('DirectoryScanner');
 

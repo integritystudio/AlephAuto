@@ -20,8 +20,8 @@
 import fs from 'fs/promises';
 import path from 'path';
 import * as Sentry from '@sentry/node';
-import { createComponentLogger, logError } from './logger.js';
-import { TIME } from '../core/constants.js';
+import { createComponentLogger, logError } from './logger.ts';
+import { TIME } from '../core/constants.ts';
 
 const logger = createComponentLogger('ReportGenerator');
 

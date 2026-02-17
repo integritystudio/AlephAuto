@@ -14,7 +14,7 @@ import assert from 'node:assert';
 
 // Import modules under test
 import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '../../api/types/job-status.ts';
-import { PAGINATION, CONCURRENCY } from '../../sidequest/core/constants.js';
+import { PAGINATION, CONCURRENCY } from '../../sidequest/core/constants.ts';
 
 describe('Code Review Fixes', () => {
 
@@ -196,7 +196,7 @@ describe('Worker Registry', () => {
 
   describe('circuit breaker pattern', () => {
     it('should have retry configuration', async () => {
-      const { RETRY } = await import('../../sidequest/core/constants.js');
+      const { RETRY } = await import('../../sidequest/core/constants.ts');
       assert.ok(RETRY.MAX_ABSOLUTE_ATTEMPTS >= 1, 'Should have max retry attempts');
     });
   });
@@ -314,7 +314,7 @@ describe('Database bulkImportJobs validation', () => {
 
 describe('Config database settings', () => {
   it('should have database.saveIntervalMs configuration', async () => {
-    const { config } = await import('../../sidequest/core/config.js');
+    const { config } = await import('../../sidequest/core/config.ts');
 
     assert.ok(config.database, 'Should have database config');
     assert.ok(typeof config.database.saveIntervalMs === 'number', 'Should have saveIntervalMs');

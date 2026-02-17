@@ -6,29 +6,26 @@
  * @module lib/utils/timing-helpers
  */
 
-import { TIME } from '../../core/constants.js';
+import { TIME } from '../../core/constants.ts';
+
+interface Timer {
+  /** Returns elapsed time in seconds */
+  elapsed: () => number;
+  /** Returns elapsed time in milliseconds */
+  elapsedMs: () => number;
+  /** Returns formatted elapsed time string */
+  elapsedFormatted: () => string;
+}
 
 /**
  * Creates a timer for measuring operation duration
- *
- * @returns {{ elapsed: () => number, elapsedMs: () => number, elapsedFormatted: () => string }}
- *
- * @example
- * const timer = createTimer();
- * // ... do work ...
- * console.log(`Completed in ${timer.elapsed()}s`);
  */
-export function createTimer() {
+export function createTimer(): Timer {
   const startTime = Date.now();
 
   return {
-    /** Returns elapsed time in seconds */
     elapsed: () => (Date.now() - startTime) / TIME.SECOND,
-
-    /** Returns elapsed time in milliseconds */
     elapsedMs: () => Date.now() - startTime,
-
-    /** Returns formatted elapsed time string */
     elapsedFormatted: () => {
       const ms = Date.now() - startTime;
       if (ms < TIME.SECOND) return `${ms}ms`;
@@ -40,19 +37,8 @@ export function createTimer() {
 
 /**
  * Wraps an async function with timing measurement
- *
- * @template T
- * @param {() => Promise<T>} fn - Async function to time
- * @param {string} [label] - Label for logging
- * @returns {Promise<{ result: T, durationMs: number, durationSec: number }>}
- *
- * @example
- * const { result, durationSec } = await withTiming(
- *   () => fetchData(),
- *   'fetchData'
- * );
  */
-export async function withTiming(fn, label) {
+export async function withTiming<T>(fn: () => Promise<T>, _label?: string): Promise<{ result: T; durationMs: number; durationSec: number }> {
   const timer = createTimer();
   const result = await fn();
   const durationMs = timer.elapsedMs();
@@ -66,12 +52,8 @@ export async function withTiming(fn, label) {
 
 /**
  * Measures sync function execution time
- *
- * @template T
- * @param {() => T} fn - Sync function to time
- * @returns {{ result: T, durationMs: number }}
  */
-export function measureSync(fn) {
+export function measureSync<T>(fn: () => T): { result: T; durationMs: number } {
   const start = performance.now();
   const result = fn();
   const durationMs = performance.now() - start;

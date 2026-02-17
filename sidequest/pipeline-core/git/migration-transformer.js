@@ -28,8 +28,8 @@ import * as t from '@babel/types';
 import fs from 'fs/promises';
 import path from 'path';
 import { glob } from 'glob';
-import { createComponentLogger, logError } from '../../utils/logger.js';
-import { config } from '../../core/config.js';
+import { createComponentLogger, logError } from '../../utils/logger.ts';
+import { config } from '../../core/config.ts';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('MigrationTransformer');

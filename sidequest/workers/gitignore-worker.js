@@ -2,7 +2,7 @@
 import { SidequestServer } from '../core/server.js';
 import { GitignoreRepomixUpdater } from '../utils/gitignore-repomix-updater.js';
 import { generateReport } from '../utils/report-generator.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import path from 'path';
 import os from 'os';

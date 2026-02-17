@@ -6,8 +6,8 @@
  */
 
 import { DopplerResilience } from './doppler-resilience.js';
-import { config } from '../core/config.js';
-import { createComponentLogger } from './logger.js';
+import { config } from '../core/config.ts';
+import { createComponentLogger } from './logger.ts';
 
 const logger = createComponentLogger('DopplerExample');
 

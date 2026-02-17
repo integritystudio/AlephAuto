@@ -19,7 +19,7 @@ import {
   type ManualTriggerResponse,
   createErrorResponse
 } from '../types/pipeline-requests.ts';
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import { jobRepository } from '../../sidequest/core/job-repository.js';
 import { workerRegistry } from '../utils/worker-registry.js';

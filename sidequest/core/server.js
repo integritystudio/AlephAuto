@@ -1,15 +1,15 @@
 import { EventEmitter } from 'events';
 import * as Sentry from '@sentry/node';
-import { config } from './config.js';
+import { config } from './config.ts';
 import fs from 'fs/promises';
 import path from 'path';
-import { createComponentLogger, logError, logWarn } from '../utils/logger.js';
-import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.js';
+import { createComponentLogger, logError, logWarn } from '../utils/logger.ts';
+import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.ts';
 import { GitWorkflowManager } from './git-workflow-manager.js';
 import { jobRepository } from './job-repository.js';
-import { CONCURRENCY, RETRY } from './constants.js';
-import { isRetryable, classifyError } from '../pipeline-core/errors/error-classifier.js';
-import { toISOString } from '../utils/time-helpers.js';
+import { CONCURRENCY, RETRY } from './constants.ts';
+import { isRetryable, classifyError } from '../pipeline-core/errors/error-classifier.ts';
+import { toISOString } from '../utils/time-helpers.ts';
 import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '../../api/types/job-status.ts';
 
 const logger = createComponentLogger('SidequestServer');

@@ -3,12 +3,10 @@
   "version": "1.0.0",
   "description": "Shared process I/O utilities for spawning child processes with output capture",
   "type": "module",
-  "main": "src/index.js",
-  "types": "src/index.d.ts",
+  "main": "src/index.ts",
   "exports": {
     ".": {
-      "import": "./src/index.js",
-      "types": "./src/index.d.ts"
+      "import": "./src/index.ts"
     }
   },
   "files": [

@@ -1,8 +1,8 @@
 import { SidequestServer } from '../core/server.js';
 import { GitWorkflowManager } from '../core/git-workflow-manager.js';
 import { execCommand } from '@shared/process-io';
-import { createComponentLogger, logError, logStage } from '../utils/logger.js';
-import { config } from '../core/config.js';
+import { createComponentLogger, logError, logStage } from '../utils/logger.ts';
+import { config } from '../core/config.ts';
 import fs from 'fs/promises';
 import path from 'path';
 

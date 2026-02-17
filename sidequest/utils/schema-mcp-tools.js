@@ -1,4 +1,4 @@
-import { config } from '../core/config.js';
+import { config } from '../core/config.ts';
 
 /**
  * Schema.org MCP Tools Integration

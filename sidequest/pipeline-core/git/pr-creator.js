@@ -19,7 +19,7 @@
 import { runCommand } from '@shared/process-io';
 import fs from 'fs/promises';
 import path from 'path';
-import { createComponentLogger, logError } from '../../utils/logger.js';
+import { createComponentLogger, logError } from '../../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import { MigrationTransformer } from './migration-transformer.js';
 

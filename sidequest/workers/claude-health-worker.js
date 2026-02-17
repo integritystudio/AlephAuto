@@ -15,9 +15,9 @@
  */
 
 import { SidequestServer } from '../core/server.js';
-import { config } from '../core/config.js';
-import { TIMEOUTS } from '../core/constants.js';
-import { createComponentLogger, logError, logWarn, logStart } from '../utils/logger.js';
+import { config } from '../core/config.ts';
+import { TIMEOUTS } from '../core/constants.ts';
+import { createComponentLogger, logError, logWarn, logStart } from '../utils/logger.ts';
 import { generateReport } from '../utils/report-generator.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';

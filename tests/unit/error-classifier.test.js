@@ -7,7 +7,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { classifyError, isRetryable, ErrorCategory } from '../../sidequest/pipeline-core/errors/error-classifier.js';
+import { classifyError, isRetryable, ErrorCategory } from '../../sidequest/pipeline-core/errors/error-classifier.ts';
 
 describe('Error Classifier', () => {
   describe('Non-Retryable Errors', () => {
@@ -173,7 +173,7 @@ describe('Error Classifier', () => {
 });
 
 // Import additional exports for comprehensive testing
-import { getErrorInfo, createScanError } from '../../sidequest/pipeline-core/errors/error-classifier.js';
+import { getErrorInfo, createScanError } from '../../sidequest/pipeline-core/errors/error-classifier.ts';
 
 describe('Error Classifier - Extended API', () => {
   describe('getErrorInfo', () => {

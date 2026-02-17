@@ -21,7 +21,7 @@
  */
 
 import { DashboardPopulateWorker } from '../workers/dashboard-populate-worker.js';
-import { createComponentLogger, logError } from '../utils/logger.js';
+import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
 

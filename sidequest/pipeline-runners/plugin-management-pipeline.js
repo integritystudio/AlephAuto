@@ -2,9 +2,9 @@
 // @ts-nocheck
 import cron from 'node-cron';
 import { PluginManagerWorker } from '../utils/plugin-manager.js';
-import { config } from '../core/config.js';
-import { TIMEOUTS } from '../core/constants.js';
-import { createComponentLogger, logError, logStart } from '../utils/logger.js';
+import { config } from '../core/config.ts';
+import { TIMEOUTS } from '../core/constants.ts';
+import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 
 const logger = createComponentLogger('PluginPipeline');
 

@@ -13,8 +13,8 @@
  *   const health = await monitor.checkCacheHealth();
  */
 
-import { createComponentLogger, logError } from '../utils/logger.js';
-import { CACHE, TIME } from '../core/constants.js';
+import { createComponentLogger, logError } from '../utils/logger.ts';
+import { CACHE, TIME } from '../core/constants.ts';
 import Sentry from '@sentry/node';
 import fs from 'fs/promises';
 import path from 'path';

@@ -11,7 +11,7 @@
  */
 
 import { BranchManager } from '../pipeline-core/git/branch-manager.js';
-import { createComponentLogger, logError, logWarn } from '../utils/logger.js';
+import { createComponentLogger, logError, logWarn } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('GitWorkflowManager');

@@ -18,7 +18,7 @@
 /** @typedef {import('../errors/error-types').ProcessError} ProcessError */
 
 import { runCommand } from '@shared/process-io';
-import { createComponentLogger, logError } from '../../utils/logger.js';
+import { createComponentLogger, logError } from '../../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('BranchManager');

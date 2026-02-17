@@ -11,7 +11,7 @@
  */
 
 import { GitignoreWorker } from '../../sidequest/workers/gitignore-worker.js';
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 import { createMultipleTempRepositories } from '../fixtures/test-helpers.js';
 import fs from 'fs/promises';
 import path from 'path';

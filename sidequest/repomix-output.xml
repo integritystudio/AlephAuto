@@ -119,7 +119,6 @@ pipeline-core/
     structural.pyi
     test_grouping_layer3.py
   types/
-    scan-orchestrator-types.js
     scan-orchestrator-types.ts
   utils/
     __init__.py
@@ -153,7 +152,6 @@ pipeline-runners/
   test-refactor-pipeline.ts
   universal-repo-cleanup.sh
 types/
-  duplicate-detection-types.js
   duplicate-detection-types.ts
 utils/
   dependency-validator.js
@@ -227,18 +225,12 @@ function validateConfig()
 
 <file path="core/database.js">
 function safeJsonParse(str, fallback = null)
-export async function initDatabase()
-function _enterDegradedMode(initialError)
-function _scheduleRecovery()
-function _attemptRecovery()
-⋮----
-function _processWriteQueue()
-function persistDatabase()
+export async function initDatabase(dbPath)
 export function getDatabase()
 export function isDatabaseReady()
 export function saveJob(job)
-function queryAll(query, params = [])
-function queryOne(query, params = [])
+function queryAll(sql, params = [])
+function queryOne(sql, params = [])
 export function getJobs(pipelineId, options =
 export function getJobById(id)
 export function getJobCount(options =
@@ -409,7 +401,7 @@ async _handleGitWorkflowSuccess(job)
 async _generateCommitMessage(job)
 async _generatePRContext(job)
 async runJobHandler(job)
-start()
+async start()
 stop()
 set handleJob(handler)
 async logJobCompletion(job)
@@ -3175,10 +3167,6 @@ instance = test_class()
 method = getattr(instance, name)
 </file>
 
-<file path="pipeline-core/types/scan-orchestrator-types.js">
-
-</file>
-
 <file path="pipeline-core/types/scan-orchestrator-types.ts">
 import { z } from 'zod';
 ⋮----
@@ -4948,13 +4936,6 @@ main() {
 }
 # Run main function
 main "$@"
-</file>
-
-<file path="types/duplicate-detection-types.js">
-export function isIntraProjectScanResult(result)
-export function isInterProjectScanResult(result)
-export function isIntraProjectJobResult(result)
-export function isInterProjectJobResult(result)
 </file>
 
 <file path="types/duplicate-detection-types.ts">

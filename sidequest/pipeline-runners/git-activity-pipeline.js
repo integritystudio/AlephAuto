@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import cron from 'node-cron';
 import { GitActivityWorker } from '../workers/git-activity-worker.js';
-import { config } from '../core/config.js';
-import { TIMEOUTS } from '../core/constants.js';
-import { createComponentLogger, logError, logStart } from '../utils/logger.js';
+import { config } from '../core/config.ts';
+import { TIMEOUTS } from '../core/constants.ts';
+import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 
 const logger = createComponentLogger('GitActivityPipeline');
 

@@ -26,10 +26,10 @@
  * @property {number} [delay] - Delay in ms before retry
  */
 
-import { createComponentLogger, logError } from '../sidequest/utils/logger.js';
-import { TIMEOUTS, TIME } from '../sidequest/core/constants.js';
+import { createComponentLogger, logError } from '../sidequest/utils/logger.ts';
+import { TIMEOUTS, TIME } from '../sidequest/core/constants.ts';
 import * as Sentry from '@sentry/node';
-import { safeErrorMessage, toErrorObject } from '../sidequest/pipeline-core/utils/error-helpers.js';
+import { safeErrorMessage, toErrorObject } from '../sidequest/pipeline-core/utils/error-helpers.ts';
 
 const logger = createComponentLogger('ActivityFeed');
 

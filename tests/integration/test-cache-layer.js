@@ -12,7 +12,7 @@
 import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.js';
 import { GitCommitTracker } from '../../sidequest/pipeline-core/cache/git-tracker.js';
 import { ScanResultCache } from '../../sidequest/pipeline-core/cache/scan-cache.js';
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 import path from 'path';
 
 const logger = createComponentLogger('TestCacheLayer');

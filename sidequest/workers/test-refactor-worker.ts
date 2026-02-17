@@ -14,7 +14,7 @@
  */
 
 import { SidequestServer, Job as BaseJob } from '../core/server.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger } from '../utils/logger.ts';
 import { glob } from 'glob';
 import path from 'path';
 import fs from 'fs/promises';

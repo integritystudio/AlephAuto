@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { createComponentLogger, logError, logWarn } from './logger.js';
+import { createComponentLogger, logError, logWarn } from './logger.ts';
 
 const logger = createComponentLogger('GitignoreRepomixUpdater');
 

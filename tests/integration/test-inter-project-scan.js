@@ -15,7 +15,7 @@
 
 import { InterProjectScanner } from '../../sidequest/pipeline-core/inter-project-scanner.js';
 import { ReportCoordinator } from '../../sidequest/pipeline-core/reports/report-coordinator.js';
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 import path from 'path';
 
 const logger = createComponentLogger('TestInterProject');

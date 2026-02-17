@@ -16,14 +16,14 @@ import { AstGrepPatternDetector } from './scanners/ast-grep-detector.js';
 import { HTMLReportGenerator } from './reports/html-report-generator.js';
 import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
 import { InterProjectScanner } from './inter-project-scanner.js';
-import { createComponentLogger, logStart, logStage } from '../utils/logger.js';
+import { createComponentLogger, logStart, logStage } from '../utils/logger.ts';
 import { DependencyValidator } from '../utils/dependency-validator.js';
 import { spawn, ChildProcess, execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
 import * as Sentry from '@sentry/node';
-import { TIMEOUTS } from '../core/constants.js';
+import { TIMEOUTS } from '../core/constants.ts';
 
 const logger = createComponentLogger('ScanOrchestrator');
 

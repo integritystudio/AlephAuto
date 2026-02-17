@@ -10,7 +10,7 @@
  */
 
 import { DuplicateDetectionWorker } from '../../sidequest/workers/duplicate-detection-worker.js';
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 
 const logger = createComponentLogger('TestAutomatedPipeline');
 

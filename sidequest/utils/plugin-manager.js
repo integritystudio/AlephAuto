@@ -9,8 +9,8 @@
  */
 
 import { SidequestServer } from '../core/server.js';
-import { config } from '../core/config.js';
-import { createComponentLogger, logStart, logComplete, logError, logWarn } from './logger.js';
+import { config } from '../core/config.ts';
+import { createComponentLogger, logStart, logComplete, logError, logWarn } from './logger.ts';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';

@@ -8,8 +8,8 @@
  */
 
 import { execSync } from 'child_process';
-import { createComponentLogger } from './logger.js';
-import { TIMEOUTS } from '../core/constants.js';
+import { createComponentLogger } from './logger.ts';
+import { TIMEOUTS } from '../core/constants.ts';
 
 const logger = createComponentLogger('DependencyValidator');
 

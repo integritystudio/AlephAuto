@@ -7,7 +7,7 @@
  */
 
 import { spawn } from 'child_process';
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 
 const logger = createComponentLogger('TestMCPServer');
 

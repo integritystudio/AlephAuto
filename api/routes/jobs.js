@@ -5,14 +5,14 @@
 
 import express from 'express';
 import crypto from 'crypto';
-import { createComponentLogger, logError, logStart } from '../../sidequest/utils/logger.js';
+import { createComponentLogger, logError, logStart } from '../../sidequest/utils/logger.ts';
 import { jobRepository } from '../../sidequest/core/job-repository.js';
 import { workerRegistry } from '../utils/worker-registry.js';
-import { config } from '../../sidequest/core/config.js';
-import { getPipelineName } from '../../sidequest/utils/pipeline-names.js';
+import { config } from '../../sidequest/core/config.ts';
+import { getPipelineName } from '../../sidequest/utils/pipeline-names.ts';
 import { isValidJobStatus, JOB_STATUS } from '../types/job-status.ts';
-import { PAGINATION, VALIDATION, RETRY } from '../../sidequest/core/constants.js';
-import { sendError, sendNotFoundError, sendInternalError, ERROR_CODES } from '../utils/api-error.js';
+import { PAGINATION, VALIDATION, RETRY } from '../../sidequest/core/constants.ts';
+import { sendError, sendNotFoundError, sendInternalError, ERROR_CODES } from '../utils/api-error.ts';
 import { bulkImportRateLimiter } from '../middleware/rate-limit.js';
 
 /**

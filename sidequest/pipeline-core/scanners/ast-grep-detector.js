@@ -3,8 +3,8 @@
 /** @typedef {import('../errors/error-types').NodeError} NodeError */
 
 import { spawn } from 'child_process';
-import { createComponentLogger, logStart } from '../../utils/logger.js';
-import { createTimer, captureProcessOutput } from '../utils/index.js';
+import { createComponentLogger, logStart } from '../../utils/logger.ts';
+import { createTimer, captureProcessOutput } from '../utils/index.ts';
 import fs from 'fs/promises';
 import path from 'path';
 

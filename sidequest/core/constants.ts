@@ -69,7 +69,7 @@ export const TIMEOUTS = {
 
   /** Worker initialization timeout (30 seconds) */
   WORKER_INIT_MS: 30 * SECOND,
-};
+} as const;
 
 /**
  * Retry configuration
@@ -107,7 +107,7 @@ export const RETRY = {
 
   /** Maximum database recovery delay (5 minutes) */
   DATABASE_RECOVERY_MAX_MS: 5 * MINUTE,
-};
+} as const;
 
 /**
  * Concurrency limits
@@ -118,7 +118,7 @@ export const CONCURRENCY = {
 
   /** Maximum concurrent worker initializations */
   MAX_WORKER_INITS: 3,
-};
+} as const;
 
 /**
  * Pagination defaults
@@ -132,7 +132,7 @@ export const PAGINATION = {
 
   /** Maximum allowed page size to prevent memory issues */
   MAX_LIMIT: 1000,
-};
+} as const;
 
 /**
  * Input validation patterns
@@ -140,7 +140,7 @@ export const PAGINATION = {
 export const VALIDATION = {
   /** Job ID pattern - alphanumeric, hyphens, underscores, max 100 chars */
   JOB_ID_PATTERN: /^[a-zA-Z0-9_-]{1,100}$/,
-};
+} as const;
 
 /**
  * Port management constants
@@ -151,7 +151,7 @@ export const PORT = {
 
   /** Default shutdown timeout for graceful shutdown (10 seconds) */
   DEFAULT_SHUTDOWN_TIMEOUT_MS: 10 * SECOND,
-};
+} as const;
 
 /**
  * Cache configuration
@@ -165,7 +165,7 @@ export const CACHE = {
 
   /** Maximum cache age before considered expired (24 hours) */
   MAX_AGE_MS: 24 * HOUR,
-};
+} as const;
 
 /**
  * WebSocket configuration
@@ -182,7 +182,7 @@ export const WEBSOCKET = {
 
   /** Doppler health check interval (60 seconds) */
   HEALTH_CHECK_INTERVAL_MS: MINUTE,
-};
+} as const;
 
 /**
  * Worker cooldown configuration
@@ -193,7 +193,7 @@ export const WORKER_COOLDOWN = {
 
   /** Maximum cooldown duration (10 minutes) */
   MAX_MS: 10 * MINUTE,
-};
+} as const;
 
 /**
  * Rate limiting configuration
@@ -204,7 +204,7 @@ export const RATE_LIMIT = {
 
   /** Strict rate limit window (1 hour) */
   STRICT_WINDOW_MS: HOUR,
-};
+} as const;
 
 /**
  * Size limits
@@ -215,7 +215,7 @@ export const LIMITS = {
 
   /** Maximum write queue size */
   MAX_WRITE_QUEUE_SIZE: 10000,
-};
+} as const;
 
 /**
  * Time conversion constants (exported for calculations)
@@ -225,4 +225,4 @@ export const TIME = {
   MINUTE,
   HOUR,
   DAY,
-};
+} as const;

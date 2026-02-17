@@ -9,14 +9,8 @@ const __dirname = dirname(__filename);
 /**
  * Safely parse an integer from environment variable with bounds checking
  * Prevents NaN propagation and enforces min/max limits
- *
- * @param {string|undefined} value - Environment variable value
- * @param {number} defaultValue - Default if value is undefined or invalid
- * @param {number} [min] - Minimum allowed value (optional)
- * @param {number} [max] - Maximum allowed value (optional)
- * @returns {number} Parsed and bounded integer
  */
-function safeParseInt(value, defaultValue, min, max) {
+function safeParseInt(value: string | undefined, defaultValue: number, min?: number, max?: number): number {
   const parsed = parseInt(value ?? String(defaultValue), 10);
   if (Number.isNaN(parsed)) return defaultValue;
   let result = parsed;
@@ -27,14 +21,8 @@ function safeParseInt(value, defaultValue, min, max) {
 
 /**
  * Safely parse a float from environment variable with bounds checking
- *
- * @param {string|undefined} value - Environment variable value
- * @param {number} defaultValue - Default if value is undefined or invalid
- * @param {number} [min] - Minimum allowed value (optional)
- * @param {number} [max] - Maximum allowed value (optional)
- * @returns {number} Parsed and bounded float
  */
-function safeParseFloat(value, defaultValue, min, max) {
+function safeParseFloat(value: string | undefined, defaultValue: number, min?: number, max?: number): number {
   const parsed = parseFloat(value ?? String(defaultValue));
   if (Number.isNaN(parsed)) return defaultValue;
   let result = parsed;
@@ -183,8 +171,8 @@ export const config = {
 /**
  * Validate configuration on import
  */
-function validateConfig() {
-  const errors = [];
+function validateConfig(): void {
+  const errors: string[] = [];
 
   if (config.maxConcurrent < 1 || config.maxConcurrent > 50) {
     errors.push('MAX_CONCURRENT must be between 1 and 50');

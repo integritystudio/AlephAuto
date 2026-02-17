@@ -6,8 +6,8 @@
  */
 
 import net from 'net';
-import { createComponentLogger } from '../../sidequest/utils/logger.js';
-import { PORT } from '../../sidequest/core/constants.js';
+import { createComponentLogger } from '../../sidequest/utils/logger.ts';
+import { PORT } from '../../sidequest/core/constants.ts';
 
 const logger = createComponentLogger('PortManager');
 

@@ -19,12 +19,12 @@ import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.js';
 import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.ts';
 import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.js';
 import { PRCreator } from '../pipeline-core/git/pr-creator.js';
-import { createComponentLogger, logError, logWarn, logStart, logRetry } from '../utils/logger.js';
-import { isRetryable, getErrorInfo } from '../pipeline-core/errors/error-classifier.js';
+import { createComponentLogger, logError, logWarn, logStart, logRetry } from '../utils/logger.ts';
+import { isRetryable, getErrorInfo } from '../pipeline-core/errors/error-classifier.ts';
 import path from 'path';
 import * as Sentry from '@sentry/node';
-import { RETRY } from '../core/constants.js';
-import { config } from '../core/config.js';
+import { RETRY } from '../core/constants.ts';
+import { config } from '../core/config.ts';
 
 const logger = createComponentLogger('DuplicateDetectionWorker');
 

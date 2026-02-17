@@ -17,10 +17,10 @@ import { RepoCleanupWorker } from '../../sidequest/workers/repo-cleanup-worker.j
 import { BugfixAuditWorker } from '../../sidequest/workers/bugfix-audit-worker.js';
 import { DashboardPopulateWorker } from '../../sidequest/workers/dashboard-populate-worker.js';
 import { PluginManagerWorker } from '../../sidequest/utils/plugin-manager.js';
-import { config } from '../../sidequest/core/config.js';
-import { createComponentLogger, logError } from '../../sidequest/utils/logger.js';
+import { config } from '../../sidequest/core/config.ts';
+import { createComponentLogger, logError } from '../../sidequest/utils/logger.ts';
 import { jobRepository } from '../../sidequest/core/job-repository.js';
-import { CONCURRENCY, TIMEOUTS, TIME, WORKER_COOLDOWN } from '../../sidequest/core/constants.js';
+import { CONCURRENCY, TIMEOUTS, TIME, WORKER_COOLDOWN } from '../../sidequest/core/constants.ts';
 
 /**
  * Worker initialization timeout

@@ -20,7 +20,7 @@ import {
   bulkImportJobs as dbBulkImportJobs,
   closeDatabase as dbCloseDatabase,
 } from './database.js';
-import { createComponentLogger, logError } from '../utils/logger.js';
+import { createComponentLogger, logError } from '../utils/logger.ts';
 
 const logger = createComponentLogger('JobRepository');
 

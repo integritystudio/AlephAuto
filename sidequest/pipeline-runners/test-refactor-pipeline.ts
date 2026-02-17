@@ -13,9 +13,9 @@
 
 import { TestRefactorWorker } from '../workers/test-refactor-worker.js';
 import { DirectoryScanner } from '../utils/directory-scanner.js';
-import { createComponentLogger } from '../utils/logger.js';
-import { config } from '../core/config.js';
-import { TIMEOUTS } from '../core/constants.js';
+import { createComponentLogger } from '../utils/logger.ts';
+import { config } from '../core/config.ts';
+import { TIMEOUTS } from '../core/constants.ts';
 // @ts-ignore — no declaration file for node-cron
 import cron from 'node-cron';
 import path from 'path';

@@ -21,8 +21,8 @@
  *   const health = doppler.getHealth();
  */
 
-import { createComponentLogger, logError } from './logger.js';
-import { TIMEOUTS, RETRY, CACHE } from '../core/constants.js';
+import { createComponentLogger, logError } from './logger.ts';
+import { TIMEOUTS, RETRY, CACHE } from '../core/constants.ts';
 import Sentry from '@sentry/node';
 import fs from 'fs/promises';
 import path from 'path';

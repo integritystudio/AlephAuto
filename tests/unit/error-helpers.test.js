@@ -16,7 +16,7 @@ import {
   serializeError,
   formatErrorMessage,
   combineErrors
-} from '../../sidequest/pipeline-core/utils/error-helpers.js';
+} from '../../sidequest/pipeline-core/utils/error-helpers.ts';
 
 describe('Error Helper Utilities', () => {
   describe('safeErrorMessage()', () => {

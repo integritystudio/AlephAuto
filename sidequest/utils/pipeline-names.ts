@@ -9,7 +9,6 @@
 
 /**
  * Pipeline display name mappings
- * @type {Object.<string, string>}
  */
 export const PIPELINE_NAMES = {
   'duplicate-detection': 'Duplicate Detection',
@@ -25,40 +24,25 @@ export const PIPELINE_NAMES = {
   'dashboard-populate': 'Dashboard Populate',
   'repo-cleanup': 'Repository Cleanup',
   'unknown': 'Unknown Pipeline'
-};
+} as const;
 
 /**
  * Get human-readable display name for a pipeline ID
- *
- * @param {string} id - Pipeline identifier (e.g., 'duplicate-detection')
- * @returns {string} Display name (e.g., 'Duplicate Detection')
- *
- * @example
- * getPipelineName('duplicate-detection')
- * // Returns: 'Duplicate Detection'
- *
- * getPipelineName('custom-pipeline')
- * // Returns: 'custom-pipeline' (fallback to ID)
  */
-export function getPipelineName(id) {
-  return PIPELINE_NAMES[id] || id;
+export function getPipelineName(id: string): string {
+  return (PIPELINE_NAMES as Record<string, string>)[id] || id;
 }
 
 /**
  * Get all known pipeline IDs
- *
- * @returns {string[]} Array of pipeline identifiers
  */
-export function getAllKnownPipelineIds() {
+export function getAllKnownPipelineIds(): string[] {
   return Object.keys(PIPELINE_NAMES);
 }
 
 /**
  * Check if a pipeline ID is known
- *
- * @param {string} id - Pipeline identifier
- * @returns {boolean} True if pipeline is in the known list
  */
-export function isKnownPipeline(id) {
+export function isKnownPipeline(id: string): boolean {
   return id in PIPELINE_NAMES;
 }

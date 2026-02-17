@@ -7,7 +7,7 @@
 // @ts-check
 /** @typedef {import('../sidequest/pipeline-core/errors/error-types').ExtendedError} ExtendedError */
 
-import { createComponentLogger } from '../sidequest/utils/logger.js';
+import { createComponentLogger } from '../sidequest/utils/logger.ts';
 
 const logger = createComponentLogger('EventBroadcaster');
 

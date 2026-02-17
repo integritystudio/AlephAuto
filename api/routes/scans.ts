@@ -8,7 +8,7 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.js';
 import { InterProjectScanner } from '../../sidequest/pipeline-core/inter-project-scanner.js';
 import { DuplicateDetectionWorker } from '../../sidequest/pipeline-runners/duplicate-detection-pipeline.ts';
-import { createComponentLogger, logStart } from '../../sidequest/utils/logger.js';
+import { createComponentLogger, logStart } from '../../sidequest/utils/logger.ts';
 import { strictRateLimiter } from '../middleware/rate-limit.js';
 import { validateRequest } from '../middleware/validation.ts';
 import {
@@ -19,7 +19,7 @@ import {
 } from '../types/scan-requests.ts';
 import { getJobs } from '../../sidequest/core/database.js';
 import { JOB_STATUS } from '../types/job-status.ts';
-import { PAGINATION } from '../../sidequest/core/constants.js';
+import { PAGINATION } from '../../sidequest/core/constants.ts';
 import path from 'path';
 
 const router = express.Router();

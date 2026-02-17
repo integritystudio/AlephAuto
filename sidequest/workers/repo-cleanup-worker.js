@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { SidequestServer } from '../core/server.js';
 import { generateReport } from '../utils/report-generator.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { createComponentLogger } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import { execFile } from 'child_process';
 import { promisify } from 'util';

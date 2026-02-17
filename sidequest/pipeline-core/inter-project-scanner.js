@@ -6,7 +6,7 @@
  */
 
 import { ScanOrchestrator } from './scan-orchestrator.ts';
-import { createComponentLogger, logError, logStart, logStage } from '../utils/logger.js';
+import { createComponentLogger, logError, logStart, logStage } from '../utils/logger.ts';
 import path from 'path';
 import fs from 'fs/promises';
 

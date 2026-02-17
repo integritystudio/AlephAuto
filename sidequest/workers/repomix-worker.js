@@ -6,9 +6,9 @@ import { captureProcessOutput } from '@shared/process-io';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { createComponentLogger, logError } from '../utils/logger.js';
-import { config } from '../core/config.js';
-import { TIMEOUTS, LIMITS } from '../core/constants.js';
+import { createComponentLogger, logError } from '../utils/logger.ts';
+import { config } from '../core/config.ts';
+import { TIMEOUTS, LIMITS } from '../core/constants.ts';
 
 const logger = createComponentLogger('RepomixWorker');
 
