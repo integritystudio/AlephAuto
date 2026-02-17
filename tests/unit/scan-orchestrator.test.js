@@ -6,7 +6,7 @@
 
 import { describe, it, beforeEach, mock } from 'node:test';
 import assert from 'node:assert';
-import { ScanOrchestrator, ScanError } from '../../sidequest/pipeline-core/scan-orchestrator.js';
+import { ScanOrchestrator, ScanError } from '../../sidequest/pipeline-core/scan-orchestrator.ts';
 
 describe('ScanOrchestrator', () => {
   describe('Constructor', () => {

@@ -88,13 +88,16 @@ module.exports = {
      */
     {
       name: 'aleph-worker',
-      script: 'sidequest/pipeline-runners/duplicate-detection-pipeline.js',
+      script: 'sidequest/pipeline-runners/duplicate-detection-pipeline.ts',
       cwd: PROJECT_ROOT,
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,
       watch: false,
       max_memory_restart: '1G',
+
+      // Node.js arguments - enable TypeScript strip-types for .ts imports
+      node_args: '--strip-types',
 
       // Environment variables (pulled from Doppler at PM2 startup)
       env: {

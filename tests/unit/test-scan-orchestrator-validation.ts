@@ -10,7 +10,7 @@
  * - Helper function to reduce code duplication
  */
 
-import { ScanOrchestrator, ScanError } from '../../sidequest/pipeline-core/scan-orchestrator.js';
+import { ScanOrchestrator, ScanError } from '../../sidequest/pipeline-core/scan-orchestrator.ts';
 import { strict as assert } from 'assert';
 
 /**

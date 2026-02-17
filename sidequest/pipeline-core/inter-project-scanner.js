@@ -5,7 +5,7 @@
  * Identifies candidates for shared abstractions (packages, MCP servers, etc.).
  */
 
-import { ScanOrchestrator } from './scan-orchestrator.js';
+import { ScanOrchestrator } from './scan-orchestrator.ts';
 import { createComponentLogger, logError, logStart, logStage } from '../utils/logger.js';
 import path from 'path';
 import fs from 'fs/promises';
