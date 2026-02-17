@@ -19,22 +19,13 @@ describe('API Routes', () => {
   let testRepo;
   let multiRepos;
 
-  // Initialize fresh database before all tests
+  // Initialize fresh in-memory database before all tests
   before(async () => {
-    // Delete corrupted database file if it exists (before importing modules)
-    if (fs.existsSync(DB_PATH)) {
-      fs.unlinkSync(DB_PATH);
-    }
-    // Also delete WAL files
-    [DB_PATH + '-shm', DB_PATH + '-wal'].forEach(f => {
-      if (fs.existsSync(f)) fs.unlinkSync(f);
-    });
-
     // Now import modules (will create fresh database)
     const dbModule = await import('../../sidequest/core/database.js');
     closeDatabase = dbModule.closeDatabase;
     initDatabase = dbModule.initDatabase;
-    await initDatabase();
+    await initDatabase(':memory:');
 
     const scanModule = await import('../../api/routes/scans.js');
     scanRoutes = scanModule.default;

@@ -32,7 +32,7 @@ describe('Activity Feed - Integration Tests', () => {
 
   beforeEach(async () => {
     // Initialize database FIRST (it's async)
-    await initDatabase();
+    await initDatabase(':memory:');
 
     // Mock broadcaster
     broadcastedMessages = [];

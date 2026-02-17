@@ -10,7 +10,7 @@
  * - api/activity-feed.js: WebSocket job event broadcasts
  */
 
-import { describe, it, beforeEach, afterEach, mock } from 'node:test';
+import { describe, it, before, after, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert';
 import { EventEmitter } from 'node:events';
 import fs from 'fs/promises';
@@ -24,7 +24,8 @@ import {
   getJobs,
   getLastJob,
   isDatabaseReady,
-  saveJob
+  saveJob,
+  closeDatabase
 } from '../../sidequest/core/database.js';
 
 // Test implementation of SidequestServer
@@ -59,7 +60,7 @@ describe('Job Persistence on Creation', () => {
   beforeEach(async () => {
     // Ensure database is initialized
     if (!isDatabaseReady()) {
-      await initDatabase();
+      await initDatabase(':memory:');
     }
 
     tempLogDir = path.join(os.tmpdir(), `test-logs-${Date.now()}`);
@@ -137,7 +138,7 @@ describe('Job Persistence on Running Status', () => {
 
   beforeEach(async () => {
     if (!isDatabaseReady()) {
-      await initDatabase();
+      await initDatabase(':memory:');
     }
 
     tempLogDir = path.join(os.tmpdir(), `test-logs-running-${Date.now()}`);
@@ -222,7 +223,7 @@ describe('Job Status Lifecycle in Database', () => {
 
   beforeEach(async () => {
     if (!isDatabaseReady()) {
-      await initDatabase();
+      await initDatabase(':memory:');
     }
 
     tempLogDir = path.join(os.tmpdir(), `test-lifecycle-${Date.now()}`);
@@ -490,7 +491,7 @@ describe('Integration: Server + Activity Feed', () => {
 
   beforeEach(async () => {
     if (!isDatabaseReady()) {
-      await initDatabase();
+      await initDatabase(':memory:');
     }
 
     tempLogDir = path.join(os.tmpdir(), `test-integration-${Date.now()}`);

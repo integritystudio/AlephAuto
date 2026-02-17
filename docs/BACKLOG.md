@@ -306,7 +306,7 @@ Technical debt and planned improvements extracted from codebase TODOs.
 
 | ID | Location | Description | Status |
 |----|----------|-------------|--------|
-| PROD-H1 | `sidequest/core/server.js` / `sidequest/core/database.js` | **Multi-process sql.js isolation** — API server and PM2 worker each load independent in-memory SQLite databases. Worker writes (job creation, status updates) are invisible to the API server until restart. Root cause of production job population gap. Needs shared persistence layer (file-based SQLite WAL mode, Redis, or IPC). | Pending |
+| PROD-H1 | `sidequest/core/database.js` | **Multi-process sql.js isolation** — Replaced sql.js with better-sqlite3 (WAL mode). Both PM2 processes now read/write the same `data/jobs.db` file concurrently. | ✅ Done |
 | PROD-H2 | `api/utils/worker-registry.js` | **Missing pipeline registrations** — `dashboard-populate` and `plugin-manager` pipelines not registered in worker registry (8/11 present). Jobs for these pipelines return "No worker found" on cancel/retry. | ✅ Done |
 | PROD-H3 | `sidequest/core/server.js:189-221` | **`_persistJob()` silently swallows DB errors** — Logs error + sends to Sentry but does not fail the job or propagate. Job can report "completed" while DB write failed, causing data loss. | ✅ Done |
 
@@ -321,13 +321,13 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | ID | Location | Description | Status |
 |----|----------|-------------|--------|
 | PROD-L1 | `sidequest/core/database.js:getAllPipelineStats()` | **snake_case inconsistency** — Returns `pipeline_id`, `last_run` (snake_case) while all other query functions return camelCase. Single consumer (`api/server.js:162`) compensates, but inconsistent with repository pattern. | ✅ Done |
-| PROD-L2 | `tests/unit/database.test.js` | **Pre-existing test isolation issue** — "should import summary.json files" fails when run alongside `job-repository-factory.test.js` due to shared in-memory SQLite state. Passes in isolation (60/60). Needs test DB isolation or `beforeEach` reset. | Pending |
+| PROD-L2 | `tests/unit/database.test.js` | **Test isolation** — Tests now use `:memory:` databases for cross-file isolation. `initDatabase()` accepts optional path parameter. | ✅ Done |
 
 ### Summary
 
 | Priority | Count | Theme |
 |----------|-------|-------|
-| High | 1 | Multi-process DB isolation (PROD-H1) |
+| High | 0 | ~~Multi-process DB isolation (PROD-H1)~~ ✅ Complete |
 | Medium | 0 | ~~DB init race condition~~ ✅ Complete |
-| Low | 1 | Test isolation (PROD-L2) |
-| **Total** | **2** | |
+| Low | 0 | ~~Test isolation (PROD-L2)~~ ✅ Complete |
+| **Total** | **0** | |

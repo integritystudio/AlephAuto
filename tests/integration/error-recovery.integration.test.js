@@ -36,7 +36,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
 
   beforeEach(async () => {
     // Initialize database FIRST (it's async, needed for SidequestServer)
-    await initDatabase();
+    await initDatabase(':memory:');
 
     // Setup cache directory for Doppler
     testCacheDir = await fs.mkdtemp(path.join(os.tmpdir(), 'error-recovery-'));

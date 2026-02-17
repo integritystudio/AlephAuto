@@ -5,18 +5,27 @@
  * and alerting in production systems.
  */
 
-import { describe, it, beforeEach } from 'node:test';
+import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert';
 import {
   initDatabase,
   getHealthStatus,
-  isDatabaseReady
+  isDatabaseReady,
+  closeDatabase
 } from '../../sidequest/core/database.js';
 
 describe('Database Health Monitoring Integration', () => {
+  before(async () => {
+    await initDatabase(':memory:');
+  });
+
+  after(() => {
+    closeDatabase();
+  });
+
   beforeEach(async () => {
     if (!isDatabaseReady()) {
-      await initDatabase();
+      await initDatabase(':memory:');
     }
   });
 

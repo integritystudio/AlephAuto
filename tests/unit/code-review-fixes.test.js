@@ -123,7 +123,7 @@ describe('Database safeJsonParse', () => {
   beforeEach(async () => {
     const { initDatabase, isDatabaseReady } = await import('../../sidequest/core/database.js');
     if (!isDatabaseReady()) {
-      await initDatabase();
+      await initDatabase(':memory:');
     }
   });
 
@@ -263,7 +263,7 @@ describe('Database bulkImportJobs validation', () => {
   beforeEach(async () => {
     const { initDatabase, isDatabaseReady } = await import('../../sidequest/core/database.js');
     if (!isDatabaseReady()) {
-      await initDatabase();
+      await initDatabase(':memory:');
     }
   });
 

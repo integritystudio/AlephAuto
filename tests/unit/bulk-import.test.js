@@ -12,7 +12,7 @@
  */
 
 // @ts-nocheck
-import { describe, it, beforeEach, afterEach } from 'node:test';
+import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
@@ -26,9 +26,17 @@ import {
 } from '../../sidequest/core/database.js';
 
 describe('Bulk Import Migration', () => {
+  before(async () => {
+    await initDatabase(':memory:');
+  });
+
+  after(() => {
+    closeDatabase();
+  });
+
   beforeEach(async () => {
     if (!isDatabaseReady()) {
-      await initDatabase();
+      await initDatabase(':memory:');
     }
   });
 
@@ -412,6 +420,12 @@ describe('Bulk Import Migration', () => {
 });
 
 describe('Field mapping compatibility', () => {
+  before(async () => {
+    if (!isDatabaseReady()) {
+      await initDatabase(':memory:');
+    }
+  });
+
   it('should accept both snake_case and camelCase for pipeline_id', () => {
     const timestamp = Date.now();
 

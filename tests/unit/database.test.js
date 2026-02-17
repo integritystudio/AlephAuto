@@ -4,7 +4,7 @@
  * Tests for the SQLite database module for job history persistence.
  */
 
-import { describe, it, beforeEach, afterEach, mock } from 'node:test';
+import { describe, it, before, after, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert';
 import fs from 'fs';
 import path from 'path';
@@ -26,18 +26,18 @@ import {
 } from '../../sidequest/core/database.js';
 
 describe('Database Module', () => {
-  // Track if we need to reinitialize after tests
-  let wasInitialized = false;
-
-  beforeEach(async () => {
-    wasInitialized = isDatabaseReady();
-    if (!isDatabaseReady()) {
-      await initDatabase();
-    }
+  before(async () => {
+    await initDatabase(':memory:');
   });
 
-  afterEach(() => {
-    // Don't close database between tests - just verify state
+  after(() => {
+    closeDatabase();
+  });
+
+  beforeEach(async () => {
+    if (!isDatabaseReady()) {
+      await initDatabase(':memory:');
+    }
   });
 
   describe('initDatabase', () => {

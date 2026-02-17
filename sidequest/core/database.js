@@ -23,6 +23,7 @@ const logger = createComponentLogger('Database');
 const DB_PATH = path.join(__dirname, '../../data/jobs.db');
 
 let db = null;
+let activePath = DB_PATH;
 
 /**
  * Safely parse JSON with fallback on error
@@ -46,21 +47,28 @@ function safeJsonParse(str, fallback = null) {
  * Initialize better-sqlite3 database with WAL mode
  * Must be called before any database operations
  */
-export async function initDatabase() {
+export async function initDatabase(dbPath) {
   if (db) return db;
 
+  const targetPath = dbPath ?? DB_PATH;
+
   try {
-    // Ensure data directory exists
-    const dataDir = path.dirname(DB_PATH);
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+    // Ensure data directory exists (skip for in-memory databases)
+    if (targetPath !== ':memory:') {
+      const dataDir = path.dirname(targetPath);
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
     }
 
     // Open file-based database (creates if not exists)
-    db = new Database(DB_PATH);
+    db = new Database(targetPath);
+    activePath = targetPath;
 
-    // Enable WAL mode for concurrent multi-process access
-    db.pragma('journal_mode = WAL');
+    // Enable WAL mode for concurrent multi-process access (file-based only)
+    if (targetPath !== ':memory:') {
+      db.pragma('journal_mode = WAL');
+    }
     // Wait up to 5s for locks instead of failing immediately
     db.pragma('busy_timeout = 5000');
 
@@ -87,7 +95,7 @@ export async function initDatabase() {
     // Composite index for efficient pipeline+status queries
     db.exec('CREATE INDEX IF NOT EXISTS idx_jobs_pipeline_status ON jobs(pipeline_id, status)');
 
-    logger.info({ dbPath: DB_PATH }, 'Database initialized with WAL mode');
+    logger.info({ dbPath: targetPath }, 'Database initialized with WAL mode');
     return db;
   } catch (error) {
     logger.error({ error: error.message }, 'Failed to initialize database');
@@ -522,9 +530,9 @@ export async function importLogsToDatabase(logsDir) {
  */
 export function getHealthStatus() {
   let dbSizeBytes = 0;
-  if (db) {
+  if (db && activePath !== ':memory:') {
     try {
-      dbSizeBytes = fs.statSync(DB_PATH).size;
+      dbSizeBytes = fs.statSync(activePath).size;
     } catch {
       dbSizeBytes = -1;
     }
@@ -538,7 +546,7 @@ export function getHealthStatus() {
     recoveryAttempts: 0,
     queuedWrites: 0,
     queueStalenessMs: 0,
-    dbPath: DB_PATH,
+    dbPath: activePath,
     dbSizeBytes,
     memoryPressure: 'normal',
     status: db ? 'healthy' : 'not_initialized',
@@ -555,6 +563,7 @@ export function closeDatabase() {
   if (db) {
     db.close();
     db = null;
+    activePath = DB_PATH;
     logger.info('Database closed');
   }
 }
