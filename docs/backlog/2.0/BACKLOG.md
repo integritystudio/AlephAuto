@@ -97,8 +97,8 @@ Files where both `.js` and `.ts` exist, indicating incomplete migration:
 | 6 | `api/types/report-requests` | `.ts` is canonical (Zod schema source) |
 | 7 | `api/routes/pipelines` | `.ts` is canonical (uses typed middleware) |
 | 8 | `api/routes/scans` | `.ts` is canonical (uses typed middleware) |
-| 9 | `sidequest/types/duplicate-detection-types` | `.ts` is canonical (436 lines vs 69 lines .js) |
-| 10 | `sidequest/pipeline-core/types/scan-orchestrator-types` | `.ts` is canonical (288 lines vs 210 lines .js) |
+| 9 | `sidequest/types/duplicate-detection-types` | ✅ `.js` deleted (Phase 0) |
+| 10 | `sidequest/pipeline-core/types/scan-orchestrator-types` | ✅ `.js` deleted (Phase 0) |
 | 11 | `sidequest/pipeline-core/scan-orchestrator` | `.ts` is canonical (829 lines vs 458 lines .js) |
 | 12 | `sidequest/pipeline-runners/duplicate-detection-pipeline` | `.ts` is canonical (1,011 lines vs .js stub) |
 
@@ -184,23 +184,27 @@ PM2 requires CommonJS config files. This file stays as `.cjs` and is excluded fr
 
 ## 3. Migration Phases
 
-### Phase 0: JS+TS Pair Cleanup (Pre-Migration)
+### Phase 0: JS+TS Pair Cleanup (Pre-Migration) — Partial ✅
 
 **Goal:** Remove 12 stale `.js` files that have `.ts` replacements.
 
-**Files to delete (12):**
-- `api/middleware/validation.js`
-- `api/types/job-status.js`
-- `api/types/pipeline-requests.js`
-- `api/types/scan-requests.js`
-- `api/types/repository-requests.js`
-- `api/types/report-requests.js`
-- `api/routes/pipelines.js`
-- `api/routes/scans.js`
-- `sidequest/types/duplicate-detection-types.js`
-- `sidequest/pipeline-core/types/scan-orchestrator-types.js`
-- `sidequest/pipeline-core/scan-orchestrator.js`
-- `sidequest/pipeline-runners/duplicate-detection-pipeline.js`
+**Status:** 2/12 deleted. Remaining 10 have active runtime importers using `.js` extensions — blocked on Phase 1 (`--strip-types` enablement) to update import paths from `.js` to `.ts`.
+
+**Deleted (2):**
+- ~~`sidequest/types/duplicate-detection-types.js`~~ — zero importers, deleted
+- ~~`sidequest/pipeline-core/types/scan-orchestrator-types.js`~~ — zero importers, deleted
+
+**Blocked on Phase 1 (10):**
+- `api/middleware/validation.js` — imported by `api/routes/pipelines.js`, `api/routes/scans.js`
+- `api/types/job-status.js` — imported by 6 route/middleware files
+- `api/types/pipeline-requests.js` — imported by `api/routes/pipelines.js`
+- `api/types/scan-requests.js` — imported by `api/routes/scans.js`
+- `api/types/repository-requests.js` — imported by `api/routes/repositories.js`
+- `api/types/report-requests.js` — imported by `api/routes/reports.js`
+- `api/routes/pipelines.js` — imported by `api/server.js`
+- `api/routes/scans.js` — imported by `api/server.js`
+- `sidequest/pipeline-core/scan-orchestrator.js` — imported by `sidequest/workers/duplicate-detection.js`
+- `sidequest/pipeline-runners/duplicate-detection-pipeline.js` — imported by `sidequest/workers/duplicate-detection.js`
 
 **Pre-check:** Verify no runtime `require()` or dynamic `import()` references the `.js` file directly. Grep for each filename across the codebase.
 
