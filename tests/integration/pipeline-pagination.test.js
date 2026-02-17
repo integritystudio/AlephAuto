@@ -8,7 +8,7 @@
  * - hasMore flag accuracy
  * - No duplicate jobs across pages
  *
- * Note: Uses the sql.js in-memory database via the database module.
+ * Note: Uses the better-sqlite3 database via the database module.
  * Tests verify internal consistency of the pagination system.
  */
 

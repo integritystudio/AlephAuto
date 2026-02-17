@@ -634,9 +634,17 @@ describe('Database Module', () => {
 });
 
 describe('Database Edge Cases', () => {
+  before(async () => {
+    await initDatabase(':memory:');
+  });
+
+  after(() => {
+    closeDatabase();
+  });
+
   beforeEach(async () => {
     if (!isDatabaseReady()) {
-      await initDatabase();
+      await initDatabase(':memory:');
     }
   });
 
@@ -740,9 +748,17 @@ describe('Database Edge Cases', () => {
 describe('Database Query Options', () => {
   const queryPipelineId = `query-options-${Date.now()}`;
 
+  before(async () => {
+    await initDatabase(':memory:');
+  });
+
+  after(() => {
+    closeDatabase();
+  });
+
   beforeEach(async () => {
     if (!isDatabaseReady()) {
-      await initDatabase();
+      await initDatabase(':memory:');
     }
 
     // Create test data

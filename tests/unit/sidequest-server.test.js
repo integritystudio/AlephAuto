@@ -1,6 +1,7 @@
-import { test, describe } from 'node:test';
+import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert';
 import { SidequestServer } from '../../sidequest/core/server.js';
+import { initDatabase, closeDatabase } from '../../sidequest/core/database.js';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -20,25 +21,14 @@ class TestSidequestServer extends SidequestServer {
   }
 }
 
-/**
- * SKIPPED: SidequestServer Integration Tests
- *
- * Issue: SQLite database connection not closing cleanly in test context
- * Root cause: sql.js WASM cleanup conflicts with Node.js test runner
- * Impact: Tests hang on database close(), blocking CI pipeline
- *
- * Fix required:
- * 1. Add explicit db.close() timeout handling
- * 2. Implement test-specific database isolation (in-memory only)
- * 3. Consider mocking jobRepository for unit tests
- *
- * Tracking: Technical debt - database cleanup in tests (Q1 2026)
- * Related: websocket.test.js, mcp-server.test.js (similar async cleanup issues)
- *
- * Note: Core SidequestServer functionality is tested in other test files
- * that don't trigger the cleanup issue (sidequest-server-core.test.js)
- */
-describe.skip('SidequestServer', () => {
+describe('SidequestServer', () => {
+  before(async () => {
+    await initDatabase(':memory:');
+  });
+
+  after(() => {
+    closeDatabase();
+  });
   test('should initialize with default options', () => {
     const server = new TestSidequestServer();
     assert.strictEqual(server.maxConcurrent, 5);

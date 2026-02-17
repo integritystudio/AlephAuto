@@ -46,6 +46,10 @@ function safeJsonParse(str, fallback = null) {
 /**
  * Initialize better-sqlite3 database with WAL mode
  * Must be called before any database operations
+ *
+ * @param {string} [dbPath] - Custom database path. Use ':memory:' for test isolation.
+ *                             Defaults to data/jobs.db.
+ * @returns {Promise<import('better-sqlite3').Database>}
  */
 export async function initDatabase(dbPath) {
   if (db) return db;
