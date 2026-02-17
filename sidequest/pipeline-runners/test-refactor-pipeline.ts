@@ -16,6 +16,7 @@ import { DirectoryScanner } from '../utils/directory-scanner.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../core/config.js';
 import { TIMEOUTS } from '../core/constants.js';
+// @ts-ignore — no declaration file for node-cron
 import cron from 'node-cron';
 import path from 'path';
 
@@ -73,15 +74,15 @@ async function runPipeline(targetPath: string | null = null): Promise<PipelineRe
   });
 
   // Set up event handlers
-  worker.on('job:created', (job: { id: string; data: { repository: string } }) => {
+  worker.on('job:created', ((job: any) => {
     logger.debug({ jobId: job.id, project: job.data.repository }, 'Job created');
-  });
+  }) as (...args: any[]) => void);
 
-  worker.on('job:started', (job: { id: string; data: { repository: string } }) => {
+  worker.on('job:started', ((job: any) => {
     logger.info({ jobId: job.id, project: job.data.repository }, 'Job started');
-  });
+  }) as (...args: any[]) => void);
 
-  worker.on('job:completed', (job: { id: string; data: { repository: string }; result: { generatedFiles?: string[]; recommendations?: string[] } }) => {
+  worker.on('job:completed', ((job: any) => {
     const result = job.result;
     logger.info({
       jobId: job.id,
@@ -89,15 +90,15 @@ async function runPipeline(targetPath: string | null = null): Promise<PipelineRe
       filesGenerated: result.generatedFiles?.length || 0,
       recommendations: result.recommendations?.length || 0
     }, 'Job completed');
-  });
+  }) as (...args: any[]) => void);
 
-  worker.on('job:failed', (job: { id: string; data: { repository: string } }, error: Error) => {
+  worker.on('job:failed', ((job: any, error: Error) => {
     logger.error({
       jobId: job.id,
       project: job.data.repository,
       error: error.message
     }, 'Job failed');
-  });
+  }) as (...args: any[]) => void);
 
   try {
     if (targetPath) {
