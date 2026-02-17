@@ -431,17 +431,17 @@ export class ScanOrchestrator {
 
       // Stage 1: Repository scanning
       logStage(logger, '1/7: Scanning repository with repomix');
-      const repoScan: RepositoryScanOutput = await this.repositoryScanner.scanRepository(
+      const repoScan = await this.repositoryScanner.scanRepository(
         repoPath,
         scanConfig.scan_config || {}
-      );
+      ) as RepositoryScanOutput;
 
       // Stage 2: Pattern detection
       logStage(logger, '2/7: Detecting patterns with ast-grep');
-      const patterns: PatternDetectionOutput = await this.patternDetector.detectPatterns(
+      const patterns = await this.patternDetector.detectPatterns(
         repoPath,
         scanConfig.pattern_config || {}
-      );
+      ) as PatternDetectionOutput;
 
       // Stage 3-7: Python pipeline
       logStage(logger, '3-7: Running Python extraction and analysis pipeline');
@@ -754,7 +754,7 @@ export class ScanOrchestrator {
 
     try {
       // Delegate to InterProjectScanner for full cross-repository analysis
-      const interProjectResult = await interProjectScanner.scanRepositories(repoPaths, scanConfig);
+      const interProjectResult = await interProjectScanner.scanRepositories(repoPaths, scanConfig) as any;
 
       // Transform InterProjectScanner result to MultiRepositoryScanResult
       const results: Array<ScanResult | { error: string; repository_path: string }> = [];

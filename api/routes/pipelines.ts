@@ -43,7 +43,7 @@ router.get(
   '/:pipelineId/jobs',
   validateQuery(JobQueryParamsSchema), // Automatic Zod validation
   async (
-    req: Request<{ pipelineId: string }, {}, {}, JobQueryParams>,
+    req: Request<{ pipelineId: string }>,
     res: Response<JobsListResponse>,
     next: NextFunction
   ) => {
@@ -195,8 +195,8 @@ async function fetchJobsForPipeline(
   });
 
   // Extract jobs and total from database result
-  const dbJobs = dbResult.jobs || [];
-  const totalCount = dbResult.total || 0;
+  const dbJobs = (dbResult as any).jobs || [];
+  const totalCount = (dbResult as any).total || 0;
 
   // Map database schema to API response schema
   // Include all fields needed by the dashboard modal

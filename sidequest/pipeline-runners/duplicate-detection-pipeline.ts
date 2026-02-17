@@ -30,6 +30,7 @@ import { createComponentLogger, logStart, logRetry } from '../utils/logger.js';
 import { config } from '../core/config.js';
 import { TIMEOUTS, RETRY } from '../core/constants.js';
 import { isRetryable, getErrorInfo } from '../pipeline-core/errors/error-classifier.js';
+// @ts-ignore - no declaration file for node-cron
 import * as cron from 'node-cron';
 import * as path from 'path';
 import * as Sentry from '@sentry/node';
@@ -278,7 +279,7 @@ class DuplicateDetectionWorker extends SidequestServer {
       sentryDsn: options.sentryDsn
     });
 
-    this.configLoader = new RepositoryConfigLoader(options.configPath);
+    this.configLoader = new RepositoryConfigLoader(options.configPath as any);
     this.interProjectScanner = new InterProjectScanner({
       outputDir: path.join(process.cwd(), 'output', 'automated-scans')
     });
@@ -286,7 +287,7 @@ class DuplicateDetectionWorker extends SidequestServer {
     // (venv for local dev, system Python for CI/production)
     this.orchestrator = new ScanOrchestrator({});
     this.reportCoordinator = new ReportCoordinator(
-      path.join(process.cwd(), 'output', 'reports')
+      path.join(process.cwd(), 'output', 'reports') as any
     );
     this.prCreator = new PRCreator({
       baseBranch: options.baseBranch || 'main',
@@ -395,7 +396,7 @@ class DuplicateDetectionWorker extends SidequestServer {
     const originalJobId = this._getOriginalJobId(job.id);
 
     // Classify error to determine if retry is appropriate
-    const errorInfo = getErrorInfo(error);
+    const errorInfo = getErrorInfo(error) as any;
 
     if (!errorInfo.retryable) {
       logger.warn({
@@ -652,21 +653,21 @@ class DuplicateDetectionWorker extends SidequestServer {
           suggestions: result.suggestions.length
         }, 'Creating PRs for consolidation suggestions');
 
-        prResults = await this.prCreator.createPRsForSuggestions(result, repoPath);
+        prResults = await this.prCreator.createPRsForSuggestions(result, repoPath) as PRCreationResult;
 
-        this.scanMetrics.prsCreated += prResults.prsCreated;
+        this.scanMetrics.prsCreated += prResults!.prsCreated;
 
-        if (prResults.errors.length > 0) {
-          this.scanMetrics.prCreationErrors += prResults.errors.length;
+        if (prResults!.errors.length > 0) {
+          this.scanMetrics.prCreationErrors += prResults!.errors.length;
           logger.warn({
-            errors: prResults.errors
+            errors: prResults!.errors
           }, 'Some PRs failed to create');
         }
 
         logger.info({
-          prsCreated: prResults.prsCreated,
-          prUrls: prResults.prUrls,
-          errors: prResults.errors.length
+          prsCreated: prResults!.prsCreated,
+          prUrls: prResults!.prUrls,
+          errors: prResults!.errors.length
         }, 'PR creation completed');
 
       } catch (error) {
@@ -912,7 +913,7 @@ class DuplicateDetectionWorker extends SidequestServer {
  * Main execution
  */
 async function main(): Promise<void> {
-  const cronSchedule = config.duplicateScanCronSchedule || process.env.DUPLICATE_SCAN_CRON_SCHEDULE || '0 2 * * *';
+  const cronSchedule = (config as any).duplicateScanCronSchedule || process.env.DUPLICATE_SCAN_CRON_SCHEDULE || '0 2 * * *';
   const runOnStartup = process.env.RUN_ON_STARTUP === 'true';
 
   console.log('╔══════════════════════════════════════════════════════════╗');
@@ -922,7 +923,7 @@ async function main(): Promise<void> {
   try {
     // Initialize worker
     const worker = new DuplicateDetectionWorker({
-      maxConcurrentScans: config.maxConcurrentDuplicateScans || 3
+      maxConcurrentScans: (config as any).maxConcurrentDuplicateScans || 3
     });
 
     await worker.initialize();

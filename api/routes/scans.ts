@@ -151,15 +151,15 @@ router.get('/:scanId/results', async (req, res, next) => {
 
     // Query database for the scan job
     // First try duplicate-detection pipeline (most scans)
-    let jobs = getJobs('duplicate-detection', { limit: PAGINATION.MAX_LIMIT });
-    let job = jobs.find(j => j.id === scanId);
+    let jobs = getJobs('duplicate-detection', { limit: PAGINATION.MAX_LIMIT }) as any[];
+    let job = jobs.find((j: any) => j.id === scanId);
 
     // If not found, check all pipeline types in the database
     if (!job) {
       const allPipelines = ['repomix', 'schema-enhancement', 'git-activity', 'gitignore-manager', 'plugin-manager', 'claude-health'];
       for (const pipelineId of allPipelines) {
-        jobs = getJobs(pipelineId, { limit: PAGINATION.MAX_LIMIT });
-        job = jobs.find(j => j.id === scanId);
+        jobs = getJobs(pipelineId, { limit: PAGINATION.MAX_LIMIT }) as any[];
+        job = jobs.find((j: any) => j.id === scanId);
         if (job) break;
       }
     }
