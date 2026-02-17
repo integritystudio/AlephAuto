@@ -10,7 +10,7 @@ import { jobRepository } from '../../sidequest/core/job-repository.js';
 import { workerRegistry } from '../utils/worker-registry.js';
 import { config } from '../../sidequest/core/config.js';
 import { getPipelineName } from '../../sidequest/utils/pipeline-names.js';
-import { isValidJobStatus, JOB_STATUS } from '../types/job-status.js';
+import { isValidJobStatus, JOB_STATUS } from '../types/job-status.ts';
 import { PAGINATION, VALIDATION, RETRY } from '../../sidequest/core/constants.js';
 import { sendError, sendNotFoundError, sendInternalError, ERROR_CODES } from '../utils/api-error.js';
 import { bulkImportRateLimiter } from '../middleware/rate-limit.js';

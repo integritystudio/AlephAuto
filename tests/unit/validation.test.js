@@ -8,7 +8,7 @@
 // @ts-nocheck
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { StartScanRequestSchema } from '../../api/types/scan-requests.js';
+import { StartScanRequestSchema } from '../../api/types/scan-requests.ts';
 
 describe('Scan Request Validation', () => {
   describe('StartScanRequestSchema', () => {
@@ -160,7 +160,7 @@ describe('Scan Request Validation', () => {
 
 describe('Error Response Creation', () => {
   it('should create validation error with details', async () => {
-    const { createValidationError } = await import('../../api/types/scan-requests.js');
+    const { createValidationError } = await import('../../api/types/scan-requests.ts');
 
     const error = createValidationError(
       'repositoryPath',
@@ -178,7 +178,7 @@ describe('Error Response Creation', () => {
   });
 
   it('should create generic error response', async () => {
-    const { createErrorResponse } = await import('../../api/types/scan-requests.js');
+    const { createErrorResponse } = await import('../../api/types/scan-requests.ts');
 
     const error = createErrorResponse(
       'Internal Server Error',

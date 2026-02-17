@@ -10,7 +10,7 @@ import { jobRepository } from './job-repository.js';
 import { CONCURRENCY, RETRY } from './constants.js';
 import { isRetryable, classifyError } from '../pipeline-core/errors/error-classifier.js';
 import { toISOString } from '../utils/time-helpers.js';
-import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '../../api/types/job-status.js';
+import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '../../api/types/job-status.ts';
 
 const logger = createComponentLogger('SidequestServer');
 

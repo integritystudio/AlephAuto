@@ -12,14 +12,14 @@ import { z } from 'zod';
 /**
  * Valid job status values
  */
-export const JOB_STATUS = {
+export const JOB_STATUS = Object.freeze({
   QUEUED: 'queued',
   RUNNING: 'running',
   COMPLETED: 'completed',
   FAILED: 'failed',
   CANCELLED: 'cancelled',
   PAUSED: 'paused',
-} as const;
+} as const);
 
 /**
  * Job Status Schema - validates status values
@@ -51,11 +51,11 @@ export function isValidJobStatus(value: unknown): value is JobStatus {
 /**
  * Terminal statuses - jobs in these states won't change
  */
-export const TERMINAL_STATUSES: readonly JobStatus[] = [
+export const TERMINAL_STATUSES: readonly JobStatus[] = Object.freeze([
   JOB_STATUS.COMPLETED,
   JOB_STATUS.FAILED,
   JOB_STATUS.CANCELLED,
-] as const;
+]);
 
 /**
  * Check if a status is terminal (job won't change state)

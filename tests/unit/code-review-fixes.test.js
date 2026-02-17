@@ -13,7 +13,7 @@ import { describe, it, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert';
 
 // Import modules under test
-import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '../../api/types/job-status.js';
+import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '../../api/types/job-status.ts';
 import { PAGINATION, CONCURRENCY } from '../../sidequest/core/constants.js';
 
 describe('Code Review Fixes', () => {

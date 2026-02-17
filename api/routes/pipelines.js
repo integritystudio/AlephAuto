@@ -8,14 +8,14 @@
  */
 import express from 'express';
 import { validateQuery, validateRequest } from '../middleware/validation.js';
-import { JobQueryParamsSchema, ManualTriggerRequestSchema, PipelineDocsParamsSchema, PipelineHtmlParamsSchema } from '../types/pipeline-requests.js';
+import { JobQueryParamsSchema, ManualTriggerRequestSchema, PipelineDocsParamsSchema, PipelineHtmlParamsSchema } from '../types/pipeline-requests.ts';
 import { createComponentLogger, logError } from '../../sidequest/utils/logger.js';
 import { worker } from './scans.js';
 import { workerRegistry } from '../utils/worker-registry.js';
 import * as Sentry from '@sentry/node';
 import { getJobs, getJobCounts } from '../../sidequest/core/database.js';
 import { getPipelineName } from '../../sidequest/utils/pipeline-names.js';
-import { JOB_STATUS } from '../types/job-status.js';
+import { JOB_STATUS } from '../types/job-status.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';

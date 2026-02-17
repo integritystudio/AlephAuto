@@ -18,7 +18,7 @@ import {
   ValidationErrorResponseSchema,
   createErrorResponse,
   createValidationErrorResponse
-} from '../../api/types/pipeline-requests.js';
+} from '../../api/types/pipeline-requests.ts';
 
 describe('Pipeline Type Schemas', () => {
   describe('JobStatusSchema', () => {

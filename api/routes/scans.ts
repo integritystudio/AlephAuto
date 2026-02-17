@@ -16,9 +16,9 @@ import {
   type StartScanRequest,
   type ScanResponse,
   type ScanResults
-} from '../types/scan-requests.js';
+} from '../types/scan-requests.ts';
 import { getJobs } from '../../sidequest/core/database.js';
-import { JOB_STATUS } from '../types/job-status.js';
+import { JOB_STATUS } from '../types/job-status.ts';
 import { PAGINATION } from '../../sidequest/core/constants.js';
 import path from 'path';
 

@@ -13,7 +13,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createComponentLogger, logMetrics } from '../utils/logger.js';
-import { isValidJobStatus } from '../../api/types/job-status.js';
+import { isValidJobStatus } from '../../api/types/job-status.ts';
 import { VALIDATION } from './constants.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

@@ -10,7 +10,7 @@ import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanne
 import { createComponentLogger, logError } from '../../sidequest/utils/logger.js';
 import { strictRateLimiter } from '../middleware/rate-limit.js';
 import { validateQuery } from '../middleware/validation.js';
-import { RepositoryQuerySchema, RepositoryGroupQuerySchema } from '../types/repository-requests.js';
+import { RepositoryQuerySchema, RepositoryGroupQuerySchema } from '../types/repository-requests.ts';
 
 const router = express.Router();
 const logger = createComponentLogger('RepositoryRoutes');

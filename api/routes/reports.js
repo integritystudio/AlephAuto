@@ -7,7 +7,7 @@
 import express from 'express';
 import { createComponentLogger, logError } from '../../sidequest/utils/logger.js';
 import { validateQuery } from '../middleware/validation.js';
-import { ReportQuerySchema } from '../types/report-requests.js';
+import { ReportQuerySchema } from '../types/report-requests.ts';
 import fs from 'fs/promises';
 import path from 'path';
 
