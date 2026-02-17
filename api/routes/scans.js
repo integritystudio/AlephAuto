@@ -10,7 +10,7 @@ import { InterProjectScanner } from '../../sidequest/pipeline-core/inter-project
 import { DuplicateDetectionWorker } from '../../sidequest/pipeline-runners/duplicate-detection-pipeline.js';
 import { createComponentLogger, logError, logStart } from '../../sidequest/utils/logger.js';
 import { strictRateLimiter } from '../middleware/rate-limit.js';
-import { validateRequest } from '../middleware/validation.js';
+import { validateRequest } from '../middleware/validation.ts';
 import { StartScanRequestSchema } from '../types/scan-requests.ts';
 import { getJobs, saveJob } from '../../sidequest/core/database.js';
 import path from 'path';

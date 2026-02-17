@@ -8,7 +8,7 @@
  */
 
 import express, { Request, Response, NextFunction } from 'express';
-import { validateQuery, validateRequest } from '../middleware/validation.js';
+import { validateQuery, validateRequest } from '../middleware/validation.ts';
 import {
   JobQueryParamsSchema,
   ManualTriggerRequestSchema,

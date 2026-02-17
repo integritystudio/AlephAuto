@@ -7,7 +7,7 @@
  * @module api/routes/pipelines
  */
 import express from 'express';
-import { validateQuery, validateRequest } from '../middleware/validation.js';
+import { validateQuery, validateRequest } from '../middleware/validation.ts';
 import { JobQueryParamsSchema, ManualTriggerRequestSchema, PipelineDocsParamsSchema, PipelineHtmlParamsSchema } from '../types/pipeline-requests.ts';
 import { createComponentLogger, logError } from '../../sidequest/utils/logger.js';
 import { worker } from './scans.js';

@@ -9,7 +9,7 @@ import { RepositoryConfigLoader } from '../../sidequest/pipeline-core/config/rep
 import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.js';
 import { createComponentLogger, logError } from '../../sidequest/utils/logger.js';
 import { strictRateLimiter } from '../middleware/rate-limit.js';
-import { validateQuery } from '../middleware/validation.js';
+import { validateQuery } from '../middleware/validation.ts';
 import { RepositoryQuerySchema, RepositoryGroupQuerySchema } from '../types/repository-requests.ts';
 
 const router = express.Router();

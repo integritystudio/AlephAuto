@@ -4,8 +4,8 @@
  * Validates request bodies using Zod schemas and returns detailed error messages.
  */
 
-import { Request, Response, NextFunction } from 'express';
-import { ZodSchema, ZodError } from 'zod';
+import type { Request, Response, NextFunction } from 'express';
+import { type ZodSchema, ZodError } from 'zod';
 import { createComponentLogger } from '../../sidequest/utils/logger.js';
 
 const logger = createComponentLogger('ValidationMiddleware');
