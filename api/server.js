@@ -35,7 +35,7 @@ import { ScanEventBroadcaster } from './event-broadcaster.js';
 import { ActivityFeedManager } from './activity-feed.js';
 import { DopplerHealthMonitor } from '../sidequest/pipeline-core/doppler-health-monitor.js';
 import { setupServerWithPortFallback, setupGracefulShutdown } from './utils/port-manager.js';
-import { jobRepository } from '../sidequest/core/job-repository.js';
+import { jobRepository } from '../sidequest/core/job-repository.ts';
 import { getPipelineName } from '../sidequest/utils/pipeline-names.ts';
 import { workerRegistry } from './utils/worker-registry.js';
 import fs from 'fs/promises';

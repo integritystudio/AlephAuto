@@ -23,7 +23,7 @@ import {
   getAllJobs,
   bulkImportJobs,
   closeDatabase
-} from '../../sidequest/core/database.js';
+} from '../../sidequest/core/database.ts';
 
 describe('Bulk Import Migration', () => {
   before(async () => {

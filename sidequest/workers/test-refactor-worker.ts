@@ -13,7 +13,7 @@
  * - Comprehensive metrics tracking
  */
 
-import { SidequestServer, Job as BaseJob } from '../core/server.js';
+import { SidequestServer, Job as BaseJob } from '../core/server.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import { glob } from 'glob';
 import path from 'path';
@@ -174,8 +174,8 @@ export class TestRefactorWorker extends SidequestServer {
   /**
    * Execute the refactoring job
    */
-  async runJobHandler(job: RefactorJob): Promise<JobResult> {
-    const { repositoryPath, testsDir, utilsDir, e2eDir, framework, dryRun } = job.data;
+  async runJobHandler(job: BaseJob): Promise<unknown> {
+    const { repositoryPath, testsDir, utilsDir, e2eDir, framework, dryRun } = job.data as unknown as JobData;
     this.metrics.totalProjects++;
 
     logger.info({
@@ -775,8 +775,8 @@ export async function clickExternalLink(page: Page, linkText: string) {
   /**
    * Override commit message generation
    */
-  async _generateCommitMessage(job: RefactorJob): Promise<{ title: string; body: string }> {
-    const result = job.result;
+  async _generateCommitMessage(job: BaseJob): Promise<{ title: string; body: string }> {
+    const result = job.result as JobResult | undefined;
     return {
       title: `refactor(tests): add modular test utilities`,
       body: `Automated test refactoring to reduce duplication and improve maintainability.

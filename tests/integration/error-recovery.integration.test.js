@@ -26,8 +26,8 @@ import {
   setupServerWithPortFallback
 } from '../../api/utils/port-manager.js';
 import { ActivityFeedManager } from '../../api/activity-feed.js';
-import { SidequestServer } from '../../sidequest/core/server.js';
-import { initDatabase } from '../../sidequest/core/database.js';
+import { SidequestServer } from '../../sidequest/core/server.ts';
+import { initDatabase } from '../../sidequest/core/database.ts';
 
 describe('Error Recovery - End-to-End Integration Tests', () => {
   let testCacheDir;

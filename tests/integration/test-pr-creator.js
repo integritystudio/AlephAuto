@@ -11,7 +11,7 @@
  * - Error handling and cleanup
  */
 
-import { PRCreator } from '../../sidequest/pipeline-core/git/pr-creator.js';
+import { PRCreator } from '../../sidequest/pipeline-core/git/pr-creator.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 import { createTempRepository } from '../fixtures/test-helpers.js';
 import fs from 'fs/promises';

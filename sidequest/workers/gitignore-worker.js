@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { SidequestServer } from '../core/server.js';
+import { SidequestServer } from '../core/server.ts';
 import { GitignoreRepomixUpdater } from '../utils/gitignore-repomix-updater.js';
 import { generateReport } from '../utils/report-generator.js';
 import { createComponentLogger } from '../utils/logger.ts';

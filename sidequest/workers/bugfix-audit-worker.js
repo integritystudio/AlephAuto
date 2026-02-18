@@ -1,5 +1,5 @@
-import { SidequestServer } from '../core/server.js';
-import { GitWorkflowManager } from '../core/git-workflow-manager.js';
+import { SidequestServer } from '../core/server.ts';
+import { GitWorkflowManager } from '../core/git-workflow-manager.ts';
 import { execCommand } from '@shared/process-io';
 import { createComponentLogger, logError, logStage } from '../utils/logger.ts';
 import { config } from '../core/config.ts';

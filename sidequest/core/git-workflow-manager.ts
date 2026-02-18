@@ -6,27 +6,52 @@
  * - Committing changes
  * - Pushing branches
  * - Creating pull requests
- *
- * @module sidequest/core/git-workflow-manager
  */
 
-import { BranchManager } from '../pipeline-core/git/branch-manager.js';
+import { BranchManager } from '../pipeline-core/git/branch-manager.ts';
+import type { BranchManagerOptions, JobBranchContext, BranchResult, PRContext } from '../pipeline-core/git/branch-manager.ts';
 import { createComponentLogger, logError, logWarn } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('GitWorkflowManager');
 
+export interface CommitMessage {
+  title: string;
+  body: string;
+}
+
+export interface MessageGenerator {
+  generateCommitMessage(): Promise<CommitMessage>;
+  generatePRContext(): Promise<PRContext>;
+}
+
+export interface GitInfo {
+  branchName: string;
+  originalBranch: string;
+}
+
+export interface CommitContext {
+  message: string;
+  description?: string;
+  jobId?: string;
+}
+
+export interface WorkflowResult {
+  changedFiles: string[];
+  commitSha: string | null;
+  prUrl: string | null;
+}
+
 /**
  * GitWorkflowManager - manages git operations for automated workflows
  */
 export class GitWorkflowManager {
-  /**
-   * @param {Object} options - Configuration options
-   * @param {string} [options.baseBranch='main'] - Base branch for PRs
-   * @param {string} [options.branchPrefix='automated'] - Prefix for branch names
-   * @param {boolean} [options.dryRun=false] - If true, skip actual git operations
-   */
-  constructor(options = {}) {
+  baseBranch: string;
+  branchPrefix: string;
+  dryRun: boolean;
+  branchManager: BranchManager;
+
+  constructor(options: BranchManagerOptions = {}) {
     this.baseBranch = options.baseBranch || 'main';
     this.branchPrefix = options.branchPrefix || 'automated';
     this.dryRun = options.dryRun ?? false;
@@ -44,17 +69,7 @@ export class GitWorkflowManager {
     }, 'GitWorkflowManager initialized');
   }
 
-  /**
-   * Create a branch for a job
-   *
-   * @param {string} repositoryPath - Path to the repository
-   * @param {Object} jobInfo - Job information for branch naming
-   * @param {string} jobInfo.jobId - Job ID
-   * @param {string} jobInfo.jobType - Job type
-   * @param {string} [jobInfo.description] - Optional description
-   * @returns {Promise<{branchName: string, originalBranch: string}|null>}
-   */
-  async createJobBranch(repositoryPath, jobInfo) {
+  async createJobBranch(repositoryPath: string, jobInfo: JobBranchContext): Promise<BranchResult | null> {
     try {
       const branchInfo = await this.branchManager.createJobBranch(
         repositoryPath,
@@ -77,42 +92,20 @@ export class GitWorkflowManager {
 
       return branchInfo;
     } catch (error) {
-      logWarn(logger, error, 'Failed to create branch', { jobId: jobInfo.jobId });
+      logWarn(logger, error as Error, 'Failed to create branch', { jobId: jobInfo.jobId });
       return null;
     }
   }
 
-  /**
-   * Check if repository has uncommitted changes
-   *
-   * @param {string} repositoryPath - Path to the repository
-   * @returns {Promise<boolean>}
-   */
-  async hasChanges(repositoryPath) {
+  async hasChanges(repositoryPath: string): Promise<boolean> {
     return this.branchManager.hasChanges(repositoryPath);
   }
 
-  /**
-   * Get list of changed files
-   *
-   * @param {string} repositoryPath - Path to the repository
-   * @returns {Promise<string[]>}
-   */
-  async getChangedFiles(repositoryPath) {
+  async getChangedFiles(repositoryPath: string): Promise<string[]> {
     return this.branchManager.getChangedFiles(repositoryPath);
   }
 
-  /**
-   * Commit changes to the repository
-   *
-   * @param {string} repositoryPath - Path to the repository
-   * @param {Object} commitContext - Commit information
-   * @param {string} commitContext.message - Commit message title
-   * @param {string} [commitContext.description] - Commit message body
-   * @param {string} [commitContext.jobId] - Job ID for logging
-   * @returns {Promise<string|null>} Commit SHA or null on failure
-   */
-  async commitChanges(repositoryPath, commitContext) {
+  async commitChanges(repositoryPath: string, commitContext: CommitContext): Promise<string | null> {
     try {
       const normalizedContext = {
         message: commitContext.message,
@@ -136,14 +129,7 @@ export class GitWorkflowManager {
     }
   }
 
-  /**
-   * Push branch to remote
-   *
-   * @param {string} repositoryPath - Path to the repository
-   * @param {string} branchName - Branch to push
-   * @returns {Promise<boolean>} True if push succeeded
-   */
-  async pushBranch(repositoryPath, branchName) {
+  async pushBranch(repositoryPath: string, branchName: string): Promise<boolean> {
     try {
       const pushed = await this.branchManager.pushBranch(repositoryPath, branchName);
 
@@ -160,18 +146,7 @@ export class GitWorkflowManager {
     }
   }
 
-  /**
-   * Create a pull request
-   *
-   * @param {string} repositoryPath - Path to the repository
-   * @param {Object} prContext - PR information
-   * @param {string} prContext.branchName - Source branch
-   * @param {string} prContext.title - PR title
-   * @param {string} prContext.body - PR body
-   * @param {string[]} [prContext.labels] - PR labels
-   * @returns {Promise<string|null>} PR URL or null on failure
-   */
-  async createPullRequest(repositoryPath, prContext) {
+  async createPullRequest(repositoryPath: string, prContext: PRContext): Promise<string | null> {
     try {
       const prUrl = await this.branchManager.createPullRequest(repositoryPath, prContext);
 
@@ -192,43 +167,22 @@ export class GitWorkflowManager {
     }
   }
 
-  /**
-   * Cleanup a branch (switch back to original and delete)
-   *
-   * @param {string} repositoryPath - Path to the repository
-   * @param {string} branchName - Branch to cleanup
-   * @param {string} originalBranch - Branch to switch back to
-   * @returns {Promise<void>}
-   */
-  async cleanupBranch(repositoryPath, branchName, originalBranch) {
+  async cleanupBranch(repositoryPath: string, branchName: string, originalBranch: string): Promise<void> {
     try {
       await this.branchManager.cleanupBranch(repositoryPath, branchName, originalBranch);
       logger.info({ branchName }, 'Branch cleaned up');
     } catch (error) {
-      logWarn(logger, error, 'Failed to cleanup branch', { branchName });
+      logWarn(logger, error as Error, 'Failed to cleanup branch', { branchName });
     }
   }
 
-  /**
-   * Execute the full git workflow after a successful job
-   *
-   * @param {string} repositoryPath - Path to the repository
-   * @param {Object} gitInfo - Git state from job
-   * @param {string} gitInfo.branchName - Current branch
-   * @param {string} gitInfo.originalBranch - Original branch
-   * @param {Object} messageGenerator - Object with methods to generate commit/PR messages
-   * @param {Function} messageGenerator.generateCommitMessage - Returns {title, body}
-   * @param {Function} messageGenerator.generatePRContext - Returns {branchName, title, body, labels}
-   * @returns {Promise<{commitSha?: string, prUrl?: string, changedFiles?: string[]}>}
-   */
-  async executeWorkflow(repositoryPath, gitInfo, messageGenerator) {
-    const result = {
+  async executeWorkflow(repositoryPath: string, gitInfo: GitInfo, messageGenerator: MessageGenerator): Promise<WorkflowResult> {
+    const result: WorkflowResult = {
       changedFiles: [],
       commitSha: null,
       prUrl: null
     };
 
-    // Check for changes
     const hasChanges = await this.hasChanges(repositoryPath);
 
     if (!hasChanges) {
@@ -237,22 +191,18 @@ export class GitWorkflowManager {
       return result;
     }
 
-    // Get changed files
     result.changedFiles = await this.getChangedFiles(repositoryPath);
 
     logger.info({ filesChanged: result.changedFiles.length }, 'Changes detected, committing');
 
-    // Generate commit message
     const commitMessage = await messageGenerator.generateCommitMessage();
-    const commitContext = {
+    const commitContext: CommitContext = {
       message: commitMessage.title,
       description: commitMessage.body
     };
 
-    // Commit changes
     result.commitSha = await this.commitChanges(repositoryPath, commitContext);
 
-    // Push branch
     const pushed = await this.pushBranch(repositoryPath, gitInfo.branchName);
 
     if (!pushed) {
@@ -260,7 +210,6 @@ export class GitWorkflowManager {
       return result;
     }
 
-    // Generate and create PR
     const prContext = await messageGenerator.generatePRContext();
     result.prUrl = await this.createPullRequest(repositoryPath, prContext);
 

@@ -6,7 +6,7 @@
  * broadcasts include proper job event types with job payloads.
  *
  * Related fixes:
- * - sidequest/core/server.js: saveJob() on createJob and executeJob
+ * - sidequest/core/server.ts: saveJob() on createJob and executeJob
  * - api/activity-feed.js: WebSocket job event broadcasts
  */
 
@@ -17,7 +17,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 
-import { SidequestServer } from '../../sidequest/core/server.js';
+import { SidequestServer } from '../../sidequest/core/server.ts';
 import { ActivityFeedManager } from '../../api/activity-feed.js';
 import {
   initDatabase,
@@ -26,7 +26,7 @@ import {
   isDatabaseReady,
   saveJob,
   closeDatabase
-} from '../../sidequest/core/database.js';
+} from '../../sidequest/core/database.ts';
 
 // Test implementation of SidequestServer
 class TestServer extends SidequestServer {

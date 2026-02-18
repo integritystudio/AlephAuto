@@ -1,7 +1,7 @@
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert';
-import { SidequestServer } from '../../sidequest/core/server.js';
-import { initDatabase, closeDatabase } from '../../sidequest/core/database.js';
+import { SidequestServer } from '../../sidequest/core/server.ts';
+import { initDatabase, closeDatabase } from '../../sidequest/core/database.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';

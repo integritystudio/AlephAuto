@@ -14,7 +14,7 @@
  * @extends SidequestServer
  */
 
-import { SidequestServer } from '../core/server.js';
+import { SidequestServer } from '../core/server.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logWarn, logStart } from '../utils/logger.ts';

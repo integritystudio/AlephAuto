@@ -3,33 +3,67 @@
  *
  * Automatically creates Git branches and pull requests for duplicate code consolidation.
  * Uses gh CLI for PR creation and Git commands for branch management.
- *
- * Features:
- * - Creates feature branches for consolidation suggestions
- * - Applies automated code changes
- * - Commits changes with descriptive messages
- * - Creates PRs with detailed descriptions
- * - Handles multi-file consolidations
- * - Sentry error tracking
  */
-
-// @ts-check
-/** @typedef {import('../errors/error-types').ProcessError} ProcessError */
 
 import { runCommand } from '@shared/process-io';
 import fs from 'fs/promises';
 import path from 'path';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 import * as Sentry from '@sentry/node';
-import { MigrationTransformer } from './migration-transformer.js';
+import { MigrationTransformer } from './migration-transformer.ts';
 
 const logger = createComponentLogger('PRCreator');
+
+interface MigrationStep {
+  description: string;
+  step_number: number;
+  code_example?: string;
+}
+
+interface Suggestion {
+  suggestion_id: string;
+  automated_refactor_possible: boolean;
+  impact_score: number;
+  target_location?: string;
+  target_name?: string;
+  proposed_implementation?: string;
+  strategy?: string;
+  strategy_rationale: string;
+  complexity?: string;
+  migration_risk?: string;
+  usage_example?: string;
+  migration_steps: MigrationStep[];
+}
+
+interface ScanResult {
+  suggestions?: Suggestion[];
+}
+
+export interface PRCreatorOptions {
+  baseBranch?: string;
+  branchPrefix?: string;
+  dryRun?: boolean;
+  maxSuggestionsPerPR?: number;
+}
+
+export interface PRCreationResults {
+  prsCreated: number;
+  prUrls: string[];
+  errors: Array<{ batch: number; error: string; suggestions: string[] }>;
+  skipped: number;
+}
 
 /**
  * PR Creator for automated consolidation suggestions
  */
 export class PRCreator {
-  constructor(options = {}) {
+  baseBranch: string;
+  branchPrefix: string;
+  dryRun: boolean;
+  maxSuggestionsPerPR: number;
+  migrationTransformer: MigrationTransformer;
+
+  constructor(options: PRCreatorOptions = {}) {
     this.baseBranch = options.baseBranch || 'main';
     this.branchPrefix = options.branchPrefix || 'consolidate';
     this.dryRun = options.dryRun ?? false;
@@ -39,15 +73,11 @@ export class PRCreator {
     });
   }
 
-  /**
-   * Create PRs for consolidation suggestions
-   *
-   * @param {Object} scanResult - Scan result with suggestions
-   * @param {string} repositoryPath - Path to repository
-   * @param {Object} options - PR creation options
-   * @returns {Promise<Object>} PR creation results
-   */
-  async createPRsForSuggestions(scanResult, repositoryPath, options = {}) {
+  async createPRsForSuggestions(
+    scanResult: ScanResult,
+    repositoryPath: string,
+    _options: Record<string, unknown> = {}
+  ): Promise<PRCreationResults> {
     logger.info({
       repositoryPath,
       totalSuggestions: scanResult.suggestions?.length || 0
@@ -57,12 +87,13 @@ export class PRCreator {
       logger.info('No suggestions to process');
       return {
         prsCreated: 0,
+        prUrls: [],
         errors: [],
         skipped: 0
       };
     }
 
-    const results = {
+    const results: PRCreationResults = {
       prsCreated: 0,
       prUrls: [],
       errors: [],
@@ -85,14 +116,13 @@ export class PRCreator {
       return results;
     }
 
-    // Group suggestions for batching (max 5 per PR to keep PRs manageable)
+    // Group suggestions for batching
     const suggestionBatches = this._batchSuggestions(automatableSuggestions);
 
     logger.info({
       batches: suggestionBatches.length
     }, 'Created suggestion batches');
 
-    // Create PR for each batch
     for (let i = 0; i < suggestionBatches.length; i++) {
       const batch = suggestionBatches[i];
 
@@ -101,7 +131,7 @@ export class PRCreator {
           batch,
           repositoryPath,
           i + 1,
-          options
+          _options
         );
 
         if (prUrl) {
@@ -114,7 +144,7 @@ export class PRCreator {
         logError(logger, error, 'Failed to create PR for batch', { batch: i + 1 });
         results.errors.push({
           batch: i + 1,
-          error: error.message,
+          error: (error as Error).message,
           suggestions: batch.map(s => s.suggestion_id)
         });
 
@@ -135,17 +165,12 @@ export class PRCreator {
     return results;
   }
 
-  /**
-   * Create a PR for a batch of suggestions
-   *
-   * @param {Array} suggestions - Suggestions to include in PR
-   * @param {string} repositoryPath - Repository path
-   * @param {number} batchNumber - Batch number
-   * @param {Object} options - Creation options
-   * @returns {Promise<string|null>} PR URL or null
-   * @private
-   */
-  async _createPRForBatch(suggestions, repositoryPath, batchNumber, options) {
+  private async _createPRForBatch(
+    suggestions: Suggestion[],
+    repositoryPath: string,
+    batchNumber: number,
+    _options: Record<string, unknown>
+  ): Promise<string | null> {
     const branchName = this._generateBranchName(suggestions, batchNumber);
 
     logger.info({
@@ -155,47 +180,37 @@ export class PRCreator {
     }, 'Creating PR for suggestion batch');
 
     try {
-      // 1. Ensure we're on base branch
       await this._runGitCommand(repositoryPath, ['checkout', this.baseBranch]);
 
-      // 2. Pull latest changes (skip in dry-run to allow testing without remote)
       if (!this.dryRun) {
         await this._runGitCommand(repositoryPath, ['pull', 'origin', this.baseBranch]);
       }
 
-      // 3. Create new branch
       await this._runGitCommand(repositoryPath, ['checkout', '-b', branchName]);
 
-      // 4. Apply suggested changes
       const filesModified = await this._applySuggestions(suggestions, repositoryPath);
 
       if (filesModified.length === 0) {
         logger.warn({ branchName }, 'No files were modified, skipping PR creation');
-        // Cleanup branch
         await this._runGitCommand(repositoryPath, ['checkout', this.baseBranch]);
         await this._runGitCommand(repositoryPath, ['branch', '-D', branchName]);
         return null;
       }
 
-      // 5. Stage changes
       await this._runGitCommand(repositoryPath, ['add', '.']);
 
-      // 6. Commit changes
       const commitMessage = this._generateCommitMessage(suggestions, filesModified);
       await this._runGitCommand(repositoryPath, ['commit', '-m', commitMessage]);
 
       if (this.dryRun) {
         logger.info({ branchName }, 'Dry run: Skipping push and PR creation');
-        // Cleanup branch
         await this._runGitCommand(repositoryPath, ['checkout', this.baseBranch]);
         await this._runGitCommand(repositoryPath, ['branch', '-D', branchName]);
         return `dry-run-${branchName}`;
       }
 
-      // 7. Push branch
       await this._runGitCommand(repositoryPath, ['push', '-u', 'origin', branchName]);
 
-      // 8. Create PR
       const prDescription = this._generatePRDescription(suggestions, filesModified);
       const prTitle = this._generatePRTitle(suggestions, batchNumber);
       const prUrl = await this._createPR(repositoryPath, branchName, prTitle, prDescription);
@@ -206,7 +221,6 @@ export class PRCreator {
     } catch (error) {
       logError(logger, error, 'Failed to create PR', { branchName });
 
-      // Attempt cleanup
       try {
         await this._runGitCommand(repositoryPath, ['checkout', this.baseBranch]);
         await this._runGitCommand(repositoryPath, ['branch', '-D', branchName]);
@@ -218,27 +232,15 @@ export class PRCreator {
     }
   }
 
-  /**
-   * Apply consolidation suggestions to files
-   *
-   * @param {Array} suggestions - Suggestions to apply
-   * @param {string} repositoryPath - Repository path
-   * @returns {Promise<Array>} List of modified files
-   * @private
-   */
-  async _applySuggestions(suggestions, repositoryPath) {
-    const filesModified = [];
+  private async _applySuggestions(suggestions: Suggestion[], repositoryPath: string): Promise<string[]> {
+    const filesModified: string[] = [];
 
     for (const suggestion of suggestions) {
       try {
-        // Create consolidated file if target_location is specified
         if (suggestion.target_location && suggestion.proposed_implementation) {
           const targetPath = path.join(repositoryPath, suggestion.target_location);
 
-          // Ensure directory exists
           await fs.mkdir(path.dirname(targetPath), { recursive: true });
-
-          // Write proposed implementation
           await fs.writeFile(targetPath, suggestion.proposed_implementation, 'utf-8');
           filesModified.push(suggestion.target_location);
 
@@ -248,7 +250,6 @@ export class PRCreator {
           }, 'Created consolidated file');
         }
 
-        // Apply migration steps to affected files
         if (suggestion.migration_steps && suggestion.migration_steps.length > 0) {
           try {
             const migrationResult = await this.migrationTransformer.applyMigrationSteps(
@@ -256,7 +257,6 @@ export class PRCreator {
               repositoryPath
             );
 
-            // Add migrated files to modified list
             for (const file of migrationResult.filesModified) {
               if (!filesModified.includes(file)) {
                 filesModified.push(file);
@@ -271,7 +271,6 @@ export class PRCreator {
               backupPath: migrationResult.backupPath
             }, 'Applied migration steps');
 
-            // Log any transformation errors
             if (migrationResult.errors.length > 0) {
               logger.warn({
                 errors: migrationResult.errors
@@ -279,8 +278,6 @@ export class PRCreator {
             }
 
           } catch (migrationError) {
-            // Log migration error but don't fail the entire suggestion
-            // The consolidated file has still been created
             logError(logger, migrationError, 'Failed to apply migration steps', {
               suggestionId: suggestion.suggestion_id
             });
@@ -302,37 +299,17 @@ export class PRCreator {
         logError(logger, error, 'Failed to apply suggestion', {
           suggestionId: suggestion.suggestion_id
         });
-
-        // Continue with other suggestions
       }
     }
 
     return filesModified;
   }
 
-  /**
-   * Run a Git command
-   *
-   * @param {string} cwd - Working directory
-   * @param {Array} args - Git arguments
-   * @returns {Promise<string>} Command output
-   * @private
-   */
-  async _runGitCommand(cwd, args) {
+  private async _runGitCommand(cwd: string, args: string[]): Promise<string> {
     return runCommand(cwd, 'git', args);
   }
 
-  /**
-   * Create PR using gh CLI
-   *
-   * @param {string} cwd - Working directory
-   * @param {string} branch - Branch name
-   * @param {string} title - PR title
-   * @param {string} body - PR description
-   * @returns {Promise<string>} PR URL
-   * @private
-   */
-  async _createPR(cwd, branch, title, body) {
+  private async _createPR(cwd: string, branch: string, title: string, body: string): Promise<string> {
     return runCommand(cwd, 'gh', [
       'pr',
       'create',
@@ -343,15 +320,8 @@ export class PRCreator {
     ]);
   }
 
-  /**
-   * Batch suggestions for PR creation
-   *
-   * @param {Array} suggestions - All suggestions
-   * @returns {Array<Array>} Batches of suggestions
-   * @private
-   */
-  _batchSuggestions(suggestions) {
-    const batches = [];
+  private _batchSuggestions(suggestions: Suggestion[]): Suggestion[][] {
+    const batches: Suggestion[][] = [];
 
     for (let i = 0; i < suggestions.length; i += this.maxSuggestionsPerPR) {
       batches.push(suggestions.slice(i, i + this.maxSuggestionsPerPR));
@@ -360,32 +330,16 @@ export class PRCreator {
     return batches;
   }
 
-  /**
-   * Generate branch name
-   *
-   * @param {Array} suggestions - Suggestions in batch
-   * @param {number} batchNumber - Batch number
-   * @returns {string} Branch name
-   * @private
-   */
-  _generateBranchName(suggestions, batchNumber) {
+  private _generateBranchName(_suggestions: Suggestion[], batchNumber: number): string {
     const timestamp = Date.now();
     return `${this.branchPrefix}/batch-${batchNumber}-${timestamp}`;
   }
 
-  /**
-   * Generate commit message
-   *
-   * @param {Array} suggestions - Suggestions in batch
-   * @param {Array} filesModified - Modified files
-   * @returns {string} Commit message
-   * @private
-   */
-  _generateCommitMessage(suggestions, filesModified) {
+  private _generateCommitMessage(suggestions: Suggestion[], filesModified: string[]): string {
     const consolidationCount = suggestions.length;
     const fileCount = filesModified.length;
 
-    const message = [
+    return [
       `refactor: consolidate ${consolidationCount} duplicate code pattern${consolidationCount > 1 ? 's' : ''}`,
       '',
       `This commit consolidates ${consolidationCount} identified duplicate code pattern${consolidationCount > 1 ? 's' : ''} across ${fileCount} file${fileCount > 1 ? 's' : ''}.`,
@@ -396,39 +350,19 @@ export class PRCreator {
       'Files created:',
       ...filesModified.map(f => `- ${f}`),
       '',
-      '🤖 Generated with [Claude Code](https://claude.com/claude-code)',
-      '',
       'Co-Authored-By: Claude <noreply@anthropic.com>'
     ].join('\n');
-
-    return message;
   }
 
-  /**
-   * Generate PR title
-   *
-   * @param {Array} suggestions - Suggestions in batch
-   * @param {number} batchNumber - Batch number
-   * @returns {string} PR title
-   * @private
-   */
-  _generatePRTitle(suggestions, batchNumber) {
+  private _generatePRTitle(suggestions: Suggestion[], batchNumber: number): string {
     const consolidationCount = suggestions.length;
     return `refactor: consolidate ${consolidationCount} duplicate code pattern${consolidationCount > 1 ? 's' : ''} (batch ${batchNumber})`;
   }
 
-  /**
-   * Generate PR description
-   *
-   * @param {Array} suggestions - Suggestions in batch
-   * @param {Array} filesModified - Modified files
-   * @returns {string} PR description
-   * @private
-   */
-  _generatePRDescription(suggestions, filesModified) {
+  private _generatePRDescription(suggestions: Suggestion[], filesModified: string[]): string {
     const consolidationCount = suggestions.length;
 
-    const description = [
+    return [
       '## Summary',
       '',
       `This PR consolidates ${consolidationCount} identified duplicate code pattern${consolidationCount > 1 ? 's' : ''} to improve code maintainability and reduce duplication.`,
@@ -466,9 +400,9 @@ export class PRCreator {
       '',
       '## Migration Notes',
       '',
-      '⚠️ **Important:** This PR creates consolidated utility files. The actual migration of existing code to use these utilities should be done in follow-up PRs to keep changes manageable and reviewable.',
+      'This PR creates consolidated utility files. The actual migration of existing code to use these utilities should be done in follow-up PRs.',
       '',
-      suggestions.map((s, i) => {
+      suggestions.map((s) => {
         if (s.usage_example) {
           return [
             `### ${s.target_name || s.suggestion_id} Usage`,
@@ -483,9 +417,7 @@ export class PRCreator {
       }).filter(Boolean).join('\n'),
       '---',
       '',
-      '🤖 Generated with [Claude Code](https://claude.com/claude-code)'
+      'Generated with [Claude Code](https://claude.com/claude-code)'
     ].join('\n');
-
-    return description;
   }
 }

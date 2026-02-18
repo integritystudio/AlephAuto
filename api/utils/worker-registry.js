@@ -19,7 +19,7 @@ import { DashboardPopulateWorker } from '../../sidequest/workers/dashboard-popul
 import { PluginManagerWorker } from '../../sidequest/utils/plugin-manager.js';
 import { config } from '../../sidequest/core/config.ts';
 import { createComponentLogger, logError } from '../../sidequest/utils/logger.ts';
-import { jobRepository } from '../../sidequest/core/job-repository.js';
+import { jobRepository } from '../../sidequest/core/job-repository.ts';
 import { CONCURRENCY, TIMEOUTS, TIME, WORKER_COOLDOWN } from '../../sidequest/core/constants.ts';
 
 /**

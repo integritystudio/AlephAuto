@@ -20,12 +20,12 @@
  *   RUN_ON_STARTUP=true tsx duplicate-detection-pipeline.ts # Run immediately
  */
 
-import { SidequestServer } from '../core/server.js';
+import { SidequestServer } from '../core/server.ts';
 import { RepositoryConfigLoader } from '../pipeline-core/config/repository-config-loader.js';
 import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.js';
 import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.ts';
 import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.js';
-import { PRCreator } from '../pipeline-core/git/pr-creator.js';
+import { PRCreator, PRCreationResults } from '../pipeline-core/git/pr-creator.ts';
 import { createComponentLogger, logStart, logRetry } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS, RETRY } from '../core/constants.ts';
@@ -340,7 +340,8 @@ class DuplicateDetectionWorker extends SidequestServer {
   /**
    * Run job handler (required by SidequestServer)
    */
-  async runJobHandler(job: Job): Promise<JobResult> {
+  async runJobHandler(baseJob: import('../core/server.ts').Job): Promise<unknown> {
+    const job = baseJob as unknown as Job;
     const { scanType, repositories, groupName } = job.data;
 
     logger.info({
@@ -644,7 +645,7 @@ class DuplicateDetectionWorker extends SidequestServer {
     await this._checkForHighImpactDuplicates(result);
 
     // Create PRs if enabled
-    let prResults: PRCreationResult | null = null;
+    let prResults: PRCreationResults | null = null;
     if (this.enablePRCreation && result.suggestions && result.suggestions.length > 0) {
       try {
         logger.info({
@@ -653,7 +654,7 @@ class DuplicateDetectionWorker extends SidequestServer {
           suggestions: result.suggestions.length
         }, 'Creating PRs for consolidation suggestions');
 
-        prResults = await this.prCreator.createPRsForSuggestions(result, repoPath) as PRCreationResult;
+        prResults = await this.prCreator.createPRsForSuggestions(result as unknown as Parameters<PRCreator['createPRsForSuggestions']>[0], repoPath);
 
         this.scanMetrics.prsCreated += prResults!.prsCreated;
 

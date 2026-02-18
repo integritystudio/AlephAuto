@@ -8,7 +8,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { SidequestServer } from '../../sidequest/core/server.js';
+import { SidequestServer } from '../../sidequest/core/server.ts';
 import * as Sentry from '@sentry/node';
 
 /**

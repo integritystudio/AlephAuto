@@ -8,7 +8,7 @@
 
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
-import { MigrationTransformer } from '../../sidequest/pipeline-core/git/migration-transformer.js';
+import { MigrationTransformer } from '../../sidequest/pipeline-core/git/migration-transformer.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';

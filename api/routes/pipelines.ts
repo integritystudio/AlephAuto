@@ -21,7 +21,7 @@ import {
 } from '../types/pipeline-requests.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 import * as Sentry from '@sentry/node';
-import { jobRepository } from '../../sidequest/core/job-repository.js';
+import { jobRepository } from '../../sidequest/core/job-repository.ts';
 import { workerRegistry } from '../utils/worker-registry.js';
 
 const router = express.Router();

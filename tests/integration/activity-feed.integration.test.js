@@ -19,8 +19,8 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { ActivityFeedManager } from '../../api/activity-feed.js';
-import { SidequestServer } from '../../sidequest/core/server.js';
-import { initDatabase } from '../../sidequest/core/database.js';
+import { SidequestServer } from '../../sidequest/core/server.ts';
+import { initDatabase } from '../../sidequest/core/database.ts';
 
 describe('Activity Feed - Integration Tests', () => {
   let activityFeed;

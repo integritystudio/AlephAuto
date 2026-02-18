@@ -22,7 +22,7 @@ describe('API Routes', () => {
   // Initialize fresh in-memory database before all tests
   before(async () => {
     // Now import modules (will create fresh database)
-    const dbModule = await import('../../sidequest/core/database.js');
+    const dbModule = await import('../../sidequest/core/database.ts');
     closeDatabase = dbModule.closeDatabase;
     initDatabase = dbModule.initDatabase;
     await initDatabase(':memory:');

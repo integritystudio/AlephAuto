@@ -17,7 +17,7 @@ import {
   type ScanResponse,
   type ScanResults
 } from '../types/scan-requests.ts';
-import { getJobs } from '../../sidequest/core/database.js';
+import { getJobs } from '../../sidequest/core/database.ts';
 import { JOB_STATUS } from '../types/job-status.ts';
 import { PAGINATION } from '../../sidequest/core/constants.ts';
 import path from 'path';

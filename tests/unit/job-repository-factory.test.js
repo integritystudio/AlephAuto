@@ -12,7 +12,7 @@ describe('JobRepository Factory Function', () => {
   let JobRepository, createJobRepository, jobRepository;
 
   before(async () => {
-    const module = await import('../../sidequest/core/job-repository.js');
+    const module = await import('../../sidequest/core/job-repository.ts');
     JobRepository = module.JobRepository;
     createJobRepository = module.createJobRepository;
     jobRepository = module.jobRepository;
@@ -80,7 +80,7 @@ describe('JobRepository Factory Function', () => {
 
   describe('Backward compatibility', () => {
     it('should maintain existing exports', async () => {
-      const module = await import('../../sidequest/core/job-repository.js');
+      const module = await import('../../sidequest/core/job-repository.ts');
 
       // Check all expected exports exist
       assert.ok(module.JobRepository, 'JobRepository class should be exported');

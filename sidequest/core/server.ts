@@ -5,20 +5,100 @@ import fs from 'fs/promises';
 import path from 'path';
 import { createComponentLogger, logError, logWarn } from '../utils/logger.ts';
 import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.ts';
-import { GitWorkflowManager } from './git-workflow-manager.js';
-import { jobRepository } from './job-repository.js';
+import { GitWorkflowManager } from './git-workflow-manager.ts';
+import { jobRepository } from './job-repository.ts';
 import { CONCURRENCY, RETRY } from './constants.ts';
 import { isRetryable, classifyError } from '../pipeline-core/errors/error-classifier.ts';
 import { toISOString } from '../utils/time-helpers.ts';
 import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '../../api/types/job-status.ts';
+import type { JobStatus } from '../../api/types/job-status.ts';
 
 const logger = createComponentLogger('SidequestServer');
+
+/**
+ * Git workflow metadata for a job
+ */
+export interface JobGitMetadata {
+  branchName: string | null;
+  originalBranch: string | null;
+  commitSha: string | null;
+  prUrl: string | null;
+  changedFiles: string[];
+}
+
+/**
+ * Job structure used in-memory by SidequestServer
+ */
+export interface Job {
+  id: string;
+  status: JobStatus;
+  data: Record<string, unknown>;
+  createdAt: Date;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  error: { message: string; stack?: string; code?: string; cancelled?: boolean } | null;
+  result: unknown;
+  retryCount: number;
+  retryPending?: boolean;
+  pausedAt?: Date;
+  resumedAt?: Date;
+  git: JobGitMetadata;
+}
+
+/**
+ * Job statistics returned by getStats()
+ */
+export interface JobStats {
+  total: number;
+  queued: number;
+  active: number;
+  completed: number;
+  failed: number;
+}
+
+/**
+ * Constructor options for SidequestServer
+ */
+export interface SidequestServerOptions {
+  maxConcurrent?: number;
+  maxRetries?: number;
+  logDir?: string;
+  autoStart?: boolean;
+  gitWorkflowEnabled?: boolean;
+  gitBranchPrefix?: string;
+  gitBaseBranch?: string;
+  gitDryRun?: boolean;
+  jobType?: string;
+  sentryDsn?: string;
+}
+
+interface JobActionResult {
+  success: boolean;
+  message: string;
+  job?: Job;
+}
 
 /**
  * SidequestServer - Manages job execution with Sentry logging and optional Git workflow
  */
 export class SidequestServer extends EventEmitter {
-  constructor(options = {}) {
+  jobs: Map<string, Job>;
+  jobHistory: Job[];
+  maxConcurrent: number;
+  activeJobs: number;
+  queue: string[];
+  logDir: string;
+  isRunning: boolean;
+  maxRetries: number;
+  gitWorkflowEnabled: boolean;
+  gitBranchPrefix: string;
+  gitBaseBranch: string;
+  gitDryRun: boolean;
+  jobType: string;
+  gitWorkflowManager!: GitWorkflowManager;
+  private _dbReady: Promise<void>;
+
+  constructor(options: SidequestServerOptions = {}) {
     super();
     this.jobs = new Map();
     this.jobHistory = [];
@@ -28,10 +108,9 @@ export class SidequestServer extends EventEmitter {
     this.logDir = options.logDir || './logs';
 
     // Auto-start control: if false, jobs won't process until start() is called
-    // Defaults to true for production, tests can set false
     this.isRunning = options.autoStart !== false;
 
-    // Retry configuration (T1 fix: allow override for tests)
+    // Retry configuration
     this.maxRetries = options.maxRetries ?? RETRY.MAX_ABSOLUTE_ATTEMPTS;
 
     // Git workflow options
@@ -39,7 +118,7 @@ export class SidequestServer extends EventEmitter {
     this.gitBranchPrefix = options.gitBranchPrefix || 'automated';
     this.gitBaseBranch = options.gitBaseBranch || 'main';
     this.gitDryRun = options.gitDryRun ?? false;
-    this.jobType = options.jobType || 'job'; // Used for branch naming
+    this.jobType = options.jobType || 'job';
 
     // Initialize GitWorkflowManager if git workflow is enabled
     if (this.gitWorkflowEnabled) {
@@ -51,7 +130,6 @@ export class SidequestServer extends EventEmitter {
     }
 
     // Initialize SQLite database for job persistence
-    // Store promise so start() can await it before processing jobs
     this._dbReady = jobRepository.initialize()
       .then(() => {
         logger.info('Job history database initialized');
@@ -65,17 +143,14 @@ export class SidequestServer extends EventEmitter {
 
     // Initialize Sentry
     Sentry.init({
-      dsn: options.sentryDsn || config.sentryDsn,
+      dsn: options.sentryDsn ?? config.sentryDsn,
       environment: config.nodeEnv,
       tracesSampleRate: 1.0,
     });
   }
 
-  /**
-   * Create a new job
-   */
-  createJob(jobId, jobData) {
-    const job = {
+  createJob(jobId: string, jobData: Record<string, unknown>): Job {
+    const job: Job = {
       id: jobId,
       status: JOB_STATUS.QUEUED,
       data: jobData,
@@ -85,7 +160,6 @@ export class SidequestServer extends EventEmitter {
       error: null,
       result: null,
       retryCount: 0,
-      // Git workflow metadata
       git: {
         branchName: null,
         originalBranch: null,
@@ -118,17 +192,14 @@ export class SidequestServer extends EventEmitter {
     return job;
   }
 
-  /**
-   * Process the job queue
-   */
-  async processQueue() {
-    // Don't process if not running (allows tests to set handlers before jobs execute)
+  async processQueue(): Promise<void> {
     if (this.isRunning === false) {
       return;
     }
 
     while (this.queue.length > 0 && this.activeJobs < this.maxConcurrent) {
       const jobId = this.queue.shift();
+      if (!jobId) continue;
       const job = this.jobs.get(jobId);
 
       if (!job) continue;
@@ -140,18 +211,7 @@ export class SidequestServer extends EventEmitter {
     }
   }
 
-  /**
-   * Execute a job
-   */
-  /**
-   * Execute a job with full lifecycle management
-   *
-   * Lifecycle:
-   * 1. Prepare job (set status, persist, create git branch if enabled)
-   * 2. Run the job handler
-   * 3. Finalize (handle success/failure, git workflow, persist, cleanup)
-   */
-  async executeJob(jobId) {
+  async executeJob(jobId: string): Promise<void> {
     const job = this.jobs.get(jobId);
     if (!job) {
       return;
@@ -164,18 +224,13 @@ export class SidequestServer extends EventEmitter {
       let branchCreated = false;
 
       try {
-        // Phase 1: Prepare
         this._prepareJobForExecution(job);
         branchCreated = await this._setupGitBranchIfEnabled(job);
 
-        // Phase 2: Execute
         const result = await this.runJobHandler(job);
-
-        // Phase 3: Finalize success
         await this._finalizeJobSuccess(job, result, branchCreated);
 
       } catch (error) {
-        // Phase 3: Finalize failure
         await this._finalizeJobFailure(job, error, branchCreated);
 
       } finally {
@@ -185,12 +240,7 @@ export class SidequestServer extends EventEmitter {
     });
   }
 
-  /**
-   * Persist job state to database
-   * @private
-   */
-  _persistJob(job) {
-    // Validate required fields to prevent database constraint violations
+  private _persistJob(job: Job): void {
     if (!job?.id) {
       logger.error({ job }, 'Cannot persist job without ID');
       return;
@@ -202,7 +252,6 @@ export class SidequestServer extends EventEmitter {
     }
 
     try {
-      // Use shared timestamp normalization utility
       jobRepository.saveJob({
         id: job.id,
         pipelineId: this.jobType,
@@ -224,14 +273,10 @@ export class SidequestServer extends EventEmitter {
     }
   }
 
-  /**
-   * Prepare job for execution - set initial state
-   * @private
-   */
-  _prepareJobForExecution(job) {
+  private _prepareJobForExecution(job: Job): void {
     job.status = JOB_STATUS.RUNNING;
     job.startedAt = new Date();
-    job.retryPending = false;  // H5 fix: clear retry pending flag on execution
+    job.retryPending = false;
     this.emit('job:started', job);
     try {
       this._persistJob(job);
@@ -246,23 +291,18 @@ export class SidequestServer extends EventEmitter {
     });
   }
 
-  /**
-   * Setup git branch if workflow is enabled
-   * @private
-   * @returns {Promise<boolean>} True if branch was created
-   */
-  async _setupGitBranchIfEnabled(job) {
+  private async _setupGitBranchIfEnabled(job: Job): Promise<boolean> {
     if (!this.gitWorkflowEnabled || !job.data.repositoryPath) {
       return false;
     }
 
     try {
       const branchInfo = await this.gitWorkflowManager.createJobBranch(
-        job.data.repositoryPath,
+        job.data.repositoryPath as string,
         {
           jobId: job.id,
           jobType: this.jobType,
-          description: job.data.description || job.data.repository
+          description: (job.data.description || job.data.repository) as string | undefined
         }
       );
 
@@ -272,22 +312,17 @@ export class SidequestServer extends EventEmitter {
         return true;
       }
     } catch (gitError) {
-      logWarn(logger, gitError, 'Failed to create branch, continuing without git workflow', { jobId: job.id });
+      logWarn(logger, gitError as Error, 'Failed to create branch, continuing without git workflow', { jobId: job.id });
     }
 
     return false;
   }
 
-  /**
-   * Finalize successful job execution
-   * @private
-   */
-  async _finalizeJobSuccess(job, result, branchCreated) {
+  private async _finalizeJobSuccess(job: Job, result: unknown, branchCreated: boolean): Promise<void> {
     job.status = JOB_STATUS.COMPLETED;
     job.completedAt = new Date();
     job.result = result;
 
-    // Git workflow: Commit, push, and create PR
     if (branchCreated && this.gitWorkflowEnabled) {
       try {
         await this._handleGitWorkflowSuccess(job);
@@ -311,80 +346,61 @@ export class SidequestServer extends EventEmitter {
     });
   }
 
-  /**
-   * Finalize failed job execution
-   *
-   * Checks if error is retryable and retry count is below max.
-   * If so, re-queues the job and emits 'retry:created'.
-   * Otherwise, marks job as failed.
-   *
-   * @private
-   */
-  async _finalizeJobFailure(job, error, branchCreated) {
-    // Check if we should retry (use instance maxRetries for testability)
-    const canRetry = isRetryable(error) && job.retryCount < this.maxRetries;
+  private async _finalizeJobFailure(job: Job, error: unknown, branchCreated: boolean): Promise<void> {
+    const canRetry = isRetryable(error as Error) && job.retryCount < this.maxRetries;
 
     if (canRetry) {
-      // Increment retry count
       job.retryCount++;
 
-      // Get retry delay from error classification (H2 fix: use optional chaining)
-      const classification = classifyError(error);
+      const classification = classifyError(error as Error);
       const retryDelay = classification?.suggestedDelay ?? RETRY.DEFAULT_DELAY_MS;
 
       logger.info({
         jobId: job.id,
         retryCount: job.retryCount,
         maxRetries: this.maxRetries,
-        errorCode: error?.code,
+        errorCode: (error as { code?: string })?.code,
         retryDelay
       }, 'Scheduling job retry');
 
-      // Reset job state for retry
       job.status = JOB_STATUS.QUEUED;
       job.startedAt = null;
       job.error = null;
-      job.retryPending = true;  // H5 fix: prevent duplicate retry timers
+      job.retryPending = true;
 
-      // Emit retry event for activity feed
       this.emit('retry:created', job, {
         attempt: job.retryCount,
         maxAttempts: this.maxRetries,
-        reason: classification.reason,
+        reason: classification?.reason,
         delay: retryDelay
       });
 
       try {
         this._persistJob(job);
       } catch {
-        // Non-critical: retry state is in-memory, will be persisted on next state change
+        // Non-critical
       }
 
-      // Re-queue with delay (C3 fix: check job still exists and is queued)
       const jobId = job.id;
       setTimeout(() => {
-        // Verify job still exists (may have been deleted during delay)
         if (!this.jobs.has(jobId)) {
           logger.warn({ jobId }, 'Job deleted during retry delay, skipping retry');
           return;
         }
 
-        const currentJob = this.jobs.get(jobId);
+        const currentJob = this.jobs.get(jobId)!;
 
-        // H5 fix: check retry pending flag to prevent duplicate timers
         if (!currentJob.retryPending) {
           logger.warn({ jobId }, 'Retry already processed or cancelled, skipping');
           return;
         }
 
-        // Verify job is still in QUEUED state (may have been modified)
         if (currentJob.status !== JOB_STATUS.QUEUED) {
           logger.warn({ jobId, status: currentJob.status }, 'Job status changed during retry delay, skipping retry');
           currentJob.retryPending = false;
           return;
         }
 
-        // Clear pending flag and queue for execution
         currentJob.retryPending = false;
         this.queue.push(jobId);
         this.processQueue();
@@ -396,19 +412,18 @@ export class SidequestServer extends EventEmitter {
     // No retry - mark as failed
     job.status = JOB_STATUS.FAILED;
     job.completedAt = new Date();
-    job.error = safeErrorMessage(error);
+    job.error = { message: safeErrorMessage(error) };
 
-    // Git workflow: Cleanup branch on failure
-    if (branchCreated && this.gitWorkflowEnabled) {
+    if (branchCreated && this.gitWorkflowEnabled && job.git.branchName && job.git.originalBranch) {
       try {
         await this.gitWorkflowManager.cleanupBranch(
-          job.data.repositoryPath,
+          job.data.repositoryPath as string,
           job.git.branchName,
           job.git.originalBranch
         );
         logger.info({ jobId: job.id, branchName: job.git.branchName }, 'Cleaned up branch after job failure');
       } catch (cleanupError) {
-        logWarn(logger, cleanupError, 'Failed to cleanup branch', { jobId: job.id });
+        logWarn(logger, cleanupError as Error, 'Failed to cleanup branch', { jobId: job.id });
       }
     }
 
@@ -417,36 +432,33 @@ export class SidequestServer extends EventEmitter {
     try {
       this._persistJob(job);
     } catch {
-      // Guard: this method runs in executeJob's catch block, so a throw here
-      // would be an unhandled rejection. The DB error is already logged/Sentry'd
-      // by _persistJob. Failure state is still in-memory via jobHistory.
+      // Guard: already in catch block
     }
 
     Sentry.captureException(error, {
       tags: { jobId: job.id, jobType: this.jobType },
       contexts: {
-        job: { id: job.id, data: job.data, startedAt: job.startedAt }
+        job: { id: job.id, data: job.data as Record<string, unknown>, startedAt: job.startedAt?.toISOString() ?? null }
       }
     });
 
-    await this.logJobFailure(job, error);
+    await this.logJobFailure(job, error as Error);
     logError(logger, error, 'Job failed', { jobId: job.id, jobData: job.data });
   }
 
-  /**
-   * Handle git workflow after successful job completion
-   * @private
-   */
-  async _handleGitWorkflowSuccess(job) {
-    const repositoryPath = job.data.repositoryPath;
+  private async _handleGitWorkflowSuccess(job: Job): Promise<void> {
+    const repositoryPath = job.data.repositoryPath as string;
 
-    // Check if there are changes
     const hasChanges = await this.gitWorkflowManager.hasChanges(repositoryPath);
+
+    if (!job.git.branchName || !job.git.originalBranch) {
+      logger.warn({ jobId: job.id }, 'Missing branch info, skipping git workflow');
+      return;
+    }
 
     if (!hasChanges) {
       logger.info({ jobId: job.id }, 'No changes to commit, cleaning up branch');
 
-      // Cleanup branch if no changes
       await this.gitWorkflowManager.cleanupBranch(
         repositoryPath,
         job.git.branchName,
@@ -456,7 +468,6 @@ export class SidequestServer extends EventEmitter {
       return;
     }
 
-    // Get changed files
     job.git.changedFiles = await this.gitWorkflowManager.getChangedFiles(repositoryPath);
 
     logger.info({
@@ -464,7 +475,6 @@ export class SidequestServer extends EventEmitter {
       filesChanged: job.git.changedFiles.length
     }, 'Changes detected, committing');
 
-    // Commit changes
     const commitMessage = await this._generateCommitMessage(job);
     const commitContext = {
       message: commitMessage.title,
@@ -477,7 +487,6 @@ export class SidequestServer extends EventEmitter {
       commitContext
     );
 
-    // Push branch
     const pushed = await this.gitWorkflowManager.pushBranch(
       repositoryPath,
       job.git.branchName
@@ -488,7 +497,6 @@ export class SidequestServer extends EventEmitter {
       return;
     }
 
-    // Create PR
     const prContext = await this._generatePRContext(job);
     job.git.prUrl = await this.gitWorkflowManager.createPullRequest(
       repositoryPath,
@@ -512,9 +520,8 @@ export class SidequestServer extends EventEmitter {
   /**
    * Generate commit message for job
    * Override this method to customize commit messages
-   * @protected
    */
-  async _generateCommitMessage(job) {
+  async _generateCommitMessage(job: Job): Promise<{ title: string; body: string }> {
     return {
       title: `${this.jobType}: automated changes from job ${job.id}`,
       body: `Automated changes generated by ${this.jobType} job.\n\nFiles changed: ${job.git.changedFiles.length}`
@@ -524,82 +531,55 @@ export class SidequestServer extends EventEmitter {
   /**
    * Generate PR context for job
    * Override this method to customize PR details
-   * @protected
    */
-  async _generatePRContext(job) {
+  async _generatePRContext(job: Job): Promise<{ branchName: string; title: string; body: string; labels: string[] }> {
     const commitMessage = await this._generateCommitMessage(job);
 
     return {
-      branchName: job.git.branchName,
+      branchName: job.git.branchName!,
       title: commitMessage.title,
-      body: `## Automated Changes\n\n${commitMessage.body}\n\n### Job Details\n- **Job ID**: ${job.id}\n- **Job Type**: ${this.jobType}\n- **Files Changed**: ${job.git.changedFiles.length}\n\n### Changed Files\n${job.git.changedFiles.map(f => `- \`${f}\``).join('\n')}\n\n---\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)`,
+      body: `## Automated Changes\n\n${commitMessage.body}\n\n### Job Details\n- **Job ID**: ${job.id}\n- **Job Type**: ${this.jobType}\n- **Files Changed**: ${job.git.changedFiles.length}\n\n### Changed Files\n${job.git.changedFiles.map(f => `- \`${f}\``).join('\n')}\n\n---\n\nGenerated with [Claude Code](https://claude.com/claude-code)`,
       labels: ['automated', this.jobType]
     };
   }
 
   /**
    * Override this method to define job execution logic
-   * @param {any} job - The job to execute
-   * @returns {Promise<any>} - The result of the job execution
    */
-  async runJobHandler(job) {
+  async runJobHandler(_job: Job): Promise<unknown> {
     throw new Error('runJobHandler must be implemented by subclass');
   }
 
-  /**
-   * Start processing jobs, ensuring the database is ready first.
-   * @returns {Promise<void>}
-   */
-  async start() {
+  async start(): Promise<void> {
     await this._dbReady;
     this.isRunning = true;
     this.processQueue();
   }
 
-  /**
-   * Stop processing new jobs
-   * Provided for lifecycle compatibility with tests
-   */
-  stop() {
+  stop(): void {
     this.isRunning = false;
   }
 
-  /**
-   * Allow tests to set a handler via handleJob property
-   * @param {(job: any) => Promise<any>} handler - The job handler function
-   */
-  set handleJob(handler) {
+  set handleJob(handler: (job: Job) => Promise<unknown>) {
     this.runJobHandler = handler;
   }
 
-  /**
-   * Log job completion to file
-   */
-  async logJobCompletion(job) {
+  async logJobCompletion(job: Job): Promise<void> {
     try {
-      // Ensure log directory exists
       await fs.mkdir(this.logDir, { recursive: true });
 
-      // Defense-in-depth: sanitize job ID to prevent path traversal
-      // Even though job IDs are validated, this protects against future bugs
       const sanitizedId = path.basename(job.id);
       const logPath = path.join(this.logDir, `${sanitizedId}.json`);
       await fs.writeFile(logPath, JSON.stringify(job, null, 2));
     } catch (writeError) {
-      // If we can't write logs, at least log to console
       logError(logger, writeError, 'Failed to write completion log file', { jobId: job.id });
     }
   }
 
-  /**
-   * Log job failure to file
-   */
-  async logJobFailure(job, error) {
+  async logJobFailure(job: Job, error: Error): Promise<void> {
     try {
-      // Ensure log directory exists
       await fs.mkdir(this.logDir, { recursive: true });
 
-      // Defense-in-depth: sanitize job ID to prevent path traversal
       const sanitizedId = path.basename(job.id);
       const logPath = path.join(this.logDir, `${sanitizedId}.error.json`);
       await fs.writeFile(logPath, JSON.stringify({
@@ -610,29 +590,19 @@ export class SidequestServer extends EventEmitter {
         },
       }, null, 2));
     } catch (writeError) {
-      // If we can't write logs, at least log to console
       logError(logger, writeError, 'Failed to write error log file', { jobId: job.id });
     }
   }
 
-  /**
-   * Get job status
-   */
-  getJob(jobId) {
+  getJob(jobId: string): Job | undefined {
     return this.jobs.get(jobId);
   }
 
-  /**
-   * Get all jobs
-   */
-  getAllJobs() {
+  getAllJobs(): Job[] {
     return Array.from(this.jobs.values());
   }
 
-  /**
-   * Get job statistics
-   */
-  getStats() {
+  getStats(): JobStats {
     return {
       total: this.jobs.size,
       queued: this.queue.length,
@@ -642,16 +612,7 @@ export class SidequestServer extends EventEmitter {
     };
   }
 
-  /**
-   * Cancel a job
-   * - If queued: removes from queue and marks as cancelled
-   * - If running: marks as cancelled (job may complete current operation)
-   * - If completed/failed: returns false (cannot cancel)
-   *
-   * @param {string} jobId - The ID of the job to cancel
-   * @returns {{success: boolean, message: string, job?: object}} Result of cancellation attempt
-   */
-  cancelJob(jobId) {
+  cancelJob(jobId: string): JobActionResult {
     const job = this.jobs.get(jobId);
 
     if (!job) {
@@ -661,7 +622,6 @@ export class SidequestServer extends EventEmitter {
       };
     }
 
-    // Cannot cancel terminal jobs
     if (TERMINAL_STATUSES.includes(job.status)) {
       return {
         success: false,
@@ -670,7 +630,6 @@ export class SidequestServer extends EventEmitter {
       };
     }
 
-    // If queued, remove from queue
     if (job.status === JOB_STATUS.QUEUED) {
       const queueIndex = this.queue.indexOf(jobId);
       if (queueIndex > -1) {
@@ -678,29 +637,28 @@ export class SidequestServer extends EventEmitter {
       }
     }
 
-    // Mark job as cancelled
+    const previousStatus = job.status;
+
     job.status = JOB_STATUS.CANCELLED;
     job.completedAt = new Date();
     job.error = { message: 'Job cancelled by user', cancelled: true };
 
-    // Persist to database
     try {
       this._persistJob(job);
     } catch {
-      // Non-critical: in-memory state already updated
+      // Non-critical
     }
 
-    // Emit cancellation event
     this.emit('job:cancelled', job);
 
     Sentry.addBreadcrumb({
       category: 'job',
       message: `Job ${jobId} cancelled`,
       level: 'warning',
-      data: { jobId, previousStatus: job.status }
+      data: { jobId, previousStatus }
     });
 
-    logger.info({ jobId, previousStatus: job.status }, 'Job cancelled');
+    logger.info({ jobId, previousStatus }, 'Job cancelled');
 
     return {
       success: true,
@@ -709,18 +667,7 @@ export class SidequestServer extends EventEmitter {
     };
   }
 
-  /**
-   * Pause a job
-   *
-   * Pauses a queued or running job:
-   * - If queued: removes from queue, marks as paused
-   * - If running: marks as paused (job will stop at next checkpoint)
-   * - If already paused/completed/failed/cancelled: returns false
-   *
-   * @param {string} jobId - The ID of the job to pause
-   * @returns {{success: boolean, message: string, job?: object}} Result of pause attempt
-   */
-  pauseJob(jobId) {
+  pauseJob(jobId: string): JobActionResult {
     const job = this.jobs.get(jobId);
 
     if (!job) {
@@ -730,7 +677,6 @@ export class SidequestServer extends EventEmitter {
       };
     }
 
-    // Cannot pause terminal or already paused jobs
     if (TERMINAL_STATUSES.includes(job.status) || job.status === JOB_STATUS.PAUSED) {
       return {
         success: false,
@@ -741,7 +687,6 @@ export class SidequestServer extends EventEmitter {
 
     const previousStatus = job.status;
 
-    // If queued, remove from queue
     if (job.status === JOB_STATUS.QUEUED) {
       const queueIndex = this.queue.indexOf(jobId);
       if (queueIndex > -1) {
@@ -749,18 +694,15 @@ export class SidequestServer extends EventEmitter {
       }
     }
 
-    // Mark job as paused
     job.status = JOB_STATUS.PAUSED;
     job.pausedAt = new Date();
 
-    // Persist to database
     try {
       this._persistJob(job);
     } catch {
-      // Non-critical: in-memory state already updated
+      // Non-critical
     }
 
-    // Emit pause event
     this.emit('job:paused', job);
 
     Sentry.addBreadcrumb({
@@ -779,17 +721,7 @@ export class SidequestServer extends EventEmitter {
     };
   }
 
-  /**
-   * Resume a paused job
-   *
-   * Resumes a paused job by re-queuing it:
-   * - If paused: adds back to queue, marks as queued
-   * - If not paused: returns false
-   *
-   * @param {string} jobId - The ID of the job to resume
-   * @returns {{success: boolean, message: string, job?: object}} Result of resume attempt
-   */
-  resumeJob(jobId) {
+  resumeJob(jobId: string): JobActionResult {
     const job = this.jobs.get(jobId);
 
     if (!job) {
@@ -799,7 +731,6 @@ export class SidequestServer extends EventEmitter {
       };
     }
 
-    // Can only resume paused jobs
     if (job.status !== JOB_STATUS.PAUSED) {
       return {
         success: false,
@@ -808,21 +739,18 @@ export class SidequestServer extends EventEmitter {
       };
     }
 
-    // Mark job as queued and add back to queue
     job.status = JOB_STATUS.QUEUED;
     job.resumedAt = new Date();
     delete job.pausedAt;
 
     this.queue.push(jobId);
 
-    // Persist to database
     try {
       this._persistJob(job);
     } catch {
-      // Non-critical: in-memory state already updated
+      // Non-critical
     }
 
-    // Emit resume event
     this.emit('job:resumed', job);
 
     Sentry.addBreadcrumb({
@@ -834,7 +762,6 @@ export class SidequestServer extends EventEmitter {
 
     logger.info({ jobId }, 'Job resumed');
 
-    // Trigger queue processing
     this.processQueue();
 
     return {

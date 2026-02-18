@@ -6,7 +6,7 @@
 import express from 'express';
 import crypto from 'crypto';
 import { createComponentLogger, logError, logStart } from '../../sidequest/utils/logger.ts';
-import { jobRepository } from '../../sidequest/core/job-repository.js';
+import { jobRepository } from '../../sidequest/core/job-repository.ts';
 import { workerRegistry } from '../utils/worker-registry.js';
 import { config } from '../../sidequest/core/config.ts';
 import { getPipelineName } from '../../sidequest/utils/pipeline-names.ts';

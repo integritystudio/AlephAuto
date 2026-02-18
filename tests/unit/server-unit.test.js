@@ -9,7 +9,7 @@
 // @ts-nocheck
 import { describe, it, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { SidequestServer } from '../../sidequest/core/server.js';
+import { SidequestServer } from '../../sidequest/core/server.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';

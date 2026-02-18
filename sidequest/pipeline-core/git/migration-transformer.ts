@@ -7,24 +7,22 @@
  * - Removes old duplicate code
  * - Creates backups before transformations
  * - Provides rollback capability
- *
- * Features:
- * - Babel AST manipulation for JavaScript/TypeScript
- * - Safe transformation with validation
- * - Atomic operations with rollback
- * - Comprehensive error handling
- * - Sentry error tracking
  */
 
-// @ts-check
 import { parse } from '@babel/parser';
+import type { ParseResult, ParserPlugin } from '@babel/parser';
+// @ts-ignore -- no declaration file for @babel/traverse
 import _traverse from '@babel/traverse';
+// @ts-ignore -- no declaration file for @babel/generator
 import _generate from '@babel/generator';
 
 // ESM/CJS interop: Babel packages export { default: fn } in ESM
-const traverse = _traverse.default ?? _traverse;
-const generate = _generate.default ?? _generate;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const traverse: any = (_traverse as any).default ?? _traverse;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const generate: any = (_generate as any).default ?? _generate;
 import * as t from '@babel/types';
+import type { File as BabelFile, Expression, Identifier, MemberExpression } from '@babel/types';
 import fs from 'fs/promises';
 import path from 'path';
 import { glob } from 'glob';
@@ -34,27 +32,61 @@ import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('MigrationTransformer');
 
+/** Parsed migration step types */
+type ParsedMigrationStep =
+  | { type: 'update-import'; oldPath: string; newPath: string }
+  | { type: 'replace-call'; oldName: string; newName: string }
+  | { type: 'remove-declaration'; name: string }
+  | { type: 'add-import'; imported: string; source: string };
+
+interface MigrationStep {
+  description: string;
+  code_example?: string;
+  step_number?: number;
+}
+
+interface MigrationSuggestion {
+  suggestion_id?: string;
+  migration_steps?: MigrationStep[];
+}
+
+interface ParsedStep extends MigrationStep {
+  parsed: ParsedMigrationStep | null;
+  index: number;
+}
+
+interface TransformResult {
+  modified: boolean;
+  transformations?: Array<Record<string, string>>;
+  originalLength?: number;
+  newLength?: number;
+  reason?: string;
+  error?: string;
+}
+
+interface MigrationResult {
+  filesModified: string[];
+  transformations: Array<Record<string, unknown>>;
+  errors: Array<{ file: string; error: string }>;
+  backupPath: string | null;
+}
+
+export interface MigrationTransformerOptions {
+  backupDir?: string;
+  dryRun?: boolean;
+}
+
 /**
  * Escape special regex characters in a string
- * @param {string} str
- * @returns {string}
  */
-function escapeRegExp(str) {
+function escapeRegExp(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
  * Parse migration step description to extract transformation details
- *
- * Migration steps follow patterns like:
- * - "Update import from './utils/json.js' to '../shared/json-utils.js'"
- * - "Replace calls to writeJsonFile with jsonUtils.writeJsonFile"
- * - "Remove duplicate function writeJsonFile from src/utils/legacy.js"
- *
- * @param {string} description - Migration step description
- * @returns {Object|null} Parsed transformation details or null if not parseable
  */
-function parseMigrationStep(description) {
+function parseMigrationStep(description: string): ParsedMigrationStep | null {
   // Pattern 1: Update import
   const importPattern = /Update import.*?from ['"]([^'"]+)['"].*?to ['"]([^'"]+)['"]/i;
   const importMatch = description.match(importPattern);
@@ -102,23 +134,31 @@ function parseMigrationStep(description) {
   return null;
 }
 
+const PARSER_PLUGINS: ParserPlugin[] = [
+  'typescript',
+  'jsx',
+  'decorators-legacy',
+  'classProperties',
+  'objectRestSpread',
+  'asyncGenerators',
+  'dynamicImport',
+  'optionalChaining',
+  'nullishCoalescingOperator'
+];
+
 /**
  * Migration Transformer for applying consolidation changes
  */
 export class MigrationTransformer {
-  constructor(options = {}) {
+  backupDir: string;
+  dryRun: boolean;
+
+  constructor(options: MigrationTransformerOptions = {}) {
     this.backupDir = options.backupDir || '.migration-backups';
     this.dryRun = options.dryRun ?? false;
   }
 
-  /**
-   * Apply migration steps to affected files
-   *
-   * @param {Object} suggestion - Consolidation suggestion with migration_steps
-   * @param {string} repositoryPath - Repository path
-   * @returns {Promise<Object>} Transformation results
-   */
-  async applyMigrationSteps(suggestion, repositoryPath) {
+  async applyMigrationSteps(suggestion: MigrationSuggestion, repositoryPath: string): Promise<MigrationResult> {
     logger.info({
       suggestionId: suggestion.suggestion_id,
       stepsCount: suggestion.migration_steps?.length || 0,
@@ -130,11 +170,12 @@ export class MigrationTransformer {
       return {
         filesModified: [],
         transformations: [],
+        errors: [],
         backupPath: null
       };
     }
 
-    const results = {
+    const results: MigrationResult = {
       filesModified: [],
       transformations: [],
       errors: [],
@@ -147,20 +188,20 @@ export class MigrationTransformer {
 
     try {
       // Parse all migration steps
-      const parsedSteps = suggestion.migration_steps
+      const parsedSteps: ParsedStep[] = suggestion.migration_steps
         .map((step, index) => ({
           ...step,
           parsed: parseMigrationStep(step.description),
           index
         }))
-        .filter(step => step.parsed !== null);
+        .filter((step): step is ParsedStep & { parsed: ParsedMigrationStep } => step.parsed !== null);
 
       logger.info({
         totalSteps: suggestion.migration_steps.length,
         parseableSteps: parsedSteps.length
       }, 'Parsed migration steps');
 
-      // Group steps by affected file (extracted from code_example or detected in repo)
+      // Group steps by affected file
       const fileGroups = await this._groupStepsByFile(parsedSteps, suggestion, repositoryPath);
 
       // Apply transformations to each file
@@ -168,7 +209,6 @@ export class MigrationTransformer {
         try {
           const absolutePath = path.join(repositoryPath, filePath);
 
-          // Check file exists
           try {
             await fs.access(absolutePath);
           } catch {
@@ -176,11 +216,7 @@ export class MigrationTransformer {
             continue;
           }
 
-          const transformResult = await this._transformFile(
-            absolutePath,
-            steps,
-            suggestion
-          );
+          const transformResult = await this._transformFile(absolutePath, steps, suggestion);
 
           if (transformResult.modified) {
             results.filesModified.push(filePath);
@@ -194,7 +230,7 @@ export class MigrationTransformer {
           logError(logger, error, 'Failed to transform file', { filePath });
           results.errors.push({
             file: filePath,
-            error: error.message
+            error: (error as Error).message
           });
 
           Sentry.captureException(error, {
@@ -221,7 +257,6 @@ export class MigrationTransformer {
     } catch (error) {
       logError(logger, error, 'Failed to apply migration steps');
 
-      // Attempt rollback on error
       if (results.filesModified.length > 0) {
         logger.info('Attempting rollback due to error');
         await this.rollback(backupPath, repositoryPath);
@@ -231,53 +266,32 @@ export class MigrationTransformer {
     }
   }
 
-  /**
-   * Transform a single file by applying migration steps
-   *
-   * @param {string} filePath - Absolute file path
-   * @param {Array} steps - Migration steps to apply
-   * @param {Object} suggestion - Full suggestion context
-   * @returns {Promise<Object>} Transformation result
-   * @private
-   */
-  async _transformFile(filePath, steps, suggestion) {
+  private async _transformFile(filePath: string, steps: ParsedStep[], _suggestion: MigrationSuggestion): Promise<TransformResult> {
     logger.debug({ filePath, stepsCount: steps.length }, 'Transforming file');
 
-    // Read original source
     const originalSource = await fs.readFile(filePath, 'utf-8');
 
-    // Parse to AST
-    let ast;
+    let ast: ParseResult<BabelFile>;
     try {
       ast = parse(originalSource, {
         sourceType: 'module',
-        plugins: [
-          'typescript',
-          'jsx',
-          'decorators-legacy',
-          'classProperties',
-          'objectRestSpread',
-          'asyncGenerators',
-          'dynamicImport',
-          'optionalChaining',
-          'nullishCoalescingOperator'
-        ]
+        plugins: PARSER_PLUGINS
       });
     } catch (parseError) {
       logger.warn({ filePath, parseError }, 'Failed to parse file as JavaScript/TypeScript');
       return {
         modified: false,
         reason: 'parse-error',
-        error: parseError.message
+        error: (parseError as Error).message
       };
     }
 
     let modified = false;
-    const appliedTransformations = [];
+    const appliedTransformations: Array<Record<string, string>> = [];
 
-    // Apply each transformation
     for (const step of steps) {
       const transformation = step.parsed;
+      if (!transformation) continue;
 
       try {
         switch (transformation.type) {
@@ -324,15 +338,16 @@ export class MigrationTransformer {
             }
             break;
 
-          default:
-            logger.warn({ type: transformation.type }, 'Unknown transformation type');
+          default: {
+            const _exhaustive: never = transformation;
+            logger.warn({ type: (_exhaustive as ParsedMigrationStep).type }, 'Unknown transformation type');
+          }
         }
       } catch (transformError) {
         logError(logger, transformError, 'Transformation failed', { transformation });
       }
     }
 
-    // Generate new code if modified
     if (modified) {
       const output = generate(ast, {
         retainLines: false,
@@ -360,20 +375,11 @@ export class MigrationTransformer {
     };
   }
 
-  /**
-   * Update import statement from old path to new path
-   *
-   * @param {Object} ast - Babel AST
-   * @param {string} oldPath - Old import path
-   * @param {string} newPath - New import path
-   * @returns {boolean} True if modified
-   * @private
-   */
-  _updateImport(ast, oldPath, newPath) {
+  private _updateImport(ast: ParseResult<BabelFile>, oldPath: string, newPath: string): boolean {
     let modified = false;
 
     traverse(ast, {
-      ImportDeclaration(path) {
+      ImportDeclaration(path: any) {
         if (path.node.source.value === oldPath) {
           path.node.source.value = newPath;
           modified = true;
@@ -385,20 +391,10 @@ export class MigrationTransformer {
     return modified;
   }
 
-  /**
-   * Add new import statement
-   *
-   * @param {Object} ast - Babel AST
-   * @param {string} imported - What to import (e.g., 'writeJsonFile' or '{ writeJsonFile }')
-   * @param {string} source - Import source path
-   * @returns {boolean} True if modified
-   * @private
-   */
-  _addImport(ast, imported, source) {
-    // Check if import already exists
+  private _addImport(ast: ParseResult<BabelFile>, imported: string, source: string): boolean {
     let alreadyExists = false;
     traverse(ast, {
-      ImportDeclaration(path) {
+      ImportDeclaration(path: any) {
         if (path.node.source.value === source) {
           alreadyExists = true;
           path.stop();
@@ -411,61 +407,42 @@ export class MigrationTransformer {
       return false;
     }
 
-    // Parse imported name(s)
-    let specifiers;
+    let specifiers: t.ImportSpecifier[] | [t.ImportNamespaceSpecifier] | [t.ImportDefaultSpecifier];
     if (imported.startsWith('{') && imported.endsWith('}')) {
-      // Named import: { foo, bar }
       const names = imported.slice(1, -1).split(',').map(n => n.trim());
       specifiers = names.map(name =>
         t.importSpecifier(t.identifier(name), t.identifier(name))
       );
     } else if (imported === '*') {
-      // Namespace import: * as foo
       specifiers = [t.importNamespaceSpecifier(t.identifier('imported'))];
     } else {
-      // Default import: foo
       specifiers = [t.importDefaultSpecifier(t.identifier(imported))];
     }
 
-    // Create import declaration
     const importDeclaration = t.importDeclaration(
       specifiers,
       t.stringLiteral(source)
     );
 
-    // Add to top of program
     ast.program.body.unshift(importDeclaration);
     logger.debug({ imported, source }, 'Added import statement');
 
     return true;
   }
 
-  /**
-   * Replace function call expressions
-   *
-   * @param {Object} ast - Babel AST
-   * @param {string} oldName - Old function name
-   * @param {string} newName - New function name (supports dot notation)
-   * @returns {boolean} True if modified
-   * @private
-   */
-  _replaceCallExpression(ast, oldName, newName) {
+  private _replaceCallExpression(ast: ParseResult<BabelFile>, oldName: string, newName: string): boolean {
     let modified = false;
 
     traverse(ast, {
-      CallExpression(path) {
-        // Handle simple identifier calls
+      CallExpression(path: any) {
         if (t.isIdentifier(path.node.callee, { name: oldName })) {
-          // Parse new name (supports dot notation like 'utils.writeJson')
           if (newName.includes('.')) {
             const parts = newName.split('.');
-            // @ts-ignore - Start with identifier, becomes MemberExpression in loop
-            let memberExpr = t.identifier(parts[0]);
+            let memberExpr: Identifier | MemberExpression = t.identifier(parts[0]);
             for (let i = 1; i < parts.length; i++) {
-              // @ts-ignore - memberExpr type changes from Identifier to MemberExpression
               memberExpr = t.memberExpression(memberExpr, t.identifier(parts[i]));
             }
-            path.node.callee = memberExpr;
+            path.node.callee = memberExpr as Expression;
           } else {
             path.node.callee = t.identifier(newName);
           }
@@ -478,20 +455,11 @@ export class MigrationTransformer {
     return modified;
   }
 
-  /**
-   * Remove declaration (function, class, const, let, var)
-   *
-   * @param {Object} ast - Babel AST
-   * @param {string} name - Name of declaration to remove
-   * @returns {boolean} True if modified
-   * @private
-   */
-  _removeDeclaration(ast, name) {
+  private _removeDeclaration(ast: ParseResult<BabelFile>, name: string): boolean {
     let modified = false;
 
     traverse(ast, {
-      // Function declarations
-      FunctionDeclaration(path) {
+      FunctionDeclaration(path: any) {
         if (path.node.id && path.node.id.name === name) {
           path.remove();
           modified = true;
@@ -499,8 +467,7 @@ export class MigrationTransformer {
         }
       },
 
-      // Class declarations
-      ClassDeclaration(path) {
+      ClassDeclaration(path: any) {
         if (path.node.id && path.node.id.name === name) {
           path.remove();
           modified = true;
@@ -508,16 +475,12 @@ export class MigrationTransformer {
         }
       },
 
-      // Variable declarations (const, let, var)
-      VariableDeclarator(path) {
+      VariableDeclarator(path: any) {
         if (t.isIdentifier(path.node.id, { name })) {
-          // Remove the declarator
           const parent = path.parentPath;
-          if (parent.node.declarations.length === 1) {
-            // Only one declaration, remove entire statement
+          if (parent && t.isVariableDeclaration(parent.node) && parent.node.declarations.length === 1) {
             parent.remove();
           } else {
-            // Multiple declarations, remove just this one
             path.remove();
           }
           modified = true;
@@ -529,25 +492,17 @@ export class MigrationTransformer {
     return modified;
   }
 
-  /**
-   * Group migration steps by affected file
-   *
-   * Pass 1: Extract from code_example comments (existing behavior)
-   * Pass 2: Scan repository for files matching unresolved steps
-   *
-   * @param {Array} parsedSteps - Parsed migration steps
-   * @param {Object} suggestion - Full suggestion
-   * @param {string} repositoryPath - Repository root path
-   * @returns {Promise<Object>} Map of file paths to steps
-   * @private
-   */
-  async _groupStepsByFile(parsedSteps, suggestion, repositoryPath) {
-    const fileGroups = {};
-    const unresolvedSteps = [];
+  private async _groupStepsByFile(
+    parsedSteps: ParsedStep[],
+    _suggestion: MigrationSuggestion,
+    repositoryPath: string
+  ): Promise<Record<string, ParsedStep[]>> {
+    const fileGroups: Record<string, ParsedStep[]> = {};
+    const unresolvedSteps: ParsedStep[] = [];
 
     // Pass 1: Extract from code_example comments
     for (const step of parsedSteps) {
-      let filePath = null;
+      let filePath: string | null = null;
 
       if (step.code_example) {
         const fileCommentMatch = step.code_example.match(/^\/\/\s*(.+?\.(?:js|ts|jsx|tsx))/);
@@ -570,10 +525,9 @@ export class MigrationTransformer {
     if (unresolvedSteps.length > 0 && repositoryPath) {
       const resolved = await this._resolveAffectedFiles(unresolvedSteps, repositoryPath);
 
-      // Collect files found by non-add-import steps for association
-      const associatedFiles = new Set();
+      const associatedFiles = new Set<string>();
       for (const step of unresolvedSteps) {
-        if (step.parsed.type !== 'add-import') {
+        if (step.parsed && step.parsed.type !== 'add-import') {
           const paths = resolved.get(step.index) ?? [];
           for (const p of paths) {
             associatedFiles.add(p);
@@ -584,8 +538,7 @@ export class MigrationTransformer {
       for (const step of unresolvedSteps) {
         let paths = resolved.get(step.index) ?? [];
 
-        // add-import inherits files from sibling steps in the same suggestion
-        if (step.parsed.type === 'add-import' && paths.length === 0) {
+        if (step.parsed && step.parsed.type === 'add-import' && paths.length === 0) {
           paths = [...associatedFiles];
         }
 
@@ -602,14 +555,7 @@ export class MigrationTransformer {
     return fileGroups;
   }
 
-  /**
-   * Find JS/TS files in repository, respecting exclude dirs
-   *
-   * @param {string} repositoryPath - Repository root path
-   * @returns {Promise<string[]>} Relative file paths
-   * @private
-   */
-  async _findRepositoryFiles(repositoryPath) {
+  private async _findRepositoryFiles(repositoryPath: string): Promise<string[]> {
     try {
       const ignorePatterns = (config.excludeDirs ?? []).map(dir => `**/${dir}/**`);
       return await glob('**/*.{js,ts,jsx,tsx}', {
@@ -623,15 +569,7 @@ export class MigrationTransformer {
     }
   }
 
-  /**
-   * Test whether file content matches a parsed migration step
-   *
-   * @param {string} content - File content
-   * @param {Object} parsed - Parsed step from parseMigrationStep()
-   * @returns {boolean} True if content matches
-   * @private
-   */
-  _contentMatchesStep(content, parsed) {
+  private _contentMatchesStep(content: string, parsed: ParsedMigrationStep): boolean {
     switch (parsed.type) {
       case 'update-import': {
         const escaped = escapeRegExp(parsed.oldPath);
@@ -646,27 +584,18 @@ export class MigrationTransformer {
         return new RegExp(`(?:function|const|let|var|class)\\s+${escaped}\\b`).test(content);
       }
       case 'add-import':
-        // Can't grep for an import that doesn't exist yet; resolved by association
         return false;
       default:
         return false;
     }
   }
 
-  /**
-   * Resolve affected files for unresolved migration steps by scanning the repository
-   *
-   * Reads each file once and tests all unresolved steps against it (O(N*M) string ops).
-   *
-   * @param {Array<{index: number, parsed: Object}>} unresolvedSteps - Steps without file paths
-   * @param {string} repositoryPath - Repository root path
-   * @returns {Promise<Map<number, string[]>>} Map of step index to resolved relative paths
-   * @private
-   */
-  async _resolveAffectedFiles(unresolvedSteps, repositoryPath) {
+  private async _resolveAffectedFiles(
+    unresolvedSteps: ParsedStep[],
+    repositoryPath: string
+  ): Promise<Map<number, string[]>> {
     const files = await this._findRepositoryFiles(repositoryPath);
-    /** @type {Map<number, string[]>} */
-    const resolved = new Map(unresolvedSteps.map(s => [s.index, []]));
+    const resolved = new Map<number, string[]>(unresolvedSteps.map(s => [s.index, []]));
 
     for (const relPath of files) {
       await this._matchFileAgainstSteps(relPath, repositoryPath, unresolvedSteps, resolved);
@@ -679,17 +608,13 @@ export class MigrationTransformer {
     return resolved;
   }
 
-  /**
-   * Read a single file and test all unresolved steps against it
-   *
-   * @param {string} relPath - Relative file path
-   * @param {string} repositoryPath - Repository root
-   * @param {Array} unresolvedSteps - Steps to match
-   * @param {Map<number, string[]>} resolved - Accumulator map
-   * @private
-   */
-  async _matchFileAgainstSteps(relPath, repositoryPath, unresolvedSteps, resolved) {
-    let content;
+  private async _matchFileAgainstSteps(
+    relPath: string,
+    repositoryPath: string,
+    unresolvedSteps: ParsedStep[],
+    resolved: Map<number, string[]>
+  ): Promise<void> {
+    let content: string;
     try {
       content = await fs.readFile(path.join(repositoryPath, relPath), 'utf-8');
     } catch {
@@ -697,17 +622,13 @@ export class MigrationTransformer {
     }
 
     for (const step of unresolvedSteps) {
-      if (this._contentMatchesStep(content, step.parsed)) {
-        resolved.get(step.index).push(relPath);
+      if (step.parsed && this._contentMatchesStep(content, step.parsed)) {
+        resolved.get(step.index)!.push(relPath);
       }
     }
   }
 
-  /**
-   * @param {Map<number, string[]>} resolved
-   * @private
-   */
-  _logResolvedFiles(resolved) {
+  private _logResolvedFiles(resolved: Map<number, string[]>): void {
     for (const [idx, paths] of resolved) {
       if (paths.length > 0) {
         logger.info({ stepIndex: idx, files: paths }, 'Detected affected files');
@@ -715,14 +636,7 @@ export class MigrationTransformer {
     }
   }
 
-  /**
-   * Create backup of current state
-   *
-   * @param {string} repositoryPath - Repository path
-   * @returns {Promise<string>} Backup directory path
-   * @private
-   */
-  async _createBackup(repositoryPath) {
+  private async _createBackup(repositoryPath: string): Promise<string> {
     const timestamp = Date.now();
     const backupPath = path.join(repositoryPath, this.backupDir, `backup-${timestamp}`);
 
@@ -737,34 +651,7 @@ export class MigrationTransformer {
     return backupPath;
   }
 
-  /**
-   * Backup a file before transformation
-   *
-   * @param {string} filePath - Original file path
-   * @param {string} backupPath - Backup directory
-   * @returns {Promise<void>}
-   * @private
-   */
-  async _backupFile(filePath, backupPath) {
-    if (this.dryRun) {
-      return;
-    }
-
-    const fileName = path.basename(filePath);
-    const backupFilePath = path.join(backupPath, fileName);
-
-    await fs.copyFile(filePath, backupFilePath);
-    logger.debug({ filePath, backupFilePath }, 'Backed up file');
-  }
-
-  /**
-   * Rollback transformations using backup
-   *
-   * @param {string} backupPath - Backup directory path
-   * @param {string} repositoryPath - Repository path
-   * @returns {Promise<void>}
-   */
-  async rollback(backupPath, repositoryPath) {
+  async rollback(backupPath: string, repositoryPath: string): Promise<void> {
     logger.info({ backupPath }, 'Rolling back transformations');
 
     if (this.dryRun) {
@@ -773,7 +660,6 @@ export class MigrationTransformer {
     }
 
     try {
-      // Read backup directory
       const files = await fs.readdir(backupPath);
 
       for (const file of files) {

@@ -8,7 +8,7 @@
 // @ts-nocheck
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { PRCreator } from '../../sidequest/pipeline-core/git/pr-creator.js';
+import { PRCreator } from '../../sidequest/pipeline-core/git/pr-creator.ts';
 
 describe('PRCreator', () => {
   describe('Constructor', () => {

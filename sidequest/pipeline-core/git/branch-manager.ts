@@ -3,19 +3,7 @@
  *
  * Provides branch creation, change detection, commit, push, and PR creation
  * for any AlephAuto worker that modifies code.
- *
- * Features:
- * - Create feature branches with job context
- * - Detect git changes automatically
- * - Commit with descriptive messages
- * - Push branches to remote
- * - Create PRs with job details
- * - Clean up on errors
- * - Sentry error tracking
  */
-
-// @ts-check
-/** @typedef {import('../errors/error-types').ProcessError} ProcessError */
 
 import { runCommand } from '@shared/process-io';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
@@ -23,29 +11,51 @@ import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('BranchManager');
 
+export interface BranchManagerOptions {
+  baseBranch?: string;
+  branchPrefix?: string;
+  dryRun?: boolean;
+}
+
+export interface JobBranchContext {
+  jobId: string;
+  jobType: string;
+  description?: string;
+}
+
+export interface BranchResult {
+  branchName: string;
+  originalBranch: string;
+}
+
+export interface CommitContext {
+  message: string;
+  jobId: string;
+  description?: string;
+}
+
+export interface PRContext {
+  branchName: string;
+  title: string;
+  body: string;
+  labels?: string[];
+}
+
 /**
  * Branch Manager for Git operations
  */
 export class BranchManager {
-  /**
-   * @param {Object} options - Configuration options
-   * @param {string} [options.baseBranch='main'] - Base branch for PRs
-   * @param {string} [options.branchPrefix='automated'] - Prefix for branch names
-   * @param {boolean} [options.dryRun=false] - Skip push and PR creation
-   */
-  constructor(options = {}) {
+  baseBranch: string;
+  branchPrefix: string;
+  dryRun: boolean;
+
+  constructor(options: BranchManagerOptions = {}) {
     this.baseBranch = options.baseBranch || 'main';
     this.branchPrefix = options.branchPrefix || 'automated';
     this.dryRun = options.dryRun ?? false;
   }
 
-  /**
-   * Check if repository has uncommitted changes
-   *
-   * @param {string} repositoryPath - Path to repository
-   * @returns {Promise<boolean>} True if changes exist
-   */
-  async hasChanges(repositoryPath) {
+  async hasChanges(repositoryPath: string): Promise<boolean> {
     try {
       const status = await this._runGitCommand(repositoryPath, ['status', '--porcelain']);
       return status.trim().length > 0;
@@ -55,26 +65,14 @@ export class BranchManager {
     }
   }
 
-  /**
-   * Get list of changed files
-   *
-   * @param {string} repositoryPath - Path to repository
-   * @returns {Promise<string[]>} List of changed file paths
-   */
-  async getChangedFiles(repositoryPath) {
+  async getChangedFiles(repositoryPath: string): Promise<string[]> {
     try {
       const status = await this._runGitCommand(repositoryPath, ['status', '--porcelain']);
 
-      // Parse git status output
-      // Format: XY filename
-      // X = index status, Y = working tree status
       const files = status
         .split('\n')
         .filter(line => line.trim().length > 0)
-        .map(line => {
-          // Remove status characters and trim
-          return line.substring(3).trim();
-        });
+        .map(line => line.substring(3).trim());
 
       return files;
     } catch (error) {
@@ -83,13 +81,7 @@ export class BranchManager {
     }
   }
 
-  /**
-   * Get current branch name
-   *
-   * @param {string} repositoryPath - Path to repository
-   * @returns {Promise<string>} Current branch name
-   */
-  async getCurrentBranch(repositoryPath) {
+  async getCurrentBranch(repositoryPath: string): Promise<string> {
     try {
       const branch = await this._runGitCommand(repositoryPath, ['rev-parse', '--abbrev-ref', 'HEAD']);
       return branch.trim();
@@ -99,46 +91,28 @@ export class BranchManager {
     }
   }
 
-  /**
-   * Check if repository is a git repository
-   *
-   * @param {string} repositoryPath - Path to check
-   * @returns {Promise<boolean>} True if git repository
-   */
-  async isGitRepository(repositoryPath) {
+  async isGitRepository(repositoryPath: string): Promise<boolean> {
     try {
       await this._runGitCommand(repositoryPath, ['rev-parse', '--git-dir']);
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
 
-  /**
-   * Create and checkout a new branch for job changes
-   *
-   * @param {string} repositoryPath - Path to repository
-   * @param {Object} jobContext - Job context for branch naming
-   * @param {string} jobContext.jobId - Job ID
-   * @param {string} jobContext.jobType - Type of job (duplicate-detection, schema-enhancement, etc.)
-   * @param {string} [jobContext.description] - Optional description for branch name
-   * @returns {Promise<{branchName: string, originalBranch: string}>} Branch info
-   */
-  async createJobBranch(repositoryPath, jobContext) {
+  async createJobBranch(repositoryPath: string, jobContext: JobBranchContext): Promise<BranchResult> {
     const span = Sentry.startInactiveSpan({
       op: 'git.create_branch',
       name: 'Create Job Branch',
     });
 
     try {
-      // Check if it's a git repository
       const isGitRepo = await this.isGitRepository(repositoryPath);
       if (!isGitRepo) {
         logger.info({ repositoryPath }, 'Not a git repository, skipping branch creation');
         return { branchName: '', originalBranch: '' };
       }
 
-      // Get current branch
       const originalBranch = await this.getCurrentBranch(repositoryPath);
 
       logger.info({
@@ -147,23 +121,17 @@ export class BranchManager {
         jobId: jobContext.jobId
       }, 'Creating job branch');
 
-      // Ensure we're on base branch
       await this._runGitCommand(repositoryPath, ['checkout', this.baseBranch]);
 
-      // Pull latest changes (skip in dry-run)
       if (!this.dryRun) {
         try {
           await this._runGitCommand(repositoryPath, ['pull', 'origin', this.baseBranch]);
         } catch (error) {
-          // Non-critical if pull fails (might be local-only repo)
           logger.warn({ error }, 'Failed to pull latest changes, continuing anyway');
         }
       }
 
-      // Generate branch name
       const branchName = this._generateBranchName(jobContext);
-
-      // Create and checkout new branch
       await this._runGitCommand(repositoryPath, ['checkout', '-b', branchName]);
 
       logger.info({ branchName, repositoryPath }, 'Branch created and checked out');
@@ -193,17 +161,7 @@ export class BranchManager {
     }
   }
 
-  /**
-   * Commit changes with job context
-   *
-   * @param {string} repositoryPath - Path to repository
-   * @param {Object} commitContext - Commit context
-   * @param {string} commitContext.message - Commit message
-   * @param {string} commitContext.jobId - Job ID
-   * @param {string} [commitContext.description] - Optional detailed description
-   * @returns {Promise<string>} Commit SHA
-   */
-  async commitChanges(repositoryPath, commitContext) {
+  async commitChanges(repositoryPath: string, commitContext: CommitContext): Promise<string> {
     const span = Sentry.startInactiveSpan({
       op: 'git.commit',
       name: 'Commit Changes',
@@ -212,7 +170,6 @@ export class BranchManager {
     try {
       logger.info({ repositoryPath, jobId: commitContext.jobId }, 'Committing changes');
 
-      // Check if there are changes
       const hasChanges = await this.hasChanges(repositoryPath);
       if (!hasChanges) {
         logger.info({ repositoryPath }, 'No changes to commit');
@@ -220,20 +177,14 @@ export class BranchManager {
         return '';
       }
 
-      // Get changed files for logging
       const changedFiles = await this.getChangedFiles(repositoryPath);
       logger.info({ changedFiles, count: changedFiles.length }, 'Files changed');
 
-      // Stage all changes
       await this._runGitCommand(repositoryPath, ['add', '.']);
 
-      // Create commit message
       const commitMessage = this._generateCommitMessage(commitContext, changedFiles);
-
-      // Commit
       await this._runGitCommand(repositoryPath, ['commit', '-m', commitMessage]);
 
-      // Get commit SHA
       const commitSha = await this._runGitCommand(repositoryPath, ['rev-parse', 'HEAD']);
 
       logger.info({ commitSha: commitSha.trim(), filesCount: changedFiles.length }, 'Changes committed');
@@ -263,14 +214,7 @@ export class BranchManager {
     }
   }
 
-  /**
-   * Push branch to remote
-   *
-   * @param {string} repositoryPath - Path to repository
-   * @param {string} branchName - Branch name to push
-   * @returns {Promise<boolean>} True if pushed successfully
-   */
-  async pushBranch(repositoryPath, branchName) {
+  async pushBranch(repositoryPath: string, branchName: string): Promise<boolean> {
     const span = Sentry.startInactiveSpan({
       op: 'git.push',
       name: 'Push Branch',
@@ -307,25 +251,13 @@ export class BranchManager {
         }
       });
 
-      // Don't throw - PR creation can still fail gracefully
       return false;
     } finally {
       if (span) span.end();
     }
   }
 
-  /**
-   * Create pull request using gh CLI
-   *
-   * @param {string} repositoryPath - Path to repository
-   * @param {Object} prContext - PR context
-   * @param {string} prContext.branchName - Branch name
-   * @param {string} prContext.title - PR title
-   * @param {string} prContext.body - PR description
-   * @param {string[]} [prContext.labels] - Optional labels to add
-   * @returns {Promise<string|null>} PR URL or null if failed
-   */
-  async createPullRequest(repositoryPath, prContext) {
+  async createPullRequest(repositoryPath: string, prContext: PRContext): Promise<string | null> {
     const span = Sentry.startInactiveSpan({
       op: 'git.create_pr',
       name: 'Create Pull Request',
@@ -344,7 +276,6 @@ export class BranchManager {
         title: prContext.title
       }, 'Creating pull request');
 
-      // Build gh pr create command
       const args = [
         'pr',
         'create',
@@ -354,7 +285,6 @@ export class BranchManager {
         '--head', prContext.branchName
       ];
 
-      // Add labels if provided
       if (prContext.labels && prContext.labels.length > 0) {
         args.push('--label', prContext.labels.join(','));
       }
@@ -387,41 +317,23 @@ export class BranchManager {
     }
   }
 
-  /**
-   * Clean up branch (checkout original and delete job branch)
-   *
-   * @param {string} repositoryPath - Path to repository
-   * @param {string} branchName - Branch to delete
-   * @param {string} originalBranch - Original branch to checkout
-   * @returns {Promise<void>}
-   */
-  async cleanupBranch(repositoryPath, branchName, originalBranch) {
+  async cleanupBranch(repositoryPath: string, branchName: string, originalBranch: string): Promise<void> {
     try {
       logger.info({ repositoryPath, branchName, originalBranch }, 'Cleaning up branch');
 
-      // Checkout original branch (or base branch if original not available)
       const targetBranch = originalBranch || this.baseBranch;
       await this._runGitCommand(repositoryPath, ['checkout', targetBranch]);
 
-      // Delete job branch
       await this._runGitCommand(repositoryPath, ['branch', '-D', branchName]);
 
       logger.info({ branchName }, 'Branch cleaned up');
 
     } catch (error) {
       logger.warn({ error, branchName }, 'Failed to cleanup branch (non-critical)');
-      // Don't throw - cleanup is best-effort
     }
   }
 
-  /**
-   * Generate branch name from job context
-   *
-   * @param {Object} jobContext - Job context
-   * @returns {string} Branch name
-   * @private
-   */
-  _generateBranchName(jobContext) {
+  private _generateBranchName(jobContext: JobBranchContext): string {
     const timestamp = Date.now();
     const jobType = jobContext.jobType || 'job';
     const description = jobContext.description
@@ -431,15 +343,7 @@ export class BranchManager {
     return `${this.branchPrefix}/${jobType}${description}-${timestamp}`;
   }
 
-  /**
-   * Generate commit message from context
-   *
-   * @param {Object} commitContext - Commit context
-   * @param {string[]} changedFiles - Changed files
-   * @returns {string} Commit message
-   * @private
-   */
-  _generateCommitMessage(commitContext, changedFiles) {
+  private _generateCommitMessage(commitContext: CommitContext, changedFiles: string[]): string {
     const lines = [
       commitContext.message,
       '',
@@ -453,7 +357,7 @@ export class BranchManager {
       `Job ID: ${commitContext.jobId}`,
       `Files changed: ${changedFiles.length}`,
       '',
-      '🤖 Generated with [Claude Code](https://claude.com/claude-code)',
+      '\u{1F916} Generated with [Claude Code](https://claude.com/claude-code)',
       '',
       'Co-Authored-By: Claude <noreply@anthropic.com>'
     );
@@ -461,28 +365,11 @@ export class BranchManager {
     return lines.join('\n');
   }
 
-  /**
-   * Run a Git command
-   *
-   * @param {string} cwd - Working directory
-   * @param {string[]} args - Git arguments
-   * @returns {Promise<string>} Command output
-   * @private
-   */
-  async _runGitCommand(cwd, args) {
+  private async _runGitCommand(cwd: string, args: string[]): Promise<string> {
     return this._runCommand(cwd, 'git', args);
   }
 
-  /**
-   * Run a shell command
-   *
-   * @param {string} cwd - Working directory
-   * @param {string} command - Command to run
-   * @param {string[]} args - Command arguments
-   * @returns {Promise<string>} Command output
-   * @private
-   */
-  async _runCommand(cwd, command, args) {
+  private async _runCommand(cwd: string, command: string, args: string[]): Promise<string> {
     return runCommand(cwd, command, args);
   }
 }

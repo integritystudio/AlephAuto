@@ -1,6 +1,6 @@
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert';
-import { BranchManager } from '../../sidequest/pipeline-core/git/branch-manager.js';
+import { BranchManager } from '../../sidequest/pipeline-core/git/branch-manager.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';

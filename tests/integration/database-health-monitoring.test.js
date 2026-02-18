@@ -12,7 +12,7 @@ import {
   getHealthStatus,
   isDatabaseReady,
   closeDatabase
-} from '../../sidequest/core/database.js';
+} from '../../sidequest/core/database.ts';
 
 describe('Database Health Monitoring Integration', () => {
   before(async () => {

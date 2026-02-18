@@ -14,7 +14,7 @@
 
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
-import { getJobs, initDatabase, getJobCounts, closeDatabase } from '../../sidequest/core/database.js';
+import { getJobs, initDatabase, getJobCounts, closeDatabase } from '../../sidequest/core/database.ts';
 
 describe('Pipeline Pagination Integration Tests', () => {
   // Initialize database BEFORE tests run (async)

@@ -121,14 +121,14 @@ describe('Database safeJsonParse', () => {
   // We test this indirectly through the database functions since safeJsonParse is internal
 
   beforeEach(async () => {
-    const { initDatabase, isDatabaseReady } = await import('../../sidequest/core/database.js');
+    const { initDatabase, isDatabaseReady } = await import('../../sidequest/core/database.ts');
     if (!isDatabaseReady()) {
       await initDatabase(':memory:');
     }
   });
 
   it('should handle valid JSON in job data fields', async () => {
-    const { saveJob, getJobs } = await import('../../sidequest/core/database.js');
+    const { saveJob, getJobs } = await import('../../sidequest/core/database.ts');
 
     const testId = `safe-json-valid-${Date.now()}`;
     saveJob({
@@ -151,7 +151,7 @@ describe('Database safeJsonParse', () => {
   });
 
   it('should handle null JSON fields gracefully', async () => {
-    const { saveJob, getJobs } = await import('../../sidequest/core/database.js');
+    const { saveJob, getJobs } = await import('../../sidequest/core/database.ts');
 
     const testId = `safe-json-null-${Date.now()}`;
     saveJob({
@@ -246,7 +246,7 @@ describe('API status validation', () => {
 
 describe('JobRepository close() idempotency', () => {
   it('should handle multiple close calls without error', async () => {
-    const { JobRepository } = await import('../../sidequest/core/job-repository.js');
+    const { JobRepository } = await import('../../sidequest/core/job-repository.ts');
 
     const repo = new JobRepository();
 
@@ -261,14 +261,14 @@ describe('JobRepository close() idempotency', () => {
 
 describe('Database bulkImportJobs validation', () => {
   beforeEach(async () => {
-    const { initDatabase, isDatabaseReady } = await import('../../sidequest/core/database.js');
+    const { initDatabase, isDatabaseReady } = await import('../../sidequest/core/database.ts');
     if (!isDatabaseReady()) {
       await initDatabase(':memory:');
     }
   });
 
   it('should reject jobs with invalid ID format', async () => {
-    const { bulkImportJobs } = await import('../../sidequest/core/database.js');
+    const { bulkImportJobs } = await import('../../sidequest/core/database.ts');
 
     const result = bulkImportJobs([
       { id: 'valid-job-123', status: 'completed' },
@@ -281,7 +281,7 @@ describe('Database bulkImportJobs validation', () => {
   });
 
   it('should reject jobs with invalid status', async () => {
-    const { bulkImportJobs } = await import('../../sidequest/core/database.js');
+    const { bulkImportJobs } = await import('../../sidequest/core/database.ts');
 
     const result = bulkImportJobs([
       { id: `valid-status-${Date.now()}`, status: 'completed' },
@@ -293,7 +293,7 @@ describe('Database bulkImportJobs validation', () => {
   });
 
   it('should accept valid job IDs', async () => {
-    const { bulkImportJobs } = await import('../../sidequest/core/database.js');
+    const { bulkImportJobs } = await import('../../sidequest/core/database.ts');
 
     const validIds = [
       `simple-${Date.now()}`,
