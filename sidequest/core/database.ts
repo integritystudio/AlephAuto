@@ -8,7 +8,6 @@
  * Located at: data/jobs.db
  */
 
-// @ts-ignore -- better-sqlite3 has no declaration file
 import Database from 'better-sqlite3';
 type DatabaseType = InstanceType<typeof Database>;
 import path from 'path';

@@ -11,16 +11,16 @@
 
 import { parse } from '@babel/parser';
 import type { ParseResult, ParserPlugin } from '@babel/parser';
-// @ts-ignore -- no declaration file for @babel/traverse
 import _traverse from '@babel/traverse';
-// @ts-ignore -- no declaration file for @babel/generator
+import type { NodePath, TraverseOptions } from '@babel/traverse';
 import _generate from '@babel/generator';
+import type { GeneratorOptions, GeneratorResult } from '@babel/generator';
 
-// ESM/CJS interop: Babel packages export { default: fn } in ESM
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const traverse: any = (_traverse as any).default ?? _traverse;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const generate: any = (_generate as any).default ?? _generate;
+// ESM/CJS interop: Babel packages nest the callable under .default at runtime
+const traverse = ((_traverse as unknown as { default: (node: t.Node, opts?: TraverseOptions) => void }).default
+  ?? _traverse) as (node: t.Node, opts?: TraverseOptions) => void;
+const generate = ((_generate as unknown as { default: (ast: t.Node, opts?: GeneratorOptions) => GeneratorResult }).default
+  ?? _generate) as (ast: t.Node, opts?: GeneratorOptions) => GeneratorResult;
 import * as t from '@babel/types';
 import type { File as BabelFile, Expression, Identifier, MemberExpression } from '@babel/types';
 import fs from 'fs/promises';
@@ -379,7 +379,7 @@ export class MigrationTransformer {
     let modified = false;
 
     traverse(ast, {
-      ImportDeclaration(path: any) {
+      ImportDeclaration(path: NodePath<t.ImportDeclaration>) {
         if (path.node.source.value === oldPath) {
           path.node.source.value = newPath;
           modified = true;
@@ -394,7 +394,7 @@ export class MigrationTransformer {
   private _addImport(ast: ParseResult<BabelFile>, imported: string, source: string): boolean {
     let alreadyExists = false;
     traverse(ast, {
-      ImportDeclaration(path: any) {
+      ImportDeclaration(path: NodePath<t.ImportDeclaration>) {
         if (path.node.source.value === source) {
           alreadyExists = true;
           path.stop();
@@ -434,7 +434,7 @@ export class MigrationTransformer {
     let modified = false;
 
     traverse(ast, {
-      CallExpression(path: any) {
+      CallExpression(path: NodePath<t.CallExpression>) {
         if (t.isIdentifier(path.node.callee, { name: oldName })) {
           if (newName.includes('.')) {
             const parts = newName.split('.');
@@ -459,7 +459,7 @@ export class MigrationTransformer {
     let modified = false;
 
     traverse(ast, {
-      FunctionDeclaration(path: any) {
+      FunctionDeclaration(path: NodePath<t.FunctionDeclaration>) {
         if (path.node.id && path.node.id.name === name) {
           path.remove();
           modified = true;
@@ -467,7 +467,7 @@ export class MigrationTransformer {
         }
       },
 
-      ClassDeclaration(path: any) {
+      ClassDeclaration(path: NodePath<t.ClassDeclaration>) {
         if (path.node.id && path.node.id.name === name) {
           path.remove();
           modified = true;
@@ -475,7 +475,7 @@ export class MigrationTransformer {
         }
       },
 
-      VariableDeclarator(path: any) {
+      VariableDeclarator(path: NodePath<t.VariableDeclarator>) {
         if (t.isIdentifier(path.node.id, { name })) {
           const parent = path.parentPath;
           if (parent && t.isVariableDeclaration(parent.node) && parent.node.declarations.length === 1) {

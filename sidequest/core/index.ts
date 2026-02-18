@@ -1,4 +1,3 @@
-// @ts-ignore -- node-cron has no declaration file
 import cron from 'node-cron';
 import { RepomixWorker } from '../workers/repomix-worker.js';
 import { DirectoryScanner } from '../utils/directory-scanner.js';
