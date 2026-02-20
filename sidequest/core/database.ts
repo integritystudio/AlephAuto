@@ -264,11 +264,11 @@ export function saveJob(job: SaveJobInput): void {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     job.id,
-    job.pipelineId ?? 'duplicate-detection',
+    job.pipelineId ?? 'unknown',
     job.status,
     job.createdAt ?? new Date().toISOString(),
-    job.startedAt || null,
-    job.completedAt || null,
+    job.startedAt ?? null,
+    job.completedAt ?? null,
     job.data ? JSON.stringify(job.data) : null,
     job.result ? JSON.stringify(job.result) : null,
     job.error ? JSON.stringify(job.error) : null,
@@ -343,7 +343,7 @@ export function getJobs(pipelineId: string, options: JobQueryOptions = {}): Pars
 
   // Return with or without total count based on includeTotal option
   if (includeTotal) {
-    return { jobs, total: totalCount! };
+    return { jobs, total: totalCount ?? 0 };
   } else {
     return jobs;  // Backward compatible - just return array
   }
@@ -677,8 +677,8 @@ export function bulkImportJobs(jobs: BulkImportJob[]): BulkImportResult {
           job.pipeline_id || job.pipelineId || 'unknown',
           job.status,
           job.created_at || job.createdAt || new Date().toISOString(),
-          job.started_at || job.startedAt || null,
-          job.completed_at || job.completedAt || null,
+          job.started_at ?? job.startedAt ?? null,
+          job.completed_at ?? job.completedAt ?? null,
           typeof job.data === 'string' ? job.data : (job.data ? JSON.stringify(job.data) : null),
           typeof job.result === 'string' ? job.result : (job.result ? JSON.stringify(job.result) : null),
           typeof job.error === 'string' ? job.error : (job.error ? JSON.stringify(job.error) : null),

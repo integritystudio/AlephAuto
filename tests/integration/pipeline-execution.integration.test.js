@@ -31,7 +31,7 @@ const projectRoot = path.resolve(__dirname, '../../');
 
 describe('Pipeline Execution - Integration Tests', () => {
   const pipelineRunners = [
-    'sidequest/pipeline-runners/duplicate-detection-pipeline.js',
+    'sidequest/pipeline-runners/duplicate-detection-pipeline.ts',
     'sidequest/pipeline-runners/git-activity-pipeline.js',
     'sidequest/pipeline-runners/gitignore-pipeline.js',
     'sidequest/pipeline-runners/plugin-management-pipeline.js',
@@ -46,10 +46,14 @@ describe('Pipeline Execution - Integration Tests', () => {
       const content = await fs.readFile(pipelinePath, 'utf-8');
       const firstLine = content.split('\n')[0];
 
-      assert.equal(
-        firstLine,
-        '#!/usr/bin/env node',
-        `${pipeline} should have correct shebang`
+      const isTs = pipeline.endsWith('.ts');
+      const validShebangs = isTs
+        ? ['#!/usr/bin/env -S npx tsx', '#!/usr/bin/env -S node --strip-types']
+        : ['#!/usr/bin/env node'];
+
+      assert(
+        validShebangs.includes(firstLine),
+        `${pipeline} should have correct shebang, got: ${firstLine}`
       );
     }
   });
@@ -75,11 +79,16 @@ describe('Pipeline Execution - Integration Tests', () => {
 
   it('Scenario 3: Execute duplicate-detection-pipeline with node', async () => {
     const pipelinePath = path.join(projectRoot, pipelineRunners[0]);
+    const isTs = pipelineRunners[0].endsWith('.ts');
 
     // Use node --check for syntax validation instead of actually running
-    // This validates the file can be parsed and imported correctly
+    // .ts files need --strip-types for syntax checking
+    const checkCmd = isTs
+      ? `node --strip-types --check "${pipelinePath}"`
+      : `node --check "${pipelinePath}"`;
+
     const { stderr } = await execAsync(
-      `node --check "${pipelinePath}"`,
+      checkCmd,
       {
         cwd: projectRoot,
         timeout: 3000
@@ -136,10 +145,13 @@ describe('Pipeline Execution - Integration Tests', () => {
 
   it('Scenario 5: Verify pipeline imports work correctly', async () => {
     const pipelinePath = path.join(projectRoot, pipelineRunners[0]);
+    const isTs = pipelineRunners[0].endsWith('.ts');
 
     // Try to import the pipeline file (will run top-level code)
+    // .ts files need --strip-types for dynamic import
+    const nodeFlags = isTs ? '--strip-types' : '';
     const { stderr } = await execAsync(
-      `node -e "import('${pipelinePath}').catch(e => console.error(e.message))" || true`,
+      `node ${nodeFlags} -e "import('${pipelinePath}').catch(e => console.error(e.message))" || true`,
       {
         cwd: projectRoot,
         timeout: 5000,
@@ -247,10 +259,15 @@ describe('Pipeline Execution - Integration Tests', () => {
   it('Scenario 9: Verify all pipelines can be syntax-checked', async () => {
     for (const pipeline of pipelineRunners) {
       const pipelinePath = path.join(projectRoot, pipeline);
+      const isTs = pipeline.endsWith('.ts');
 
-      // Run syntax check
+      // Run syntax check (.ts files need --strip-types)
+      const checkCmd = isTs
+        ? `node --strip-types --check "${pipelinePath}"`
+        : `node --check "${pipelinePath}"`;
+
       const { stderr } = await execAsync(
-        `node --check "${pipelinePath}"`,
+        checkCmd,
         {
           cwd: projectRoot,
           timeout: 3000
@@ -272,17 +289,17 @@ describe('Pipeline Execution - Integration Tests', () => {
     const stats = await fs.stat(runnersDir);
     assert(stats.isDirectory(), 'pipeline-runners should be a directory');
 
-    // List all .js files
+    // List all .js and .ts pipeline files
     const files = await fs.readdir(runnersDir);
-    const jsFiles = files.filter(f => f.endsWith('.js'));
+    const pipelineFiles = files.filter(f => f.endsWith('.js') || f.endsWith('.ts'));
 
     assert(
-      jsFiles.length >= pipelineRunners.length,
+      pipelineFiles.length >= pipelineRunners.length,
       `Should have at least ${pipelineRunners.length} pipeline runners`
     );
 
     // Each file should be executable
-    for (const file of jsFiles) {
+    for (const file of pipelineFiles) {
       const filePath = path.join(runnersDir, file);
       const fileStats = await fs.stat(filePath);
       const hasExecute = (fileStats.mode & 0o100) !== 0;

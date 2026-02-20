@@ -133,7 +133,7 @@ describe('SidequestServer', () => {
       const failedJob = server.getJob('test-job-fail');
       assert.strictEqual(failedJob.status, 'failed');
       assert.ok(failedJob.error);
-      assert.ok(failedJob.error.includes('Simulated job failure'));
+      assert.ok(failedJob.error.message.includes('Simulated job failure'));
     } finally {
       await fs.rm(tempLogDir, { recursive: true, force: true });
     }

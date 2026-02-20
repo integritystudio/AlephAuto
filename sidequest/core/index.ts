@@ -13,12 +13,40 @@ const logger = createComponentLogger('RepomixCronApp');
 // Cast config to access dynamic properties
 const cfg = config as Record<string, unknown>;
 
+/** Typed shapes for JS classes (pending Phase 7-10 migration) */
+interface ScanDirectory {
+  fullPath: string;
+  relativePath: string;
+}
+
+interface TypedDirectoryScanner {
+  baseDir: string;
+  scanDirectories(): Promise<ScanDirectory[]>;
+  generateAndSaveScanResults(dirs: ScanDirectory[]): Promise<{
+    reportPath: string;
+    treePath: string;
+    summaryPath: string;
+    summary: {
+      maxDepth: number;
+      stats: { topDirectoryNames: Array<{ name: string }> };
+    };
+  }>;
+}
+
+interface TypedRepomixWorker {
+  logDir: string;
+  outputBaseDir: string;
+  createRepomixJob(fullPath: string, relativePath: string): void;
+  getStats(): JobStats;
+  on(event: string, listener: (job: Job) => void): this;
+}
+
 /**
  * Main application entry point
  */
 class RepomixCronApp {
-  private worker: RepomixWorker;
-  private scanner: DirectoryScanner;
+  private worker: TypedRepomixWorker;
+  private scanner: TypedDirectoryScanner;
 
   constructor() {
     this.worker = new RepomixWorker({
@@ -27,13 +55,13 @@ class RepomixCronApp {
       codeBaseDir: cfg.codeBaseDir as string,
       logDir: cfg.logDir as string,
       sentryDsn: cfg.sentryDsn as string,
-    });
+    }) as unknown as TypedRepomixWorker;
 
     this.scanner = new DirectoryScanner({
       baseDir: cfg.codeBaseDir as string,
       outputDir: cfg.scanReportsDir as string,
       excludeDirs: cfg.excludeDirs as string[],
-    });
+    }) as unknown as TypedDirectoryScanner;
 
     this.setupEventListeners();
   }
@@ -66,29 +94,28 @@ class RepomixCronApp {
   }
 
   async runRepomixOnAllDirectories(): Promise<void> {
-    logStart(logger, 'repomix run', { baseDir: (this.scanner as unknown as { baseDir: string }).baseDir });
+    logStart(logger, 'repomix run', { baseDir: this.scanner.baseDir });
 
     const startTime = Date.now();
 
     try {
-      const directories = await (this.scanner as unknown as { scanDirectories(): Promise<Array<{ fullPath: string; relativePath: string }>> }).scanDirectories();
+      const directories = await this.scanner.scanDirectories();
       logger.info({ directoryCount: directories.length }, 'Directories found');
 
       logger.info('Saving scan results');
-      const scanResults = await (this.scanner as unknown as { generateAndSaveScanResults(dirs: unknown[]): Promise<Record<string, unknown>> }).generateAndSaveScanResults(directories);
-      const summary = scanResults.summary as Record<string, unknown>;
-      const stats = summary.stats as Record<string, unknown>;
+      const scanResults = await this.scanner.generateAndSaveScanResults(directories);
+      const { summary } = scanResults;
       logger.info({
         reportPath: scanResults.reportPath,
         treePath: scanResults.treePath,
         summaryPath: scanResults.summaryPath,
         maxDepth: summary.maxDepth,
-        topDirectories: (stats.topDirectoryNames as Array<{ name: string }>).slice(0, 3).map(d => d.name)
+        topDirectories: summary.stats.topDirectoryNames.slice(0, 3).map(d => d.name)
       }, 'Scan results saved');
 
       let jobCount = 0;
       for (const dir of directories) {
-        (this.worker as unknown as { createRepomixJob(fullPath: string, relativePath: string): void }).createRepomixJob(dir.fullPath, dir.relativePath);
+        this.worker.createRepomixJob(dir.fullPath, dir.relativePath);
         jobCount++;
       }
 
@@ -115,11 +142,18 @@ class RepomixCronApp {
   }
 
   private async waitForCompletion(): Promise<void> {
-    return new Promise<void>((resolve) => {
+    const maxWaitMs = 30 * 60 * TIME.SECOND;
+    return new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        clearInterval(checkInterval);
+        reject(new Error(`waitForCompletion timed out after ${maxWaitMs}ms`));
+      }, maxWaitMs);
+
       const checkInterval = setInterval(() => {
         const stats = this.worker.getStats();
         if (stats.active === 0 && stats.queued === 0) {
           clearInterval(checkInterval);
+          clearTimeout(timer);
           resolve();
         }
       }, TIMEOUTS.POLL_INTERVAL_MS);
@@ -154,8 +188,8 @@ class RepomixCronApp {
 
   async start(): Promise<void> {
     logger.info({
-      codeDirectory: (this.scanner as unknown as { baseDir: string }).baseDir,
-      outputDirectory: (this.worker as unknown as { outputBaseDir: string }).outputBaseDir,
+      codeDirectory: this.scanner.baseDir,
+      outputDirectory: this.worker.outputBaseDir,
       logDirectory: this.worker.logDir
     }, 'Repomix Cron Sidequest Server starting');
 

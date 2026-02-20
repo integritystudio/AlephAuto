@@ -336,7 +336,14 @@ export class SidequestServer extends EventEmitter {
 
     this.emit('job:completed', job);
     this.jobHistory.push({ ...job });
-    this._persistJob(job);
+    try {
+      this._persistJob(job);
+    } catch (dbErr) {
+      logError(logger, dbErr, 'Failed to persist completed job', { jobId: job.id });
+      Sentry.captureException(dbErr, {
+        tags: { jobId: job.id, operation: 'persist_completed' }
+      });
+    }
     await this.logJobCompletion(job);
 
     Sentry.addBreadcrumb({
@@ -414,10 +421,10 @@ export class SidequestServer extends EventEmitter {
     job.completedAt = new Date();
     job.error = { message: safeErrorMessage(error) };
 
-    if (branchCreated && this.gitWorkflowEnabled && job.git.branchName && job.git.originalBranch) {
+    if (branchCreated && this.gitWorkflowEnabled && job.git.branchName && job.git.originalBranch && typeof job.data.repositoryPath === 'string') {
       try {
         await this.gitWorkflowManager.cleanupBranch(
-          job.data.repositoryPath as string,
+          job.data.repositoryPath,
           job.git.branchName,
           job.git.originalBranch
         );
@@ -447,15 +454,18 @@ export class SidequestServer extends EventEmitter {
   }
 
   private async _handleGitWorkflowSuccess(job: Job): Promise<void> {
-    const repositoryPath = job.data.repositoryPath as string;
-
-    const hasChanges = await this.gitWorkflowManager.hasChanges(repositoryPath);
-
     if (!job.git.branchName || !job.git.originalBranch) {
       logger.warn({ jobId: job.id }, 'Missing branch info, skipping git workflow');
       return;
     }
 
+    const repositoryPath = job.data.repositoryPath;
+    if (typeof repositoryPath !== 'string') {
+      logger.warn({ jobId: job.id }, 'Missing repository path, skipping git workflow');
+      return;
+    }
+
+    const hasChanges = await this.gitWorkflowManager.hasChanges(repositoryPath);
     if (!hasChanges) {
       logger.info({ jobId: job.id }, 'No changes to commit, cleaning up branch');
 
@@ -497,7 +507,7 @@ export class SidequestServer extends EventEmitter {
       return;
     }
 
-    const prContext = await this._generatePRContext(job);
+    const prContext = await this._generatePRContext(job, commitMessage);
     job.git.prUrl = await this.gitWorkflowManager.createPullRequest(
       repositoryPath,
       prContext
@@ -532,13 +542,29 @@ export class SidequestServer extends EventEmitter {
    * Generate PR context for job
    * Override this method to customize PR details
    */
-  async _generatePRContext(job: Job): Promise<{ branchName: string; title: string; body: string; labels: string[] }> {
-    const commitMessage = await this._generateCommitMessage(job);
+  async _generatePRContext(job: Job, commitMessage?: { title: string; body: string }): Promise<{ branchName: string; title: string; body: string; labels: string[] }> {
+    const msg = commitMessage ?? await this._generateCommitMessage(job);
 
     return {
-      branchName: job.git.branchName!,
-      title: commitMessage.title,
-      body: `## Automated Changes\n\n${commitMessage.body}\n\n### Job Details\n- **Job ID**: ${job.id}\n- **Job Type**: ${this.jobType}\n- **Files Changed**: ${job.git.changedFiles.length}\n\n### Changed Files\n${job.git.changedFiles.map(f => `- \`${f}\``).join('\n')}\n\n---\n\nGenerated with [Claude Code](https://claude.com/claude-code)`,
+      branchName: job.git.branchName ?? '',
+      title: msg.title,
+      body: [
+        '## Automated Changes',
+        '',
+        msg.body,
+        '',
+        '### Job Details',
+        `- **Job ID**: ${job.id}`,
+        `- **Job Type**: ${this.jobType}`,
+        `- **Files Changed**: ${job.git.changedFiles.length}`,
+        '',
+        '### Changed Files',
+        ...job.git.changedFiles.map(f => `- \`${f}\``),
+        '',
+        '---',
+        '',
+        'Generated with [Claude Code](https://claude.com/claude-code)'
+      ].join('\n'),
       labels: ['automated', this.jobType]
     };
   }
@@ -564,34 +590,25 @@ export class SidequestServer extends EventEmitter {
     this.runJobHandler = handler;
   }
 
-  async logJobCompletion(job: Job): Promise<void> {
+  private async _writeJobLog(job: Job, suffix: string, extra?: Record<string, unknown>): Promise<void> {
     try {
       await fs.mkdir(this.logDir, { recursive: true });
-
       const sanitizedId = path.basename(job.id);
-      const logPath = path.join(this.logDir, `${sanitizedId}.json`);
-      await fs.writeFile(logPath, JSON.stringify(job, null, 2));
+      const logPath = path.join(this.logDir, `${sanitizedId}${suffix}`);
+      await fs.writeFile(logPath, JSON.stringify(extra ? { ...job, ...extra } : job, null, 2));
     } catch (writeError) {
-      logError(logger, writeError, 'Failed to write completion log file', { jobId: job.id });
+      logError(logger, writeError, `Failed to write ${suffix} log file`, { jobId: job.id });
     }
   }
 
-  async logJobFailure(job: Job, error: Error): Promise<void> {
-    try {
-      await fs.mkdir(this.logDir, { recursive: true });
+  async logJobCompletion(job: Job): Promise<void> {
+    await this._writeJobLog(job, '.json');
+  }
 
-      const sanitizedId = path.basename(job.id);
-      const logPath = path.join(this.logDir, `${sanitizedId}.error.json`);
-      await fs.writeFile(logPath, JSON.stringify({
-        ...job,
-        error: {
-          message: error.message,
-          stack: error.stack,
-        },
-      }, null, 2));
-    } catch (writeError) {
-      logError(logger, writeError, 'Failed to write error log file', { jobId: job.id });
-    }
+  async logJobFailure(job: Job, error: Error): Promise<void> {
+    await this._writeJobLog(job, '.error.json', {
+      error: { message: error.message, stack: error.stack }
+    });
   }
 
   getJob(jobId: string): Job | undefined {
@@ -612,162 +629,86 @@ export class SidequestServer extends EventEmitter {
     };
   }
 
-  cancelJob(jobId: string): JobActionResult {
+  private _executeJobAction(jobId: string, config: {
+    action: string;
+    statusGuard: (status: JobStatus) => boolean;
+    guardMessage: (status: JobStatus) => string;
+    mutate: (job: Job) => void;
+    postAction?: () => void;
+    logLevel?: 'info' | 'warning';
+  }): JobActionResult {
     const job = this.jobs.get(jobId);
-
     if (!job) {
-      return {
-        success: false,
-        message: `Job ${jobId} not found`
-      };
+      return { success: false, message: `Job ${jobId} not found` };
     }
-
-    if (TERMINAL_STATUSES.includes(job.status)) {
-      return {
-        success: false,
-        message: `Cannot cancel job with status '${job.status}'`,
-        job
-      };
-    }
-
-    if (job.status === JOB_STATUS.QUEUED) {
-      const queueIndex = this.queue.indexOf(jobId);
-      if (queueIndex > -1) {
-        this.queue.splice(queueIndex, 1);
-      }
+    if (config.statusGuard(job.status)) {
+      return { success: false, message: config.guardMessage(job.status), job };
     }
 
     const previousStatus = job.status;
 
-    job.status = JOB_STATUS.CANCELLED;
-    job.completedAt = new Date();
-    job.error = { message: 'Job cancelled by user', cancelled: true };
-
-    try {
-      this._persistJob(job);
-    } catch {
-      // Non-critical
+    if (job.status === JOB_STATUS.QUEUED) {
+      const idx = this.queue.indexOf(jobId);
+      if (idx > -1) this.queue.splice(idx, 1);
     }
 
-    this.emit('job:cancelled', job);
+    config.mutate(job);
+
+    try { this._persistJob(job); } catch { /* Non-critical */ }
+
+    this.emit(`job:${config.action}`, job);
 
     Sentry.addBreadcrumb({
       category: 'job',
-      message: `Job ${jobId} cancelled`,
-      level: 'warning',
+      message: `Job ${jobId} ${config.action}`,
+      level: config.logLevel ?? 'info',
       data: { jobId, previousStatus }
     });
 
-    logger.info({ jobId, previousStatus }, 'Job cancelled');
+    logger.info({ jobId, previousStatus }, `Job ${config.action}`);
+    config.postAction?.();
 
-    return {
-      success: true,
-      message: `Job ${jobId} cancelled successfully`,
-      job
-    };
+    return { success: true, message: `Job ${jobId} ${config.action} successfully`, job };
+  }
+
+  cancelJob(jobId: string): JobActionResult {
+    return this._executeJobAction(jobId, {
+      action: 'cancelled',
+      statusGuard: (s) => TERMINAL_STATUSES.includes(s),
+      guardMessage: (s) => `Cannot cancel job with status '${s}'`,
+      mutate: (job) => {
+        job.status = JOB_STATUS.CANCELLED;
+        job.completedAt = new Date();
+        job.error = { message: 'Job cancelled by user', cancelled: true };
+      },
+      logLevel: 'warning'
+    });
   }
 
   pauseJob(jobId: string): JobActionResult {
-    const job = this.jobs.get(jobId);
-
-    if (!job) {
-      return {
-        success: false,
-        message: `Job ${jobId} not found`
-      };
-    }
-
-    if (TERMINAL_STATUSES.includes(job.status) || job.status === JOB_STATUS.PAUSED) {
-      return {
-        success: false,
-        message: `Cannot pause job with status '${job.status}'`,
-        job
-      };
-    }
-
-    const previousStatus = job.status;
-
-    if (job.status === JOB_STATUS.QUEUED) {
-      const queueIndex = this.queue.indexOf(jobId);
-      if (queueIndex > -1) {
-        this.queue.splice(queueIndex, 1);
+    return this._executeJobAction(jobId, {
+      action: 'paused',
+      statusGuard: (s) => TERMINAL_STATUSES.includes(s) || s === JOB_STATUS.PAUSED,
+      guardMessage: (s) => `Cannot pause job with status '${s}'`,
+      mutate: (job) => {
+        job.status = JOB_STATUS.PAUSED;
+        job.pausedAt = new Date();
       }
-    }
-
-    job.status = JOB_STATUS.PAUSED;
-    job.pausedAt = new Date();
-
-    try {
-      this._persistJob(job);
-    } catch {
-      // Non-critical
-    }
-
-    this.emit('job:paused', job);
-
-    Sentry.addBreadcrumb({
-      category: 'job',
-      message: `Job ${jobId} paused`,
-      level: 'info',
-      data: { jobId, previousStatus }
     });
-
-    logger.info({ jobId, previousStatus }, 'Job paused');
-
-    return {
-      success: true,
-      message: `Job ${jobId} paused successfully`,
-      job
-    };
   }
 
   resumeJob(jobId: string): JobActionResult {
-    const job = this.jobs.get(jobId);
-
-    if (!job) {
-      return {
-        success: false,
-        message: `Job ${jobId} not found`
-      };
-    }
-
-    if (job.status !== JOB_STATUS.PAUSED) {
-      return {
-        success: false,
-        message: `Cannot resume job with status '${job.status}'. Only paused jobs can be resumed.`,
-        job
-      };
-    }
-
-    job.status = JOB_STATUS.QUEUED;
-    job.resumedAt = new Date();
-    delete job.pausedAt;
-
-    this.queue.push(jobId);
-
-    try {
-      this._persistJob(job);
-    } catch {
-      // Non-critical
-    }
-
-    this.emit('job:resumed', job);
-
-    Sentry.addBreadcrumb({
-      category: 'job',
-      message: `Job ${jobId} resumed`,
-      level: 'info',
-      data: { jobId }
+    return this._executeJobAction(jobId, {
+      action: 'resumed',
+      statusGuard: (s) => s !== JOB_STATUS.PAUSED,
+      guardMessage: (s) => `Cannot resume job with status '${s}'. Only paused jobs can be resumed.`,
+      mutate: (job) => {
+        job.status = JOB_STATUS.QUEUED;
+        job.resumedAt = new Date();
+        delete job.pausedAt;
+        this.queue.push(job.id);
+      },
+      postAction: () => this.processQueue()
     });
-
-    logger.info({ jobId }, 'Job resumed');
-
-    this.processQueue();
-
-    return {
-      success: true,
-      message: `Job ${jobId} resumed successfully`,
-      job
-    };
   }
 }
