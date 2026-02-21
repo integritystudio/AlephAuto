@@ -11,14 +11,14 @@ const __dirname = dirname(__filename);
  * Test suite for verifying correct filepath imports after file reorganization
  *
  * This test suite validates:
- * 1. index.js moved to sidequest/ with updated imports
+ * 1. index.ts moved to sidequest/ with updated imports
  * 2. data-discovery-report-pipeline.js moved to sidequest/ with updated imports
  */
 
 describe('Filepath Imports Test Suite', () => {
-  describe('sidequest/core/index.js imports', () => {
+  describe('sidequest/core/index.ts imports', () => {
     it('should have correct import for RepomixWorker', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/core/index.js');
+      const filePath = resolve(__dirname, '../../sidequest/core/index.ts');
       const content = await fs.readFile(filePath, 'utf-8');
 
       // Verify the import statement uses relative path from sidequest/core/
@@ -30,7 +30,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should have correct import for DirectoryScanner', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/core/index.js');
+      const filePath = resolve(__dirname, '../../sidequest/core/index.ts');
       const content = await fs.readFile(filePath, 'utf-8');
 
       // Verify the import statement uses relative path from sidequest/core/
@@ -42,68 +42,68 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should have correct outputBaseDir from config', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/core/index.js');
+      const filePath = resolve(__dirname, '../../sidequest/core/index.ts');
       const content = await fs.readFile(filePath, 'utf-8');
 
-      // Verify outputBaseDir is sourced from config
+      // Verify outputBaseDir is sourced from config (via cfg cast)
       assert.match(
         content,
-        /outputBaseDir:\s*config\.outputBaseDir/,
-        'outputBaseDir should use config.outputBaseDir'
+        /outputBaseDir:\s*cfg\.outputBaseDir/,
+        'outputBaseDir should use cfg.outputBaseDir'
       );
     });
 
     it('should have correct logDir path', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/core/index.js');
+      const filePath = resolve(__dirname, '../../sidequest/core/index.ts');
       const content = await fs.readFile(filePath, 'utf-8');
 
-      // Verify logDir is sourced from config
+      // Verify logDir is sourced from config (via cfg cast)
       assert.match(
         content,
-        /logDir:\s*config\.logDir/,
-        'logDir should use config.logDir'
+        /logDir:\s*cfg\.logDir/,
+        'logDir should use cfg.logDir'
       );
     });
 
     it('should have correct outputDir path for DirectoryScanner', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/core/index.js');
+      const filePath = resolve(__dirname, '../../sidequest/core/index.ts');
       const content = await fs.readFile(filePath, 'utf-8');
 
-      // Verify outputDir is sourced from config
+      // Verify outputDir is sourced from config (via cfg cast)
       assert.match(
         content,
-        /outputDir:\s*config\.scanReportsDir/,
-        'outputDir should use config.scanReportsDir'
+        /outputDir:\s*cfg\.scanReportsDir/,
+        'outputDir should use cfg.scanReportsDir'
       );
     });
 
     it('should have correct path in saveRunSummary', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/core/index.js');
+      const filePath = resolve(__dirname, '../../sidequest/core/index.ts');
       const content = await fs.readFile(filePath, 'utf-8');
 
-      // Verify saveRunSummary uses ../logs
+      // Verify saveRunSummary uses this.worker.logDir for deterministic output
       assert.match(
         content,
-        /path\.join\(['"]\.\.\/logs['"]/,
-        'saveRunSummary should use ../logs'
+        /path\.join\(this\.worker\.logDir/,
+        'saveRunSummary should use this.worker.logDir'
       );
     });
   });
 
   describe('File existence checks', () => {
-    it('should verify index.js exists in sidequest/core/', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/core/index.js');
+    it('should verify index.ts exists in sidequest/core/', async () => {
+      const filePath = resolve(__dirname, '../../sidequest/core/index.ts');
       const stats = await fs.stat(filePath);
-      assert.ok(stats.isFile(), 'index.js should exist in sidequest/core/');
+      assert.ok(stats.isFile(), 'index.ts should exist in sidequest/core/');
     });
 
-    it('should verify index.js was removed from root', async () => {
-      const filePath = resolve(__dirname, '../../index.js');
+    it('should verify index.ts was removed from root', async () => {
+      const filePath = resolve(__dirname, '../../index.ts');
       try {
         await fs.stat(filePath);
-        assert.fail('index.js should not exist in root directory');
+        assert.fail('index.ts should not exist in root directory');
       } catch (error) {
-        assert.strictEqual(error.code, 'ENOENT', 'index.js should not exist in root');
+        assert.strictEqual(error.code, 'ENOENT', 'index.ts should not exist in root');
       }
     });
 
