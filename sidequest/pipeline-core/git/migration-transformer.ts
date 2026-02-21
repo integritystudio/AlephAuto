@@ -26,6 +26,7 @@ import type { File as BabelFile, Expression, Identifier, MemberExpression } from
 import fs from 'fs/promises';
 import path from 'path';
 import { glob } from 'glob';
+import { runCommand } from '@shared/process-io';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 import { config } from '../../core/config.ts';
 import * as Sentry from '@sentry/node';
@@ -414,7 +415,9 @@ export class MigrationTransformer {
         t.importSpecifier(t.identifier(name), t.identifier(name))
       );
     } else if (imported === '*') {
-      specifiers = [t.importNamespaceSpecifier(t.identifier('imported'))];
+      // Derive alias from module source (e.g., './utils' → 'utils', '@foo/bar' → 'bar')
+      const alias = path.basename(source).replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_$]/g, '_') || 'ns';
+      specifiers = [t.importNamespaceSpecifier(t.identifier(alias))];
     } else {
       specifiers = [t.importDefaultSpecifier(t.identifier(imported))];
     }
@@ -623,7 +626,8 @@ export class MigrationTransformer {
 
     for (const step of unresolvedSteps) {
       if (step.parsed && this._contentMatchesStep(content, step.parsed)) {
-        resolved.get(step.index)!.push(relPath);
+        const arr = resolved.get(step.index);
+        if (arr) arr.push(relPath);
       }
     }
   }
@@ -651,8 +655,8 @@ export class MigrationTransformer {
     return backupPath;
   }
 
-  async rollback(backupPath: string, repositoryPath: string): Promise<void> {
-    logger.info({ backupPath }, 'Rolling back transformations');
+  async rollback(_backupPath: string, repositoryPath: string): Promise<void> {
+    logger.info({ repositoryPath }, 'Rolling back transformations via git checkout');
 
     if (this.dryRun) {
       logger.info('Dry run: Would rollback transformations');
@@ -660,23 +664,14 @@ export class MigrationTransformer {
     }
 
     try {
-      const files = await fs.readdir(backupPath);
-
-      for (const file of files) {
-        const backupFilePath = path.join(backupPath, file);
-        const originalFilePath = path.join(repositoryPath, file);
-
-        await fs.copyFile(backupFilePath, originalFilePath);
-        logger.debug({ file }, 'Restored file from backup');
-      }
-
-      logger.info({ filesRestored: files.length }, 'Rollback completed');
-
+      // Use git checkout to restore modified files (more reliable than file-based backup)
+      await runCommand(repositoryPath, 'git', ['checkout', '.']);
+      logger.info('Rollback completed via git checkout');
     } catch (error) {
-      logError(logger, error, 'Rollback failed', { backupPath });
+      logError(logger, error, 'Rollback failed', { repositoryPath });
       Sentry.captureException(error, {
         tags: { component: 'migration-transformer', operation: 'rollback' },
-        extra: { backupPath, repositoryPath }
+        extra: { repositoryPath }
       });
       throw error;
     }
