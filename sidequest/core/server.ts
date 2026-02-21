@@ -95,7 +95,7 @@ export class SidequestServer extends EventEmitter {
   gitBaseBranch: string;
   gitDryRun: boolean;
   jobType: string;
-  gitWorkflowManager!: GitWorkflowManager;
+  gitWorkflowManager: GitWorkflowManager | undefined;
   private _dbReady: Promise<void>;
 
   constructor(options: SidequestServerOptions = {}) {
@@ -129,7 +129,9 @@ export class SidequestServer extends EventEmitter {
       });
     }
 
-    // Initialize SQLite database for job persistence
+    // Initialize SQLite database for job persistence.
+    // Graceful degradation: .catch() converts DB init failure to a resolved promise
+    // so start() always succeeds. Jobs still run in-memory but won't persist to disk.
     this._dbReady = jobRepository.initialize()
       .then(() => {
         logger.info('Job history database initialized');
@@ -292,7 +294,7 @@ export class SidequestServer extends EventEmitter {
   }
 
   private async _setupGitBranchIfEnabled(job: Job): Promise<boolean> {
-    if (!this.gitWorkflowEnabled || !job.data.repositoryPath) {
+    if (!this.gitWorkflowEnabled || !this.gitWorkflowManager || !job.data.repositoryPath) {
       return false;
     }
 
@@ -421,7 +423,7 @@ export class SidequestServer extends EventEmitter {
     job.completedAt = new Date();
     job.error = { message: safeErrorMessage(error) };
 
-    if (branchCreated && this.gitWorkflowEnabled && job.git.branchName && job.git.originalBranch && typeof job.data.repositoryPath === 'string') {
+    if (branchCreated && this.gitWorkflowEnabled && this.gitWorkflowManager && job.git.branchName && job.git.originalBranch && typeof job.data.repositoryPath === 'string') {
       try {
         await this.gitWorkflowManager.cleanupBranch(
           job.data.repositoryPath,
@@ -454,8 +456,8 @@ export class SidequestServer extends EventEmitter {
   }
 
   private async _handleGitWorkflowSuccess(job: Job): Promise<void> {
-    if (!job.git.branchName || !job.git.originalBranch) {
-      logger.warn({ jobId: job.id }, 'Missing branch info, skipping git workflow');
+    if (!this.gitWorkflowManager || !job.git.branchName || !job.git.originalBranch) {
+      logger.warn({ jobId: job.id }, 'Missing branch info or git manager, skipping git workflow');
       return;
     }
 

@@ -46,10 +46,10 @@ export interface WorkflowResult {
  * GitWorkflowManager - manages git operations for automated workflows
  */
 export class GitWorkflowManager {
-  baseBranch: string;
-  branchPrefix: string;
-  dryRun: boolean;
-  branchManager: BranchManager;
+  readonly baseBranch: string;
+  readonly branchPrefix: string;
+  readonly dryRun: boolean;
+  readonly branchManager: BranchManager;
 
   constructor(options: BranchManagerOptions = {}) {
     this.baseBranch = options.baseBranch || 'main';
