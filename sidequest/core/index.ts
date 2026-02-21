@@ -167,7 +167,7 @@ class RepomixCronApp {
       stats,
     };
 
-    const summaryPath = path.join('../logs', `run-summary-${Date.now()}.json`);
+    const summaryPath = path.join(this.worker.logDir, `run-summary-${Date.now()}.json`);
     await fs.writeFile(summaryPath, JSON.stringify(summary, null, 2));
   }
 
@@ -204,7 +204,8 @@ class RepomixCronApp {
   }
 }
 
-// Start the application
+// Auto-executing entry point: importing this module starts the application.
+// This file lives in core/ for historical reasons but functions as a pipeline runner.
 const app = new RepomixCronApp();
 app.start().catch((error) => {
   logError(logger, error, 'Fatal error');
