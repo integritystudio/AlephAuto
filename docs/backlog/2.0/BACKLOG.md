@@ -1,6 +1,6 @@
 # AlephAuto 2.0: TypeScript Migration Design Doc
 
-**Status:** In Progress (Phases 0-3 complete)
+**Status:** In Progress (Phases 0-6 complete)
 **Date:** 2026-02-10
 **Last Updated:** 2026-02-17
 **Scope:** Full migration of all JS source/test files to TypeScript
@@ -73,7 +73,7 @@
 | File | Provides Types For | Status |
 |------|--------------------|--------|
 | `api/types/pipeline-requests.d.ts` | Pipeline request/response types | ✅ Deleted (Phase 0) |
-| `sidequest/core/server.d.ts` | SidequestServer class | Pending (Phase 6) |
+| `sidequest/core/server.d.ts` | SidequestServer class | ✅ Deleted (Phase 6) |
 | `sidequest/pipeline-core/scan-orchestrator.d.ts` | ScanOrchestrator class | ✅ Deleted (Phase 0) |
 | `sidequest/pipeline-core/errors/error-types.d.ts` | Error classification types | ✅ Deleted (Phase 3) |
 | `sidequest/pipeline-core/errors/types.d.ts` | Error handling types | ✅ Deleted (Phase 3) |
@@ -82,7 +82,7 @@
 | `packages/shared-process-io/src/index.d.ts` | @shared/process-io exports | ✅ Deleted (Phase 2) |
 | `frontend/src/vite-env.d.ts` | Vite client types (keep as-is) | N/A |
 
-**7/8 deleted.** Remaining: `sidequest/core/server.d.ts` (deleted in Phase 6).
+**8/8 deleted.** All hand-written `.d.ts` files removed (except `vite-env.d.ts`).
 
 ### 12 JS+TS Pairs (Stale Duplicates) — ✅ ALL RESOLVED
 
@@ -251,56 +251,54 @@ PM2 requires CommonJS config files. This file stays as `.cjs` and is excluded fr
 
 ---
 
-### Phase 4: Data Layer
+### Phase 4: Data Layer — ✅ COMPLETE
 
 **Goal:** Migrate database access and job persistence.
 
+**Status:** 2 files migrated. Strict interfaces added (`JobRow`, `ParsedJob`, `JobQueryOptions`, `SaveJobInput`, `BulkImportJob`, etc.). All query functions return typed results.
+
+**Commits:** `34c7977`, `d38e7e2`
+
 | File | Lines | Dependencies |
 |------|------:|--------------|
-| `sidequest/core/database.js` | 961 | config, constants, job-status, logger |
-| `sidequest/core/job-repository.js` | 210 | database, logger |
-
-**Total:** 2 files, 1,171 lines
-
-**Note:** `database.js` is the largest core file (961 lines). Uses better-sqlite3 (migrated from sql.js). Expect significant strict mode fixes around statement return types and null handling.
-
-**Verification:** `npm run typecheck && npm test && npm run test:integration`
+| `sidequest/core/database.ts` | 718 | config, constants, job-status, logger |
+| `sidequest/core/job-repository.ts` | 137 | database, logger |
 
 ---
 
-### Phase 5: Git & Workflow
+### Phase 5: Git & Workflow — ✅ COMPLETE
 
 **Goal:** Migrate git operations layer.
 
+**Status:** 4 files migrated with proper interfaces (`BranchManagerOptions`, `CommitMessage`, `GitInfo`, `WorkflowResult`, etc.).
+
+**Commit:** `34c7977`
+
 | File | Lines | Dependencies |
 |------|------:|--------------|
-| `sidequest/pipeline-core/git/branch-manager.js` | 488 | @shared/process-io, logger |
-| `sidequest/pipeline-core/git/pr-creator.js` | 491 | branch-manager, config, logger |
-| `sidequest/pipeline-core/git/migration-transformer.js` | 798 | logger, fs-helpers |
-| `sidequest/core/git-workflow-manager.js` | 269 | branch-manager, logger |
-
-**Total:** 4 files, 2,046 lines
-
-**Verification:** `npm run typecheck && npm test`
+| `sidequest/pipeline-core/git/branch-manager.ts` | 488 | @shared/process-io, logger |
+| `sidequest/pipeline-core/git/pr-creator.ts` | 491 | branch-manager, config, logger |
+| `sidequest/pipeline-core/git/migration-transformer.ts` | 798 | logger, fs-helpers |
+| `sidequest/core/git-workflow-manager.ts` | 186 | branch-manager, logger |
 
 ---
 
-### Phase 6: Core Server
+### Phase 6: Core Server — ✅ COMPLETE
 
 **Goal:** Migrate the `SidequestServer` base class.
 
+**Status:** 2 files migrated. `server.d.ts` deleted. Interfaces: `Job`, `JobGitMetadata`, `JobStats`, `SidequestServerOptions`. Refactored: extracted `_executeJobAction` and `_writeJobLog` helpers, added repositoryPath guards, waitForCompletion timeout, typed interfaces for JS-based imports in index.ts.
+
+**Commits:** `34c7977`, `b897b38`, `d38e7e2`
+
 | File | Lines | Dependencies | Blocks |
 |------|------:|--------------|--------|
-| `sidequest/core/server.js` | 815 | config, constants, job-repository, git-workflow-manager, error-classifier, job-status, logger | All 8+ workers |
-| `sidequest/core/index.js` | 197 | config, constants, logger, workers, directory-scanner | Cron scheduler |
+| `sidequest/core/server.ts` | 711 | config, constants, job-repository, git-workflow-manager, error-classifier, job-status, logger | All 8+ workers |
+| `sidequest/core/index.ts` | 179 | config, constants, logger, workers, directory-scanner | Cron scheduler |
 
-**Total:** 2 files, 1,012 lines
+**Deferred findings:** 10 Medium + 5 Low severity items tracked in `docs/BACKLOG.md` (TS46-M1 through TS46-L5).
 
-**Critical:** This is the highest-risk phase. `server.js` is the base class for all workers. Type errors here cascade to every worker.
-
-**After this phase:** Delete `sidequest/core/server.d.ts` (1 `.d.ts` file).
-
-**Verification:** `npm run typecheck && npm test && npm run test:integration`
+**Verification:** 0 TS errors, 12/12 unit tests, 12/12 integration tests.
 
 ---
 
@@ -423,9 +421,9 @@ PM2 requires CommonJS config files. This file stays as `.cjs` and is excluded fr
 | 1 | Infrastructure | 4-5 configs | - | Medium | ✅ Done |
 | 2 | Foundation | ~13 | 1,475 | Low | ✅ Done |
 | 3 | Types & Errors | ~3 | 586 | Low | ✅ Done |
-| 4 | Data Layer | 2 | 1,171 | Medium | Pending |
-| 5 | Git & Workflow | 4 | 2,046 | Low | Pending |
-| 6 | Core Server | 2 | 1,012 | **High** | Pending |
+| 4 | Data Layer | 2 | 1,171 | Medium | ✅ Done |
+| 5 | Git & Workflow | 4 | 2,046 | Low | ✅ Done |
+| 6 | Core Server | 2 | 1,012 | **High** | ✅ Done |
 | 7 | Pipeline Core | 15 | 5,849 | Medium | Pending |
 | 8 | Workers & Runners | ~15 | 5,937 | Low | Pending |
 | 9 | API Layer | 12 | 3,483 | Medium | Pending |

@@ -213,9 +213,9 @@ Technical debt and planned improvements extracted from codebase TODOs.
 
 | ID | Description | Severity | Status |
 |----|-------------|----------|--------|
-| BF-R1 | Generic font stack across all base CSS files (`report-base.css`, `portal-base.css`, `competitor-base.css`) — introduce DM Sans / Source Serif Pro | P3 | Pending |
-| BF-R2 | Hub layout monotony — 10 sections with mostly 1 card each, needs varied layouts | P4 | Pending |
-| BF-R3 | 4 parallel CSS variable namespaces across `css/*.css` — consolidate | P4 | Pending |
+| BF-R1 | Generic font stack across all base CSS files (`report-base.css`, `portal-base.css`, `competitor-base.css`) — introduce DM Sans / Source Serif Pro | P3 | ✅ Done |
+| BF-R2 | Hub layout monotony — 10 sections with mostly 1 card each, needs varied layouts | P4 | ✅ Done |
+| BF-R3 | 4 parallel CSS variable namespaces across `css/*.css` — consolidate | P4 | ✅ Done |
 
 ### aledlie/tcad-scraper (P1-P3)
 
@@ -224,11 +224,11 @@ Technical debt and planned improvements extracted from codebase TODOs.
 
 | ID | Description | Severity | Status |
 |----|-------------|----------|--------|
-| BF-T1 | `isNaN()` vs `Number.isNaN()` bug in `src/utils/formatters.ts:41` — potential incorrect date formatting | P1 | Pending |
-| BF-T2 | Biome format drift — 57+ files with formatting issues (auto-fixable: `npx @biomejs/biome check --write .`) | P2 | Pending |
-| BF-T3 | Unused import in `server/src/lib/__tests__/redis-cache.service.test.ts` | P2 | Pending |
-| BF-T4 | LoadingSkeleton a11y — WAI-ARIA role should use semantic HTML element | P3 | Pending |
-| BF-T5 | Import organization drift in 3 files (auto-fixable) | P3 | Pending |
+| BF-T1 | `isNaN()` vs `Number.isNaN()` bug in `src/utils/formatters.ts:41` — potential incorrect date formatting | P1 | ✅ Done |
+| BF-T2 | Biome format drift — 57+ files with formatting issues (auto-fixable: `npx @biomejs/biome check --write .`) | P2 | ✅ Done |
+| BF-T3 | Unused import in `server/src/lib/__tests__/redis-cache.service.test.ts` | P2 | ✅ Done |
+| BF-T4 | LoadingSkeleton a11y — WAI-ARIA role should use semantic HTML element | P3 | ✅ Done |
+| BF-T5 | Import organization drift in 3 files (auto-fixable) | P3 | ✅ Done |
 
 ### aledlie/AnalyticsBot (P3)
 
@@ -237,9 +237,9 @@ Technical debt and planned improvements extracted from codebase TODOs.
 
 | ID | Description | Severity | Status |
 |----|-------------|----------|--------|
-| BF-A1 | React Router v6 deprecation warnings (v7 future flags) | P3 | Pending |
-| BF-A2 | 4 TODOs in UserService.ts (cache/Redis features) | P3 | Pending |
-| BF-A3 | Jest `--detectOpenHandles` warning (async teardown) | P3 | Pending |
+| BF-A1 | React Router v6 deprecation warnings (v7 future flags) | P3 | ✅ Done |
+| BF-A2 | 4 TODOs in UserService.ts (cache/Redis features) | P3 | ✅ Done |
+| BF-A3 | Jest `--detectOpenHandles` warning (async teardown) | P3 | ✅ Done |
 
 ---
 
@@ -254,7 +254,7 @@ Technical debt and planned improvements extracted from codebase TODOs.
 
 ### Summary
 
-| Repo | Pending | Theme |
+| Repo | ✅ Done | Theme |
 |------|---------|-------|
 | integritystudio/reports | 3 | Typography, layout, CSS architecture |
 | aledlie/tcad-scraper | 5 | Lint, formatting, a11y |
@@ -331,3 +331,61 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | Medium | 0 | ~~DB init race condition~~ ✅ Complete |
 | Low | 0 | ~~Test isolation (PROD-L2)~~ ✅ Complete |
 | **Total** | **0** | |
+
+---
+
+## TS Migration Phase 4-6 - Deferred Review Findings (2026-02-19)
+
+> **Source:** Enterprise code review of Phase 4-6 migration (commits `34c7977`, `b897b38`, `d38e7e2`)
+> **Resolved:** 3 Critical (C1-C3), 5 High (H1-H5), 5 HANDOFF.md coherence issues
+> **Deferred:** 10 Medium, 5 Low (below)
+
+### Medium Priority
+
+| ID | Location | Description | Status |
+|----|----------|-------------|--------|
+| TS46-M1 | `sidequest/core/database.ts:258` | **`isValidJobId` not called in `saveJob`** — Validation only runs in `bulkImportJobs`. `saveJob` writes `id` directly without format check. Add `isValidJobId` guard for defense-in-depth. | ✅ Done |
+| TS46-M2 | `sidequest/core/database.ts:130-146` | **`BulkImportJob` dual-field pattern undocumented** — Accepts both `pipeline_id` and `pipelineId` for migration compat but no `@deprecated` marker on snake_case variants. | ✅ Done |
+| TS46-M3 | `sidequest/core/database.ts:50` | **`ParsedJob.error` typed `unknown`** — Should narrow to `{ message: string; stack?: string; code?: string; cancelled?: boolean } \| null` to match `Job.error` in `server.ts:39`. Downstream consumers require casts. | ✅ Done |
+| TS46-M4 | `sidequest/pipeline-core/git/branch-manager.ts:336-344` | **`jobContext.jobType` not sanitized in `_generateBranchName`** — `description` is sanitized (lowercase, strip non-alphanumeric) but `jobType` is used verbatim. Special chars in jobType would break `git checkout -b`. | ✅ Done |
+| TS46-M5 | `sidequest/pipeline-core/git/migration-transformer.ts:654-682` | **Incomplete backup in `rollback`** — `_createBackup` creates a directory but never copies files. `rollback` reads empty backup dir and silently restores nothing. Either copy files before transform or use `git checkout`. | ✅ Done |
+| TS46-M6 | `sidequest/pipeline-core/git/migration-transformer.ts:626` | **Non-null assertion on `Map.get`** — `resolved.get(step.index)!.push(relPath)` assumes key exists. Use null-safe `const arr = resolved.get(step.index); if (arr) arr.push(relPath);` | ✅ Done |
+| TS46-M7 | `sidequest/core/git-workflow-manager.ts:49-53` | **Mutable config properties** — `baseBranch`, `branchPrefix`, `dryRun`, `branchManager` are `public` but set once in constructor. Mark `readonly`. | ✅ Done |
+| TS46-M8 | `sidequest/core/server.ts:98` | **`gitWorkflowManager!` definite assignment** — Only initialized when `gitWorkflowEnabled` is true. Should be `gitWorkflowManager: GitWorkflowManager \| undefined` to force callsite narrowing. | ✅ Done |
+| TS46-M9 | `sidequest/pipeline-core/git/migration-transformer.ts:416-418` | **Namespace import alias hardcoded** — `_addImport` with `imported === '*'` always uses identifier `'imported'`. Dead code in practice but would break if reached. | ✅ Done |
+| TS46-M10 | `tests/integration/pipeline-execution.integration.test.js:152-154` | **`--strip-types` requires Node 22.6+** — Test uses `--strip-types` flag for `.ts` syntax checking. Falls back silently via `\|\| true` on older Node. Add version guard or use `tsx`. | ✅ Done |
+
+### Low Priority
+
+| ID | Location | Description | Status |
+|----|----------|-------------|--------|
+| TS46-L1 | `sidequest/core/index.ts:136` | **Relative log path** — `saveRunSummary` writes to `'../logs'` (relative to cwd). Should use `this.worker.logDir` for deterministic output. | ✅ Done |
+| TS46-L2 | `sidequest/core/database.ts:658` + `constants.ts:142` | **Job ID max length mismatch** — Error message says "max 255 chars" but `JOB_ID_PATTERN` regex enforces `{1,100}`. Update message to "max 100 chars". | ✅ Done |
+| TS46-L3 | `sidequest/core/server.ts:133-142` | **`_dbReady` swallows rejection undocumented** — `.catch()` converts DB init failure to resolved promise. `start()` always succeeds. Add comment documenting graceful degradation intent. | ✅ Done |
+| TS46-L4 | `sidequest/pipeline-core/git/branch-manager.ts:72-75` | **`getChangedFiles` misparses renames** — `substring(3)` on `git status --porcelain` includes `old -> ` prefix for renamed files (`R  old -> new`). | ✅ Done |
+| TS46-L5 | `sidequest/core/index.ts` | **Auto-executing entry point in `core/`** — Top-level `app.start()` runs on import. Should live in `pipeline-runners/` to avoid side effects when importing from `core/`. | ✅ Done |
+
+### Completed (2026-02-20)
+- ✅ TS46-M1: Added isValidJobId guard in saveJob with runtime type guard
+- ✅ TS46-M2: Added @deprecated markers on BulkImportJob snake_case fields
+- ✅ TS46-M3: Narrowed ParsedJob.error with isParsedJobError runtime guard
+- ✅ TS46-M4: Sanitized jobType in _generateBranchName
+- ✅ TS46-M5: Replaced empty backup with git checkout rollback
+- ✅ TS46-M6: Replaced non-null assertion with null-safe Map.get
+- ✅ TS46-M7: Marked GitWorkflowManager config properties readonly
+- ✅ TS46-M8: Changed gitWorkflowManager! to optional with narrowing guards
+- ✅ TS46-M9: Derived namespace import alias from module source
+- ✅ TS46-M10: Added Node 22.6+ version guard for --strip-types test
+- ✅ TS46-L1: Fixed relative log path in saveRunSummary
+- ✅ TS46-L2: Fixed error message "max 255 chars" → "max 100 chars"
+- ✅ TS46-L3: Documented _dbReady graceful degradation intent
+- ✅ TS46-L4: Fixed getChangedFiles rename parsing
+- ✅ TS46-L5: Documented auto-executing entry point in core/index.ts
+
+### Summary
+
+| Priority | Count | Theme |
+|----------|-------|-------|
+| Medium | 0 | ~~Type safety, validation, readonly, broken rollback~~ ✅ Complete |
+| Low | 0 | ~~Paths, docs, entry point location~~ ✅ Complete |
+| **Total** | **0** | All items resolved |
