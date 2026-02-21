@@ -72,7 +72,12 @@ export class BranchManager {
       const files = status
         .split('\n')
         .filter(line => line.trim().length > 0)
-        .map(line => line.substring(3).trim());
+        .map(line => {
+          const filePath = line.substring(3).trim();
+          // Handle renames: "R  old -> new" → extract the new path
+          const renameIdx = filePath.indexOf(' -> ');
+          return renameIdx !== -1 ? filePath.substring(renameIdx + 4) : filePath;
+        });
 
       return files;
     } catch (error) {
@@ -335,7 +340,7 @@ export class BranchManager {
 
   private _generateBranchName(jobContext: JobBranchContext): string {
     const timestamp = Date.now();
-    const jobType = jobContext.jobType || 'job';
+    const jobType = (jobContext.jobType || 'job').toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const description = jobContext.description
       ? `-${jobContext.description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 30)}`
       : '';
