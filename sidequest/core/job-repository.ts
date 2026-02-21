@@ -20,6 +20,7 @@ import {
 } from './database.ts';
 import type {
   ParsedJob,
+  ParsedJobError,
   SaveJobInput,
   JobQueryOptions,
   AllJobsQueryOptions,
@@ -133,4 +134,4 @@ export const jobRepository = createJobRepository();
 export { JobRepository };
 
 // Re-export types for consumers
-export type { ParsedJob, SaveJobInput, JobQueryOptions, AllJobsQueryOptions, JobCounts, PipelineStats, BulkImportResult };
+export type { ParsedJob, ParsedJobError, SaveJobInput, JobQueryOptions, AllJobsQueryOptions, JobCounts, PipelineStats, BulkImportResult };

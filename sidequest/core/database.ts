@@ -40,6 +40,20 @@ export interface JobRow {
   completed_at: string | null;
 }
 
+/** Parsed job error shape (matches Job.error in server.ts) */
+export interface ParsedJobError {
+  message: string;
+  stack?: string;
+  code?: string;
+  cancelled?: boolean;
+}
+
+/** Runtime type guard for ParsedJobError */
+function isParsedJobError(value: unknown): value is ParsedJobError {
+  if (value === null || typeof value !== 'object') return false;
+  return typeof (value as Record<string, unknown>)['message'] === 'string';
+}
+
 /** Parsed job object returned by query functions (camelCase, parsed JSON) */
 export interface ParsedJob {
   id: string;
@@ -47,7 +61,7 @@ export interface ParsedJob {
   status: string;
   data: unknown;
   result: unknown;
-  error: unknown;
+  error: ParsedJobError | null;
   git: unknown;
   createdAt: string;
   startedAt: string | null;
@@ -130,13 +144,17 @@ export interface SaveJobInput {
 /** Input job for bulk import (accepts both snake_case and camelCase) */
 export interface BulkImportJob {
   id: string;
+  /** @deprecated Use pipelineId instead */
   pipeline_id?: string;
   pipelineId?: string;
   status: string;
+  /** @deprecated Use createdAt instead */
   created_at?: string;
   createdAt?: string;
+  /** @deprecated Use startedAt instead */
   started_at?: string | null;
   startedAt?: string | null;
+  /** @deprecated Use completedAt instead */
   completed_at?: string | null;
   completedAt?: string | null;
   data?: unknown;
@@ -160,6 +178,7 @@ function safeJsonParse(str: string | null, fallback: unknown = null): unknown {
 
 /** Convert a JobRow to a ParsedJob */
 function rowToParsedJob(row: JobRow): ParsedJob {
+  const rawError = safeJsonParse(row.error);
   return {
     id: row.id,
     pipelineId: row.pipeline_id,
@@ -169,7 +188,7 @@ function rowToParsedJob(row: JobRow): ParsedJob {
     completedAt: row.completed_at,
     data: safeJsonParse(row.data),
     result: safeJsonParse(row.result),
-    error: safeJsonParse(row.error),
+    error: isParsedJobError(rawError) ? rawError : null,
     git: safeJsonParse(row.git),
   };
 }
@@ -256,6 +275,10 @@ export function isDatabaseReady(): boolean {
  * Save a job to the database
  */
 export function saveJob(job: SaveJobInput): void {
+  if (!isValidJobId(job.id)) {
+    throw new Error(`Invalid job ID format: ${job.id} (must be alphanumeric with hyphens/underscores, max 100 chars)`);
+  }
+
   const database = getDatabase();
 
   database.prepare(`
@@ -472,8 +495,8 @@ export async function importReportsToDatabase(reportsDir: string): Promise<numbe
       const dateMatch = file.match(/(\d{4}-\d{2}-\d{2})/);
       const dateStr = dateMatch ? dateMatch[1] : stats.mtime.toISOString().split('T')[0];
 
-      // Create job ID from filename
-      const jobId = file.replace('-summary.json', '');
+      // Create job ID from filename (sanitize for isValidJobId)
+      const jobId = file.replace('-summary.json', '').replace(/[^a-zA-Z0-9_-]/g, '-');
 
       // Check if already imported
       const existing = queryOne<{ id: string }>('SELECT id FROM jobs WHERE id = ?', [jobId]);
@@ -549,8 +572,8 @@ export async function importLogsToDatabase(logsDir: string): Promise<number> {
         }
       }
 
-      // Create job ID from filename
-      const jobId = file.replace('.json', '');
+      // Create job ID from filename (sanitize for isValidJobId)
+      const jobId = file.replace('.json', '').replace(/[^a-zA-Z0-9_-]/g, '-');
 
       // Check if already imported
       const existing = queryOne<{ id: string }>('SELECT id FROM jobs WHERE id = ?', [jobId]);
@@ -655,7 +678,7 @@ export function bulkImportJobs(jobs: BulkImportJob[]): BulkImportResult {
       try {
         // Validate job ID format
         if (!isValidJobId(job.id)) {
-          errors.push(`Job ${job.id}: Invalid job ID format (must be alphanumeric with hyphens/underscores, max 255 chars)`);
+          errors.push(`Job ${job.id}: Invalid job ID format (must be alphanumeric with hyphens/underscores, max 100 chars)`);
           continue;
         }
 
