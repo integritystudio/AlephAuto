@@ -10,25 +10,87 @@ import crypto from 'crypto';
 
 const logger = createComponentLogger('ScanResultCache');
 
+export interface RedisClient {
+  hexists(args: { name: string; key: string }): Promise<boolean>;
+  hget(args: { name: string; key: string }): Promise<string | null>;
+  hset(args: { name: string; key: string; value: string; expire_seconds: number }): Promise<unknown>;
+  lpush(args: { name: string; value: string; expire: number }): Promise<unknown>;
+  lrange(args: { name: string; start: number; stop: number }): Promise<string[]>;
+  scan_all_keys(args: { pattern: string }): Promise<string[]>;
+  delete(args: { key: string }): Promise<unknown>;
+}
+
+export interface ScanCacheOptions {
+  ttl?: number;
+  keyPrefix?: string;
+  enabled?: boolean;
+}
+
+export interface CacheMetadata {
+  repository_path: string;
+  commit_hash: string | null;
+  short_commit: string | null;
+  cached_at: string;
+  ttl: number;
+  scan_type: string;
+  total_duplicates: number;
+  total_suggestions: number;
+}
+
+export interface IndexEntry {
+  cache_key: string;
+  repository_path: string;
+  commit_hash: string | null;
+  indexed_at: string;
+}
+
+export interface CacheStats {
+  total_cached_scans: number;
+  cache_enabled: boolean;
+  ttl_seconds: number;
+  ttl_days: number;
+  prefix: string;
+  error?: string;
+}
+
+export interface ScanResultWithCache extends Record<string, unknown> {
+  scan_type?: string;
+  metrics?: {
+    total_duplicate_groups?: number;
+    total_suggestions?: number;
+    [key: string]: unknown;
+  };
+  cache_metadata?: CacheMetadataAttachment;
+  scan_metadata?: Record<string, unknown>;
+}
+
+export interface CacheMetadataAttachment {
+  cached_at?: string;
+  from_cache?: boolean;
+  cache_key?: string;
+  age?: number | null;
+  age_hours?: number | null;
+  age_days?: number | null;
+  [key: string]: unknown;
+}
+
 export class ScanResultCache {
-  /**
-   * @param {Object} redisClient - Redis MCP client
-   * @param {Object} options - Cache options
-   */
-  constructor(redisClient, options = {}) {
+  private readonly redis: RedisClient;
+  private readonly ttl: number;
+  private readonly keyPrefix: string;
+  private readonly enabled: boolean;
+
+  constructor(redisClient: RedisClient, options: ScanCacheOptions = {}) {
     this.redis = redisClient;
-    this.ttl = options.ttl || (30 * 24 * 60 * 60); // Default: 30 days in seconds
-    this.keyPrefix = options.keyPrefix || 'scan:';
+    this.ttl = options.ttl ?? (30 * 24 * 60 * 60); // Default: 30 days in seconds
+    this.keyPrefix = options.keyPrefix ?? 'scan:';
     this.enabled = options.enabled !== false;
   }
 
   /**
    * Generate cache key for a repository scan
-   * @param {string} repoPath - Repository path
-   * @param {string} commitHash - Git commit hash
-   * @returns {string} - Cache key
    */
-  _generateCacheKey(repoPath, commitHash) {
+  private _generateCacheKey(repoPath: string, commitHash: string | null): string {
     // Create a stable hash of repository path
     const pathHash = crypto
       .createHash('sha256')
@@ -43,11 +105,8 @@ export class ScanResultCache {
 
   /**
    * Get cached scan result
-   * @param {string} repoPath - Repository path
-   * @param {string} commitHash - Git commit hash
-   * @returns {Promise<Object|null>} - Cached scan result or null
    */
-  async getCachedScan(repoPath, commitHash) {
+  async getCachedScan(repoPath: string, commitHash: string | null): Promise<ScanResultWithCache | null> {
     if (!this.enabled) {
       logger.debug('Cache disabled, skipping lookup');
       return null;
@@ -74,17 +133,17 @@ export class ScanResultCache {
         return null;
       }
 
-      const scanResult = JSON.parse(cachedData);
+      const scanResult = JSON.parse(cachedData) as ScanResultWithCache;
 
       // Retrieve metadata
       const metadataStr = await this.redis.hget({ name: cacheKey, key: 'metadata' });
-      const metadata = metadataStr ? JSON.parse(metadataStr) : {};
+      const metadata: CacheMetadata | Record<string, unknown> = metadataStr ? JSON.parse(metadataStr) : {};
 
       logger.info({
         cacheKey,
         repoPath,
-        cachedAt: metadata.cached_at,
-        age: Date.now() - new Date(metadata.cached_at).getTime()
+        cachedAt: (metadata as CacheMetadata).cached_at,
+        age: Date.now() - new Date((metadata as CacheMetadata).cached_at).getTime()
       }, 'Cache hit');
 
       return {
@@ -103,13 +162,13 @@ export class ScanResultCache {
 
   /**
    * Cache a scan result
-   * @param {string} repoPath - Repository path
-   * @param {string} commitHash - Git commit hash
-   * @param {Object} scanResult - Scan result to cache
-   * @param {Object} options - Caching options
-   * @returns {Promise<boolean>} - True if cached successfully
    */
-  async cacheScan(repoPath, commitHash, scanResult, options = {}) {
+  async cacheScan(
+    repoPath: string,
+    commitHash: string | null,
+    scanResult: ScanResultWithCache,
+    _options: Record<string, unknown> = {}
+  ): Promise<boolean> {
     if (!this.enabled) {
       logger.debug('Cache disabled, skipping storage');
       return false;
@@ -118,15 +177,15 @@ export class ScanResultCache {
     const cacheKey = this._generateCacheKey(repoPath, commitHash);
 
     try {
-      const metadata = {
+      const metadata: CacheMetadata = {
         repository_path: repoPath,
         commit_hash: commitHash,
         short_commit: commitHash ? commitHash.substring(0, 7) : null,
         cached_at: new Date().toISOString(),
         ttl: this.ttl,
-        scan_type: scanResult.scan_type || 'unknown',
-        total_duplicates: scanResult.metrics?.total_duplicate_groups || 0,
-        total_suggestions: scanResult.metrics?.total_suggestions || 0
+        scan_type: (scanResult.scan_type as string) ?? 'unknown',
+        total_duplicates: (scanResult.metrics?.total_duplicate_groups as number) ?? 0,
+        total_suggestions: (scanResult.metrics?.total_suggestions as number) ?? 0
       };
 
       // Store scan result
@@ -173,24 +232,20 @@ export class ScanResultCache {
 
   /**
    * Add cache key to index for listing
-   * @param {string} cacheKey - Cache key
-   * @param {string} repoPath - Repository path
-   * @param {string} commitHash - Commit hash
-   * @private
    */
-  async _addToIndex(cacheKey, repoPath, commitHash) {
+  private async _addToIndex(cacheKey: string, repoPath: string, commitHash: string | null): Promise<void> {
     try {
       const indexKey = `${this.keyPrefix}index`;
-      const indexEntry = JSON.stringify({
+      const indexEntry: IndexEntry = {
         cache_key: cacheKey,
         repository_path: repoPath,
         commit_hash: commitHash,
         indexed_at: new Date().toISOString()
-      });
+      };
 
       await this.redis.lpush({
         name: indexKey,
-        value: indexEntry,
+        value: JSON.stringify(indexEntry),
         expire: this.ttl
       });
 
@@ -207,10 +262,8 @@ export class ScanResultCache {
 
   /**
    * Invalidate cache for a repository
-   * @param {string} repoPath - Repository path
-   * @returns {Promise<number>} - Number of keys invalidated
    */
-  async invalidateCache(repoPath) {
+  async invalidateCache(repoPath: string): Promise<number> {
     try {
       const pathHash = crypto
         .createHash('sha256')
@@ -251,9 +304,8 @@ export class ScanResultCache {
 
   /**
    * Get cache statistics
-   * @returns {Promise<Object>} - Cache statistics
    */
-  async getStats() {
+  async getStats(): Promise<CacheStats> {
     try {
       const pattern = `${this.keyPrefix}*`;
       const allKeys = await this.redis.scan_all_keys({ pattern });
@@ -261,7 +313,7 @@ export class ScanResultCache {
       // Filter out index keys
       const cacheKeys = allKeys.filter(key => !key.endsWith(':index'));
 
-      const stats = {
+      const stats: CacheStats = {
         total_cached_scans: cacheKeys.length,
         cache_enabled: this.enabled,
         ttl_seconds: this.ttl,
@@ -277,17 +329,18 @@ export class ScanResultCache {
       return {
         total_cached_scans: 0,
         cache_enabled: this.enabled,
-        error: error.message
+        ttl_seconds: this.ttl,
+        ttl_days: Math.floor(this.ttl / (24 * 60 * 60)),
+        prefix: this.keyPrefix,
+        error: (error as Error).message
       };
     }
   }
 
   /**
    * List cached scans
-   * @param {number} limit - Maximum number of scans to list
-   * @returns {Promise<Array>} - Array of cached scan info
    */
-  async listCachedScans(limit = 10) {
+  async listCachedScans(limit = 10): Promise<IndexEntry[]> {
     try {
       const indexKey = `${this.keyPrefix}index`;
       const entries = await this.redis.lrange({
@@ -296,7 +349,7 @@ export class ScanResultCache {
         stop: limit - 1
       });
 
-      const cachedScans = entries.map(entry => JSON.parse(entry));
+      const cachedScans = entries.map(entry => JSON.parse(entry) as IndexEntry);
 
       logger.info({ count: cachedScans.length }, 'Retrieved cached scan list');
 
@@ -309,11 +362,8 @@ export class ScanResultCache {
 
   /**
    * Get cache metadata for a specific scan
-   * @param {string} repoPath - Repository path
-   * @param {string} commitHash - Commit hash
-   * @returns {Promise<Object|null>} - Cache metadata
    */
-  async getCacheMetadata(repoPath, commitHash) {
+  async getCacheMetadata(repoPath: string, commitHash: string | null): Promise<CacheMetadata | null> {
     const cacheKey = this._generateCacheKey(repoPath, commitHash);
 
     try {
@@ -323,7 +373,7 @@ export class ScanResultCache {
         return null;
       }
 
-      const metadata = JSON.parse(metadataStr);
+      const metadata = JSON.parse(metadataStr) as CacheMetadata;
 
       logger.debug({ cacheKey, repoPath }, 'Retrieved cache metadata');
 
@@ -336,9 +386,8 @@ export class ScanResultCache {
 
   /**
    * Clear all cached scans
-   * @returns {Promise<number>} - Number of keys cleared
    */
-  async clearAll() {
+  async clearAll(): Promise<number> {
     try {
       logger.warn('Clearing all cached scans');
 
@@ -362,11 +411,8 @@ export class ScanResultCache {
 
   /**
    * Check if a scan is cached
-   * @param {string} repoPath - Repository path
-   * @param {string} commitHash - Commit hash
-   * @returns {Promise<boolean>} - True if cached
    */
-  async isCached(repoPath, commitHash) {
+  async isCached(repoPath: string, commitHash: string | null): Promise<boolean> {
     const cacheKey = this._generateCacheKey(repoPath, commitHash);
 
     try {
@@ -383,14 +429,11 @@ export class ScanResultCache {
 
   /**
    * Get cache age in milliseconds
-   * @param {string} repoPath - Repository path
-   * @param {string} commitHash - Commit hash
-   * @returns {Promise<number|null>} - Age in milliseconds, or null if not cached
    */
-  async getCacheAge(repoPath, commitHash) {
+  async getCacheAge(repoPath: string, commitHash: string | null): Promise<number | null> {
     const metadata = await this.getCacheMetadata(repoPath, commitHash);
 
-    if (!metadata || !metadata.cached_at) {
+    if (!metadata?.cached_at) {
       return null;
     }
 

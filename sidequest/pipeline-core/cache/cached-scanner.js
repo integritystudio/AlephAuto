@@ -6,7 +6,7 @@
  */
 
 import { GitCommitTracker } from './git-tracker.ts';
-import { ScanResultCache } from './scan-cache.js';
+import { ScanResultCache } from './scan-cache.ts';
 import { ScanOrchestrator } from '../scan-orchestrator.ts';
 import { createComponentLogger, logStart, logComplete, logError, logWarn, logSkip } from '../../utils/logger.ts';
 import * as Sentry from '@sentry/node';

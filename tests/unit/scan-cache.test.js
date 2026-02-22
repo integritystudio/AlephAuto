@@ -6,7 +6,7 @@
 
 import { describe, it, beforeEach, mock } from 'node:test';
 import assert from 'node:assert';
-import { ScanResultCache } from '../../sidequest/pipeline-core/cache/scan-cache.js';
+import { ScanResultCache } from '../../sidequest/pipeline-core/cache/scan-cache.ts';
 
 describe('ScanResultCache', () => {
   let cache;
