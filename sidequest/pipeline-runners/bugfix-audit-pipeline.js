@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { BugfixAuditWorker } from '../workers/bugfix-audit-worker.js';
+import { BugfixAuditWorker } from '../workers/bugfix-audit-worker.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';

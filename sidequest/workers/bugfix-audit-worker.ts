@@ -1,4 +1,4 @@
-import { SidequestServer } from '../core/server.ts';
+import { SidequestServer, type Job } from '../core/server.ts';
 import { GitWorkflowManager } from '../core/git-workflow-manager.ts';
 import { execCommand } from '@shared/process-io';
 import { createComponentLogger, logError, logStage } from '../utils/logger.ts';
@@ -7,6 +7,39 @@ import fs from 'fs/promises';
 import path from 'path';
 
 const logger = createComponentLogger('BugfixAuditWorker');
+
+interface BugfixAuditWorkerOptions {
+  activeDocsDir?: string;
+  outputBaseDir?: string;
+  gitBaseBranch?: string;
+  gitBranchPrefix?: string;
+  gitDryRun?: boolean;
+  maxConcurrent?: number;
+  logDir?: string;
+  gitWorkflowEnabled?: boolean;
+  sentryDsn?: string;
+}
+
+interface StageResult {
+  name: string;
+  status: string;
+  output: string;
+}
+
+interface WorkflowResults {
+  markdownFile: string;
+  projectName: string;
+  repoPath: string;
+  stages: StageResult[];
+  branchName: string;
+  pullRequestUrl: string | null;
+  timestamp: string;
+}
+
+interface RepositoryInfo {
+  projectName: string | null;
+  possibleRepoPaths: string[];
+}
 
 /**
  * BugfixAuditWorker - Automated bug detection and fixing workflow
@@ -28,11 +61,15 @@ const logger = createComponentLogger('BugfixAuditWorker');
  * base class's single commit-at-end pattern.
  */
 export class BugfixAuditWorker extends SidequestServer {
-  constructor(options = {}) {
+  activeDocsDir: string;
+  outputBaseDir: string;
+  declare gitWorkflowManager: GitWorkflowManager;
+
+  constructor(options: BugfixAuditWorkerOptions = {}) {
     super({
       ...options,
       jobType: 'bugfix-audit',
-      // Explicitly disable base-class git workflow — we manage commits ourselves
+      // Explicitly disable base-class git workflow -- we manage commits ourselves
       gitWorkflowEnabled: false,
     });
 
@@ -54,12 +91,12 @@ export class BugfixAuditWorker extends SidequestServer {
   /**
    * Find all markdown files in active docs directory
    */
-  async findMarkdownFiles() {
+  async findMarkdownFiles(): Promise<string[]> {
     logger.info({ dir: this.activeDocsDir }, 'Scanning for markdown files');
 
-    const markdownFiles = [];
+    const markdownFiles: string[] = [];
 
-    async function scanDirectory(dir) {
+    async function scanDirectory(dir: string): Promise<void> {
       const entries = await fs.readdir(dir, { withFileTypes: true });
       for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
@@ -80,7 +117,7 @@ export class BugfixAuditWorker extends SidequestServer {
   /**
    * Extract repository path from markdown file location
    */
-  getRepositoryFromPath(markdownPath) {
+  getRepositoryFromPath(markdownPath: string): RepositoryInfo {
     const parts = markdownPath.split(path.sep);
     const activeIndex = parts.indexOf('active');
 
@@ -100,7 +137,7 @@ export class BugfixAuditWorker extends SidequestServer {
   /**
    * Run Claude Code agent via CLI
    */
-  async runClaudeAgent(agentType, prompt, cwd) {
+  async runClaudeAgent(agentType: string, prompt: string, cwd: string): Promise<{ stdout: string; stderr: string }> {
     logger.info({ agentType, cwd }, 'Running Claude Code agent');
 
     const result = await execCommand('claude', ['--agent', agentType, '--prompt', prompt], {
@@ -117,7 +154,7 @@ export class BugfixAuditWorker extends SidequestServer {
   /**
    * Run Claude Code slash command
    */
-  async runSlashCommand(command, cwd) {
+  async runSlashCommand(command: string, cwd: string): Promise<{ stdout: string; stderr: string }> {
     logger.info({ command, cwd }, 'Running slash command');
 
     const result = await execCommand('claude', ['--command', command], {
@@ -134,8 +171,12 @@ export class BugfixAuditWorker extends SidequestServer {
   /**
    * Main job handler - orchestrates the entire bug fix workflow
    */
-  async runJobHandler(job) {
-    const { markdownFile, projectName, repoPath } = job.data;
+  async runJobHandler(job: Job): Promise<WorkflowResults> {
+    const { markdownFile, projectName, repoPath } = job.data as {
+      markdownFile: string;
+      projectName: string;
+      repoPath: string;
+    };
 
     logger.info({
       jobId: job.id,
@@ -159,7 +200,7 @@ export class BugfixAuditWorker extends SidequestServer {
     const outputDir = path.join(this.outputBaseDir, projectName, new Date().toISOString().split('T')[0]);
     await fs.mkdir(outputDir, { recursive: true });
 
-    const results = {
+    const results: WorkflowResults = {
       markdownFile,
       projectName,
       repoPath,
@@ -268,11 +309,11 @@ export class BugfixAuditWorker extends SidequestServer {
 
       return results;
     } catch (error) {
-      logError(logger, error, 'Bug fix workflow failed', { jobId: job.id });
+      logError(logger, error as Error, 'Bug fix workflow failed', { jobId: job.id });
 
       await fs.writeFile(
         path.join(outputDir, 'workflow-error.json'),
-        JSON.stringify({ ...results, error: error.message, stack: error.stack }, null, 2)
+        JSON.stringify({ ...results, error: (error as Error).message, stack: (error as Error).stack }, null, 2)
       );
 
       throw error;
@@ -282,7 +323,7 @@ export class BugfixAuditWorker extends SidequestServer {
   /**
    * Create a single bugfix job for a specific markdown file
    */
-  createBugfixJob(markdownFile, projectName, repoPath) {
+  createBugfixJob(markdownFile: string, projectName: string, repoPath: string): Job {
     const jobId = `bugfix-${projectName}-${Date.now()}`;
     return this.createJob(jobId, {
       markdownFile,
@@ -294,12 +335,12 @@ export class BugfixAuditWorker extends SidequestServer {
   /**
    * Create jobs for all markdown files in the active docs directory
    */
-  async createJobsForAllMarkdownFiles() {
+  async createJobsForAllMarkdownFiles(): Promise<Job[]> {
     const markdownFiles = await this.findMarkdownFiles();
 
     logger.info({ count: markdownFiles.length }, 'Creating jobs for markdown files');
 
-    const jobs = [];
+    const jobs: Job[] = [];
 
     for (const markdownFile of markdownFiles) {
       const { projectName, possibleRepoPaths } = this.getRepositoryFromPath(markdownFile);
@@ -310,7 +351,7 @@ export class BugfixAuditWorker extends SidequestServer {
       }
 
       // Find the first existing repo path
-      let repoPath = null;
+      let repoPath: string | null = null;
       for (const possiblePath of possibleRepoPaths) {
         try {
           await fs.access(possiblePath);
