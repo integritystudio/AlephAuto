@@ -5,24 +5,39 @@
  * Used by caching layer to determine if scans need to be refreshed.
  */
 
-// @ts-nocheck
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
 import { createComponentLogger } from '../../utils/logger.ts';
 
-// @ts-ignore - Promisified exec has correct signature
 const execPromise = promisify(exec);
 const logger = createComponentLogger('GitCommitTracker');
+
+export interface CommitMetadata {
+  hash: string;
+  shortHash: string;
+  author: string;
+  email: string;
+  date: string;
+  message: string;
+}
+
+export interface RepositoryStatus {
+  is_git_repository: boolean;
+  current_commit: string | null;
+  short_commit: string | null;
+  branch: string | null;
+  has_uncommitted_changes: boolean;
+  remote_url: string | null;
+  scanned_at: string;
+}
 
 export class GitCommitTracker {
   /**
    * Get the current HEAD commit hash for a repository
-   * @param {string} repoPath - Path to repository
-   * @returns {Promise<string|null>} - Commit hash or null if not a git repo
    */
-  async getRepositoryCommit(repoPath) {
+  async getRepositoryCommit(repoPath: string): Promise<string | null> {
     try {
       const { stdout } = await execPromise('git rev-parse HEAD', {
         cwd: repoPath
@@ -33,17 +48,15 @@ export class GitCommitTracker {
 
       return commitHash;
     } catch (error) {
-      logger.warn({ repoPath, error: error.message }, 'Not a git repository or git not available');
+      logger.warn({ repoPath, error: (error as Error).message }, 'Not a git repository or git not available');
       return null;
     }
   }
 
   /**
    * Get short commit hash (first 7 characters)
-   * @param {string} repoPath - Path to repository
-   * @returns {Promise<string|null>} - Short commit hash
    */
-  async getShortCommit(repoPath) {
+  async getShortCommit(repoPath: string): Promise<string | null> {
     try {
       const { stdout } = await execPromise('git rev-parse --short HEAD', {
         cwd: repoPath
@@ -54,18 +67,15 @@ export class GitCommitTracker {
 
       return shortHash;
     } catch (error) {
-      logger.warn({ repoPath, error: error.message }, 'Failed to get short commit hash');
+      logger.warn({ repoPath, error: (error as Error).message }, 'Failed to get short commit hash');
       return null;
     }
   }
 
   /**
    * Check if repository has changed since a given commit
-   * @param {string} repoPath - Path to repository
-   * @param {string} lastCommit - Last known commit hash
-   * @returns {Promise<boolean>} - True if changed
    */
-  async hasChanged(repoPath, lastCommit) {
+  async hasChanged(repoPath: string, lastCommit: string | null): Promise<boolean> {
     if (!lastCommit) {
       return true; // No previous commit, treat as changed
     }
@@ -91,11 +101,8 @@ export class GitCommitTracker {
 
   /**
    * Get list of files changed since a given commit
-   * @param {string} repoPath - Path to repository
-   * @param {string} fromCommit - Starting commit hash
-   * @returns {Promise<string[]>} - Array of changed file paths
    */
-  async getChangedFiles(repoPath, fromCommit) {
+  async getChangedFiles(repoPath: string, fromCommit: string | null): Promise<string[]> {
     try {
       const currentCommit = await this.getRepositoryCommit(repoPath);
 
@@ -131,11 +138,8 @@ export class GitCommitTracker {
 
   /**
    * Get commit metadata (author, date, message)
-   * @param {string} repoPath - Path to repository
-   * @param {string} commitHash - Commit hash (defaults to HEAD)
-   * @returns {Promise<Object|null>} - Commit metadata
    */
-  async getCommitMetadata(repoPath, commitHash = 'HEAD') {
+  async getCommitMetadata(repoPath: string, commitHash = 'HEAD'): Promise<CommitMetadata | null> {
     try {
       const { stdout } = await execPromise(
         `git show -s --format='%H|%an|%ae|%at|%s' ${commitHash}`,
@@ -144,7 +148,7 @@ export class GitCommitTracker {
 
       const [hash, author, email, timestamp, message] = stdout.trim().split('|');
 
-      const metadata = {
+      const metadata: CommitMetadata = {
         hash,
         shortHash: hash.substring(0, 7),
         author,
@@ -164,10 +168,8 @@ export class GitCommitTracker {
 
   /**
    * Get repository branch name
-   * @param {string} repoPath - Path to repository
-   * @returns {Promise<string|null>} - Branch name
    */
-  async getBranchName(repoPath) {
+  async getBranchName(repoPath: string): Promise<string | null> {
     try {
       const { stdout } = await execPromise('git rev-parse --abbrev-ref HEAD', {
         cwd: repoPath
@@ -178,17 +180,15 @@ export class GitCommitTracker {
 
       return branchName;
     } catch (error) {
-      logger.warn({ repoPath, error: error.message }, 'Failed to get branch name');
+      logger.warn({ repoPath, error: (error as Error).message }, 'Failed to get branch name');
       return null;
     }
   }
 
   /**
    * Check if repository has uncommitted changes
-   * @param {string} repoPath - Path to repository
-   * @returns {Promise<boolean>} - True if has uncommitted changes
    */
-  async hasUncommittedChanges(repoPath) {
+  async hasUncommittedChanges(repoPath: string): Promise<boolean> {
     try {
       const { stdout } = await execPromise('git status --porcelain', {
         cwd: repoPath
@@ -203,18 +203,15 @@ export class GitCommitTracker {
 
       return hasChanges;
     } catch (error) {
-      logger.warn({ repoPath, error: error.message }, 'Failed to check for uncommitted changes');
+      logger.warn({ repoPath, error: (error as Error).message }, 'Failed to check for uncommitted changes');
       return false;
     }
   }
 
   /**
    * Get repository remote URL
-   * @param {string} repoPath - Path to repository
-   * @param {string} remoteName - Remote name (default: origin)
-   * @returns {Promise<string|null>} - Remote URL
    */
-  async getRemoteUrl(repoPath, remoteName = 'origin') {
+  async getRemoteUrl(repoPath: string, remoteName = 'origin'): Promise<string | null> {
     try {
       const { stdout } = await execPromise(`git remote get-url ${remoteName}`, {
         cwd: repoPath
@@ -225,17 +222,15 @@ export class GitCommitTracker {
 
       return remoteUrl;
     } catch (error) {
-      logger.warn({ repoPath, remoteName, error: error.message }, 'Failed to get remote URL');
+      logger.warn({ repoPath, remoteName, error: (error as Error).message }, 'Failed to get remote URL');
       return null;
     }
   }
 
   /**
    * Get total number of commits in repository
-   * @param {string} repoPath - Path to repository
-   * @returns {Promise<number>} - Number of commits
    */
-  async getCommitCount(repoPath) {
+  async getCommitCount(repoPath: string): Promise<number> {
     try {
       const { stdout } = await execPromise('git rev-list --count HEAD', {
         cwd: repoPath
@@ -246,17 +241,15 @@ export class GitCommitTracker {
 
       return count;
     } catch (error) {
-      logger.warn({ repoPath, error: error.message }, 'Failed to get commit count');
+      logger.warn({ repoPath, error: (error as Error).message }, 'Failed to get commit count');
       return 0;
     }
   }
 
   /**
    * Check if path is a git repository
-   * @param {string} repoPath - Path to check
-   * @returns {Promise<boolean>} - True if is a git repository
    */
-  async isGitRepository(repoPath) {
+  async isGitRepository(repoPath: string): Promise<boolean> {
     try {
       const gitDir = path.join(repoPath, '.git');
       const stats = await fs.stat(gitDir);
@@ -265,7 +258,7 @@ export class GitCommitTracker {
       logger.debug({ repoPath, isGitRepository: isGit }, 'Checked if path is git repository');
 
       return isGit;
-    } catch (error) {
+    } catch {
       logger.debug({ repoPath }, 'Path is not a git repository');
       return false;
     }
@@ -273,10 +266,8 @@ export class GitCommitTracker {
 
   /**
    * Get repository status summary
-   * @param {string} repoPath - Path to repository
-   * @returns {Promise<Object>} - Repository status
    */
-  async getRepositoryStatus(repoPath) {
+  async getRepositoryStatus(repoPath: string): Promise<RepositoryStatus> {
     const [
       isGit,
       currentCommit,
@@ -291,7 +282,7 @@ export class GitCommitTracker {
       this.getRemoteUrl(repoPath)
     ]);
 
-    const status = {
+    const status: RepositoryStatus = {
       is_git_repository: isGit,
       current_commit: currentCommit,
       short_commit: currentCommit ? currentCommit.substring(0, 7) : null,
@@ -308,11 +299,8 @@ export class GitCommitTracker {
 
   /**
    * Get commit history for a repository
-   * @param {string} repoPath - Path to repository
-   * @param {number} limit - Number of commits to retrieve
-   * @returns {Promise<Array>} - Array of commit objects
    */
-  async getCommitHistory(repoPath, limit = 10) {
+  async getCommitHistory(repoPath: string, limit = 10): Promise<CommitMetadata[]> {
     try {
       const { stdout } = await execPromise(
         `git log -${limit} --format='%H|%an|%ae|%at|%s'`,

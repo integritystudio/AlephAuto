@@ -12,7 +12,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { execSync } from 'child_process';
-import { GitCommitTracker } from '../../sidequest/pipeline-core/cache/git-tracker.js';
+import { GitCommitTracker } from '../../sidequest/pipeline-core/cache/git-tracker.ts';
 
 describe('GitCommitTracker', () => {
   let tracker;

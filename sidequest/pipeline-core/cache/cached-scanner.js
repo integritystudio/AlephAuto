@@ -5,7 +5,7 @@
  * Automatically uses cached results when repository hasn't changed.
  */
 
-import { GitCommitTracker } from './git-tracker.js';
+import { GitCommitTracker } from './git-tracker.ts';
 import { ScanResultCache } from './scan-cache.js';
 import { ScanOrchestrator } from '../scan-orchestrator.ts';
 import { createComponentLogger, logStart, logComplete, logError, logWarn, logSkip } from '../../utils/logger.ts';
