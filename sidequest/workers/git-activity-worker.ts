@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { SidequestServer } from '../core/server.ts';
+import { SidequestServer, type Job } from '../core/server.ts';
 import { generateReport } from '../utils/report-generator.js';
 import { spawn } from 'child_process';
 import { captureProcessOutput } from '@shared/process-io';
@@ -11,6 +10,59 @@ import { TIMEOUTS, TIME } from '../core/constants.ts';
 
 const logger = createComponentLogger('GitActivityWorker');
 
+interface GitActivityWorkerOptions {
+  codeBaseDir?: string;
+  pythonScript?: string;
+  personalSiteDir?: string;
+  outputDir?: string;
+  logDir?: string;
+  maxConcurrent?: number;
+  gitWorkflowEnabled?: boolean;
+  gitBranchPrefix?: string;
+  gitBaseBranch?: string;
+  gitDryRun?: boolean;
+  sentryDsn?: string;
+}
+
+interface PythonArgs {
+  reportType?: string;
+  days?: number;
+  sinceDate?: string;
+  untilDate?: string;
+  outputFormat?: string;
+  generateVisualizations?: boolean;
+}
+
+interface PythonScriptResult {
+  stdout: string;
+  stderr: string;
+  outputFiles: string[];
+}
+
+interface GitActivityStats {
+  totalCommits: number;
+  totalRepositories: number;
+  linesAdded: number;
+  linesDeleted: number;
+  filesChanged?: number;
+}
+
+interface VerifiedFile {
+  path: string;
+  size?: number;
+  exists: boolean;
+}
+
+interface ReportJobOptions {
+  jobId?: string;
+  reportType?: string;
+  days?: number;
+  sinceDate?: string;
+  untilDate?: string;
+  outputFormat?: string;
+  generateVisualizations?: boolean;
+}
+
 /**
  * GitActivityWorker - Executes git activity report jobs
  *
@@ -18,34 +70,35 @@ const logger = createComponentLogger('GitActivityWorker');
  * providing job queue management, event tracking, and Sentry error monitoring.
  */
 export class GitActivityWorker extends SidequestServer {
-  constructor(options = {}) {
+  codeBaseDir: string;
+  pythonScript: string;
+  personalSiteDir: string;
+  outputDir: string;
+
+  constructor(options: GitActivityWorkerOptions = {}) {
     super({
       ...options,
       jobType: 'git-activity',
     });
-    this.codeBaseDir = options.codeBaseDir || path.join(os.homedir(), 'code');
-    this.pythonScript = options.pythonScript || path.join(
+    this.codeBaseDir = options.codeBaseDir ?? path.join(os.homedir(), 'code');
+    this.pythonScript = options.pythonScript ?? path.join(
       path.dirname(new URL(import.meta.url).pathname),
       '..',
       'pipeline-runners',
       'collect_git_activity.py'
     );
-    this.personalSiteDir = options.personalSiteDir || path.join(
+    this.personalSiteDir = options.personalSiteDir ?? path.join(
       os.homedir(),
       'code',
       'PersonalSite'
     );
-    this.outputDir = options.outputDir || path.join(os.homedir(), 'code', 'PersonalSite', '_reports');
-    this.logDir = options.logDir || path.join(
-      path.dirname(new URL(import.meta.url).pathname),
-      'logs'
-    );
+    this.outputDir = options.outputDir ?? path.join(os.homedir(), 'code', 'PersonalSite', '_reports');
   }
 
   /**
    * Run git activity report job
    */
-  async runJobHandler(job) {
+  async runJobHandler(job: Job): Promise<unknown> {
     const startTime = Date.now();
     const {
       reportType,
@@ -54,7 +107,14 @@ export class GitActivityWorker extends SidequestServer {
       untilDate,
       outputFormat = 'json',
       generateVisualizations = true
-    } = job.data;
+    } = job.data as {
+      reportType?: string;
+      days?: number;
+      sinceDate?: string;
+      untilDate?: string;
+      outputFormat?: string;
+      generateVisualizations?: boolean;
+    };
 
     logger.info({
       jobId: job.id,
@@ -94,9 +154,9 @@ export class GitActivityWorker extends SidequestServer {
         filesGenerated: verifiedFiles.length
       }, 'Git activity report completed');
 
-      const result = {
+      const result: Record<string, unknown> = {
         reportType,
-        days: days || this.#calculateDays(sinceDate, untilDate),
+        days: days ?? this.#calculateDays(sinceDate, untilDate),
         sinceDate,
         untilDate,
         stats,
@@ -125,10 +185,11 @@ export class GitActivityWorker extends SidequestServer {
 
       return result;
     } catch (error) {
+      const err = error as Error;
       logger.error({
         jobId: job.id,
-        error: error.message,
-        stack: error.stack
+        error: err.message,
+        stack: err.stack
       }, 'Git activity report failed');
       throw error;
     }
@@ -136,10 +197,9 @@ export class GitActivityWorker extends SidequestServer {
 
   /**
    * Build Python script arguments
-   * @private
    */
-  #buildPythonArgs({ reportType, days, sinceDate, untilDate, outputFormat, generateVisualizations }) {
-    const args = [];
+  #buildPythonArgs({ reportType, days, sinceDate, untilDate, outputFormat, generateVisualizations }: PythonArgs): string[] {
+    const args: string[] = [];
 
     // Add date range arguments
     if (sinceDate && untilDate) {
@@ -157,7 +217,7 @@ export class GitActivityWorker extends SidequestServer {
     }
 
     // Add output format
-    if (outputFormat !== 'json') {
+    if (outputFormat && outputFormat !== 'json') {
       args.push('--output-format', outputFormat);
     }
 
@@ -171,16 +231,14 @@ export class GitActivityWorker extends SidequestServer {
 
   /**
    * Execute Python script
-   * @private
    */
-  #runPythonScript(args) {
+  #runPythonScript(args: string[]): Promise<PythonScriptResult> {
     return new Promise((resolve, reject) => {
       logger.debug({ args }, 'Executing Python script');
 
       const proc = spawn('python3', [this.pythonScript, ...args], {
         cwd: path.dirname(this.pythonScript),
         timeout: TIMEOUTS.GIT_REPORT_MS,
-        maxBuffer: 10 * 1024 * 1024, // 10MB buffer
       });
 
       const output = captureProcessOutput(proc);
@@ -193,7 +251,11 @@ export class GitActivityWorker extends SidequestServer {
           const outputFiles = this.#extractOutputFiles(stdout);
           resolve({ stdout, stderr, outputFiles });
         } else {
-          const error = new Error(`Python script exited with code ${code}`);
+          const error = new Error(`Python script exited with code ${code}`) as Error & {
+            code: number | null;
+            stdout: string;
+            stderr: string;
+          };
           error.code = code;
           error.stdout = stdout;
           error.stderr = stderr;
@@ -202,19 +264,19 @@ export class GitActivityWorker extends SidequestServer {
       });
 
       proc.on('error', (error) => {
-        error.stdout = output.getStdout();
-        error.stderr = output.getStderr();
-        reject(error);
+        const augmented = error as Error & { stdout: string; stderr: string };
+        augmented.stdout = output.getStdout();
+        augmented.stderr = output.getStderr();
+        reject(augmented);
       });
     });
   }
 
   /**
    * Extract output file paths from script output
-   * @private
    */
-  #extractOutputFiles(stdout) {
-    const files = [];
+  #extractOutputFiles(stdout: string): string[] {
+    const files: string[] = [];
 
     // Look for JSON output file
     const jsonMatch = stdout.match(/(?:Saving|Saved) (?:to|data to):\s*(.+\.json)/i);
@@ -233,10 +295,9 @@ export class GitActivityWorker extends SidequestServer {
 
   /**
    * Parse statistics from script output
-   * @private
    */
-  #parseStats(stdout) {
-    const stats = {
+  #parseStats(stdout: string): GitActivityStats {
+    const stats: GitActivityStats = {
       totalCommits: 0,
       totalRepositories: 0,
       linesAdded: 0,
@@ -247,15 +308,16 @@ export class GitActivityWorker extends SidequestServer {
     try {
       const jsonMatch = stdout.match(/\{[\s\S]*"total_commits"[\s\S]*\}/);
       if (jsonMatch) {
-        const data = JSON.parse(jsonMatch[0]);
-        stats.totalCommits = data.total_commits || 0;
-        stats.totalRepositories = data.repositories?.length || 0;
-        stats.linesAdded = data.total_additions || 0;
-        stats.linesDeleted = data.total_deletions || 0;
+        const data = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+        stats.totalCommits = (data.total_commits as number) ?? 0;
+        stats.totalRepositories = (Array.isArray(data.repositories) ? data.repositories.length : 0);
+        stats.linesAdded = (data.total_additions as number) ?? 0;
+        stats.linesDeleted = (data.total_deletions as number) ?? 0;
         return stats;
       }
     } catch (error) {
-      logger.debug({ error: error.message }, 'Could not parse JSON stats, trying text format');
+      const err = error as Error;
+      logger.debug({ error: err.message }, 'Could not parse JSON stats, trying text format');
     }
 
     // Fallback: parse from text summary output
@@ -279,14 +341,13 @@ export class GitActivityWorker extends SidequestServer {
 
   /**
    * Calculate days between two dates
-   * @private
    */
-  #calculateDays(sinceDate, untilDate) {
+  #calculateDays(sinceDate?: string, untilDate?: string): number | null {
     if (!sinceDate || !untilDate) return null;
 
     const since = new Date(sinceDate);
     const until = new Date(untilDate);
-    const diffTime = Math.abs(until - since);
+    const diffTime = Math.abs(until.getTime() - since.getTime());
     const diffDays = Math.ceil(diffTime / TIME.DAY);
 
     return diffDays;
@@ -294,10 +355,9 @@ export class GitActivityWorker extends SidequestServer {
 
   /**
    * Verify output files exist
-   * @private
    */
-  async #verifyOutputFiles(files) {
-    const verified = [];
+  async #verifyOutputFiles(files: string[]): Promise<VerifiedFile[]> {
+    const verified: VerifiedFile[] = [];
 
     for (const file of files) {
       try {
@@ -309,7 +369,8 @@ export class GitActivityWorker extends SidequestServer {
           exists: true,
         });
       } catch (error) {
-        logger.warn({ file, error: error.message }, 'Output file not found');
+        const err = error as Error;
+        logger.warn({ file, error: err.message }, 'Output file not found');
         verified.push({
           path: file,
           exists: false,
@@ -323,7 +384,7 @@ export class GitActivityWorker extends SidequestServer {
   /**
    * Create a weekly report job
    */
-  createWeeklyReportJob() {
+  createWeeklyReportJob(): Job {
     const jobId = `git-activity-weekly-${Date.now()}`;
 
     return this.createJob(jobId, {
@@ -336,7 +397,7 @@ export class GitActivityWorker extends SidequestServer {
   /**
    * Create a monthly report job
    */
-  createMonthlyReportJob() {
+  createMonthlyReportJob(): Job {
     const jobId = `git-activity-monthly-${Date.now()}`;
 
     return this.createJob(jobId, {
@@ -349,7 +410,7 @@ export class GitActivityWorker extends SidequestServer {
   /**
    * Create a custom date range report job
    */
-  createCustomReportJob(sinceDate, untilDate) {
+  createCustomReportJob(sinceDate: string, untilDate: string): Job {
     const jobId = `git-activity-custom-${Date.now()}`;
 
     return this.createJob(jobId, {
@@ -363,15 +424,15 @@ export class GitActivityWorker extends SidequestServer {
   /**
    * Create a report job with custom parameters
    */
-  createReportJob(options = {}) {
-    const jobId = options.jobId || `git-activity-${Date.now()}`;
+  createReportJob(options: ReportJobOptions = {}): Job {
+    const jobId = options.jobId ?? `git-activity-${Date.now()}`;
 
     return this.createJob(jobId, {
-      reportType: options.reportType || 'weekly',
+      reportType: options.reportType ?? 'weekly',
       days: options.days,
       sinceDate: options.sinceDate,
       untilDate: options.untilDate,
-      outputFormat: options.outputFormat || 'json',
+      outputFormat: options.outputFormat ?? 'json',
       generateVisualizations: options.generateVisualizations !== false,
       type: 'git-activity-report',
     });

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import cron from 'node-cron';
-import { GitActivityWorker } from '../workers/git-activity-worker.js';
+import { GitActivityWorker } from '../workers/git-activity-worker.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
