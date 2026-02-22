@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// @ts-nocheck
 import { RepoCleanupWorker } from '../workers/repo-cleanup-worker.js';
 import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
@@ -34,6 +33,35 @@ const logger = createComponentLogger('RepoCleanupPipeline');
  *   npm run cleanup:dryrun    # Dry run preview
  */
 
+interface CleanupSummary {
+  venvs?: number;
+  tempFiles?: number;
+  outputFiles?: number;
+  buildArtifacts?: number;
+  redundantDirs?: number;
+}
+
+interface JobData {
+  type?: string;
+  targetDir?: string;
+  dryRun?: boolean;
+}
+
+interface JobResult {
+  initialSize?: number;
+  finalSize?: number;
+  totalItems?: number;
+  summary?: CleanupSummary;
+}
+
+interface Job {
+  id: string;
+  data: JobData;
+  result?: JobResult;
+  error?: string | Error;
+  retries?: number;
+}
+
 const CRON_SCHEDULE = process.env.CLEANUP_CRON_SCHEDULE || '0 3 * * 0'; // Weekly Sunday 3 AM
 const TARGET_DIR = process.env.CLEANUP_TARGET_DIR || path.join(os.homedir(), 'code');
 const DRY_RUN = process.env.CLEANUP_DRY_RUN === 'true';
@@ -42,7 +70,7 @@ const DRY_RUN = process.env.CLEANUP_DRY_RUN === 'true';
 const args = process.argv.slice(2);
 const RUN_ON_STARTUP = process.env.RUN_ON_STARTUP === 'true' || args.includes('--run-now') || args.includes('--run');
 
-async function main() {
+async function main(): Promise<void> {
   logger.info({
     cronSchedule: CRON_SCHEDULE,
     targetDir: TARGET_DIR,
@@ -57,7 +85,7 @@ async function main() {
   });
 
   // Event listeners
-  worker.on('job:created', (job) => {
+  worker.on('job:created', (job: Job) => {
     logger.info({
       jobId: job.id,
       type: job.data.type,
@@ -66,7 +94,7 @@ async function main() {
     }, 'Job created');
   });
 
-  worker.on('job:started', (job) => {
+  worker.on('job:started', (job: Job) => {
     logger.info({
       jobId: job.id,
       targetDir: job.data.targetDir,
@@ -74,8 +102,8 @@ async function main() {
     }, 'Job started');
   });
 
-  worker.on('job:completed', (job) => {
-    const { initialSize, finalSize, totalItems, summary } = job.result || {};
+  worker.on('job:completed', (job: Job) => {
+    const { initialSize, finalSize, totalItems, summary } = job.result ?? {};
 
     logger.info({
       jobId: job.id,
@@ -83,10 +111,10 @@ async function main() {
       initialSize,
       finalSize,
       totalItems,
-      venvs: summary?.venvs || 0,
-      tempFiles: summary?.tempFiles || 0,
-      buildArtifacts: summary?.buildArtifacts || 0,
-      redundantDirs: summary?.redundantDirs || 0,
+      venvs: summary?.venvs ?? 0,
+      tempFiles: summary?.tempFiles ?? 0,
+      buildArtifacts: summary?.buildArtifacts ?? 0,
+      redundantDirs: summary?.redundantDirs ?? 0,
     }, 'Job completed');
 
     // Log detailed summary
@@ -106,10 +134,10 @@ async function main() {
     }
   });
 
-  worker.on('job:failed', (job) => {
-    logError(logger, job.error, 'Job failed', { jobId: job.id, retries: job.retries });
+  worker.on('job:failed', (job: Job) => {
+    logError(logger, job.error as Error, 'Job failed', { jobId: job.id, retries: job.retries });
 
-    Sentry.captureException(new Error(job.error), {
+    Sentry.captureException(new Error(String(job.error)), {
       tags: {
         component: 'repo-cleanup-pipeline',
         job_id: job.id,
@@ -126,7 +154,7 @@ async function main() {
   if (RUN_ON_STARTUP) {
     logger.info('Running cleanup immediately (RUN_ON_STARTUP=true)');
     try {
-      const job = worker.createCleanupJob(TARGET_DIR, {
+      const job = (worker as unknown as { createCleanupJob(dir: string, opts: { dryRun: boolean }): Job }).createCleanupJob(TARGET_DIR, {
         dryRun: DRY_RUN,
       });
 
@@ -135,7 +163,7 @@ async function main() {
         dryRun: DRY_RUN,
       }, 'Startup job created');
     } catch (error) {
-      logError(logger, error, 'Failed to create startup job');
+      logError(logger, error as Error, 'Failed to create startup job');
       Sentry.captureException(error, {
         tags: { component: 'repo-cleanup-pipeline', phase: 'startup' },
       });
@@ -148,7 +176,7 @@ async function main() {
   cron.schedule(CRON_SCHEDULE, () => {
     logger.info('Cron triggered cleanup');
     try {
-      const job = worker.createCleanupJob(TARGET_DIR, {
+      const job = (worker as unknown as { createCleanupJob(dir: string, opts: { dryRun: boolean }): Job }).createCleanupJob(TARGET_DIR, {
         dryRun: DRY_RUN,
       });
 
@@ -157,7 +185,7 @@ async function main() {
         dryRun: DRY_RUN,
       }, 'Scheduled job created');
     } catch (error) {
-      logError(logger, error, 'Failed to create scheduled job');
+      logError(logger, error as Error, 'Failed to create scheduled job');
       Sentry.captureException(error, {
         tags: { component: 'repo-cleanup-pipeline', phase: 'cron' },
       });
@@ -179,8 +207,8 @@ async function main() {
 }
 
 // Run the pipeline
-main().catch((error) => {
-  logError(logger, error, 'Fatal error in cleanup pipeline');
+main().catch((error: unknown) => {
+  logError(logger, error as Error, 'Fatal error in cleanup pipeline');
   Sentry.captureException(error, {
     tags: { component: 'repo-cleanup-pipeline', phase: 'startup' },
   });
