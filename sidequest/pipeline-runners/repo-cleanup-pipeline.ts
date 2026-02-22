@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { RepoCleanupWorker } from '../workers/repo-cleanup-worker.js';
+import { RepoCleanupWorker } from '../workers/repo-cleanup-worker.ts';
 import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';

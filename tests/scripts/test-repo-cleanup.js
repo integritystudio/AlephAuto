@@ -4,7 +4,7 @@
  * Tests worker initialization and dry run functionality
  */
 
-import { RepoCleanupWorker } from '../../sidequest/workers/repo-cleanup-worker.js';
+import { RepoCleanupWorker } from '../../sidequest/workers/repo-cleanup-worker.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 import path from 'path';
 

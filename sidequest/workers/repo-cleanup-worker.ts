@@ -1,5 +1,18 @@
-// @ts-nocheck
-import { SidequestServer } from '../core/server.ts';
+/**
+ * RepoCleanupWorker - Executes repository cleanup jobs
+ *
+ * Integrates universal-repo-cleanup.sh into the AlephAuto framework,
+ * providing job queue management, event tracking, and Sentry error monitoring.
+ *
+ * Cleanup targets:
+ * - Python virtual environments (venv, .venv, etc.)
+ * - Temporary/cache files (.DS_Store, __pycache__, .swp)
+ * - Build artifacts (.jekyll-cache, dist, build, node_modules/.cache)
+ * - Output files (repomix-output.xml, *.log)
+ * - Redundant directories (drafts, temp, tmp, backup)
+ */
+
+import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
 import { generateReport } from '../utils/report-generator.js';
 import { createComponentLogger } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
@@ -16,38 +29,86 @@ const logger = createComponentLogger('RepoCleanupWorker');
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/**
- * RepoCleanupWorker - Executes repository cleanup jobs
- *
- * Integrates universal-repo-cleanup.sh into the AlephAuto framework,
- * providing job queue management, event tracking, and Sentry error monitoring.
- *
- * Cleanup targets:
- * - Python virtual environments (venv, .venv, etc.)
- * - Temporary/cache files (.DS_Store, __pycache__, .swp)
- * - Build artifacts (.jekyll-cache, dist, build, node_modules/.cache)
- * - Output files (repomix-output.xml, *.log)
- * - Redundant directories (drafts, temp, tmp, backup)
- */
+// Type definitions
+
+interface RepoCleanupWorkerOptions extends SidequestServerOptions {
+  baseDir?: string;
+}
+
+interface CleanupJobData {
+  targetDir?: string;
+  dryRun?: boolean;
+  type?: string;
+}
+
+interface ScanCategories {
+  venvs: string[];
+  tempFiles: string[];
+  outputFiles: string[];
+  buildArtifacts: string[];
+  redundantDirs: string[];
+}
+
+interface CleanupSummary {
+  venvs: number;
+  tempFiles: number;
+  outputFiles: number;
+  buildArtifacts: number;
+  redundantDirs: number;
+}
+
+interface ScanResult {
+  categories: ScanCategories;
+  totalItems: number;
+  summary: CleanupSummary;
+}
+
+interface CleanupResult {
+  totalItems: number;
+  summary: CleanupSummary;
+  rawOutput: string;
+}
+
+interface CleanupOutput {
+  targetDir: string;
+  dryRun: boolean;
+  initialSize: string;
+  finalSize: string;
+  savedSpace: string;
+  totalItems: number;
+  summary: CleanupSummary;
+  categories?: ScanCategories;
+  rawOutput?: string;
+  timestamp: string;
+  reportPaths?: unknown;
+}
+
+interface CleanupJobOptions {
+  dryRun?: boolean;
+}
+
 export class RepoCleanupWorker extends SidequestServer {
-  constructor(options = {}) {
+  baseDir: string;
+  scriptPath: string;
+
+  constructor(options: RepoCleanupWorkerOptions = {}) {
     super({
       ...options,
       jobType: 'repo-cleanup',
     });
-    this.baseDir = options.baseDir || path.join(os.homedir(), 'code');
+    this.baseDir = options.baseDir ?? path.join(os.homedir(), 'code');
     this.scriptPath = path.join(__dirname, '../pipeline-runners/universal-repo-cleanup.sh');
   }
 
   /**
    * Run repository cleanup job
    */
-  async runJobHandler(job) {
+  async runJobHandler(job: Job): Promise<CleanupOutput> {
     const startTime = Date.now();
     const {
       targetDir = this.baseDir,
       dryRun = false,
-    } = job.data;
+    } = job.data as unknown as CleanupJobData;
 
     logger.info({
       jobId: job.id,
@@ -60,26 +121,26 @@ export class RepoCleanupWorker extends SidequestServer {
       await fs.access(this.scriptPath);
 
       // Get initial size
-      const initialSize = await this.#getDirectorySize(targetDir);
+      const initialSize = await this.getDirectorySize(targetDir);
 
-      let result;
+      let result: ScanResult | CleanupResult;
       if (dryRun) {
         // Scan only, don't clean
-        result = await this.#scanRepository(targetDir);
+        result = await this.scanRepository(targetDir);
       } else {
         // Run actual cleanup
-        result = await this.#runCleanup(targetDir);
+        result = await this.runCleanup(targetDir);
       }
 
       // Get final size
-      const finalSize = await this.#getDirectorySize(targetDir);
+      const finalSize = await this.getDirectorySize(targetDir);
 
-      const output = {
+      const output: CleanupOutput = {
         targetDir,
         dryRun,
         initialSize,
         finalSize,
-        savedSpace: dryRun ? 'N/A (dry run)' : this.#formatSizeDiff(initialSize, finalSize),
+        savedSpace: dryRun ? 'N/A (dry run)' : this.formatSizeDiff(initialSize, finalSize),
         ...result,
         timestamp: new Date().toISOString(),
       };
@@ -116,8 +177,8 @@ export class RepoCleanupWorker extends SidequestServer {
     } catch (error) {
       logger.error({
         jobId: job.id,
-        error: error.message,
-        stack: error.stack,
+        error: (error as Error).message,
+        stack: (error as Error).stack,
       }, 'Repository cleanup job failed');
 
       Sentry.captureException(error, {
@@ -137,10 +198,9 @@ export class RepoCleanupWorker extends SidequestServer {
 
   /**
    * Scan repository without cleaning
-   * @private
    */
-  async #scanRepository(targetDir) {
-    const categories = {
+  private async scanRepository(targetDir: string): Promise<ScanResult> {
+    const categories: ScanCategories = {
       venvs: [],
       tempFiles: [],
       outputFiles: [],
@@ -217,9 +277,8 @@ export class RepoCleanupWorker extends SidequestServer {
 
   /**
    * Run actual cleanup using bash script
-   * @private
    */
-  async #runCleanup(targetDir) {
+  private async runCleanup(targetDir: string): Promise<CleanupResult> {
     // Run cleanup non-interactively by piping "yes"
     const { stdout, stderr } = await execFileAsync('bash', [
       '-c',
@@ -227,7 +286,7 @@ export class RepoCleanupWorker extends SidequestServer {
     ], { maxBuffer: 10 * 1024 * 1024 });
 
     // Parse output to extract results
-    const result = this.#parseCleanupOutput(stdout);
+    const result = this.parseCleanupOutput(stdout);
 
     if (stderr) {
       logger.warn({ stderr }, 'Cleanup script stderr');
@@ -238,10 +297,9 @@ export class RepoCleanupWorker extends SidequestServer {
 
   /**
    * Parse cleanup script output
-   * @private
    */
-  #parseCleanupOutput(output) {
-    const summary = {
+  private parseCleanupOutput(output: string): CleanupResult {
+    const summary: CleanupSummary = {
       venvs: 0,
       tempFiles: 0,
       outputFiles: 0,
@@ -276,12 +334,11 @@ export class RepoCleanupWorker extends SidequestServer {
 
   /**
    * Get directory size
-   * @private
    */
-  async #getDirectorySize(dirPath) {
+  private async getDirectorySize(dirPath: string): Promise<string> {
     try {
       const { stdout } = await execFileAsync('du', ['-sh', dirPath]);
-      return stdout.trim().split('\t')[0];
+      return stdout.trim().split('\t')[0] ?? 'N/A';
     } catch {
       return 'N/A';
     }
@@ -289,9 +346,8 @@ export class RepoCleanupWorker extends SidequestServer {
 
   /**
    * Format size difference
-   * @private
    */
-  #formatSizeDiff(initial, final) {
+  private formatSizeDiff(initial: string, final: string): string {
     // Simple string comparison for now
     return `${initial} -> ${final}`;
   }
@@ -299,12 +355,12 @@ export class RepoCleanupWorker extends SidequestServer {
   /**
    * Create a job to clean a specific repository
    */
-  createCleanupJob(targetDir, options = {}) {
+  createCleanupJob(targetDir?: string, options: CleanupJobOptions = {}): Job {
     const jobId = `repo-cleanup-${Date.now()}`;
 
     return this.createJob(jobId, {
       type: 'repo-cleanup',
-      targetDir: targetDir || this.baseDir,
+      targetDir: targetDir ?? this.baseDir,
       dryRun: options.dryRun ?? false,
     });
   }
@@ -312,12 +368,12 @@ export class RepoCleanupWorker extends SidequestServer {
   /**
    * Create a dry-run job to preview cleanup
    */
-  createDryRunJob(targetDir, options = {}) {
+  createDryRunJob(targetDir?: string, _options: CleanupJobOptions = {}): Job {
     const jobId = `repo-cleanup-dryrun-${Date.now()}`;
 
     return this.createJob(jobId, {
       type: 'repo-cleanup',
-      targetDir: targetDir || this.baseDir,
+      targetDir: targetDir ?? this.baseDir,
       dryRun: true,
     });
   }
