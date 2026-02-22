@@ -9,7 +9,7 @@
  *   node test-automated-pipeline.js
  */
 
-import { DuplicateDetectionWorker } from '../../sidequest/workers/duplicate-detection-worker.js';
+import { DuplicateDetectionWorker } from '../../sidequest/workers/duplicate-detection-worker.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 
 const logger = createComponentLogger('TestAutomatedPipeline');

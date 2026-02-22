@@ -6,7 +6,7 @@
 
 import { describe, it, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert';
-import { DuplicateDetectionWorker } from '../../sidequest/workers/duplicate-detection-worker.js';
+import { DuplicateDetectionWorker } from '../../sidequest/workers/duplicate-detection-worker.ts';
 
 describe('DuplicateDetectionWorker', () => {
   describe('Constructor', () => {

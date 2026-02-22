@@ -15,7 +15,7 @@
  *   node tests/integration/test-retry-logic.js
  */
 
-import { DuplicateDetectionWorker } from '../../sidequest/workers/duplicate-detection-worker.js';
+import { DuplicateDetectionWorker } from '../../sidequest/workers/duplicate-detection-worker.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 import fs from 'fs/promises';
 import path from 'path';

@@ -13,20 +13,131 @@
  * - Comprehensive metrics tracking
  */
 
-import { SidequestServer } from '../core/server.ts';
-import { RepositoryConfigLoader } from '../pipeline-core/config/repository-config-loader.ts';
+import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
+import { RepositoryConfigLoader, type RepositoryConfig, type NotificationSettings } from '../pipeline-core/config/repository-config-loader.ts';
 import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.ts';
 import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.ts';
 import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.ts';
-import { PRCreator } from '../pipeline-core/git/pr-creator.ts';
+import { PRCreator, type PRCreationResults } from '../pipeline-core/git/pr-creator.ts';
 import { createComponentLogger, logError, logWarn, logStart, logRetry } from '../utils/logger.ts';
-import { isRetryable, getErrorInfo } from '../pipeline-core/errors/error-classifier.ts';
+import { getErrorInfo, type ExtendedError } from '../pipeline-core/errors/error-classifier.ts';
 import path from 'path';
 import * as Sentry from '@sentry/node';
 import { RETRY } from '../core/constants.ts';
 import { config } from '../core/config.ts';
 
 const logger = createComponentLogger('DuplicateDetectionWorker');
+
+// Type definitions
+
+interface DuplicateDetectionWorkerOptions extends SidequestServerOptions {
+  configPath?: string;
+  maxConcurrentScans?: number;
+  baseBranch?: string;
+  branchPrefix?: string;
+  dryRun?: boolean;
+  maxSuggestionsPerPR?: number;
+  enablePRCreation?: boolean;
+}
+
+interface ScanJobData {
+  scanType: 'inter-project' | 'intra-project';
+  repositories: RepositoryConfig[];
+  groupName: string | null;
+  type?: string;
+}
+
+interface RetryInfo {
+  attempts: number;
+  lastAttempt: number;
+  maxAttempts: number;
+  delay: number;
+}
+
+interface ScanMetrics {
+  totalScans: number;
+  successfulScans: number;
+  failedScans: number;
+  totalDuplicatesFound: number;
+  totalSuggestionsGenerated: number;
+  highImpactDuplicates: number;
+  prsCreated: number;
+  prCreationErrors: number;
+}
+
+interface DuplicateEntry {
+  impact_score: number;
+  [key: string]: unknown;
+}
+
+interface ScanResultMetrics {
+  total_cross_repository_groups?: number;
+  total_suggestions?: number;
+  total_duplicate_groups?: number;
+  [key: string]: unknown;
+}
+
+interface ScanMetadata {
+  duration_seconds?: number;
+  [key: string]: unknown;
+}
+
+interface ScanResult {
+  scan_type?: string;
+  metrics: ScanResultMetrics;
+  scan_metadata?: ScanMetadata;
+  cross_repository_duplicates?: DuplicateEntry[];
+  duplicate_groups?: DuplicateEntry[];
+  suggestions?: unknown[];
+  [key: string]: unknown;
+}
+
+interface InterProjectScanResult {
+  scanType: string;
+  repositories: number;
+  crossRepoDuplicates: number;
+  suggestions: number;
+  duration: number;
+  reportPaths: unknown;
+}
+
+interface IntraProjectScanResult {
+  scanType: string;
+  repository: string;
+  duplicates: number;
+  suggestions: number;
+  duration: number;
+  reportPaths: unknown;
+  prResults: {
+    prsCreated: number;
+    prUrls: string[];
+    errors: number;
+  } | null;
+}
+
+interface RetryMetrics {
+  activeRetries: number;
+  totalRetryAttempts: number;
+  jobsBeingRetried: {
+    jobId: string;
+    attempts: number;
+    maxAttempts: number;
+    lastAttempt: string;
+  }[];
+  retryDistribution: {
+    attempt1: number;
+    attempt2: number;
+    attempt3Plus: number;
+    nearingLimit: number;
+  };
+}
+
+interface RetryDistribution {
+  attempt1: number;
+  attempt2: number;
+  attempt3Plus: number;
+  nearingLimit: number;
+}
 
 /**
  * DuplicateDetectionWorker
@@ -35,11 +146,20 @@ const logger = createComponentLogger('DuplicateDetectionWorker');
  * PR creation, and comprehensive reporting.
  */
 export class DuplicateDetectionWorker extends SidequestServer {
-  constructor(options = {}) {
+  configLoader: RepositoryConfigLoader;
+  interProjectScanner: InterProjectScanner;
+  orchestrator: ScanOrchestrator;
+  reportCoordinator: ReportCoordinator;
+  prCreator: PRCreator;
+  scanMetrics: ScanMetrics;
+  enablePRCreation: boolean;
+  retryQueue: Map<string, RetryInfo>;
+
+  constructor(options: DuplicateDetectionWorkerOptions = {}) {
     super({
       ...options,
       jobType: 'duplicate-detection',
-      maxConcurrent: options.maxConcurrentScans || 3,
+      maxConcurrent: options.maxConcurrentScans ?? 3,
       logDir: path.join(process.cwd(), 'logs', 'duplicate-detection'),
     });
 
@@ -54,10 +174,10 @@ export class DuplicateDetectionWorker extends SidequestServer {
       path.join(process.cwd(), 'output', 'reports')
     );
     this.prCreator = new PRCreator({
-      baseBranch: options.baseBranch || 'main',
-      branchPrefix: options.branchPrefix || 'consolidate',
+      baseBranch: options.baseBranch ?? 'main',
+      branchPrefix: options.branchPrefix ?? 'consolidate',
       dryRun: options.dryRun ?? config.prDryRun,
-      maxSuggestionsPerPR: options.maxSuggestionsPerPR || 5
+      maxSuggestionsPerPR: options.maxSuggestionsPerPR ?? 5
     });
 
     this.scanMetrics = {
@@ -79,7 +199,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
   /**
    * Initialize the worker
    */
-  async initialize() {
+  async initialize(): Promise<void> {
     try {
       // Load configuration
       await this.configLoader.load();
@@ -107,13 +227,13 @@ export class DuplicateDetectionWorker extends SidequestServer {
   /**
    * Run job handler (required by SidequestServer)
    */
-  async runJobHandler(job) {
-    const { scanType, repositories, groupName } = job.data;
+  async runJobHandler(job: Job): Promise<InterProjectScanResult | IntraProjectScanResult> {
+    const { scanType, repositories, groupName } = job.data as unknown as ScanJobData;
 
     logStart(logger, 'duplicate detection scan job', {
       jobId: job.id,
       scanType,
-      repositories: repositories?.length || 0,
+      repositories: repositories?.length ?? 0,
       groupName
     });
 
@@ -121,7 +241,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
       status: 'scanning',
       jobId: job.id,
       scanType,
-      repositories: repositories?.length || 0
+      repositories: repositories?.length ?? 0
     });
 
     try {
@@ -134,7 +254,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
       }
     } catch (error) {
       // Handle retry logic
-      const shouldRetry = await this._handleRetry(job, error);
+      const shouldRetry = await this._handleRetry(job, error as Error);
 
       if (shouldRetry) {
         logger.info({ jobId: job.id }, 'Job will be retried');
@@ -144,7 +264,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
         this.emit('pipeline:status', {
           status: 'failed',
           jobId: job.id,
-          error: error.message
+          error: (error as Error).message
         });
         throw error;
       }
@@ -153,11 +273,8 @@ export class DuplicateDetectionWorker extends SidequestServer {
 
   /**
    * Extract original job ID by stripping all retry suffixes
-   * @param {string} jobId - Job ID (may contain retry suffixes)
-   * @returns {string} Original job ID without retry suffixes
-   * @private
    */
-  _getOriginalJobId(jobId) {
+  _getOriginalJobId(jobId: string): string {
     // Strip all -retryN suffixes to get the original job ID
     // Example: "scan-intra-project-123-retry1-retry1-retry1" -> "scan-intra-project-123"
     return jobId.replace(/-retry\d+/g, '');
@@ -166,10 +283,10 @@ export class DuplicateDetectionWorker extends SidequestServer {
   /**
    * Handle retry logic with exponential backoff
    */
-  async _handleRetry(job, error) {
+  async _handleRetry(job: Job, error: Error & Partial<ExtendedError>): Promise<boolean> {
     const scanConfig = this.configLoader.getScanConfig();
-    const maxRetries = scanConfig.retryAttempts || 0;
-    const baseDelay = scanConfig.retryDelay || RETRY.RATE_LIMIT_DELAY_MS;
+    const maxRetries = scanConfig.retryAttempts ?? 0;
+    const baseDelay = scanConfig.retryDelay ?? RETRY.RATE_LIMIT_DELAY_MS;
 
     // Get original job ID to track retries correctly
     const originalJobId = this._getOriginalJobId(job.id);
@@ -200,7 +317,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
       });
     }
 
-    const retryInfo = this.retryQueue.get(originalJobId);
+    const retryInfo = this.retryQueue.get(originalJobId)!;
     retryInfo.attempts++;
 
     // Circuit breaker: Check against absolute maximum
@@ -218,7 +335,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
         tags: {
           component: 'retry-logic',
           jobId: originalJobId,
-          errorType: error.code || error.name
+          errorType: error.code ?? error.name
         },
         extra: {
           jobId: job.id,
@@ -254,7 +371,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
         tags: {
           component: 'retry-logic',
           jobId: originalJobId,
-          errorType: error.code || error.name
+          errorType: error.code ?? error.name
         },
         extra: {
           jobId: job.id,
@@ -282,7 +399,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
         tags: {
           component: 'retry-logic',
           jobId: originalJobId,
-          errorType: error.code || error.name
+          errorType: error.code ?? error.name
         },
         extra: {
           jobId: job.id,
@@ -340,7 +457,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
   /**
    * Run inter-project scan
    */
-  async _runInterProjectScan(job, repositoryConfigs) {
+  async _runInterProjectScan(job: Job, repositoryConfigs: RepositoryConfig[]): Promise<InterProjectScanResult> {
     const repoPaths = repositoryConfigs.map(r => r.path);
 
     logger.info({
@@ -348,10 +465,10 @@ export class DuplicateDetectionWorker extends SidequestServer {
       repositories: repoPaths.length
     }, 'Running inter-project scan');
 
-    const result = await this.interProjectScanner.scanRepositories(repoPaths);
+    const result = await this.interProjectScanner.scanRepositories(repoPaths) as unknown as ScanResult;
 
     // Generate reports
-    const reportPaths = await this.reportCoordinator.generateAllReports(/** @type {any} */ (result), {
+    const reportPaths = await this.reportCoordinator.generateAllReports(result as never, {
       title: `Automated Inter-Project Scan: ${repoPaths.length} Repositories`,
       includeDetails: true,
       includeSourceCode: true,
@@ -376,9 +493,9 @@ export class DuplicateDetectionWorker extends SidequestServer {
     return {
       scanType: 'inter-project',
       repositories: repoPaths.length,
-      crossRepoDuplicates: result.metrics.total_cross_repository_groups || 0,
-      suggestions: result.metrics.total_suggestions || 0,
-      duration: result.scan_metadata?.duration_seconds || 0,
+      crossRepoDuplicates: result.metrics.total_cross_repository_groups ?? 0,
+      suggestions: result.metrics.total_suggestions ?? 0,
+      duration: result.scan_metadata?.duration_seconds ?? 0,
       reportPaths
     };
   }
@@ -386,7 +503,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
   /**
    * Run intra-project scan
    */
-  async _runIntraProjectScan(job, repositoryConfig) {
+  async _runIntraProjectScan(job: Job, repositoryConfig: RepositoryConfig): Promise<IntraProjectScanResult> {
     // Validate repository config
     if (!repositoryConfig) {
       const error = new Error('Repository configuration is undefined');
@@ -429,10 +546,10 @@ export class DuplicateDetectionWorker extends SidequestServer {
       repository: repoPath
     }, 'Running intra-project scan');
 
-    const result = await this.orchestrator.scanRepository(repoPath);
+    const result = await this.orchestrator.scanRepository(repoPath) as unknown as ScanResult;
 
     // Generate reports
-    const reportPaths = await this.reportCoordinator.generateAllReports(/** @type {any} */ (result), {
+    const reportPaths = await this.reportCoordinator.generateAllReports(result as never, {
       title: `Automated Scan: ${repositoryConfig.name}`,
       includeDetails: true,
       includeSourceCode: true,
@@ -449,7 +566,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
     await this._checkForHighImpactDuplicates(result);
 
     // Create PRs if enabled
-    let prResults = null;
+    let prResults: PRCreationResults | null = null;
     if (this.enablePRCreation && result.suggestions && result.suggestions.length > 0) {
       try {
         logger.info({
@@ -458,7 +575,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
           suggestions: result.suggestions.length
         }, 'Creating PRs for consolidation suggestions');
 
-        prResults = await this.prCreator.createPRsForSuggestions(result, repoPath);
+        prResults = await this.prCreator.createPRsForSuggestions(result as never, repoPath);
 
         this.scanMetrics.prsCreated += prResults.prsCreated;
 
@@ -495,7 +612,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
         this.emit('pr:failed', {
           jobId: job.id,
           repository: repositoryConfig.name,
-          error: error.message
+          error: (error as Error).message
         });
       }
     }
@@ -511,9 +628,9 @@ export class DuplicateDetectionWorker extends SidequestServer {
     return {
       scanType: 'intra-project',
       repository: repositoryConfig.name,
-      duplicates: result.metrics.total_duplicate_groups || 0,
-      suggestions: result.metrics.total_suggestions || 0,
-      duration: result.scan_metadata?.duration_seconds || 0,
+      duplicates: result.metrics.total_duplicate_groups ?? 0,
+      suggestions: result.metrics.total_suggestions ?? 0,
+      duration: result.scan_metadata?.duration_seconds ?? 0,
       reportPaths,
       prResults: prResults ? {
         prsCreated: prResults.prsCreated,
@@ -526,23 +643,23 @@ export class DuplicateDetectionWorker extends SidequestServer {
   /**
    * Update scan metrics
    */
-  _updateMetrics(scanResult) {
+  _updateMetrics(scanResult: ScanResult): void {
     this.scanMetrics.totalScans++;
 
     if (scanResult.scan_type === 'inter-project') {
-      this.scanMetrics.totalDuplicatesFound += scanResult.metrics.total_cross_repository_groups || 0;
-      this.scanMetrics.totalSuggestionsGenerated += scanResult.metrics.total_suggestions || 0;
+      this.scanMetrics.totalDuplicatesFound += scanResult.metrics.total_cross_repository_groups ?? 0;
+      this.scanMetrics.totalSuggestionsGenerated += scanResult.metrics.total_suggestions ?? 0;
 
       // Count high-impact duplicates
-      const highImpactDuplicates = (scanResult.cross_repository_duplicates || [])
+      const highImpactDuplicates = (scanResult.cross_repository_duplicates ?? [])
         .filter(dup => dup.impact_score >= 75);
       this.scanMetrics.highImpactDuplicates += highImpactDuplicates.length;
     } else {
-      this.scanMetrics.totalDuplicatesFound += scanResult.metrics.total_duplicate_groups || 0;
-      this.scanMetrics.totalSuggestionsGenerated += scanResult.metrics.total_suggestions || 0;
+      this.scanMetrics.totalDuplicatesFound += scanResult.metrics.total_duplicate_groups ?? 0;
+      this.scanMetrics.totalSuggestionsGenerated += scanResult.metrics.total_suggestions ?? 0;
 
       // Count high-impact duplicates
-      const highImpactDuplicates = (scanResult.duplicate_groups || [])
+      const highImpactDuplicates = (scanResult.duplicate_groups ?? [])
         .filter(dup => dup.impact_score >= 75);
       this.scanMetrics.highImpactDuplicates += highImpactDuplicates.length;
     }
@@ -553,12 +670,12 @@ export class DuplicateDetectionWorker extends SidequestServer {
   /**
    * Update repository configurations with scan results
    */
-  async _updateRepositoryConfigs(repositoryConfigs, scanResult) {
+  async _updateRepositoryConfigs(repositoryConfigs: RepositoryConfig[], scanResult: ScanResult): Promise<void> {
     const status = scanResult.scan_metadata ? 'success' : 'failure';
-    const duration = scanResult.scan_metadata?.duration_seconds || 0;
+    const duration = scanResult.scan_metadata?.duration_seconds ?? 0;
     const duplicatesFound = scanResult.scan_type === 'inter-project'
-      ? scanResult.metrics.total_cross_repository_groups || 0
-      : scanResult.metrics.total_duplicate_groups || 0;
+      ? scanResult.metrics.total_cross_repository_groups ?? 0
+      : scanResult.metrics.total_duplicate_groups ?? 0;
 
     for (const repoConfig of repositoryConfigs) {
       try {
@@ -578,7 +695,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
           duplicatesFound
         });
       } catch (error) {
-        logWarn(logger, error, 'Failed to update repository config', { repository: repoConfig.name });
+        logWarn(logger, error as Error | null, 'Failed to update repository config', { repository: repoConfig.name });
       }
     }
   }
@@ -586,17 +703,17 @@ export class DuplicateDetectionWorker extends SidequestServer {
   /**
    * Check for high-impact duplicates and send notifications
    */
-  async _checkForHighImpactDuplicates(scanResult) {
+  async _checkForHighImpactDuplicates(scanResult: ScanResult): Promise<void> {
     const notificationSettings = this.configLoader.getNotificationSettings();
 
     if (!notificationSettings.enabled || !notificationSettings.onHighImpactDuplicates) {
       return;
     }
 
-    const threshold = notificationSettings.highImpactThreshold || 75;
-    const duplicates = scanResult.scan_type === 'inter-project'
-      ? scanResult.cross_repository_duplicates || []
-      : scanResult.duplicate_groups || [];
+    const threshold = notificationSettings.highImpactThreshold ?? 75;
+    const duplicates: DuplicateEntry[] = scanResult.scan_type === 'inter-project'
+      ? scanResult.cross_repository_duplicates ?? []
+      : scanResult.duplicate_groups ?? [];
 
     const highImpactDuplicates = duplicates.filter(dup => dup.impact_score >= threshold);
 
@@ -612,7 +729,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
         level: 'warning',
         tags: {
           component: 'duplicate-detection',
-          scanType: scanResult.scan_type
+          scanType: scanResult.scan_type ?? 'unknown'
         },
         contexts: {
           duplicates: {
@@ -634,7 +751,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
   /**
    * Schedule a scan job
    */
-  scheduleScan(scanType, repositories, groupName = null) {
+  scheduleScan(scanType: string, repositories: RepositoryConfig[], groupName: string | null = null): Job {
     const jobId = `scan-${scanType}-${Date.now()}`;
     const jobData = {
       scanType,
@@ -649,7 +766,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
   /**
    * Run nightly scan (called by cron or startup)
    */
-  async runNightlyScan() {
+  async runNightlyScan(): Promise<void> {
     logStart(logger, 'nightly duplicate detection scan');
 
     const scanConfig = this.configLoader.getScanConfig();
@@ -712,8 +829,8 @@ export class DuplicateDetectionWorker extends SidequestServer {
   /**
    * Get retry metrics
    */
-  getRetryMetrics() {
-    const retryStats = {
+  getRetryMetrics(): RetryMetrics {
+    const retryStats: RetryMetrics = {
       activeRetries: this.retryQueue.size,
       totalRetryAttempts: 0,
       jobsBeingRetried: [],
@@ -754,7 +871,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
   /**
    * Get scan metrics
    */
-  getScanMetrics() {
+  getScanMetrics(): ScanMetrics & { queueStats: unknown; retryMetrics: RetryMetrics } {
     return {
       ...this.scanMetrics,
       queueStats: this.getStats(),
