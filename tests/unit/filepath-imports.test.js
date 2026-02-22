@@ -24,8 +24,8 @@ describe('Filepath Imports Test Suite', () => {
       // Verify the import statement uses relative path from sidequest/core/
       assert.match(
         content,
-        /import\s+{\s*RepomixWorker\s*}\s+from\s+['"]\.\.\/workers\/repomix-worker\.js['"]/,
-        'RepomixWorker import should use ../workers/repomix-worker.js'
+        /import\s+{\s*RepomixWorker\s*}\s+from\s+['"]\.\.\/workers\/repomix-worker\.ts['"]/,
+        'RepomixWorker import should use ../workers/repomix-worker.ts'
       );
     });
 
@@ -110,10 +110,10 @@ describe('Filepath Imports Test Suite', () => {
   });
 
   describe('Referenced module existence', () => {
-    it('should verify repomix-worker.js exists in sidequest/workers/', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/workers/repomix-worker.js');
+    it('should verify repomix-worker.ts exists in sidequest/workers/', async () => {
+      const filePath = resolve(__dirname, '../../sidequest/workers/repomix-worker.ts');
       const stats = await fs.stat(filePath);
-      assert.ok(stats.isFile(), 'repomix-worker.js should exist in workers/');
+      assert.ok(stats.isFile(), 'repomix-worker.ts should exist in workers/');
     });
 
     it('should verify directory-scanner.js exists in sidequest/utils/', async () => {

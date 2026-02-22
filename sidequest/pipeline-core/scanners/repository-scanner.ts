@@ -1,4 +1,4 @@
-import { RepomixWorker } from '../../workers/repomix-worker.js';
+import { RepomixWorker } from '../../workers/repomix-worker.ts';
 import { createComponentLogger, logStart } from '../../utils/logger.ts';
 import { config } from '../../core/config.ts';
 import fs from 'fs/promises';

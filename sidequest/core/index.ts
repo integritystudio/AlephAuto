@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { RepomixWorker } from '../workers/repomix-worker.js';
+import { RepomixWorker } from '../workers/repomix-worker.ts';
 import { DirectoryScanner } from '../utils/directory-scanner.js';
 import { config } from './config.ts';
 import { TIMEOUTS, TIME } from './constants.ts';

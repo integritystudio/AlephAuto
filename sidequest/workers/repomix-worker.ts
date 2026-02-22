@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { SidequestServer } from '../core/server.ts';
+import { SidequestServer, type Job } from '../core/server.ts';
 import { generateReport } from '../utils/report-generator.js';
 import { spawn, execSync } from 'child_process';
 import { captureProcessOutput } from '@shared/process-io';
@@ -11,6 +10,25 @@ import { config } from '../core/config.ts';
 import { TIMEOUTS, LIMITS } from '../core/constants.ts';
 
 const logger = createComponentLogger('RepomixWorker');
+
+interface RepomixWorkerOptions {
+  outputBaseDir?: string;
+  codeBaseDir?: string;
+  respectGitignore?: boolean;
+  additionalIgnorePatterns?: string[];
+  maxConcurrent?: number;
+  logDir?: string;
+  gitWorkflowEnabled?: boolean;
+  gitBranchPrefix?: string;
+  gitBaseBranch?: string;
+  gitDryRun?: boolean;
+  sentryDsn?: string;
+}
+
+interface RepomixCommandResult {
+  stdout: string;
+  stderr: string;
+}
 
 /**
  * RepomixWorker - Executes repomix jobs
@@ -25,20 +43,27 @@ const logger = createComponentLogger('RepomixWorker');
  * - codeBaseDir: Base directory for source code
  */
 export class RepomixWorker extends SidequestServer {
-  constructor(options = {}) {
+  outputBaseDir: string;
+  codeBaseDir: string;
+  respectGitignore: boolean;
+  additionalIgnorePatterns: string[];
+
+  constructor(options: RepomixWorkerOptions = {}) {
     super({
       ...options,
       jobType: 'repomix',
     });
-    this.outputBaseDir = options.outputBaseDir || './condense';
-    this.codeBaseDir = options.codeBaseDir || path.join(os.homedir(), 'code');
+    this.outputBaseDir = options.outputBaseDir ?? './condense';
+    this.codeBaseDir = options.codeBaseDir ?? path.join(os.homedir(), 'code');
 
     // Gitignore handling (respects .gitignore by default)
     this.respectGitignore = options.respectGitignore !== false; // Default: true
 
     // Default ignore patterns from config (includes README.md and markdown files)
     // Can be overridden via options or environment variable
-    this.additionalIgnorePatterns = options.additionalIgnorePatterns || config.repomixIgnorePatterns || [];
+    this.additionalIgnorePatterns = options.additionalIgnorePatterns
+      ?? (config as Record<string, unknown>).repomixIgnorePatterns as string[]
+      ?? [];
 
     if (this.additionalIgnorePatterns.length > 0) {
       logger.info(
@@ -54,9 +79,8 @@ export class RepomixWorker extends SidequestServer {
   /**
    * Verify repomix is available via npx
    * Throws if repomix cannot be found
-   * @private
    */
-  #verifyRepomixAvailable() {
+  #verifyRepomixAvailable(): void {
     try {
       execSync('npx repomix --version', {
         stdio: 'ignore',
@@ -65,8 +89,9 @@ export class RepomixWorker extends SidequestServer {
       });
       logger.info('Pre-flight check: repomix is available');
     } catch (error) {
+      const err = error as NodeJS.ErrnoException;
       // ETIMEDOUT can happen under heavy load - treat as available but warn
-      if (error.code === 'ETIMEDOUT') {
+      if (err.code === 'ETIMEDOUT') {
         logger.warn('Pre-flight check timed out after 30s - assuming repomix is available');
         return;
       }
@@ -75,7 +100,7 @@ export class RepomixWorker extends SidequestServer {
         '  npm install\n' +
         'Or verify package.json includes "repomix" dependency.\n' +
         `PATH: ${process.env.PATH}`;
-      logError(logger, error, errorMessage);
+      logError(logger, err, errorMessage);
       throw new Error(errorMessage);
     }
   }
@@ -83,9 +108,9 @@ export class RepomixWorker extends SidequestServer {
   /**
    * Run repomix for a specific directory
    */
-  async runJobHandler(job) {
+  async runJobHandler(job: Job): Promise<unknown> {
     const startTime = Date.now();
-    const { sourceDir, relativePath } = job.data;
+    const { sourceDir, relativePath } = job.data as { sourceDir: string; relativePath: string };
 
     // Create output directory matching the source structure
     const outputDir = path.join(this.outputBaseDir, relativePath);
@@ -105,7 +130,7 @@ export class RepomixWorker extends SidequestServer {
         logger.warn({ jobId: job.id, stderr }, 'Repomix warnings');
       }
 
-      const result = {
+      const result: Record<string, unknown> = {
         sourceDir,
         outputFile,
         relativePath,
@@ -135,9 +160,10 @@ export class RepomixWorker extends SidequestServer {
 
       return result;
     } catch (error) {
+      const err = error as Error & { stdout?: string };
       // Even if command fails, try to save any output
-      if (error.stdout) {
-        await fs.writeFile(outputFile, error.stdout);
+      if (err.stdout) {
+        await fs.writeFile(outputFile, err.stdout);
       }
       throw error;
     }
@@ -150,26 +176,24 @@ export class RepomixWorker extends SidequestServer {
    * By default, repomix respects .gitignore files and excludes:
    * - Files and directories listed in .gitignore
    * - Common patterns (node_modules, .git, etc.)
-   *
-   * @param {string} cwd - Current working directory to run repomix in
-   * @private
    */
-  async #runRepomixCommand(cwd) {
+  async #runRepomixCommand(cwd: string): Promise<RepomixCommandResult> {
     // Pre-flight check: Validate working directory exists before spawning
     // This prevents cryptic 'uv_cwd' ENOENT errors when directory is deleted
     try {
       const stats = await fs.stat(cwd);
       if (!stats.isDirectory()) {
-        const error = new Error(`Working directory is not a directory: ${cwd}`);
+        const error = new Error(`Working directory is not a directory: ${cwd}`) as Error & { code: string };
         error.code = 'ENOTDIR';
         throw error;
       }
     } catch (statError) {
-      if (statError.code === 'ENOENT') {
+      const err = statError as NodeJS.ErrnoException;
+      if (err.code === 'ENOENT') {
         const error = new Error(
           `Working directory no longer exists: ${cwd}\n` +
           'This can happen when scanning temporary directories that are cleaned up before the scan completes.'
-        );
+        ) as Error & { code: string; originalError: unknown };
         error.code = 'ENOENT';
         error.originalError = statError;
         logger.error({ cwd, error: statError }, 'Working directory deleted before repomix could run');
@@ -202,7 +226,6 @@ export class RepomixWorker extends SidequestServer {
       const proc = spawn('npx', args, {
         cwd,
         timeout: TIMEOUTS.REPOMIX_MS,
-        maxBuffer: 50 * 1024 * 1024, // 50MB buffer
         env: process.env, // Inherit full PATH from parent to locate npx
       });
 
@@ -226,7 +249,7 @@ export class RepomixWorker extends SidequestServer {
             `repomix exited with code ${code}\n` +
             `stderr: ${stderr.slice(-200)}\n` +
             `Reproduce: cd ${cwd} && npx repomix ${args.slice(1).join(' ')}`
-          );
+          ) as Error & { code: number | null; stdout: string; stderr: string };
           error.code = code;
           error.stdout = stdout;
           error.stderr = stderr;
@@ -238,15 +261,16 @@ export class RepomixWorker extends SidequestServer {
         const stdout = output.getStdout();
         const stderr = output.getStderr();
         // Enhance error message for common spawn failures
-        let enhancedError = spawnError;
-        if (spawnError.syscall === 'uv_cwd' || spawnError.syscall === 'spawn') {
+        let enhancedError: Error & { code?: string; syscall?: string; originalError?: Error; stdout?: string; stderr?: string } = spawnError;
+        const nodeErr = spawnError as NodeJS.ErrnoException;
+        if (nodeErr.syscall === 'uv_cwd' || nodeErr.syscall === 'spawn') {
           enhancedError = new Error(
             `Failed to spawn repomix process: ${spawnError.message}\n` +
             `Working directory: ${cwd}\n` +
             'This usually means the directory was deleted during the scan.'
-          );
-          enhancedError.code = spawnError.code;
-          enhancedError.syscall = spawnError.syscall;
+          ) as typeof enhancedError;
+          enhancedError.code = nodeErr.code;
+          enhancedError.syscall = nodeErr.syscall;
           enhancedError.originalError = spawnError;
           logger.error({ cwd, error: spawnError }, 'Spawn failed - directory may have been deleted');
         }
@@ -260,7 +284,7 @@ export class RepomixWorker extends SidequestServer {
   /**
    * Create a repomix job for a directory
    */
-  createRepomixJob(sourceDir, relativePath) {
+  createRepomixJob(sourceDir: string, relativePath: string): Job {
     const jobId = `repomix-${relativePath.replace(/\//g, '-')}-${Date.now()}`;
 
     return this.createJob(jobId, {

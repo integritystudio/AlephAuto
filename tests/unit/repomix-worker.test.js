@@ -1,6 +1,6 @@
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
-import { RepomixWorker } from '../../sidequest/workers/repomix-worker.js';
+import { RepomixWorker } from '../../sidequest/workers/repomix-worker.ts';
 import { createTempRepository, createMultipleTempRepositories, cleanupRepositories } from '../fixtures/test-helpers.js';
 import fs from 'fs/promises';
 import path from 'path';
