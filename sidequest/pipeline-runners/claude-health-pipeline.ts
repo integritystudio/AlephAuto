@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// @ts-nocheck
 
 /**
  * Claude Health Check Pipeline - AlephAuto Integration
@@ -28,22 +27,125 @@
  *   SKIP_PLUGINS - Skip plugin analysis (default: false)
  */
 
-import { ClaudeHealthWorker } from '../workers/claude-health-worker.ts';
+import { ClaudeHealthWorker } from '../workers/claude-health-worker.js';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
 import cron from 'node-cron';
 
 const logger = createComponentLogger('ClaudeHealthPipeline');
 
+// Cast config to access dynamic properties
+const cfg = config as Record<string, unknown>;
+
+interface HealthCheckOptions {
+  detailed?: boolean;
+  validateConfig?: boolean;
+  checkPerformance?: boolean;
+  analyzePlugins?: boolean;
+  [key: string]: unknown;
+}
+
+interface PipelineOptions {
+  detailed: boolean;
+  skipValidation: boolean;
+  skipPerformance: boolean;
+  skipPlugins: boolean;
+}
+
+interface Recommendation {
+  priority: string;
+  type: string;
+  message: string;
+  action: string;
+  details?: Array<{
+    category?: string;
+    plugins?: string[];
+    suggestion?: string;
+  }>;
+}
+
+interface HealthCheckResult {
+  summary: {
+    healthScore: number;
+    status: string;
+    message: string;
+    criticalIssues: number;
+    warnings: number;
+  };
+  checks: {
+    components?: {
+      skills: number;
+      agents: number;
+      commands: number;
+      activeTasks: number;
+      archivedTasks: number;
+    };
+    hooks?: {
+      executableHooks: number;
+      totalHooks: number;
+      registeredHooks: number;
+      hooks?: Array<{ name: string; executable: boolean }>;
+    };
+    plugins?: {
+      totalPlugins: number;
+      duplicateCategories?: Array<{
+        category: string;
+        count: number;
+        plugins: string[];
+      }>;
+    };
+    environment?: {
+      nodeVersion?: string;
+      npmVersion?: string;
+      direnv?: boolean;
+      direnvAllowed?: boolean;
+    };
+    configuration?: {
+      settingsJson: { valid: boolean };
+      skillRulesJson: { valid: boolean };
+      packageJson: { valid: boolean };
+      envrc: { exists: boolean };
+    };
+    performance?: {
+      logExists: boolean;
+      logSize: number;
+      totalEntries: number;
+      slowHooks: number;
+      failures: number;
+      slowHookDetails?: Array<{ hook: string; duration: number }>;
+    };
+  };
+  recommendations: Recommendation[];
+  duration: number;
+}
+
+interface WorkerStats {
+  active: number;
+  queued: number;
+  total: number;
+  completed: number;
+  failed: number;
+}
+
+interface Job {
+  id: string;
+  data: Record<string, unknown>;
+  result: HealthCheckResult;
+  error?: Error;
+}
+
 /**
  * Claude Health Check Pipeline
  */
 class ClaudeHealthPipeline {
-  constructor(options = {}) {
+  private worker: ClaudeHealthWorker;
+  private options: PipelineOptions;
+
+  constructor(options: Record<string, unknown> = {}) {
     this.worker = new ClaudeHealthWorker({
       maxConcurrent: 1,
-      logDir: config.logDir,
-      sentryDsn: config.sentryDsn,
+      logDir: cfg.logDir as string | undefined,
+      sentryDsn: cfg.sentryDsn as string | undefined,
       ...options
     });
 
@@ -60,16 +162,16 @@ class ClaudeHealthPipeline {
   /**
    * Setup event listeners for job events
    */
-  setupEventListeners() {
-    this.worker.on('job:created', (job) => {
+  private setupEventListeners(): void {
+    this.worker.on('job:created', (job: Job) => {
       logger.info({ jobId: job.id }, 'Health check job created');
     });
 
-    this.worker.on('job:started', (job) => {
+    this.worker.on('job:started', (job: Job) => {
       logger.info({ jobId: job.id }, 'Health check job started');
     });
 
-    this.worker.on('job:completed', (job) => {
+    this.worker.on('job:completed', (job: Job) => {
       const result = job.result;
 
       logger.info({
@@ -85,16 +187,15 @@ class ClaudeHealthPipeline {
       this.displayResults(result);
     });
 
-    this.worker.on('job:failed', (job) => {
-      logError(logger, job.error, 'Health check job failed', { jobId: job.id });
+    this.worker.on('job:failed', (job: Job) => {
+      logError(logger, job.error as Error, 'Health check job failed', { jobId: job.id });
     });
   }
 
   /**
    * Display health check results
-   * @param {Object} result - Health check results
    */
-  displayResults(result) {
+  private displayResults(result: HealthCheckResult): void {
     printSummary(result);
 
     if (result.recommendations.length > 0) {
@@ -108,16 +209,15 @@ class ClaudeHealthPipeline {
 
   /**
    * Run a single health check
-   * @param {Object} options - Check options
    */
-  async runHealthCheck(options = {}) {
+  async runHealthCheck(options: HealthCheckOptions = {}): Promise<WorkerStats> {
     logStart(logger, 'health check', { options });
 
     const startTime = Date.now();
 
     try {
       // Create health check job
-      const job = this.worker.addJob({
+      const job = (this.worker as unknown as { addJob(data: HealthCheckOptions): Job }).addJob({
         detailed: this.options.detailed,
         validateConfig: !this.options.skipValidation,
         checkPerformance: !this.options.skipPerformance,
@@ -131,7 +231,7 @@ class ClaudeHealthPipeline {
       await this.waitForCompletion();
 
       const duration = Date.now() - startTime;
-      const stats = this.worker.getStats();
+      const stats = (this.worker as unknown as { getStats(): WorkerStats }).getStats();
 
       logger.info({
         duration,
@@ -140,7 +240,7 @@ class ClaudeHealthPipeline {
 
       return stats;
     } catch (error) {
-      logError(logger, error, 'Health check pipeline failed');
+      logError(logger, error as Error, 'Health check pipeline failed');
       throw error;
     }
   }
@@ -148,10 +248,10 @@ class ClaudeHealthPipeline {
   /**
    * Wait for all jobs to complete
    */
-  async waitForCompletion() {
-    return new Promise((resolve) => {
+  async waitForCompletion(): Promise<void> {
+    return new Promise<void>((resolve) => {
       const checkInterval = setInterval(() => {
-        const stats = this.worker.getStats();
+        const stats = (this.worker as unknown as { getStats(): WorkerStats }).getStats();
         if (stats.active === 0 && stats.queued === 0) {
           clearInterval(checkInterval);
           resolve();
@@ -162,16 +262,14 @@ class ClaudeHealthPipeline {
 
   /**
    * Schedule automatic health checks
-   * @param {string} cronSchedule - Cron schedule string
-   * @returns {Object} Cron task
    */
-  scheduleHealthChecks(cronSchedule) {
+  scheduleHealthChecks(cronSchedule: string): cron.ScheduledTask {
     logger.info({ cronSchedule }, 'Scheduling health checks');
 
     const task = cron.schedule(cronSchedule, () => {
       logger.info('Cron triggered health check');
-      this.runHealthCheck().catch(error => {
-        logError(logger, error, 'Scheduled health check failed');
+      this.runHealthCheck().catch((error: unknown) => {
+        logError(logger, error as Error, 'Scheduled health check failed');
       });
     });
 
@@ -181,13 +279,13 @@ class ClaudeHealthPipeline {
   /**
    * Get worker statistics
    */
-  getStats() {
-    return this.worker.getStats();
+  getStats(): WorkerStats {
+    return (this.worker as unknown as { getStats(): WorkerStats }).getStats();
   }
 }
 
 // Print functions
-function printSummary(result) {
+function printSummary(result: HealthCheckResult): void {
   console.log('\n╔════════════════════════════════════════════════════════════════╗');
   console.log('║          Claude Code Health Check Summary                     ║');
   console.log('╚════════════════════════════════════════════════════════════════╝\n');
@@ -201,8 +299,8 @@ function printSummary(result) {
     console.log(`  Skills:        ${result.checks.components.skills}`);
     console.log(`  Agents:        ${result.checks.components.agents}`);
     console.log(`  Commands:      ${result.checks.components.commands}`);
-    console.log(`  Hooks:         ${result.checks.hooks?.executableHooks || 0}/${result.checks.hooks?.totalHooks || 0} executable`);
-    console.log(`  Registered:    ${result.checks.hooks?.registeredHooks || 0} hook types`);
+    console.log(`  Hooks:         ${result.checks.hooks?.executableHooks ?? 0}/${result.checks.hooks?.totalHooks ?? 0} executable`);
+    console.log(`  Registered:    ${result.checks.hooks?.registeredHooks ?? 0} hook types`);
     if (result.checks.plugins) {
       console.log(`  Plugins:       ${result.checks.plugins.totalPlugins}`);
     }
@@ -215,8 +313,8 @@ function printSummary(result) {
   if (result.checks.environment) {
     const env = result.checks.environment;
     console.log('Environment:');
-    console.log(`  Node.js:       ${env.nodeVersion || 'not found'}`);
-    console.log(`  npm:           ${env.npmVersion || 'not found'}`);
+    console.log(`  Node.js:       ${env.nodeVersion ?? 'not found'}`);
+    console.log(`  npm:           ${env.npmVersion ?? 'not found'}`);
     console.log(`  direnv:        ${env.direnv ? '✓ installed' : '✗ not installed'}`);
     if (env.direnv && !env.direnvAllowed) {
       console.log(`  \x1b[33m⚠  Environment variables not loaded\x1b[0m`);
@@ -231,7 +329,7 @@ function printSummary(result) {
   console.log(`  Duration:        ${result.duration}ms\n`);
 }
 
-function printRecommendations(recommendations) {
+function printRecommendations(recommendations: Recommendation[]): void {
   console.log('╔════════════════════════════════════════════════════════════════╗');
   console.log('║          Recommendations                                       ║');
   console.log('╚════════════════════════════════════════════════════════════════╝\n');
@@ -259,7 +357,7 @@ function printRecommendations(recommendations) {
   }
 }
 
-function printDetailedChecks(checks) {
+function printDetailedChecks(checks: HealthCheckResult['checks']): void {
   console.log('╔════════════════════════════════════════════════════════════════╗');
   console.log('║          Detailed Check Results                                ║');
   console.log('╚════════════════════════════════════════════════════════════════╝\n');
@@ -275,7 +373,7 @@ function printDetailedChecks(checks) {
   }
 
   // Hooks
-  if (checks.hooks && checks.hooks.hooks) {
+  if (checks.hooks?.hooks) {
     console.log('Hook Details:');
     for (const hook of checks.hooks.hooks) {
       const status = hook.executable ? '✓' : '✗';
@@ -285,7 +383,7 @@ function printDetailedChecks(checks) {
   }
 
   // Plugins
-  if (checks.plugins && checks.plugins.duplicateCategories && checks.plugins.duplicateCategories.length > 0) {
+  if (checks.plugins?.duplicateCategories && checks.plugins.duplicateCategories.length > 0) {
     console.log('Duplicate Plugin Categories:');
     for (const cat of checks.plugins.duplicateCategories) {
       console.log(`  ${cat.category} (${cat.count} plugins):`);
@@ -297,7 +395,7 @@ function printDetailedChecks(checks) {
   }
 
   // Performance
-  if (checks.performance && checks.performance.logExists) {
+  if (checks.performance?.logExists) {
     console.log('Performance:');
     console.log(`  Log size:       ${formatBytes(checks.performance.logSize)}`);
     console.log(`  Total entries:  ${checks.performance.totalEntries}`);
@@ -314,13 +412,13 @@ function printDetailedChecks(checks) {
   }
 }
 
-function getScoreColor(score) {
+function getScoreColor(score: number): string {
   if (score >= 90) return '\x1b[32m'; // Green
   if (score >= 70) return '\x1b[33m'; // Yellow
   return '\x1b[31m'; // Red
 }
 
-function formatBytes(bytes) {
+function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
@@ -336,11 +434,11 @@ const CRON_SCHEDULE = process.env.CLAUDE_HEALTH_CRON_SCHEDULE || '0 8 * * *';
 const RUN_ON_STARTUP = process.env.RUN_ON_STARTUP === 'true';
 const CRON_ENABLED = process.argv.includes('--cron');
 
-logger.info('Claude Health Pipeline initialized', {
+logger.info({
   cronEnabled: CRON_ENABLED,
   cronSchedule: CRON_SCHEDULE,
   runOnStartup: RUN_ON_STARTUP
-});
+}, 'Claude Health Pipeline initialized');
 
 // Main execution
 (async () => {
@@ -359,7 +457,7 @@ logger.info('Claude Health Pipeline initialized', {
 
     // Setup cron if enabled
     if (CRON_ENABLED) {
-      logger.info('Setting up cron schedule', { schedule: CRON_SCHEDULE });
+      logger.info({ schedule: CRON_SCHEDULE }, 'Setting up cron schedule');
       pipeline.scheduleHealthChecks(CRON_SCHEDULE);
 
       console.log(`\n✓ Claude Health Check scheduled: ${CRON_SCHEDULE}`);
@@ -375,7 +473,7 @@ logger.info('Claude Health Pipeline initialized', {
       process.exit(hasFailures ? 1 : 0);
     }
   } catch (error) {
-    logError(logger, error, 'Pipeline execution failed');
+    logError(logger, error as Error, 'Pipeline execution failed');
     process.exit(1);
   }
 })();
