@@ -11,7 +11,7 @@
  * 7. Report generation (Python)
  */
 
-import { RepositoryScanner } from './scanners/repository-scanner.js';
+import { RepositoryScanner } from './scanners/repository-scanner.ts';
 import { AstGrepPatternDetector } from './scanners/ast-grep-detector.js';
 import { HTMLReportGenerator } from './reports/html-report-generator.js';
 import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
@@ -434,7 +434,7 @@ export class ScanOrchestrator {
       const repoScan = await this.repositoryScanner.scanRepository(
         repoPath,
         scanConfig.scan_config || {}
-      ) as RepositoryScanOutput;
+      ) as unknown as RepositoryScanOutput;
 
       // Stage 2: Pattern detection
       logStage(logger, '2/7: Detecting patterns with ast-grep');

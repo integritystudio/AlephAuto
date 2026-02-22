@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { RepositoryScanner, RepositoryScanError } from '../../sidequest/pipeline-core/scanners/repository-scanner.js';
+import { RepositoryScanner, RepositoryScanError } from '../../sidequest/pipeline-core/scanners/repository-scanner.ts';
 
 describe('RepositoryScanner', () => {
   let tempDir;
