@@ -2,7 +2,7 @@
 # https://render.com/docs/blueprint-spec
 #
 # DEPLOYMENT REQUIREMENTS:
-# - Node.js 20.x (Render default)
+# - Node.js 25.x (pinned via NODE_VERSION env var)
 # - Python 3.11+ with pydantic (for duplicate detection pipeline stages 3-7)
 # - Doppler CLI (for secrets management)
 # - pnpm (for Node.js dependencies)
@@ -48,9 +48,11 @@ services:
 
       echo "✅ Build complete: Node.js, Python, and Doppler configured"
     # Start command: Activate venv for Python access, then start server with Doppler
-    startCommand: . venv/bin/activate && doppler run -c prd -- node api/server.js
+    startCommand: . venv/bin/activate && doppler run -c prd -- node --strip-types api/server.js
     healthCheckPath: /health
     envVars:
+      - key: NODE_VERSION
+        value: "25.6.0"
       - key: NODE_ENV
         value: production
       # NOTE: Do NOT set PORT - Render automatically sets it and routes traffic to that port
