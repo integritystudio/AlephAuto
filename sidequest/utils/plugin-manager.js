@@ -92,9 +92,7 @@ class PluginManagerWorker extends SidequestServer {
       const args = ['--json'];
       if (detailed) args.push('--detailed');
 
-      // Use Homebrew bash if available
-      const bashPath = '/opt/homebrew/bin/bash';
-      const cmd = `${bashPath} ${this.auditScriptPath} ${args.join(' ')}`;
+      const cmd = `bash ${this.auditScriptPath} ${args.join(' ')}`;
 
       const { stdout, stderr } = await execAsync(cmd);
 

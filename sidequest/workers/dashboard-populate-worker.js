@@ -3,12 +3,9 @@ import { SidequestServer } from '../core/server.js';
 import { generateReport } from '../utils/report-generator.js';
 import { createComponentLogger } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import { execCommandOrThrow } from '@shared/process-io';
 import path from 'path';
 import os from 'os';
-
-const execFileAsync = promisify(execFile);
 const logger = createComponentLogger('DashboardPopulateWorker');
 
 const DASHBOARD_DIR = path.join(os.homedir(), '.claude', 'mcp-servers', 'observability-toolkit', 'dashboard');
@@ -67,9 +64,8 @@ export class DashboardPopulateWorker extends SidequestServer {
       // Build parent toolkit first (sync-to-kv imports from dist/)
       if (!skipSync) {
         logger.info({ jobId: job.id }, 'Building parent observability-toolkit');
-        await execFileAsync('npm', ['run', 'build'], {
+        await execCommandOrThrow('npm', ['run', 'build'], {
           cwd: this.toolkitDir,
-          maxBuffer: 10 * 1024 * 1024,
         });
       }
 
@@ -87,9 +83,8 @@ export class DashboardPopulateWorker extends SidequestServer {
         cwd: this.dashboardDir,
       }, 'Executing populate pipeline');
 
-      const { stdout, stderr } = await execFileAsync('npm', populateArgs, {
+      const { stdout, stderr } = await execCommandOrThrow('npm', populateArgs, {
         cwd: this.dashboardDir,
-        maxBuffer: 10 * 1024 * 1024,
         timeout: 5 * 60 * 1000, // 5 minutes
         env: { ...process.env, FORCE_COLOR: '0' },
       });
