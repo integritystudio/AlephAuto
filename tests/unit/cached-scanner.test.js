@@ -8,7 +8,7 @@
 // @ts-nocheck
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.js';
+import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.ts';
 
 // Mock dependencies
 class MockGitTracker {

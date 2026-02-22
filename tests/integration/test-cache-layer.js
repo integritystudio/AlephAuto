@@ -9,7 +9,7 @@
  *   node test-cache-layer.js
  */
 
-import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.js';
+import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.ts';
 import { GitCommitTracker } from '../../sidequest/pipeline-core/cache/git-tracker.ts';
 import { ScanResultCache } from '../../sidequest/pipeline-core/cache/scan-cache.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';

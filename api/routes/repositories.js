@@ -6,7 +6,7 @@
 
 import express from 'express';
 import { RepositoryConfigLoader } from '../../sidequest/pipeline-core/config/repository-config-loader.ts';
-import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.js';
+import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.ts';
 import { createComponentLogger, logError } from '../../sidequest/utils/logger.ts';
 import { strictRateLimiter } from '../middleware/rate-limit.js';
 import { validateQuery } from '../middleware/validation.ts';
