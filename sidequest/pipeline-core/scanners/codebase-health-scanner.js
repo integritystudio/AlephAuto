@@ -19,7 +19,7 @@
  */
 
 import { TimeoutPatternDetector } from './timeout-pattern-detector.ts';
-import { RootDirectoryAnalyzer } from './root-directory-analyzer.js';
+import { RootDirectoryAnalyzer } from './root-directory-analyzer.ts';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 import * as fs from 'fs/promises';
 import * as path from 'path';
