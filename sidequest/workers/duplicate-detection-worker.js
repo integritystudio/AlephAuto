@@ -17,7 +17,7 @@ import { SidequestServer } from '../core/server.ts';
 import { RepositoryConfigLoader } from '../pipeline-core/config/repository-config-loader.ts';
 import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.ts';
 import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.ts';
-import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.js';
+import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.ts';
 import { PRCreator } from '../pipeline-core/git/pr-creator.ts';
 import { createComponentLogger, logError, logWarn, logStart, logRetry } from '../utils/logger.ts';
 import { isRetryable, getErrorInfo } from '../pipeline-core/errors/error-classifier.ts';
@@ -351,7 +351,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
     const result = await this.interProjectScanner.scanRepositories(repoPaths);
 
     // Generate reports
-    const reportPaths = await this.reportCoordinator.generateAllReports(result, {
+    const reportPaths = await this.reportCoordinator.generateAllReports(/** @type {any} */ (result), {
       title: `Automated Inter-Project Scan: ${repoPaths.length} Repositories`,
       includeDetails: true,
       includeSourceCode: true,
@@ -432,7 +432,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
     const result = await this.orchestrator.scanRepository(repoPath);
 
     // Generate reports
-    const reportPaths = await this.reportCoordinator.generateAllReports(result, {
+    const reportPaths = await this.reportCoordinator.generateAllReports(/** @type {any} */ (result), {
       title: `Automated Scan: ${repositoryConfig.name}`,
       includeDetails: true,
       includeSourceCode: true,

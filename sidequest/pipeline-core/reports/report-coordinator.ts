@@ -5,32 +5,52 @@
  * Coordinates HTML, Markdown, and JSON report generation.
  */
 
-import { HTMLReportGenerator } from './html-report-generator.js';
-import { MarkdownReportGenerator } from './markdown-report-generator.js';
-import { JSONReportGenerator } from './json-report-generator.js';
+import { HTMLReportGenerator } from './html-report-generator.ts';
+import { MarkdownReportGenerator } from './markdown-report-generator.ts';
+import { JSONReportGenerator } from './json-report-generator.ts';
+import type { ScanResult } from './json-report-generator.ts';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 import { createTimer, ensureDir } from '../utils/index.ts';
 import path from 'path';
-import fs from 'fs/promises';
 
 const logger = createComponentLogger('ReportCoordinator');
+
+export interface ReportOptions {
+  title?: string;
+  includeDetails?: boolean;
+  maxDuplicates?: number | null;
+  maxSuggestions?: number | null;
+  includeSourceCode?: boolean;
+  includeCodeBlocks?: boolean;
+  prettyPrint?: boolean;
+  html?: Record<string, unknown>;
+  markdown?: Record<string, unknown>;
+  json?: Record<string, unknown>;
+}
+
+export interface GeneratedReportPaths {
+  html: string;
+  markdown: string;
+  json: string;
+  summary: string;
+  output_dir: string;
+  duration_seconds: number;
+}
 
 /**
  * Coordinates report generation across multiple formats
  */
 export class ReportCoordinator {
-  constructor(outputDir = null) {
-    this.outputDir = outputDir || path.join(process.cwd(), 'output', 'reports');
+  outputDir: string;
+
+  constructor(outputDir: string | null = null) {
+    this.outputDir = outputDir ?? path.join(process.cwd(), 'output', 'reports');
   }
 
   /**
    * Generate all report formats for a scan
-   *
-   * @param {Object} scanResult - Scan result data
-   * @param {Object} options - Report generation options
-   * @returns {Promise<Object>} - Paths to generated reports
    */
-  async generateAllReports(scanResult, options = {}) {
+  async generateAllReports(scanResult: ScanResult, options: ReportOptions = {}): Promise<GeneratedReportPaths> {
     const timer = createTimer();
     const isInterProject = scanResult.scan_type === 'inter-project';
     const scanType = isInterProject ? 'inter-project' : 'intra-project';
@@ -57,7 +77,7 @@ export class ReportCoordinator {
 
       const duration = timer.elapsed();
 
-      const result = {
+      const result: GeneratedReportPaths = {
         html: htmlPath,
         markdown: markdownPath,
         json: jsonPath,
@@ -80,20 +100,19 @@ export class ReportCoordinator {
 
   /**
    * Generate HTML report
-   *
-   * @param {Object} scanResult - Scan result data
-   * @param {string} baseFilename - Base filename (without extension)
-   * @param {Object} options - Report options
-   * @returns {Promise<string>} - Path to generated report
    */
-  async generateHTMLReport(scanResult, baseFilename = null, options = {}) {
-    const filename = baseFilename || this._generateBaseFilename(scanResult);
+  async generateHTMLReport(
+    scanResult: ScanResult,
+    baseFilename: string | null = null,
+    options: ReportOptions = {}
+  ): Promise<string> {
+    const filename = baseFilename ?? this._generateBaseFilename(scanResult);
     const outputPath = path.join(this.outputDir, `${filename}.html`);
 
     logger.info({ outputPath }, 'Generating HTML report');
 
     const htmlOptions = {
-      title: options.title || this._generateTitle(scanResult),
+      title: options.title ?? this._generateTitle(scanResult),
       ...options.html
     };
 
@@ -105,22 +124,21 @@ export class ReportCoordinator {
 
   /**
    * Generate Markdown report
-   *
-   * @param {Object} scanResult - Scan result data
-   * @param {string} baseFilename - Base filename (without extension)
-   * @param {Object} options - Report options
-   * @returns {Promise<string>} - Path to generated report
    */
-  async generateMarkdownReport(scanResult, baseFilename = null, options = {}) {
-    const filename = baseFilename || this._generateBaseFilename(scanResult);
+  async generateMarkdownReport(
+    scanResult: ScanResult,
+    baseFilename: string | null = null,
+    options: ReportOptions = {}
+  ): Promise<string> {
+    const filename = baseFilename ?? this._generateBaseFilename(scanResult);
     const outputPath = path.join(this.outputDir, `${filename}.md`);
 
     logger.info({ outputPath }, 'Generating Markdown report');
 
     const markdownOptions = {
       includeDetails: options.includeDetails !== false,
-      maxDuplicates: options.maxDuplicates || 20,
-      maxSuggestions: options.maxSuggestions || 20,
+      maxDuplicates: options.maxDuplicates ?? 20,
+      maxSuggestions: options.maxSuggestions ?? 20,
       ...options.markdown
     };
 
@@ -132,14 +150,13 @@ export class ReportCoordinator {
 
   /**
    * Generate JSON report
-   *
-   * @param {Object} scanResult - Scan result data
-   * @param {string} baseFilename - Base filename (without extension)
-   * @param {Object} options - Report options
-   * @returns {Promise<string>} - Path to generated report
    */
-  async generateJSONReport(scanResult, baseFilename = null, options = {}) {
-    const filename = baseFilename || this._generateBaseFilename(scanResult);
+  async generateJSONReport(
+    scanResult: ScanResult,
+    baseFilename: string | null = null,
+    options: ReportOptions = {}
+  ): Promise<string> {
+    const filename = baseFilename ?? this._generateBaseFilename(scanResult);
     const outputPath = path.join(this.outputDir, `${filename}.json`);
 
     logger.info({ outputPath }, 'Generating JSON report');
@@ -148,8 +165,8 @@ export class ReportCoordinator {
       includeSourceCode: options.includeSourceCode !== false,
       includeCodeBlocks: options.includeCodeBlocks !== false,
       prettyPrint: options.prettyPrint !== false,
-      maxDuplicates: options.maxDuplicates || null,
-      maxSuggestions: options.maxSuggestions || null,
+      maxDuplicates: options.maxDuplicates ?? null,
+      maxSuggestions: options.maxSuggestions ?? null,
       ...options.json
     };
 
@@ -161,13 +178,12 @@ export class ReportCoordinator {
 
   /**
    * Generate JSON summary (concise)
-   *
-   * @param {Object} scanResult - Scan result data
-   * @param {string} baseFilename - Base filename (without extension)
-   * @returns {Promise<string>} - Path to generated summary
    */
-  async generateJSONSummary(scanResult, baseFilename = null) {
-    const filename = baseFilename || this._generateBaseFilename(scanResult);
+  async generateJSONSummary(
+    scanResult: ScanResult,
+    baseFilename: string | null = null
+  ): Promise<string> {
+    const filename = baseFilename ?? this._generateBaseFilename(scanResult);
     const outputPath = path.join(this.outputDir, `${filename}-summary.json`);
 
     logger.info({ outputPath }, 'Generating JSON summary');
@@ -180,13 +196,12 @@ export class ReportCoordinator {
 
   /**
    * Generate Markdown summary (concise)
-   *
-   * @param {Object} scanResult - Scan result data
-   * @param {string} baseFilename - Base filename (without extension)
-   * @returns {Promise<string>} - Path to generated summary
    */
-  async generateMarkdownSummary(scanResult, baseFilename = null) {
-    const filename = baseFilename || this._generateBaseFilename(scanResult);
+  async generateMarkdownSummary(
+    scanResult: ScanResult,
+    baseFilename: string | null = null
+  ): Promise<string> {
+    const filename = baseFilename ?? this._generateBaseFilename(scanResult);
     const outputPath = path.join(this.outputDir, `${filename}-summary.md`);
 
     logger.info({ outputPath }, 'Generating Markdown summary');
@@ -199,22 +214,19 @@ export class ReportCoordinator {
 
   /**
    * Generate base filename from scan result
-   *
    * @private
    */
-  _generateBaseFilename(scanResult, isInterProject = null) {
-    if (isInterProject === null) {
-      isInterProject = scanResult.scan_type === 'inter-project';
-    }
+  private _generateBaseFilename(scanResult: ScanResult, isInterProject: boolean | null = null): string {
+    const isInter = isInterProject ?? (scanResult.scan_type === 'inter-project');
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
 
-    if (isInterProject) {
-      const repoCount = scanResult.scan_metadata?.repository_count || 0;
+    if (isInter) {
+      const repoCount = scanResult.scan_metadata?.repository_count ?? 0;
       return `inter-project-scan-${repoCount}repos-${timestamp}`;
     } else {
-      const repoInfo = scanResult.repository_info || {};
-      const repoName = (repoInfo.name || 'unknown')
+      const repoInfo = scanResult.repository_info ?? {};
+      const repoName = (repoInfo.name ?? 'unknown')
         .toLowerCase()
         .replace(/[^a-z0-9-]/g, '-');
       return `scan-${repoName}-${timestamp}`;
@@ -223,30 +235,26 @@ export class ReportCoordinator {
 
   /**
    * Generate report title
-   *
    * @private
    */
-  _generateTitle(scanResult) {
+  private _generateTitle(scanResult: ScanResult): string {
     const isInterProject = scanResult.scan_type === 'inter-project';
 
     if (isInterProject) {
-      const repoCount = scanResult.scan_metadata?.repository_count || 0;
+      const repoCount = scanResult.scan_metadata?.repository_count ?? 0;
       return `Inter-Project Duplicate Detection Report (${repoCount} Repositories)`;
     } else {
-      const repoInfo = scanResult.repository_info || {};
-      return `Duplicate Detection Report: ${repoInfo.name || 'Unknown'}`;
+      const repoInfo = scanResult.repository_info ?? {};
+      return `Duplicate Detection Report: ${repoInfo.name ?? 'Unknown'}`;
     }
   }
 
   /**
    * Generate a quick summary string for terminal output
-   *
-   * @param {Object} scanResult - Scan result data
-   * @returns {string} - Summary string
    */
-  static generateQuickSummary(scanResult) {
+  static generateQuickSummary(scanResult: ScanResult): string {
     const isInterProject = scanResult.scan_type === 'inter-project';
-    const metrics = scanResult.metrics || {};
+    const metrics = scanResult.metrics ?? {};
 
     let summary = '\n';
     summary += '═══════════════════════════════════════════\n';
@@ -254,22 +262,22 @@ export class ReportCoordinator {
     summary += '═══════════════════════════════════════════\n\n';
 
     if (isInterProject) {
-      summary += `📚 Repositories Scanned:    ${metrics.total_repositories_scanned || 0}\n`;
-      summary += `📦 Total Code Blocks:       ${metrics.total_code_blocks || 0}\n`;
-      summary += `🔗 Cross-Repo Duplicates:   ${metrics.total_cross_repository_groups || 0}\n`;
-      summary += `📏 Duplicated Lines:        ${metrics.cross_repository_duplicated_lines || 0}\n`;
-      summary += `💡 Total Suggestions:       ${metrics.total_suggestions || 0}\n`;
-      summary += `  ├─ Shared Package:        ${metrics.shared_package_candidates || 0}\n`;
-      summary += `  └─ MCP Server:            ${metrics.mcp_server_candidates || 0}\n`;
+      summary += `📚 Repositories Scanned:    ${metrics.total_repositories_scanned ?? 0}\n`;
+      summary += `📦 Total Code Blocks:       ${metrics.total_code_blocks ?? 0}\n`;
+      summary += `🔗 Cross-Repo Duplicates:   ${metrics.total_cross_repository_groups ?? 0}\n`;
+      summary += `📏 Duplicated Lines:        ${metrics.cross_repository_duplicated_lines ?? 0}\n`;
+      summary += `💡 Total Suggestions:       ${metrics.total_suggestions ?? 0}\n`;
+      summary += `  ├─ Shared Package:        ${metrics.shared_package_candidates ?? 0}\n`;
+      summary += `  └─ MCP Server:            ${metrics.mcp_server_candidates ?? 0}\n`;
     } else {
-      summary += `📦 Code Blocks:             ${metrics.total_code_blocks || 0}\n`;
-      summary += `🔄 Duplicate Groups:        ${metrics.total_duplicate_groups || 0}\n`;
-      summary += `  ├─ Exact:                 ${metrics.exact_duplicates || 0}\n`;
-      summary += `  └─ Structural:            ${metrics.structural_duplicates || 0}\n`;
-      summary += `📏 Duplicated Lines:        ${metrics.total_duplicated_lines || 0}\n`;
-      summary += `📉 Potential LOC Reduction: ${metrics.potential_loc_reduction || 0}\n`;
-      summary += `💡 Total Suggestions:       ${metrics.total_suggestions || 0}\n`;
-      summary += `⚡ Quick Wins:              ${metrics.quick_wins || 0}\n`;
+      summary += `📦 Code Blocks:             ${metrics.total_code_blocks ?? 0}\n`;
+      summary += `🔄 Duplicate Groups:        ${metrics.total_duplicate_groups ?? 0}\n`;
+      summary += `  ├─ Exact:                 ${metrics.exact_duplicates ?? 0}\n`;
+      summary += `  └─ Structural:            ${metrics.structural_duplicates ?? 0}\n`;
+      summary += `📏 Duplicated Lines:        ${metrics.total_duplicated_lines ?? 0}\n`;
+      summary += `📉 Potential LOC Reduction: ${metrics.potential_loc_reduction ?? 0}\n`;
+      summary += `💡 Total Suggestions:       ${metrics.total_suggestions ?? 0}\n`;
+      summary += `⚡ Quick Wins:              ${metrics.quick_wins ?? 0}\n`;
     }
 
     summary += '\n═══════════════════════════════════════════\n';
@@ -279,10 +287,8 @@ export class ReportCoordinator {
 
   /**
    * Print quick summary to console
-   *
-   * @param {Object} scanResult - Scan result data
    */
-  static printQuickSummary(scanResult) {
+  static printQuickSummary(scanResult: ScanResult): void {
     logger.info(ReportCoordinator.generateQuickSummary(scanResult));
   }
 }

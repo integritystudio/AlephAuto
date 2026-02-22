@@ -14,7 +14,7 @@
  */
 
 import { InterProjectScanner } from '../../sidequest/pipeline-core/inter-project-scanner.ts';
-import { ReportCoordinator } from '../../sidequest/pipeline-core/reports/report-coordinator.js';
+import { ReportCoordinator } from '../../sidequest/pipeline-core/reports/report-coordinator.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 import path from 'path';
 

@@ -15,6 +15,7 @@ import { RepositoryScanner } from './scanners/repository-scanner.ts';
 import { AstGrepPatternDetector } from './scanners/ast-grep-detector.ts';
 import { HTMLReportGenerator } from './reports/html-report-generator.ts';
 import { MarkdownReportGenerator } from './reports/markdown-report-generator.ts';
+import type { ScanResult as ReportScanResult } from './reports/json-report-generator.ts';
 import { InterProjectScanner } from './inter-project-scanner.ts';
 import { createComponentLogger, logStart, logStage } from '../utils/logger.ts';
 import { DependencyValidator } from '../utils/dependency-validator.js';
@@ -683,7 +684,7 @@ export class ScanOrchestrator {
         logger.info({ outputDir }, 'Generating HTML report');
         const htmlPath = path.join(outputDir, `${baseName}.html`);
 
-        await HTMLReportGenerator.saveReport(scanResult, htmlPath, {
+        await HTMLReportGenerator.saveReport(scanResult as unknown as ReportScanResult, htmlPath, {
           title: options.title || (isInterProject
             ? 'Inter-Project Duplicate Detection Report'
             : `Duplicate Detection Report - ${repoName}`)
@@ -698,7 +699,7 @@ export class ScanOrchestrator {
         logger.info({ outputDir }, 'Generating Markdown report');
         const markdownPath = path.join(outputDir, `${baseName}.md`);
 
-        await MarkdownReportGenerator.saveReport(scanResult, markdownPath, {
+        await MarkdownReportGenerator.saveReport(scanResult as unknown as ReportScanResult, markdownPath, {
           includeDetails: options.includeDetails !== false,
           maxDuplicates: options.maxDuplicates || 10,
           maxSuggestions: options.maxSuggestions || 10
@@ -713,7 +714,7 @@ export class ScanOrchestrator {
         logger.info({ outputDir }, 'Generating summary');
         const summaryPath = path.join(outputDir, `${baseName}-summary.md`);
 
-        await MarkdownReportGenerator.saveSummary(scanResult, summaryPath);
+        await MarkdownReportGenerator.saveSummary(scanResult as unknown as ReportScanResult, summaryPath);
 
         reportPaths.summary = summaryPath;
         logger.info({ path: summaryPath }, 'Summary generated');

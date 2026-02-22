@@ -9,7 +9,7 @@ import assert from 'node:assert';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { ReportCoordinator } from '../../sidequest/pipeline-core/reports/report-coordinator.js';
+import { ReportCoordinator } from '../../sidequest/pipeline-core/reports/report-coordinator.ts';
 
 describe('ReportCoordinator', () => {
   let tempDir;
