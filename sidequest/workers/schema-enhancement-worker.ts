@@ -1,4 +1,8 @@
-import { SidequestServer } from '../core/server.ts';
+/**
+ * SchemaEnhancementWorker - Enhances README files with Schema.org markup
+ */
+
+import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
 import { SchemaMCPTools } from '../utils/schema-mcp-tools.js';
 import { generateReport } from '../utils/report-generator.js';
 import { createComponentLogger } from '../utils/logger.ts';
@@ -8,24 +12,106 @@ import path from 'path';
 
 const logger = createComponentLogger('SchemaEnhancementWorker');
 
-/**
- * SchemaEnhancementWorker - Enhances README files with Schema.org markup
- */
+// Type definitions
+
+interface SchemaEnhancementWorkerOptions extends SidequestServerOptions {
+  outputBaseDir?: string;
+  dryRun?: boolean;
+  gitWorkflowEnabled?: boolean;
+  gitBranchPrefix?: string;
+  gitBaseBranch?: string;
+  gitDryRun?: boolean;
+}
+
+interface EnhancementJobData {
+  readmePath: string;
+  relativePath: string;
+  repositoryPath: string | null;
+  repository: string | null;
+  context: Record<string, unknown>;
+  type?: string;
+}
+
+interface SchemaValidation {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+interface SchemaImpact {
+  impactScore: number;
+  rating: string;
+  seoImprovements: string[];
+  richResultsEligibility: string[];
+  timestamp: string;
+  schemaType: string;
+  metrics: Record<string, unknown>;
+}
+
+interface SchemaObject {
+  '@context'?: string;
+  '@type'?: string;
+  [key: string]: unknown;
+}
+
+interface EnhancementResult {
+  status: string;
+  reason?: string;
+  readmePath: string;
+  relativePath: string;
+  schemaType?: string;
+  schema?: SchemaObject;
+  impact?: SchemaImpact;
+  validation?: SchemaValidation;
+  timestamp?: string;
+  reportPaths?: unknown;
+}
+
+interface ReadmeInfo {
+  fullPath: string;
+  relativePath: string;
+  dirPath: string;
+}
+
+interface EnhancementStats {
+  enhanced: number;
+  skipped: number;
+  failed: number;
+  total: number;
+  successRate: string | number;
+}
+
+interface EnhancementSummary {
+  timestamp: string;
+  enhancement: EnhancementStats;
+  jobs: unknown;
+  outputDirectory: string;
+}
+
 export class SchemaEnhancementWorker extends SidequestServer {
-  constructor(options = {}) {
+  outputBaseDir: string;
+  mcpTools: SchemaMCPTools;
+  dryRun: boolean;
+  stats: {
+    enhanced: number;
+    skipped: number;
+    failed: number;
+  };
+
+  constructor(options: SchemaEnhancementWorkerOptions = {}) {
     // Enable git workflow with schema-specific settings
     super({
       ...options,
       jobType: 'schema-enhancement',
       gitWorkflowEnabled: options.gitWorkflowEnabled ?? config.enableGitWorkflow,
-      gitBranchPrefix: options.gitBranchPrefix || config.gitBranchPrefix || 'docs',
-      gitBaseBranch: options.gitBaseBranch || config.gitBaseBranch,
+      gitBranchPrefix: options.gitBranchPrefix ?? config.gitBranchPrefix ?? 'docs',
+      gitBaseBranch: options.gitBaseBranch ?? config.gitBaseBranch,
       gitDryRun: options.gitDryRun ?? config.gitDryRun
     });
 
-    this.outputBaseDir = options.outputBaseDir || './document-enhancement-impact-measurement';
+    this.outputBaseDir = options.outputBaseDir ?? './document-enhancement-impact-measurement';
     this.mcpTools = new SchemaMCPTools(options);
-    this.dryRun = options.dryRun || false;
+    this.dryRun = options.dryRun ?? false;
     this.stats = {
       enhanced: 0,
       skipped: 0,
@@ -36,9 +122,9 @@ export class SchemaEnhancementWorker extends SidequestServer {
   /**
    * Run enhancement for a specific README file
    */
-  async runJobHandler(job) {
+  async runJobHandler(job: Job): Promise<EnhancementResult> {
     const startTime = Date.now();
-    const { readmePath, relativePath, context } = job.data;
+    const { readmePath, relativePath, context } = job.data as unknown as EnhancementJobData;
 
     logger.info({ jobId: job.id, readmePath }, 'Enhancing README');
 
@@ -63,7 +149,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
         readmePath,
         originalContent,
         context
-      );
+      ) as string;
 
       logger.info({ jobId: job.id, schemaType }, 'Schema type detected');
 
@@ -73,10 +159,10 @@ export class SchemaEnhancementWorker extends SidequestServer {
         originalContent,
         context,
         schemaType
-      );
+      ) as SchemaObject;
 
       // Validate schema
-      const validation = await this.mcpTools.validateSchema(schema);
+      const validation = await this.mcpTools.validateSchema(schema) as SchemaValidation;
       if (!validation.valid) {
         throw new Error(`Schema validation failed: ${validation.errors.join(', ')}`);
       }
@@ -89,14 +175,14 @@ export class SchemaEnhancementWorker extends SidequestServer {
       }
 
       // Inject schema into content
-      const enhancedContent = this.mcpTools.injectSchema(originalContent, schema);
+      const enhancedContent = this.mcpTools.injectSchema(originalContent, schema) as string;
 
       // Analyze impact
       const impact = await this.mcpTools.analyzeSchemaImpact(
         originalContent,
         enhancedContent,
         schema
-      );
+      ) as unknown as SchemaImpact;
 
       logger.info({
         jobId: job.id,
@@ -120,7 +206,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
 
       this.stats.enhanced++;
 
-      const result = {
+      const result: EnhancementResult = {
         status: 'enhanced',
         readmePath,
         relativePath,
@@ -162,7 +248,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
   /**
    * Save impact report to output directory
    */
-  async saveImpactReport(relativePath, schema, impact) {
+  async saveImpactReport(relativePath: string, schema: SchemaObject, impact: SchemaImpact): Promise<void> {
     const reportDir = path.join(
       this.outputBaseDir,
       'impact-reports',
@@ -189,7 +275,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
   /**
    * Save enhanced copy to output directory
    */
-  async saveEnhancedCopy(relativePath, enhancedContent) {
+  async saveEnhancedCopy(relativePath: string, enhancedContent: string): Promise<void> {
     const outputDir = path.join(
       this.outputBaseDir,
       'enhanced-readmes',
@@ -206,9 +292,8 @@ export class SchemaEnhancementWorker extends SidequestServer {
   /**
    * Find git repository root from a directory path
    * Walks up the directory tree until .git is found
-   * @private
    */
-  async findGitRoot(startPath) {
+  async findGitRoot(startPath: string): Promise<string | null> {
     let currentPath = startPath;
     const root = path.parse(currentPath).root;
 
@@ -220,7 +305,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
         if (stats.isDirectory()) {
           return currentPath;
         }
-      } catch (error) {
+      } catch {
         // .git not found, continue up
       }
 
@@ -234,7 +319,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
   /**
    * Create an enhancement job for a README
    */
-  async createEnhancementJob(readme, context) {
+  async createEnhancementJob(readme: ReadmeInfo, context: Record<string, unknown>): Promise<Job> {
     const jobId = `schema-${readme.relativePath.replace(/\//g, '-')}-${Date.now()}`;
 
     // Find git repository root for this README
@@ -252,12 +337,11 @@ export class SchemaEnhancementWorker extends SidequestServer {
 
   /**
    * Generate commit message for schema enhancement
-   * @override
-   * @protected
    */
-  async _generateCommitMessage(job) {
-    const { relativePath, context } = job.data;
-    const impact = job.result?.impact;
+  async _generateCommitMessage(job: Job): Promise<{ title: string; body: string }> {
+    const { relativePath } = job.data as unknown as EnhancementJobData;
+    const result = job.result as EnhancementResult | undefined;
+    const impact = result?.impact;
 
     const title = `docs: add Schema.org structured data to ${path.basename(relativePath)}`;
 
@@ -266,8 +350,8 @@ export class SchemaEnhancementWorker extends SidequestServer {
       ''
     ];
 
-    if (job.result?.schemaType) {
-      bodyParts.push(`- Schema type: ${job.result.schemaType}`);
+    if (result?.schemaType) {
+      bodyParts.push(`- Schema type: ${result.schemaType}`);
     }
 
     if (impact) {
@@ -289,14 +373,18 @@ export class SchemaEnhancementWorker extends SidequestServer {
 
   /**
    * Generate PR context for schema enhancement
-   * @override
-   * @protected
    */
-  async _generatePRContext(job) {
-    const commitMessage = await this._generateCommitMessage(job);
-    const { relativePath, repository } = job.data;
-    const impact = job.result?.impact;
-    const schema = job.result?.schema;
+  async _generatePRContext(job: Job, commitMessage?: { title: string; body: string }): Promise<{
+    branchName: string;
+    title: string;
+    body: string;
+    labels: string[];
+  }> {
+    const msg = commitMessage ?? await this._generateCommitMessage(job);
+    const { relativePath } = job.data as unknown as EnhancementJobData;
+    const result = job.result as EnhancementResult | undefined;
+    const impact = result?.impact;
+    const schema = result?.schema;
 
     const bodyParts = [
       '## Summary',
@@ -325,7 +413,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
       if (impact.richResultsEligibility.length > 0) {
         bodyParts.push(
           '### Rich Results Eligibility',
-          ...impact.richResultsEligibility.map(result => `- ${result}`),
+          ...impact.richResultsEligibility.map(r => `- ${r}`),
           ''
         );
       }
@@ -349,12 +437,12 @@ export class SchemaEnhancementWorker extends SidequestServer {
       '',
       '---',
       '',
-      '🤖 Generated with [Claude Code](https://claude.com/claude-code)'
+      'Generated with [Claude Code](https://claude.com/claude-code)'
     );
 
     return {
-      branchName: job.git.branchName,
-      title: commitMessage.title,
+      branchName: job.git.branchName ?? '',
+      title: msg.title,
       body: bodyParts.join('\n'),
       labels: ['documentation', 'seo', 'schema-org', 'automated']
     };
@@ -363,7 +451,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
   /**
    * Get enhancement statistics
    */
-  getEnhancementStats() {
+  getEnhancementStats(): EnhancementStats {
     return {
       ...this.stats,
       total: this.stats.enhanced + this.stats.skipped + this.stats.failed,
@@ -376,11 +464,11 @@ export class SchemaEnhancementWorker extends SidequestServer {
   /**
    * Generate enhancement summary report
    */
-  async generateSummaryReport() {
+  async generateSummaryReport(): Promise<EnhancementSummary> {
     const stats = this.getEnhancementStats();
     const jobStats = this.getStats();
 
-    const summary = {
+    const summary: EnhancementSummary = {
       timestamp: new Date().toISOString(),
       enhancement: stats,
       jobs: jobStats,

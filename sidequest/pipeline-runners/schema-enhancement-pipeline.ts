@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { SchemaEnhancementWorker } from '../workers/schema-enhancement-worker.js';
+import { SchemaEnhancementWorker } from '../workers/schema-enhancement-worker.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';

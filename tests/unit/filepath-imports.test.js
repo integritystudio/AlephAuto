@@ -122,10 +122,10 @@ describe('Filepath Imports Test Suite', () => {
       assert.ok(stats.isFile(), 'directory-scanner.js should exist in utils/');
     });
 
-    it('should verify schema-enhancement-worker.js exists in sidequest/workers/', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/workers/schema-enhancement-worker.js');
+    it('should verify schema-enhancement-worker.ts exists in sidequest/workers/', async () => {
+      const filePath = resolve(__dirname, '../../sidequest/workers/schema-enhancement-worker.ts');
       const stats = await fs.stat(filePath);
-      assert.ok(stats.isFile(), 'schema-enhancement-worker.js should exist in workers/');
+      assert.ok(stats.isFile(), 'schema-enhancement-worker.ts should exist in workers/');
     });
 
   });
