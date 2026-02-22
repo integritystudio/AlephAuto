@@ -10,7 +10,7 @@
  * 5. Specific repository filtering
  */
 
-import { GitignoreWorker } from '../../sidequest/workers/gitignore-worker.js';
+import { GitignoreWorker } from '../../sidequest/workers/gitignore-worker.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 import { createMultipleTempRepositories } from '../fixtures/test-helpers.js';
 import fs from 'fs/promises';

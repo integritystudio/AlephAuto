@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { GitignoreWorker } from '../workers/gitignore-worker.js';
+import { GitignoreWorker } from '../workers/gitignore-worker.ts';
 import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';

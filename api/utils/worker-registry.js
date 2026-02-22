@@ -10,7 +10,7 @@
 import { DuplicateDetectionWorker } from '../../sidequest/workers/duplicate-detection-worker.ts';
 import { SchemaEnhancementWorker } from '../../sidequest/workers/schema-enhancement-worker.ts';
 import { GitActivityWorker } from '../../sidequest/workers/git-activity-worker.ts';
-import { GitignoreWorker } from '../../sidequest/workers/gitignore-worker.js';
+import { GitignoreWorker } from '../../sidequest/workers/gitignore-worker.ts';
 import { RepomixWorker } from '../../sidequest/workers/repomix-worker.ts';
 import { ClaudeHealthWorker } from '../../sidequest/workers/claude-health-worker.ts';
 import { RepoCleanupWorker } from '../../sidequest/workers/repo-cleanup-worker.js';
