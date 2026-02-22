@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Claude Health Check Worker - AlephAuto Integration
  *
@@ -14,7 +13,7 @@
  * @extends SidequestServer
  */
 
-import { SidequestServer } from '../core/server.ts';
+import { SidequestServer, type Job } from '../core/server.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logWarn, logStart } from '../utils/logger.ts';
@@ -27,8 +26,166 @@ import path from 'path';
 const execAsync = promisify(exec);
 const logger = createComponentLogger('ClaudeHealth');
 
+// --- Type definitions ---
+
+interface ClaudeHealthWorkerOptions {
+  maxConcurrent?: number;
+  logDir?: string;
+  gitWorkflowEnabled?: boolean;
+  gitBranchPrefix?: string;
+  gitBaseBranch?: string;
+  gitDryRun?: boolean;
+  sentryDsn?: string;
+}
+
+interface Thresholds {
+  maxPlugins: number;
+  warnPlugins: number;
+  maxHookExecutionTime: number;
+  minDiskSpace: number;
+  maxLogSize: number;
+}
+
+interface CheckOptions {
+  detailed?: boolean;
+  validateConfig?: boolean;
+  checkPerformance?: boolean;
+  analyzePlugins?: boolean;
+}
+
+interface EnvironmentCheck {
+  direnv: boolean;
+  direnvConfigured: boolean;
+  direnvAllowed: boolean;
+  nodeVersion: string | null;
+  npmVersion: string | null;
+  envVars: Record<string, string | null>;
+}
+
+interface DirectoryInfo {
+  exists: boolean;
+  path: string;
+  size?: number | null;
+  error?: string;
+}
+
+interface ConfigCheck {
+  settingsJson: Record<string, unknown>;
+  skillRulesJson: Record<string, unknown>;
+  packageJson: Record<string, unknown>;
+  envrc: Record<string, unknown>;
+}
+
+interface HookInfo {
+  name: string;
+  executable: boolean;
+  size: number;
+}
+
+interface HooksCheck {
+  totalHooks: number;
+  executableHooks: number;
+  registeredHooks: number;
+  hooks: HookInfo[];
+}
+
+interface ComponentCounts {
+  skills: number;
+  agents: number;
+  commands: number;
+  activeTasks: number;
+  archivedTasks: number;
+  templates: number;
+}
+
+interface DuplicateCategory {
+  category: string;
+  plugins: string[];
+  count: number;
+}
+
+interface PluginsCheck {
+  totalPlugins: number;
+  enabledPlugins: string[];
+  duplicateCategories: DuplicateCategory[];
+  exceededThresholds: {
+    maxPlugins: boolean;
+    warnPlugins: boolean;
+  };
+}
+
+interface SlowHookDetail {
+  hook: string;
+  duration: number;
+}
+
+interface PerformanceCheck {
+  logExists: boolean;
+  logSize?: number;
+  totalEntries?: number;
+  recentEntries?: number;
+  slowHooks?: number;
+  failures?: number;
+  slowHookDetails?: SlowHookDetail[];
+  message?: string;
+}
+
+interface AllChecks {
+  environment: EnvironmentCheck;
+  directories: Record<string, DirectoryInfo>;
+  configuration: ConfigCheck | null;
+  hooks: HooksCheck;
+  components: ComponentCounts;
+  plugins: PluginsCheck | null;
+  performance: PerformanceCheck | null;
+}
+
+interface Issue {
+  type: string;
+  message: string;
+  action?: string;
+}
+
+interface Analysis {
+  issues: Issue[];
+  warnings: Issue[];
+  successes: Issue[];
+  healthScore: number;
+}
+
+interface Recommendation {
+  priority: 'high' | 'medium' | 'info';
+  type: string;
+  message: string;
+  action: string;
+}
+
+interface Summary {
+  healthScore: number;
+  status: 'healthy' | 'warning' | 'critical';
+  criticalIssues: number;
+  warnings: number;
+  message: string;
+}
+
+interface HealthCheckResult {
+  success: boolean;
+  timestamp: string;
+  duration: number;
+  checks: AllChecks;
+  analysis: Analysis;
+  recommendations: Recommendation[];
+  summary: Summary;
+  reportPaths?: unknown;
+}
+
 class ClaudeHealthWorker extends SidequestServer {
-  constructor(options = {}) {
+  claudeDir: string;
+  devDir: string;
+  healthScriptPath: string;
+  thresholds: Thresholds;
+
+  constructor(options: ClaudeHealthWorkerOptions = {}) {
     super({
       ...options,
       jobType: 'claude-health',
@@ -50,31 +207,25 @@ class ClaudeHealthWorker extends SidequestServer {
       maxLogSize: 1024 * 1024 * 10 // 10MB
     };
 
-    logger.info('Claude Health Worker initialized', {
+    logger.info({
       claudeDir: this.claudeDir,
       healthScriptPath: this.healthScriptPath
-    });
+    }, 'Claude Health Worker initialized');
   }
 
   /**
    * Run comprehensive health check job
-   * @param {Object} job - Job configuration
-   * @param {boolean} job.detailed - Include detailed component listing
-   * @param {boolean} job.validateConfig - Run configuration validation
-   * @param {boolean} job.checkPerformance - Analyze hook performance logs
-   * @param {boolean} job.analyzePlugins - Run plugin duplicate detection
-   * @returns {Promise<Object>} Health check results
    */
-  async runJobHandler(job) {
+  async runJobHandler(job: Job): Promise<HealthCheckResult> {
     const startTime = Date.now();
     logStart(logger, 'Claude health check', { jobId: job.id });
 
     try {
-      const checks = await this.runAllChecks(job.data || {});
+      const checks = await this.runAllChecks((job.data as CheckOptions) ?? {});
       const analysis = this.analyzeResults(checks);
       const recommendations = this.generateRecommendations(analysis);
 
-      const result = {
+      const result: HealthCheckResult = {
         success: true,
         timestamp: new Date().toISOString(),
         duration: Date.now() - startTime,
@@ -84,11 +235,11 @@ class ClaudeHealthWorker extends SidequestServer {
         summary: this.generateSummary(analysis, recommendations)
       };
 
-      logger.info('Claude health check completed', {
+      logger.info({
         jobId: job.id,
         issueCount: recommendations.filter(r => r.priority === 'high').length,
         duration: result.duration
-      });
+      }, 'Claude health check completed');
 
       // Generate HTML/JSON reports
       const endTime = Date.now();
@@ -99,7 +250,7 @@ class ClaudeHealthWorker extends SidequestServer {
         result,
         startTime,
         endTime,
-        parameters: job.data || {},
+        parameters: job.data ?? {},
         metadata: {
           healthScore: analysis.healthScore,
           criticalIssues: recommendations.filter(r => r.priority === 'high').length,
@@ -112,19 +263,15 @@ class ClaudeHealthWorker extends SidequestServer {
 
       return result;
     } catch (error) {
-      logError(logger, error, 'Claude health check failed', { jobId: job.id });
+      logError(logger, error as Error, 'Claude health check failed', { jobId: job.id });
       throw error;
     }
   }
 
   /**
    * Run all health checks
-   * @param {Object} options - Check options
-   * @returns {Promise<Object>} Check results
    */
-  async runAllChecks(options = {}) {
-    const checks = {};
-
+  async runAllChecks(options: CheckOptions = {}): Promise<AllChecks> {
     // Run checks in parallel where possible
     const [
       environment,
@@ -157,10 +304,9 @@ class ClaudeHealthWorker extends SidequestServer {
 
   /**
    * Check environment variables and dependencies
-   * @returns {Promise<Object>}
    */
-  async checkEnvironment() {
-    const checks = {
+  async checkEnvironment(): Promise<EnvironmentCheck> {
+    const checks: EnvironmentCheck = {
       direnv: false,
       direnvConfigured: false,
       direnvAllowed: false,
@@ -174,7 +320,7 @@ class ClaudeHealthWorker extends SidequestServer {
       try {
         await execAsync('which direnv');
         checks.direnv = true;
-      } catch (e) {
+      } catch {
         checks.direnv = false;
       }
 
@@ -182,7 +328,7 @@ class ClaudeHealthWorker extends SidequestServer {
       try {
         const { stdout } = await execAsync('grep -q "direnv hook" ~/.zshrc && echo "configured" || echo "not configured"');
         checks.direnvConfigured = stdout.trim() === 'configured';
-      } catch (e) {
+      } catch {
         checks.direnvConfigured = false;
       }
 
@@ -203,13 +349,13 @@ class ClaudeHealthWorker extends SidequestServer {
       ];
 
       for (const varName of varNames) {
-        checks.envVars[varName] = process.env[varName] || null;
+        checks.envVars[varName] = process.env[varName] ?? null;
       }
 
       checks.direnvAllowed = Object.values(checks.envVars).every(v => v !== null);
 
     } catch (error) {
-      logWarn(logger, error, 'Error checking environment');
+      logWarn(logger, error as Error, 'Error checking environment');
     }
 
     return checks;
@@ -217,10 +363,9 @@ class ClaudeHealthWorker extends SidequestServer {
 
   /**
    * Check directory structure
-   * @returns {Promise<Object>}
    */
-  async checkDirectories() {
-    const requiredDirs = {
+  async checkDirectories(): Promise<Record<string, DirectoryInfo>> {
+    const requiredDirs: Record<string, string> = {
       '.claude': this.claudeDir,
       'skills': path.join(this.claudeDir, 'skills'),
       'hooks': path.join(this.claudeDir, 'hooks'),
@@ -234,7 +379,7 @@ class ClaudeHealthWorker extends SidequestServer {
       'dev/templates': path.join(this.devDir, 'templates')
     };
 
-    const checks = {};
+    const checks: Record<string, DirectoryInfo> = {};
 
     for (const [name, dirPath] of Object.entries(requiredDirs)) {
       try {
@@ -245,10 +390,11 @@ class ClaudeHealthWorker extends SidequestServer {
           size: null
         };
       } catch (error) {
+        const err = error as NodeJS.ErrnoException;
         checks[name] = {
           exists: false,
           path: dirPath,
-          error: error.code
+          error: err.code
         };
       }
     }
@@ -258,10 +404,9 @@ class ClaudeHealthWorker extends SidequestServer {
 
   /**
    * Check configuration files
-   * @returns {Promise<Object>}
    */
-  async checkConfiguration() {
-    const checks = {
+  async checkConfiguration(): Promise<ConfigCheck> {
+    const checks: ConfigCheck = {
       settingsJson: {},
       skillRulesJson: {},
       packageJson: {},
@@ -272,18 +417,19 @@ class ClaudeHealthWorker extends SidequestServer {
     const settingsPath = path.join(this.claudeDir, 'settings.json');
     try {
       const data = await fs.readFile(settingsPath, 'utf-8');
-      const settings = JSON.parse(data);
+      const settings = JSON.parse(data) as Record<string, unknown>;
       checks.settingsJson = {
         exists: true,
         valid: true,
-        hooks: settings.hooks ? Object.keys(settings.hooks).length : 0,
-        enabledPlugins: settings.enabledPlugins ? Object.keys(settings.enabledPlugins).length : 0
+        hooks: settings.hooks ? Object.keys(settings.hooks as Record<string, unknown>).length : 0,
+        enabledPlugins: settings.enabledPlugins ? Object.keys(settings.enabledPlugins as Record<string, unknown>).length : 0
       };
     } catch (error) {
+      const err = error as NodeJS.ErrnoException;
       checks.settingsJson = {
-        exists: error.code !== 'ENOENT',
+        exists: err.code !== 'ENOENT',
         valid: false,
-        error: error.message
+        error: err.message
       };
     }
 
@@ -291,17 +437,18 @@ class ClaudeHealthWorker extends SidequestServer {
     const skillRulesPath = path.join(this.claudeDir, 'skills', 'skill-rules.json');
     try {
       const data = await fs.readFile(skillRulesPath, 'utf-8');
-      const skillRules = JSON.parse(data);
+      const skillRules = JSON.parse(data) as Record<string, unknown>;
       checks.skillRulesJson = {
         exists: true,
         valid: true,
-        skillCount: skillRules.skills ? Object.keys(skillRules.skills).length : 0
+        skillCount: skillRules.skills ? Object.keys(skillRules.skills as Record<string, unknown>).length : 0
       };
     } catch (error) {
+      const err = error as NodeJS.ErrnoException;
       checks.skillRulesJson = {
-        exists: error.code !== 'ENOENT',
+        exists: err.code !== 'ENOENT',
         valid: false,
-        error: error.message
+        error: err.message
       };
     }
 
@@ -309,17 +456,18 @@ class ClaudeHealthWorker extends SidequestServer {
     const packagePath = path.join(this.claudeDir, 'package.json');
     try {
       const data = await fs.readFile(packagePath, 'utf-8');
-      const pkg = JSON.parse(data);
+      const pkg = JSON.parse(data) as Record<string, unknown>;
       checks.packageJson = {
         exists: true,
         valid: true,
-        scripts: pkg.scripts ? Object.keys(pkg.scripts).length : 0
+        scripts: pkg.scripts ? Object.keys(pkg.scripts as Record<string, unknown>).length : 0
       };
     } catch (error) {
+      const err = error as NodeJS.ErrnoException;
       checks.packageJson = {
-        exists: error.code !== 'ENOENT',
+        exists: err.code !== 'ENOENT',
         valid: false,
-        error: error.message
+        error: err.message
       };
     }
 
@@ -328,7 +476,7 @@ class ClaudeHealthWorker extends SidequestServer {
     try {
       await fs.access(envrcPath);
       checks.envrc = { exists: true };
-    } catch (error) {
+    } catch {
       checks.envrc = { exists: false };
     }
 
@@ -337,11 +485,10 @@ class ClaudeHealthWorker extends SidequestServer {
 
   /**
    * Check hooks
-   * @returns {Promise<Object>}
    */
-  async checkHooks() {
+  async checkHooks(): Promise<HooksCheck> {
     const hooksDir = path.join(this.claudeDir, 'hooks');
-    const checks = {
+    const checks: HooksCheck = {
       totalHooks: 0,
       executableHooks: 0,
       registeredHooks: 0,
@@ -372,14 +519,14 @@ class ClaudeHealthWorker extends SidequestServer {
       const settingsPath = path.join(this.claudeDir, 'settings.json');
       try {
         const data = await fs.readFile(settingsPath, 'utf-8');
-        const settings = JSON.parse(data);
-        checks.registeredHooks = settings.hooks ? Object.keys(settings.hooks).length : 0;
+        const settings = JSON.parse(data) as Record<string, unknown>;
+        checks.registeredHooks = settings.hooks ? Object.keys(settings.hooks as Record<string, unknown>).length : 0;
       } catch (e) {
-        logWarn(logger, e, 'Could not check registered hooks');
+        logWarn(logger, e as Error, 'Could not check registered hooks');
       }
 
     } catch (error) {
-      logWarn(logger, error, 'Error checking hooks');
+      logWarn(logger, error as Error, 'Error checking hooks');
     }
 
     return checks;
@@ -387,11 +534,9 @@ class ClaudeHealthWorker extends SidequestServer {
 
   /**
    * Check component counts
-   * @param {boolean} detailed - Include detailed listing
-   * @returns {Promise<Object>}
    */
-  async checkComponents(detailed = false) {
-    const counts = {
+  async checkComponents(detailed = false): Promise<ComponentCounts> {
+    const counts: ComponentCounts = {
       skills: 0,
       agents: 0,
       commands: 0,
@@ -404,7 +549,7 @@ class ClaudeHealthWorker extends SidequestServer {
       // Count skills
       const skillsDir = path.join(this.claudeDir, 'skills');
       const skillFiles = await fs.readdir(skillsDir);
-      counts.skills = skillFiles.filter(f => f.endsWith('.md') || fs.stat(path.join(skillsDir, f)).then(s => s.isDirectory())).length;
+      counts.skills = skillFiles.filter(f => f.endsWith('.md')).length;
 
       // Count agents
       const agentsDir = path.join(this.claudeDir, 'agents');
@@ -421,7 +566,7 @@ class ClaudeHealthWorker extends SidequestServer {
       try {
         const activeTasks = await fs.readdir(activeDir);
         counts.activeTasks = activeTasks.filter(f => !f.startsWith('.')).length;
-      } catch (e) {
+      } catch {
         counts.activeTasks = 0;
       }
 
@@ -430,7 +575,7 @@ class ClaudeHealthWorker extends SidequestServer {
       try {
         const archivedTasks = await fs.readdir(archiveDir);
         counts.archivedTasks = archivedTasks.filter(f => !f.startsWith('.')).length;
-      } catch (e) {
+      } catch {
         counts.archivedTasks = 0;
       }
 
@@ -439,12 +584,12 @@ class ClaudeHealthWorker extends SidequestServer {
       try {
         const templates = await fs.readdir(templatesDir);
         counts.templates = templates.filter(f => f.endsWith('.md')).length;
-      } catch (e) {
+      } catch {
         counts.templates = 0;
       }
 
     } catch (error) {
-      logWarn(logger, error, 'Error checking components');
+      logWarn(logger, error as Error, 'Error checking components');
     }
 
     return counts;
@@ -452,27 +597,26 @@ class ClaudeHealthWorker extends SidequestServer {
 
   /**
    * Check plugins (integrate with plugin manager)
-   * @returns {Promise<Object>}
    */
-  async checkPlugins() {
+  async checkPlugins(): Promise<PluginsCheck | null> {
     try {
       const settingsPath = path.join(this.claudeDir, 'settings.json');
       const data = await fs.readFile(settingsPath, 'utf-8');
-      const settings = JSON.parse(data);
+      const settings = JSON.parse(data) as Record<string, unknown>;
 
-      const enabledPlugins = settings.enabledPlugins || {};
+      const enabledPlugins = (settings.enabledPlugins ?? {}) as Record<string, unknown>;
       const totalPlugins = Object.keys(enabledPlugins).length;
 
       // Basic duplicate detection (category-based)
-      const categories = {};
+      const categories: Record<string, string[]> = {};
       for (const plugin of Object.keys(enabledPlugins)) {
         const category = plugin.split(/[@-]/)[0];
         if (!categories[category]) categories[category] = [];
         categories[category].push(plugin);
       }
 
-      const duplicateCategories = Object.entries(categories)
-        .filter(([_, plugins]) => plugins.length > 1)
+      const duplicateCategories: DuplicateCategory[] = Object.entries(categories)
+        .filter(([, plugins]) => plugins.length > 1)
         .map(([category, plugins]) => ({ category, plugins, count: plugins.length }));
 
       return {
@@ -485,16 +629,15 @@ class ClaudeHealthWorker extends SidequestServer {
         }
       };
     } catch (error) {
-      logWarn(logger, error, 'Error checking plugins');
+      logWarn(logger, error as Error, 'Error checking plugins');
       return null;
     }
   }
 
   /**
    * Check performance logs
-   * @returns {Promise<Object>}
    */
-  async checkPerformance() {
+  async checkPerformance(): Promise<PerformanceCheck | null> {
     const perfLogPath = path.join(this.claudeDir, 'logs', 'hook-performance.log');
 
     try {
@@ -507,13 +650,13 @@ class ClaudeHealthWorker extends SidequestServer {
       const recentEntries = lines.slice(-100); // Last 100 entries
 
       // Parse slow hooks
-      const slowHooks = recentEntries
+      const slowHooks: SlowHookDetail[] = recentEntries
         .filter(line => line.includes('SLOW'))
         .map(line => {
           const match = line.match(/\[([^\]]+)\].*?(\d+)ms/);
           return match ? { hook: match[1], duration: parseInt(match[2]) } : null;
         })
-        .filter(Boolean);
+        .filter((entry): entry is SlowHookDetail => entry !== null);
 
       // Parse failures
       const failures = recentEntries.filter(line => line.includes('failed')).length;
@@ -528,26 +671,25 @@ class ClaudeHealthWorker extends SidequestServer {
         slowHookDetails: slowHooks.slice(0, 5) // Top 5 slowest
       };
     } catch (error) {
-      if (error.code === 'ENOENT') {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code === 'ENOENT') {
         return {
           logExists: false,
           message: 'Performance log not created yet'
         };
       }
-      logWarn(logger, error, 'Error checking performance');
+      logWarn(logger, err, 'Error checking performance');
       return null;
     }
   }
 
   /**
    * Analyze health check results
-   * @param {Object} checks - All check results
-   * @returns {Object} Analysis
    */
-  analyzeResults(checks) {
-    const issues = [];
-    const warnings = [];
-    const successes = [];
+  analyzeResults(checks: AllChecks): Analysis {
+    const issues: Issue[] = [];
+    const warnings: Issue[] = [];
+    const successes: Issue[] = [];
 
     // Environment analysis
     if (!checks.environment?.direnv) {
@@ -561,9 +703,9 @@ class ClaudeHealthWorker extends SidequestServer {
     }
 
     // Directory analysis
-    const missingDirs = Object.entries(checks.directories || {})
-      .filter(([_, info]) => !info.exists)
-      .map(([name, _]) => name);
+    const missingDirs = Object.entries(checks.directories ?? {})
+      .filter(([, info]) => !info.exists)
+      .map(([name]) => name);
 
     if (missingDirs.length > 0) {
       issues.push({ type: 'directories', message: `Missing directories: ${missingDirs.join(', ')}` });
@@ -572,18 +714,18 @@ class ClaudeHealthWorker extends SidequestServer {
     }
 
     // Configuration analysis
-    if (!checks.configuration?.settingsJson?.valid) {
+    if (!(checks.configuration?.settingsJson as Record<string, unknown>)?.valid) {
       issues.push({ type: 'configuration', message: 'settings.json is invalid or missing' });
     }
-    if (!checks.configuration?.skillRulesJson?.valid) {
+    if (!(checks.configuration?.skillRulesJson as Record<string, unknown>)?.valid) {
       issues.push({ type: 'configuration', message: 'skill-rules.json is invalid or missing' });
     }
-    if (checks.configuration?.settingsJson?.valid && checks.configuration?.skillRulesJson?.valid) {
+    if ((checks.configuration?.settingsJson as Record<string, unknown>)?.valid && (checks.configuration?.skillRulesJson as Record<string, unknown>)?.valid) {
       successes.push({ type: 'configuration', message: 'Configuration files valid' });
     }
 
     // Hooks analysis
-    const nonExecutableHooks = (checks.hooks?.totalHooks || 0) - (checks.hooks?.executableHooks || 0);
+    const nonExecutableHooks = (checks.hooks?.totalHooks ?? 0) - (checks.hooks?.executableHooks ?? 0);
     if (nonExecutableHooks > 0) {
       issues.push({
         type: 'hooks',
@@ -592,7 +734,7 @@ class ClaudeHealthWorker extends SidequestServer {
       });
     }
 
-    if ((checks.hooks?.registeredHooks || 0) === 0) {
+    if ((checks.hooks?.registeredHooks ?? 0) === 0) {
       warnings.push({ type: 'hooks', message: 'No hooks registered in settings.json' });
     }
 
@@ -611,24 +753,24 @@ class ClaudeHealthWorker extends SidequestServer {
       });
     }
 
-    if (checks.plugins?.duplicateCategories?.length > 0) {
+    if ((checks.plugins?.duplicateCategories?.length ?? 0) > 0) {
       warnings.push({
         type: 'plugins',
-        message: `Found ${checks.plugins.duplicateCategories.length} categories with duplicate plugins`,
+        message: `Found ${checks.plugins!.duplicateCategories.length} categories with duplicate plugins`,
         action: 'Review and consolidate duplicate plugins'
       });
     }
 
     // Performance analysis
     if (checks.performance?.logExists) {
-      if (checks.performance.slowHooks > 0) {
+      if ((checks.performance.slowHooks ?? 0) > 0) {
         warnings.push({
           type: 'performance',
           message: `${checks.performance.slowHooks} slow hook executions detected`,
           action: 'Review hook performance'
         });
       }
-      if (checks.performance.failures > 0) {
+      if ((checks.performance.failures ?? 0) > 0) {
         issues.push({
           type: 'performance',
           message: `${checks.performance.failures} hook failures detected`,
@@ -647,12 +789,8 @@ class ClaudeHealthWorker extends SidequestServer {
 
   /**
    * Calculate overall health score (0-100)
-   * @param {Array} issues - Critical issues
-   * @param {Array} warnings - Warnings
-   * @param {Array} successes - Successful checks
-   * @returns {number} Health score
    */
-  calculateHealthScore(issues, warnings, successes) {
+  calculateHealthScore(issues: Issue[], warnings: Issue[], successes: Issue[]): number {
     const totalChecks = issues.length + warnings.length + successes.length;
     if (totalChecks === 0) return 100;
 
@@ -668,11 +806,9 @@ class ClaudeHealthWorker extends SidequestServer {
 
   /**
    * Generate recommendations
-   * @param {Object} analysis - Analysis results
-   * @returns {Array<Object>} Recommendations
    */
-  generateRecommendations(analysis) {
-    const recommendations = [];
+  generateRecommendations(analysis: Analysis): Recommendation[] {
+    const recommendations: Recommendation[] = [];
 
     // Critical issues first
     for (const issue of analysis.issues) {
@@ -680,7 +816,7 @@ class ClaudeHealthWorker extends SidequestServer {
         priority: 'high',
         type: issue.type,
         message: issue.message,
-        action: issue.action || 'Review and fix'
+        action: issue.action ?? 'Review and fix'
       });
     }
 
@@ -690,7 +826,7 @@ class ClaudeHealthWorker extends SidequestServer {
         priority: 'medium',
         type: warning.type,
         message: warning.message,
-        action: warning.action || 'Review recommended'
+        action: warning.action ?? 'Review recommended'
       });
     }
 
@@ -709,49 +845,40 @@ class ClaudeHealthWorker extends SidequestServer {
 
   /**
    * Generate summary
-   * @param {Object} analysis - Analysis results
-   * @param {Array} recommendations - Recommendations
-   * @returns {Object} Summary
    */
-  generateSummary(analysis, recommendations) {
+  generateSummary(analysis: Analysis, recommendations: Recommendation[]): Summary {
     const critical = recommendations.filter(r => r.priority === 'high').length;
-    const warnings = recommendations.filter(r => r.priority === 'medium').length;
+    const warningCount = recommendations.filter(r => r.priority === 'medium').length;
 
     return {
       healthScore: analysis.healthScore,
       status: analysis.healthScore >= 90 ? 'healthy' : analysis.healthScore >= 70 ? 'warning' : 'critical',
       criticalIssues: critical,
-      warnings,
-      message: this.getStatusMessage(analysis.healthScore, critical, warnings)
+      warnings: warningCount,
+      message: this.getStatusMessage(analysis.healthScore, critical, warningCount)
     };
   }
 
   /**
    * Get status message based on health score
-   * @param {number} healthScore - Health score
-   * @param {number} critical - Critical issue count
-   * @param {number} warnings - Warning count
-   * @returns {string} Status message
    */
-  getStatusMessage(healthScore, critical, warnings) {
+  getStatusMessage(healthScore: number, critical: number, warnings: number): string {
     if (healthScore >= 90 && critical === 0 && warnings === 0) {
-      return '✅ Claude environment is healthy';
+      return 'Claude environment is healthy';
     } else if (healthScore >= 70) {
-      return `⚠️  Claude environment has ${warnings} warning(s)`;
+      return `Claude environment has ${warnings} warning(s)`;
     } else {
-      return `🔴 Claude environment has ${critical} critical issue(s)`;
+      return `Claude environment has ${critical} critical issue(s)`;
     }
   }
 
   /**
    * Create a health check job
-   * @param {Object} options - Job options
-   * @returns {Object} Created job
    */
-  addJob(options = {}) {
+  addJob(options: CheckOptions = {}): Job {
     const jobId = `claude-health-${Date.now()}`;
     return this.createJob(jobId, {
-      detailed: options.detailed || false,
+      detailed: options.detailed ?? false,
       validateConfig: options.validateConfig !== false,
       checkPerformance: options.checkPerformance !== false,
       analyzePlugins: options.analyzePlugins !== false

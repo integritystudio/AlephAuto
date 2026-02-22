@@ -1,39 +1,89 @@
 #!/usr/bin/env node
 import cron from 'node-cron';
-import { GitActivityWorker } from '../workers/git-activity-worker.ts';
+import { GitActivityWorker } from '../workers/git-activity-worker.js';
 import { config } from '../core/config.ts';
 import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 
 const logger = createComponentLogger('GitActivityPipeline');
 
+// Cast config to access dynamic properties
+const cfg = config as Record<string, unknown>;
+
+interface ReportOptions {
+  reportType?: string;
+  sinceDate?: string;
+  untilDate?: string;
+  days?: number;
+}
+
+interface OutputFile {
+  path: string;
+  size: number;
+  exists: boolean;
+}
+
+interface JobData {
+  reportType?: string;
+  days?: number;
+}
+
+interface JobResult {
+  reportType: string;
+  stats: {
+    totalCommits: number;
+    totalRepositories: number;
+  };
+  outputFiles: OutputFile[];
+}
+
+interface Job {
+  id: string;
+  data: JobData;
+  result: JobResult;
+  completedAt: string;
+  startedAt: string;
+  error?: Error;
+}
+
+interface WorkerStats {
+  active: number;
+  queued: number;
+  total: number;
+  completed: number;
+  failed: number;
+}
+
 /**
  * Git Activity Report Pipeline
  * Automatically generates git activity reports on a schedule
  */
 class GitActivityPipeline {
-  constructor(options = {}) {
+  private worker: GitActivityWorker;
+  private reportType: string;
+
+  constructor(options: Record<string, unknown> = {}) {
     this.worker = new GitActivityWorker({
-      maxConcurrent: config.maxConcurrent || 2,
-      logDir: config.logDir,
-      sentryDsn: config.sentryDsn,
-      codeBaseDir: config.codeBaseDir,
+      maxConcurrent: (cfg.maxConcurrent as number) || 2,
+      logDir: cfg.logDir as string | undefined,
+      sentryDsn: cfg.sentryDsn as string | undefined,
+      codeBaseDir: cfg.codeBaseDir as string | undefined,
       ...options
     });
 
-    this.reportType = options.reportType || 'weekly';
+    this.reportType = (options.reportType as string) || 'weekly';
     this.setupEventListeners();
   }
 
   /**
    * Setup event listeners for job events
    */
-  setupEventListeners() {
-    this.worker.on('job:created', (job) => {
+  private setupEventListeners(): void {
+    this.worker.on('job:created', (job: Job) => {
       logger.info({ jobId: job.id, reportType: job.data.reportType }, 'Job created');
     });
 
-    this.worker.on('job:started', (job) => {
+    this.worker.on('job:started', (job: Job) => {
       logger.info({
         jobId: job.id,
         reportType: job.data.reportType,
@@ -41,7 +91,7 @@ class GitActivityPipeline {
       }, 'Job started');
     });
 
-    this.worker.on('job:completed', (job) => {
+    this.worker.on('job:completed', (job: Job) => {
       const duration = new Date(job.completedAt).getTime() - new Date(job.startedAt).getTime();
       logger.info({
         jobId: job.id,
@@ -53,7 +103,7 @@ class GitActivityPipeline {
       }, 'Job completed');
 
       // Log output file locations
-      job.result.outputFiles.forEach(file => {
+      job.result.outputFiles.forEach((file: OutputFile) => {
         if (file.exists) {
           logger.info({
             path: file.path,
@@ -63,31 +113,39 @@ class GitActivityPipeline {
       });
     });
 
-    this.worker.on('job:failed', (job) => {
-      logError(logger, /** @type {Error} */ (job.error), 'Job failed', { jobId: job.id });
+    this.worker.on('job:failed', (job: Job) => {
+      logError(logger, job.error as Error, 'Job failed', { jobId: job.id });
     });
   }
 
   /**
    * Run a single report
    */
-  async runReport(options = {}) {
+  async runReport(options: ReportOptions = {}): Promise<WorkerStats> {
     logStart(logger, 'git activity report', { options });
 
     const startTime = Date.now();
 
     try {
       // Create job based on options
-      let job;
+      const typedWorker = this.worker as unknown as {
+        createCustomReportJob(since: string, until: string): Job;
+        createMonthlyReportJob(): Job;
+        createWeeklyReportJob(): Job;
+        createReportJob(opts: ReportOptions): Job;
+        getStats(): WorkerStats;
+      };
+
+      let job: Job;
 
       if (options.sinceDate && options.untilDate) {
-        job = this.worker.createCustomReportJob(options.sinceDate, options.untilDate);
+        job = typedWorker.createCustomReportJob(options.sinceDate, options.untilDate);
       } else if (options.reportType === 'monthly' || options.days === 30) {
-        job = this.worker.createMonthlyReportJob();
+        job = typedWorker.createMonthlyReportJob();
       } else if (options.reportType === 'weekly' || options.days === 7) {
-        job = this.worker.createWeeklyReportJob();
+        job = typedWorker.createWeeklyReportJob();
       } else {
-        job = this.worker.createReportJob(options);
+        job = typedWorker.createReportJob(options);
       }
 
       logger.info({ jobId: job.id }, 'Report job created');
@@ -96,7 +154,7 @@ class GitActivityPipeline {
       await this.waitForCompletion();
 
       const duration = Date.now() - startTime;
-      const stats = this.worker.getStats();
+      const stats = typedWorker.getStats();
 
       logger.info({
         duration,
@@ -105,7 +163,7 @@ class GitActivityPipeline {
 
       return stats;
     } catch (error) {
-      logError(logger, error, 'Git activity report pipeline failed');
+      logError(logger, error as Error, 'Git activity report pipeline failed');
       throw error;
     }
   }
@@ -113,10 +171,10 @@ class GitActivityPipeline {
   /**
    * Wait for all jobs to complete
    */
-  async waitForCompletion() {
-    return new Promise((resolve) => {
+  async waitForCompletion(): Promise<void> {
+    return new Promise<void>((resolve) => {
       const checkInterval = setInterval(() => {
-        const stats = this.worker.getStats();
+        const stats = (this.worker as unknown as { getStats(): WorkerStats }).getStats();
         if (stats.active === 0 && stats.queued === 0) {
           clearInterval(checkInterval);
           resolve();
@@ -128,7 +186,7 @@ class GitActivityPipeline {
   /**
    * Schedule weekly reports
    */
-  scheduleWeeklyReports(cronSchedule = '0 20 * * 0') {
+  scheduleWeeklyReports(cronSchedule: string = '0 20 * * 0'): cron.ScheduledTask {
     logger.info({ cronSchedule }, 'Scheduling weekly git activity reports');
 
     if (!cron.validate(cronSchedule)) {
@@ -140,7 +198,7 @@ class GitActivityPipeline {
       try {
         await this.runReport({ reportType: 'weekly' });
       } catch (error) {
-        logError(logger, error, 'Scheduled weekly report failed');
+        logError(logger, error as Error, 'Scheduled weekly report failed');
       }
     });
 
@@ -151,7 +209,7 @@ class GitActivityPipeline {
   /**
    * Schedule monthly reports
    */
-  scheduleMonthlyReports(cronSchedule = '0 0 1 * *') {
+  scheduleMonthlyReports(cronSchedule: string = '0 0 1 * *'): cron.ScheduledTask {
     logger.info({ cronSchedule }, 'Scheduling monthly git activity reports');
 
     if (!cron.validate(cronSchedule)) {
@@ -163,7 +221,7 @@ class GitActivityPipeline {
       try {
         await this.runReport({ reportType: 'monthly' });
       } catch (error) {
-        logError(logger, error, 'Scheduled monthly report failed');
+        logError(logger, error as Error, 'Scheduled monthly report failed');
       }
     });
 
@@ -180,7 +238,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   // Parse command line arguments
   const args = process.argv.slice(2);
-  const options = {};
+  const options: ReportOptions = {};
   let runNow = process.env.RUN_ON_STARTUP === 'true';
 
   for (let i = 0; i < args.length; i++) {
@@ -215,8 +273,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         logger.info('Report completed successfully');
         process.exit(0);
       })
-      .catch((error) => {
-        logError(logger, error, 'Report failed');
+      .catch((error: unknown) => {
+        logError(logger, error as Error, 'Report failed');
         process.exit(1);
       });
   } else {

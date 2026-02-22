@@ -8,11 +8,11 @@
  */
 
 import { DuplicateDetectionWorker } from '../../sidequest/workers/duplicate-detection-worker.ts';
-import { SchemaEnhancementWorker } from '../../sidequest/workers/schema-enhancement-worker.js';
+import { SchemaEnhancementWorker } from '../../sidequest/workers/schema-enhancement-worker.ts';
 import { GitActivityWorker } from '../../sidequest/workers/git-activity-worker.ts';
 import { GitignoreWorker } from '../../sidequest/workers/gitignore-worker.js';
 import { RepomixWorker } from '../../sidequest/workers/repomix-worker.ts';
-import { ClaudeHealthWorker } from '../../sidequest/workers/claude-health-worker.js';
+import { ClaudeHealthWorker } from '../../sidequest/workers/claude-health-worker.ts';
 import { RepoCleanupWorker } from '../../sidequest/workers/repo-cleanup-worker.js';
 import { BugfixAuditWorker } from '../../sidequest/workers/bugfix-audit-worker.js';
 import { DashboardPopulateWorker } from '../../sidequest/workers/dashboard-populate-worker.js';
