@@ -9,7 +9,7 @@ import assert from 'node:assert';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { AstGrepPatternDetector, PatternDetectionError } from '../../sidequest/pipeline-core/scanners/ast-grep-detector.js';
+import { AstGrepPatternDetector, PatternDetectionError } from '../../sidequest/pipeline-core/scanners/ast-grep-detector.ts';
 
 describe('AstGrepPatternDetector', () => {
   let detector;

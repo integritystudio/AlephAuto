@@ -12,7 +12,7 @@
  */
 
 import { RepositoryScanner } from './scanners/repository-scanner.ts';
-import { AstGrepPatternDetector } from './scanners/ast-grep-detector.js';
+import { AstGrepPatternDetector } from './scanners/ast-grep-detector.ts';
 import { HTMLReportGenerator } from './reports/html-report-generator.ts';
 import { MarkdownReportGenerator } from './reports/markdown-report-generator.ts';
 import { InterProjectScanner } from './inter-project-scanner.ts';
