@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// @ts-nocheck
 import { GitignoreWorker } from '../workers/gitignore-worker.js';
 import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
@@ -30,6 +29,31 @@ const logger = createComponentLogger('GitignorePipeline');
  * - RUN_ON_STARTUP: Run immediately on startup (default: false)
  */
 
+interface JobData {
+  type?: string;
+  dryRun?: boolean;
+  baseDir?: string;
+  maxDepth?: number;
+}
+
+interface JobResult {
+  totalRepositories?: number;
+  summary?: {
+    added?: number;
+    skipped?: number;
+    would_add?: number;
+    error?: number;
+  };
+}
+
+interface Job {
+  id: string;
+  data: JobData;
+  result?: JobResult;
+  error?: string | Error;
+  retries?: number;
+}
+
 const CRON_SCHEDULE = process.env.GITIGNORE_CRON_SCHEDULE || '0 4 * * *'; // Daily at 4 AM
 const BASE_DIR = process.env.GITIGNORE_BASE_DIR || path.join(os.homedir(), 'code');
 const MAX_DEPTH = parseInt(process.env.GITIGNORE_MAX_DEPTH || '10', 10);
@@ -39,7 +63,7 @@ const DRY_RUN = process.env.GITIGNORE_DRY_RUN === 'true';
 const args = process.argv.slice(2);
 const RUN_ON_STARTUP = process.env.RUN_ON_STARTUP === 'true' || args.includes('--run-now') || args.includes('--run');
 
-async function main() {
+async function main(): Promise<void> {
   logger.info({
     cronSchedule: CRON_SCHEDULE,
     baseDir: BASE_DIR,
@@ -56,7 +80,7 @@ async function main() {
   });
 
   // Event listeners
-  worker.on('job:created', (job) => {
+  worker.on('job:created', (job: Job) => {
     logger.info({
       jobId: job.id,
       type: job.data.type,
@@ -64,7 +88,7 @@ async function main() {
     }, 'Job created');
   });
 
-  worker.on('job:started', (job) => {
+  worker.on('job:started', (job: Job) => {
     logger.info({
       jobId: job.id,
       baseDir: job.data.baseDir,
@@ -72,16 +96,16 @@ async function main() {
     }, 'Job started');
   });
 
-  worker.on('job:completed', (job) => {
-    const { totalRepositories, summary } = job.result || {};
+  worker.on('job:completed', (job: Job) => {
+    const { totalRepositories, summary } = job.result ?? {};
 
     logger.info({
       jobId: job.id,
       totalRepositories,
-      added: summary?.added || 0,
-      skipped: summary?.skipped || 0,
-      wouldAdd: summary?.would_add || 0,
-      errors: summary?.error || 0
+      added: summary?.added ?? 0,
+      skipped: summary?.skipped ?? 0,
+      wouldAdd: summary?.would_add ?? 0,
+      errors: summary?.error ?? 0
     }, 'Job completed');
 
     // Log summary for monitoring
@@ -98,10 +122,10 @@ async function main() {
     }
   });
 
-  worker.on('job:failed', (job) => {
-    logError(logger, job.error, 'Job failed', { jobId: job.id, retries: job.retries });
+  worker.on('job:failed', (job: Job) => {
+    logError(logger, job.error as Error, 'Job failed', { jobId: job.id, retries: job.retries });
 
-    Sentry.captureException(new Error(job.error), {
+    Sentry.captureException(new Error(String(job.error)), {
       tags: {
         component: 'gitignore-pipeline',
         job_id: job.id,
@@ -118,7 +142,7 @@ async function main() {
   if (RUN_ON_STARTUP) {
     logger.info('Running gitignore update immediately (RUN_ON_STARTUP=true)');
     try {
-      const job = worker.createUpdateAllJob({
+      const job = (worker as unknown as { createUpdateAllJob(opts: { baseDir: string; dryRun: boolean; maxDepth: number }): Job }).createUpdateAllJob({
         baseDir: BASE_DIR,
         dryRun: DRY_RUN,
         maxDepth: MAX_DEPTH,
@@ -129,7 +153,7 @@ async function main() {
         dryRun: DRY_RUN
       }, 'Startup job created');
     } catch (error) {
-      logError(logger, error, 'Failed to create startup job');
+      logError(logger, error as Error, 'Failed to create startup job');
       Sentry.captureException(error, {
         tags: { component: 'gitignore-pipeline', phase: 'startup' },
       });
@@ -142,7 +166,7 @@ async function main() {
   cron.schedule(CRON_SCHEDULE, () => {
     logger.info('Cron triggered gitignore update');
     try {
-      const job = worker.createUpdateAllJob({
+      const job = (worker as unknown as { createUpdateAllJob(opts: { baseDir: string; dryRun: boolean; maxDepth: number }): Job }).createUpdateAllJob({
         baseDir: BASE_DIR,
         dryRun: DRY_RUN,
         maxDepth: MAX_DEPTH,
@@ -153,7 +177,7 @@ async function main() {
         dryRun: DRY_RUN
       }, 'Scheduled job created');
     } catch (error) {
-      logError(logger, error, 'Failed to create scheduled job');
+      logError(logger, error as Error, 'Failed to create scheduled job');
       Sentry.captureException(error, {
         tags: { component: 'gitignore-pipeline', phase: 'cron' },
       });
@@ -175,8 +199,8 @@ async function main() {
 }
 
 // Run the pipeline
-main().catch((error) => {
-  logError(logger, error, 'Fatal error in gitignore pipeline');
+main().catch((error: unknown) => {
+  logError(logger, error as Error, 'Fatal error in gitignore pipeline');
   Sentry.captureException(error, {
     tags: { component: 'gitignore-pipeline', phase: 'startup' },
   });
