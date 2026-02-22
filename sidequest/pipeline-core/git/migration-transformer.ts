@@ -73,7 +73,6 @@ interface MigrationResult {
 }
 
 export interface MigrationTransformerOptions {
-  backupDir?: string;
   dryRun?: boolean;
 }
 
@@ -182,8 +181,8 @@ export class MigrationTransformer {
     };
 
     // Stash any pre-existing uncommitted changes to protect user work
-    const stashed = await this._stashChanges(repositoryPath);
-    results.backupPath = stashed ? 'git-stash' : null;
+    const stashRef = await this._stashChanges(repositoryPath);
+    results.backupPath = stashRef ? 'git-stash' : null;
 
     try {
       // Parse all migration steps
@@ -252,8 +251,8 @@ export class MigrationTransformer {
       }, 'Migration steps applied');
 
       // Restore stashed pre-existing changes after successful transformation
-      if (stashed) {
-        await this._unstashChanges(repositoryPath);
+      if (stashRef) {
+        await this._unstashChanges(repositoryPath, stashRef);
       }
 
       return results;
@@ -266,9 +265,9 @@ export class MigrationTransformer {
         await this.rollback(repositoryPath);
       }
 
-      // Restore stashed changes regardless of rollback
-      if (stashed) {
-        await this._unstashChanges(repositoryPath);
+      // Restore stashed changes regardless of rollback — required=true to surface data loss
+      if (stashRef) {
+        await this._unstashChanges(repositoryPath, stashRef, /* required= */ true);
       }
 
       throw error;
@@ -648,31 +647,37 @@ export class MigrationTransformer {
     }
   }
 
-  private async _stashChanges(repositoryPath: string): Promise<boolean> {
+  private async _stashChanges(repositoryPath: string): Promise<string | null> {
     if (this.dryRun) {
       logger.info({ repositoryPath }, 'Dry run: Would stash changes');
-      return false;
+      return null;
     }
 
     try {
       const status = await runCommand(repositoryPath, 'git', ['status', '--porcelain']);
-      if (!status.trim()) return false;
+      if (!status.trim()) return null;
 
       await runCommand(repositoryPath, 'git', ['stash', 'push', '-u', '-m', 'migration-transformer-backup']);
-      logger.info({ repositoryPath }, 'Stashed pre-existing changes');
-      return true;
+      // Get the stash ref to pop by label (avoids race with concurrent stash operations)
+      const stashRef = (await runCommand(repositoryPath, 'git', ['stash', 'list', '--format=%gd', '-n1'])).trim();
+      logger.info({ repositoryPath, stashRef }, 'Stashed pre-existing changes');
+      return stashRef || 'stash@{0}';
     } catch (error) {
       logger.warn({ error, repositoryPath }, 'Failed to stash changes, continuing without backup');
-      return false;
+      return null;
     }
   }
 
-  private async _unstashChanges(repositoryPath: string): Promise<void> {
+  private async _unstashChanges(repositoryPath: string, stashRef: string, required = false): Promise<void> {
     try {
-      await runCommand(repositoryPath, 'git', ['stash', 'pop']);
-      logger.info({ repositoryPath }, 'Restored stashed changes');
+      await runCommand(repositoryPath, 'git', ['stash', 'pop', stashRef]);
+      logger.info({ repositoryPath, stashRef }, 'Restored stashed changes');
     } catch (error) {
-      logger.warn({ error, repositoryPath }, 'Failed to restore stashed changes (may need manual git stash pop)');
+      if (required) {
+        logError(logger, error, 'Failed to restore stashed changes — manual git stash pop needed', { repositoryPath, stashRef });
+        throw error;
+      }
+      logger.warn({ error, repositoryPath, stashRef }, 'Failed to restore stashed changes (may need manual git stash pop)');
     }
   }
 

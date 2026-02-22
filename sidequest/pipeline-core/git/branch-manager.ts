@@ -342,7 +342,7 @@ export class BranchManager {
     const timestamp = Date.now();
     const jobType = (jobContext.jobType || 'job').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
     const description = jobContext.description
-      ? `-${jobContext.description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 30)}`
+      ? `-${jobContext.description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 30).replace(/-+$/, '')}`
       : '';
 
     return `${this.branchPrefix}/${jobType}${description}-${timestamp}`;
