@@ -32,10 +32,10 @@ const projectRoot = path.resolve(__dirname, '../../');
 describe('Pipeline Execution - Integration Tests', () => {
   const pipelineRunners = [
     'sidequest/pipeline-runners/duplicate-detection-pipeline.ts',
-    'sidequest/pipeline-runners/git-activity-pipeline.js',
-    'sidequest/pipeline-runners/gitignore-pipeline.js',
-    'sidequest/pipeline-runners/plugin-management-pipeline.js',
-    'sidequest/pipeline-runners/claude-health-pipeline.js'
+    'sidequest/pipeline-runners/git-activity-pipeline.ts',
+    'sidequest/pipeline-runners/gitignore-pipeline.ts',
+    'sidequest/pipeline-runners/plugin-management-pipeline.ts',
+    'sidequest/pipeline-runners/claude-health-pipeline.ts'
   ];
 
   it('Scenario 1: Verify all pipeline runners have correct shebangs', async () => {

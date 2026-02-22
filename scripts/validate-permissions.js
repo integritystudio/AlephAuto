@@ -33,11 +33,11 @@ const ROOT = path.resolve(__dirname, '..');
 // Files that must NOT be executable (invoked with 'node', not './')
 const CRITICAL_FILES = [
   'api/server.js',
-  'sidequest/pipeline-runners/duplicate-detection-pipeline.js',
-  'sidequest/pipeline-runners/claude-health-pipeline.js',
-  'sidequest/pipeline-runners/git-activity-pipeline.js',
-  'sidequest/pipeline-runners/plugin-management-pipeline.js',
-  'sidequest/pipeline-runners/gitignore-pipeline.js',
+  'sidequest/pipeline-runners/duplicate-detection-pipeline.ts',
+  'sidequest/pipeline-runners/claude-health-pipeline.ts',
+  'sidequest/pipeline-runners/git-activity-pipeline.ts',
+  'sidequest/pipeline-runners/plugin-management-pipeline.ts',
+  'sidequest/pipeline-runners/gitignore-pipeline.ts',
   'sidequest/server.js',
   'sidequest/gitignore-worker.js',
 ];

@@ -62,12 +62,12 @@ class SchemaEnhancementPipeline {
     this.options = options;
     this.worker = new SchemaEnhancementWorker({
       maxConcurrent: (cfg.maxConcurrent as number) || 2,
-      logDir: cfg.logDir,
-      sentryDsn: cfg.sentryDsn,
-      gitWorkflowEnabled: options.gitWorkflowEnabled ?? cfg.enableGitWorkflow,
+      logDir: cfg.logDir as string | undefined,
+      sentryDsn: cfg.sentryDsn as string | undefined,
+      gitWorkflowEnabled: (options.gitWorkflowEnabled ?? cfg.enableGitWorkflow) as boolean | undefined,
       gitBranchPrefix: options.gitBranchPrefix || 'docs',
-      gitBaseBranch: options.gitBaseBranch || cfg.gitBaseBranch,
-      gitDryRun: options.gitDryRun ?? cfg.gitDryRun,
+      gitBaseBranch: (options.gitBaseBranch || cfg.gitBaseBranch) as string | undefined,
+      gitDryRun: (options.gitDryRun ?? cfg.gitDryRun) as boolean | undefined,
       outputBaseDir: options.outputBaseDir || './document-enhancement-impact-measurement',
       dryRun: options.dryRun || false,
       ...options
