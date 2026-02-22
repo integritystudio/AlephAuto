@@ -9,6 +9,43 @@ import path from 'path';
 
 const logger = createComponentLogger('SchemaEnhancementPipeline');
 
+interface ReadmeFile {
+  fullPath: string;
+  relativePath: string;
+  name: string;
+  dirPath: string;
+}
+
+interface RepoContext {
+  totalReadmes: number;
+  baseDir: string;
+  hasPackageJson: boolean;
+  hasPyproject: boolean;
+  gitRemote: string | null;
+}
+
+interface EnhancementResult {
+  status: string;
+  readmesFound?: number;
+  enhanced?: number;
+  duration?: number;
+  jobs?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+interface SchemaEnhancementOptions {
+  gitWorkflowEnabled?: boolean;
+  gitBranchPrefix?: string;
+  gitBaseBranch?: string;
+  gitDryRun?: boolean;
+  outputBaseDir?: string;
+  dryRun?: boolean;
+  baseDir?: string;
+  [key: string]: unknown;
+}
+
+// Cast config to access dynamic properties
+const cfg = config as Record<string, unknown>;
 
 //TODO: automatically updates README and CLAUDE files from directory commit data
 /**
@@ -16,15 +53,21 @@ const logger = createComponentLogger('SchemaEnhancementPipeline');
  * Automatically enhances README files with Schema.org structured data
  */
 class SchemaEnhancementPipeline {
-  constructor(options = {}) {
+  private worker: SchemaEnhancementWorker;
+  private excludeDirs: Set<string>;
+  private baseDir: string;
+  private options: SchemaEnhancementOptions;
+
+  constructor(options: SchemaEnhancementOptions = {}) {
+    this.options = options;
     this.worker = new SchemaEnhancementWorker({
-      maxConcurrent: config.maxConcurrent || 2,
-      logDir: config.logDir,
-      sentryDsn: config.sentryDsn,
-      gitWorkflowEnabled: options.gitWorkflowEnabled ?? config.enableGitWorkflow,
+      maxConcurrent: (cfg.maxConcurrent as number) || 2,
+      logDir: cfg.logDir,
+      sentryDsn: cfg.sentryDsn,
+      gitWorkflowEnabled: options.gitWorkflowEnabled ?? cfg.enableGitWorkflow,
       gitBranchPrefix: options.gitBranchPrefix || 'docs',
-      gitBaseBranch: options.gitBaseBranch || config.gitBaseBranch,
-      gitDryRun: options.gitDryRun ?? config.gitDryRun,
+      gitBaseBranch: options.gitBaseBranch || cfg.gitBaseBranch,
+      gitDryRun: options.gitDryRun ?? cfg.gitDryRun,
       outputBaseDir: options.outputBaseDir || './document-enhancement-impact-measurement',
       dryRun: options.dryRun || false,
       ...options
@@ -40,43 +83,48 @@ class SchemaEnhancementPipeline {
       '__pycache__'
     ]);
 
-    this.baseDir = options.baseDir || config.codeBaseDir || process.env.HOME;
+    this.baseDir = options.baseDir || (cfg.codeBaseDir as string) || process.env.HOME!;
     this.setupEventListeners();
   }
 
   /**
    * Setup event listeners for job events
    */
-  setupEventListeners() {
-    this.worker.on('job:created', (job) => {
+  private setupEventListeners(): void {
+    this.worker.on('job:created', (job: Record<string, unknown>) => {
+      const data = job.data as Record<string, unknown>;
       logger.info({
         jobId: job.id,
-        readmePath: job.data.relativePath
+        readmePath: data.relativePath
       }, 'Schema enhancement job created');
     });
 
-    this.worker.on('job:started', (job) => {
+    this.worker.on('job:started', (job: Record<string, unknown>) => {
+      const data = job.data as Record<string, unknown>;
       logger.info({
         jobId: job.id,
-        readmePath: job.data.relativePath
+        readmePath: data.relativePath
       }, 'Schema enhancement job started');
     });
 
-    this.worker.on('job:completed', (job) => {
-      const duration = new Date(job.completedAt).getTime() - new Date(job.startedAt).getTime();
+    this.worker.on('job:completed', (job: Record<string, unknown>) => {
+      const result = job.result as Record<string, unknown>;
+      const impact = result.impact as Record<string, unknown> | undefined;
+      const duration = new Date(job.completedAt as string).getTime() - new Date(job.startedAt as string).getTime();
       logger.info({
         jobId: job.id,
         duration,
-        status: job.result.status,
-        schemaType: job.result.schemaType,
-        impactScore: job.result.impact?.impactScore
+        status: result.status,
+        schemaType: result.schemaType,
+        impactScore: impact?.impactScore
       }, 'Schema enhancement job completed');
     });
 
-    this.worker.on('job:failed', (job) => {
-      logError(logger, /** @type {Error} */ (job.error), 'Schema enhancement job failed', {
+    this.worker.on('job:failed', (job: Record<string, unknown>) => {
+      const data = job.data as Record<string, unknown>;
+      logError(logger, job.error as Error, 'Schema enhancement job failed', {
         jobId: job.id,
-        readmePath: job.data.relativePath
+        readmePath: data.relativePath
       });
     });
   }
@@ -84,7 +132,7 @@ class SchemaEnhancementPipeline {
   /**
    * Recursively scan directory for README files
    */
-  async scanForReadmes(dir, baseDir = dir, results = []) {
+  async scanForReadmes(dir: string, baseDir: string = dir, results: ReadmeFile[] = []): Promise<ReadmeFile[]> {
     try {
       const entries = await fs.readdir(dir, { withFileTypes: true });
 
@@ -110,7 +158,7 @@ class SchemaEnhancementPipeline {
         }
       }
     } catch (error) {
-      logger.error({ dir, error: error.message }, 'Error scanning directory');
+      logger.error({ dir, error: (error as Error).message }, 'Error scanning directory');
     }
 
     return results;
@@ -119,7 +167,7 @@ class SchemaEnhancementPipeline {
   /**
    * Scan directory for README files
    */
-  async scanDirectory(directory) {
+  async scanDirectory(directory: string): Promise<ReadmeFile[]> {
     logger.info({ directory }, 'Scanning for README files');
 
     const readmeFiles = await this.scanForReadmes(directory);
@@ -134,24 +182,24 @@ class SchemaEnhancementPipeline {
   /**
    * Create enhancement jobs for README files
    */
-  async createEnhancementJobs(readmeFiles) {
+  async createEnhancementJobs(readmeFiles: ReadmeFile[]): Promise<unknown[]> {
     const context = {
       totalReadmes: readmeFiles.length,
       baseDir: this.baseDir
     };
 
-    const jobs = [];
+    const jobs: unknown[] = [];
 
     for (const readme of readmeFiles) {
       // Add context about the repository
-      const repoContext = {
+      const repoContext: RepoContext = {
         ...context,
         hasPackageJson: false, // Would need to check
         hasPyproject: false,   // Would need to check
         gitRemote: null        // Would need to extract
       };
 
-      const job = await this.worker.createEnhancementJob(readme, repoContext);
+      const job = await (this.worker as unknown as { createEnhancementJob(readme: ReadmeFile, ctx: RepoContext): Promise<unknown> }).createEnhancementJob(readme, repoContext);
       jobs.push(job);
     }
 
@@ -165,7 +213,7 @@ class SchemaEnhancementPipeline {
   /**
    * Run enhancement on directory
    */
-  async runEnhancement(directory = this.baseDir) {
+  async runEnhancement(directory: string = this.baseDir): Promise<EnhancementResult> {
     logStart(logger, 'schema enhancement pipeline', { directory });
 
     const startTime = Date.now();
@@ -190,11 +238,11 @@ class SchemaEnhancementPipeline {
       await this.waitForCompletion();
 
       const duration = Date.now() - startTime;
-      const stats = this.worker.getEnhancementStats();
-      const jobStats = this.worker.getStats();
+      const stats = (this.worker as unknown as { getEnhancementStats(): Record<string, unknown> }).getEnhancementStats();
+      const jobStats = (this.worker as unknown as { getStats(): Record<string, unknown> }).getStats();
 
       // Generate summary report
-      await this.worker.generateSummaryReport();
+      await (this.worker as unknown as { generateSummaryReport(): Promise<void> }).generateSummaryReport();
 
       logger.info({
         duration,
@@ -209,7 +257,7 @@ class SchemaEnhancementPipeline {
         jobs: jobStats
       };
     } catch (error) {
-      logError(logger, error, 'Schema enhancement pipeline failed');
+      logError(logger, error as Error, 'Schema enhancement pipeline failed');
       throw error;
     }
   }
@@ -217,10 +265,10 @@ class SchemaEnhancementPipeline {
   /**
    * Wait for all jobs to complete
    */
-  async waitForCompletion() {
-    return new Promise((resolve) => {
+  async waitForCompletion(): Promise<void> {
+    return new Promise<void>((resolve) => {
       const checkInterval = setInterval(() => {
-        const stats = this.worker.getStats();
+        const stats = (this.worker as unknown as { getStats(): { active: number; queued: number } }).getStats();
         if (stats.active === 0 && stats.queued === 0) {
           clearInterval(checkInterval);
           resolve();
@@ -232,7 +280,7 @@ class SchemaEnhancementPipeline {
   /**
    * Schedule enhancement runs
    */
-  scheduleEnhancements(cronSchedule = '0 3 * * 0') {
+  scheduleEnhancements(cronSchedule: string = '0 3 * * 0'): cron.ScheduledTask {
     logger.info({ cronSchedule }, 'Scheduling schema enhancement runs');
 
     if (!cron.validate(cronSchedule)) {
@@ -244,7 +292,7 @@ class SchemaEnhancementPipeline {
       try {
         await this.runEnhancement();
       } catch (error) {
-        logError(logger, error, 'Scheduled enhancement failed');
+        logError(logger, error as Error, 'Scheduled enhancement failed');
       }
     });
 
@@ -259,12 +307,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   // Parse command line arguments
   const args = process.argv.slice(2);
-  const options = {
+  const options: SchemaEnhancementOptions = {
     dryRun: false,
-    gitWorkflowEnabled: config.enableGitWorkflow
+    gitWorkflowEnabled: cfg.enableGitWorkflow as boolean | undefined
   };
 
-  let directory = config.codeBaseDir || process.env.HOME;
+  let directory: string = (cfg.codeBaseDir as string) || process.env.HOME!;
   let runNow = process.env.RUN_ON_STARTUP === 'true';
 
   for (let i = 0; i < args.length; i++) {
@@ -292,8 +340,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         logger.info({ result }, 'Enhancement completed successfully');
         process.exit(0);
       })
-      .catch((error) => {
-        logError(logger, error, 'Enhancement failed');
+      .catch((error: unknown) => {
+        logError(logger, error as Error, 'Enhancement failed');
         process.exit(1);
       });
   } else {
