@@ -260,14 +260,21 @@ export class MigrationTransformer {
     } catch (error) {
       logError(logger, error, 'Failed to apply migration steps');
 
-      if (results.filesModified.length > 0) {
-        logger.info('Attempting rollback due to error');
-        await this.rollback(repositoryPath);
-      }
-
-      // Restore stashed changes regardless of rollback — required=true to surface data loss
-      if (stashRef) {
-        await this._unstashChanges(repositoryPath, stashRef, /* required= */ true);
+      try {
+        if (results.filesModified.length > 0) {
+          logger.info('Attempting rollback due to error');
+          await this.rollback(repositoryPath);
+        }
+      } finally {
+        // Restore stashed changes regardless of rollback outcome
+        if (stashRef) {
+          try {
+            await this._unstashChanges(repositoryPath, stashRef, /* required= */ true);
+          } catch (unstashError) {
+            // Log unstash failure but rethrow the original transform error
+            logError(logger, unstashError, 'Additionally failed to restore stash', { repositoryPath, stashRef });
+          }
+        }
       }
 
       throw error;
@@ -658,7 +665,8 @@ export class MigrationTransformer {
       if (!status.trim()) return null;
 
       await runCommand(repositoryPath, 'git', ['stash', 'push', '-u', '-m', 'migration-transformer-backup']);
-      // Get the stash ref to pop by label (avoids race with concurrent stash operations)
+      // Get the stash ref for targeted pop. Note: stash@{N} is positional —
+      // this assumes exclusive git access on the working tree while running.
       const stashRef = (await runCommand(repositoryPath, 'git', ['stash', 'list', '--format=%gd', '-n1'])).trim();
       logger.info({ repositoryPath, stashRef }, 'Stashed pre-existing changes');
       return stashRef || 'stash@{0}';
