@@ -456,8 +456,12 @@ export class SidequestServer extends EventEmitter {
   }
 
   private async _handleGitWorkflowSuccess(job: Job): Promise<void> {
-    if (!this.gitWorkflowManager || !job.git.branchName || !job.git.originalBranch) {
-      logger.warn({ jobId: job.id }, 'Missing branch info or git manager, skipping git workflow');
+    if (!this.gitWorkflowManager) {
+      logger.warn({ jobId: job.id }, 'Git workflow manager not initialized, skipping git workflow');
+      return;
+    }
+    if (!job.git.branchName || !job.git.originalBranch) {
+      logger.warn({ jobId: job.id }, 'Missing branch info, skipping git workflow');
       return;
     }
 

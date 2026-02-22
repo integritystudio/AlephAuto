@@ -5,8 +5,8 @@
  * - Updates import statements to point to consolidated files
  * - Updates function calls to use new consolidated locations
  * - Removes old duplicate code
- * - Creates backups before transformations
- * - Provides rollback capability
+ * - Stashes uncommitted changes before transformations
+ * - Provides rollback via git checkout + clean
  */
 
 import { parse } from '@babel/parser';
@@ -151,11 +151,9 @@ const PARSER_PLUGINS: ParserPlugin[] = [
  * Migration Transformer for applying consolidation changes
  */
 export class MigrationTransformer {
-  backupDir: string;
   dryRun: boolean;
 
   constructor(options: MigrationTransformerOptions = {}) {
-    this.backupDir = options.backupDir || '.migration-backups';
     this.dryRun = options.dryRun ?? false;
   }
 
@@ -183,9 +181,9 @@ export class MigrationTransformer {
       backupPath: null
     };
 
-    // Create backup directory
-    const backupPath = await this._createBackup(repositoryPath);
-    results.backupPath = backupPath;
+    // Stash any pre-existing uncommitted changes to protect user work
+    const stashed = await this._stashChanges(repositoryPath);
+    results.backupPath = stashed ? 'git-stash' : null;
 
     try {
       // Parse all migration steps
@@ -253,6 +251,11 @@ export class MigrationTransformer {
         errors: results.errors.length
       }, 'Migration steps applied');
 
+      // Restore stashed pre-existing changes after successful transformation
+      if (stashed) {
+        await this._unstashChanges(repositoryPath);
+      }
+
       return results;
 
     } catch (error) {
@@ -260,7 +263,12 @@ export class MigrationTransformer {
 
       if (results.filesModified.length > 0) {
         logger.info('Attempting rollback due to error');
-        await this.rollback(backupPath, repositoryPath);
+        await this.rollback(repositoryPath);
+      }
+
+      // Restore stashed changes regardless of rollback
+      if (stashed) {
+        await this._unstashChanges(repositoryPath);
       }
 
       throw error;
@@ -640,23 +648,36 @@ export class MigrationTransformer {
     }
   }
 
-  private async _createBackup(repositoryPath: string): Promise<string> {
-    const timestamp = Date.now();
-    const backupPath = path.join(repositoryPath, this.backupDir, `backup-${timestamp}`);
-
+  private async _stashChanges(repositoryPath: string): Promise<boolean> {
     if (this.dryRun) {
-      logger.info({ backupPath }, 'Dry run: Would create backup');
-      return backupPath;
+      logger.info({ repositoryPath }, 'Dry run: Would stash changes');
+      return false;
     }
 
-    await fs.mkdir(backupPath, { recursive: true });
-    logger.info({ backupPath }, 'Created backup directory');
+    try {
+      const status = await runCommand(repositoryPath, 'git', ['status', '--porcelain']);
+      if (!status.trim()) return false;
 
-    return backupPath;
+      await runCommand(repositoryPath, 'git', ['stash', 'push', '-u', '-m', 'migration-transformer-backup']);
+      logger.info({ repositoryPath }, 'Stashed pre-existing changes');
+      return true;
+    } catch (error) {
+      logger.warn({ error, repositoryPath }, 'Failed to stash changes, continuing without backup');
+      return false;
+    }
   }
 
-  async rollback(_backupPath: string, repositoryPath: string): Promise<void> {
-    logger.info({ repositoryPath }, 'Rolling back transformations via git checkout');
+  private async _unstashChanges(repositoryPath: string): Promise<void> {
+    try {
+      await runCommand(repositoryPath, 'git', ['stash', 'pop']);
+      logger.info({ repositoryPath }, 'Restored stashed changes');
+    } catch (error) {
+      logger.warn({ error, repositoryPath }, 'Failed to restore stashed changes (may need manual git stash pop)');
+    }
+  }
+
+  async rollback(repositoryPath: string): Promise<void> {
+    logger.info({ repositoryPath }, 'Rolling back transformations');
 
     if (this.dryRun) {
       logger.info('Dry run: Would rollback transformations');
@@ -664,9 +685,11 @@ export class MigrationTransformer {
     }
 
     try {
-      // Use git checkout to restore modified files (more reliable than file-based backup)
+      // Restore modified tracked files
       await runCommand(repositoryPath, 'git', ['checkout', '.']);
-      logger.info('Rollback completed via git checkout');
+      // Remove untracked files added by the transformer
+      await runCommand(repositoryPath, 'git', ['clean', '-fd']);
+      logger.info('Rollback completed via git checkout + clean');
     } catch (error) {
       logError(logger, error, 'Rollback failed', { repositoryPath });
       Sentry.captureException(error, {

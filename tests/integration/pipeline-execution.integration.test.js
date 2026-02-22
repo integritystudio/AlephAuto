@@ -143,14 +143,14 @@ describe('Pipeline Execution - Integration Tests', () => {
     );
   });
 
-  it('Scenario 5: Verify pipeline imports work correctly', async () => {
+  it('Scenario 5: Verify pipeline imports work correctly', async (t) => {
     const pipelinePath = path.join(projectRoot, pipelineRunners[0]);
     const isTs = pipelineRunners[0].endsWith('.ts');
 
     // --strip-types requires Node 22.6+
     const [major, minor] = process.versions.node.split('.').map(Number);
     if (isTs && (major < 22 || (major === 22 && minor < 6))) {
-      console.log(`Skipping .ts import test: --strip-types requires Node 22.6+ (running ${process.versions.node})`);
+      t.skip(`--strip-types requires Node 22.6+ (running ${process.versions.node})`);
       return;
     }
 

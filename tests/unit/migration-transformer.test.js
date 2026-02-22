@@ -9,6 +9,7 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
 import { MigrationTransformer } from '../../sidequest/pipeline-core/git/migration-transformer.ts';
+import { createTempRepository } from '../fixtures/test-helpers.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -19,11 +20,13 @@ const __dirname = path.dirname(__filename);
 describe('MigrationTransformer', () => {
   let transformer;
   let tempDir;
+  let cleanup;
 
   before(async () => {
-    // Create temp directory for test files
-    tempDir = path.join(__dirname, '..', 'fixtures', 'temp-migration-test');
-    await fs.mkdir(tempDir, { recursive: true });
+    // Use isolated git repo so stash operations don't affect parent repo
+    const repo = await createTempRepository('migration-test');
+    tempDir = repo.path;
+    cleanup = repo.cleanup;
 
     transformer = new MigrationTransformer({
       dryRun: false
@@ -31,11 +34,8 @@ describe('MigrationTransformer', () => {
   });
 
   after(async () => {
-    // Cleanup
-    try {
-      await fs.rm(tempDir, { recursive: true, force: true });
-    } catch (error) {
-      // Ignore cleanup errors
+    if (cleanup) {
+      await cleanup();
     }
   });
 
@@ -261,10 +261,37 @@ const result = legacyHelper(1, 2);
   });
 
   describe('backup and rollback', () => {
-    it('should create backups before transformation', async () => {
-      const testFile = path.join(tempDir, 'backup-test.js');
-      const originalContent = 'const original = true;';
-      await fs.writeFile(testFile, originalContent);
+    let gitDir;
+    let gitCleanup;
+
+    before(async () => {
+      // Need a real git repo (not fake .git dir) for stash operations
+      const repo = await createTempRepository('migration-stash-test');
+      gitDir = repo.path;
+      gitCleanup = repo.cleanup;
+
+      // Replace fake .git with a real git init
+      await fs.rm(path.join(gitDir, '.git'), { recursive: true });
+      const { execSync } = await import('child_process');
+      execSync('git init', { cwd: gitDir });
+      execSync('git config user.email "test@test.com"', { cwd: gitDir });
+      execSync('git config user.name "Test"', { cwd: gitDir });
+    });
+
+    after(async () => {
+      if (gitCleanup) await gitCleanup();
+    });
+
+    it('should stash pre-existing changes before transformation', async () => {
+      // Create a tracked file, commit it, then modify it to create pre-existing changes
+      const trackedFile = path.join(gitDir, 'tracked.js');
+      await fs.writeFile(trackedFile, 'const tracked = true;');
+      const { execSync } = await import('child_process');
+      execSync('git add . && git commit -m "initial"', { cwd: gitDir });
+      await fs.writeFile(trackedFile, 'const tracked = false; // modified');
+
+      const testFile = path.join(gitDir, 'backup-test.js');
+      await fs.writeFile(testFile, 'const original = true;');
 
       const suggestion = {
         suggestion_id: 'backup-test',
@@ -278,17 +305,14 @@ const result = legacyHelper(1, 2);
         ]
       };
 
-      const result = await transformer.applyMigrationSteps(suggestion, tempDir);
+      const result = await transformer.applyMigrationSteps(suggestion, gitDir);
 
-      // Backup path should be created
-      assert.ok(result.backupPath, 'Should create backup path');
+      // Pre-existing changes detected, so stash runs and backupPath is 'git-stash'
+      assert.strictEqual(result.backupPath, 'git-stash', 'Should use git stash for backup');
 
-      // Verify backup directory exists
-      const backupExists = await fs.access(result.backupPath)
-        .then(() => true)
-        .catch(() => false);
-
-      assert.ok(backupExists, 'Backup directory should exist');
+      // Verify pre-existing changes were restored after transformation
+      const content = await fs.readFile(trackedFile, 'utf-8');
+      assert.ok(content.includes('modified'), 'Pre-existing changes should be restored');
     });
 
     it('should rollback on transformation error', async () => {
