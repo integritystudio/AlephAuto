@@ -10,26 +10,43 @@
  * Based on AlephAuto debugging session: Nov 18, 2025
  *
  * Usage:
- *   node codebase-health-scanner.js /path/to/repo --scan timeout
- *   node codebase-health-scanner.js /path/to/repo --scan root
- *   node codebase-health-scanner.js /path/to/repo --scan all
- *   node codebase-health-scanner.js /path/to/repo --scan all --output report.md
+ *   node codebase-health-scanner.ts /path/to/repo --scan timeout
+ *   node codebase-health-scanner.ts /path/to/repo --scan root
+ *   node codebase-health-scanner.ts /path/to/repo --scan all
+ *   node codebase-health-scanner.ts /path/to/repo --scan all --output report.md
  *
  * @module lib/scanners/codebase-health-scanner
  */
 
 import { TimeoutPatternDetector } from './timeout-pattern-detector.ts';
+import type { TimeoutFindings } from './timeout-pattern-detector.ts';
 import { RootDirectoryAnalyzer } from './root-directory-analyzer.ts';
+import type { RootDirectoryAnalysis } from './root-directory-analyzer.ts';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
 const logger = createComponentLogger('CodebaseHealthScanner');
 
+interface ScanResults {
+  repository: string;
+  timestamp: string;
+  scans: {
+    timeout?: TimeoutFindings;
+    root?: RootDirectoryAnalysis;
+  };
+}
+
+interface HealthScanOptions {
+  logger?: typeof logger;
+  scanTimeout?: boolean;
+  scanRoot?: boolean;
+}
+
 /**
  * Main CLI function
  */
-async function main() {
+async function main(): Promise<void> {
   const args = process.argv.slice(2);
 
   // Parse arguments
@@ -44,7 +61,7 @@ async function main() {
 
   // Validate repo path
   if (!repoPath) {
-    console.error('Usage: node codebase-health-scanner.js <repo-path> [options]');
+    console.error('Usage: node codebase-health-scanner.ts <repo-path> [options]');
     console.error('');
     console.error('Options:');
     console.error('  --scan <type>       Scan type: timeout, root, all (default: all)');
@@ -52,8 +69,8 @@ async function main() {
     console.error('  --json              Output JSON instead of markdown');
     console.error('');
     console.error('Examples:');
-    console.error('  node codebase-health-scanner.js ~/code/myproject --scan timeout');
-    console.error('  node codebase-health-scanner.js ~/code/myproject --scan all --output report.md');
+    console.error('  node codebase-health-scanner.ts ~/code/myproject --scan timeout');
+    console.error('  node codebase-health-scanner.ts ~/code/myproject --scan all --output report.md');
     process.exit(1);
   }
 
@@ -62,7 +79,7 @@ async function main() {
   logger.info(`Starting codebase health scan: ${resolvedPath}`);
   logger.info(`Scan type: ${scanType}`);
 
-  const results = {
+  const results: ScanResults = {
     repository: resolvedPath,
     timestamp: new Date().toISOString(),
     scans: {}
@@ -124,8 +141,8 @@ async function main() {
 /**
  * Generate markdown report from results
  */
-function generateMarkdownReport(results) {
-  const lines = [
+function generateMarkdownReport(results: ScanResults): string {
+  const lines: string[] = [
     '# Codebase Health Report',
     '',
     `**Repository:** ${results.repository}`,
@@ -200,14 +217,14 @@ function generateMarkdownReport(results) {
 /**
  * Export for programmatic use
  */
-export async function runHealthScan(repoPath, options = {}) {
-  const results = {
+export async function runHealthScan(repoPath: string, options: HealthScanOptions = {}): Promise<ScanResults> {
+  const results: ScanResults = {
     repository: path.resolve(repoPath),
     timestamp: new Date().toISOString(),
     scans: {}
   };
 
-  const loggerInstance = options.logger || logger;
+  const loggerInstance = options.logger ?? logger;
 
   if (options.scanTimeout !== false) {
     const detector = new TimeoutPatternDetector({ logger: loggerInstance });
@@ -223,7 +240,6 @@ export async function runHealthScan(repoPath, options = {}) {
 }
 
 // Run CLI if executed directly
-// @ts-ignore - import.meta is available in ESM
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch(error => {
     logError(logger, error, 'Fatal error');
