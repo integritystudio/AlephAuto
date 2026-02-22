@@ -5,19 +5,19 @@
  */
 
 import fs from 'fs/promises';
-import path from 'path';
 import { ensureParentDir } from '../utils/index.ts';
+import type { ScanResult } from './json-report-generator.ts';
+
+export interface HTMLReportOptions {
+  title?: string;
+}
 
 export class HTMLReportGenerator {
   /**
    * Generate HTML report from scan results
-   *
-   * @param {Object} scanResult - Scan results (intra-project or inter-project)
-   * @param {Object} options - Report options
-   * @returns {string} - HTML content
    */
-  static generateReport(scanResult, options = {}) {
-    const title = options.title || 'Duplicate Detection Report';
+  static generateReport(scanResult: ScanResult, options: HTMLReportOptions = {}): string {
+    const title = options.title ?? 'Duplicate Detection Report';
     const isInterProject = scanResult.scan_type === 'inter-project';
 
     const html = `<!DOCTYPE html>
@@ -38,7 +38,7 @@ export class HTMLReportGenerator {
         ${isInterProject ? this._generateCrossRepoSection(scanResult) : ''}
         ${this._generateDuplicateGroups(scanResult, isInterProject)}
         ${this._generateSuggestions(scanResult, isInterProject)}
-        ${this._generateFooter(scanResult)}
+        ${this._generateFooter()}
     </div>
     <script>
         ${this._getScripts()}
@@ -52,7 +52,7 @@ export class HTMLReportGenerator {
   /**
    * Save HTML report to file
    */
-  static async saveReport(scanResult, outputPath, options = {}) {
+  static async saveReport(scanResult: ScanResult, outputPath: string, options: HTMLReportOptions = {}): Promise<string> {
     const html = this.generateReport(scanResult, options);
     await ensureParentDir(outputPath);
     await fs.writeFile(outputPath, html);
@@ -63,9 +63,9 @@ export class HTMLReportGenerator {
    * Generate header section
    * @private
    */
-  static _generateHeader(scanResult, title, isInterProject) {
-    const scanDate = new Date(scanResult.scan_metadata?.scanned_at || Date.now());
-    const duration = scanResult.scan_metadata?.duration_seconds || 0;
+  private static _generateHeader(scanResult: ScanResult, title: string, isInterProject: boolean): string {
+    const scanDate = new Date(scanResult.scan_metadata?.scanned_at ?? Date.now());
+    const duration = scanResult.scan_metadata?.duration_seconds ?? 0;
 
     return `
     <header>
@@ -88,8 +88,8 @@ export class HTMLReportGenerator {
    * Generate metrics cards
    * @private
    */
-  static _generateMetrics(scanResult, isInterProject) {
-    const metrics = scanResult.metrics || {};
+  private static _generateMetrics(scanResult: ScanResult, isInterProject: boolean): string {
+    const metrics = scanResult.metrics ?? {};
 
     if (isInterProject) {
       return `
@@ -97,27 +97,27 @@ export class HTMLReportGenerator {
         <h2>📊 Scan Metrics</h2>
         <div class="metrics-grid">
             <div class="metric-card">
-                <div class="metric-value">${metrics.total_repositories_scanned || 0}</div>
+                <div class="metric-value">${metrics.total_repositories_scanned ?? 0}</div>
                 <div class="metric-label">Repositories Scanned</div>
             </div>
             <div class="metric-card">
-                <div class="metric-value">${metrics.total_code_blocks || 0}</div>
+                <div class="metric-value">${metrics.total_code_blocks ?? 0}</div>
                 <div class="metric-label">Code Blocks</div>
             </div>
             <div class="metric-card highlight">
-                <div class="metric-value">${metrics.total_cross_repository_groups || 0}</div>
+                <div class="metric-value">${metrics.total_cross_repository_groups ?? 0}</div>
                 <div class="metric-label">Cross-Repo Duplicates</div>
             </div>
             <div class="metric-card">
-                <div class="metric-value">${metrics.cross_repository_duplicated_lines || 0}</div>
+                <div class="metric-value">${metrics.cross_repository_duplicated_lines ?? 0}</div>
                 <div class="metric-label">Duplicated Lines</div>
             </div>
             <div class="metric-card success">
-                <div class="metric-value">${metrics.shared_package_candidates || 0}</div>
+                <div class="metric-value">${metrics.shared_package_candidates ?? 0}</div>
                 <div class="metric-label">Shared Package Candidates</div>
             </div>
             <div class="metric-card">
-                <div class="metric-value">${metrics.mcp_server_candidates || 0}</div>
+                <div class="metric-value">${metrics.mcp_server_candidates ?? 0}</div>
                 <div class="metric-label">MCP Server Candidates</div>
             </div>
         </div>
@@ -129,27 +129,27 @@ export class HTMLReportGenerator {
         <h2>📊 Scan Metrics</h2>
         <div class="metrics-grid">
             <div class="metric-card">
-                <div class="metric-value">${metrics.total_code_blocks || 0}</div>
+                <div class="metric-value">${metrics.total_code_blocks ?? 0}</div>
                 <div class="metric-label">Code Blocks Detected</div>
             </div>
             <div class="metric-card highlight">
-                <div class="metric-value">${metrics.total_duplicate_groups || 0}</div>
+                <div class="metric-value">${metrics.total_duplicate_groups ?? 0}</div>
                 <div class="metric-label">Duplicate Groups</div>
             </div>
             <div class="metric-card">
-                <div class="metric-value">${metrics.exact_duplicates || 0}</div>
+                <div class="metric-value">${metrics.exact_duplicates ?? 0}</div>
                 <div class="metric-label">Exact Duplicates</div>
             </div>
             <div class="metric-card">
-                <div class="metric-value">${metrics.total_duplicated_lines || 0}</div>
+                <div class="metric-value">${metrics.total_duplicated_lines ?? 0}</div>
                 <div class="metric-label">Duplicated Lines</div>
             </div>
             <div class="metric-card success">
-                <div class="metric-value">${metrics.potential_loc_reduction || 0}</div>
+                <div class="metric-value">${metrics.potential_loc_reduction ?? 0}</div>
                 <div class="metric-label">Potential LOC Reduction</div>
             </div>
             <div class="metric-card">
-                <div class="metric-value">${metrics.quick_wins || 0}</div>
+                <div class="metric-value">${metrics.quick_wins ?? 0}</div>
                 <div class="metric-label">Quick Wins</div>
             </div>
         </div>
@@ -160,21 +160,21 @@ export class HTMLReportGenerator {
    * Generate summary charts
    * @private
    */
-  static _generateSummaryCharts(scanResult, isInterProject) {
+  private static _generateSummaryCharts(scanResult: ScanResult, isInterProject: boolean): string {
     const suggestions = isInterProject
-      ? (scanResult.cross_repository_suggestions || [])
-      : (scanResult.suggestions || []);
+      ? (scanResult.cross_repository_suggestions ?? [])
+      : (scanResult.suggestions ?? []);
 
     // Count by strategy
-    const strategyCounts = {};
+    const strategyCounts: Record<string, number> = {};
     suggestions.forEach(s => {
-      strategyCounts[s.strategy] = (strategyCounts[s.strategy] || 0) + 1;
+      strategyCounts[s.strategy] = (strategyCounts[s.strategy] ?? 0) + 1;
     });
 
     // Count by complexity
-    const complexityCounts = {};
+    const complexityCounts: Record<string, number> = {};
     suggestions.forEach(s => {
-      complexityCounts[s.complexity] = (complexityCounts[s.complexity] || 0) + 1;
+      complexityCounts[s.complexity] = (complexityCounts[s.complexity] ?? 0) + 1;
     });
 
     return `
@@ -217,8 +217,8 @@ export class HTMLReportGenerator {
    * Generate cross-repository section
    * @private
    */
-  static _generateCrossRepoSection(scanResult) {
-    const repos = scanResult.scanned_repositories || [];
+  private static _generateCrossRepoSection(scanResult: ScanResult): string {
+    const repos = scanResult.scanned_repositories ?? [];
 
     return `
     <section class="cross-repo">
@@ -231,8 +231,8 @@ export class HTMLReportGenerator {
                 <div class="repo-error">❌ ${this._escapeHtml(repo.error)}</div>
                 ` : `
                 <div class="repo-stats">
-                    <span>${repo.code_blocks} blocks</span>
-                    <span>${repo.duplicate_groups} groups</span>
+                    <span>${repo.code_blocks ?? 0} blocks</span>
+                    <span>${repo.duplicate_groups ?? 0} groups</span>
                 </div>
                 `}
             </div>
@@ -245,10 +245,10 @@ export class HTMLReportGenerator {
    * Generate duplicate groups section
    * @private
    */
-  static _generateDuplicateGroups(scanResult, isInterProject) {
+  private static _generateDuplicateGroups(scanResult: ScanResult, isInterProject: boolean): string {
     const groups = isInterProject
-      ? (scanResult.cross_repository_duplicates || [])
-      : (scanResult.duplicate_groups || []);
+      ? (scanResult.cross_repository_duplicates ?? [])
+      : (scanResult.duplicate_groups ?? []);
 
     const topGroups = groups
       .sort((a, b) => b.impact_score - a.impact_score)
@@ -284,11 +284,11 @@ export class HTMLReportGenerator {
                     </span>
                     ${isInterProject ? `
                     <span class="stat-badge">
-                        🔗 ${group.repository_count} repositories
+                        🔗 ${group.repository_count ?? 0} repositories
                     </span>
                     ` : ''}
                     <span class="stat-badge">
-                        📄 ${group.affected_files?.length || 0} files
+                        📄 ${group.affected_files?.length ?? 0} files
                     </span>
                     <span class="stat-badge">
                         📏 ${group.total_lines} lines
@@ -297,10 +297,10 @@ export class HTMLReportGenerator {
                 <div class="duplicate-files">
                     <strong>Affected files:</strong>
                     <ul>
-                        ${(group.affected_files || []).slice(0, 5).map(file => `
+                        ${(group.affected_files ?? []).slice(0, 5).map(file => `
                         <li><code>${this._escapeHtml(file)}</code></li>
                         `).join('')}
-                        ${group.affected_files?.length > 5 ? `<li><em>... and ${group.affected_files.length - 5} more</em></li>` : ''}
+                        ${(group.affected_files?.length ?? 0) > 5 ? `<li><em>... and ${(group.affected_files?.length ?? 0) - 5} more</em></li>` : ''}
                     </ul>
                 </div>
             </div>
@@ -313,10 +313,10 @@ export class HTMLReportGenerator {
    * Generate suggestions section
    * @private
    */
-  static _generateSuggestions(scanResult, isInterProject) {
+  private static _generateSuggestions(scanResult: ScanResult, isInterProject: boolean): string {
     const suggestions = isInterProject
-      ? (scanResult.cross_repository_suggestions || [])
-      : (scanResult.suggestions || []);
+      ? (scanResult.cross_repository_suggestions ?? [])
+      : (scanResult.suggestions ?? []);
 
     const topSuggestions = suggestions
       .sort((a, b) => b.roi_score - a.roi_score)
@@ -349,7 +349,7 @@ export class HTMLReportGenerator {
                     </div>
                 </div>
                 <div class="suggestion-body">
-                    <p class="suggestion-rationale">${this._escapeHtml(suggestion.strategy_rationale)}</p>
+                    <p class="suggestion-rationale">${this._escapeHtml(suggestion.strategy_rationale ?? '')}</p>
                     ${suggestion.target_location ? `
                     <p class="suggestion-target">
                         <strong>Target:</strong> <code>${this._escapeHtml(suggestion.target_location)}</code>
@@ -365,7 +365,7 @@ export class HTMLReportGenerator {
                         <span class="metric-badge risk-${suggestion.migration_risk}">
                             ${suggestion.migration_risk} risk
                         </span>
-                        ${suggestion.estimated_effort_hours ? `
+                        ${suggestion.estimated_effort_hours != null ? `
                         <span class="metric-badge">
                             ~${suggestion.estimated_effort_hours}h effort
                         </span>
@@ -387,7 +387,7 @@ export class HTMLReportGenerator {
    * Generate footer
    * @private
    */
-  static _generateFooter(scanResult) {
+  private static _generateFooter(): string {
     return `
     <footer>
         <p>Generated by Duplicate Detection Pipeline | ${new Date().toLocaleString()}</p>
@@ -398,7 +398,7 @@ export class HTMLReportGenerator {
    * Get CSS styles
    * @private
    */
-  static _getStyles() {
+  private static _getStyles(): string {
     return `
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -667,7 +667,7 @@ export class HTMLReportGenerator {
    * Get JavaScript
    * @private
    */
-  static _getScripts() {
+  private static _getScripts(): string {
     return `
         // Add interactivity here if needed
         console.log('Duplicate Detection Report loaded');
@@ -678,7 +678,7 @@ export class HTMLReportGenerator {
    * Get impact class
    * @private
    */
-  static _getImpactClass(score) {
+  private static _getImpactClass(score: number): string {
     if (score >= 70) return 'impact-high';
     if (score >= 40) return 'impact-medium';
     return 'impact-low';
@@ -688,7 +688,7 @@ export class HTMLReportGenerator {
    * Get ROI class
    * @private
    */
-  static _getROIClass(score) {
+  private static _getROIClass(score: number): string {
     if (score >= 80) return 'roi-high';
     if (score >= 50) return 'roi-medium';
     return 'roi-low';
@@ -698,7 +698,7 @@ export class HTMLReportGenerator {
    * Escape HTML
    * @private
    */
-  static _escapeHtml(text) {
+  private static _escapeHtml(text: string): string {
     if (!text) return '';
     return String(text)
       .replace(/&/g, '&amp;')

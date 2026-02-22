@@ -7,7 +7,7 @@
  * Usage: node test-report-generation.js [scan-results.json]
  */
 
-import { HTMLReportGenerator } from '../../sidequest/pipeline-core/reports/html-report-generator.js';
+import { HTMLReportGenerator } from '../../sidequest/pipeline-core/reports/html-report-generator.ts';
 import { MarkdownReportGenerator } from '../../sidequest/pipeline-core/reports/markdown-report-generator.js';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 import fs from 'fs/promises';
