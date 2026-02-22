@@ -4,7 +4,7 @@
  * Monitors Doppler cache age and alerts when secrets may be stale.
  *
  * Usage:
- *   import { DopplerHealthMonitor } from './sidequest/pipeline-core/doppler-health-monitor.js';
+ *   import { DopplerHealthMonitor } from './sidequest/pipeline-core/doppler-health-monitor.ts';
  *
  *   const monitor = new DopplerHealthMonitor();
  *   await monitor.startMonitoring(15); // Check every 15 minutes
@@ -22,27 +22,56 @@ import os from 'os';
 
 const logger = createComponentLogger('DopplerHealthMonitor');
 
+// ============================================================================
+// Type Definitions
+// ============================================================================
+
+export type CacheSeverity = 'healthy' | 'warning' | 'critical' | 'error';
+
+export interface CacheHealthStatus {
+  healthy: boolean;
+  cacheAgeMs: number;
+  cacheAgeHours: number;
+  cacheAgeMinutes: number;
+  lastModified: string | null;
+  usingFallback: boolean;
+  fileCount: number;
+  severity: CacheSeverity;
+  newestFile?: string;
+  error?: string;
+  errorCode?: string;
+}
+
+export interface DopplerHealthMonitorOptions {
+  cacheDir?: string;
+  maxCacheAge?: number;
+  warningThreshold?: number;
+}
+
 export class DopplerHealthMonitor {
-  constructor(options = {}) {
+  private cacheDir: string;
+  private maxCacheAge: number;
+  private warningThreshold: number;
+  private monitoringInterval: ReturnType<typeof setInterval> | null;
+
+  constructor(options: DopplerHealthMonitorOptions = {}) {
     // Doppler fallback cache directory (not a single file)
     // Doppler CLI stores secrets in ~/.doppler/fallback/ as individual JSON files
-    this.cacheDir = options.cacheDir || path.join(os.homedir(), '.doppler', 'fallback');
+    this.cacheDir = options.cacheDir ?? path.join(os.homedir(), '.doppler', 'fallback');
 
     // Max cache age before triggering alerts (default: 24 hours)
-    this.maxCacheAge = options.maxCacheAge || CACHE.MAX_AGE_MS;
+    this.maxCacheAge = options.maxCacheAge ?? CACHE.MAX_AGE_MS;
 
     // Warning threshold (default: 12 hours)
-    this.warningThreshold = options.warningThreshold || CACHE.WARNING_THRESHOLD_MS;
+    this.warningThreshold = options.warningThreshold ?? CACHE.WARNING_THRESHOLD_MS;
 
     this.monitoringInterval = null;
   }
 
   /**
    * Check Doppler cache health
-   *
-   * @returns {Promise<Object>} Health status with cache age info
    */
-  async checkCacheHealth() {
+  async checkCacheHealth(): Promise<CacheHealthStatus> {
     try {
       // Check if fallback directory exists
       const dirStats = await fs.stat(this.cacheDir);
@@ -70,7 +99,7 @@ export class DopplerHealthMonitor {
       }
 
       // Find the most recently modified secret file
-      let newestFile = null;
+      let newestFile: string | null = null;
       let newestMtime = 0;
 
       for (const file of secretFiles) {
@@ -86,13 +115,13 @@ export class DopplerHealthMonitor {
       const cacheAgeHours = Math.floor(cacheAge / TIME.HOUR);
       const cacheAgeMinutes = Math.floor((cacheAge % (60 * 60 * 1000)) / TIME.MINUTE);
 
-      const status = {
+      const status: CacheHealthStatus = {
         healthy: cacheAge <= this.maxCacheAge,
         cacheAgeMs: cacheAge,
         cacheAgeHours,
         cacheAgeMinutes,
         lastModified: new Date(newestMtime).toISOString(),
-        newestFile,
+        newestFile: newestFile ?? undefined,
         fileCount: secretFiles.length,
         usingFallback: true,
         severity: this.getSeverity(cacheAge)
@@ -153,7 +182,8 @@ export class DopplerHealthMonitor {
 
       return status;
     } catch (error) {
-      if (error.code === 'ENOENT') {
+      const nodeError = error as NodeJS.ErrnoException;
+      if (nodeError.code === 'ENOENT') {
         // Cache directory doesn't exist - probably using live Doppler only
         logger.debug({ cacheDir: this.cacheDir }, 'No Doppler fallback cache found - likely using live API only');
 
@@ -180,20 +210,23 @@ export class DopplerHealthMonitor {
 
       return {
         healthy: false,
-        error: error.message,
-        errorCode: error.code,
-        severity: 'error'
+        error: nodeError.message,
+        errorCode: nodeError.code,
+        severity: 'error',
+        cacheAgeMs: 0,
+        cacheAgeHours: 0,
+        cacheAgeMinutes: 0,
+        lastModified: null,
+        usingFallback: false,
+        fileCount: 0
       };
     }
   }
 
   /**
    * Get severity level based on cache age
-   *
-   * @param {number} cacheAge - Age in milliseconds
-   * @returns {string} Severity level
    */
-  getSeverity(cacheAge) {
+  getSeverity(cacheAge: number): CacheSeverity {
     if (cacheAge > this.maxCacheAge) {
       return 'critical';
     } else if (cacheAge > this.warningThreshold) {
@@ -205,11 +238,8 @@ export class DopplerHealthMonitor {
 
   /**
    * Start periodic monitoring
-   *
-   * @param {number} intervalMinutes - Check interval in minutes (default: 15)
-   * @returns {Promise<void>}
    */
-  async startMonitoring(intervalMinutes = 15) {
+  async startMonitoring(intervalMinutes = 15): Promise<CacheHealthStatus> {
     if (this.monitoringInterval) {
       logger.warn('Monitoring already started, stopping previous interval');
       this.stopMonitoring();
@@ -236,7 +266,7 @@ export class DopplerHealthMonitor {
   /**
    * Stop periodic monitoring
    */
-  stopMonitoring() {
+  stopMonitoring(): void {
     if (this.monitoringInterval) {
       clearInterval(this.monitoringInterval);
       this.monitoringInterval = null;
@@ -246,10 +276,8 @@ export class DopplerHealthMonitor {
 
   /**
    * Get cache directory path (for testing/debugging)
-   *
-   * @returns {string} Cache directory path
    */
-  getCacheDirectoryPath() {
+  getCacheDirectoryPath(): string {
     return this.cacheDir;
   }
 }

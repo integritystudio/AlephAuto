@@ -14,8 +14,8 @@
  */
 
 import { SidequestServer } from '../core/server.ts';
-import { RepositoryConfigLoader } from '../pipeline-core/config/repository-config-loader.js';
-import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.js';
+import { RepositoryConfigLoader } from '../pipeline-core/config/repository-config-loader.ts';
+import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.ts';
 import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.ts';
 import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.js';
 import { PRCreator } from '../pipeline-core/git/pr-creator.ts';

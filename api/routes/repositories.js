@@ -5,7 +5,7 @@
  */
 
 import express from 'express';
-import { RepositoryConfigLoader } from '../../sidequest/pipeline-core/config/repository-config-loader.js';
+import { RepositoryConfigLoader } from '../../sidequest/pipeline-core/config/repository-config-loader.ts';
 import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.js';
 import { createComponentLogger, logError } from '../../sidequest/utils/logger.ts';
 import { strictRateLimiter } from '../middleware/rate-limit.js';

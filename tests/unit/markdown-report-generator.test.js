@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { MarkdownReportGenerator } from '../../sidequest/pipeline-core/reports/markdown-report-generator.js';
+import { MarkdownReportGenerator } from '../../sidequest/pipeline-core/reports/markdown-report-generator.ts';
 
 // Test fixtures
 const createIntraProjectScanResult = () => ({

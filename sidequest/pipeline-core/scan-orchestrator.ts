@@ -14,7 +14,7 @@
 import { RepositoryScanner } from './scanners/repository-scanner.ts';
 import { AstGrepPatternDetector } from './scanners/ast-grep-detector.js';
 import { HTMLReportGenerator } from './reports/html-report-generator.ts';
-import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
+import { MarkdownReportGenerator } from './reports/markdown-report-generator.ts';
 import { InterProjectScanner } from './inter-project-scanner.ts';
 import { createComponentLogger, logStart, logStage } from '../utils/logger.ts';
 import { DependencyValidator } from '../utils/dependency-validator.js';

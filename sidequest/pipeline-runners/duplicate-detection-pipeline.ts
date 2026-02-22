@@ -21,8 +21,8 @@
  */
 
 import { SidequestServer } from '../core/server.ts';
-import { RepositoryConfigLoader } from '../pipeline-core/config/repository-config-loader.js';
-import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.js';
+import { RepositoryConfigLoader, type RepositoryConfig } from '../pipeline-core/config/repository-config-loader.ts';
+import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.ts';
 import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.ts';
 import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.js';
 import { PRCreator, PRCreationResults } from '../pipeline-core/git/pr-creator.ts';
@@ -78,30 +78,6 @@ export interface Job {
   completedAt: Date | null;
   error: Error | null;
   result: any;
-}
-
-/**
- * Interface for repository configuration
- */
-export interface RepositoryConfig {
-  name: string;
-  path: string;
-  enabled?: boolean;
-  frequency?: string;
-  lastScanned?: string | null;
-  priority?: number;
-  groups?: string[];
-  scanHistory?: ScanHistoryEntry[];
-}
-
-/**
- * Interface for scan history entry
- */
-export interface ScanHistoryEntry {
-  date: string;
-  status: 'success' | 'failure';
-  duration: number;
-  duplicatesFound: number;
 }
 
 /**

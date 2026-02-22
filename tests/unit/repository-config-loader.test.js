@@ -9,7 +9,7 @@ import assert from 'node:assert';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { RepositoryConfigLoader } from '../../sidequest/pipeline-core/config/repository-config-loader.js';
+import { RepositoryConfigLoader } from '../../sidequest/pipeline-core/config/repository-config-loader.ts';
 
 describe('RepositoryConfigLoader', () => {
   let tempDir;

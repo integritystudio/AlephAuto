@@ -6,7 +6,7 @@
 
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert';
-import { InterProjectScanner } from '../../sidequest/pipeline-core/inter-project-scanner.js';
+import { InterProjectScanner } from '../../sidequest/pipeline-core/inter-project-scanner.ts';
 
 describe('InterProjectScanner', () => {
   let scanner;

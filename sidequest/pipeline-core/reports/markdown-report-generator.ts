@@ -6,8 +6,14 @@
  */
 
 import fs from 'fs/promises';
-import path from 'path';
 import { ensureParentDir } from '../utils/index.ts';
+import type { ScanResult } from './json-report-generator.ts';
+
+export interface MarkdownReportOptions {
+  includeDetails?: boolean;
+  maxDuplicates?: number;
+  maxSuggestions?: number;
+}
 
 /**
  * Generate Markdown summary reports from scan results
@@ -15,15 +21,11 @@ import { ensureParentDir } from '../utils/index.ts';
 export class MarkdownReportGenerator {
   /**
    * Generate a complete Markdown report
-   *
-   * @param {Object} scanResult - Scan result data
-   * @param {Object} options - Generation options
-   * @returns {string} - Markdown report content
    */
-  static generateReport(scanResult, options = {}) {
+  static generateReport(scanResult: ScanResult, options: MarkdownReportOptions = {}): string {
     const includeDetails = options.includeDetails !== false;
-    const maxDuplicates = options.maxDuplicates || 10;
-    const maxSuggestions = options.maxSuggestions || 10;
+    const maxDuplicates = options.maxDuplicates ?? 10;
+    const maxSuggestions = options.maxSuggestions ?? 10;
     const isInterProject = scanResult.scan_type === 'inter-project';
 
     let markdown = '';
@@ -58,29 +60,26 @@ export class MarkdownReportGenerator {
 
   /**
    * Generate a concise summary (for quick overview)
-   *
-   * @param {Object} scanResult - Scan result data
-   * @returns {string} - Concise Markdown summary
    */
-  static generateSummary(scanResult) {
+  static generateSummary(scanResult: ScanResult): string {
     const isInterProject = scanResult.scan_type === 'inter-project';
-    const metrics = scanResult.metrics || {};
+    const metrics = scanResult.metrics ?? {};
 
     let summary = '# Duplicate Detection Summary\n\n';
 
     if (isInterProject) {
-      summary += `**Scanned:** ${metrics.total_repositories_scanned || 0} repositories\n`;
-      summary += `**Code Blocks:** ${metrics.total_code_blocks || 0}\n`;
-      summary += `**Cross-Repo Duplicates:** ${metrics.total_cross_repository_groups || 0}\n`;
-      summary += `**Suggestions:** ${metrics.total_suggestions || 0}\n`;
-      summary += `**Shared Package Candidates:** ${metrics.shared_package_candidates || 0}\n`;
-      summary += `**MCP Server Candidates:** ${metrics.mcp_server_candidates || 0}\n`;
+      summary += `**Scanned:** ${metrics.total_repositories_scanned ?? 0} repositories\n`;
+      summary += `**Code Blocks:** ${metrics.total_code_blocks ?? 0}\n`;
+      summary += `**Cross-Repo Duplicates:** ${metrics.total_cross_repository_groups ?? 0}\n`;
+      summary += `**Suggestions:** ${metrics.total_suggestions ?? 0}\n`;
+      summary += `**Shared Package Candidates:** ${metrics.shared_package_candidates ?? 0}\n`;
+      summary += `**MCP Server Candidates:** ${metrics.mcp_server_candidates ?? 0}\n`;
     } else {
-      summary += `**Code Blocks:** ${metrics.total_code_blocks || 0}\n`;
-      summary += `**Duplicate Groups:** ${metrics.total_duplicate_groups || 0}\n`;
-      summary += `**Duplicated Lines:** ${metrics.total_duplicated_lines || 0}\n`;
-      summary += `**Suggestions:** ${metrics.total_suggestions || 0}\n`;
-      summary += `**Quick Wins:** ${metrics.quick_wins || 0}\n`;
+      summary += `**Code Blocks:** ${metrics.total_code_blocks ?? 0}\n`;
+      summary += `**Duplicate Groups:** ${metrics.total_duplicate_groups ?? 0}\n`;
+      summary += `**Duplicated Lines:** ${metrics.total_duplicated_lines ?? 0}\n`;
+      summary += `**Suggestions:** ${metrics.total_suggestions ?? 0}\n`;
+      summary += `**Quick Wins:** ${metrics.quick_wins ?? 0}\n`;
     }
 
     return summary;
@@ -88,12 +87,8 @@ export class MarkdownReportGenerator {
 
   /**
    * Save Markdown report to file
-   *
-   * @param {Object} scanResult - Scan result data
-   * @param {string} outputPath - Output file path
-   * @param {Object} options - Generation options
    */
-  static async saveReport(scanResult, outputPath, options = {}) {
+  static async saveReport(scanResult: ScanResult, outputPath: string, options: MarkdownReportOptions = {}): Promise<string> {
     const markdown = this.generateReport(scanResult, options);
     await ensureParentDir(outputPath);
     await fs.writeFile(outputPath, markdown);
@@ -102,11 +97,8 @@ export class MarkdownReportGenerator {
 
   /**
    * Save concise summary to file
-   *
-   * @param {Object} scanResult - Scan result data
-   * @param {string} outputPath - Output file path
    */
-  static async saveSummary(scanResult, outputPath) {
+  static async saveSummary(scanResult: ScanResult, outputPath: string): Promise<string> {
     const markdown = this.generateSummary(scanResult);
     await ensureParentDir(outputPath);
     await fs.writeFile(outputPath, markdown);
@@ -117,64 +109,62 @@ export class MarkdownReportGenerator {
 
   /**
    * Generate report header
-   *
    * @private
    */
-  static _generateHeader(scanResult, isInterProject) {
-    const metadata = scanResult.scan_metadata || {};
-    const repoInfo = scanResult.repository_info || {};
+  private static _generateHeader(scanResult: ScanResult, isInterProject: boolean): string {
+    const metadata = scanResult.scan_metadata ?? {};
+    const repoInfo = scanResult.repository_info ?? {};
     const scanType = isInterProject ? 'Inter-Project' : 'Intra-Project';
 
     let header = `# ${scanType} Duplicate Detection Report\n\n`;
 
     if (isInterProject) {
-      header += `**Repositories:** ${metadata.repository_count || 0}\n`;
+      header += `**Repositories:** ${metadata.repository_count ?? 0}\n`;
     } else {
-      header += `**Repository:** ${repoInfo.name || 'Unknown'}\n`;
-      header += `**Path:** \`${repoInfo.path || 'Unknown'}\`\n`;
+      header += `**Repository:** ${repoInfo.name ?? 'Unknown'}\n`;
+      header += `**Path:** \`${repoInfo.path ?? 'Unknown'}\`\n`;
     }
 
-    header += `**Scanned:** ${new Date(metadata.scanned_at || Date.now()).toLocaleString()}\n`;
-    header += `**Duration:** ${metadata.duration_seconds?.toFixed(2) || 0}s\n`;
+    header += `**Scanned:** ${new Date(metadata.scanned_at ?? Date.now()).toLocaleString()}\n`;
+    header += `**Duration:** ${metadata.duration_seconds?.toFixed(2) ?? 0}s\n`;
 
     return header;
   }
 
   /**
    * Generate metrics table
-   *
    * @private
    */
-  static _generateMetrics(scanResult, isInterProject) {
-    const metrics = scanResult.metrics || {};
+  private static _generateMetrics(scanResult: ScanResult, isInterProject: boolean): string {
+    const metrics = scanResult.metrics ?? {};
 
     let markdown = '## Metrics\n\n';
 
     if (isInterProject) {
       markdown += '| Metric | Value |\n';
       markdown += '|--------|-------|\n';
-      markdown += `| Repositories Scanned | ${metrics.total_repositories_scanned || 0} |\n`;
-      markdown += `| Total Code Blocks | ${metrics.total_code_blocks || 0} |\n`;
-      markdown += `| Intra-Project Groups | ${metrics.total_intra_project_groups || 0} |\n`;
-      markdown += `| Cross-Repo Groups | ${metrics.total_cross_repository_groups || 0} |\n`;
-      markdown += `| Cross-Repo Occurrences | ${metrics.cross_repository_occurrences || 0} |\n`;
-      markdown += `| Cross-Repo Duplicated Lines | ${metrics.cross_repository_duplicated_lines || 0} |\n`;
-      markdown += `| Total Suggestions | ${metrics.total_suggestions || 0} |\n`;
-      markdown += `| Shared Package Candidates | ${metrics.shared_package_candidates || 0} |\n`;
-      markdown += `| MCP Server Candidates | ${metrics.mcp_server_candidates || 0} |\n`;
-      markdown += `| Avg Repos per Duplicate | ${metrics.average_repositories_per_duplicate || 0} |\n`;
+      markdown += `| Repositories Scanned | ${metrics.total_repositories_scanned ?? 0} |\n`;
+      markdown += `| Total Code Blocks | ${metrics.total_code_blocks ?? 0} |\n`;
+      markdown += `| Intra-Project Groups | ${metrics.total_intra_project_groups ?? 0} |\n`;
+      markdown += `| Cross-Repo Groups | ${metrics.total_cross_repository_groups ?? 0} |\n`;
+      markdown += `| Cross-Repo Occurrences | ${metrics.cross_repository_occurrences ?? 0} |\n`;
+      markdown += `| Cross-Repo Duplicated Lines | ${metrics.cross_repository_duplicated_lines ?? 0} |\n`;
+      markdown += `| Total Suggestions | ${metrics.total_suggestions ?? 0} |\n`;
+      markdown += `| Shared Package Candidates | ${metrics.shared_package_candidates ?? 0} |\n`;
+      markdown += `| MCP Server Candidates | ${metrics.mcp_server_candidates ?? 0} |\n`;
+      markdown += `| Avg Repos per Duplicate | ${metrics.average_repositories_per_duplicate ?? 0} |\n`;
     } else {
       markdown += '| Metric | Value |\n';
       markdown += '|--------|-------|\n';
-      markdown += `| Total Code Blocks | ${metrics.total_code_blocks || 0} |\n`;
-      markdown += `| Duplicate Groups | ${metrics.total_duplicate_groups || 0} |\n`;
-      markdown += `| Exact Duplicates | ${metrics.exact_duplicates || 0} |\n`;
-      markdown += `| Total Duplicated Lines | ${metrics.total_duplicated_lines || 0} |\n`;
-      markdown += `| Potential LOC Reduction | ${metrics.potential_loc_reduction || 0} |\n`;
-      markdown += `| Duplication Percentage | ${metrics.duplication_percentage?.toFixed(2) || 0}% |\n`;
-      markdown += `| Total Suggestions | ${metrics.total_suggestions || 0} |\n`;
-      markdown += `| Quick Wins | ${metrics.quick_wins || 0} |\n`;
-      markdown += `| High Priority Suggestions | ${metrics.high_priority_suggestions || 0} |\n`;
+      markdown += `| Total Code Blocks | ${metrics.total_code_blocks ?? 0} |\n`;
+      markdown += `| Duplicate Groups | ${metrics.total_duplicate_groups ?? 0} |\n`;
+      markdown += `| Exact Duplicates | ${metrics.exact_duplicates ?? 0} |\n`;
+      markdown += `| Total Duplicated Lines | ${metrics.total_duplicated_lines ?? 0} |\n`;
+      markdown += `| Potential LOC Reduction | ${metrics.potential_loc_reduction ?? 0} |\n`;
+      markdown += `| Duplication Percentage | ${metrics.duplication_percentage?.toFixed(2) ?? 0}% |\n`;
+      markdown += `| Total Suggestions | ${metrics.total_suggestions ?? 0} |\n`;
+      markdown += `| Quick Wins | ${metrics.quick_wins ?? 0} |\n`;
+      markdown += `| High Priority Suggestions | ${metrics.high_priority_suggestions ?? 0} |\n`;
     }
 
     return markdown;
@@ -182,11 +172,10 @@ export class MarkdownReportGenerator {
 
   /**
    * Generate repository information (inter-project only)
-   *
    * @private
    */
-  static _generateRepositoryInfo(scanResult) {
-    const repos = scanResult.scanned_repositories || [];
+  private static _generateRepositoryInfo(scanResult: ScanResult): string {
+    const repos = scanResult.scanned_repositories ?? [];
 
     let markdown = '## Scanned Repositories\n\n';
     markdown += '| Repository | Code Blocks | Duplicate Groups | Status |\n';
@@ -194,7 +183,7 @@ export class MarkdownReportGenerator {
 
     for (const repo of repos) {
       const status = repo.error ? `❌ ${repo.error}` : '✅ Success';
-      markdown += `| ${repo.name} | ${repo.code_blocks || 0} | ${repo.duplicate_groups || 0} | ${status} |\n`;
+      markdown += `| ${repo.name} | ${repo.code_blocks ?? 0} | ${repo.duplicate_groups ?? 0} | ${status} |\n`;
     }
 
     return markdown;
@@ -202,13 +191,17 @@ export class MarkdownReportGenerator {
 
   /**
    * Generate duplicate groups section
-   *
    * @private
    */
-  static _generateDuplicateGroups(scanResult, isInterProject, maxGroups, includeDetails) {
+  private static _generateDuplicateGroups(
+    scanResult: ScanResult,
+    isInterProject: boolean,
+    maxGroups: number,
+    includeDetails: boolean
+  ): string {
     const groups = isInterProject
-      ? (scanResult.cross_repository_duplicates || [])
-      : (scanResult.duplicate_groups || []);
+      ? (scanResult.cross_repository_duplicates ?? [])
+      : (scanResult.duplicate_groups ?? []);
 
     let markdown = isInterProject
       ? '## Top Cross-Repository Duplicates\n\n'
@@ -232,7 +225,7 @@ export class MarkdownReportGenerator {
       markdown += `- **Occurrences:** ${group.occurrence_count}\n`;
 
       if (isInterProject) {
-        markdown += `- **Repositories:** ${group.repository_count} (${group.affected_repositories?.join(', ') || 'N/A'})\n`;
+        markdown += `- **Repositories:** ${group.repository_count ?? 0} (${group.affected_repositories?.join(', ') ?? 'N/A'})\n`;
       }
 
       markdown += `- **Total Lines:** ${group.total_lines}\n`;
@@ -241,7 +234,7 @@ export class MarkdownReportGenerator {
 
       if (includeDetails) {
         markdown += `- **Affected Files:**\n`;
-        const files = group.affected_files || [];
+        const files = group.affected_files ?? [];
         const maxFiles = 5;
         for (let i = 0; i < Math.min(files.length, maxFiles); i++) {
           markdown += `  - \`${files[i]}\`\n`;
@@ -259,13 +252,17 @@ export class MarkdownReportGenerator {
 
   /**
    * Generate suggestions section
-   *
    * @private
    */
-  static _generateSuggestions(scanResult, isInterProject, maxSuggestions, includeDetails) {
+  private static _generateSuggestions(
+    scanResult: ScanResult,
+    isInterProject: boolean,
+    maxSuggestions: number,
+    includeDetails: boolean
+  ): string {
     const suggestions = isInterProject
-      ? (scanResult.cross_repository_suggestions || [])
-      : (scanResult.suggestions || []);
+      ? (scanResult.cross_repository_suggestions ?? [])
+      : (scanResult.suggestions ?? []);
 
     let markdown = isInterProject
       ? '## Top Cross-Repository Suggestions\n\n'
@@ -291,17 +288,17 @@ export class MarkdownReportGenerator {
       markdown += `- **Risk:** ${this._formatRisk(suggestion.migration_risk)}\n`;
 
       if (isInterProject) {
-        const repos = suggestion.affected_repositories || [];
+        const repos = suggestion.affected_repositories ?? [];
         markdown += `- **Repositories:** ${repos.join(', ')}\n`;
       } else {
-        markdown += `- **Affected Files:** ${suggestion.affected_files_count || 0}\n`;
+        markdown += `- **Affected Files:** ${suggestion.affected_files_count ?? 0}\n`;
       }
 
       if (suggestion.breaking_changes) {
         markdown += `- **⚠️ Breaking Changes:** Yes\n`;
       }
 
-      if (suggestion.estimated_effort_hours) {
+      if (suggestion.estimated_effort_hours != null) {
         markdown += `- **Estimated Effort:** ${suggestion.estimated_effort_hours}h\n`;
       }
 
@@ -328,11 +325,10 @@ export class MarkdownReportGenerator {
 
   /**
    * Generate footer
-   *
    * @private
    */
-  static _generateFooter(scanResult) {
-    const metadata = scanResult.scan_metadata || {};
+  private static _generateFooter(scanResult: ScanResult): string {
+    const metadata = scanResult.scan_metadata ?? {};
 
     let footer = '---\n\n';
     footer += '*Report generated by Duplicate Detection Pipeline*\n\n';
@@ -346,10 +342,9 @@ export class MarkdownReportGenerator {
 
   /**
    * Format score with emoji indicator
-   *
    * @private
    */
-  static _formatScore(score) {
+  private static _formatScore(score: number): string {
     if (score >= 75) {
       return `🔴 ${score.toFixed(1)}/100 (High)`;
     } else if (score >= 50) {
@@ -361,46 +356,43 @@ export class MarkdownReportGenerator {
 
   /**
    * Format strategy with emoji
-   *
    * @private
    */
-  static _formatStrategy(strategy) {
-    const strategyMap = {
+  private static _formatStrategy(strategy: string): string {
+    const strategyMap: Record<string, string> = {
       'local_util': '📁 Local Utility',
       'shared_package': '📦 Shared Package',
       'mcp_server': '🔌 MCP Server',
       'autonomous_agent': '🤖 Autonomous Agent'
     };
-    return strategyMap[strategy] || strategy;
+    return strategyMap[strategy] ?? strategy;
   }
 
   /**
    * Format complexity with emoji
-   *
    * @private
    */
-  static _formatComplexity(complexity) {
-    const complexityMap = {
+  private static _formatComplexity(complexity: string): string {
+    const complexityMap: Record<string, string> = {
       'trivial': '🟢 Trivial',
       'simple': '🟡 Simple',
       'moderate': '🟠 Moderate',
       'complex': '🔴 Complex'
     };
-    return complexityMap[complexity] || complexity;
+    return complexityMap[complexity] ?? complexity;
   }
 
   /**
    * Format risk with emoji
-   *
    * @private
    */
-  static _formatRisk(risk) {
-    const riskMap = {
+  private static _formatRisk(risk: string): string {
+    const riskMap: Record<string, string> = {
       'minimal': '🟢 Minimal',
       'low': '🟡 Low',
       'medium': '🟠 Medium',
       'high': '🔴 High'
     };
-    return riskMap[risk] || risk;
+    return riskMap[risk] ?? risk;
   }
 }
