@@ -27,11 +27,11 @@ describe('WebSocket Server', () => {
 
   beforeEach(async () => {
     httpServer = createServer();
-    port = 3001 + Math.floor(Math.random() * 1000);
-    baseUrl = `ws://localhost:${port}`;
 
     await new Promise((resolve) => {
-      httpServer.listen(port, () => {
+      httpServer.listen(0, () => {
+        port = httpServer.address().port;
+        baseUrl = `ws://localhost:${port}`;
         wss = createWebSocketServer(httpServer);
         broadcaster = new ScanEventBroadcaster(wss);
         resolve();
@@ -46,7 +46,9 @@ describe('WebSocket Server', () => {
     }
 
     await new Promise((resolve) => {
-      const fallback = setTimeout(resolve, 2000);
+      const fallback = setTimeout(() => {
+        httpServer.close(() => resolve());
+      }, 2000);
       wss.close(() => {
         clearTimeout(fallback);
         httpServer.close(() => resolve());
@@ -64,6 +66,7 @@ describe('WebSocket Server', () => {
       const ws = new WebSocket(`${url}/ws`);
       ws.once('error', reject);
       ws.once('open', () => {
+        ws.removeListener('error', reject);
         ws.once('message', (data) => {
           const msg = JSON.parse(data.toString());
           if (msg.type === 'connected') resolve(ws);
@@ -83,7 +86,9 @@ describe('WebSocket Server', () => {
   async function connectAndSubscribe(url, channels = ['scans']) {
     const ws = await connectClient(url);
     await new Promise((resolve, reject) => {
+      ws.once('error', reject);
       ws.once('message', (data) => {
+        ws.removeListener('error', reject);
         const msg = JSON.parse(data.toString());
         if (msg.type === 'subscribed') resolve();
         else reject(new Error(`Expected subscribed, got: ${msg.type}`));
@@ -258,13 +263,18 @@ describe('WebSocket Server', () => {
 
         for (const ws of clients) {
           ws.once('message', (data) => {
-            const message = JSON.parse(data.toString());
-            assert.strictEqual(message.type, 'scan:started');
-            receivedCount++;
-            ws.close();
-            if (receivedCount === numClients) {
+            try {
+              const message = JSON.parse(data.toString());
+              assert.strictEqual(message.type, 'scan:started');
+              receivedCount++;
+              ws.close();
+              if (receivedCount === numClients) {
+                clearTimeout(timeout);
+                resolve();
+              }
+            } catch (e) {
               clearTimeout(timeout);
-              resolve();
+              reject(e);
             }
           });
         }
