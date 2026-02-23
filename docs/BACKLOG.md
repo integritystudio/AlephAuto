@@ -185,7 +185,7 @@ Technical debt and planned improvements extracted from codebase TODOs.
 
 | ID | Description | Reason |
 |----|-------------|--------|
-| LOG8 | 2 skipped tests (`mcp-server`, `websocket`) | Process/WebSocket cleanup issues (not database-related). `sidequest-server.test.js` unskipped via `:memory:` DB. |
+| LOG8 | 2 skipped tests (`mcp-server`, `websocket`) | `websocket.test.js` ✅ fixed 2026-02-23 (cleanup + API alignment). `mcp-server.test.js` remains skipped — binary (`mcp-servers/duplicate-detection/index.js`) not implemented. |
 | LOG9 | TODO comments in `schema-enhancement-pipeline.js`, `grouping.py`, `extract_blocks.py` | Feature work (Layer 3 semantic equivalence), not cleanup |
 | LOG11 | 14 deep relative imports in `api/` | Deferred to TS migration Phase 9 (`backlog/2.0/BACKLOG.md`) |
 | LOG12 | `doppler-resilience.example.js` (290 lines) | Kept as reference documentation for circuit breaker pattern |
