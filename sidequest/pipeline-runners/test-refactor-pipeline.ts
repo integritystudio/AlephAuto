@@ -11,7 +11,7 @@
  *   DRY_RUN=true node pipelines/test-refactor-pipeline.js       # Analysis only
  */
 
-import { TestRefactorWorker } from '../workers/test-refactor-worker.js';
+import { TestRefactorWorker } from '../workers/test-refactor-worker.ts';
 import { DirectoryScanner } from '../utils/directory-scanner.js';
 import { createComponentLogger } from '../utils/logger.ts';
 import { config } from '../core/config.ts';

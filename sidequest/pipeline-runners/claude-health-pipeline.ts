@@ -27,7 +27,7 @@
  *   SKIP_PLUGINS - Skip plugin analysis (default: false)
  */
 
-import { ClaudeHealthWorker } from '../workers/claude-health-worker.js';
+import { ClaudeHealthWorker } from '../workers/claude-health-worker.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
 import cron from 'node-cron';
