@@ -5,7 +5,7 @@
  * Identifies candidates for shared abstractions (packages, MCP servers, etc.).
  */
 
-import { ScanOrchestrator, ScanResult, CodeBlock, DuplicateGroup, ConsolidationSuggestion } from './scan-orchestrator.ts';
+import { ScanOrchestrator, type ScanResult, type CodeBlock, type DuplicateGroup, type ConsolidationSuggestion } from './scan-orchestrator.ts';
 import { createComponentLogger, logError, logStart, logStage } from '../utils/logger.ts';
 import path from 'path';
 import fs from 'fs/promises';
