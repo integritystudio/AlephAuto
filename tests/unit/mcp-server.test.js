@@ -9,17 +9,18 @@ const logger = createComponentLogger('MCPServerTest');
 /**
  * SKIPPED: MCP Server Tests
  *
- * Issue: Child process not terminating cleanly after tests
- * Root cause: spawn() process not receiving SIGTERM properly in test context
- * Impact: Tests hang waiting for process exit, blocking CI pipeline
+ * Issue: mcp-servers/duplicate-detection/index.js does not exist
+ * Root cause: MCP server binary has not been implemented yet
+ * Impact: All tests would fail with ENOENT on spawn()
  *
  * Fix required:
- * 1. Add proper process.kill() with SIGKILL fallback
- * 2. Implement process exit timeout handling
- * 3. Consider using detached: true with process group kill
+ * 1. Implement mcp-servers/duplicate-detection/index.js
+ * 2. Once the binary exists, fix process cleanup:
+ *    - Add SIGKILL fallback after SIGTERM timeout
+ *    - Add afterEach cleanup for serverProcess
  *
- * Tracking: Technical debt - child process cleanup (Q1 2026)
- * Related: websocket.test.js, sidequest-server.test.js (similar async cleanup issues)
+ * Tracking: Blocked on MCP server implementation
+ * Related: websocket.test.js (fixed 2026-02-23)
  */
 describe.skip('MCP Server', () => {
   let serverProcess;

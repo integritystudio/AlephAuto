@@ -6,21 +6,19 @@ import { createWebSocketServer } from '../../api/websocket.js';
 import { ScanEventBroadcaster } from '../../api/event-broadcaster.js';
 
 /**
- * SKIPPED: WebSocket Server Tests
+ * WebSocket Server Integration Tests
  *
- * Issue: Race conditions in WebSocket connection/disconnection during tests
- * Root cause: Async cleanup not completing before next test starts
- * Impact: Tests hang intermittently, blocking CI pipeline
+ * Fixed (2026-02-23):
+ * 1. afterEach now calls ws.terminate() on all clients before wss.close(),
+ *    preventing the server from hanging while waiting for graceful disconnects.
+ * 2. Updated assertions to match current API: total_clients, message.type,
+ *    flat message fields (scan_id, stage, etc. at top level, not nested in data).
+ * 3. Added connectAndSubscribe helper to handle welcome message + subscription
+ *    handshake before testing channel-filtered broadcasts.
  *
- * Fix required:
- * 1. Implement proper WebSocket connection draining
- * 2. Add connection state tracking for cleanup verification
- * 3. Use test isolation with unique ports per test
- *
- * Tracking: Technical debt - async cleanup patterns (Q1 2026)
- * Related: sidequest-server.test.js, mcp-server.test.js (same pattern)
+ * Related: mcp-server.test.js (still skipped — mcp-servers/ binary not present)
  */
-describe.skip('WebSocket Server', () => {
+describe('WebSocket Server', () => {
   let httpServer;
   let wss;
   let broadcaster;
@@ -28,14 +26,12 @@ describe.skip('WebSocket Server', () => {
   let port;
 
   beforeEach(async () => {
-    // Create HTTP server for testing
     httpServer = createServer();
-    port = 3001 + Math.floor(Math.random() * 1000); // Random port to avoid conflicts
+    port = 3001 + Math.floor(Math.random() * 1000);
     baseUrl = `ws://localhost:${port}`;
 
     await new Promise((resolve) => {
       httpServer.listen(port, () => {
-        // Initialize WebSocket server
         wss = createWebSocketServer(httpServer);
         broadcaster = new ScanEventBroadcaster(wss);
         resolve();
@@ -44,437 +40,339 @@ describe.skip('WebSocket Server', () => {
   });
 
   afterEach(async () => {
-    // Give WebSocket connections time to fully close
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    // Terminate all open connections so wss.close() callback fires immediately
+    for (const client of wss.clients) {
+      client.terminate();
+    }
 
-    // Clean up
     await new Promise((resolve) => {
-      if (wss) {
-        wss.close(() => {
-          if (httpServer) {
-            httpServer.close(() => resolve());
-          } else {
-            resolve();
-          }
-        });
-      } else if (httpServer) {
+      const fallback = setTimeout(resolve, 2000);
+      wss.close(() => {
+        clearTimeout(fallback);
         httpServer.close(() => resolve());
-      } else {
-        resolve();
-      }
+      });
     });
   });
 
+  /**
+   * Connect and wait for the 'connected' welcome message.
+   * @param {string} url - Base ws:// URL (without path)
+   * @returns {Promise<WebSocket>}
+   */
+  function connectClient(url) {
+    return new Promise((resolve, reject) => {
+      const ws = new WebSocket(`${url}/ws`);
+      ws.once('error', reject);
+      ws.once('open', () => {
+        ws.once('message', (data) => {
+          const msg = JSON.parse(data.toString());
+          if (msg.type === 'connected') resolve(ws);
+          else reject(new Error(`Expected connected, got: ${msg.type}`));
+        });
+      });
+    });
+  }
+
+  /**
+   * Connect, receive welcome, then subscribe to a channel.
+   * After this resolves the client will receive filtered broadcasts.
+   * @param {string} url - Base ws:// URL
+   * @param {string[]} channels - Channels to subscribe to
+   * @returns {Promise<WebSocket>}
+   */
+  async function connectAndSubscribe(url, channels = ['scans']) {
+    const ws = await connectClient(url);
+    await new Promise((resolve, reject) => {
+      ws.once('message', (data) => {
+        const msg = JSON.parse(data.toString());
+        if (msg.type === 'subscribed') resolve();
+        else reject(new Error(`Expected subscribed, got: ${msg.type}`));
+      });
+      ws.send(JSON.stringify({ type: 'subscribe', channels }));
+    });
+    return ws;
+  }
+
   describe('Connection Handling', () => {
-    test('should accept WebSocket connections', (done) => {
-      const ws = new WebSocket(`${baseUrl}/ws`);
-      let finished = false;
-
-      ws.on('open', () => {
-        assert.ok(true, 'Connection established');
-        ws.close();
-      });
-
-      ws.on('close', () => {
-        if (!finished) {
-          finished = true;
-          done();
-        }
-      });
-
-      ws.on('error', () => {
-        // Ignore errors during cleanup
-        if (!finished) {
-          finished = true;
-          done();
-        }
-      });
-    });
-
-    test('should handle multiple concurrent connections', (done) => {
-      const connections = [];
-      const numConnections = 5;
-      let openCount = 0;
-      let closeCount = 0;
-      let finished = false;
-
-      for (let i = 0; i < numConnections; i++) {
+    test('should accept WebSocket connections', () => {
+      return new Promise((resolve, reject) => {
         const ws = new WebSocket(`${baseUrl}/ws`);
-        connections.push(ws);
-
         ws.on('open', () => {
-          openCount++;
-          if (openCount === numConnections) {
-            assert.strictEqual(openCount, numConnections);
-            // Close all connections
-            connections.forEach(conn => conn.close());
-          }
+          assert.ok(true, 'Connection established');
+          ws.close();
         });
-
-        ws.on('close', () => {
-          closeCount++;
-          if (closeCount === numConnections && !finished) {
-            finished = true;
-            done();
-          }
-        });
-
-        ws.on('error', () => {
-          // Ignore errors during cleanup
-        });
-      }
+        ws.on('close', () => resolve());
+        ws.on('error', reject);
+      });
     });
 
-    test('should track connected clients', (done) => {
-      const ws = new WebSocket(`${baseUrl}/ws`);
-      let finished = false;
+    test('should handle multiple concurrent connections', () => {
+      return new Promise((resolve, reject) => {
+        const numConnections = 5;
+        let openCount = 0;
+        let closeCount = 0;
+        const connections = [];
 
-      ws.on('open', () => {
-        const info = wss.getClientInfo();
-        assert.ok(info.connected_clients >= 1);
-        assert.ok(typeof info.total_connections === 'number');
-        ws.close();
-      });
+        for (let i = 0; i < numConnections; i++) {
+          const ws = new WebSocket(`${baseUrl}/ws`);
+          connections.push(ws);
 
-      ws.on('close', () => {
-        if (!finished) {
-          finished = true;
-          done();
+          ws.on('open', () => {
+            openCount++;
+            if (openCount === numConnections) {
+              assert.strictEqual(openCount, numConnections);
+              connections.forEach(conn => conn.close());
+            }
+          });
+
+          ws.on('close', () => {
+            closeCount++;
+            if (closeCount === numConnections) resolve();
+          });
+
+          ws.on('error', reject);
         }
       });
+    });
 
-      ws.on('error', () => {
-        // Ignore errors during cleanup
-        if (!finished) {
-          finished = true;
-          done();
-        }
+    test('should track connected clients', () => {
+      return new Promise((resolve, reject) => {
+        const ws = new WebSocket(`${baseUrl}/ws`);
+        ws.on('open', () => {
+          try {
+            const info = wss.getClientInfo();
+            assert.ok(info.total_clients >= 1, 'Should have at least 1 client');
+            assert.strictEqual(typeof info.total_clients, 'number');
+          } catch (e) {
+            reject(e);
+            return;
+          }
+          ws.close();
+        });
+        ws.on('close', () => resolve());
+        ws.on('error', reject);
       });
     });
   });
 
   describe('Event Broadcasting', () => {
-    test('should broadcast scan:started event', (done) => {
-      const ws = new WebSocket(`${baseUrl}/ws`);
-      let finished = false;
+    test('should broadcast scan:started event', async () => {
+      const ws = await connectAndSubscribe(baseUrl);
 
-      ws.on('open', () => {
-        broadcaster.broadcastScanStarted('test-scan-1', '/test/repo');
-      });
-
-      ws.on('message', (data) => {
-        const message = JSON.parse(data.toString());
-        assert.strictEqual(message.event, 'scan:started');
-        assert.strictEqual(message.data.scan_id, 'test-scan-1');
-        assert.strictEqual(message.data.repository_path, '/test/repo');
-        assert.ok(message.timestamp);
-        ws.close();
-      });
-
-      ws.on('close', () => {
-        if (!finished) {
-          finished = true;
-          done();
-        }
-      });
-
-      ws.on('error', () => {
-        // Ignore errors during cleanup
+      await new Promise((resolve, reject) => {
+        ws.once('message', (data) => {
+          try {
+            const message = JSON.parse(data.toString());
+            assert.strictEqual(message.type, 'scan:started');
+            assert.strictEqual(message.scan_id, 'test-scan-1');
+            assert.ok(message.timestamp);
+            ws.close();
+          } catch (e) {
+            reject(e);
+          }
+        });
+        ws.once('close', resolve);
+        ws.once('error', reject);
+        broadcaster.broadcastScanStarted('test-scan-1', { repository: '/test/repo' });
       });
     });
 
-    test('should broadcast scan:progress event', (done) => {
-      const ws = new WebSocket(`${baseUrl}/ws`);
-      let finished = false;
+    test('should broadcast scan:progress event', async () => {
+      const ws = await connectAndSubscribe(baseUrl);
 
-      ws.on('open', () => {
-        broadcaster.broadcastScanProgress('test-scan-2', {
-          stage: 'extraction',
-          blocks_found: 42
+      await new Promise((resolve, reject) => {
+        ws.once('message', (data) => {
+          try {
+            const message = JSON.parse(data.toString());
+            assert.strictEqual(message.type, 'scan:progress');
+            assert.strictEqual(message.scan_id, 'test-scan-2');
+            assert.strictEqual(message.stage, 'extraction');
+            ws.close();
+          } catch (e) {
+            reject(e);
+          }
+        });
+        ws.once('close', resolve);
+        ws.once('error', reject);
+        broadcaster.broadcastProgress('test-scan-2', { stage: 'extraction', percent: 42 });
+      });
+    });
+
+    test('should broadcast scan:completed event', async () => {
+      const ws = await connectAndSubscribe(baseUrl);
+
+      await new Promise((resolve, reject) => {
+        ws.once('message', (data) => {
+          try {
+            const message = JSON.parse(data.toString());
+            assert.strictEqual(message.type, 'scan:completed');
+            assert.strictEqual(message.scan_id, 'test-scan-3');
+            assert.ok(message.metrics, 'Should have metrics');
+            ws.close();
+          } catch (e) {
+            reject(e);
+          }
+        });
+        ws.once('close', resolve);
+        ws.once('error', reject);
+        broadcaster.broadcastScanCompleted('test-scan-3', {
+          duration_seconds: 1.2,
+          metrics: { total_duplicate_groups: 5, total_suggestions: 3 }
         });
       });
+    });
 
-      ws.on('message', (data) => {
-        const message = JSON.parse(data.toString());
-        assert.strictEqual(message.event, 'scan:progress');
-        assert.strictEqual(message.data.scan_id, 'test-scan-2');
-        assert.strictEqual(message.data.progress.stage, 'extraction');
-        assert.strictEqual(message.data.progress.blocks_found, 42);
-        ws.close();
-      });
+    test('should broadcast scan:failed event', async () => {
+      const ws = await connectAndSubscribe(baseUrl);
 
-      ws.on('close', () => {
-        if (!finished) {
-          finished = true;
-          done();
-        }
-      });
-
-      ws.on('error', () => {
-        // Ignore errors during cleanup
+      await new Promise((resolve, reject) => {
+        ws.once('message', (data) => {
+          try {
+            const message = JSON.parse(data.toString());
+            assert.strictEqual(message.type, 'scan:failed');
+            assert.strictEqual(message.scan_id, 'test-scan-4');
+            assert.strictEqual(message.error.message, 'Test error message');
+            ws.close();
+          } catch (e) {
+            reject(e);
+          }
+        });
+        ws.once('close', resolve);
+        ws.once('error', reject);
+        broadcaster.broadcastScanFailed('test-scan-4', new Error('Test error message'));
       });
     });
 
-    test('should broadcast scan:completed event', (done) => {
-      const ws = new WebSocket(`${baseUrl}/ws`);
-      let finished = false;
-      const results = {
-        total_blocks: 100,
-        duplicate_groups: 5,
-        total_suggestions: 3
-      };
-
-      ws.on('open', () => {
-        broadcaster.broadcastScanCompleted('test-scan-3', results);
-      });
-
-      ws.on('message', (data) => {
-        const message = JSON.parse(data.toString());
-        assert.strictEqual(message.event, 'scan:completed');
-        assert.strictEqual(message.data.scan_id, 'test-scan-3');
-        assert.deepStrictEqual(message.data.results, results);
-        ws.close();
-      });
-
-      ws.on('close', () => {
-        if (!finished) {
-          finished = true;
-          done();
-        }
-      });
-
-      ws.on('error', () => {
-        // Ignore errors during cleanup
-      });
-    });
-
-    test('should broadcast scan:failed event', (done) => {
-      const ws = new WebSocket(`${baseUrl}/ws`);
-      let finished = false;
-
-      ws.on('open', () => {
-        broadcaster.broadcastScanFailed('test-scan-4', 'Test error message');
-      });
-
-      ws.on('message', (data) => {
-        const message = JSON.parse(data.toString());
-        assert.strictEqual(message.event, 'scan:failed');
-        assert.strictEqual(message.data.scan_id, 'test-scan-4');
-        assert.strictEqual(message.data.error, 'Test error message');
-        ws.close();
-      });
-
-      ws.on('close', () => {
-        if (!finished) {
-          finished = true;
-          done();
-        }
-      });
-
-      ws.on('error', () => {
-        // Ignore errors during cleanup
-      });
-    });
-
-    test('should broadcast to all connected clients', (done) => {
-      const clients = [];
+    test('should broadcast to all connected clients', async () => {
       const numClients = 3;
+      const clients = await Promise.all(
+        Array.from({ length: numClients }, () => connectAndSubscribe(baseUrl))
+      );
+
       let receivedCount = 0;
-      let closedCount = 0;
-      let finished = false;
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(
+          () => reject(new Error('Timeout: not all clients received broadcast')),
+          5000
+        );
 
-      for (let i = 0; i < numClients; i++) {
-        const ws = new WebSocket(`${baseUrl}/ws`);
-        clients.push(ws);
+        for (const ws of clients) {
+          ws.once('message', (data) => {
+            const message = JSON.parse(data.toString());
+            assert.strictEqual(message.type, 'scan:started');
+            receivedCount++;
+            ws.close();
+            if (receivedCount === numClients) {
+              clearTimeout(timeout);
+              resolve();
+            }
+          });
+        }
 
-        ws.on('message', (data) => {
-          const message = JSON.parse(data.toString());
-          assert.strictEqual(message.event, 'scan:started');
-          receivedCount++;
-
-          if (receivedCount === numClients) {
-            assert.strictEqual(receivedCount, numClients, 'All clients received broadcast');
-            clients.forEach(client => client.close());
-          }
-        });
-
-        ws.on('close', () => {
-          closedCount++;
-          if (closedCount === numClients && !finished) {
-            finished = true;
-            done();
-          }
-        });
-
-        ws.on('error', () => {
-          // Ignore errors during cleanup
-        });
-      }
-
-      // Wait for all clients to connect
-      setTimeout(() => {
-        broadcaster.broadcastScanStarted('broadcast-test', '/test/repo');
-      }, 100);
+        broadcaster.broadcastScanStarted('broadcast-test', { repository: '/test/repo' });
+      });
     });
   });
 
   describe('Message Format', () => {
-    test('all messages should include timestamp', (done) => {
-      const ws = new WebSocket(`${baseUrl}/ws`);
-      let finished = false;
+    test('all messages should include timestamp', async () => {
+      const ws = await connectAndSubscribe(baseUrl);
 
-      ws.on('open', () => {
-        broadcaster.broadcastScanStarted('test-timestamp', '/test');
-      });
-
-      ws.on('message', (data) => {
-        const message = JSON.parse(data.toString());
-        assert.ok(message.timestamp);
-        const timestamp = new Date(message.timestamp);
-        assert.ok(!isNaN(timestamp.getTime()));
-        ws.close();
-      });
-
-      ws.on('close', () => {
-        if (!finished) {
-          finished = true;
-          done();
-        }
-      });
-
-      ws.on('error', () => {
-        // Ignore errors during cleanup
-      });
-    });
-
-    test('all messages should include event type', (done) => {
-      const ws = new WebSocket(`${baseUrl}/ws`);
-      let finished = false;
-
-      ws.on('open', () => {
-        broadcaster.broadcastScanProgress('test-event', { stage: 'test' });
-      });
-
-      ws.on('message', (data) => {
-        const message = JSON.parse(data.toString());
-        assert.ok(message.event);
-        assert.strictEqual(typeof message.event, 'string');
-        ws.close();
-      });
-
-      ws.on('close', () => {
-        if (!finished) {
-          finished = true;
-          done();
-        }
-      });
-
-      ws.on('error', () => {
-        // Ignore errors during cleanup
-      });
-    });
-
-    test('messages should be valid JSON', (done) => {
-      const ws = new WebSocket(`${baseUrl}/ws`);
-      let finished = false;
-
-      ws.on('open', () => {
-        broadcaster.broadcastScanCompleted('test-json', { test: true });
-      });
-
-      ws.on('message', (data) => {
-        assert.doesNotThrow(() => {
-          JSON.parse(data.toString());
+      await new Promise((resolve, reject) => {
+        ws.once('message', (data) => {
+          try {
+            const message = JSON.parse(data.toString());
+            assert.ok(message.timestamp, 'Should have timestamp');
+            assert.ok(!isNaN(new Date(message.timestamp).getTime()), 'Timestamp should be valid ISO');
+            ws.close();
+          } catch (e) {
+            reject(e);
+          }
         });
-        ws.close();
+        ws.once('close', resolve);
+        ws.once('error', reject);
+        broadcaster.broadcastScanStarted('test-timestamp', { repository: '/test' });
       });
+    });
 
-      ws.on('close', () => {
-        if (!finished) {
-          finished = true;
-          done();
-        }
+    test('all messages should include type field', async () => {
+      const ws = await connectAndSubscribe(baseUrl);
+
+      await new Promise((resolve, reject) => {
+        ws.once('message', (data) => {
+          try {
+            const message = JSON.parse(data.toString());
+            assert.ok(message.type, 'Should have type field');
+            assert.strictEqual(typeof message.type, 'string');
+            ws.close();
+          } catch (e) {
+            reject(e);
+          }
+        });
+        ws.once('close', resolve);
+        ws.once('error', reject);
+        broadcaster.broadcastProgress('test-event', { stage: 'test' });
       });
+    });
 
-      ws.on('error', () => {
-        // Ignore errors during cleanup
+    test('messages should be valid JSON', async () => {
+      const ws = await connectAndSubscribe(baseUrl);
+
+      await new Promise((resolve, reject) => {
+        ws.once('message', (data) => {
+          try {
+            assert.doesNotThrow(() => JSON.parse(data.toString()));
+            ws.close();
+          } catch (e) {
+            reject(e);
+          }
+        });
+        ws.once('close', resolve);
+        ws.once('error', reject);
+        broadcaster.broadcastScanCompleted('test-json', {});
       });
     });
   });
 
   describe('Error Handling', () => {
-    test('should handle client disconnection gracefully', (done) => {
-      const ws = new WebSocket(`${baseUrl}/ws`);
-      let finished = false;
-
-      ws.on('open', () => {
-        ws.close();
-      });
-
-      ws.on('close', () => {
-        // Server should handle disconnection without errors
-        if (!finished) {
-          finished = true;
+    test('should handle client disconnection gracefully', () => {
+      return new Promise((resolve, reject) => {
+        const ws = new WebSocket(`${baseUrl}/ws`);
+        ws.on('open', () => ws.close());
+        ws.on('close', () => {
           assert.ok(true, 'Client disconnected gracefully');
-          done();
-        }
-      });
-
-      ws.on('error', () => {
-        // Ignore errors during cleanup
+          resolve();
+        });
+        ws.on('error', reject);
       });
     });
 
-    test('should continue broadcasting after client disconnects', (done) => {
-      const ws1 = new WebSocket(`${baseUrl}/ws`);
-      const ws2 = new WebSocket(`${baseUrl}/ws`);
-      let finished = false;
+    test('should continue broadcasting after client disconnects', async () => {
+      const ws1 = await connectAndSubscribe(baseUrl);
+      const ws2 = await connectAndSubscribe(baseUrl);
 
-      let ws1Ready = false;
-      let ws2Ready = false;
-
-      ws1.on('open', () => {
-        ws1Ready = true;
-        checkBothReady();
+      // Disconnect first client and wait for server to process the close
+      await new Promise((resolve) => {
+        ws1.on('close', resolve);
+        ws1.close();
       });
+      // Small delay for server-side close handler to run
+      await new Promise(r => setTimeout(r, 50));
 
-      ws2.on('open', () => {
-        ws2Ready = true;
-        checkBothReady();
-      });
-
-      function checkBothReady() {
-        if (ws1Ready && ws2Ready) {
-          // Close first client
-          ws1.close();
-
-          // Broadcast after one client disconnected
-          setTimeout(() => {
-            broadcaster.broadcastScanStarted('after-disconnect', '/test');
-          }, 50);
-        }
-      }
-
-      ws2.on('message', (data) => {
-        const message = JSON.parse(data.toString());
-        assert.strictEqual(message.event, 'scan:started');
-        assert.strictEqual(message.data.scan_id, 'after-disconnect');
-        ws2.close();
-      });
-
-      ws2.on('close', () => {
-        if (!finished) {
-          finished = true;
-          done();
-        }
-      });
-
-      ws1.on('error', () => {
-        // Ignore errors during cleanup
-      });
-
-      ws2.on('error', () => {
-        // Ignore errors during cleanup
+      await new Promise((resolve, reject) => {
+        ws2.once('message', (data) => {
+          try {
+            const message = JSON.parse(data.toString());
+            assert.strictEqual(message.type, 'scan:started');
+            assert.strictEqual(message.scan_id, 'after-disconnect');
+            ws2.close();
+          } catch (e) {
+            reject(e);
+          }
+        });
+        ws2.once('close', resolve);
+        ws2.once('error', reject);
+        broadcaster.broadcastScanStarted('after-disconnect', { repository: '/test' });
       });
     });
   });

@@ -48,14 +48,13 @@ The content is organized as follows:
 .claude/
   settings.local.json
 core/
-  config.js
-  constants.js
-  database.js
-  git-workflow-manager.js
-  index.js
-  job-repository.js
-  server.d.ts
-  server.js
+  config.ts
+  constants.ts
+  database.ts
+  git-workflow-manager.ts
+  index.ts
+  job-repository.ts
+  server.ts
 pipeline-core/
   .claude/
     settings.local.json
@@ -72,16 +71,14 @@ pipeline-core/
   config/
     repository-config-loader.js
   errors/
-    error-classifier.js
-    error-types.d.ts
-    types.d.ts
+    error-classifier.ts
   extractors/
     extract_blocks.py
     test_extract_blocks.py
   git/
-    branch-manager.js
-    migration-transformer.js
-    pr-creator.js
+    branch-manager.ts
+    migration-transformer.ts
+    pr-creator.ts
   models/
     __init__.py
     __init__.pyi
@@ -123,25 +120,22 @@ pipeline-core/
   utils/
     __init__.py
     __init__.pyi
-    error-helpers.js
-    fs-helpers.js
-    index.js
-    process-helpers.js
-    timing-helpers.js
+    error-helpers.ts
+    fs-helpers.ts
+    index.ts
+    process-helpers.ts
+    timing-helpers.ts
     timing.py
     timing.pyi
   doppler-health-monitor.js
   inter-project-scanner.js
   py.typed
-  scan-orchestrator.d.ts
-  scan-orchestrator.js
   scan-orchestrator.ts
 pipeline-runners/
   bugfix-audit-pipeline.js
   claude-health-pipeline.js
   collect_git_activity.py
   dashboard-populate-pipeline.js
-  duplicate-detection-pipeline.js
   duplicate-detection-pipeline.ts
   git-activity-pipeline.js
   gitignore-pipeline.js
@@ -159,14 +153,13 @@ utils/
   doppler-resilience.example.js
   doppler-resilience.js
   gitignore-repomix-updater.js
-  logger.d.ts
-  logger.js
-  pipeline-names.js
+  logger.ts
+  pipeline-names.ts
   plugin-manager.js
   refactor-test-suite.ts
   report-generator.js
   schema-mcp-tools.js
-  time-helpers.js
+  time-helpers.ts
 workers/
   bugfix-audit-worker.js
   claude-health-worker.js
@@ -212,96 +205,335 @@ This section contains the contents of the repository's files.
 }
 </file>
 
-<file path="core/config.js">
-function safeParseInt(value, defaultValue, min, max)
-function safeParseFloat(value, defaultValue, min, max)
+<file path="core/config.ts">
+import path from 'path';
+import os from 'os';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 ⋮----
-function validateConfig()
+function safeParseInt(value: string | undefined, defaultValue: number, min?: number, max?: number): number
+function safeParseFloat(value: string | undefined, defaultValue: number, min?: number, max?: number): number
+⋮----
+function validateConfig(): void
 </file>
 
-<file path="core/constants.js">
+<file path="core/constants.ts">
 
 </file>
 
-<file path="core/database.js">
-function safeJsonParse(str, fallback = null)
-export async function initDatabase(dbPath)
-export function getDatabase()
-export function isDatabaseReady()
-export function saveJob(job)
-function queryAll(sql, params = [])
-function queryOne(sql, params = [])
-export function getJobs(pipelineId, options =
-export function getJobById(id)
-export function getJobCount(options =
-export function getAllJobs(options =
-export function getJobCounts(pipelineId)
-export function getLastJob(pipelineId)
-export function getAllPipelineStats()
-export async function importReportsToDatabase(reportsDir)
+<file path="core/database.ts">
+import Database from 'better-sqlite3';
+type DatabaseType = InstanceType<typeof Database>;
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import { createComponentLogger, logMetrics } from '../utils/logger.ts';
+import { isValidJobStatus } from '../../api/types/job-status.ts';
+import { VALIDATION } from './constants.ts';
+⋮----
+export interface JobRow {
+  id: string;
+  pipeline_id: string;
+  status: string;
+  data: string | null;
+  result: string | null;
+  error: string | null;
+  git: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+}
+export interface ParsedJobError {
+  message: string;
+  stack?: string;
+  code?: string;
+  cancelled?: boolean;
+}
+function isParsedJobError(value: unknown): value is ParsedJobError
+export interface ParsedJob {
+  id: string;
+  pipelineId: string;
+  status: string;
+  data: unknown;
+  result: unknown;
+  error: ParsedJobError | null;
+  git: unknown;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+export interface JobQueryOptions {
+  status?: string;
+  limit?: number;
+  offset?: number;
+  tab?: string;
+  includeTotal?: boolean;
+}
+export interface AllJobsQueryOptions {
+  status?: string;
+  limit?: number;
+  offset?: number;
+}
+export interface JobCounts {
+  total: number;
+  completed: number;
+  failed: number;
+  running: number;
+  queued: number;
+}
+export interface PipelineStats {
+  pipelineId: string;
+  total: number;
+  completed: number;
+  failed: number;
+  running: number;
+  queued: number;
+  lastRun: string | null;
+}
+export interface BulkImportResult {
+  imported: number;
+  skipped: number;
+  errors: string[];
+}
+export interface HealthStatus {
+  initialized: boolean;
+  degradedMode: boolean;
+  persistenceWorking: boolean;
+  persistFailureCount: number;
+  recoveryAttempts: number;
+  queuedWrites: number;
+  queueStalenessMs: number;
+  dbPath: string;
+  dbSizeBytes: number;
+  memoryPressure: string;
+  status: string;
+  message: string;
+}
+export interface SaveJobInput {
+  id: string;
+  pipelineId?: string;
+  status: string;
+  createdAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  data?: unknown;
+  result?: unknown;
+  error?: unknown;
+  git?: unknown;
+}
+export interface BulkImportJob {
+  id: string;
+  pipeline_id?: string;
+  pipelineId?: string;
+  status: string;
+  created_at?: string;
+  createdAt?: string;
+  started_at?: string | null;
+  startedAt?: string | null;
+  completed_at?: string | null;
+  completedAt?: string | null;
+  data?: unknown;
+  result?: unknown;
+  error?: unknown;
+  git?: unknown;
+}
+function safeJsonParse(str: string | null, fallback: unknown = null): unknown
+function rowToParsedJob(row: JobRow): ParsedJob
+export async function initDatabase(dbPath?: string): Promise<DatabaseType>
+export function getDatabase(): DatabaseType
+export function isDatabaseReady(): boolean
+export function saveJob(job: SaveJobInput): void
+function queryAll(sql: string, params: (string | number)[] = []): JobRow[]
+function queryOne<T = Record<string, unknown>>(sql: string, params: (string | number)[] = []): T | null
+export function getJobs(pipelineId: string, options: JobQueryOptions =
+export function getJobById(id: string): ParsedJob | null
+export function getJobCount(options:
+export function getAllJobs(options: AllJobsQueryOptions =
+export function getJobCounts(pipelineId: string): JobCounts | null
+export function getLastJob(pipelineId: string): ParsedJob | null
+export function getAllPipelineStats(): PipelineStats[]
+export async function importReportsToDatabase(reportsDir: string): Promise<number>
 ⋮----
 // Check if already imported
 ⋮----
 // Import as completed job
 ⋮----
-export async function importLogsToDatabase(logsDir)
+export async function importLogsToDatabase(logsDir: string): Promise<number>
 ⋮----
 // Check if already imported
 ⋮----
 // Determine status from content
 ⋮----
-export function getHealthStatus()
-export function closeDatabase()
-function isValidJobId(id)
-export function bulkImportJobs(jobs)
+export function getHealthStatus(): HealthStatus
+export function closeDatabase(): void
+function isValidJobId(id: string): boolean
+export function bulkImportJobs(jobs: BulkImportJob[]): BulkImportResult
 </file>
 
-<file path="core/git-workflow-manager.js">
+<file path="core/git-workflow-manager.ts">
+import { BranchManager } from '../pipeline-core/git/branch-manager.ts';
+import type { BranchManagerOptions, JobBranchContext, BranchResult, PRContext } from '../pipeline-core/git/branch-manager.ts';
+import { createComponentLogger, logError, logWarn } from '../utils/logger.ts';
+⋮----
+export interface CommitMessage {
+  title: string;
+  body: string;
+}
+export interface MessageGenerator {
+  generateCommitMessage(): Promise<CommitMessage>;
+  generatePRContext(): Promise<PRContext>;
+}
+⋮----
+generateCommitMessage(): Promise<CommitMessage>;
+generatePRContext(): Promise<PRContext>;
+⋮----
+export interface GitInfo {
+  branchName: string;
+  originalBranch: string;
+}
+export interface CommitContext {
+  message: string;
+  description?: string;
+  jobId?: string;
+}
+export interface WorkflowResult {
+  changedFiles: string[];
+  commitSha: string | null;
+  prUrl: string | null;
+}
 export class GitWorkflowManager
 ⋮----
-async createJobBranch(repositoryPath, jobInfo)
-async hasChanges(repositoryPath)
-async getChangedFiles(repositoryPath)
-async commitChanges(repositoryPath, commitContext)
-async pushBranch(repositoryPath, branchName)
-async createPullRequest(repositoryPath, prContext)
-async cleanupBranch(repositoryPath, branchName, originalBranch)
-async executeWorkflow(repositoryPath, gitInfo, messageGenerator)
+constructor(options: BranchManagerOptions =
+async createJobBranch(repositoryPath: string, jobInfo: JobBranchContext): Promise<BranchResult | null>
+async hasChanges(repositoryPath: string): Promise<boolean>
+async getChangedFiles(repositoryPath: string): Promise<string[]>
+async commitChanges(repositoryPath: string, commitContext: CommitContext): Promise<string | null>
+async pushBranch(repositoryPath: string, branchName: string): Promise<boolean>
+async createPullRequest(repositoryPath: string, prContext: PRContext): Promise<string | null>
+async cleanupBranch(repositoryPath: string, branchName: string, originalBranch: string): Promise<void>
+async executeWorkflow(repositoryPath: string, gitInfo: GitInfo, messageGenerator: MessageGenerator): Promise<WorkflowResult>
 </file>
 
-<file path="core/index.js">
+<file path="core/index.ts">
+import cron from 'node-cron';
+import { RepomixWorker } from '../workers/repomix-worker.js';
+import { DirectoryScanner } from '../utils/directory-scanner.js';
+import { config } from './config.ts';
+import { TIMEOUTS, TIME } from './constants.ts';
+import path from 'path';
+import fs from 'fs/promises';
+import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
+import type { Job, JobStats } from './server.ts';
+⋮----
+interface ScanDirectory {
+  fullPath: string;
+  relativePath: string;
+}
+interface TypedDirectoryScanner {
+  baseDir: string;
+  scanDirectories(): Promise<ScanDirectory[]>;
+  generateAndSaveScanResults(dirs: ScanDirectory[]): Promise<{
+    reportPath: string;
+    treePath: string;
+    summaryPath: string;
+    summary: {
+      maxDepth: number;
+      stats: { topDirectoryNames: Array<{ name: string }> };
+    };
+  }>;
+}
+⋮----
+scanDirectories(): Promise<ScanDirectory[]>;
+generateAndSaveScanResults(dirs: ScanDirectory[]): Promise<
+⋮----
+interface TypedRepomixWorker {
+  logDir: string;
+  outputBaseDir: string;
+  createRepomixJob(fullPath: string, relativePath: string): void;
+  getStats(): JobStats;
+  on(event: string, listener: (job: Job) => void): this;
+}
+⋮----
+createRepomixJob(fullPath: string, relativePath: string): void;
+getStats(): JobStats;
+on(event: string, listener: (job: Job)
+⋮----
 class RepomixCronApp
 ⋮----
-setupEventListeners()
-async runRepomixOnAllDirectories()
-async waitForCompletion()
-async saveRunSummary(stats, duration)
-setupCronJob(schedule = '0 2 * * *')
-async start()
+constructor()
+private setupEventListeners(): void
+async runRepomixOnAllDirectories(): Promise<void>
+private async waitForCompletion(): Promise<void>
+private async saveRunSummary(stats: JobStats, duration: number): Promise<void>
+private setupCronJob(schedule: string = '0 2 * * *'): void
+async start(): Promise<void>
 </file>
 
-<file path="core/job-repository.js">
+<file path="core/job-repository.ts">
+import {
+  initDatabase,
+  saveJob as dbSaveJob,
+  getJobById as dbGetJobById,
+  getJobCount as dbGetJobCount,
+  getJobs as dbGetJobs,
+  getAllJobs as dbGetAllJobs,
+  getJobCounts as dbGetJobCounts,
+  getLastJob as dbGetLastJob,
+  getAllPipelineStats as dbGetAllPipelineStats,
+  bulkImportJobs as dbBulkImportJobs,
+  closeDatabase as dbCloseDatabase,
+} from './database.ts';
+import type {
+  ParsedJob,
+  ParsedJobError,
+  SaveJobInput,
+  JobQueryOptions,
+  AllJobsQueryOptions,
+  JobCounts,
+  PipelineStats,
+  BulkImportResult,
+  BulkImportJob,
+} from './database.ts';
+import { createComponentLogger, logError } from '../utils/logger.ts';
+⋮----
+interface JobRepositoryOptions {
+  autoInitialize?: boolean;
+}
 class JobRepository
 ⋮----
-async initialize()
-saveJob(job)
-getJob(id)
-getJobs(pipelineId, filters =
-getAllJobs(filters =
-getJobCount(filters =
-getJobCounts(pipelineId)
-getLastJob(pipelineId)
-getAllPipelineStats()
-bulkImport(jobs)
-close()
-reset()
+constructor(options: JobRepositoryOptions =
+async initialize(): Promise<void>
+saveJob(job: SaveJobInput): void
+getJob(id: string): ParsedJob | null
+getJobs(pipelineId: string, filters: JobQueryOptions =
+getAllJobs(filters: AllJobsQueryOptions =
+getJobCount(filters:
+getJobCounts(pipelineId: string): JobCounts | null
+getLastJob(pipelineId: string): ParsedJob | null
+getAllPipelineStats(): PipelineStats[]
+bulkImport(jobs: BulkImportJob[]): BulkImportResult
+close(): void
+reset(): void
 ⋮----
-export function createJobRepository(options =
+export function createJobRepository(options: JobRepositoryOptions =
 </file>
 
-<file path="core/server.d.ts">
+<file path="core/server.ts">
 import { EventEmitter } from 'events';
-export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'paused';
+⋮----
+import { config } from './config.ts';
+import fs from 'fs/promises';
+import path from 'path';
+import { createComponentLogger, logError, logWarn } from '../utils/logger.ts';
+import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.ts';
+import { GitWorkflowManager } from './git-workflow-manager.ts';
+import { jobRepository } from './job-repository.ts';
+import { CONCURRENCY, RETRY } from './constants.ts';
+import { isRetryable, classifyError } from '../pipeline-core/errors/error-classifier.ts';
+import { toISOString } from '../utils/time-helpers.ts';
+import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '../../api/types/job-status.ts';
+import type { JobStatus } from '../../api/types/job-status.ts';
+⋮----
 export interface JobGitMetadata {
   branchName: string | null;
   originalBranch: string | null;
@@ -309,20 +541,19 @@ export interface JobGitMetadata {
   prUrl: string | null;
   changedFiles: string[];
 }
-export interface JobError {
-  message: string;
-  stack?: string;
-  code?: string;
-}
 export interface Job {
   id: string;
   status: JobStatus;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   createdAt: Date;
   startedAt: Date | null;
   completedAt: Date | null;
-  error: JobError | null;
-  result: any;
+  error: { message: string; stack?: string; code?: string; cancelled?: boolean } | null;
+  result: unknown;
+  retryCount: number;
+  retryPending?: boolean;
+  pausedAt?: Date;
+  resumedAt?: Date;
   git: JobGitMetadata;
 }
 export interface JobStats {
@@ -334,6 +565,7 @@ export interface JobStats {
 }
 export interface SidequestServerOptions {
   maxConcurrent?: number;
+  maxRetries?: number;
   logDir?: string;
   autoStart?: boolean;
   gitWorkflowEnabled?: boolean;
@@ -343,75 +575,41 @@ export interface SidequestServerOptions {
   jobType?: string;
   sentryDsn?: string;
 }
+interface JobActionResult {
+  success: boolean;
+  message: string;
+  job?: Job;
+}
 export class SidequestServer extends EventEmitter
 ⋮----
-constructor(options?: SidequestServerOptions);
-createJob(jobId: string, jobData: Record<string, any>): Job;
-processQueue(): Promise<void>;
-executeJob(jobId: string): Promise<void>;
-runJobHandler(job: unknown): Promise<unknown>;
-start(): void;
-stop(): void;
-logJobCompletion(job: Job): Promise<void>;
-logJobFailure(job: Job, error: Error): Promise<void>;
-getJob(jobId: string): Job | undefined;
-getAllJobs(): Job[];
-getStats(): JobStats;
-cancelJob(jobId: string):
-pauseJob(jobId: string):
-resumeJob(jobId: string):
-pause?(): void | Promise<void>;
-resume?(): void | Promise<void>;
-setPaused?(paused: boolean): void;
-scheduleScan?(scanType: string, repositories: unknown[], groupName?: string | null): void;
-scheduleJob?(options: Record<string, unknown>): Job | Promise<Job>;
-addJob?(options: Record<string, unknown>): Job | Promise<Job>;
-protected _generateCommitMessage?(job: unknown): Promise<
-protected _generatePRContext?(job: unknown): Promise<
-on(event: 'job:created', listener: (job: Job)
-on(event: 'job:started', listener: (job: Job)
-on(event: 'job:completed', listener: (job: Job)
-on(event: 'job:failed', listener: (job: Job, error: Error)
-on(event: 'job:cancelled', listener: (job: Job)
-on(event: 'job:paused', listener: (job: Job)
-on(event: 'job:resumed', listener: (job: Job)
-on(event: string, listener: (...args: unknown[])
-emit(event: 'job:created', job: Job): boolean;
-emit(event: 'job:started', job: Job): boolean;
-emit(event: 'job:completed', job: Job): boolean;
-emit(event: 'job:failed', job: Job, error: Error): boolean;
-emit(event: 'job:cancelled', job: Job): boolean;
-emit(event: 'job:paused', job: Job): boolean;
-emit(event: 'job:resumed', job: Job): boolean;
-emit(event: string, ...args: unknown[]): boolean;
-</file>
-
-<file path="core/server.js">
-export class SidequestServer extends EventEmitter
-⋮----
-createJob(jobId, jobData)
-async processQueue()
-async executeJob(jobId)
-_persistJob(job)
-_prepareJobForExecution(job)
-async _setupGitBranchIfEnabled(job)
-async _finalizeJobSuccess(job, result, branchCreated)
-async _finalizeJobFailure(job, error, branchCreated)
-async _handleGitWorkflowSuccess(job)
-async _generateCommitMessage(job)
-async _generatePRContext(job)
-async runJobHandler(job)
-async start()
-stop()
-set handleJob(handler)
-async logJobCompletion(job)
-async logJobFailure(job, error)
-getJob(jobId)
-getAllJobs()
-getStats()
-cancelJob(jobId)
-pauseJob(jobId)
-resumeJob(jobId)
+constructor(options: SidequestServerOptions =
+createJob(jobId: string, jobData: Record<string, unknown>): Job
+async processQueue(): Promise<void>
+async executeJob(jobId: string): Promise<void>
+private _persistJob(job: Job): void
+private _prepareJobForExecution(job: Job): void
+private async _setupGitBranchIfEnabled(job: Job): Promise<boolean>
+private async _finalizeJobSuccess(job: Job, result: unknown, branchCreated: boolean): Promise<void>
+private async _finalizeJobFailure(job: Job, error: unknown, branchCreated: boolean): Promise<void>
+private async _handleGitWorkflowSuccess(job: Job): Promise<void>
+async _generateCommitMessage(job: Job): Promise<
+async _generatePRContext(job: Job, commitMessage?:
+async runJobHandler(_job: Job): Promise<unknown>
+async start(): Promise<void>
+stop(): void
+set handleJob(handler: (job: Job) => Promise<unknown>)
+private async _writeJobLog(job: Job, suffix: string, extra?: Record<string, unknown>): Promise<void>
+async logJobCompletion(job: Job): Promise<void>
+async logJobFailure(job: Job, error: Error): Promise<void>
+getJob(jobId: string): Job | undefined
+getAllJobs(): Job[]
+getStats(): JobStats
+private _executeJobAction(jobId: string, config: {
+    action: string;
+statusGuard: (status: JobStatus)
+cancelJob(jobId: string): JobActionResult
+pauseJob(jobId: string): JobActionResult
+resumeJob(jobId: string): JobActionResult
 </file>
 
 <file path="pipeline-core/.claude/settings.local.json">
@@ -879,56 +1077,11 @@ _ensureLoaded()
 _expandPaths()
 </file>
 
-<file path="pipeline-core/errors/error-classifier.js">
-function classifyByErrorCode(errorCode)
-function classifyByHttpStatus(statusCode)
-function classifyByMessagePattern(message)
-export function classifyError(error)
-⋮----
-// Priority 4: Default classification
-⋮----
-/**
- * Check if an error is retryable.
- *
- * @param {Error} error - The error to check
- * @returns {boolean} True if the error should be retried
- */
-export function isRetryable(error)
-/**
- * Get detailed error information including classification.
- *
- * @param {Error} error - The error to analyze
- * @returns {Object} Detailed error information
- */
-export function getErrorInfo(error)
-⋮----
-const extError = /** @type {ExtendedError} */ (error);
-const httpError = /** @type {HTTPError} */ (error);
-⋮----
-function getErrorCategoryGroup(error)
-export function createScanError(message, cause)
-</file>
-
-<file path="pipeline-core/errors/error-types.d.ts">
-export interface NodeError extends Error {
-  code?: string;
-  errno?: number | string;
-  syscall?: string;
-  path?: string;
-}
-export interface ProcessError extends Error {
-  code?: number | string;
-  stdout?: string;
-  stderr?: string;
-}
+<file path="pipeline-core/errors/error-classifier.ts">
+import { RETRY } from '../../core/constants.ts';
 export interface HTTPError extends Error {
   statusCode?: number;
   status?: number;
-  response?: {
-    status?: number;
-    statusText?: string;
-    data?: any;
-  };
 }
 export interface ExtendedError extends Error {
   code?: string | number;
@@ -942,16 +1095,8 @@ export interface ExtendedError extends Error {
   response?: {
     status?: number;
     statusText?: string;
-    data?: any;
+    data?: unknown;
   };
-  cause?: Error;
-}
-</file>
-
-<file path="pipeline-core/errors/types.d.ts">
-export interface HTTPError extends Error {
-  statusCode?: number;
-  status?: number;
 }
 export interface ClassifiedError extends Error {
   retryable?: boolean;
@@ -963,8 +1108,51 @@ export interface ClassifiedError extends Error {
   statusCode?: number;
   status?: number;
 }
-export function isHTTPError(error: Error): error is HTTPError;
-export function isClassifiedError(error: Error): error is ClassifiedError;
+export interface ErrorClassification {
+  category: string;
+  reason: string;
+  suggestedDelay: number;
+}
+interface ErrorCodeConfig {
+  retryable: boolean;
+  description: string;
+  delay: number;
+  group: 'filesystem' | 'network' | 'application' | 'http';
+}
+interface MessagePatternConfig {
+  pattern: string;
+  retryable: boolean;
+  delay: number;
+}
+⋮----
+function classifyByErrorCode(errorCode: string): ErrorClassification | null
+function classifyByHttpStatus(statusCode: number): ErrorClassification | null
+function classifyByMessagePattern(message: string): ErrorClassification | null
+export function classifyError(error: Error | null | undefined): ErrorClassification
+⋮----
+// Priority 4: Default classification
+⋮----
+/**
+ * Type guard: check if an error is an HTTPError.
+ */
+export function isHTTPError(error: Error): error is HTTPError
+export function isClassifiedError(error: Error): error is ClassifiedError
+export function isRetryable(error: Error): boolean
+export interface ErrorInfo {
+  name: string;
+  message: string;
+  code: string | number | undefined;
+  statusCode: number | undefined;
+  category: string;
+  reason: string;
+  suggestedDelay: number;
+  retryable: boolean;
+  stack: string | undefined;
+  cause: unknown;
+}
+export function getErrorInfo(error: Error): ErrorInfo
+function getErrorCategoryGroup(error: Error): 'network' | 'file_system' | 'http' | 'database' | 'unknown'
+export function createScanError(message: string, cause: Error): Error
 </file>
 
 <file path="pipeline-core/extractors/extract_blocks.py">
@@ -1404,90 +1592,214 @@ passed = 0
 failed = 0
 </file>
 
-<file path="pipeline-core/git/branch-manager.js">
+<file path="pipeline-core/git/branch-manager.ts">
+import { runCommand } from '@shared/process-io';
+import { createComponentLogger, logError } from '../../utils/logger.ts';
+⋮----
+export interface BranchManagerOptions {
+  baseBranch?: string;
+  branchPrefix?: string;
+  dryRun?: boolean;
+}
+export interface JobBranchContext {
+  jobId: string;
+  jobType: string;
+  description?: string;
+}
+export interface BranchResult {
+  branchName: string;
+  originalBranch: string;
+}
+export interface CommitContext {
+  message: string;
+  jobId: string;
+  description?: string;
+}
+export interface PRContext {
+  branchName: string;
+  title: string;
+  body: string;
+  labels?: string[];
+}
 export class BranchManager
 ⋮----
-async hasChanges(repositoryPath)
-async getChangedFiles(repositoryPath)
-async getCurrentBranch(repositoryPath)
-/**
-   * Check if repository is a git repository
-   *
-   * @param {string} repositoryPath - Path to check
-   * @returns {Promise<boolean>} True if git repository
-   */
-async isGitRepository(repositoryPath)
-async createJobBranch(repositoryPath, jobContext)
-⋮----
-// Get current branch
-⋮----
-async commitChanges(repositoryPath, commitContext)
-⋮----
-// Get changed files for logging
-⋮----
-async pushBranch(repositoryPath, branchName)
-async createPullRequest(repositoryPath, prContext)
-async cleanupBranch(repositoryPath, branchName, originalBranch)
-_generateBranchName(jobContext)
-/**
-   * Generate commit message from context
-   *
-   * @param {Object} commitContext - Commit context
-   * @param {string[]} changedFiles - Changed files
-   * @returns {string} Commit message
-   * @private
-   */
-_generateCommitMessage(commitContext, changedFiles)
-async _runGitCommand(cwd, args)
-async _runCommand(cwd, command, args)
+constructor(options: BranchManagerOptions =
+async hasChanges(repositoryPath: string): Promise<boolean>
+async getChangedFiles(repositoryPath: string): Promise<string[]>
+async getCurrentBranch(repositoryPath: string): Promise<string>
+async isGitRepository(repositoryPath: string): Promise<boolean>
+async createJobBranch(repositoryPath: string, jobContext: JobBranchContext): Promise<BranchResult>
+async commitChanges(repositoryPath: string, commitContext: CommitContext): Promise<string>
+async pushBranch(repositoryPath: string, branchName: string): Promise<boolean>
+async createPullRequest(repositoryPath: string, prContext: PRContext): Promise<string | null>
+async cleanupBranch(repositoryPath: string, branchName: string, originalBranch: string): Promise<void>
+private _generateBranchName(jobContext: JobBranchContext): string
+private _generateCommitMessage(commitContext: CommitContext, changedFiles: string[]): string
+private async _runGitCommand(cwd: string, args: string[]): Promise<string>
+private async _runCommand(cwd: string, command: string, args: string[]): Promise<string>
 </file>
 
-<file path="pipeline-core/git/migration-transformer.js">
-function escapeRegExp(str)
-function parseMigrationStep(description)
+<file path="pipeline-core/git/migration-transformer.ts">
+import { parse } from '@babel/parser';
+import type { ParseResult, ParserPlugin } from '@babel/parser';
+import _traverse from '@babel/traverse';
+import type { NodePath, TraverseOptions } from '@babel/traverse';
+import _generate from '@babel/generator';
+import type { GeneratorOptions, GeneratorResult } from '@babel/generator';
+⋮----
+import type { File as BabelFile, Expression, Identifier, MemberExpression } from '@babel/types';
+import fs from 'fs/promises';
+import path from 'path';
+import { glob } from 'glob';
+import { runCommand } from '@shared/process-io';
+import { createComponentLogger, logError } from '../../utils/logger.ts';
+import { config } from '../../core/config.ts';
+⋮----
+type ParsedMigrationStep =
+  | { type: 'update-import'; oldPath: string; newPath: string }
+  | { type: 'replace-call'; oldName: string; newName: string }
+  | { type: 'remove-declaration'; name: string }
+  | { type: 'add-import'; imported: string; source: string };
+interface MigrationStep {
+  description: string;
+  code_example?: string;
+  step_number?: number;
+}
+interface MigrationSuggestion {
+  suggestion_id?: string;
+  migration_steps?: MigrationStep[];
+}
+interface ParsedStep extends MigrationStep {
+  parsed: ParsedMigrationStep | null;
+  index: number;
+}
+interface TransformResult {
+  modified: boolean;
+  transformations?: Array<Record<string, string>>;
+  originalLength?: number;
+  newLength?: number;
+  reason?: string;
+  error?: string;
+}
+interface MigrationResult {
+  filesModified: string[];
+  transformations: Array<Record<string, unknown>>;
+  errors: Array<{ file: string; error: string }>;
+  backupPath: string | null;
+}
+export interface MigrationTransformerOptions {
+  dryRun?: boolean;
+}
+function escapeRegExp(str: string): string
+function parseMigrationStep(description: string): ParsedMigrationStep | null
+⋮----
 export class MigrationTransformer
 ⋮----
-async applyMigrationSteps(suggestion, repositoryPath)
-async _transformFile(filePath, steps, suggestion)
-_updateImport(ast, oldPath, newPath)
+constructor(options: MigrationTransformerOptions =
+async applyMigrationSteps(suggestion: MigrationSuggestion, repositoryPath: string): Promise<MigrationResult>
+private async _transformFile(filePath: string, steps: ParsedStep[], _suggestion: MigrationSuggestion): Promise<TransformResult>
+private _updateImport(ast: ParseResult<BabelFile>, oldPath: string, newPath: string): boolean
 ⋮----
-ImportDeclaration(path)
+ImportDeclaration(path: NodePath<t.ImportDeclaration>)
 ⋮----
-_addImport(ast, imported, source)
-_replaceCallExpression(ast, oldName, newName)
+private _addImport(ast: ParseResult<BabelFile>, imported: string, source: string): boolean
+private _replaceCallExpression(ast: ParseResult<BabelFile>, oldName: string, newName: string): boolean
 ⋮----
-CallExpression(path)
+CallExpression(path: NodePath<t.CallExpression>)
 ⋮----
-_removeDeclaration(ast, name)
+private _removeDeclaration(ast: ParseResult<BabelFile>, name: string): boolean
 ⋮----
-FunctionDeclaration(path)
-ClassDeclaration(path)
-VariableDeclarator(path)
+FunctionDeclaration(path: NodePath<t.FunctionDeclaration>)
+ClassDeclaration(path: NodePath<t.ClassDeclaration>)
+VariableDeclarator(path: NodePath<t.VariableDeclarator>)
 ⋮----
-async _groupStepsByFile(parsedSteps, suggestion, repositoryPath)
-async _findRepositoryFiles(repositoryPath)
-_contentMatchesStep(content, parsed)
-async _resolveAffectedFiles(unresolvedSteps, repositoryPath)
-async _matchFileAgainstSteps(relPath, repositoryPath, unresolvedSteps, resolved)
-_logResolvedFiles(resolved)
-async _createBackup(repositoryPath)
-async _backupFile(filePath, backupPath)
-async rollback(backupPath, repositoryPath)
+private async _groupStepsByFile(
+    parsedSteps: ParsedStep[],
+    _suggestion: MigrationSuggestion,
+    repositoryPath: string
+): Promise<Record<string, ParsedStep[]>>
+private async _findRepositoryFiles(repositoryPath: string): Promise<string[]>
+private _contentMatchesStep(content: string, parsed: ParsedMigrationStep): boolean
+private async _resolveAffectedFiles(
+    unresolvedSteps: ParsedStep[],
+    repositoryPath: string
+): Promise<Map<number, string[]>>
+private async _matchFileAgainstSteps(
+    relPath: string,
+    repositoryPath: string,
+    unresolvedSteps: ParsedStep[],
+    resolved: Map<number, string[]>
+): Promise<void>
+private _logResolvedFiles(resolved: Map<number, string[]>): void
+private async _stashChanges(repositoryPath: string): Promise<string | null>
+private async _unstashChanges(repositoryPath: string, stashRef: string, required = false): Promise<void>
+async rollback(repositoryPath: string): Promise<void>
 </file>
 
-<file path="pipeline-core/git/pr-creator.js">
+<file path="pipeline-core/git/pr-creator.ts">
+import { runCommand } from '@shared/process-io';
+import fs from 'fs/promises';
+import path from 'path';
+import { createComponentLogger, logError } from '../../utils/logger.ts';
+⋮----
+import { MigrationTransformer } from './migration-transformer.ts';
+⋮----
+interface MigrationStep {
+  description: string;
+  step_number: number;
+  code_example?: string;
+}
+interface Suggestion {
+  suggestion_id: string;
+  automated_refactor_possible: boolean;
+  impact_score: number;
+  target_location?: string;
+  target_name?: string;
+  proposed_implementation?: string;
+  strategy?: string;
+  strategy_rationale: string;
+  complexity?: string;
+  migration_risk?: string;
+  usage_example?: string;
+  migration_steps: MigrationStep[];
+}
+interface ScanResult {
+  suggestions?: Suggestion[];
+}
+export interface PRCreatorOptions {
+  baseBranch?: string;
+  branchPrefix?: string;
+  dryRun?: boolean;
+  maxSuggestionsPerPR?: number;
+}
+export interface PRCreationResults {
+  prsCreated: number;
+  prUrls: string[];
+  errors: Array<{ batch: number; error: string; suggestions: string[] }>;
+  skipped: number;
+}
 export class PRCreator
 ⋮----
-async createPRsForSuggestions(scanResult, repositoryPath, options =
-async _createPRForBatch(suggestions, repositoryPath, batchNumber, options)
-async _applySuggestions(suggestions, repositoryPath)
-async _runGitCommand(cwd, args)
-async _createPR(cwd, branch, title, body)
-_batchSuggestions(suggestions)
-_generateBranchName(suggestions, batchNumber)
-_generateCommitMessage(suggestions, filesModified)
-_generatePRTitle(suggestions, batchNumber)
-_generatePRDescription(suggestions, filesModified)
+constructor(options: PRCreatorOptions =
+async createPRsForSuggestions(
+    scanResult: ScanResult,
+    repositoryPath: string,
+    _options: Record<string, unknown> = {}
+): Promise<PRCreationResults>
+private async _createPRForBatch(
+    suggestions: Suggestion[],
+    repositoryPath: string,
+    batchNumber: number,
+    _options: Record<string, unknown>
+): Promise<string | null>
+private async _applySuggestions(suggestions: Suggestion[], repositoryPath: string): Promise<string[]>
+private async _runGitCommand(cwd: string, args: string[]): Promise<string>
+private async _createPR(cwd: string, branch: string, title: string, body: string): Promise<string>
+private _batchSuggestions(suggestions: Suggestion[]): Suggestion[][]
+private _generateBranchName(_suggestions: Suggestion[], batchNumber: number): string
+private _generateCommitMessage(suggestions: Suggestion[], filesModified: string[]): string
+private _generatePRTitle(suggestions: Suggestion[], batchNumber: number): string
+private _generatePRDescription(suggestions: Suggestion[], filesModified: string[]): string
 </file>
 
 <file path="pipeline-core/models/__init__.py">
@@ -3196,43 +3508,71 @@ from .timing import TimingMetrics as TimingMetrics, Timer as Timer
 __all__: list[str]
 </file>
 
-<file path="pipeline-core/utils/error-helpers.js">
-export function safeErrorMessage(error, fallback = 'Unknown error')
-export function safeErrorStack(error)
-export function toErrorObject(error, options =
-function getErrorType(error)
-export function isErrorLike(value)
-export function serializeError(error, includeStack = true)
-export function formatErrorMessage(error, options =
-export function combineErrors(errors, separator = '; ')
+<file path="pipeline-core/utils/error-helpers.ts">
+interface ToErrorObjectOptions {
+  fallbackMessage?: string;
+  metadata?: Record<string, unknown>;
+}
+interface ErrorObject {
+  message: string;
+  stack: string | undefined;
+  type: string;
+  isError: boolean;
+  metadata: Record<string, unknown>;
+  name?: string;
+  code?: unknown;
+}
+interface SerializedError {
+  message: string;
+  type: string;
+  name?: string;
+  stack?: string;
+  cause?: SerializedError;
+  code?: unknown;
+}
+interface FormatErrorOptions {
+  includeType?: boolean;
+  includeCode?: boolean;
+}
+export function safeErrorMessage(error: unknown, fallback = 'Unknown error'): string
+export function safeErrorStack(error: unknown): string | undefined
+export function toErrorObject(error: unknown, options: ToErrorObjectOptions =
+function getErrorType(error: unknown): string
+export function isErrorLike(value: unknown): boolean
+export function serializeError(error: unknown, includeStack = true): SerializedError
+export function formatErrorMessage(error: unknown, options: FormatErrorOptions =
+export function combineErrors(errors: unknown[], separator = '; '): string
 </file>
 
-<file path="pipeline-core/utils/fs-helpers.js">
-export async function ensureDir(dirPath)
-export async function ensureParentDir(filePath)
-export async function writeFileWithDir(filePath, content, options =
-export async function readFileIfExists(filePath, encoding = 'utf-8')
-export async function pathExists(filePath)
-export function joinLines(lines)
+<file path="pipeline-core/utils/fs-helpers.ts">
+import fs from 'fs/promises';
+import path from 'path';
+export async function ensureDir(dirPath: string): Promise<void>
+export async function ensureParentDir(filePath: string): Promise<void>
+export async function writeFileWithDir(filePath: string, content: string | Buffer, options:
+export async function readFileIfExists(filePath: string, encoding: BufferEncoding = 'utf-8'): Promise<string | null>
+export async function pathExists(filePath: string): Promise<boolean>
+export function joinLines(lines: string[]): string
 </file>
 
-<file path="pipeline-core/utils/index.js">
+<file path="pipeline-core/utils/index.ts">
 
 </file>
 
-<file path="pipeline-core/utils/process-helpers.js">
+<file path="pipeline-core/utils/process-helpers.ts">
 
 </file>
 
-<file path="pipeline-core/utils/timing-helpers.js">
-export function createTimer()
-⋮----
-elapsed: ()
-elapsedMs: ()
-elapsedFormatted: () =>
-⋮----
-export async function withTiming(fn, label)
-export function measureSync(fn)
+<file path="pipeline-core/utils/timing-helpers.ts">
+import { TIME } from '../../core/constants.ts';
+interface Timer {
+  elapsed: () => number;
+  elapsedMs: () => number;
+  elapsedFormatted: () => string;
+}
+export function createTimer(): Timer
+export async function withTiming<T>(fn: () => Promise<T>, _label?: string): Promise<
+export function measureSync<T>(fn: () => T):
 </file>
 
 <file path="pipeline-core/utils/timing.py">
@@ -3325,246 +3665,19 @@ async saveResults(results, filename = 'inter-project-scan.json')
 
 </file>
 
-<file path="pipeline-core/scan-orchestrator.d.ts">
-export interface RepositoryInfo {
-    path: string;
-    name: string;
-    gitRemote?: string;
-    gitBranch?: string;
-    gitCommit?: string;
-    totalFiles: number;
-    totalLines: number;
-    languages: string[];
-}
-export interface PatternMatch {
-    file_path: string;
-    rule_id: string;
-    matched_text: string;
-    line_start: number;
-    line_end: number;
-    column_start?: number;
-    column_end?: number;
-    severity?: string;
-    confidence?: number;
-}
-export interface ScanConfig {
-    scan_config?: {
-        includeTests?: boolean;
-        maxDepth?: number;
-        excludePaths?: string[];
-        [key: string]: any;
-    };
-    pattern_config?: {
-        rulesDirectory?: string;
-        configPath?: string;
-        [key: string]: any;
-    };
-    generateReports?: boolean;
-    [key: string]: any;
-}
-export interface PythonPipelineInput {
-    repository_info: RepositoryInfo;
-    pattern_matches: PatternMatch[];
-    scan_config: ScanConfig;
-}
-export interface CodeBlock {
-    block_id: string;
-    file_path: string;
-    line_start: number;
-    line_end: number;
-    source_code: string;
-    language: string;
-    semantic_category?: string;
-    tags: string[];
-    complexity_metrics?: {
-        cyclomatic: number;
-        cognitive: number;
-        halstead: Record<string, number>;
-    };
-}
-export interface DuplicateGroup {
-    group_id: string;
-    block_ids: string[];
-    similarity_score: number;
-    group_type: 'exact' | 'structural' | 'semantic';
-    total_lines: number;
-    potential_reduction: number;
-    impact_score?: number;
-}
-export interface ConsolidationSuggestion {
-    suggestion_id: string;
-    group_id: string;
-    suggestion_type: string;
-    priority: 'critical' | 'high' | 'medium' | 'low';
-    estimated_effort: 'minimal' | 'low' | 'medium' | 'high';
-    potential_reduction: number;
-    implementation_notes?: string;
-    migration_steps?: Array<{
-        order: number;
-        description: string;
-        code_snippet?: string;
-    }>;
-}
-export interface ScanMetrics {
-    total_code_blocks: number;
-    code_blocks_by_category?: Record<string, number>;
-    code_blocks_by_language?: Record<string, number>;
-    total_duplicate_groups: number;
-    exact_duplicates: number;
-    structural_duplicates: number;
-    semantic_duplicates: number;
-    total_duplicated_lines: number;
-    potential_loc_reduction: number;
-    duplication_percentage: number;
-    total_suggestions: number;
-    quick_wins?: number;
-    high_priority_suggestions?: number;
-}
-export interface PythonPipelineOutput {
-    code_blocks: CodeBlock[];
-    duplicate_groups: DuplicateGroup[];
-    suggestions: ConsolidationSuggestion[];
-    metrics: ScanMetrics;
-    repository_info: RepositoryInfo;
-    scan_type?: 'single-project' | 'inter-project';
-    error?: string;
-    warnings?: string[];
-}
-export interface ScanResult extends PythonPipelineOutput {
-    scan_metadata: {
-        duration_seconds: number;
-        scanned_at: string;
-        repository_path: string;
-    };
-    report_paths?: ReportPaths;
-}
-export interface ReportPaths {
-    html?: string;
-    markdown?: string;
-    summary?: string;
-    json?: string;
-}
-export interface ReportOptions {
-    outputDir?: string;
-    baseName?: string;
-    title?: string;
-    html?: boolean;
-    markdown?: boolean;
-    summary?: boolean;
-    json?: boolean;
-    includeDetails?: boolean;
-    maxDuplicates?: number;
-    maxSuggestions?: number;
-}
-export interface ScanOrchestratorOptions {
-    scanner?: Record<string, any>;
-    detector?: Record<string, any>;
-    pythonPath?: string;
-    extractorScript?: string;
-    reports?: ReportOptions;
-    outputDir?: string;
-    autoGenerateReports?: boolean;
-    config?: Record<string, any>;
-}
-export interface CrossRepositoryDuplicate {
-    group_id: string;
-    pattern_id: string;
-    content_hash: string;
-    member_blocks: CodeBlock[];
-    occurrence_count: number;
-    repository_count: number;
-    affected_repositories: string[];
-    affected_files: string[];
-    category: string;
-    language: string;
-    total_lines: number;
-    similarity_score: number;
-    similarity_method: string;
-    impact_score: number;
-}
-export interface CrossRepositorySuggestion {
-    suggestion_id: string;
-    group_id: string;
-    suggestion_type: string;
-    priority: 'critical' | 'high' | 'medium' | 'low';
-    estimated_effort: 'minimal' | 'low' | 'medium' | 'high';
-    potential_reduction: number;
-    affected_repositories: string[];
-    implementation_notes?: string;
-    migration_steps?: Array<{
-        order: number;
-        description: string;
-        code_snippet?: string;
-    }>;
-}
-export interface MultiRepositoryScanResult {
-    repositories: Array<ScanResult | {
-        error: string;
-        repository_path: string;
-    }>;
-    total_scanned: number;
-    successful: number;
-    failed: number;
-    cross_repository_duplicates?: CrossRepositoryDuplicate[];
-    cross_repository_suggestions?: CrossRepositorySuggestion[];
-    scan_type?: 'single-project' | 'inter-project';
-    metrics?: ScanMetrics & {
-        total_cross_repository_groups?: number;
-        cross_repository_occurrences?: number;
-        cross_repository_duplicated_lines?: number;
-    };
-}
-export declare class ScanOrchestrator
-⋮----
-constructor(options?: ScanOrchestratorOptions);
-scanRepository(repoPath: string, scanConfig?: ScanConfig): Promise<ScanResult>;
-⋮----
-generateReports(scanResult: ScanResult, options?: ReportOptions): Promise<ReportPaths>;
-scanMultipleRepositories(repoPaths: string[], scanConfig?: ScanConfig): Promise<MultiRepositoryScanResult>;
-⋮----
-export declare class ScanError extends Error
-⋮----
-constructor(message: string, options?: {
-        cause?: unknown;
-    });
-</file>
-
-<file path="pipeline-core/scan-orchestrator.js">
-export class ScanOrchestrator
-⋮----
-_detectPythonPath()
-async scanRepository(repoPath, scanConfig =
-_handleProcessClose(code, signal, stdout, stderr)
-_handleSuccess(stdout, stderr)
-_handleSignalTermination(signal, stdout, stderr)
-/**
-     * Handle error exit (non-zero code)
-     */
-_handleError(code, stderr)
-_calculateTimeout(data)
-async runPythonPipeline(data)
-⋮----
-// Send input data via stdin
-⋮----
-async generateReports(scanResult, options =
-async scanMultipleRepositories(repoPaths, scanConfig =
-⋮----
-export class ScanError extends Error
-</file>
-
 <file path="pipeline-core/scan-orchestrator.ts">
 import { RepositoryScanner } from './scanners/repository-scanner.js';
 import { AstGrepPatternDetector } from './scanners/ast-grep-detector.js';
 import { HTMLReportGenerator } from './reports/html-report-generator.js';
 import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
 import { InterProjectScanner } from './inter-project-scanner.js';
-import { createComponentLogger, logStart, logStage } from '../utils/logger.js';
+import { createComponentLogger, logStart, logStage } from '../utils/logger.ts';
 import { DependencyValidator } from '../utils/dependency-validator.js';
 import { spawn, ChildProcess, execSync } from 'child_process';
 ⋮----
 import { existsSync } from 'fs';
 ⋮----
-import { TIMEOUTS } from '../core/constants.js';
+import { TIMEOUTS } from '../core/constants.ts';
 ⋮----
 export interface RepositoryInfo {
   path: string;
@@ -4099,23 +4212,17 @@ output_dir = _resolve_output_dir(args)
 async function main()
 </file>
 
-<file path="pipeline-runners/duplicate-detection-pipeline.js">
-async function main()
-⋮----
-const waitForCompletion = () =>
-</file>
-
 <file path="pipeline-runners/duplicate-detection-pipeline.ts">
-import { SidequestServer } from '../core/server.js';
+import { SidequestServer } from '../core/server.ts';
 import { RepositoryConfigLoader } from '../pipeline-core/config/repository-config-loader.js';
 import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.js';
-import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.js';
+import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.ts';
 import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.js';
-import { PRCreator } from '../pipeline-core/git/pr-creator.js';
-import { createComponentLogger, logStart, logRetry } from '../utils/logger.js';
-import { config } from '../core/config.js';
-import { TIMEOUTS, RETRY } from '../core/constants.js';
-import { isRetryable, getErrorInfo } from '../pipeline-core/errors/error-classifier.js';
+import { PRCreator, PRCreationResults } from '../pipeline-core/git/pr-creator.ts';
+import { createComponentLogger, logStart, logRetry } from '../utils/logger.ts';
+import { config } from '../core/config.ts';
+import { TIMEOUTS, RETRY } from '../core/constants.ts';
+import { isRetryable, getErrorInfo } from '../pipeline-core/errors/error-classifier.ts';
 ⋮----
 import type { Logger } from 'pino';
 export enum JobStatus {
@@ -4269,7 +4376,7 @@ class DuplicateDetectionWorker extends SidequestServer
 ⋮----
 constructor(options: DuplicateDetectionWorkerOptions =
 async initialize(): Promise<void>
-async runJobHandler(job: Job): Promise<JobResult>
+async runJobHandler(baseJob: import('../core/server.ts').Job): Promise<unknown>
 private _getOriginalJobId(jobId: string): string
 /**
    * Handle retry logic with exponential backoff
@@ -4493,9 +4600,9 @@ scheduleEnhancements(cronSchedule = '0 3 * * 0')
 <file path="pipeline-runners/test-refactor-pipeline.ts">
 import { TestRefactorWorker } from '../workers/test-refactor-worker.js';
 import { DirectoryScanner } from '../utils/directory-scanner.js';
-import { createComponentLogger } from '../utils/logger.js';
-import { config } from '../core/config.js';
-import { TIMEOUTS } from '../core/constants.js';
+import { createComponentLogger } from '../utils/logger.ts';
+import { config } from '../core/config.ts';
+import { TIMEOUTS } from '../core/constants.ts';
 import cron from 'node-cron';
 import path from 'path';
 ⋮----
@@ -5238,38 +5345,27 @@ async saveResults(results, outputPath)
 export async function main()
 </file>
 
-<file path="utils/logger.d.ts">
+<file path="utils/logger.ts">
 import type { Logger } from 'pino';
+import { createLogger as createBaseLogger, createChildLogger as createBaseChildLogger, createComponentLogger as createBaseComponentLogger } from '@shared/logging';
+import { config } from '../core/config.ts';
 ⋮----
-export function createChildLogger(bindings: Record<string, unknown>): Logger;
-export function createComponentLogger(component: string): Logger;
-export function logStart(log: Logger, operation: string, context?: Record<string, unknown>): void;
-export function logComplete(log: Logger, operation: string, startTime: number, context?: Record<string, unknown>): void;
-export function logError(log: Logger, error: Error, message: string, context?: Record<string, unknown>): void;
-export function logWarn(log: Logger, error: Error | null, message: string, context?: Record<string, unknown>): void;
-export function logSkip(log: Logger, what: string, reason: string, context?: Record<string, unknown>): void;
-export function logStage(log: Logger, stage: string, context?: Record<string, unknown>): void;
-export function logMetrics(log: Logger, operation: string, metrics?: Record<string, unknown>): void;
-export function logRetry(log: Logger, operation: string, attempt: number, maxAttempts: number, context?: Record<string, unknown>): void;
+export function createChildLogger(bindings: Record<string, unknown>): Logger
+export function createComponentLogger(component: string): Logger
+export function logStart(log: Logger, operation: string, context: Record<string, unknown> =
+export function logComplete(log: Logger, operation: string, startTime: number, context: Record<string, unknown> =
+export function logError(log: Logger, error: Error | unknown, message: string, context: Record<string, unknown> =
+export function logWarn(log: Logger, error: Error | null, message: string, context: Record<string, unknown> =
+export function logSkip(log: Logger, what: string, reason: string, context: Record<string, unknown> =
+export function logStage(log: Logger, stage: string, context: Record<string, unknown> =
+export function logMetrics(log: Logger, operation: string, metrics: Record<string, unknown> =
+export function logRetry(log: Logger, operation: string, attempt: number, maxAttempts: number, context: Record<string, unknown> =
 </file>
 
-<file path="utils/logger.js">
-export function createChildLogger(bindings)
-export function createComponentLogger(component)
-export function logStart(log, operation, context =
-export function logComplete(log, operation, startTime, context =
-export function logError(log, error, message, context =
-export function logWarn(log, error, message, context =
-export function logSkip(log, what, reason, context =
-export function logStage(log, stage, context =
-export function logMetrics(log, operation, metrics =
-export function logRetry(log, operation, attempt, maxAttempts, context =
-</file>
-
-<file path="utils/pipeline-names.js">
-export function getPipelineName(id)
-export function getAllKnownPipelineIds()
-export function isKnownPipeline(id)
+<file path="utils/pipeline-names.ts">
+export function getPipelineName(id: string): string
+export function getAllKnownPipelineIds(): string[]
+export function isKnownPipeline(id: string): boolean
 </file>
 
 <file path="utils/plugin-manager.js">
@@ -5439,10 +5535,11 @@ createJSONLDScript(schema)
 injectSchema(content, schema)
 </file>
 
-<file path="utils/time-helpers.js">
-export function toISOString(val)
-export function calculateDurationSeconds(startTime, endTime)
-export function formatDuration(seconds)
+<file path="utils/time-helpers.ts">
+import { TIME } from '../core/constants.ts';
+export function toISOString(val: Date | string | null | undefined): string | null
+export function calculateDurationSeconds(startTime: Date | string | null, endTime: Date | string | null): number | null
+export function formatDuration(seconds: number | null | undefined): string
 </file>
 
 <file path="workers/bugfix-audit-worker.js">
@@ -5564,8 +5661,8 @@ async _generateCommitMessage(job)
 </file>
 
 <file path="workers/test-refactor-worker.ts">
-import { SidequestServer, Job as BaseJob } from '../core/server.js';
-import { createComponentLogger } from '../utils/logger.js';
+import { SidequestServer, Job as BaseJob } from '../core/server.ts';
+import { createComponentLogger } from '../utils/logger.ts';
 import { glob } from 'glob';
 import path from 'path';
 import fs from 'fs/promises';
@@ -5637,7 +5734,7 @@ interface Stats {
 constructor(options: TestRefactorWorkerOptions =
 queueProject(projectPath: string, options: Partial<JobData> =
 detectFramework(projectPath: string): string
-async runJobHandler(job: RefactorJob): Promise<JobResult>
+async runJobHandler(job: BaseJob): Promise<unknown>
 async findTestFiles(projectPath: string, testsDir: string): Promise<string[]>
 async analyzeTestFiles(projectPath: string, testFiles: string[]): Promise<Analysis>
 ⋮----
