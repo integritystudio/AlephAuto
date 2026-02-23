@@ -34,9 +34,11 @@ import { safeErrorMessage, toErrorObject } from '../sidequest/pipeline-core/util
 const logger = createComponentLogger('ActivityFeed');
 
 export class ActivityFeedManager {
+  /** @param {any} broadcaster @param {Record<string, any>} options */
   constructor(broadcaster, options = {}) {
     this.broadcaster = broadcaster;
     this.maxActivities = options.maxActivities || 50; // Keep last 50 activities
+    /** @type {Array<Record<string, any>>} */
     this.activities = [];
     this.activityId = 0;
 
@@ -45,7 +47,7 @@ export class ActivityFeedManager {
 
   /**
    * Add activity to the feed
-   * @param {Object} activity - Activity details
+   * @param {Record<string, any>} activity - Activity details
    */
   addActivity(activity) {
     try {
@@ -102,7 +104,7 @@ export class ActivityFeedManager {
   /**
    * Get recent activities
    * @param {number} limit - Maximum number of activities to return
-   * @returns {Array} - Recent activities
+   * @returns {Array<Record<string, any>>} - Recent activities
    */
   getRecentActivities(limit = 20) {
     return this.activities.slice(0, limit);
@@ -132,6 +134,7 @@ export class ActivityFeedManager {
       total: this.activities.length
     };
 
+    /** @type {Record<string, number>} */
     const typeCount = {};
 
     for (const activity of this.activities) {

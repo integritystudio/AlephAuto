@@ -5,13 +5,14 @@
  */
 
 // @ts-check
-/** @typedef {import('../sidequest/pipeline-core/errors/error-types').ExtendedError} ExtendedError */
+/** @typedef {import('../sidequest/pipeline-core/errors/error-classifier.ts').ExtendedError} ExtendedError */
 
 import { createComponentLogger } from '../sidequest/utils/logger.ts';
 
 const logger = createComponentLogger('EventBroadcaster');
 
 export class ScanEventBroadcaster {
+  /** @param {any} wss */
   constructor(wss) {
     this.wss = wss;
   }
@@ -19,7 +20,7 @@ export class ScanEventBroadcaster {
   /**
    * Broadcast scan started event
    * @param {string} scanId - Scan ID
-   * @param {Object} details - Scan details
+   * @param {Record<string, any>} details - Scan details
    */
   broadcastScanStarted(scanId, details) {
     this.broadcast({
@@ -34,7 +35,7 @@ export class ScanEventBroadcaster {
   /**
    * Broadcast scan progress event
    * @param {string} scanId - Scan ID
-   * @param {Object} progress - Progress details
+   * @param {Record<string, any>} progress - Progress details
    */
   broadcastProgress(scanId, progress) {
     this.broadcast({
@@ -53,7 +54,7 @@ export class ScanEventBroadcaster {
   /**
    * Broadcast duplicate found event
    * @param {string} scanId - Scan ID
-   * @param {Object} duplicate - Duplicate details
+   * @param {Record<string, any>} duplicate - Duplicate details
    */
   broadcastDuplicateFound(scanId, duplicate) {
     this.broadcast({
@@ -74,7 +75,7 @@ export class ScanEventBroadcaster {
   /**
    * Broadcast scan completed event
    * @param {string} scanId - Scan ID
-   * @param {Object} results - Scan results
+   * @param {Record<string, any>} results - Scan results
    */
   broadcastScanCompleted(scanId, results) {
     this.broadcast({
@@ -112,7 +113,7 @@ export class ScanEventBroadcaster {
   /**
    * Broadcast high-impact duplicate alert
    * @param {string} scanId - Scan ID
-   * @param {Object} duplicate - High-impact duplicate
+   * @param {Record<string, any>} duplicate - High-impact duplicate
    */
   broadcastHighImpactAlert(scanId, duplicate) {
     this.broadcast({
@@ -132,7 +133,7 @@ export class ScanEventBroadcaster {
   /**
    * Broadcast cache event
    * @param {string} eventType - Event type (hit/miss/invalidate)
-   * @param {Object} details - Event details
+   * @param {Record<string, any>} details - Event details
    */
   broadcastCacheEvent(eventType, details) {
     this.broadcast({
@@ -146,7 +147,7 @@ export class ScanEventBroadcaster {
 
   /**
    * Broadcast system stats update
-   * @param {Object} stats - System statistics
+   * @param {Record<string, any>} stats - System statistics
    */
   broadcastStatsUpdate(stats) {
     this.broadcast({
@@ -164,8 +165,8 @@ export class ScanEventBroadcaster {
 
   /**
    * Broadcast message to subscribed clients
-   * @param {Object} message - Message to broadcast
-   * @param {string} channel - Channel name
+   * @param {Record<string, any>} message - Message to broadcast
+   * @param {string | null} channel - Channel name
    */
   broadcast(message, channel = null) {
     if (!this.wss) {
@@ -175,7 +176,7 @@ export class ScanEventBroadcaster {
 
     // Filter clients by subscription if channel specified
     const filter = channel
-      ? (client) => client.subscriptions.has(channel) || client.subscriptions.has('*')
+      ? (/** @type {any} */ client) => client.subscriptions.has(channel) || client.subscriptions.has('*')
       : null;
 
     this.wss.broadcast(message, filter);
@@ -189,7 +190,7 @@ export class ScanEventBroadcaster {
   /**
    * Send message to specific client
    * @param {string} clientId - Client ID
-   * @param {Object} message - Message to send
+   * @param {Record<string, any>} message - Message to send
    */
   sendToClient(clientId, message) {
     if (!this.wss) {
