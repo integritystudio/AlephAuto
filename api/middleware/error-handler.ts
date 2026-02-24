@@ -4,15 +4,22 @@
  * Centralized error handling for API endpoints.
  */
 
-import { createComponentLogger } from '../../sidequest/utils/logger.ts';
+import type { Request, Response, NextFunction } from 'express';
+import { createComponentLogger } from '#sidequest/utils/logger.ts';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('ErrorHandler');
 
+interface ApiError extends Error {
+  statusCode?: number;
+  status?: number;
+  code?: string;
+}
+
 /**
  * Error handler middleware
  */
-export function errorHandler(err, req, res, next) {
+export function errorHandler(err: ApiError, req: Request, res: Response, _next: NextFunction): void {
   // Log error
   logger.error({
     error: err,
@@ -43,7 +50,11 @@ export function errorHandler(err, req, res, next) {
   const statusCode = err.statusCode || err.status || 500;
 
   // Prepare standardized error response
-  const errorResponse = {
+  const errorResponse: {
+    success: false;
+    error: { code: string; message: string; stack?: string };
+    timestamp: string;
+  } = {
     success: false,
     error: {
       code: err.code || (statusCode >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST'),

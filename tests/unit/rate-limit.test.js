@@ -8,7 +8,7 @@
 // @ts-nocheck
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { rateLimiter, strictRateLimiter } from '../../api/middleware/rate-limit.js';
+import { rateLimiter, strictRateLimiter } from '../../api/middleware/rate-limit.ts';
 
 describe('Rate Limiter Middleware', () => {
   describe('rateLimiter configuration', () => {

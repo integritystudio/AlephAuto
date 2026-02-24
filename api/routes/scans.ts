@@ -5,11 +5,11 @@
  */
 
 import express, { type Request, type Response, type NextFunction } from 'express';
-import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.ts';
-import { InterProjectScanner } from '../../sidequest/pipeline-core/inter-project-scanner.ts';
-import { DuplicateDetectionWorker } from '../../sidequest/pipeline-runners/duplicate-detection-pipeline.ts';
-import { createComponentLogger, logStart } from '../../sidequest/utils/logger.ts';
-import { strictRateLimiter } from '../middleware/rate-limit.js';
+import { CachedScanner } from '#sidequest/pipeline-core/cache/cached-scanner.ts';
+import { InterProjectScanner } from '#sidequest/pipeline-core/inter-project-scanner.ts';
+import { DuplicateDetectionWorker } from '#sidequest/pipeline-runners/duplicate-detection-pipeline.ts';
+import { createComponentLogger, logStart } from '#sidequest/utils/logger.ts';
+import { strictRateLimiter } from '../middleware/rate-limit.ts';
 import { validateRequest } from '../middleware/validation.ts';
 import {
   StartScanRequestSchema,
@@ -17,9 +17,9 @@ import {
   type ScanResponse,
   type ScanResults
 } from '../types/scan-requests.ts';
-import { getJobs } from '../../sidequest/core/database.ts';
+import { getJobs } from '#sidequest/core/database.ts';
 import { JOB_STATUS } from '../types/job-status.ts';
-import { PAGINATION } from '../../sidequest/core/constants.ts';
+import { PAGINATION } from '#sidequest/core/constants.ts';
 import path from 'path';
 
 const router = express.Router();
@@ -57,7 +57,7 @@ router.post(
       const job = worker.scheduleScan('intra-project', [{
         name: path.basename(repositoryPath),
         path: repositoryPath
-      }]);
+      }] as any);
 
       const response: ScanResponse = {
         scanId: job.id, // Use the actual job ID for consistency
@@ -97,7 +97,7 @@ router.post('/start-multi', strictRateLimiter, async (req, res, next) => {
       path: repoPath
     }));
 
-    const job = worker.scheduleScan('inter-project', repositories);
+    const job = worker.scheduleScan('inter-project', repositories as any);
 
     res.status(201).json({
       success: true,

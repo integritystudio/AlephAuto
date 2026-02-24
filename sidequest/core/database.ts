@@ -14,7 +14,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createComponentLogger, logMetrics } from '../utils/logger.ts';
-import { isValidJobStatus } from '../../api/types/job-status.ts';
+import { isValidJobStatus } from '#api/types/job-status.ts';
 import { VALIDATION } from './constants.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

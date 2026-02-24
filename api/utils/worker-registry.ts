@@ -3,24 +3,24 @@
  *
  * Centralized registry for mapping pipeline IDs to worker instances.
  * Lazy initialization ensures workers are only created when needed.
- *
- * @module api/utils/worker-registry
  */
 
-import { DuplicateDetectionWorker } from '../../sidequest/workers/duplicate-detection-worker.ts';
-import { SchemaEnhancementWorker } from '../../sidequest/workers/schema-enhancement-worker.ts';
-import { GitActivityWorker } from '../../sidequest/workers/git-activity-worker.ts';
-import { GitignoreWorker } from '../../sidequest/workers/gitignore-worker.ts';
-import { RepomixWorker } from '../../sidequest/workers/repomix-worker.ts';
-import { ClaudeHealthWorker } from '../../sidequest/workers/claude-health-worker.ts';
-import { RepoCleanupWorker } from '../../sidequest/workers/repo-cleanup-worker.ts';
-import { BugfixAuditWorker } from '../../sidequest/workers/bugfix-audit-worker.ts';
-import { DashboardPopulateWorker } from '../../sidequest/workers/dashboard-populate-worker.ts';
-import { PluginManagerWorker } from '../../sidequest/utils/plugin-manager.ts';
-import { config } from '../../sidequest/core/config.ts';
-import { createComponentLogger, logError } from '../../sidequest/utils/logger.ts';
-import { jobRepository } from '../../sidequest/core/job-repository.ts';
-import { CONCURRENCY, TIMEOUTS, TIME, WORKER_COOLDOWN } from '../../sidequest/core/constants.ts';
+import type { SidequestServer } from '#sidequest/core/server.ts';
+import { DuplicateDetectionWorker } from '#sidequest/workers/duplicate-detection-worker.ts';
+import { SchemaEnhancementWorker } from '#sidequest/workers/schema-enhancement-worker.ts';
+import { GitActivityWorker } from '#sidequest/workers/git-activity-worker.ts';
+import { GitignoreWorker } from '#sidequest/workers/gitignore-worker.ts';
+import { RepomixWorker } from '#sidequest/workers/repomix-worker.ts';
+import { ClaudeHealthWorker } from '#sidequest/workers/claude-health-worker.ts';
+import { RepoCleanupWorker } from '#sidequest/workers/repo-cleanup-worker.ts';
+import { BugfixAuditWorker } from '#sidequest/workers/bugfix-audit-worker.ts';
+import { DashboardPopulateWorker } from '#sidequest/workers/dashboard-populate-worker.ts';
+import { PluginManagerWorker } from '#sidequest/utils/plugin-manager.ts';
+import { config } from '#sidequest/core/config.ts';
+import { createComponentLogger, logError } from '#sidequest/utils/logger.ts';
+import { jobRepository } from '#sidequest/core/job-repository.ts';
+import { CONCURRENCY, TIMEOUTS, TIME, WORKER_COOLDOWN } from '#sidequest/core/constants.ts';
+import type { ActivityFeedManager } from '../activity-feed.ts';
 
 /**
  * Worker initialization timeout
@@ -30,24 +30,32 @@ const WORKER_INIT_TIMEOUT_MS = TIMEOUTS.WORKER_INIT_MS;
 
 const logger = createComponentLogger('WorkerRegistry');
 
-/**
- * Track initialization failures for circuit breaker pattern
- * @type {Map<string, {count: number, lastAttempt: number, cooldownAttempts?: number}>}
- */
-const initFailures = new Map();
+interface InitFailureInfo {
+  count: number;
+  lastAttempt: number;
+  cooldownAttempts?: number;
+}
 
 /**
- * @typedef {new (options: object) => import('../../sidequest/core/server.js').SidequestServer} WorkerConstructor
+ * Track initialization failures for circuit breaker pattern
  */
+const initFailures = new Map<string, InitFailureInfo>();
+
+type WorkerConstructor = new (options: Record<string, unknown>) => SidequestServer;
+
+interface PipelineConfig {
+  WorkerClass: WorkerConstructor | null;
+  getOptions: () => Record<string, unknown>;
+  disabled?: boolean;
+  disabledReason?: string;
+}
 
 /**
  * Pipeline configuration - single source of truth for all pipeline definitions
- *
- * @type {Record<string, {WorkerClass: WorkerConstructor | null, getOptions: () => Object, disabled?: boolean, disabledReason?: string}>}
  */
-const PIPELINE_CONFIGS = {
+const PIPELINE_CONFIGS: Record<string, PipelineConfig> = {
   'duplicate-detection': {
-    WorkerClass: DuplicateDetectionWorker,
+    WorkerClass: DuplicateDetectionWorker as unknown as WorkerConstructor,
     getOptions: () => ({
       maxConcurrentScans: 3,
       logDir: config.logDir,
@@ -55,7 +63,7 @@ const PIPELINE_CONFIGS = {
     })
   },
   'schema-enhancement': {
-    WorkerClass: SchemaEnhancementWorker,
+    WorkerClass: SchemaEnhancementWorker as unknown as WorkerConstructor,
     getOptions: () => ({
       maxConcurrent: config.maxConcurrent || 2,
       logDir: config.logDir,
@@ -67,7 +75,7 @@ const PIPELINE_CONFIGS = {
     })
   },
   'git-activity': {
-    WorkerClass: GitActivityWorker,
+    WorkerClass: GitActivityWorker as unknown as WorkerConstructor,
     getOptions: () => ({
       maxConcurrent: config.maxConcurrent || 3,
       logDir: config.logDir,
@@ -75,7 +83,7 @@ const PIPELINE_CONFIGS = {
     })
   },
   'gitignore-manager': {
-    WorkerClass: GitignoreWorker,
+    WorkerClass: GitignoreWorker as unknown as WorkerConstructor,
     getOptions: () => ({
       maxConcurrent: config.maxConcurrent || 3,
       logDir: config.logDir,
@@ -83,7 +91,7 @@ const PIPELINE_CONFIGS = {
     })
   },
   'repomix': {
-    WorkerClass: RepomixWorker,
+    WorkerClass: RepomixWorker as unknown as WorkerConstructor,
     getOptions: () => ({
       maxConcurrent: config.maxConcurrent || 3,
       logDir: config.logDir,
@@ -91,7 +99,7 @@ const PIPELINE_CONFIGS = {
     })
   },
   'claude-health': {
-    WorkerClass: ClaudeHealthWorker,
+    WorkerClass: ClaudeHealthWorker as unknown as WorkerConstructor,
     getOptions: () => ({
       maxConcurrent: config.maxConcurrent || 3,
       logDir: config.logDir,
@@ -99,7 +107,7 @@ const PIPELINE_CONFIGS = {
     })
   },
   'repo-cleanup': {
-    WorkerClass: RepoCleanupWorker,
+    WorkerClass: RepoCleanupWorker as unknown as WorkerConstructor,
     getOptions: () => ({
       maxConcurrent: config.maxConcurrent || 3,
       logDir: config.logDir,
@@ -107,7 +115,7 @@ const PIPELINE_CONFIGS = {
     })
   },
   'bugfix-audit': {
-    WorkerClass: BugfixAuditWorker,
+    WorkerClass: BugfixAuditWorker as unknown as WorkerConstructor,
     getOptions: () => ({
       maxConcurrent: config.maxConcurrent || 3,
       logDir: config.logDir,
@@ -117,7 +125,7 @@ const PIPELINE_CONFIGS = {
     })
   },
   'dashboard-populate': {
-    WorkerClass: DashboardPopulateWorker,
+    WorkerClass: DashboardPopulateWorker as unknown as WorkerConstructor,
     getOptions: () => ({
       maxConcurrent: 1,
       logDir: config.logDir,
@@ -125,8 +133,7 @@ const PIPELINE_CONFIGS = {
     })
   },
   'plugin-manager': {
-    // @ts-ignore - PluginManagerWorker extends SidequestServer but TS can't verify due to @ts-nocheck in source
-    WorkerClass: PluginManagerWorker,
+    WorkerClass: PluginManagerWorker as unknown as WorkerConstructor,
     getOptions: () => ({
       maxConcurrent: 1,
       logDir: config.logDir,
@@ -141,11 +148,27 @@ const PIPELINE_CONFIGS = {
   }
 };
 
+interface WorkerStats {
+  total: number;
+  queued: number;
+  active: number;
+  completed: number;
+  failed: number;
+  byPipeline: Record<string, Record<string, number>>;
+}
+
 /**
  * Worker registry - lazy initialization pattern
  * Workers are created on first access to avoid unnecessary resource consumption
  */
 class WorkerRegistry {
+  _workers: Map<string, SidequestServer>;
+  _initializing: Map<string, Promise<SidequestServer>>;
+  _activityFeed: ActivityFeedManager | null;
+  _activeInits: number;
+  _maxConcurrentInits: number;
+  _initQueue: Array<(value?: unknown) => void>;
+
   constructor() {
     this._workers = new Map();
     this._initializing = new Map();
@@ -157,10 +180,8 @@ class WorkerRegistry {
 
   /**
    * Set the activity feed manager to connect workers for real-time updates
-   *
-   * @param {import('../activity-feed.js').ActivityFeedManager} activityFeed - Activity feed manager
    */
-  setActivityFeed(activityFeed) {
+  setActivityFeed(activityFeed: ActivityFeedManager): void {
     this._activityFeed = activityFeed;
 
     // Connect any existing workers
@@ -173,25 +194,11 @@ class WorkerRegistry {
 
   /**
    * Get worker instance for a pipeline ID
-   *
-   * Uses async lock pattern to prevent duplicate initialization when
-   * multiple concurrent calls request the same worker. Includes:
-   * - Concurrency limiting to prevent thundering herd
-   * - Circuit breaker for repeated initialization failures
-   *
-   * RACE CONDITION FIX: The promise is stored in _initializing SYNCHRONOUSLY
-   * before any await points. This ensures concurrent callers always see the
-   * pending initialization and await the same promise, preventing duplicate
-   * worker instances.
-   *
-   * @param {string} pipelineId - Pipeline identifier
-   * @returns {Promise<import('../../sidequest/core/server.js').SidequestServer>} Worker instance
-   * @throws {Error} If pipeline ID is unknown or initialization fails
    */
-  async getWorker(pipelineId) {
+  async getWorker(pipelineId: string): Promise<SidequestServer> {
     // Fast path: already initialized
     if (this._workers.has(pipelineId)) {
-      return this._workers.get(pipelineId);
+      return this._workers.get(pipelineId)!;
     }
 
     // Circuit breaker: check for repeated failures with exponential backoff
@@ -207,7 +214,6 @@ class WorkerRegistry {
       }
 
       // Half-open state: allow ONE attempt, don't fully reset
-      // If it fails again, we'll have a longer cooldown next time
       logger.info({
         pipelineId,
         previousFailures: failureInfo.count,
@@ -222,7 +228,6 @@ class WorkerRegistry {
     }
 
     // Fast-fail for disabled pipelines before creating initPromise
-    // (avoids unhandled rejection when no concurrent caller awaits the promise)
     const pipelineConfig = PIPELINE_CONFIGS[pipelineId];
     if (pipelineConfig?.disabled) {
       throw new Error(`${pipelineId} pipeline is temporarily disabled (${pipelineConfig.disabledReason})`);
@@ -230,25 +235,18 @@ class WorkerRegistry {
 
     // Concurrent initialization protection: await existing initialization
     if (this._initializing.has(pipelineId)) {
-      // All concurrent callers await the same promise
-      return await this._initializing.get(pipelineId);
+      return await this._initializing.get(pipelineId)!;
     }
 
     // CRITICAL: Create and store promise SYNCHRONOUSLY before any await points
-    // This prevents race conditions where concurrent callers could both pass
-    // the _initializing.has() check before either stores their promise
-    /** @type {(value: import('../../sidequest/core/server.js').SidequestServer) => void} */
-    let resolveInit;
-    /** @type {(reason: Error) => void} */
-    let rejectInit;
-    const initPromise = new Promise((resolve, reject) => {
+    let resolveInit!: (value: SidequestServer) => void;
+    let rejectInit!: (reason: Error) => void;
+    const initPromise = new Promise<SidequestServer>((resolve, reject) => {
       resolveInit = resolve;
       rejectInit = reject;
     });
     this._initializing.set(pipelineId, initPromise);
 
-    // Now safe to await - concurrent callers will see _initializing has this
-    // pipelineId and await the same promise
     try {
       // Concurrency limiting: wait if too many initializations in progress
       if (this._activeInits >= this._maxConcurrentInits) {
@@ -259,12 +257,10 @@ class WorkerRegistry {
       this._activeInits++;
 
       const worker = await this._performWorkerInitialization(pipelineId);
-      // @ts-ignore - resolveInit is assigned in Promise constructor above
       resolveInit(worker);
       return worker;
     } catch (error) {
-      // @ts-ignore - rejectInit is assigned in Promise constructor above
-      rejectInit(error);
+      rejectInit(error as Error);
       throw error;
     } finally {
       // Always cleanup _initializing, whether success or failure
@@ -273,7 +269,7 @@ class WorkerRegistry {
       // Release concurrency slot and process queue
       this._activeInits--;
       if (this._initQueue.length > 0) {
-        const next = this._initQueue.shift();
+        const next = this._initQueue.shift()!;
         next();
       }
     }
@@ -281,26 +277,18 @@ class WorkerRegistry {
 
   /**
    * Perform the actual worker initialization with cleanup handling
-   *
-   * @private
-   * @param {string} pipelineId - Pipeline identifier
-   * @returns {Promise<import('../../sidequest/core/server.js').SidequestServer>} Worker instance
    */
-  async _performWorkerInitialization(pipelineId) {
-    let worker = null;
+  private async _performWorkerInitialization(pipelineId: string): Promise<SidequestServer> {
+    let worker: SidequestServer | null = null;
     try {
       worker = await this._initializeWorker(pipelineId);
 
       // Defense in depth: check if another worker exists
-      // With the synchronous promise storage, this should never trigger,
-      // but we keep it as a safety net
       const existingWorker = this._workers.get(pipelineId);
       if (existingWorker) {
         logger.warn({ pipelineId }, 'Duplicate worker detected (unexpected) - shutting down duplicate');
-        // @ts-ignore - shutdown() exists on worker instances but not in base type
-        if (worker.shutdown && typeof worker.shutdown === 'function') {
-          // @ts-ignore
-          await worker.shutdown().catch(shutdownError => {
+        if (typeof (worker as any).shutdown === 'function') {
+          await (worker as any).shutdown().catch((shutdownError: Error) => {
             logger.error({ error: shutdownError.message, pipelineId }, 'Failed to shutdown duplicate worker');
           });
         }
@@ -308,7 +296,6 @@ class WorkerRegistry {
       }
 
       // Connect to activity feed BEFORE storing in _workers
-      // This ensures no events are missed
       if (this._activityFeed) {
         this._activityFeed.listenToWorker(worker);
         logger.info({ pipelineId }, 'Worker connected to activity feed');
@@ -322,12 +309,9 @@ class WorkerRegistry {
 
       return worker;
     } catch (error) {
-      // If we created a worker but failed after (e.g., activity feed connection),
-      // clean it up to prevent resource leaks
-      // @ts-ignore - shutdown() exists on worker instances but not in base type
-      if (worker && worker.shutdown && typeof worker.shutdown === 'function') {
-        // @ts-ignore
-        await worker.shutdown().catch(shutdownError => {
+      // If we created a worker but failed after, clean it up
+      if (worker && typeof (worker as any).shutdown === 'function') {
+        await (worker as any).shutdown().catch((shutdownError: Error) => {
           logger.error({ error: shutdownError.message, pipelineId }, 'Failed to cleanup worker after init failure');
         });
       }
@@ -338,20 +322,15 @@ class WorkerRegistry {
         count: existing.count + 1,
         lastAttempt: Date.now()
       });
-      logger.error({ pipelineId, failureCount: existing.count + 1, error: error.message }, 'Worker initialization failed');
+      logger.error({ pipelineId, failureCount: existing.count + 1, error: (error as Error).message }, 'Worker initialization failed');
       throw error;
     }
   }
 
   /**
    * Initialize worker for a specific pipeline with timeout protection
-   *
-   * @private
-   * @param {string} pipelineId - Pipeline identifier
-   * @returns {Promise<import('../../sidequest/core/server.js').SidequestServer>} Worker instance
-   * @throws {Error} If initialization times out or fails
    */
-  async _initializeWorker(pipelineId) {
+  private async _initializeWorker(pipelineId: string): Promise<SidequestServer> {
     logger.info({ pipelineId, timeoutMs: WORKER_INIT_TIMEOUT_MS }, 'Initializing worker');
 
     const pipelineConfig = PIPELINE_CONFIGS[pipelineId];
@@ -366,7 +345,7 @@ class WorkerRegistry {
 
     // Wrap initialization in timeout to prevent indefinite hangs
     const initPromise = this._doWorkerInit(pipelineId, pipelineConfig);
-    const timeoutPromise = new Promise((_, reject) => {
+    const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => {
         reject(new Error(`Worker initialization timed out after ${WORKER_INIT_TIMEOUT_MS}ms`));
       }, WORKER_INIT_TIMEOUT_MS);
@@ -376,7 +355,7 @@ class WorkerRegistry {
       return await Promise.race([initPromise, timeoutPromise]);
     } catch (error) {
       logger.error({
-        error: error.message,
+        error: (error as Error).message,
         pipelineId,
         timeoutMs: WORKER_INIT_TIMEOUT_MS
       }, 'Worker initialization failed or timed out');
@@ -385,15 +364,10 @@ class WorkerRegistry {
   }
 
   /**
-   * Perform actual worker initialization (called by _initializeWorker with timeout wrapper)
-   *
-   * @private
-   * @param {string} pipelineId - Pipeline identifier
-   * @param {Object} pipelineConfig - Pipeline configuration
-   * @returns {Promise<import('../../sidequest/core/server.js').SidequestServer>} Worker instance
+   * Perform actual worker initialization
    */
-  async _doWorkerInit(pipelineId, pipelineConfig) {
-    let worker;
+  private async _doWorkerInit(pipelineId: string, pipelineConfig: PipelineConfig): Promise<SidequestServer> {
+    let worker: SidequestServer;
     try {
       const options = pipelineConfig.getOptions();
 
@@ -402,57 +376,45 @@ class WorkerRegistry {
         throw new Error(`getOptions() must return an object, got ${typeof options}`);
       }
 
-      worker = new pipelineConfig.WorkerClass(options);
+      worker = new pipelineConfig.WorkerClass!(options);
     } catch (error) {
       logError(logger, error, 'Failed to create worker', { pipelineId });
-      throw new Error(`Failed to initialize ${pipelineId} worker: ${error.message}`);
+      throw new Error(`Failed to initialize ${pipelineId} worker: ${(error as Error).message}`);
     }
 
     // Initialize worker if it has an initialize method
-    // @ts-ignore - initialize() exists on DuplicateDetectionWorker but not all workers
-    if (worker.initialize && typeof worker.initialize === 'function') {
+    if (typeof (worker as any).initialize === 'function') {
       try {
-        // @ts-ignore
-        await worker.initialize();
+        await (worker as any).initialize();
       } catch (initError) {
         logError(logger, initError, 'Worker initialize() method failed', { pipelineId });
-        throw new Error(`Failed to initialize ${pipelineId} worker: ${initError.message}`);
+        throw new Error(`Failed to initialize ${pipelineId} worker: ${(initError as Error).message}`);
       }
     }
 
     logger.info({ pipelineId }, 'Worker initialized successfully');
-
-    // Note: Activity feed connection is handled in getWorker() to ensure
-    // it happens atomically with storing the worker in _workers map
     return worker;
   }
 
   /**
    * Check if a pipeline ID is supported
-   *
-   * @param {string} pipelineId - Pipeline identifier
-   * @returns {boolean} True if pipeline is supported
    */
-  isSupported(pipelineId) {
+  isSupported(pipelineId: string): boolean {
     return pipelineId in PIPELINE_CONFIGS;
   }
 
   /**
    * Get all supported pipeline IDs
-   *
-   * @returns {string[]} Array of supported pipeline IDs
    */
-  getSupportedPipelines() {
+  getSupportedPipelines(): string[] {
     return Object.keys(PIPELINE_CONFIGS);
   }
 
   /**
    * Get aggregated stats from all initialized workers
-   *
-   * @returns {Object} Aggregated stats object
    */
-  getAllStats() {
-    const stats = {
+  getAllStats(): WorkerStats {
+    const stats: WorkerStats = {
       total: 0,
       queued: 0,
       active: 0,
@@ -462,8 +424,8 @@ class WorkerRegistry {
     };
 
     for (const [pipelineId, worker] of this._workers.entries()) {
-      if (worker.getStats && typeof worker.getStats === 'function') {
-        const workerStats = worker.getStats();
+      if (typeof worker.getStats === 'function') {
+        const workerStats = worker.getStats() as unknown as Record<string, number>;
         stats.total += workerStats.total || 0;
         stats.queued += workerStats.queued || 0;
         stats.active += workerStats.active || 0;
@@ -478,56 +440,47 @@ class WorkerRegistry {
 
   /**
    * Get stats for a specific pipeline worker (if initialized)
-   *
-   * @param {string} pipelineId - Pipeline identifier
-   * @returns {Object|null} Worker stats or null if not initialized
    */
-  getWorkerStats(pipelineId) {
+  getWorkerStats(pipelineId: string): Record<string, number> | null {
     const worker = this._workers.get(pipelineId);
-    if (worker && worker.getStats && typeof worker.getStats === 'function') {
-      return worker.getStats();
+    if (worker && typeof worker.getStats === 'function') {
+      return worker.getStats() as unknown as Record<string, number>;
     }
     return null;
   }
 
   /**
    * Get scan metrics for a specific pipeline worker (if supported)
-   *
-   * @param {string} pipelineId - Pipeline identifier
-   * @returns {Object|null} Scan metrics or null if not available
    */
-  getScanMetrics(pipelineId) {
+  getScanMetrics(pipelineId: string): Record<string, unknown> | null {
     const worker = this._workers.get(pipelineId);
-    if (worker && worker.getScanMetrics && typeof worker.getScanMetrics === 'function') {
-      return worker.getScanMetrics();
+    if (worker && typeof (worker as any).getScanMetrics === 'function') {
+      return (worker as any).getScanMetrics();
     }
     return null;
   }
 
   /**
    * Shutdown all workers gracefully
-   *
-   * @returns {Promise<void>}
    */
-  async shutdown() {
+  async shutdown(): Promise<void> {
     logger.info({
       workerCount: this._workers.size,
       initializingCount: this._initializing.size
     }, 'Shutting down workers');
 
     // Wait for any in-flight initializations to complete before shutdown
-    // This prevents resource leaks from workers that complete after shutdown starts
     if (this._initializing.size > 0) {
       logger.info({ count: this._initializing.size }, 'Waiting for in-flight worker initializations');
       await Promise.allSettled(Array.from(this._initializing.values()));
     }
 
-    const shutdownPromises = [];
+    const shutdownPromises: Promise<void>[] = [];
 
     for (const [pipelineId, worker] of this._workers.entries()) {
-      if (worker.shutdown && typeof worker.shutdown === 'function') {
+      if (typeof (worker as any).shutdown === 'function') {
         shutdownPromises.push(
-          worker.shutdown().catch(error => {
+          (worker as any).shutdown().catch((error: Error) => {
             logError(logger, error, 'Worker shutdown failed', { pipelineId });
           })
         );

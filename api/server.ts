@@ -10,7 +10,7 @@ process.setMaxListeners(20);
  * Provides programmatic access to duplicate detection scanning and results.
  */
 
-import express from 'express';
+import express, { type Request, type Response, type NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -20,24 +20,24 @@ import { JSDOM } from 'jsdom';
 import { createComponentLogger, logError, logStart } from '../sidequest/utils/logger.ts';
 import { config } from '../sidequest/core/config.ts';
 import { CONCURRENCY, PORT } from '../sidequest/core/constants.ts';
-import { authMiddleware } from './middleware/auth.js';
-import { rateLimiter } from './middleware/rate-limit.js';
-import { errorHandler } from './middleware/error-handler.js';
+import { authMiddleware } from './middleware/auth.ts';
+import { rateLimiter } from './middleware/rate-limit.ts';
+import { errorHandler } from './middleware/error-handler.ts';
 import scanRoutes from './routes/scans.ts';
-import repositoryRoutes from './routes/repositories.js';
-import reportRoutes from './routes/reports.js';
+import repositoryRoutes from './routes/repositories.ts';
+import reportRoutes from './routes/reports.ts';
 import pipelineRoutes from './routes/pipelines.ts';
-import jobsRoutes from './routes/jobs.js';
+import jobsRoutes from './routes/jobs.ts';
 import * as Sentry from '@sentry/node';
 import { createServer } from 'http';
-import { createWebSocketServer } from './websocket.js';
-import { ScanEventBroadcaster } from './event-broadcaster.js';
-import { ActivityFeedManager } from './activity-feed.js';
+import { createWebSocketServer } from './websocket.ts';
+import { ScanEventBroadcaster } from './event-broadcaster.ts';
+import { ActivityFeedManager } from './activity-feed.ts';
 import { DopplerHealthMonitor } from '../sidequest/pipeline-core/doppler-health-monitor.ts';
-import { setupServerWithPortFallback, setupGracefulShutdown } from './utils/port-manager.js';
+import { setupServerWithPortFallback, setupGracefulShutdown } from './utils/port-manager.ts';
 import { jobRepository } from '../sidequest/core/job-repository.ts';
 import { getPipelineName } from '../sidequest/utils/pipeline-names.ts';
-import { workerRegistry } from './utils/worker-registry.js';
+import { workerRegistry } from './utils/worker-registry.ts';
 import fs from 'fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -56,7 +56,7 @@ app.use(express.json());
 
 // CORS configuration - allow GitHub Pages frontend and localhost for development
 const corsOptions = {
-  origin: (origin, callback) => {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     const allowedOrigins = [
       'https://n0ai.app',
       'http://localhost:8080',
@@ -80,7 +80,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // CSP headers to allow iframe embedding from any origin
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader('Content-Security-Policy', "frame-ancestors *");
   res.setHeader('X-Frame-Options', 'ALLOWALL');
   next();
@@ -90,7 +90,7 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 // Logging middleware
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   logger.info({
     method: req.method,
     path: req.path,
@@ -105,7 +105,7 @@ app.use(authMiddleware);
 app.use(rateLimiter);
 
 // Health check endpoint (no auth required)
-app.get('/health', (req, res) => {
+app.get('/health', (req: Request, res: Response) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -115,7 +115,7 @@ app.get('/health', (req, res) => {
 
 // Doppler health check endpoint (no auth required)
 const dopplerMonitor = new DopplerHealthMonitor();
-app.get('/api/health/doppler', async (req, res) => {
+app.get('/api/health/doppler', async (req: Request, res: Response) => {
   try {
     const health = await dopplerMonitor.checkCacheHealth();
 
@@ -136,7 +136,7 @@ app.get('/api/health/doppler', async (req, res) => {
       success: false,
       error: {
         code: 'INTERNAL_ERROR',
-        message: error?.message || 'Failed to check Doppler health'
+        message: (error as Error)?.message || 'Failed to check Doppler health'
       },
       timestamp: new Date().toISOString()
     });
@@ -145,7 +145,7 @@ app.get('/api/health/doppler', async (req, res) => {
 
 // System status endpoint (includes retry metrics and activity feed)
 // FIXED: Now queries database for ALL pipelines instead of single hardcoded worker
-app.get('/api/status', (req, res) => {
+app.get('/api/status', (req: Request, res: Response) => {
   try {
     // Get all pipelines from database (persistent, survives restarts)
     const pipelineStats = jobRepository.getAllPipelineStats();
@@ -166,19 +166,19 @@ app.get('/api/status', (req, res) => {
 
     // Map all registered pipelines to API response format
     const pipelines = allPipelineIds.map(pipelineId => {
-      const dbStats = statsMap.get(pipelineId) || {};
+      const dbStats = statsMap.get(pipelineId) as Record<string, unknown> | undefined ?? {};
       const pipelineWorkerStats = workerStats.byPipeline[pipelineId] || {};
 
       // Use worker stats if available, otherwise fall back to database running count
-      const activeJobs = pipelineWorkerStats.active || dbStats.running || 0;
+      const activeJobs = (pipelineWorkerStats.active as number) || (dbStats.running as number) || 0;
 
       return {
         id: pipelineId,
         name: getPipelineName(pipelineId),
         status: activeJobs > 0 ? 'running' : 'idle',
-        completedJobs: dbStats.completed || 0,
-        failedJobs: dbStats.failed || 0,
-        lastRun: dbStats.lastRun || null,
+        completedJobs: (dbStats.completed as number) || 0,
+        failedJobs: (dbStats.failed as number) || 0,
+        lastRun: (dbStats.lastRun as string) || null,
         nextRun: null
       };
     });
@@ -198,7 +198,7 @@ app.get('/api/status', (req, res) => {
     const runningJobs = jobRepository.getAllJobs({ status: 'running', limit: 20 });
     const queuedJobs2 = jobRepository.getAllJobs({ status: 'queued', limit: 20 });
 
-    const mapJobForApi = (job) => ({
+    const mapJobForApi = (job: any) => ({
       '@type': 'https://schema.org/Action',
       id: job.id,
       pipelineId: job.pipelineId,
@@ -235,7 +235,7 @@ app.get('/api/status', (req, res) => {
 });
 
 // Pipeline data flow documentation endpoint (serves SYSTEM-DATA-FLOW.md)
-app.get('/api/pipeline-data-flow', async (req, res) => {
+app.get('/api/pipeline-data-flow', async (req: Request, res: Response) => {
   try {
     const docPath = path.join(__dirname, '../docs/architecture/SYSTEM-DATA-FLOW.md');
     const markdown = await fs.readFile(docPath, 'utf-8');
@@ -251,7 +251,7 @@ app.get('/api/pipeline-data-flow', async (req, res) => {
 
     // Sanitize HTML to prevent XSS (allow mermaid code blocks)
     const window = new JSDOM('').window;
-    const purify = DOMPurify(window);
+    const purify = DOMPurify(window as any);
     const cleanHtml = purify.sanitize(rawHtml, {
       ADD_TAGS: ['pre', 'code'],
       ADD_ATTR: ['class', 'data-lang']
@@ -291,15 +291,16 @@ app.use('/api/jobs', jobsRoutes);
 app.use('/api/sidequest/pipeline-runners', pipelineRoutes); // Dashboard compatibility
 
 // SPA fallback: serve index.html for non-API routes so client-side routing works
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.method === 'GET' && !req.path.startsWith('/api/') && !req.path.startsWith('/ws/') && !req.path.startsWith('/health')) {
-    return res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+    res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+    return;
   }
   next();
 });
 
 // 404 handler
-app.use((req, res) => {
+app.use((req: Request, res: Response) => {
   res.status(404).json({
     success: false,
     error: {
@@ -329,7 +330,7 @@ app.set('broadcaster', broadcaster);
 app.set('activityFeed', activityFeed);
 
 // WebSocket status endpoint (before API routes to avoid conflict)
-app.get('/ws/status', (req, res) => {
+app.get('/ws/status', (req: Request, res: Response) => {
   const clientInfo = wss.getClientInfo();
   const address = httpServer.address();
   const actualPort = (typeof address === 'string' ? config.apiPort : address?.port) || config.apiPort;
@@ -352,20 +353,20 @@ async function _emergencyShutdown() {
     // Stop Doppler health monitoring if started
     dopplerMonitor.stopMonitoring();
   } catch (err) {
-    logger.error({ error: err.message }, 'Failed to stop Doppler monitor during emergency shutdown');
+    logger.error({ error: (err as Error).message }, 'Failed to stop Doppler monitor during emergency shutdown');
   }
 
   try {
     // Shutdown all workers if registry initialized
     await workerRegistry.shutdown();
   } catch (err) {
-    logger.error({ error: err.message }, 'Failed to shutdown worker registry during emergency shutdown');
+    logger.error({ error: (err as Error).message }, 'Failed to shutdown worker registry during emergency shutdown');
   }
 
   try {
     // Close WebSocket server if created
     if (wss?.clients) {
-      await new Promise((resolve) => {
+      await new Promise<void>((resolve) => {
         wss.close(() => {
           logger.info('WebSocket server closed during emergency shutdown');
           resolve();
@@ -373,14 +374,14 @@ async function _emergencyShutdown() {
       });
     }
   } catch (err) {
-    logger.error({ error: err.message }, 'Failed to close WebSocket server during emergency shutdown');
+    logger.error({ error: (err as Error).message }, 'Failed to close WebSocket server during emergency shutdown');
   }
 
   try {
     // Close job repository if initialized
     jobRepository.close();
   } catch (err) {
-    logger.error({ error: err.message }, 'Failed to close job repository during emergency shutdown');
+    logger.error({ error: (err as Error).message }, 'Failed to close job repository during emergency shutdown');
   }
 
   logger.info('Emergency shutdown complete');
@@ -430,7 +431,7 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
         await workerRegistry.shutdown();
 
         // Close WebSocket server
-        await new Promise((resolve) => {
+        await new Promise<void>((resolve) => {
           wss.close(() => {
             logger.info('WebSocket server closed');
             resolve();
@@ -442,7 +443,7 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
       }
     });
   } catch (error) {
-    logger.error({ error: error.message, stack: error.stack }, 'Failed to start server');
+    logger.error({ error: (error as Error).message, stack: (error as Error).stack }, 'Failed to start server');
     Sentry.captureException(error, {
       tags: { component: 'APIServer', phase: 'startup' }
     });

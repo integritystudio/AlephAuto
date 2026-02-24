@@ -28,7 +28,7 @@ module.exports = {
      */
     {
       name: 'aleph-dashboard',
-      script: 'api/server.js',
+      script: 'api/server.ts',
       cwd: PROJECT_ROOT,
       instances: 1,  // CHANGED: Single instance to prevent port conflicts (was 2)
       exec_mode: 'fork',  // CHANGED: Fork mode instead of cluster to prevent EADDRINUSE (was 'cluster')

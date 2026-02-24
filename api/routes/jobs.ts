@@ -3,27 +3,19 @@
  * Provides access to job queue across all pipelines
  */
 
-import express from 'express';
+import express, { type Request, type Response } from 'express';
 import crypto from 'crypto';
-import { createComponentLogger, logError, logStart } from '../../sidequest/utils/logger.ts';
-import { jobRepository } from '../../sidequest/core/job-repository.ts';
-import { workerRegistry } from '../utils/worker-registry.js';
-import { config } from '../../sidequest/core/config.ts';
-import { getPipelineName } from '../../sidequest/utils/pipeline-names.ts';
+import { createComponentLogger, logError, logStart } from '#sidequest/utils/logger.ts';
+import { jobRepository } from '#sidequest/core/job-repository.ts';
+import { workerRegistry } from '../utils/worker-registry.ts';
+import { config } from '#sidequest/core/config.ts';
+import { getPipelineName } from '#sidequest/utils/pipeline-names.ts';
 import { isValidJobStatus, JOB_STATUS } from '../types/job-status.ts';
-import { PAGINATION, VALIDATION, RETRY } from '../../sidequest/core/constants.ts';
+import { PAGINATION, VALIDATION, RETRY } from '#sidequest/core/constants.ts';
 import { sendError, sendNotFoundError, sendInternalError, ERROR_CODES } from '../utils/api-error.ts';
-import { bulkImportRateLimiter } from '../middleware/rate-limit.js';
+import { bulkImportRateLimiter } from '../middleware/rate-limit.ts';
 
-/**
- * Timing-safe string comparison to prevent timing attacks
- * Returns false for mismatched lengths without leaking length info through timing
- *
- * @param {string} a - First string
- * @param {string} b - Second string
- * @returns {boolean} True if strings are equal
- */
-function timingSafeEqual(a, b) {
+function timingSafeEqual(a: unknown, b: unknown): boolean {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
 
   // Use a fixed-length comparison to avoid leaking length information
@@ -44,14 +36,7 @@ function timingSafeEqual(a, b) {
 const router = express.Router();
 const logger = createComponentLogger('JobsAPI');
 
-/**
- * Validate and sanitize job ID from URL parameter
- * Prevents path traversal and injection attacks
- *
- * @param {string} jobId - Job ID from URL parameter
- * @returns {{ valid: boolean, sanitized?: string, error?: string }}
- */
-function validateJobId(jobId) {
+function validateJobId(jobId: string): { valid: boolean; sanitized?: string; error?: string } {
   if (!jobId) {
     return { valid: false, error: 'Job ID is required' };
   }
@@ -66,14 +51,7 @@ function validateJobId(jobId) {
   return { valid: true, sanitized: jobId };
 }
 
-/**
- * Sanitize pagination parameters to prevent memory issues and NaN propagation
- *
- * @param {string|number} limit - Requested page size
- * @param {string|number} offset - Requested offset
- * @returns {{ limit: number, offset: number }}
- */
-function sanitizePaginationParams(limit, offset) {
+function sanitizePaginationParams(limit: string | number, offset: string | number): { limit: number; offset: number } {
   // Convert to string to ensure parseInt works correctly
   const limitStr = String(limit);
   const offsetStr = String(offset);
@@ -108,16 +86,16 @@ router.get('/', (req, res) => {
     const { status, limit = PAGINATION.DEFAULT_LIMIT, offset = 0 } = req.query;
 
     // Validate status if provided (use explicit null check, not truthy check)
-    if (status !== undefined && status !== null && !isValidJobStatus(status)) {
+    if (status !== undefined && status !== null && !isValidJobStatus(status as string)) {
       return sendError(res, ERROR_CODES.INVALID_STATUS,
         `Invalid status '${status}'. Must be one of: ${Object.values(JOB_STATUS).join(', ')}`, 400);
     }
 
     // Sanitize pagination parameters to prevent memory issues and NaN propagation
-    const { limit: limitNum, offset: offsetNum } = sanitizePaginationParams(limit, offset);
+    const { limit: limitNum, offset: offsetNum } = sanitizePaginationParams(limit as string | number, offset as string | number);
 
     // Get jobs from database with filtering and pagination
-    const allJobs = jobRepository.getAllJobs({ status: status || undefined, limit: limitNum, offset: offsetNum });
+    const allJobs = jobRepository.getAllJobs({ status: (status as string) || undefined, limit: limitNum, offset: offsetNum });
 
     // Format response - getAllJobs now returns parsed camelCase objects
     const jobs = allJobs.map(job => ({
@@ -135,7 +113,7 @@ router.get('/', (req, res) => {
     }));
 
     // Get total count for pagination (efficient COUNT query)
-    const total = jobRepository.getJobCount({ status: status || undefined });
+    const total = jobRepository.getJobCount({ status: (status as string) || undefined });
     const page = limitNum > 0 ? Math.floor(offsetNum / limitNum) : 0;
     const hasMore = (offsetNum + limitNum) < total;
 
@@ -226,7 +204,7 @@ router.post('/bulk-import', bulkImportRateLimiter, (req, res) => {
 
   } catch (error) {
     logError(logger, error, 'Bulk import failed');
-    return sendError(res, ERROR_CODES.INTERNAL_ERROR, 'Bulk import failed', 500, { details: error.message });
+    return sendError(res, ERROR_CODES.INTERNAL_ERROR, 'Bulk import failed', 500, { details: (error as Error).message });
   }
 });
 
@@ -241,13 +219,13 @@ router.get('/:jobId', (req, res) => {
     // Validate job ID to prevent path traversal and injection attacks
     const validation = validateJobId(jobId);
     if (!validation.valid) {
-      return sendError(res, ERROR_CODES.INVALID_REQUEST, validation.error, 400);
+      return sendError(res, ERROR_CODES.INVALID_REQUEST, validation.error!, 400);
     }
 
-    const job = jobRepository.getJob(validation.sanitized);
+    const job = jobRepository.getJob(validation.sanitized!);
 
     if (!job) {
-      return sendNotFoundError(res, 'Job', validation.sanitized);
+      return sendNotFoundError(res, 'Job', validation.sanitized!);
     }
 
     res.json({
@@ -286,10 +264,10 @@ router.post('/:jobId/cancel', async (req, res) => {
     // Validate job ID to prevent path traversal and injection attacks
     const validation = validateJobId(jobId);
     if (!validation.valid) {
-      return sendError(res, ERROR_CODES.INVALID_REQUEST, validation.error, 400);
+      return sendError(res, ERROR_CODES.INVALID_REQUEST, validation.error!, 400);
     }
 
-    const sanitizedJobId = validation.sanitized;
+    const sanitizedJobId = validation.sanitized!;
     logger.info({ jobId: sanitizedJobId }, 'Cancelling job');
 
     // Extract pipeline ID from job ID (format: pipelineId-*)
@@ -336,10 +314,10 @@ router.post('/:jobId/retry', async (req, res) => {
     // Validate job ID to prevent path traversal and injection attacks
     const validation = validateJobId(jobId);
     if (!validation.valid) {
-      return sendError(res, ERROR_CODES.INVALID_REQUEST, validation.error, 400);
+      return sendError(res, ERROR_CODES.INVALID_REQUEST, validation.error!, 400);
     }
 
-    const sanitizedJobId = validation.sanitized;
+    const sanitizedJobId = validation.sanitized!;
     logStart(logger, 'job retry', { jobId: sanitizedJobId });
 
     // Get job details to determine pipeline
@@ -356,10 +334,10 @@ router.post('/:jobId/retry', async (req, res) => {
     }
 
     // job.data is already parsed by the repository layer
-    const jobData = job.data ?? {};
+    const jobData = (job.data ?? {}) as Record<string, unknown>;
 
     // Enforce maximum retry count to prevent infinite retry loops
-    const currentRetryCount = jobData.retryCount ?? 0;
+    const currentRetryCount = (jobData.retryCount as number) ?? 0;
     if (currentRetryCount >= RETRY.MAX_MANUAL_RETRIES) {
       return sendError(res, ERROR_CODES.INVALID_REQUEST,
         `Job has already been retried ${currentRetryCount} times (max: ${RETRY.MAX_MANUAL_RETRIES})`, 400);

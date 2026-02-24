@@ -6,7 +6,7 @@
  */
 
 import type { Response } from 'express';
-import { createComponentLogger } from '../../sidequest/utils/logger.ts';
+import { createComponentLogger } from '#sidequest/utils/logger.ts';
 
 const logger = createComponentLogger('ApiError');
 

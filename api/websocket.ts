@@ -4,30 +4,38 @@
  * Real-time scan progress updates via WebSocket connections.
  */
 
-// @ts-check
-/** @typedef {import('http').Server} HttpServer */
-
-import { WebSocketServer } from 'ws';
+import type { Server as HttpServer } from 'http';
+import { WebSocketServer, type WebSocket } from 'ws';
 import { createComponentLogger, logError } from '../sidequest/utils/logger.ts';
 import { WEBSOCKET } from '../sidequest/core/constants.ts';
 import crypto from 'crypto';
 
 const logger = createComponentLogger('WebSocketServer');
 
+interface WsClient {
+  ws: WebSocket;
+  subscriptions: Set<string>;
+  connectedAt: Date;
+}
+
+export interface ExtendedWebSocketServer extends WebSocketServer {
+  broadcast: (message: Record<string, any>, filter?: ((client: WsClient, clientId: string) => boolean) | null) => void;
+  sendToClient: (clientId: string, message: Record<string, any>) => boolean;
+  getClientInfo: () => { total_clients: number; clients: any[] };
+}
+
 /**
  * Create WebSocket server
- * @param {HttpServer} httpServer - HTTP server instance
- * @returns {WebSocketServer} - WebSocket server
  */
-export function createWebSocketServer(httpServer) {
+export function createWebSocketServer(httpServer: HttpServer): ExtendedWebSocketServer {
   const wss = new WebSocketServer({
     server: httpServer,
     path: '/ws'
-  });
+  }) as ExtendedWebSocketServer;
 
-  const clients = new Map(); // clientId -> { ws, subscriptions }
+  const clients = new Map<string, WsClient>();
 
-  wss.on('connection', (ws, req) => {
+  wss.on('connection', (ws: WebSocket, req) => {
     const clientId = generateClientId();
 
     clients.set(clientId, {
@@ -98,7 +106,7 @@ export function createWebSocketServer(httpServer) {
   });
 
   // Broadcast function
-  wss.broadcast = (message, filter = null) => {
+  wss.broadcast = (message: Record<string, any>, filter: ((client: WsClient, clientId: string) => boolean) | null = null) => {
     const data = JSON.stringify(message);
     let sentCount = 0;
 
@@ -122,7 +130,7 @@ export function createWebSocketServer(httpServer) {
   };
 
   // Targeted send function
-  wss.sendToClient = (clientId, message) => {
+  wss.sendToClient = (clientId: string, message: Record<string, any>): boolean => {
     const client = clients.get(clientId);
 
     if (!client) {
@@ -157,19 +165,15 @@ export function createWebSocketServer(httpServer) {
 
 /**
  * Generate unique client ID
- * @returns {string} - Client ID
  */
-function generateClientId() {
+function generateClientId(): string {
   return crypto.randomBytes(16).toString('hex');
 }
 
 /**
  * Handle client message
- * @param {string} clientId - Client ID
- * @param {Object} message - Message from client
- * @param {Map} clients - Clients map
  */
-function handleClientMessage(clientId, message, clients) {
+function handleClientMessage(clientId: string, message: Record<string, any>, clients: Map<string, WsClient>): void {
   const client = clients.get(clientId);
 
   if (!client) {
@@ -215,10 +219,10 @@ function handleClientMessage(clientId, message, clients) {
 /**
  * Handle subscribe message
  */
-function handleSubscribe(clientId, message, client) {
+function handleSubscribe(clientId: string, message: Record<string, any>, client: WsClient): void {
   const { channels = [] } = message;
 
-  channels.forEach(channel => {
+  channels.forEach((channel: string) => {
     client.subscriptions.add(channel);
   });
 
@@ -239,10 +243,10 @@ function handleSubscribe(clientId, message, client) {
 /**
  * Handle unsubscribe message
  */
-function handleUnsubscribe(clientId, message, client) {
+function handleUnsubscribe(clientId: string, message: Record<string, any>, client: WsClient): void {
   const { channels = [] } = message;
 
-  channels.forEach(channel => {
+  channels.forEach((channel: string) => {
     client.subscriptions.delete(channel);
   });
 

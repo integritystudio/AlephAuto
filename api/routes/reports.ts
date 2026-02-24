@@ -4,8 +4,8 @@
  * API endpoints for retrieving scan reports.
  */
 
-import express from 'express';
-import { createComponentLogger, logError } from '../../sidequest/utils/logger.ts';
+import express, { type Request, type Response, type NextFunction } from 'express';
+import { createComponentLogger, logError } from '#sidequest/utils/logger.ts';
 import { validateQuery } from '../middleware/validation.ts';
 import { ReportQuerySchema } from '../types/report-requests.ts';
 import fs from 'fs/promises';
@@ -61,7 +61,7 @@ router.get('/', validateQuery(ReportQuerySchema), async (req, res, next) => {
 
     const sortedFiles = filesWithStats
       .sort((a, b) => b.modified.getTime() - a.modified.getTime())
-      .slice(0, parseInt(limit));
+      .slice(0, parseInt(limit as string));
 
     const reports = sortedFiles.map(f => ({
       name: f.name,

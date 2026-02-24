@@ -4,25 +4,23 @@
  * Broadcasts duplicate detection events to WebSocket clients.
  */
 
-// @ts-check
-/** @typedef {import('../sidequest/pipeline-core/errors/error-classifier.ts').ExtendedError} ExtendedError */
-
+import type { ExtendedError } from '../sidequest/pipeline-core/errors/error-classifier.ts';
 import { createComponentLogger } from '../sidequest/utils/logger.ts';
+import type { ExtendedWebSocketServer } from './websocket.ts';
 
 const logger = createComponentLogger('EventBroadcaster');
 
 export class ScanEventBroadcaster {
-  /** @param {any} wss */
-  constructor(wss) {
+  wss: ExtendedWebSocketServer | null;
+
+  constructor(wss: ExtendedWebSocketServer | null) {
     this.wss = wss;
   }
 
   /**
    * Broadcast scan started event
-   * @param {string} scanId - Scan ID
-   * @param {Record<string, any>} details - Scan details
    */
-  broadcastScanStarted(scanId, details) {
+  broadcastScanStarted(scanId: string, details: Record<string, any>): void {
     this.broadcast({
       type: 'scan:started',
       scan_id: scanId,
@@ -34,10 +32,8 @@ export class ScanEventBroadcaster {
 
   /**
    * Broadcast scan progress event
-   * @param {string} scanId - Scan ID
-   * @param {Record<string, any>} progress - Progress details
    */
-  broadcastProgress(scanId, progress) {
+  broadcastProgress(scanId: string, progress: Record<string, any>): void {
     this.broadcast({
       type: 'scan:progress',
       scan_id: scanId,
@@ -53,10 +49,8 @@ export class ScanEventBroadcaster {
 
   /**
    * Broadcast duplicate found event
-   * @param {string} scanId - Scan ID
-   * @param {Record<string, any>} duplicate - Duplicate details
    */
-  broadcastDuplicateFound(scanId, duplicate) {
+  broadcastDuplicateFound(scanId: string, duplicate: Record<string, any>): void {
     this.broadcast({
       type: 'duplicate:found',
       scan_id: scanId,
@@ -74,10 +68,8 @@ export class ScanEventBroadcaster {
 
   /**
    * Broadcast scan completed event
-   * @param {string} scanId - Scan ID
-   * @param {Record<string, any>} results - Scan results
    */
-  broadcastScanCompleted(scanId, results) {
+  broadcastScanCompleted(scanId: string, results: Record<string, any>): void {
     this.broadcast({
       type: 'scan:completed',
       scan_id: scanId,
@@ -94,11 +86,9 @@ export class ScanEventBroadcaster {
 
   /**
    * Broadcast scan failed event
-   * @param {string} scanId - Scan ID
-   * @param {Error} error - Error details
    */
-  broadcastScanFailed(scanId, error) {
-    const extError = /** @type {ExtendedError} */ (error);
+  broadcastScanFailed(scanId: string, error: Error): void {
+    const extError = error as ExtendedError;
     this.broadcast({
       type: 'scan:failed',
       scan_id: scanId,
@@ -112,10 +102,8 @@ export class ScanEventBroadcaster {
 
   /**
    * Broadcast high-impact duplicate alert
-   * @param {string} scanId - Scan ID
-   * @param {Record<string, any>} duplicate - High-impact duplicate
    */
-  broadcastHighImpactAlert(scanId, duplicate) {
+  broadcastHighImpactAlert(scanId: string, duplicate: Record<string, any>): void {
     this.broadcast({
       type: 'alert:high-impact',
       scan_id: scanId,
@@ -132,10 +120,8 @@ export class ScanEventBroadcaster {
 
   /**
    * Broadcast cache event
-   * @param {string} eventType - Event type (hit/miss/invalidate)
-   * @param {Record<string, any>} details - Event details
    */
-  broadcastCacheEvent(eventType, details) {
+  broadcastCacheEvent(eventType: string, details: Record<string, any>): void {
     this.broadcast({
       type: `cache:${eventType}`,
       repository: details.repository,
@@ -147,9 +133,8 @@ export class ScanEventBroadcaster {
 
   /**
    * Broadcast system stats update
-   * @param {Record<string, any>} stats - System statistics
    */
-  broadcastStatsUpdate(stats) {
+  broadcastStatsUpdate(stats: Record<string, any>): void {
     this.broadcast({
       type: 'stats:update',
       stats: {
@@ -165,10 +150,8 @@ export class ScanEventBroadcaster {
 
   /**
    * Broadcast message to subscribed clients
-   * @param {Record<string, any>} message - Message to broadcast
-   * @param {string | null} channel - Channel name
    */
-  broadcast(message, channel = null) {
+  broadcast(message: Record<string, any>, channel: string | null = null): void {
     if (!this.wss) {
       logger.warn('WebSocket server not initialized');
       return;
@@ -176,7 +159,7 @@ export class ScanEventBroadcaster {
 
     // Filter clients by subscription if channel specified
     const filter = channel
-      ? (/** @type {any} */ client) => client.subscriptions.has(channel) || client.subscriptions.has('*')
+      ? (client: any) => client.subscriptions.has(channel) || client.subscriptions.has('*')
       : null;
 
     this.wss.broadcast(message, filter);
@@ -189,10 +172,8 @@ export class ScanEventBroadcaster {
 
   /**
    * Send message to specific client
-   * @param {string} clientId - Client ID
-   * @param {Record<string, any>} message - Message to send
    */
-  sendToClient(clientId, message) {
+  sendToClient(clientId: string, message: Record<string, any>): boolean {
     if (!this.wss) {
       logger.warn('WebSocket server not initialized');
       return false;
@@ -203,9 +184,8 @@ export class ScanEventBroadcaster {
 
   /**
    * Get connected clients info
-   * @returns {Object} - Clients information
    */
-  getClientInfo() {
+  getClientInfo(): { total_clients: number; clients: any[] } {
     if (!this.wss) {
       return { total_clients: 0, clients: [] };
     }

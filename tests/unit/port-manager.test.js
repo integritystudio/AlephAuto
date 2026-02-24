@@ -13,7 +13,7 @@ import {
   setupServerWithPortFallback,
   setupGracefulShutdown,
   killProcessOnPort
-} from '../../api/utils/port-manager.js';
+} from '../../api/utils/port-manager.ts';
 import net from 'net';
 import { createServer } from 'http';
 

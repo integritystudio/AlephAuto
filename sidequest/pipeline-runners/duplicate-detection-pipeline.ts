@@ -26,7 +26,7 @@ import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.ts';
 import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.ts';
 import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.ts';
 import type { ScanResult as ReportScanResult } from '../pipeline-core/reports/json-report-generator.ts';
-import { PRCreator, PRCreationResults } from '../pipeline-core/git/pr-creator.ts';
+import { PRCreator, type PRCreationResults } from '../pipeline-core/git/pr-creator.ts';
 import { createComponentLogger, logStart, logRetry } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS, RETRY } from '../core/constants.ts';
@@ -40,22 +40,24 @@ import * as Sentry from '@sentry/node';
 import type { Logger } from 'pino';
 
 /**
- * Job status enum
+ * Job status values
  */
-export enum JobStatus {
-  QUEUED = 'queued',
-  RUNNING = 'running',
-  COMPLETED = 'completed',
-  FAILED = 'failed'
-}
+export const JobStatus = {
+  QUEUED: 'queued',
+  RUNNING: 'running',
+  COMPLETED: 'completed',
+  FAILED: 'failed'
+} as const;
+export type JobStatus = typeof JobStatus[keyof typeof JobStatus];
 
 /**
- * Scan type enum
+ * Scan type values
  */
-export enum ScanType {
-  INTER_PROJECT = 'inter-project',
-  INTRA_PROJECT = 'intra-project'
-}
+export const ScanType = {
+  INTER_PROJECT: 'inter-project',
+  INTRA_PROJECT: 'intra-project'
+} as const;
+export type ScanType = typeof ScanType[keyof typeof ScanType];
 
 /**
  * Interface for job data

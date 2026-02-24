@@ -22,7 +22,7 @@ import {
   findAvailablePort,
   setupServerWithPortFallback,
   setupGracefulShutdown
-} from '../../api/utils/port-manager.js';
+} from '../../api/utils/port-manager.ts';
 
 describe('Port Manager - Integration Tests', () => {
   let servers = [];

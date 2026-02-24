@@ -4,8 +4,9 @@
  * API key-based authentication for REST API endpoints.
  */
 
-import { createComponentLogger } from '../../sidequest/utils/logger.ts';
-import { config } from '../../sidequest/core/config.ts';
+import type { Request, Response, NextFunction } from 'express';
+import { createComponentLogger } from '#sidequest/utils/logger.ts';
+import { config } from '#sidequest/core/config.ts';
 import crypto from 'crypto';
 
 const logger = createComponentLogger('AuthMiddleware');
@@ -27,16 +28,14 @@ const PUBLIC_PATHS = [
 
 /**
  * Validate API key
- * @param {string} apiKey - API key to validate
- * @returns {boolean} - True if valid
  */
-function validateApiKey(apiKey) {
+function validateApiKey(apiKey: string): boolean {
   if (!apiKey) {
     return false;
   }
 
   // Get configured API key from environment
-  const validApiKey = config.apiKey || process.env.API_KEY;
+  const validApiKey = (config as Record<string, unknown>).apiKey as string | undefined || process.env.API_KEY;
 
   if (!validApiKey) {
     logger.warn('No API key configured, authentication disabled');
@@ -57,22 +56,24 @@ function validateApiKey(apiKey) {
 /**
  * Authentication middleware
  */
-export function authMiddleware(req, res, next) {
+export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   // Skip authentication for public paths (prefix match)
   if (PUBLIC_PATHS.some(publicPath => req.path === publicPath || req.path.startsWith(publicPath + '/'))) {
-    return next();
+    next();
+    return;
   }
 
   // Extract API key from header
-  const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
+  const apiKey = (req.headers['x-api-key'] as string | undefined) || req.headers['authorization']?.replace('Bearer ', '');
 
   if (!apiKey) {
     logger.warn({ path: req.path, ip: req.ip }, 'API request without API key');
-    return res.status(401).json({
+    res.status(401).json({
       error: 'Unauthorized',
       message: 'API key required. Provide via X-API-Key header or Authorization: Bearer token',
       timestamp: new Date().toISOString()
     });
+    return;
   }
 
   // Validate API key
@@ -83,11 +84,12 @@ export function authMiddleware(req, res, next) {
       apiKeyPrefix: apiKey.substring(0, 8) + '...'
     }, 'Invalid API key');
 
-    return res.status(403).json({
+    res.status(403).json({
       error: 'Forbidden',
       message: 'Invalid API key',
       timestamp: new Date().toISOString()
     });
+    return;
   }
 
   // API key valid - proceed

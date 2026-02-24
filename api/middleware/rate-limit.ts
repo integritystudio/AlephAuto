@@ -4,9 +4,10 @@
  * Prevents API abuse by limiting request rates.
  */
 
+import type { Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
-import { createComponentLogger } from '../../sidequest/utils/logger.ts';
-import { RATE_LIMIT } from '../../sidequest/core/constants.ts';
+import { createComponentLogger } from '#sidequest/utils/logger.ts';
+import { RATE_LIMIT } from '#sidequest/core/constants.ts';
 
 const logger = createComponentLogger('RateLimiter');
 
@@ -25,16 +26,16 @@ export const rateLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in RateLimit-* headers
   legacyHeaders: false, // Disable X-RateLimit-* headers
   // Skip rate limiting for dashboard read endpoints
-  skip: (req) => {
+  skip: (req: Request) => {
     const dashboardReadPaths = [
       '/api/status',
       '/api/pipelines',
       '/api/sidequest/pipeline-runners',
       '/api/reports'
     ];
-    return dashboardReadPaths.some(path => req.path.startsWith(path) && req.method === 'GET');
+    return dashboardReadPaths.some(p => req.path.startsWith(p) && req.method === 'GET');
   },
-  handler: (req, res) => {
+  handler: (req: Request, res: Response) => {
     logger.warn({
       ip: req.ip,
       path: req.path,
@@ -66,7 +67,7 @@ export const strictRateLimiter = rateLimit({
     message: 'Rate limit exceeded for scan operations. Please try again later.',
     retryAfter: '1 hour'
   },
-  handler: (req, res) => {
+  handler: (req: Request, res: Response) => {
     logger.warn({
       ip: req.ip,
       path: req.path,
@@ -95,7 +96,7 @@ export const bulkImportRateLimiter = rateLimit({
     message: 'Rate limit exceeded for bulk import operations. Please try again later.',
     retryAfter: '1 hour'
   },
-  handler: (req, res) => {
+  handler: (req: Request, res: Response) => {
     logger.warn({
       ip: req.ip,
       path: req.path,

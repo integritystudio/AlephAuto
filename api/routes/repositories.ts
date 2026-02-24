@@ -5,10 +5,10 @@
  */
 
 import express from 'express';
-import { RepositoryConfigLoader } from '../../sidequest/pipeline-core/config/repository-config-loader.ts';
-import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.ts';
-import { createComponentLogger, logError } from '../../sidequest/utils/logger.ts';
-import { strictRateLimiter } from '../middleware/rate-limit.js';
+import { RepositoryConfigLoader } from '#sidequest/pipeline-core/config/repository-config-loader.ts';
+import { CachedScanner } from '#sidequest/pipeline-core/cache/cached-scanner.ts';
+import { createComponentLogger, logError } from '#sidequest/utils/logger.ts';
+import { strictRateLimiter } from '../middleware/rate-limit.ts';
 import { validateQuery } from '../middleware/validation.ts';
 import { RepositoryQuerySchema, RepositoryGroupQuerySchema } from '../types/repository-requests.ts';
 
@@ -51,7 +51,7 @@ router.get('/', validateQuery(RepositoryQuerySchema), async (req, res, next) => 
     // Filter by tag
     if (tag) {
       repositories = repositories.filter(r =>
-        r.tags && r.tags.includes(tag)
+        r.tags && r.tags.includes(tag as string)
       );
     }
 
@@ -118,7 +118,7 @@ router.get('/:name', async (req, res, next) => {
  */
 router.post('/:name/scan', strictRateLimiter, async (req, res, next) => {
   try {
-    const { name } = req.params;
+    const name = req.params.name as string;
     const { forceRefresh = false } = req.body;
 
     logger.info({ name, forceRefresh }, 'Triggering repository scan');

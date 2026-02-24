@@ -8,7 +8,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { EventEmitter } from 'node:events';
-import { ActivityFeedManager } from '../../api/activity-feed.js';
+import { ActivityFeedManager } from '../../api/activity-feed.ts';
 
 describe('ActivityFeedManager - Error Handling', () => {
   let activityFeed;

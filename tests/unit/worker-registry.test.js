@@ -40,7 +40,7 @@ describe('Worker Registry - Pipeline Support', () => {
 
   beforeEach(async () => {
     // Import dynamically to isolate each test
-    const module = await import('../../api/utils/worker-registry.js');
+    const module = await import('../../api/utils/worker-registry.ts');
     workerRegistry = module.workerRegistry;
   });
 
@@ -127,7 +127,7 @@ describe('Worker Registry - Stats', () => {
   let workerRegistry;
 
   beforeEach(async () => {
-    const module = await import('../../api/utils/worker-registry.js');
+    const module = await import('../../api/utils/worker-registry.ts');
     workerRegistry = module.workerRegistry;
   });
 
@@ -174,7 +174,7 @@ describe('Worker Registry - Activity Feed', () => {
   let workerRegistry;
 
   beforeEach(async () => {
-    const module = await import('../../api/utils/worker-registry.js');
+    const module = await import('../../api/utils/worker-registry.ts');
     workerRegistry = module.workerRegistry;
   });
 
@@ -195,7 +195,7 @@ describe('Worker Registry - Error Handling', () => {
   let workerRegistry;
 
   beforeEach(async () => {
-    const module = await import('../../api/utils/worker-registry.js');
+    const module = await import('../../api/utils/worker-registry.ts');
     workerRegistry = module.workerRegistry;
   });
 
@@ -222,7 +222,7 @@ describe('Worker Registry - Shutdown', () => {
   let workerRegistry;
 
   beforeEach(async () => {
-    const module = await import('../../api/utils/worker-registry.js');
+    const module = await import('../../api/utils/worker-registry.ts');
     workerRegistry = module.workerRegistry;
   });
 

@@ -5,40 +5,45 @@
  * Listens to worker events and broadcasts activity updates via WebSocket.
  */
 
-// @ts-check
-/** @typedef {import('../sidequest/core/server.js').SidequestServer} SidequestServer */
-
-/**
- * @typedef {Object} Job
- * @property {string} id - Unique job identifier
- * @property {string} status - Job status (queued, running, completed, failed)
- * @property {number} [retryCount] - Number of retry attempts
- * @property {Object} [data] - Job data payload
- * @property {string} [data.type] - Job type identifier
- * @property {string} [data.pipelineId] - Pipeline identifier
- */
-
-/**
- * @typedef {Object} RetryInfo
- * @property {number} attempt - Current retry attempt number
- * @property {number} maxAttempts - Maximum allowed attempts
- * @property {string} [reason] - Reason for retry
- * @property {number} [delay] - Delay in ms before retry
- */
-
+import type { SidequestServer } from '../sidequest/core/server.ts';
 import { createComponentLogger, logError } from '../sidequest/utils/logger.ts';
 import { TIMEOUTS, TIME } from '../sidequest/core/constants.ts';
 import * as Sentry from '@sentry/node';
 import { safeErrorMessage, toErrorObject } from '../sidequest/pipeline-core/utils/error-helpers.ts';
+import type { ScanEventBroadcaster } from './event-broadcaster.ts';
 
 const logger = createComponentLogger('ActivityFeed');
 
+interface ActivityEntry {
+  id: number;
+  timestamp: string;
+  type?: string;
+  [key: string]: unknown;
+}
+
+interface ActivityStats {
+  recentActivities: { lastHour: number; lastDay: number; total: number };
+  typeCount: Record<string, number>;
+  oldestActivity: string | null;
+  newestActivity: string | null;
+}
+
+interface RetryInfo {
+  attempt?: number;
+  maxAttempts?: number;
+  reason?: string;
+  delay?: number;
+}
+
 export class ActivityFeedManager {
-  /** @param {any} broadcaster @param {Record<string, any>} options */
-  constructor(broadcaster, options = {}) {
+  broadcaster: ScanEventBroadcaster | null;
+  maxActivities: number;
+  activities: ActivityEntry[];
+  activityId: number;
+
+  constructor(broadcaster: ScanEventBroadcaster | null, options: { maxActivities?: number } = {}) {
     this.broadcaster = broadcaster;
     this.maxActivities = options.maxActivities || 50; // Keep last 50 activities
-    /** @type {Array<Record<string, any>>} */
     this.activities = [];
     this.activityId = 0;
 
@@ -47,11 +52,10 @@ export class ActivityFeedManager {
 
   /**
    * Add activity to the feed
-   * @param {Record<string, any>} activity - Activity details
    */
-  addActivity(activity) {
+  addActivity(activity: Record<string, unknown>): ActivityEntry {
     try {
-      const activityEntry = {
+      const activityEntry: ActivityEntry = {
         id: ++this.activityId,
         timestamp: new Date().toISOString(),
         ...activity
@@ -69,7 +73,7 @@ export class ActivityFeedManager {
       if (activity.type === 'job:failed') {
         Sentry.addBreadcrumb({
           category: 'activity',
-          message: activity.message,
+          message: activity.message as string,
           level: 'error',
           data: {
             jobId: activity.jobId,
@@ -103,17 +107,15 @@ export class ActivityFeedManager {
 
   /**
    * Get recent activities
-   * @param {number} limit - Maximum number of activities to return
-   * @returns {Array<Record<string, any>>} - Recent activities
    */
-  getRecentActivities(limit = 20) {
+  getRecentActivities(limit: number = 20): ActivityEntry[] {
     return this.activities.slice(0, limit);
   }
 
   /**
    * Clear all activities
    */
-  clear() {
+  clear(): void {
     this.activities = [];
     this.activityId = 0;
     logger.info('Activity feed cleared');
@@ -121,9 +123,8 @@ export class ActivityFeedManager {
 
   /**
    * Get activity statistics
-   * @returns {Object} - Activity statistics
    */
-  getStats() {
+  getStats(): ActivityStats {
     const now = Date.now();
     const oneHourAgo = now - TIMEOUTS.ONE_HOUR_MS;
     const oneDayAgo = now - TIMEOUTS.ONE_DAY_MS;
@@ -134,8 +135,7 @@ export class ActivityFeedManager {
       total: this.activities.length
     };
 
-    /** @type {Record<string, number>} */
-    const typeCount = {};
+    const typeCount: Record<string, number> = {};
 
     for (const activity of this.activities) {
       const activityTime = new Date(activity.timestamp).getTime();
@@ -148,7 +148,7 @@ export class ActivityFeedManager {
       }
 
       // Count by type
-      const type = activity.type || 'unknown';
+      const type = (activity.type as string) || 'unknown';
       typeCount[type] = (typeCount[type] || 0) + 1;
     }
 
@@ -162,14 +162,13 @@ export class ActivityFeedManager {
 
   /**
    * Listen to worker events and populate activity feed
-   * @param {SidequestServer} worker - Worker instance
    */
-  listenToWorker(worker) {
+  listenToWorker(worker: SidequestServer): void {
     try {
       logger.info('Setting up worker event listeners');
 
       // Job created
-      worker.on('job:created', (job) => {
+      worker.on('job:created', (job: any) => {
         try {
           this.addActivity({
             type: 'job:created',
@@ -178,7 +177,7 @@ export class ActivityFeedManager {
             jobId: job.id,
             jobType: job.data?.type || 'unknown',
             status: 'created',
-            icon: '📝'
+            icon: '\u{1f4dd}'
           });
 
           // Broadcast job event directly for dashboard real-time updates
@@ -188,7 +187,7 @@ export class ActivityFeedManager {
               job: {
                 id: job.id,
                 status: job.status,
-                pipelineId: job.data?.pipelineId || worker.jobType,
+                pipelineId: job.data?.pipelineId || (worker as any).jobType,
                 createdAt: job.createdAt,
                 data: job.data
               }
@@ -204,7 +203,7 @@ export class ActivityFeedManager {
       });
 
       // Job started
-      worker.on('job:started', (job) => {
+      worker.on('job:started', (job: any) => {
         try {
           this.addActivity({
             type: 'job:started',
@@ -213,7 +212,7 @@ export class ActivityFeedManager {
             jobId: job.id,
             jobType: job.data?.type || 'unknown',
             status: 'running',
-            icon: '▶️'
+            icon: '\u25b6\ufe0f'
           });
 
           // Broadcast job event directly for dashboard real-time updates
@@ -223,7 +222,7 @@ export class ActivityFeedManager {
               job: {
                 id: job.id,
                 status: job.status,
-                pipelineId: job.data?.pipelineId || worker.jobType,
+                pipelineId: job.data?.pipelineId || (worker as any).jobType,
                 startedAt: job.startedAt,
                 data: job.data
               }
@@ -239,7 +238,7 @@ export class ActivityFeedManager {
       });
 
       // Job completed
-      worker.on('job:completed', (job) => {
+      worker.on('job:completed', (job: any) => {
         try {
           // Calculate duration from timestamps, fallback to result.duration_seconds
           let durationSeconds = job.result?.duration_seconds;
@@ -261,7 +260,7 @@ export class ActivityFeedManager {
             jobType: job.data?.type || 'unknown',
             status: 'completed',
             duration: durationSeconds,
-            icon: '✅'
+            icon: '\u2705'
           });
 
           // Broadcast job event directly for dashboard real-time updates
@@ -271,7 +270,7 @@ export class ActivityFeedManager {
               job: {
                 id: job.id,
                 status: job.status,
-                pipelineId: job.data?.pipelineId || worker.jobType,
+                pipelineId: job.data?.pipelineId || (worker as any).jobType,
                 completedAt: job.completedAt,
                 result: job.result,
                 data: job.data
@@ -288,7 +287,7 @@ export class ActivityFeedManager {
       });
 
       // Job failed
-      worker.on('job:failed', (job, error) => {
+      worker.on('job:failed', (job: any, error: any) => {
         try {
           // Defensive: validate error parameter FIRST (before any usage)
           if (error === undefined || error === null) {
@@ -314,10 +313,8 @@ export class ActivityFeedManager {
 
           // Defensive: ensure errorObj has required properties
           const errorMessage = errorObj?.message || 'Unknown error';
-          /** @type {any} */
-          const errorAny = error;
-          const errorCode = errorAny?.code;
-          const errorRetryable = errorAny?.retryable || false;
+          const errorCode = error?.code;
+          const errorRetryable = error?.retryable || false;
 
           this.addActivity({
             type: 'job:failed',
@@ -331,7 +328,7 @@ export class ActivityFeedManager {
               code: errorCode,
               retryable: errorRetryable
             },
-            icon: '❌'
+            icon: '\u274c'
           });
 
           // Broadcast job event directly for dashboard real-time updates
@@ -341,7 +338,7 @@ export class ActivityFeedManager {
               job: {
                 id: job.id,
                 status: job.status,
-                pipelineId: job.data?.pipelineId || worker.jobType,
+                pipelineId: job.data?.pipelineId || (worker as any).jobType,
                 completedAt: job.completedAt,
                 error: { message: errorMessage, code: errorCode },
                 data: job.data
@@ -350,7 +347,6 @@ export class ActivityFeedManager {
           }
 
           // Capture job failure in Sentry
-          // Defensive: ensure we always pass an Error object to Sentry
           const sentryError = error instanceof Error
             ? error
             : new Error(errorMessage);
@@ -383,10 +379,7 @@ export class ActivityFeedManager {
       });
 
       // Retry created
-      worker.on('retry:created', (
-        /** @type {Job} */ job,
-        /** @type {RetryInfo} */ retryInfo
-      ) => {
+      worker.on('retry:created', (job: any, retryInfo: RetryInfo) => {
         try {
           // Defensive: ensure required parameters exist
           if (!job?.id) {
@@ -407,7 +400,7 @@ export class ActivityFeedManager {
             delay,
             reason,
             status: 'retry',
-            icon: '🔄'
+            icon: '\u{1f504}'
           });
 
           // Broadcast retry event for dashboard real-time updates
@@ -417,7 +410,7 @@ export class ActivityFeedManager {
               job: {
                 id: job.id,
                 status: job.status,
-                pipelineId: job.data?.pipelineId || worker.jobType,
+                pipelineId: job.data?.pipelineId || (worker as any).jobType,
                 retryCount: job.retryCount,
                 data: job.data
               },
@@ -451,7 +444,7 @@ export class ActivityFeedManager {
       });
 
       // Retry max attempts
-      worker.on('retry:max-attempts', (jobId, attempts) => {
+      worker.on('retry:max-attempts', (jobId: string, attempts: number) => {
         try {
           this.addActivity({
             type: 'retry:max-attempts',
@@ -460,7 +453,7 @@ export class ActivityFeedManager {
             jobId,
             attempts,
             status: 'failed',
-            icon: '⛔'
+            icon: '\u26d4'
           });
 
           // Capture max retries as error in Sentry
@@ -470,7 +463,7 @@ export class ActivityFeedManager {
               component: 'ActivityFeed',
               event: 'retry:max-attempts',
               jobId: String(jobId),
-              attempts: Number(attempts)
+              attempts: Number(attempts) as any
             }
           });
         } catch (activityError) {

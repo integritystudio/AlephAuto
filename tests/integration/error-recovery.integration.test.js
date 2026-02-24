@@ -24,8 +24,8 @@ import { DopplerResilience } from '../../sidequest/utils/doppler-resilience.ts';
 import {
   isPortAvailable,
   setupServerWithPortFallback
-} from '../../api/utils/port-manager.js';
-import { ActivityFeedManager } from '../../api/activity-feed.js';
+} from '../../api/utils/port-manager.ts';
+import { ActivityFeedManager } from '../../api/activity-feed.ts';
 import { SidequestServer } from '../../sidequest/core/server.ts';
 import { initDatabase } from '../../sidequest/core/database.ts';
 

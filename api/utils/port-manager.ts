@@ -5,26 +5,34 @@
  * Prevents EADDRINUSE errors by detecting occupied ports and trying fallback ports.
  */
 
+import type { Server as HttpServer } from 'http';
 import net from 'net';
-import { createComponentLogger } from '../../sidequest/utils/logger.ts';
-import { PORT } from '../../sidequest/core/constants.ts';
+import { createComponentLogger } from '#sidequest/utils/logger.ts';
+import { PORT } from '#sidequest/core/constants.ts';
 
 const logger = createComponentLogger('PortManager');
 
+interface PortFallbackOptions {
+  preferredPort: number;
+  maxPort?: number;
+  host?: string;
+  killExisting?: boolean;
+}
+
+interface GracefulShutdownOptions {
+  onShutdown?: (signal: string) => void | Promise<void>;
+  timeout?: number;
+}
+
 /**
  * Check if a port is available for binding
- *
- * @param {number} port - Port to check
- * @param {string} host - Host address (default: '0.0.0.0')
- * @returns {Promise<boolean>} - True if port is available
  */
-export async function isPortAvailable(port, host = '0.0.0.0') {
+export async function isPortAvailable(port: number, host: string = '0.0.0.0'): Promise<boolean> {
   return new Promise((resolve) => {
     const server = net.createServer();
 
     // Enable SO_REUSEADDR to allow quick restarts
-    server.on('error', (err) => {
-      // @ts-ignore - Node.js error objects have code property
+    server.on('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'EADDRINUSE') {
         logger.debug({ port, host }, 'Port is already in use');
         resolve(false);
@@ -47,13 +55,8 @@ export async function isPortAvailable(port, host = '0.0.0.0') {
 
 /**
  * Find an available port within a range
- *
- * @param {number} startPort - Starting port number
- * @param {number} endPort - Ending port number (inclusive)
- * @param {string} host - Host address (default: '0.0.0.0')
- * @returns {Promise<number|null>} - Available port or null if none found
  */
-export async function findAvailablePort(startPort, endPort, host = '0.0.0.0') {
+export async function findAvailablePort(startPort: number, endPort: number, host: string = '0.0.0.0'): Promise<number | null> {
   logger.info({ startPort, endPort, host }, 'Searching for available port');
 
   for (let port = startPort; port <= endPort; port++) {
@@ -70,11 +73,8 @@ export async function findAvailablePort(startPort, endPort, host = '0.0.0.0') {
 
 /**
  * Kill processes using a specific port (macOS/Linux)
- *
- * @param {number} port - Port to free up
- * @returns {Promise<boolean>} - True if successful
  */
-export async function killProcessOnPort(port) {
+export async function killProcessOnPort(port: number): Promise<boolean> {
   try {
     const { exec } = await import('child_process');
     const { promisify } = await import('util');
@@ -102,20 +102,15 @@ export async function killProcessOnPort(port) {
 
     return true;
   } catch (error) {
-    logger.error({ port, error: error.message }, 'Failed to kill process on port');
+    logger.error({ port, error: (error as Error).message }, 'Failed to kill process on port');
     return false;
   }
 }
 
 /**
  * Setup graceful shutdown handlers for a server
- *
- * @param {import('http').Server} httpServer - HTTP server instance
- * @param {object} [options] - Additional cleanup options
- * @param {Function} [options.onShutdown] - Custom shutdown handler
- * @param {number} [options.timeout] - Shutdown timeout in ms (default: 10000)
  */
-export function setupGracefulShutdown(httpServer, options = {}) {
+export function setupGracefulShutdown(httpServer: HttpServer, options: GracefulShutdownOptions = {}): void {
   const {
     onShutdown = () => {},
     timeout = PORT.DEFAULT_SHUTDOWN_TIMEOUT_MS
@@ -123,7 +118,7 @@ export function setupGracefulShutdown(httpServer, options = {}) {
 
   let isShuttingDown = false;
 
-  const shutdown = async (signal) => {
+  const shutdown = async (signal: string) => {
     if (isShuttingDown) {
       logger.warn({ signal }, 'Shutdown already in progress');
       return;
@@ -159,7 +154,7 @@ export function setupGracefulShutdown(httpServer, options = {}) {
       httpServer.closeAllConnections?.();
     } catch (error) {
       clearTimeout(shutdownTimeout);
-      logger.error({ error: error.message }, 'Error during graceful shutdown');
+      logger.error({ error: (error as Error).message }, 'Error during graceful shutdown');
       process.exit(1);
     }
   };
@@ -185,16 +180,8 @@ export function setupGracefulShutdown(httpServer, options = {}) {
 
 /**
  * Setup server with automatic port fallback
- *
- * @param {import('http').Server} httpServer - HTTP server instance
- * @param {object} options - Configuration options
- * @param {number} options.preferredPort - Preferred port to use
- * @param {number} [options.maxPort] - Maximum port to try (default: preferredPort + 10)
- * @param {string} [options.host] - Host to bind to (default: '0.0.0.0')
- * @param {boolean} [options.killExisting] - Kill existing process on port (default: false)
- * @returns {Promise<number>} - The port the server is listening on
  */
-export async function setupServerWithPortFallback(httpServer, options) {
+export async function setupServerWithPortFallback(httpServer: HttpServer, options: PortFallbackOptions): Promise<number> {
   const {
     preferredPort,
     maxPort = preferredPort + 10,

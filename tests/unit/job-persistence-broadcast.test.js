@@ -7,7 +7,7 @@
  *
  * Related fixes:
  * - sidequest/core/server.ts: saveJob() on createJob and executeJob
- * - api/activity-feed.js: WebSocket job event broadcasts
+ * - api/activity-feed.ts: WebSocket job event broadcasts
  */
 
 import { describe, it, before, after, beforeEach, afterEach, mock } from 'node:test';
@@ -18,7 +18,7 @@ import path from 'path';
 import os from 'os';
 
 import { SidequestServer } from '../../sidequest/core/server.ts';
-import { ActivityFeedManager } from '../../api/activity-feed.js';
+import { ActivityFeedManager } from '../../api/activity-feed.ts';
 import {
   initDatabase,
   getJobs,

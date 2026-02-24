@@ -7,7 +7,7 @@
 
 import { describe, it, beforeEach, mock } from 'node:test';
 import assert from 'node:assert';
-import { ScanEventBroadcaster } from '../../api/event-broadcaster.js';
+import { ScanEventBroadcaster } from '../../api/event-broadcaster.ts';
 
 describe('ScanEventBroadcaster', () => {
   let broadcaster;

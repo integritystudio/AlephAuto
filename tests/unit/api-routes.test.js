@@ -27,14 +27,14 @@ describe('API Routes', () => {
     initDatabase = dbModule.initDatabase;
     await initDatabase(':memory:');
 
-    const scanModule = await import('../../api/routes/scans.js');
+    const scanModule = await import('../../api/routes/scans.ts');
     scanRoutes = scanModule.default;
     worker = scanModule.worker;
 
-    const repoModule = await import('../../api/routes/repositories.js');
+    const repoModule = await import('../../api/routes/repositories.ts');
     repositoryRoutes = repoModule.default;
 
-    const reportModule = await import('../../api/routes/reports.js');
+    const reportModule = await import('../../api/routes/reports.ts');
     reportRoutes = reportModule.default;
 
     const helpersModule = await import('../fixtures/test-helpers.js');

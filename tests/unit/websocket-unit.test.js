@@ -10,7 +10,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'events';
-import { createWebSocketServer } from '../../api/websocket.js';
+import { createWebSocketServer } from '../../api/websocket.ts';
 
 // Mock WebSocket client
 class MockWebSocket extends EventEmitter {
