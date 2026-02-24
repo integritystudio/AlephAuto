@@ -18,7 +18,7 @@ import { MarkdownReportGenerator } from './reports/markdown-report-generator.ts'
 import type { ScanResult as ReportScanResult } from './reports/json-report-generator.ts';
 import { InterProjectScanner } from './inter-project-scanner.ts';
 import { createComponentLogger, logStart, logStage } from '../utils/logger.ts';
-import { DependencyValidator } from '../utils/dependency-validator.js';
+import { DependencyValidator } from '../utils/dependency-validator.ts';
 import { spawn, ChildProcess, execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';

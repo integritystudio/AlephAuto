@@ -3,18 +3,6 @@
  *
  * Generates HTML and JSON reports for all pipeline types.
  * Provides a consistent reporting interface across all AlephAuto workers.
- *
- * Usage:
- *   const { generateReport } = await import('./report-generator.js');
- *   const reportPaths = await generateReport({
- *     jobId: 'job-123',
- *     jobType: 'claude-health',
- *     status: 'completed',
- *     result: { ... },
- *     startTime: Date.now(),
- *     endTime: Date.now(),
- *     parameters: { ... }
- *   });
  */
 
 import fs from 'fs/promises';
@@ -25,27 +13,42 @@ import { TIME } from '../core/constants.ts';
 
 const logger = createComponentLogger('ReportGenerator');
 
-/**
- * Default output directory for reports
- */
 const DEFAULT_OUTPUT_DIR = path.join(process.cwd(), 'output/reports');
+
+interface ReportOptions {
+  jobId: string;
+  jobType: string;
+  status: string;
+  result: unknown;
+  startTime: number;
+  endTime: number;
+  parameters?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  outputDir?: string;
+}
+
+interface ReportPaths {
+  timestamp: string;
+  html?: string;
+  json?: string;
+}
+
+interface ReportData {
+  jobId: string;
+  jobType: string;
+  status: string;
+  result: unknown;
+  startTime: number;
+  endTime: number;
+  parameters: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  timestamp: string;
+}
 
 /**
  * Generate reports for a completed job
- *
- * @param {Object} options - Report generation options
- * @param {string} options.jobId - Job identifier
- * @param {string} options.jobType - Type of job (e.g., 'claude-health', 'git-activity')
- * @param {string} options.status - Job status ('completed', 'failed', etc.)
- * @param {Object} options.result - Job result data
- * @param {number} options.startTime - Job start timestamp
- * @param {number} options.endTime - Job end timestamp
- * @param {Object} [options.parameters] - Job parameters/configuration
- * @param {Object} [options.metadata] - Additional metadata
- * @param {string} [options.outputDir] - Custom output directory
- * @returns {Promise<Object>} - Report paths { html, json, timestamp }
  */
-export async function generateReport(options) {
+export async function generateReport(options: ReportOptions): Promise<ReportPaths> {
   const {
     jobId,
     jobType,
@@ -58,7 +61,6 @@ export async function generateReport(options) {
     outputDir = DEFAULT_OUTPUT_DIR
   } = options;
 
-  // Validate required fields
   if (!jobId || !jobType || !status) {
     throw new Error('Missing required fields: jobId, jobType, status');
   }
@@ -66,15 +68,13 @@ export async function generateReport(options) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
   const baseName = `${jobType}-${timestamp}`;
 
-  // Ensure output directory exists
   await fs.mkdir(outputDir, { recursive: true });
 
-  const reportPaths = {
+  const reportPaths: ReportPaths = {
     timestamp: new Date().toISOString()
   };
 
   try {
-    // Generate HTML report
     const htmlPath = path.join(outputDir, `${baseName}.html`);
     const htmlContent = generateHTMLReport({
       jobId,
@@ -91,7 +91,6 @@ export async function generateReport(options) {
     reportPaths.html = htmlPath;
     logger.info({ path: htmlPath }, 'HTML report generated');
 
-    // Generate JSON report
     const jsonPath = path.join(outputDir, `${baseName}.json`);
     const jsonContent = generateJSONReport({
       jobId,
@@ -108,7 +107,6 @@ export async function generateReport(options) {
     reportPaths.json = jsonPath;
     logger.info({ path: jsonPath }, 'JSON report generated');
 
-    // Prune old reports (fire-and-forget)
     pruneOldReports(outputDir).catch(err => {
       logError(logger, err, 'Report pruning failed');
       Sentry.captureException(err, { tags: { component: 'ReportGenerator', operation: 'pruneOldReports' } });
@@ -118,16 +116,11 @@ export async function generateReport(options) {
 
   } catch (error) {
     logError(logger, error, 'Report generation failed');
-    throw new Error(`Report generation failed: ${error.message}`);
+    throw new Error(`Report generation failed: ${(error as Error).message}`);
   }
 }
 
-/**
- * Generate HTML report content
- *
- * @private
- */
-function generateHTMLReport(data) {
+function generateHTMLReport(data: ReportData): string {
   const {
     jobId,
     jobType,
@@ -159,19 +152,14 @@ function generateHTMLReport(data) {
         ${generateHTMLHeader(title, jobId, status, statusClass, timestamp, duration)}
         ${generateHTMLParameters(parameters)}
         ${generateHTMLMetadata(metadata)}
-        ${generateHTMLResults(result, jobType)}
+        ${generateHTMLResults(result)}
         ${generateHTMLFooter(timestamp)}
     </div>
 </body>
 </html>`;
 }
 
-/**
- * Generate JSON report content
- *
- * @private
- */
-function generateJSONReport(data) {
+function generateJSONReport(data: ReportData): object {
   const {
     jobId,
     jobType,
@@ -201,12 +189,7 @@ function generateJSONReport(data) {
   };
 }
 
-/**
- * Generate HTML header section
- *
- * @private
- */
-function generateHTMLHeader(title, jobId, status, statusClass, timestamp, duration) {
+function generateHTMLHeader(title: string, jobId: string, status: string, statusClass: string, timestamp: string, duration: string): string {
   return `
     <header>
         <h1>📋 ${escapeHtml(title)}</h1>
@@ -227,12 +210,7 @@ function generateHTMLHeader(title, jobId, status, statusClass, timestamp, durati
     </header>`;
 }
 
-/**
- * Generate HTML parameters section
- *
- * @private
- */
-function generateHTMLParameters(parameters) {
+function generateHTMLParameters(parameters: Record<string, unknown>): string {
   if (!parameters || Object.keys(parameters).length === 0) {
     return '';
   }
@@ -255,12 +233,7 @@ function generateHTMLParameters(parameters) {
     </section>`;
 }
 
-/**
- * Generate HTML metadata section
- *
- * @private
- */
-function generateHTMLMetadata(metadata) {
+function generateHTMLMetadata(metadata: Record<string, unknown>): string {
   if (!metadata || Object.keys(metadata).length === 0) {
     return '';
   }
@@ -283,12 +256,7 @@ function generateHTMLMetadata(metadata) {
     </section>`;
 }
 
-/**
- * Generate HTML results section
- *
- * @private
- */
-function generateHTMLResults(result, jobType) {
+function generateHTMLResults(result: unknown): string {
   if (!result) {
     return `
     <section class="results">
@@ -297,24 +265,19 @@ function generateHTMLResults(result, jobType) {
     </section>`;
   }
 
-  // Try to detect metrics/stats in result
-  const metrics = extractMetrics(result);
-  const details = extractDetails(result);
+  const resultObj = result as Record<string, unknown>;
+  const metrics = extractMetrics(resultObj);
+  const details = extractDetails(resultObj);
 
   return `
     <section class="results">
         <h2>📊 Results</h2>
         ${metrics ? generateMetricsSection(metrics) : ''}
-        ${details ? generateDetailsSection(details, jobType) : ''}
+        ${details ? generateDetailsSection(details) : ''}
     </section>`;
 }
 
-/**
- * Generate metrics cards
- *
- * @private
- */
-function generateMetricsSection(metrics) {
+function generateMetricsSection(metrics: Record<string, unknown>): string {
   const metricCards = Object.entries(metrics)
     .map(([key, value]) => {
       const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -336,12 +299,7 @@ function generateMetricsSection(metrics) {
     </div>`;
 }
 
-/**
- * Generate details section
- *
- * @private
- */
-function generateDetailsSection(details, jobType) {
+function generateDetailsSection(details: Record<string, unknown>): string {
   return `
     <div class="details-section">
         <h3>Details</h3>
@@ -349,25 +307,14 @@ function generateDetailsSection(details, jobType) {
     </div>`;
 }
 
-/**
- * Generate HTML footer
- *
- * @private
- */
-function generateHTMLFooter(timestamp) {
+function generateHTMLFooter(timestamp: string): string {
   return `
     <footer>
         <p>Generated by AlephAuto Pipeline Framework | ${new Date(timestamp).toLocaleString()}</p>
     </footer>`;
 }
 
-/**
- * Extract metrics from result object
- *
- * @private
- */
-function extractMetrics(result) {
-  // Look for common metric field names
+function extractMetrics(result: Record<string, unknown>): Record<string, unknown> | null {
   const metricKeys = [
     'metrics', 'stats', 'statistics', 'summary',
     'totalFiles', 'totalItems', 'totalRepositories',
@@ -376,13 +323,12 @@ function extractMetrics(result) {
     'healthScore', 'issueCount', 'warningCount'
   ];
 
-  const metrics = {};
+  const metrics: Record<string, unknown> = {};
 
   for (const key of metricKeys) {
     if (result[key] !== undefined) {
-      if (typeof result[key] === 'object' && !Array.isArray(result[key])) {
-        // If it's an object, merge its properties
-        Object.assign(metrics, result[key]);
+      if (typeof result[key] === 'object' && !Array.isArray(result[key]) && result[key] !== null) {
+        Object.assign(metrics, result[key] as Record<string, unknown>);
       } else {
         metrics[key] = result[key];
       }
@@ -392,12 +338,7 @@ function extractMetrics(result) {
   return Object.keys(metrics).length > 0 ? metrics : null;
 }
 
-/**
- * Extract details from result object (non-metrics)
- *
- * @private
- */
-function extractDetails(result) {
+function extractDetails(result: Record<string, unknown>): Record<string, unknown> | null {
   const metricKeys = [
     'metrics', 'stats', 'statistics', 'summary',
     'totalFiles', 'totalItems', 'totalRepositories',
@@ -406,7 +347,7 @@ function extractDetails(result) {
     'healthScore', 'issueCount', 'warningCount'
   ];
 
-  const details = {};
+  const details: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(result)) {
     if (!metricKeys.includes(key)) {
@@ -417,13 +358,8 @@ function extractDetails(result) {
   return Object.keys(details).length > 0 ? details : null;
 }
 
-/**
- * Get human-readable title for job type
- *
- * @private
- */
-function getJobTypeTitle(jobType) {
-  const titles = {
+function getJobTypeTitle(jobType: string): string {
+  const titles: Record<string, string> = {
     'claude-health': 'Claude Health Check Report',
     'git-activity': 'Git Activity Report',
     'gitignore-update': 'Gitignore Update Report',
@@ -434,15 +370,10 @@ function getJobTypeTitle(jobType) {
     'test-refactor': 'Test Refactor Report'
   };
 
-  return titles[jobType] || `${jobType} Report`;
+  return titles[jobType] ?? `${jobType} Report`;
 }
 
-/**
- * Format value for display
- *
- * @private
- */
-function formatValue(value) {
+function formatValue(value: unknown): string {
   if (value === null || value === undefined) {
     return 'N/A';
   }
@@ -460,17 +391,14 @@ function formatValue(value) {
 
 /**
  * Remove reports older than the retention period (30 days).
- *
- * @param {string} outputDir - Directory containing reports
- * @param {number} [maxAgeMs] - Max age in ms (default: 30 days)
  */
-export async function pruneOldReports(outputDir = DEFAULT_OUTPUT_DIR, maxAgeMs = 30 * TIME.DAY) {
+export async function pruneOldReports(outputDir: string = DEFAULT_OUTPUT_DIR, maxAgeMs: number = 30 * TIME.DAY): Promise<void> {
   const cutoff = Date.now() - maxAgeMs;
   let entries;
   try {
     entries = await fs.readdir(outputDir, { withFileTypes: true });
   } catch {
-    return; // directory doesn't exist yet
+    return;
   }
 
   const fileEntries = entries.filter(entry => entry.isFile());
@@ -483,7 +411,7 @@ export async function pruneOldReports(outputDir = DEFAULT_OUTPUT_DIR, maxAgeMs =
   );
 
   const toDelete = statResults
-    .filter(/** @returns {r is PromiseFulfilledResult<{filePath: string, isExpired: boolean}>} */ (r) => r.status === 'fulfilled' && r.value.isExpired)
+    .filter((r): r is PromiseFulfilledResult<{ filePath: string; isExpired: boolean }> => r.status === 'fulfilled' && r.value.isExpired)
     .map(r => r.value);
 
   const deleteResults = await Promise.allSettled(
@@ -496,12 +424,7 @@ export async function pruneOldReports(outputDir = DEFAULT_OUTPUT_DIR, maxAgeMs =
   }
 }
 
-/**
- * Escape HTML special characters
- *
- * @private
- */
-function escapeHtml(text) {
+function escapeHtml(text: string): string {
   if (!text) return '';
   return String(text)
     .replace(/&/g, '&amp;')
@@ -511,12 +434,7 @@ function escapeHtml(text) {
     .replace(/'/g, '&#039;');
 }
 
-/**
- * Get HTML styles
- *
- * @private
- */
-function getHTMLStyles() {
+function getHTMLStyles(): string {
   return `
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {

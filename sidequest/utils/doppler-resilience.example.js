@@ -5,7 +5,7 @@
  * into your application to handle Doppler API failures gracefully.
  */
 
-import { DopplerResilience } from './doppler-resilience.js';
+import { DopplerResilience } from './doppler-resilience.ts';
 import { config } from '../core/config.ts';
 import { createComponentLogger } from './logger.ts';
 

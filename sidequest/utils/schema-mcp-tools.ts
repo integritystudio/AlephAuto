@@ -1,87 +1,121 @@
 import { config } from '../core/config.ts';
 
+interface SchemaContext {
+  hasPackageJson?: boolean;
+  hasPyproject?: boolean;
+  gitRemote?: string;
+  languages?: string[];
+}
+
+export interface SchemaObject {
+  '@context': string;
+  '@type': string;
+  name?: string;
+  description?: string;
+  codeRepository?: string;
+  programmingLanguage?: Array<{ '@type': string; name: string }>;
+  applicationCategory?: string;
+  operatingSystem?: string;
+  dateModified?: string;
+  inLanguage?: string;
+  additionalType?: string;
+  url?: string;
+  [key: string]: unknown;
+}
+
+interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+interface SchemaImpact {
+  timestamp: string;
+  schemaType: string;
+  metrics: {
+    contentSize: {
+      original: number;
+      enhanced: number;
+      increase: number;
+    };
+    schemaProperties: number;
+    structuredDataAdded: boolean;
+  };
+  seoImprovements: string[];
+  richResultsEligibility: string[];
+  impactScore?: number;
+  rating?: string;
+}
+
 /**
  * Schema.org MCP Tools Integration
  * Provides wrapper methods for Schema.org MCP server tools
  */
-
 export class SchemaMCPTools {
-  constructor(options = {}) {
-    this.mcpServerUrl = options.mcpServerUrl || config.schemaMcpUrl;
-    this.useRealMCP = options.useRealMCP || false;
+  mcpServerUrl: string;
+  useRealMCP: boolean;
+
+  constructor(options: { mcpServerUrl?: string; useRealMCP?: boolean } = {}) {
+    this.mcpServerUrl = options.mcpServerUrl ?? config.schemaMcpUrl ?? '';
+    this.useRealMCP = options.useRealMCP ?? false;
   }
 
   /**
    * Get appropriate schema type for content
-   * Maps to MCP tool: get_schema_type
    */
-  async getSchemaType(readmePath, content, context) {
-    // In real implementation, this would call the MCP server
-    // For now, we'll use heuristics like the Python version
-
+  async getSchemaType(readmePath: string, content: string, context: SchemaContext): Promise<string> {
     const pathLower = readmePath.toLowerCase();
     const contentLower = content.toLowerCase();
 
-    // Test documentation
     if (pathLower.includes('test') || contentLower.includes('testing guide')) {
       return 'HowTo';
     }
 
-    // API documentation
     if (pathLower.includes('api') ||
         contentLower.includes('api reference') ||
         contentLower.includes('endpoints')) {
       return 'APIReference';
     }
 
-    // Software application
     if (context.hasPackageJson || context.hasPyproject) {
       return 'SoftwareApplication';
     }
 
-    // Tutorial/Guide
     if (contentLower.includes('tutorial') ||
         contentLower.includes('getting started') ||
         contentLower.includes('guide')) {
       return 'HowTo';
     }
 
-    // Code repository/technical documentation
     if (context.gitRemote) {
       return 'SoftwareSourceCode';
     }
 
-    // Default to TechArticle
     return 'TechArticle';
   }
 
   /**
    * Generate JSON-LD schema markup
-   * Maps to MCP tool: generate_example
    */
-  async generateSchema(readmePath, content, context, schemaType) {
-    const schema = {
+  async generateSchema(readmePath: string, content: string, context: SchemaContext, schemaType: string): Promise<SchemaObject> {
+    const schema: SchemaObject = {
       '@context': 'https://schema.org',
       '@type': schemaType,
     };
 
-    // Extract title from first heading
     const titleMatch = content.match(/^#\s+(.+)$/m);
     if (titleMatch) {
       schema.name = titleMatch[1].trim();
     } else {
-      // Fallback to directory name
       const dirName = readmePath.split('/').slice(-2, -1)[0];
       schema.name = dirName || 'Documentation';
     }
 
-    // Extract description from content
     const description = this.extractDescription(content);
     if (description) {
       schema.description = description;
     }
 
-    // Add common properties based on schema type
     if (schemaType === 'SoftwareApplication' || schemaType === 'SoftwareSourceCode') {
       if (context.gitRemote) {
         schema.codeRepository = context.gitRemote;
@@ -118,8 +152,7 @@ export class SchemaMCPTools {
   /**
    * Extract description from README content
    */
-  extractDescription(content) {
-    // Try to get the first paragraph after the title
+  extractDescription(content: string): string {
     const lines = content.split('\n');
     let foundTitle = false;
     let description = '';
@@ -127,26 +160,22 @@ export class SchemaMCPTools {
     for (const line of lines) {
       const trimmed = line.trim();
 
-      // Skip title
       if (trimmed.startsWith('#')) {
         foundTitle = true;
         continue;
       }
 
-      // Skip empty lines and code blocks
       if (!trimmed || trimmed.startsWith('```') || trimmed.startsWith('<')) {
-        if (description) break; // Stop at first empty line after description
+        if (description) break;
         continue;
       }
 
-      // Found description
       if (foundTitle && trimmed.length > 10) {
         description = trimmed;
         break;
       }
     }
 
-    // Limit description length
     if (description.length > 200) {
       description = description.substring(0, 197) + '...';
     }
@@ -156,14 +185,11 @@ export class SchemaMCPTools {
 
   /**
    * Validate schema markup
-   * Maps to Schema.org validation tools
    */
-  async validateSchema(schema) {
-    // Basic validation
-    const errors = [];
-    const warnings = [];
+  async validateSchema(schema: SchemaObject): Promise<ValidationResult> {
+    const errors: string[] = [];
+    const warnings: string[] = [];
 
-    // Check required fields
     if (!schema['@context']) {
       errors.push('Missing @context');
     }
@@ -177,11 +203,10 @@ export class SchemaMCPTools {
       warnings.push('Missing description property');
     }
 
-    // Validate JSON-LD format
     try {
       JSON.stringify(schema);
     } catch (e) {
-      errors.push(`Invalid JSON: ${e.message}`);
+      errors.push(`Invalid JSON: ${(e as Error).message}`);
     }
 
     return {
@@ -193,10 +218,9 @@ export class SchemaMCPTools {
 
   /**
    * Analyze schema impact on SEO/performance
-   * Maps to MCP tool: analyze_schema_impact
    */
-  async analyzeSchemaImpact(originalContent, enhancedContent, schema) {
-    const impact = {
+  async analyzeSchemaImpact(originalContent: string, enhancedContent: string, schema: SchemaObject): Promise<SchemaImpact> {
+    const impact: SchemaImpact = {
       timestamp: new Date().toISOString(),
       schemaType: schema['@type'],
       metrics: {
@@ -212,7 +236,6 @@ export class SchemaMCPTools {
       richResultsEligibility: [],
     };
 
-    // Analyze SEO improvements
     if (schema.name) {
       impact.seoImprovements.push('Added structured name/title');
     }
@@ -226,7 +249,6 @@ export class SchemaMCPTools {
       impact.seoImprovements.push('Specified programming languages');
     }
 
-    // Check Rich Results eligibility
     const schemaType = schema['@type'];
     if (schemaType === 'HowTo') {
       impact.richResultsEligibility.push('How-to rich results');
@@ -238,7 +260,6 @@ export class SchemaMCPTools {
       impact.richResultsEligibility.push('Article rich results');
     }
 
-    // Calculate impact score (0-100)
     let score = 0;
     score += impact.seoImprovements.length * 15;
     score += impact.richResultsEligibility.length * 20;
@@ -254,7 +275,7 @@ export class SchemaMCPTools {
   /**
    * Get rating based on impact score
    */
-  getRating(score) {
+  getRating(score: number): string {
     if (score >= 80) return 'Excellent';
     if (score >= 60) return 'Good';
     if (score >= 40) return 'Fair';
@@ -264,7 +285,7 @@ export class SchemaMCPTools {
   /**
    * Create JSON-LD script tag
    */
-  createJSONLDScript(schema) {
+  createJSONLDScript(schema: SchemaObject): string {
     const jsonStr = JSON.stringify(schema, null, 2);
     return `<script type="application/ld+json">\n${jsonStr}\n</script>`;
   }
@@ -272,11 +293,10 @@ export class SchemaMCPTools {
   /**
    * Inject schema into README content
    */
-  injectSchema(content, schema) {
+  injectSchema(content: string, schema: SchemaObject): string {
     const jsonldScript = this.createJSONLDScript(schema);
     const lines = content.split('\n');
 
-    // Find first heading
     let insertIndex = 0;
     for (let i = 0; i < lines.length; i++) {
       if (lines[i].trim().startsWith('#')) {
@@ -285,7 +305,6 @@ export class SchemaMCPTools {
       }
     }
 
-    // Insert schema after first heading with blank lines
     lines.splice(insertIndex, 0, '', jsonldScript, '');
 
     return lines.join('\n');

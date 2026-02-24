@@ -13,7 +13,7 @@
  */
 
 import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
-import { generateReport } from '../utils/report-generator.js';
+import { generateReport } from '../utils/report-generator.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import { execFile } from 'child_process';

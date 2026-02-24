@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { generateReport, pruneOldReports } from '../../sidequest/utils/report-generator.js';
+import { generateReport, pruneOldReports } from '../../sidequest/utils/report-generator.ts';
 
 describe('Report Generator', () => {
   let tempDir;

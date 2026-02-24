@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { RepomixWorker } from '../workers/repomix-worker.ts';
-import { DirectoryScanner } from '../utils/directory-scanner.js';
+import { DirectoryScanner } from '../utils/directory-scanner.ts';
 import { config } from './config.ts';
 import { TIMEOUTS, TIME } from './constants.ts';
 import path from 'path';

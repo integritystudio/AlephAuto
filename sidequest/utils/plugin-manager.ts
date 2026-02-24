@@ -1,11 +1,8 @@
-// @ts-nocheck
 /**
  * Plugin Management Worker - AlephAuto Integration
  *
  * Monitors and audits Claude Code plugin configurations.
  * Identifies duplicate plugins, unused plugins, and provides cleanup recommendations.
- *
- * @extends SidequestServer
  */
 
 import { SidequestServer } from '../core/server.ts';
@@ -15,22 +12,75 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
+import type { Job } from '../core/server.ts';
 
 const execAsync = promisify(exec);
 const logger = createComponentLogger('PluginManager');
 
+interface PluginManagerOptions {
+  maxConcurrent?: number;
+  [key: string]: unknown;
+}
+
+interface AuditResults {
+  total_enabled: number;
+  enabled_plugins: string[];
+  potential_duplicates: Record<string, string[]>;
+}
+
+interface DuplicateCategory {
+  category: string;
+  plugins: string[];
+  count: number;
+}
+
+interface ExceededThresholds {
+  maxPlugins: boolean;
+  warnPlugins: boolean;
+}
+
+interface PluginMetadata {
+  enabledPlugins?: Record<string, unknown>;
+  pluginSettings?: Record<string, unknown>;
+  lastModified?: Date;
+}
+
+interface Analysis {
+  totalPlugins: number;
+  enabledPlugins: string[];
+  duplicateCategories: DuplicateCategory[];
+  exceededThresholds: ExceededThresholds;
+  pluginMetadata: PluginMetadata;
+}
+
+interface Recommendation {
+  priority: string;
+  type: string;
+  message: string;
+  action: string;
+  details?: Array<{
+    category: string;
+    plugins: string[];
+    suggestion: string;
+  }>;
+}
+
 class PluginManagerWorker extends SidequestServer {
-  constructor(options = {}) {
+  auditScriptPath: string;
+  configPath: string;
+  thresholds: { maxPlugins: number; warnPlugins: number };
+
+  constructor(options: PluginManagerOptions = {}) {
     super({
-      maxConcurrent: options.maxConcurrent ?? 1, // Single concurrent audit
+      maxConcurrent: options.maxConcurrent ?? 1,
       ...options
     });
 
     this.auditScriptPath = path.join(
-      process.env.HOME,
+      process.env.HOME!,
       'code/jobs/sidequest/plugin-management-audit.sh'
     );
-    this.configPath = path.join(process.env.HOME, '.claude/settings.json');
+    this.configPath = path.join(process.env.HOME!, '.claude/settings.json');
     this.thresholds = {
       maxPlugins: 30,
       warnPlugins: 20
@@ -41,23 +91,19 @@ class PluginManagerWorker extends SidequestServer {
 
   /**
    * Run plugin audit job
-   * @param {Object} job - Job configuration
-   * @param {boolean} job.detailed - Include detailed plugin listing
-   * @param {boolean} job.autoCleanup - Attempt automatic cleanup (future)
-   * @returns {Promise<Object>} Audit results
    */
-  async runJobHandler(job) {
+  async runJobHandler(job: Job): Promise<{
+    success: boolean;
+    timestamp: string;
+    duration: number;
+    recommendations: Recommendation[];
+  } & Analysis> {
     const startTime = Date.now();
     logStart(logger, 'plugin audit', { jobId: job.id, detailed: job.data?.detailed });
 
     try {
-      // Run audit script
-      const auditResults = await this.runAuditScript(job.data?.detailed || false);
-
-      // Parse results
+      const auditResults = await this.runAuditScript((job.data?.detailed as boolean) || false);
       const analysis = await this.analyzeResults(auditResults);
-
-      // Generate recommendations
       const recommendations = this.generateRecommendations(analysis);
 
       const result = {
@@ -71,7 +117,7 @@ class PluginManagerWorker extends SidequestServer {
       logger.info({
         jobId: job.id,
         totalPlugins: analysis.totalPlugins,
-        duplicateCount: analysis.duplicateCategories?.length || 0,
+        duplicateCount: analysis.duplicateCategories?.length ?? 0,
         duration: result.duration
       }, 'Plugin audit completed');
 
@@ -84,10 +130,8 @@ class PluginManagerWorker extends SidequestServer {
 
   /**
    * Run the audit shell script
-   * @param {boolean} detailed - Include detailed listing
-   * @returns {Promise<Object>} Parsed JSON results
    */
-  async runAuditScript(detailed = false) {
+  async runAuditScript(detailed: boolean = false): Promise<AuditResults> {
     try {
       const args = ['--json'];
       if (detailed) args.push('--detailed');
@@ -100,12 +144,12 @@ class PluginManagerWorker extends SidequestServer {
         logWarn(logger, null, 'Audit script warnings', { stderr });
       }
 
-      return JSON.parse(stdout);
+      return JSON.parse(stdout) as AuditResults;
     } catch (error) {
-      // Script exits with 1 if issues found, but still provides JSON
-      if (error.stdout) {
+      const execError = error as { stdout?: string };
+      if (execError.stdout) {
         try {
-          return JSON.parse(error.stdout);
+          return JSON.parse(execError.stdout) as AuditResults;
         } catch (parseError) {
           logError(logger, parseError, 'Failed to parse audit output');
           throw parseError;
@@ -117,17 +161,13 @@ class PluginManagerWorker extends SidequestServer {
 
   /**
    * Analyze audit results
-   * @param {Object} auditResults - Raw audit results
-   * @returns {Promise<Object>} Analysis
    */
-  async analyzeResults(auditResults) {
+  async analyzeResults(auditResults: AuditResults): Promise<Analysis> {
     const { total_enabled, enabled_plugins, potential_duplicates } = auditResults;
 
-    // Load plugin metadata if available
     const pluginMetadata = await this.loadPluginMetadata();
 
-    // Identify duplicate categories
-    const duplicateCategories = Object.entries(potential_duplicates || {}).map(
+    const duplicateCategories: DuplicateCategory[] = Object.entries(potential_duplicates ?? {}).map(
       ([category, plugins]) => ({
         category,
         plugins,
@@ -135,8 +175,7 @@ class PluginManagerWorker extends SidequestServer {
       })
     );
 
-    // Check thresholds
-    const exceededThresholds = {
+    const exceededThresholds: ExceededThresholds = {
       maxPlugins: total_enabled > this.thresholds.maxPlugins,
       warnPlugins: total_enabled > this.thresholds.warnPlugins
     };
@@ -152,34 +191,29 @@ class PluginManagerWorker extends SidequestServer {
 
   /**
    * Load plugin metadata from Claude config
-   * @returns {Promise<Object>} Plugin metadata
    */
-  async loadPluginMetadata() {
+  async loadPluginMetadata(): Promise<PluginMetadata> {
     try {
       const configData = await fs.readFile(this.configPath, 'utf-8');
-      const config = JSON.parse(configData);
+      const parsed = JSON.parse(configData) as Record<string, unknown>;
 
-      // Extract useful metadata if available
       return {
-        enabledPlugins: config.enabledPlugins || {},
-        pluginSettings: config.pluginSettings || {},
+        enabledPlugins: (parsed.enabledPlugins as Record<string, unknown>) ?? {},
+        pluginSettings: (parsed.pluginSettings as Record<string, unknown>) ?? {},
         lastModified: (await fs.stat(this.configPath)).mtime
       };
     } catch (error) {
-      logWarn(logger, error, 'Failed to load plugin metadata');
+      logWarn(logger, error as Error, 'Failed to load plugin metadata');
       return {};
     }
   }
 
   /**
    * Generate cleanup recommendations
-   * @param {Object} analysis - Analysis results
-   * @returns {Array<Object>} Recommendations
    */
-  generateRecommendations(analysis) {
-    const recommendations = [];
+  generateRecommendations(analysis: Analysis): Recommendation[] {
+    const recommendations: Recommendation[] = [];
 
-    // High plugin count warning
     if (analysis.exceededThresholds.maxPlugins) {
       recommendations.push({
         priority: 'high',
@@ -196,7 +230,6 @@ class PluginManagerWorker extends SidequestServer {
       });
     }
 
-    // Duplicate category recommendations
     if (analysis.duplicateCategories.length > 0) {
       recommendations.push({
         priority: 'medium',
@@ -211,7 +244,6 @@ class PluginManagerWorker extends SidequestServer {
       });
     }
 
-    // Success message if no issues
     if (recommendations.length === 0) {
       recommendations.push({
         priority: 'info',
@@ -226,16 +258,13 @@ class PluginManagerWorker extends SidequestServer {
 
   /**
    * Create a plugin audit job
-   * @param {Object} options - Job options
-   * @returns {Object} Created job
    */
-  addJob(options = {}) {
+  addJob(options: { detailed?: boolean } = {}): Job {
     const jobId = `plugin-audit-${Date.now()}`;
     return this.createJob(jobId, {
-      detailed: options.detailed || false
+      detailed: options.detailed ?? false
     });
   }
 }
 
-// Export worker class
 export { PluginManagerWorker };

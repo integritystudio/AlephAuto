@@ -5,13 +5,57 @@ import { createComponentLogger, logError, logWarn } from './logger.ts';
 
 const logger = createComponentLogger('GitignoreRepomixUpdater');
 
+interface UpdaterOptions {
+  baseDir?: string;
+  excludeDirs?: string[];
+  maxDepth?: number;
+  dryRun?: boolean;
+}
+
+interface ScannedRepo {
+  fullPath: string;
+  depth: number;
+}
+
+interface UpdateResult {
+  path: string;
+  action: 'added' | 'skipped' | 'would_add' | 'error';
+  reason: string;
+}
+
+interface RepoUpdateResult {
+  repository: string;
+  path: string;
+  action: string;
+  reason: string;
+}
+
+interface UpdateSummary {
+  added: number;
+  skipped: number;
+  would_add: number;
+  error: number;
+}
+
+interface ProcessResults {
+  totalRepositories: number;
+  results: RepoUpdateResult[];
+  summary: UpdateSummary;
+}
+
 /**
  * GitignoreRepomixUpdater - Adds repomix-output.xml to .gitignore in all git repositories
  */
 export class GitignoreRepomixUpdater {
-  constructor(options = {}) {
-    this.baseDir = options.baseDir || path.join(os.homedir(), 'code');
-    this.excludeDirs = new Set(options.excludeDirs || [
+  baseDir: string;
+  excludeDirs: Set<string>;
+  maxDepth: number;
+  dryRun: boolean;
+  gitignoreEntry: string;
+
+  constructor(options: UpdaterOptions = {}) {
+    this.baseDir = options.baseDir ?? path.join(os.homedir(), 'code');
+    this.excludeDirs = new Set(options.excludeDirs ?? [
       'node_modules',
       '.git',
       'dist',
@@ -24,16 +68,16 @@ export class GitignoreRepomixUpdater {
       '.venv',
       'venv',
     ]);
-    this.maxDepth = options.maxDepth || 10;
-    this.dryRun = options.dryRun || false;
+    this.maxDepth = options.maxDepth ?? 10;
+    this.dryRun = options.dryRun ?? false;
     this.gitignoreEntry = 'repomix-output.xml';
   }
 
   /**
    * Find all git repositories recursively
    */
-  async findGitRepositories() {
-    const repositories = [];
+  async findGitRepositories(): Promise<ScannedRepo[]> {
+    const repositories: ScannedRepo[] = [];
     await this.scanForGitRepos(this.baseDir, 0, repositories);
     return repositories;
   }
@@ -41,8 +85,7 @@ export class GitignoreRepomixUpdater {
   /**
    * Recursively scan for git repositories
    */
-  async scanForGitRepos(currentPath, depth, results) {
-    // Check depth limit
+  async scanForGitRepos(currentPath: string, depth: number, results: ScannedRepo[]): Promise<void> {
     if (depth > this.maxDepth) {
       return;
     }
@@ -50,7 +93,6 @@ export class GitignoreRepomixUpdater {
     try {
       const entries = await fs.readdir(currentPath, { withFileTypes: true });
 
-      // Check if current directory is a git repository
       const hasGit = entries.some(entry => entry.name === '.git' && entry.isDirectory());
 
       if (hasGit) {
@@ -58,21 +100,16 @@ export class GitignoreRepomixUpdater {
           fullPath: currentPath,
           depth,
         });
-        // Don't scan subdirectories of a git repo for nested repos
-        // (remove this return if you want to find nested repos)
         return;
       }
 
-      // Scan subdirectories
       for (const entry of entries) {
         if (!entry.isDirectory()) continue;
 
-        // Skip excluded directories
         if (this.excludeDirs.has(entry.name)) {
           continue;
         }
 
-        // Skip hidden directories except .git
         if (entry.name.startsWith('.') && entry.name !== '.git') {
           continue;
         }
@@ -81,20 +118,18 @@ export class GitignoreRepomixUpdater {
         await this.scanForGitRepos(fullPath, depth + 1, results);
       }
     } catch (error) {
-      // Log but don't fail on permission errors
-      logWarn(logger, null, 'Cannot access directory', { path: currentPath, errorMessage: error.message });
+      logWarn(logger, null, 'Cannot access directory', { path: currentPath, errorMessage: (error as Error).message });
     }
   }
 
   /**
    * Check if .gitignore already contains the entry
    */
-  async gitignoreContainsEntry(gitignorePath) {
+  async gitignoreContainsEntry(gitignorePath: string): Promise<boolean> {
     try {
       const content = await fs.readFile(gitignorePath, 'utf8');
       const lines = content.split('\n').map(line => line.trim());
 
-      // Check for exact match or pattern that would match
       return lines.some(line =>
         line === this.gitignoreEntry ||
         line === `/${this.gitignoreEntry}` ||
@@ -102,8 +137,8 @@ export class GitignoreRepomixUpdater {
         line === `**/repomix-output.xml`
       );
     } catch (error) {
-      if (error.code === 'ENOENT') {
-        return false; // File doesn't exist
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return false;
       }
       throw error;
     }
@@ -112,11 +147,10 @@ export class GitignoreRepomixUpdater {
   /**
    * Add entry to .gitignore file
    */
-  async addToGitignore(repoPath) {
+  async addToGitignore(repoPath: string): Promise<UpdateResult> {
     const gitignorePath = path.join(repoPath, '.gitignore');
 
     try {
-      // Check if entry already exists
       const alreadyExists = await this.gitignoreContainsEntry(gitignorePath);
 
       if (alreadyExists) {
@@ -135,29 +169,25 @@ export class GitignoreRepomixUpdater {
         };
       }
 
-      // Read existing content or start with empty string
       let content = '';
       try {
         content = await fs.readFile(gitignorePath, 'utf8');
       } catch (error) {
-        if (error.code !== 'ENOENT') {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
           throw error;
         }
       }
 
-      // Ensure content ends with newline before adding new entry
       if (content.length > 0 && !content.endsWith('\n')) {
         content += '\n';
       }
 
-      // Add comment and entry
       if (content.length > 0) {
         content += '\n';
       }
       content += '# Repomix output files\n';
       content += `${this.gitignoreEntry}\n`;
 
-      // Write back to file
       await fs.writeFile(gitignorePath, content, 'utf8');
 
       return {
@@ -169,7 +199,7 @@ export class GitignoreRepomixUpdater {
       return {
         path: gitignorePath,
         action: 'error',
-        reason: error.message,
+        reason: (error as Error).message,
       };
     }
   }
@@ -177,7 +207,7 @@ export class GitignoreRepomixUpdater {
   /**
    * Process all repositories
    */
-  async processRepositories() {
+  async processRepositories(): Promise<ProcessResults> {
     logger.info({
       baseDir: this.baseDir,
       dryRun: this.dryRun
@@ -186,7 +216,7 @@ export class GitignoreRepomixUpdater {
     const repositories = await this.findGitRepositories();
     logger.info({ count: repositories.length }, 'Git repositories found');
 
-    const results = [];
+    const results: RepoUpdateResult[] = [];
 
     for (const repo of repositories) {
       logger.info({ repository: repo.fullPath }, 'Processing repository');
@@ -212,8 +242,8 @@ export class GitignoreRepomixUpdater {
   /**
    * Generate summary statistics
    */
-  generateSummary(results) {
-    const summary = {
+  generateSummary(results: RepoUpdateResult[]): UpdateSummary {
+    const summary: UpdateSummary = {
       added: 0,
       skipped: 0,
       would_add: 0,
@@ -221,8 +251,9 @@ export class GitignoreRepomixUpdater {
     };
 
     for (const result of results) {
-      if (summary.hasOwnProperty(result.action)) {
-        summary[result.action]++;
+      const action = result.action as keyof UpdateSummary;
+      if (action in summary) {
+        summary[action]++;
       }
     }
 
@@ -232,7 +263,7 @@ export class GitignoreRepomixUpdater {
   /**
    * Save results to JSON file
    */
-  async saveResults(results, outputPath) {
+  async saveResults(results: ProcessResults, outputPath: string): Promise<object> {
     const report = {
       timestamp: new Date().toISOString(),
       baseDir: this.baseDir,
@@ -251,10 +282,10 @@ export class GitignoreRepomixUpdater {
 /**
  * Main execution function
  */
-export async function main() {
+export async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const dryRun = args.includes('--dry-run') || args.includes('-d');
-  const baseDir = args.find(arg => !arg.startsWith('-')) || path.join(os.homedir(), 'code');
+  const baseDir = args.find(arg => !arg.startsWith('-')) ?? path.join(os.homedir(), 'code');
 
   const updater = new GitignoreRepomixUpdater({
     baseDir,
@@ -264,7 +295,6 @@ export async function main() {
   try {
     const results = await updater.processRepositories();
 
-    // Print summary
     logger.info({
       totalRepositories: results.totalRepositories,
       added: results.summary.added,
@@ -273,7 +303,6 @@ export async function main() {
       errors: results.summary.error
     }, 'Summary');
 
-    // Save results
     const timestamp = Date.now();
     const outputPath = path.join(
       process.cwd(),

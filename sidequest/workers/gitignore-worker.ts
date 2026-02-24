@@ -6,8 +6,8 @@
  */
 
 import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
-import { GitignoreRepomixUpdater } from '../utils/gitignore-repomix-updater.js';
-import { generateReport } from '../utils/report-generator.js';
+import { GitignoreRepomixUpdater } from '../utils/gitignore-repomix-updater.ts';
+import { generateReport } from '../utils/report-generator.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import path from 'path';
@@ -141,7 +141,7 @@ export class GitignoreWorker extends SidequestServer {
         results = await this.processSpecificRepositories(updater, repositories);
       } else {
         // Process all repositories
-        results = await updater.processRepositories() as ProcessResults;
+        results = await updater.processRepositories() as unknown as ProcessResults;
       }
 
       logger.info({
@@ -215,7 +215,7 @@ export class GitignoreWorker extends SidequestServer {
 
     for (const repoPath of repositories) {
       logger.info({ repository: repoPath }, 'Processing repository');
-      const result = await updater.addToGitignore(repoPath) as { action: string; reason?: string; [key: string]: unknown };
+      const result = await updater.addToGitignore(repoPath) as unknown as { action: string; reason?: string; [key: string]: unknown };
       results.push({
         repository: repoPath,
         ...result,
@@ -230,7 +230,7 @@ export class GitignoreWorker extends SidequestServer {
     return {
       totalRepositories: repositories.length,
       results,
-      summary: updater.generateSummary(results) as ProcessSummary,
+      summary: updater.generateSummary(results as unknown as Parameters<typeof updater.generateSummary>[0]) as unknown as ProcessSummary,
     };
   }
 

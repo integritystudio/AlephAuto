@@ -17,7 +17,7 @@ import { SidequestServer, type Job } from '../core/server.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logWarn, logStart } from '../utils/logger.ts';
-import { generateReport } from '../utils/report-generator.js';
+import { generateReport } from '../utils/report-generator.ts';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';

@@ -1,38 +1,71 @@
-// @ts-nocheck
 import { SidequestServer } from '../core/server.ts';
-import { generateReport } from '../utils/report-generator.js';
+import { generateReport } from '../utils/report-generator.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import { execCommandOrThrow } from '@shared/process-io';
 import path from 'path';
 import os from 'os';
+import type { Job } from '../core/server.ts';
+
 const logger = createComponentLogger('DashboardPopulateWorker');
 
 const DASHBOARD_DIR = path.join(os.homedir(), '.claude', 'mcp-servers', 'observability-toolkit', 'dashboard');
 const TOOLKIT_DIR = path.join(os.homedir(), '.claude', 'mcp-servers', 'observability-toolkit');
 
+interface PopulateOptions {
+  seed?: boolean;
+  dryRun?: boolean;
+  skipJudge?: boolean;
+  skipSync?: boolean;
+  limit?: number;
+}
+
+export interface PopulateWorkerOptions {
+  maxConcurrent?: number;
+  dashboardDir?: string;
+  toolkitDir?: string;
+  [key: string]: unknown;
+}
+
+interface StepTiming {
+  name: string;
+  ms: number;
+}
+
+interface PopulateOutput {
+  seed: boolean;
+  dryRun: boolean;
+  skipJudge: boolean;
+  skipSync: boolean;
+  limit: number | undefined;
+  steps: StepTiming[];
+  durationMs: number;
+  stdout: string;
+  stderr: string;
+  timestamp: string;
+  reportPaths?: object;
+}
+
 /**
  * DashboardPopulateWorker - Runs the quality-metrics-dashboard populate pipeline
- *
- * Shells out to `npm run populate` in the dashboard submodule, which executes:
- *   1. derive-evaluations  → rule-based metrics
- *   2. judge-evaluations   → LLM-based metrics (or --seed for offline)
- *   3. sync-to-kv          → aggregate + upload to Cloudflare KV
  */
 export class DashboardPopulateWorker extends SidequestServer {
-  constructor(options = {}) {
+  dashboardDir: string;
+  toolkitDir: string;
+
+  constructor(options: PopulateWorkerOptions = {}) {
     super({
       ...options,
       jobType: 'dashboard-populate',
     });
-    this.dashboardDir = options.dashboardDir || DASHBOARD_DIR;
-    this.toolkitDir = options.toolkitDir || TOOLKIT_DIR;
+    this.dashboardDir = options.dashboardDir ?? DASHBOARD_DIR;
+    this.toolkitDir = options.toolkitDir ?? TOOLKIT_DIR;
   }
 
   /**
    * Create a populate job
    */
-  createPopulateJob(options = {}) {
+  createPopulateJob(options: PopulateOptions = {}): Job {
     const jobId = `dashboard-populate-${Date.now()}`;
     return this.createJob(jobId, {
       type: 'populate',
@@ -47,9 +80,13 @@ export class DashboardPopulateWorker extends SidequestServer {
   /**
    * Run the populate pipeline
    */
-  async runJobHandler(job) {
+  async runJobHandler(job: Job): Promise<PopulateOutput> {
     const startTime = Date.now();
-    const { seed, dryRun, skipJudge, skipSync, limit } = job.data;
+    const seed = job.data.seed as boolean;
+    const dryRun = job.data.dryRun as boolean;
+    const skipJudge = job.data.skipJudge as boolean;
+    const skipSync = job.data.skipSync as boolean;
+    const limit = job.data.limit as number | undefined;
 
     logger.info({
       jobId: job.id,
@@ -85,15 +122,14 @@ export class DashboardPopulateWorker extends SidequestServer {
 
       const { stdout, stderr } = await execCommandOrThrow('npm', populateArgs, {
         cwd: this.dashboardDir,
-        timeout: 5 * 60 * 1000, // 5 minutes
+        timeout: 5 * 60 * 1000,
         env: { ...process.env, FORCE_COLOR: '0' },
       });
 
-      // Parse step timings from stdout
       const stepTimings = this.#parseTimings(stdout);
 
       const endTime = Date.now();
-      const output = {
+      const output: PopulateOutput = {
         seed,
         dryRun,
         skipJudge,
@@ -101,7 +137,7 @@ export class DashboardPopulateWorker extends SidequestServer {
         limit,
         steps: stepTimings,
         durationMs: endTime - startTime,
-        stdout: stdout.slice(-2000), // last 2KB for logs
+        stdout: stdout.slice(-2000),
         stderr: stderr.slice(-1000),
         timestamp: new Date().toISOString(),
       };
@@ -112,7 +148,6 @@ export class DashboardPopulateWorker extends SidequestServer {
         steps: stepTimings.length,
       }, 'Dashboard populate job completed');
 
-      // Generate report
       const reportPaths = await generateReport({
         jobId: job.id,
         jobType: 'dashboard-populate',
@@ -129,8 +164,8 @@ export class DashboardPopulateWorker extends SidequestServer {
     } catch (error) {
       logger.error({
         jobId: job.id,
-        error: error.message,
-        stderr: error.stderr?.slice(-1000),
+        error: (error as Error).message,
+        stderr: (error as { stderr?: string }).stderr?.slice(-1000),
       }, 'Dashboard populate job failed');
 
       Sentry.captureException(error, {
@@ -147,13 +182,11 @@ export class DashboardPopulateWorker extends SidequestServer {
 
   /**
    * Parse step timings from populate-dashboard.ts stdout
-   * @private
    */
-  #parseTimings(stdout) {
-    const timings = [];
+  #parseTimings(stdout: string): StepTiming[] {
+    const timings: StepTiming[] = [];
     const lines = stdout.split('\n');
     for (const line of lines) {
-      // Match: "  derive-evaluations         1234ms"
       const match = line.match(/^\s{2}(\S+)\s+(\d+)ms$/);
       if (match && match[1] !== 'total') {
         timings.push({ name: match[1], ms: parseInt(match[2], 10) });

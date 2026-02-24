@@ -17,10 +17,9 @@ const logger = createComponentLogger('DependencyValidator');
  * Error thrown when dependency validation fails
  */
 export class DependencyValidationError extends Error {
-  /**
-   * @param {string[]} failures - Array of failure messages
-   */
-  constructor(failures) {
+  failures: string[];
+
+  constructor(failures: string[]) {
     super(`Dependency validation failed:\n${failures.map(f => `  - ${f}`).join('\n')}`);
     this.failures = failures;
     this.name = 'DependencyValidationError';
@@ -38,9 +37,8 @@ export class DependencyValidationError extends Error {
 export class DependencyValidator {
   /**
    * Validate all required dependencies
-   * @throws {DependencyValidationError} If any dependency is missing
    */
-  static async validateAll() {
+  static async validateAll(): Promise<void> {
     const results = await Promise.allSettled([
       this.validateRepomix(),
       this.validateAstGrep(),
@@ -48,8 +46,8 @@ export class DependencyValidator {
     ]);
 
     const failures = results
-      .filter(r => r.status === 'rejected')
-      .map(r => r.reason.message);
+      .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+      .map(r => (r.reason as Error).message);
 
     if (failures.length > 0) {
       logger.error({ failures }, 'Dependency validation failed');
@@ -61,9 +59,8 @@ export class DependencyValidator {
 
   /**
    * Validate repomix is available
-   * @throws {Error} If repomix is not available
    */
-  static async validateRepomix() {
+  static async validateRepomix(): Promise<void> {
     try {
       execSync('npx repomix --version', {
         stdio: 'ignore',
@@ -71,7 +68,7 @@ export class DependencyValidator {
         env: process.env
       });
       logger.debug('repomix validation passed');
-    } catch (error) {
+    } catch {
       throw new Error(
         'repomix not available. Install: npm install\n' +
         'Or verify package.json includes "repomix" dependency.'
@@ -81,10 +78,8 @@ export class DependencyValidator {
 
   /**
    * Validate ast-grep is available
-   * Tries global binary first, then falls back to npx
-   * @throws {Error} If ast-grep is not available
    */
-  static async validateAstGrep() {
+  static async validateAstGrep(): Promise<void> {
     // Try global binary first
     try {
       execSync('sg --version', {
@@ -105,7 +100,7 @@ export class DependencyValidator {
         env: process.env
       });
       logger.debug('ast-grep validation passed (via npx)');
-    } catch (error) {
+    } catch {
       throw new Error(
         'ast-grep not available. Install:\n' +
         '  Global: npm install -g @ast-grep/cli\n' +
@@ -116,11 +111,8 @@ export class DependencyValidator {
 
   /**
    * Validate Python 3.11+ is available
-   * Tries venv first, then falls back to system Python
-   * @returns {Promise<string>} The Python path that passed validation
-   * @throws {Error} If Python 3.11+ is not available
    */
-  static async validatePython() {
+  static async validatePython(): Promise<string> {
     const pythonPaths = [
       { path: 'venv/bin/python3', name: 'venv' },
       { path: 'python3', name: 'system' }

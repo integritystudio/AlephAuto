@@ -3,22 +3,6 @@
  *
  * Implements circuit breaker pattern with exponential backoff to handle
  * Doppler API HTTP 500 errors gracefully.
- *
- * Features:
- * - Circuit breaker with 3 states: CLOSED, OPEN, HALF_OPEN
- * - Exponential backoff (1s, 2s, 4s, 8s, max 10s)
- * - Graceful fallback to cached secrets
- * - Health check endpoint integration
- * - Sentry error tracking
- *
- * Usage:
- *   import { DopplerResilience } from './sidequest/utils/doppler-resilience.js';
- *
- *   const doppler = new DopplerResilience();
- *   const secrets = await doppler.getSecrets();
- *
- *   // Get health status
- *   const health = doppler.getHealth();
  */
 
 import { createComponentLogger, logError } from './logger.ts';
@@ -30,26 +14,82 @@ import os from 'os';
 
 const logger = createComponentLogger('DopplerResilience');
 
-// Circuit breaker states
 const CircuitState = {
-  CLOSED: 'CLOSED',     // Normal operation
-  OPEN: 'OPEN',         // Failures detected, using fallback
-  HALF_OPEN: 'HALF_OPEN' // Testing if service recovered
-};
+  CLOSED: 'CLOSED',
+  OPEN: 'OPEN',
+  HALF_OPEN: 'HALF_OPEN'
+} as const;
+
+type CircuitStateType = typeof CircuitState[keyof typeof CircuitState];
+
+interface DopplerResilienceOptions {
+  failureThreshold?: number;
+  successThreshold?: number;
+  timeout?: number;
+  maxBackoffMs?: number;
+  baseDelayMs?: number;
+  backoffMultiplier?: number;
+  cacheFile?: string;
+}
+
+interface ResilienceMetrics {
+  totalRequests: number;
+  totalFailures: number;
+  totalSuccesses: number;
+  currentBackoffMs: number;
+  lastError: { message: string; timestamp: string } | null;
+}
+
+interface HealthStatus {
+  healthy: boolean;
+  circuitState: CircuitStateType;
+  failureCount: number;
+  consecutiveFailures: number;
+  successCount: number;
+  lastFailureTime: string | null;
+  lastSuccessTime: string | null;
+  nextAttemptTime: string | null;
+  waitTimeMs: number;
+  currentBackoffMs: number;
+  metrics: {
+    totalRequests: number;
+    totalFailures: number;
+    totalSuccesses: number;
+    successRate: string;
+    lastError: { message: string; timestamp: string } | null;
+  };
+  usingFallback: boolean;
+  cacheLoadedAt: string | null;
+}
 
 export class DopplerResilience {
-  constructor(options = {}) {
-    // Circuit breaker configuration
-    this.failureThreshold = options.failureThreshold || 3; // Open circuit after N failures
-    this.successThreshold = options.successThreshold || 2; // Close circuit after N successes in HALF_OPEN
-    this.timeout = options.timeout || TIMEOUTS.SHORT_MS; // Timeout before attempting HALF_OPEN
-    this.maxBackoffMs = options.maxBackoffMs || RETRY.MAX_BACKOFF_MS;
+  failureThreshold: number;
+  successThreshold: number;
+  timeout: number;
+  maxBackoffMs: number;
+  baseDelayMs: number;
+  backoffMultiplier: number;
+  state: CircuitStateType;
+  failureCount: number;
+  successCount: number;
+  lastFailureTime: number | null;
+  lastSuccessTime: number | null;
+  consecutiveFailures: number;
+  nextAttemptTime: number | null;
+  cacheFile: string;
+  cachedSecrets: Record<string, unknown> | null;
+  cacheLoadedAt: number | null;
+  metrics: ResilienceMetrics;
 
-    // Exponential backoff configuration
-    this.baseDelayMs = options.baseDelayMs || RETRY.BASE_BACKOFF_MS;
-    this.backoffMultiplier = options.backoffMultiplier || 2; // Double each retry
+  constructor(options: DopplerResilienceOptions = {}) {
+    this.failureThreshold = options.failureThreshold ?? 3;
+    this.successThreshold = options.successThreshold ?? 2;
+    this.timeout = options.timeout ?? TIMEOUTS.SHORT_MS;
+    this.maxBackoffMs = options.maxBackoffMs ?? RETRY.MAX_BACKOFF_MS;
 
-    // State tracking
+    this.baseDelayMs = options.baseDelayMs ?? RETRY.BASE_BACKOFF_MS;
+    this.backoffMultiplier = options.backoffMultiplier ?? 2;
+
     this.state = CircuitState.CLOSED;
     this.failureCount = 0;
     this.successCount = 0;
@@ -58,12 +98,10 @@ export class DopplerResilience {
     this.consecutiveFailures = 0;
     this.nextAttemptTime = null;
 
-    // Fallback cache configuration
-    this.cacheFile = options.cacheFile || path.join(os.homedir(), '.doppler', '.fallback.json');
+    this.cacheFile = options.cacheFile ?? path.join(os.homedir(), '.doppler', '.fallback.json');
     this.cachedSecrets = null;
     this.cacheLoadedAt = null;
 
-    // Metrics for health monitoring
     this.metrics = {
       totalRequests: 0,
       totalFailures: 0,
@@ -75,23 +113,17 @@ export class DopplerResilience {
 
   /**
    * Get secrets with circuit breaker protection
-   *
-   * @returns {Promise<Object>} Secrets object
-   * @throws {Error} If circuit is open and no fallback available
    */
-  async getSecrets() {
+  async getSecrets(): Promise<Record<string, unknown>> {
     this.metrics.totalRequests++;
 
-    // Check circuit state
     if (this.state === CircuitState.OPEN) {
-      // Check if timeout has elapsed to attempt recovery
-      if (Date.now() >= this.nextAttemptTime) {
+      if (Date.now() >= this.nextAttemptTime!) {
         logger.info('Circuit breaker timeout elapsed, attempting HALF_OPEN state');
         this.state = CircuitState.HALF_OPEN;
         this.successCount = 0;
       } else {
-        // Circuit still open, use fallback
-        const waitMs = this.nextAttemptTime - Date.now();
+        const waitMs = this.nextAttemptTime! - Date.now();
         logger.warn({
           state: this.state,
           waitMs,
@@ -103,44 +135,27 @@ export class DopplerResilience {
     }
 
     try {
-      // Attempt to fetch from Doppler API
       const secrets = await this.fetchFromDoppler();
-
-      // Success handling
       this.handleSuccess();
-
       return secrets;
     } catch (error) {
-      // Failure handling
-      this.handleFailure(error);
-
-      // Fallback to cached secrets
+      this.handleFailure(error as Error);
       return await this.getFallbackSecrets();
     }
   }
 
   /**
    * Fetch secrets from Doppler API (to be implemented by consumer)
-   * This is a placeholder that should be overridden
-   *
-   * @returns {Promise<Object>} Secrets from Doppler
-   * @throws {Error} If Doppler API fails
    */
-  async fetchFromDoppler() {
-    // This is a placeholder - in actual usage, this would call Doppler CLI
-    // or use process.env which is populated by `doppler run`
+  async fetchFromDoppler(): Promise<Record<string, unknown>> {
     throw new Error('fetchFromDoppler must be implemented by consumer');
   }
 
   /**
    * Get fallback secrets from cache file
-   *
-   * @returns {Promise<Object>} Cached secrets
-   * @throws {Error} If cache file doesn't exist
    */
-  async getFallbackSecrets() {
+  async getFallbackSecrets(): Promise<Record<string, unknown>> {
     try {
-      // Load from cache if not already loaded or cache is stale
       if (!this.cachedSecrets || this.isCacheStale()) {
         logger.info({ cacheFile: this.cacheFile }, 'Loading fallback secrets from cache');
 
@@ -151,7 +166,7 @@ export class DopplerResilience {
         logger.info('Fallback secrets loaded successfully');
       }
 
-      return this.cachedSecrets;
+      return this.cachedSecrets!;
     } catch (error) {
       logError(logger, error, 'Failed to load fallback secrets', { cacheFile: this.cacheFile });
 
@@ -166,16 +181,14 @@ export class DopplerResilience {
         }
       });
 
-      throw new Error(`Doppler API unavailable and no fallback cache: ${error.message}`);
+      throw new Error(`Doppler API unavailable and no fallback cache: ${(error as Error).message}`);
     }
   }
 
   /**
-   * Check if cache is stale (older than 5 minutes)
-   *
-   * @returns {boolean} True if cache should be reloaded
+   * Check if cache is stale
    */
-  isCacheStale() {
+  isCacheStale(): boolean {
     if (!this.cacheLoadedAt) return true;
 
     const cacheAgeMs = Date.now() - this.cacheLoadedAt;
@@ -187,7 +200,7 @@ export class DopplerResilience {
   /**
    * Handle successful Doppler API call
    */
-  handleSuccess() {
+  handleSuccess(): void {
     this.lastSuccessTime = Date.now();
     this.consecutiveFailures = 0;
     this.metrics.totalSuccesses++;
@@ -202,7 +215,6 @@ export class DopplerResilience {
       }, 'Success in HALF_OPEN state');
 
       if (this.successCount >= this.successThreshold) {
-        // Enough successes, close circuit
         this.state = CircuitState.CLOSED;
         this.failureCount = 0;
         this.successCount = 0;
@@ -218,17 +230,14 @@ export class DopplerResilience {
         });
       }
     } else if (this.state === CircuitState.CLOSED) {
-      // Reset failure count on success in CLOSED state
       this.failureCount = 0;
     }
   }
 
   /**
    * Handle failed Doppler API call
-   *
-   * @param {Error} error - The error that occurred
    */
-  handleFailure(error) {
+  handleFailure(error: Error): void {
     this.lastFailureTime = Date.now();
     this.failureCount++;
     this.consecutiveFailures++;
@@ -238,7 +247,6 @@ export class DopplerResilience {
       timestamp: new Date().toISOString()
     };
 
-    // Calculate exponential backoff
     const backoffMs = Math.min(
       this.baseDelayMs * Math.pow(this.backoffMultiplier, this.consecutiveFailures - 1),
       this.maxBackoffMs
@@ -254,7 +262,6 @@ export class DopplerResilience {
     }, 'Doppler API call failed');
 
     if (this.state === CircuitState.HALF_OPEN) {
-      // Failure in HALF_OPEN, reopen circuit
       this.state = CircuitState.OPEN;
       this.nextAttemptTime = Date.now() + this.timeout;
 
@@ -274,7 +281,6 @@ export class DopplerResilience {
         }
       });
     } else if (this.state === CircuitState.CLOSED && this.failureCount >= this.failureThreshold) {
-      // Too many failures, open circuit
       this.state = CircuitState.OPEN;
       this.nextAttemptTime = Date.now() + this.timeout;
 
@@ -302,10 +308,8 @@ export class DopplerResilience {
 
   /**
    * Get current health status for monitoring
-   *
-   * @returns {Object} Health status object
    */
-  getHealth() {
+  getHealth(): HealthStatus {
     const now = Date.now();
 
     return {
@@ -344,9 +348,9 @@ export class DopplerResilience {
   }
 
   /**
-   * Manually reset circuit breaker (for testing or manual intervention)
+   * Manually reset circuit breaker
    */
-  reset() {
+  reset(): void {
     logger.info('Manually resetting circuit breaker');
 
     this.state = CircuitState.CLOSED;
@@ -360,11 +364,9 @@ export class DopplerResilience {
   }
 
   /**
-   * Get circuit state (for testing)
-   *
-   * @returns {string} Current circuit state
+   * Get circuit state
    */
-  getState() {
+  getState(): CircuitStateType {
     return this.state;
   }
 }

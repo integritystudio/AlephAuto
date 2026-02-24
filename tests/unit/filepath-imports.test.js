@@ -36,8 +36,8 @@ describe('Filepath Imports Test Suite', () => {
       // Verify the import statement uses relative path from sidequest/core/
       assert.match(
         content,
-        /import\s+{\s*DirectoryScanner\s*}\s+from\s+['"]\.\.\/utils\/directory-scanner\.js['"]/,
-        'DirectoryScanner import should use ../utils/directory-scanner.js'
+        /import\s+{\s*DirectoryScanner\s*}\s+from\s+['"]\.\.\/utils\/directory-scanner\.ts['"]/,
+        'DirectoryScanner import should use ../utils/directory-scanner.ts'
       );
     });
 
@@ -116,10 +116,10 @@ describe('Filepath Imports Test Suite', () => {
       assert.ok(stats.isFile(), 'repomix-worker.ts should exist in workers/');
     });
 
-    it('should verify directory-scanner.js exists in sidequest/utils/', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/utils/directory-scanner.js');
+    it('should verify directory-scanner.ts exists in sidequest/utils/', async () => {
+      const filePath = resolve(__dirname, '../../sidequest/utils/directory-scanner.ts');
       const stats = await fs.stat(filePath);
-      assert.ok(stats.isFile(), 'directory-scanner.js should exist in utils/');
+      assert.ok(stats.isFile(), 'directory-scanner.ts should exist in utils/');
     });
 
     it('should verify schema-enhancement-worker.ts exists in sidequest/workers/', async () => {

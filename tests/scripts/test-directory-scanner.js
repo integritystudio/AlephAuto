@@ -1,4 +1,4 @@
-import { DirectoryScanner } from '../sidequest/utils/directory-scanner.js';
+import { DirectoryScanner } from '../sidequest/utils/directory-scanner.ts';
 import path from 'path';
 
 /**

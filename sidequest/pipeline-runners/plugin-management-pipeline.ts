@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import cron from 'node-cron';
-import { PluginManagerWorker } from '../utils/plugin-manager.js';
+import { PluginManagerWorker } from '../utils/plugin-manager.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';

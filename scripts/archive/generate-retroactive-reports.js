@@ -7,7 +7,7 @@
  */
 
 import { initDatabase, getAllJobs, saveJob } from '../sidequest/core/database.js';
-import { generateReport } from '../sidequest/utils/report-generator.js';
+import { generateReport } from '../sidequest/utils/report-generator.ts';
 import { createComponentLogger, logError, logStart } from '../sidequest/utils/logger.js';
 
 const logger = createComponentLogger('RetroactiveReports');

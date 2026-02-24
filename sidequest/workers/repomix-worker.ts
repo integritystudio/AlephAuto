@@ -1,5 +1,5 @@
 import { SidequestServer, type Job } from '../core/server.ts';
-import { generateReport } from '../utils/report-generator.js';
+import { generateReport } from '../utils/report-generator.ts';
 import { spawn, execSync } from 'child_process';
 import { captureProcessOutput } from '@shared/process-io';
 import fs from 'fs/promises';

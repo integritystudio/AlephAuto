@@ -11,7 +11,7 @@
 
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { DopplerResilience } from '../../sidequest/utils/doppler-resilience.js';
+import { DopplerResilience } from '../../sidequest/utils/doppler-resilience.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';

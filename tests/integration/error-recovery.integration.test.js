@@ -20,7 +20,7 @@ import http from 'http';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { DopplerResilience } from '../../sidequest/utils/doppler-resilience.js';
+import { DopplerResilience } from '../../sidequest/utils/doppler-resilience.ts';
 import {
   isPortAvailable,
   setupServerWithPortFallback

@@ -3,8 +3,8 @@
  */
 
 import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
-import { SchemaMCPTools } from '../utils/schema-mcp-tools.js';
-import { generateReport } from '../utils/report-generator.js';
+import { SchemaMCPTools, type SchemaObject } from '../utils/schema-mcp-tools.ts';
+import { generateReport } from '../utils/report-generator.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
 import fs from 'fs/promises';
@@ -21,6 +21,8 @@ interface SchemaEnhancementWorkerOptions extends SidequestServerOptions {
   gitBranchPrefix?: string;
   gitBaseBranch?: string;
   gitDryRun?: boolean;
+  mcpServerUrl?: string;
+  useRealMCP?: boolean;
 }
 
 interface EnhancementJobData {
@@ -48,11 +50,6 @@ interface SchemaImpact {
   metrics: Record<string, unknown>;
 }
 
-interface SchemaObject {
-  '@context'?: string;
-  '@type'?: string;
-  [key: string]: unknown;
-}
 
 interface EnhancementResult {
   status: string;
@@ -110,7 +107,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
     });
 
     this.outputBaseDir = options.outputBaseDir ?? './document-enhancement-impact-measurement';
-    this.mcpTools = new SchemaMCPTools(options);
+    this.mcpTools = new SchemaMCPTools({ mcpServerUrl: options.mcpServerUrl, useRealMCP: options.useRealMCP });
     this.dryRun = options.dryRun ?? false;
     this.stats = {
       enhanced: 0,

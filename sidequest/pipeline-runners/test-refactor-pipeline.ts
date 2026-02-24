@@ -12,7 +12,7 @@
  */
 
 import { TestRefactorWorker } from '../workers/test-refactor-worker.ts';
-import { DirectoryScanner } from '../utils/directory-scanner.js';
+import { DirectoryScanner } from '../utils/directory-scanner.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS } from '../core/constants.ts';
@@ -110,7 +110,7 @@ async function runPipeline(targetPath: string | null = null): Promise<PipelineRe
       const scanner = new DirectoryScanner({
         baseDir: CODE_BASE_DIR,
         maxDepth: 2,
-        excludePatterns: [
+        excludeDirs: [
           'node_modules',
           '.git',
           'dist',
@@ -122,13 +122,13 @@ async function runPipeline(targetPath: string | null = null): Promise<PipelineRe
         ]
       });
 
-      const directories: DirectoryInfo[] = await scanner.scanDirectories();
+      const directories = await scanner.scanDirectories();
 
       // Filter to directories that have test files
       for (const dir of directories) {
-        const hasTests = await hasTestDirectory(dir.path);
+        const hasTests = await hasTestDirectory(dir.fullPath);
         if (hasTests) {
-          worker.queueProject(dir.path);
+          worker.queueProject(dir.fullPath);
         }
       }
 
