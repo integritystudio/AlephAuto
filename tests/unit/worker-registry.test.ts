@@ -8,13 +8,15 @@
  *
  * Note: Full integration tests with actual workers are in integration tests.
  * These unit tests focus on the registry logic without initializing real workers.
+ * workerRegistry is a singleton — all describe blocks share the same instance.
  */
 
-import { describe, it, beforeEach } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert';
 
 // Import constants first (no side effects)
 import { CONCURRENCY } from '../../sidequest/core/constants.ts';
+import { workerRegistry } from '../../api/utils/worker-registry.ts';
 
 describe('Worker Registry - Constants', () => {
 
@@ -36,14 +38,6 @@ describe('Worker Registry - Constants', () => {
 });
 
 describe('Worker Registry - Pipeline Support', () => {
-  let workerRegistry;
-
-  beforeEach(async () => {
-    // Import dynamically to isolate each test
-    const module = await import('../../api/utils/worker-registry.ts');
-    workerRegistry = module.workerRegistry;
-  });
-
   describe('isSupported', () => {
     it('should return true for known pipeline IDs', () => {
       const knownPipelines = [
@@ -124,13 +118,6 @@ describe('Worker Registry - Pipeline Support', () => {
 });
 
 describe('Worker Registry - Stats', () => {
-  let workerRegistry;
-
-  beforeEach(async () => {
-    const module = await import('../../api/utils/worker-registry.ts');
-    workerRegistry = module.workerRegistry;
-  });
-
   describe('getAllStats', () => {
     it('should return stats object with expected structure', () => {
       const stats = workerRegistry.getAllStats();
@@ -171,13 +158,6 @@ describe('Worker Registry - Stats', () => {
 });
 
 describe('Worker Registry - Activity Feed', () => {
-  let workerRegistry;
-
-  beforeEach(async () => {
-    const module = await import('../../api/utils/worker-registry.ts');
-    workerRegistry = module.workerRegistry;
-  });
-
   describe('setActivityFeed', () => {
     it('should accept activity feed manager without error', () => {
       const mockActivityFeed = {
@@ -192,13 +172,6 @@ describe('Worker Registry - Activity Feed', () => {
 });
 
 describe('Worker Registry - Error Handling', () => {
-  let workerRegistry;
-
-  beforeEach(async () => {
-    const module = await import('../../api/utils/worker-registry.ts');
-    workerRegistry = module.workerRegistry;
-  });
-
   describe('getWorker with unknown pipeline', () => {
     it('should throw error for unknown pipeline ID', async () => {
       await assert.rejects(
@@ -219,13 +192,6 @@ describe('Worker Registry - Error Handling', () => {
 });
 
 describe('Worker Registry - Shutdown', () => {
-  let workerRegistry;
-
-  beforeEach(async () => {
-    const module = await import('../../api/utils/worker-registry.ts');
-    workerRegistry = module.workerRegistry;
-  });
-
   describe('shutdown method', () => {
     it('should be a function', () => {
       assert.strictEqual(typeof workerRegistry.shutdown, 'function');

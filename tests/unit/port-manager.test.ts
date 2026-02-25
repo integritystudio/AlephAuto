@@ -5,7 +5,7 @@
  * graceful shutdown, and process cleanup.
  */
 
-import { describe, test, before, after, beforeEach, afterEach } from 'node:test';
+import { describe, test, after, afterEach } from 'node:test';
 import assert from 'node:assert';
 import {
   isPortAvailable,
@@ -39,8 +39,8 @@ describe('Port Manager', () => {
     });
   };
 
-  // Cleanup all test servers after each test
-  after(async () => {
+  // Cleanup servers after EACH test to prevent port conflicts on cleanup failure
+  afterEach(async () => {
     await Promise.all(
       servers.map(
         (server) =>
@@ -58,35 +58,37 @@ describe('Port Manager', () => {
 
   describe('isPortAvailable', () => {
     test('should return true for available port', async () => {
-      const port = 9000;
-      const available = await isPortAvailable(port);
+      // Use OS-assigned port to guarantee availability
+      const port = await findAvailablePort(49152, 65535);
+      assert.ok(port !== null, 'Should find an available port');
+      const available = await isPortAvailable(port!);
       assert.strictEqual(available, true);
     });
 
     test('should return false for occupied port', async () => {
-      const port = 9001;
+      // Start server on OS-assigned port, then verify that port is reported occupied
+      const server = await startServerOnPort(0);
+      const { port } = (server as any).address();
 
-      // Start a server to occupy the port
-      await startServerOnPort(port);
-
-      // Check availability
       const available = await isPortAvailable(port);
       assert.strictEqual(available, false);
     });
 
     test('should work with different host addresses', async () => {
-      const port = 9002;
-      const available = await isPortAvailable(port, 'localhost');
+      const port = await findAvailablePort(49152, 65535);
+      assert.ok(port !== null, 'Should find an available port');
+      const available = await isPortAvailable(port!, 'localhost');
       assert.strictEqual(available, true);
     });
 
     test('should handle rapid sequential checks', async () => {
-      const port = 9003;
+      const port = await findAvailablePort(49152, 65535);
+      assert.ok(port !== null, 'Should find an available port');
 
       // Run checks sequentially to avoid race conditions
-      const result1 = await isPortAvailable(port);
-      const result2 = await isPortAvailable(port);
-      const result3 = await isPortAvailable(port);
+      const result1 = await isPortAvailable(port!);
+      const result2 = await isPortAvailable(port!);
+      const result3 = await isPortAvailable(port!);
 
       assert.strictEqual(result1, true);
       assert.strictEqual(result2, true);

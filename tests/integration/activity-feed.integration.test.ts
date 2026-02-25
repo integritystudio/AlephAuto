@@ -21,6 +21,7 @@ import assert from 'node:assert/strict';
 import { ActivityFeedManager } from '../../api/activity-feed.ts';
 import { SidequestServer } from '../../sidequest/core/server.ts';
 import { initDatabase } from '../../sidequest/core/database.ts';
+import { waitForQueueDrain } from '../fixtures/test-helpers.ts';
 
 describe('Activity Feed - Integration Tests', () => {
   let activityFeed;
@@ -81,8 +82,7 @@ describe('Activity Feed - Integration Tests', () => {
     // Start worker
     worker.start();
 
-    // Wait for job to fail
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await waitForQueueDrain(worker);
 
     // Verify activity was created
     const activities = activityFeed.getRecentActivities(10);
@@ -125,8 +125,7 @@ describe('Activity Feed - Integration Tests', () => {
 
     worker.start();
 
-    // Wait for event processing
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await waitForQueueDrain(worker);
 
     // Verify activity was created with "Unknown error"
     const activities = activityFeed.getRecentActivities(10);
@@ -154,7 +153,7 @@ describe('Activity Feed - Integration Tests', () => {
 
     worker.start();
 
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await waitForQueueDrain(worker);
 
     // Verify activity handles string error
     const activities = activityFeed.getRecentActivities(10);
@@ -189,8 +188,7 @@ describe('Activity Feed - Integration Tests', () => {
 
     worker.start();
 
-    // Wait for all jobs to process
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await waitForQueueDrain(worker);
 
     // Verify all failures were recorded
     const activities = activityFeed.getRecentActivities(50);
@@ -236,7 +234,7 @@ describe('Activity Feed - Integration Tests', () => {
 
     worker.start();
 
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await waitForQueueDrain(worker);
 
     // Verify activity was still created despite broadcast failure
     const activities = activityFeed.getRecentActivities(10);
@@ -271,8 +269,7 @@ describe('Activity Feed - Integration Tests', () => {
 
     worker.start();
 
-    // Wait for job to complete
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await waitForQueueDrain(worker);
 
     // Verify complete lifecycle activities
     const activities = activityFeed.getRecentActivities(20);
@@ -330,9 +327,8 @@ describe('Activity Feed - Integration Tests', () => {
 
     worker.start();
 
-    // Wait for first attempt to fail and retry:created to be emitted
-    // The retry:created event is emitted immediately, only re-queue is delayed
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Wait for retry:created event (emitted immediately on first failure, before re-queue delay)
+    await new Promise<void>(resolve => worker.once('retry:created', resolve));
 
     const activities = activityFeed.getRecentActivities(20);
 

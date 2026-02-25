@@ -761,18 +761,14 @@ describe('Database Edge Cases', () => {
 describe('Database Query Options', () => {
   const queryPipelineId = `query-options-${Date.now()}`;
 
-  before(async () => {
-    await initDatabase(':memory:');
-  });
-
   after(() => {
     closeDatabase();
   });
 
   beforeEach(async () => {
-    if (!isDatabaseReady()) {
-      await initDatabase(':memory:');
-    }
+    // Always reset to a fresh DB to prevent job accumulation across tests
+    closeDatabase();
+    await initDatabase(':memory:');
 
     // Create test data
     for (let i = 0; i < 20; i++) {
