@@ -41,7 +41,7 @@ export const ScanResponseSchema = z.object({
   repositoryPath: z.string(),
   status: z.enum(['queued', 'running', 'completed', 'failed']),
   timestamp: z.string().datetime()
-});
+}).strict();
 
 export type ScanResponse = z.infer<typeof ScanResponseSchema>;
 
@@ -83,7 +83,7 @@ export const ScanResultsSchema = z.object({
   startTime: z.string().datetime().optional(),
   endTime: z.string().datetime().optional(),
   timestamp: z.string().datetime()
-});
+}).strict();
 
 export type ScanResults = z.infer<typeof ScanResultsSchema>;
 

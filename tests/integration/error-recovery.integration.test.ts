@@ -149,6 +149,9 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
 
     // Start server with port fallback
     const basePort = await isPortAvailable(9100) ? 9100 : await findAvailablePort(9100, 9200);
+    if (basePort === null) {
+      throw new Error('No available port found in range 9100-9200 for test setup');
+    }
 
     const server = http.createServer((req, res) => {
       if (req.url === '/api/activities') {

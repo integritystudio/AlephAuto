@@ -16,8 +16,7 @@ import {
   type JobsListResponse,
   type JobDetails,
   type ManualTriggerRequest,
-  type ManualTriggerResponse,
-  createErrorResponse
+  type ManualTriggerResponse
 } from '../types/pipeline-requests.ts';
 import { createComponentLogger } from '#sidequest/utils/logger.ts';
 import * as Sentry from '@sentry/node';
