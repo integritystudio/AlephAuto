@@ -215,6 +215,14 @@ interface WaitForQueueDrainOptions {
   pollInterval?: number;
 }
 
+/**
+ * Poll until the worker's queued and active counts are both zero.
+ *
+ * WARNING: Only safe when `maxRetries === 0` or all retries have fully settled.
+ * When retries are enabled, `activeJobs` decrements before the retry re-queue
+ * `setTimeout` fires, causing a false-drain window. Use event-based waiting
+ * (e.g., `worker.once('retry:created', ...)`) for retry scenarios instead.
+ */
 export async function waitForQueueDrain(worker: WorkerLike, options: WaitForQueueDrainOptions = {}): Promise<void> {
   const { timeout = 30000, pollInterval = 100 } = options;
   const startTime = Date.now();

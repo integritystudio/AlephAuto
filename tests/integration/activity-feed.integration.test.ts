@@ -59,8 +59,12 @@ describe('Activity Feed - Integration Tests', () => {
   });
 
   afterEach(async () => {
-    // Stop worker
-    await worker.stop();
+    // Drain any remaining in-flight jobs before stopping.
+    // This is a no-op if the test body already called waitForQueueDrain.
+    // For retry scenarios (Scenario 7), the queue is also drained at this point
+    // because the test waited for retry:created (active=0, queued=0).
+    await waitForQueueDrain(worker, { timeout: 5000 });
+    worker.stop();
   });
 
   it('Scenario 1: Job fails with Error object → activity created correctly', async () => {

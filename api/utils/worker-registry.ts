@@ -245,8 +245,11 @@ class WorkerRegistry {
       resolveInit = resolve;
       rejectInit = reject;
     });
-    // Suppress unhandled rejection — the error is re-thrown synchronously for
-    // the primary caller; concurrent waiters get it via _initializing.get().
+    // Suppress unhandled rejection warning on initPromise. The rejection still
+    // propagates to: (a) the primary caller via re-throw in the catch block
+    // below, and (b) any concurrent waiters via `await _initializing.get()`.
+    // Without this, Node.js emits an unhandledRejection when no concurrent
+    // waiter exists at the time the promise is rejected.
     initPromise.catch(() => {});
     this._initializing.set(pipelineId, initPromise);
 
