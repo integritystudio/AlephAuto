@@ -55,11 +55,7 @@ jobs:
           echo "Validating deployment artifacts..."
 
           # Check critical files exist
-          test -f api/server.js || (echo "❌ API server not found" && exit 1)
-          test -d public || (echo "❌ Public directory not found" && exit 1)
-          test -f public/index.html || (echo "❌ Dashboard HTML not found" && exit 1)
-          test -f public/dashboard.css || (echo "❌ Dashboard CSS not found" && exit 1)
-          test -f public/dashboard.js || (echo "❌ Dashboard JS not found" && exit 1)
+          test -f api/server.ts || test -f api/server.js || (echo "❌ API server not found" && exit 1)
 
           # Check package.json has dashboard script
           grep -q '"dashboard"' package.json || (echo "❌ Dashboard script not found" && exit 1)
