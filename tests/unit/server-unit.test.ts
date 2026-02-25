@@ -7,9 +7,10 @@
  */
 
 // @ts-nocheck
-import { describe, it, beforeEach, afterEach, mock } from 'node:test';
+import { describe, it, before, after, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { SidequestServer } from '../../sidequest/core/server.ts';
+import { initDatabase, closeDatabase } from '../../sidequest/core/database.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -34,6 +35,14 @@ class TestSidequestServer extends SidequestServer {
     return this.handlerResult;
   }
 }
+
+before(async () => {
+  await initDatabase(':memory:');
+});
+
+after(() => {
+  closeDatabase();
+});
 
 describe('SidequestServer - Constructor', () => {
   it('should initialize with default options', () => {
@@ -86,6 +95,7 @@ describe('SidequestServer - Constructor', () => {
 
     const server2 = new TestSidequestServer({ autoStart: true });
     assert.strictEqual(server2.isRunning, true);
+    server2.stop();
   });
 
   it('should use nullish coalescing for maxConcurrent', () => {
@@ -203,6 +213,7 @@ describe('SidequestServer - start and stop', () => {
     await server.start();
 
     assert.strictEqual(server.isRunning, true);
+    server.stop();
   });
 
   it('should set isRunning to false on stop', () => {

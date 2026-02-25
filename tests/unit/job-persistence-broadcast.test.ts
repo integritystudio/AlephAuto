@@ -74,6 +74,7 @@ describe('Job Persistence on Creation', () => {
   });
 
   afterEach(async () => {
+    if (server) server.stop();
     await fs.rm(tempLogDir, { recursive: true, force: true });
   });
 
@@ -152,6 +153,7 @@ describe('Job Persistence on Running Status', () => {
   });
 
   afterEach(async () => {
+    if (server) server.stop();
     await fs.rm(tempLogDir, { recursive: true, force: true });
   });
 
@@ -239,6 +241,7 @@ describe('Job Status Lifecycle in Database', () => {
   });
 
   afterEach(async () => {
+    if (server) server.stop();
     await fs.rm(tempLogDir, { recursive: true, force: true });
   });
 
@@ -518,6 +521,7 @@ describe('Integration: Server + Activity Feed', () => {
   });
 
   afterEach(async () => {
+    if (server) server.stop();
     activityFeed.clear();
     await fs.rm(tempLogDir, { recursive: true, force: true });
   });

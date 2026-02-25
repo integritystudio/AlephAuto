@@ -12,7 +12,7 @@ const DB_PATH = path.join(__dirname, '../../data/jobs.db');
 // Dynamic imports to control initialization order
 let scanRoutes, worker, repositoryRoutes, reportRoutes;
 let closeDatabase, initDatabase;
-let createTempRepository, createMultipleTempRepositories, cleanupRepositories, waitForQueueDrain;
+let createTempRepository, createMultipleTempRepositories, cleanupRepositories;
 
 describe('API Routes', () => {
   let app;
@@ -30,6 +30,7 @@ describe('API Routes', () => {
     const scanModule = await import('../../api/routes/scans.ts');
     scanRoutes = scanModule.default;
     worker = scanModule.worker;
+    worker.stop(); // Prevent real scan processing during unit tests
 
     const repoModule = await import('../../api/routes/repositories.ts');
     repositoryRoutes = repoModule.default;
@@ -41,20 +42,17 @@ describe('API Routes', () => {
     createTempRepository = helpersModule.createTempRepository;
     createMultipleTempRepositories = helpersModule.createMultipleTempRepositories;
     cleanupRepositories = helpersModule.cleanupRepositories;
-    waitForQueueDrain = helpersModule.waitForQueueDrain;
   });
 
   // Stop worker and close database after all tests
   after(async () => {
     if (worker) {
-      // Cancel any remaining active/queued jobs
+      worker.stop();
       for (const [jobId, job] of worker.jobs) {
         if (job.status === 'running' || job.status === 'queued') {
           worker.cancelJob(jobId);
         }
       }
-      await waitForQueueDrain(worker, { timeout: 5000 });
-      worker.stop();
     }
     if (closeDatabase) closeDatabase();
   });
@@ -75,15 +73,13 @@ describe('API Routes', () => {
   });
 
   afterEach(async () => {
-    // Cancel any active/queued jobs to speed up cleanup
-    // This prevents long-running scans from blocking test cleanup
+    // Cancel any queued jobs (worker is already stopped from before hook)
     if (worker) {
       for (const [jobId, job] of worker.jobs) {
         if (job.status === 'running' || job.status === 'queued') {
           worker.cancelJob(jobId);
         }
       }
-      await waitForQueueDrain(worker, { timeout: 5000 });
     }
 
     // Cleanup temporary repositories

@@ -14,6 +14,7 @@ import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '#api/types/job-
 import type { JobStatus } from '#api/types/job-status.ts';
 
 const logger = createComponentLogger('SidequestServer');
+let sentryInitialized = false;
 
 /**
  * Git workflow metadata for a job
@@ -143,12 +144,15 @@ export class SidequestServer extends EventEmitter {
         });
       });
 
-    // Initialize Sentry
-    Sentry.init({
-      dsn: options.sentryDsn ?? config.sentryDsn,
-      environment: config.nodeEnv,
-      tracesSampleRate: 1.0,
-    });
+    // Initialize Sentry once per process
+    if (!sentryInitialized) {
+      Sentry.init({
+        dsn: options.sentryDsn ?? config.sentryDsn,
+        environment: config.nodeEnv,
+        tracesSampleRate: 1.0,
+      });
+      sentryInitialized = true;
+    }
   }
 
   createJob(jobId: string, jobData: Record<string, unknown>): Job {

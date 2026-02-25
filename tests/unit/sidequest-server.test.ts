@@ -1,4 +1,4 @@
-import { test, describe, before, after } from 'node:test';
+import { test, describe, before, after, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { SidequestServer } from '../../sidequest/core/server.ts';
 import { initDatabase, closeDatabase } from '../../sidequest/core/database.ts';
@@ -22,15 +22,27 @@ class TestSidequestServer extends SidequestServer {
 }
 
 describe('SidequestServer', () => {
+  const servers = [];
+  const createServer = (opts = {}) => {
+    const s = new TestSidequestServer(opts);
+    servers.push(s);
+    return s;
+  };
+
   before(async () => {
     await initDatabase(':memory:');
+  });
+
+  afterEach(() => {
+    for (const s of servers) s.stop();
+    servers.length = 0;
   });
 
   after(() => {
     closeDatabase();
   });
   test('should initialize with default options', () => {
-    const server = new TestSidequestServer();
+    const server = createServer();
     assert.strictEqual(server.maxConcurrent, 5);
     assert.strictEqual(server.activeJobs, 0);
     assert.ok(server.jobs instanceof Map);
@@ -38,7 +50,7 @@ describe('SidequestServer', () => {
   });
 
   test('should initialize with custom options', () => {
-    const server = new TestSidequestServer({
+    const server = createServer({
       maxConcurrent: 10,
       logDir: '/custom/logs',
     });
@@ -48,7 +60,7 @@ describe('SidequestServer', () => {
   });
 
   test('should create a job', () => {
-    const server = new TestSidequestServer();
+    const server = createServer();
     const job = server.createJob('test-job-1', { foo: 'bar' });
 
     assert.strictEqual(job.id, 'test-job-1');
@@ -62,7 +74,7 @@ describe('SidequestServer', () => {
 
   test('should add job to queue', () => {
     // Create server with maxConcurrent=0 to prevent immediate processing
-    const server = new TestSidequestServer({ maxConcurrent: 0 });
+    const server = createServer({ maxConcurrent: 0 });
     server.createJob('test-job-1', { foo: 'bar' });
 
     // With maxConcurrent=0, job should remain queued
@@ -71,7 +83,7 @@ describe('SidequestServer', () => {
   });
 
   test('should store job in jobs Map', () => {
-    const server = new TestSidequestServer();
+    const server = createServer();
     server.createJob('test-job-1', { foo: 'bar' });
 
     assert.ok(server.jobs.has('test-job-1'));
@@ -84,7 +96,7 @@ describe('SidequestServer', () => {
     await fs.mkdir(tempLogDir, { recursive: true });
 
     try {
-      const server = new TestSidequestServer({
+      const server = createServer({
         logDir: tempLogDir,
       });
 
@@ -115,7 +127,7 @@ describe('SidequestServer', () => {
     await fs.mkdir(tempLogDir, { recursive: true });
 
     try {
-      const server = new TestSidequestServer({
+      const server = createServer({
         logDir: tempLogDir,
       });
 
@@ -140,7 +152,7 @@ describe('SidequestServer', () => {
   });
 
   test('should respect maxConcurrent limit', async () => {
-    const server = new TestSidequestServer({
+    const server = createServer({
       maxConcurrent: 2,
     });
 
@@ -157,7 +169,7 @@ describe('SidequestServer', () => {
   });
 
   test('should emit job events', (t, done) => {
-    const server = new TestSidequestServer();
+    const server = createServer();
     let eventsFired = [];
 
     server.on('job:created', () => eventsFired.push('created'));
@@ -174,7 +186,7 @@ describe('SidequestServer', () => {
   });
 
   test('should get job by id', () => {
-    const server = new TestSidequestServer();
+    const server = createServer();
     server.createJob('test-job-1', { foo: 'bar' });
 
     const job = server.getJob('test-job-1');
@@ -183,7 +195,7 @@ describe('SidequestServer', () => {
   });
 
   test('should get all jobs', () => {
-    const server = new TestSidequestServer();
+    const server = createServer();
     server.createJob('job-1', { id: 1 });
     server.createJob('job-2', { id: 2 });
 
@@ -192,7 +204,7 @@ describe('SidequestServer', () => {
   });
 
   test('should get stats', async () => {
-    const server = new TestSidequestServer();
+    const server = createServer();
     server.createJob('job-1', { id: 1 });
 
     // Wait for job to complete

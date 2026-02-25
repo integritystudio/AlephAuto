@@ -60,8 +60,9 @@ describe('Test Utilities - Validation', () => {
       worker = new TestWorker();
       worker.setHandler(async () => ({ success: true }));
 
+      const completed = waitForEvent(worker, 'job:completed');
       worker.createJob('test-1', {});
-      await waitForEvent(worker, 'job:completed');
+      await completed;
 
       const createdEvents = worker.getEvents('job:created');
       const completedEvents = worker.getEvents('job:completed');
@@ -74,8 +75,9 @@ describe('Test Utilities - Validation', () => {
       worker = new TestWorker();
       worker.setHandler(async () => ({ success: true }));
 
+      const completed = waitForEvent(worker, 'job:completed');
       worker.createJob('test-1', {});
-      await waitForEvent(worker, 'job:completed');
+      await completed;
 
       assert.ok(worker._eventLog.length > 0);
       worker.clearEvents();
@@ -96,8 +98,9 @@ describe('Test Utilities - Validation', () => {
       worker = new TestWorker();
       worker.setHandler(async () => ({ success: true }));
 
+      const completed = waitForEvent(worker, 'job:completed');
       worker.createJob('test-1', {});
-      const [job] = await waitForEvent(worker, 'job:completed');
+      const [job] = await completed;
 
       assert.equal(job.id, 'test-1');
       assert.equal(job.status, 'completed');
@@ -132,8 +135,9 @@ describe('Test Utilities - Validation', () => {
       worker = new TestWorker();
       worker.setHandler(async () => ({ result: 'success' }));
 
+      const completion = waitForJobCompletion(worker, 'test-1');
       worker.createJob('test-1', {});
-      const result = await waitForJobCompletion(worker, 'test-1');
+      const result = await completion;
 
       assert.equal(result.status, 'completed');
       assert.equal(result.job.id, 'test-1');
@@ -146,8 +150,9 @@ describe('Test Utilities - Validation', () => {
         throw new Error('Test failure');
       });
 
+      const completion = waitForJobCompletion(worker, 'test-1');
       worker.createJob('test-1', {});
-      const result = await waitForJobCompletion(worker, 'test-1');
+      const result = await completion;
 
       assert.equal(result.status, 'failed');
       assert.equal(result.job.id, 'test-1');
@@ -265,6 +270,7 @@ describe('Test Utilities - Validation', () => {
 
     it('should create multiple jobs', () => {
       worker = new TestWorker();
+      worker.stop();
       const jobs = createTestJobs(worker, 3);
 
       assert.equal(jobs.length, 3);
@@ -275,6 +281,7 @@ describe('Test Utilities - Validation', () => {
 
     it('should use custom base ID', () => {
       worker = new TestWorker();
+      worker.stop();
       const jobs = createTestJobs(worker, 2, 'custom');
 
       assert.equal(jobs[0].id, 'custom-0');
@@ -292,24 +299,26 @@ describe('Test Utilities - Validation', () => {
     });
 
     it('should wait for multiple job:completed events', async () => {
-      worker = new TestWorker();
+      worker = new TestWorker({ maxConcurrent: 3 });
       worker.setHandler(async () => ({ success: true }));
 
+      const completions = waitForMultipleEvents(worker, 'job:completed', 3, 25000);
       createTestJobs(worker, 3);
-      const completions = await waitForMultipleEvents(worker, 'job:completed', 3);
+      const results = await completions;
 
-      assert.equal(completions.length, 3);
+      assert.equal(results.length, 3);
     });
 
     it('should timeout if not enough events', async () => {
       worker = new TestWorker();
       worker.setHandler(async () => ({ success: true }));
 
+      const eventsPromise = waitForMultipleEvents(worker, 'job:completed', 5, 100);
       createTestJobs(worker, 2);
 
       await assert.rejects(
-        async () => await waitForMultipleEvents(worker, 'job:completed', 5, 100),
-        /Only received \d+\/5/  // Match any number of events less than 5
+        async () => await eventsPromise,
+        /Only received \d+\/5/
       );
     });
   });
@@ -376,10 +385,10 @@ describe('Test Utilities - Validation', () => {
       context = createTestContext();
       const { worker, broadcasterMock } = context;
 
-      // Create some data
       worker.setHandler(async () => ({ success: true }));
+      const completed = waitForEvent(worker, 'job:completed');
       worker.createJob('test-1', {});
-      await waitForEvent(worker, 'job:completed');
+      await completed;
       broadcasterMock.broadcast({ type: 'test' }, 'channel');
 
       // Verify data exists
@@ -409,7 +418,6 @@ describe('Test Utilities - Validation', () => {
     it('should support complete job lifecycle testing', async () => {
       const { worker } = context;
 
-      // Setup handler
       worker.setHandler(async (job) => {
         if (job.data?.shouldFail === true) {
           throw new Error('Intentional failure');
@@ -417,16 +425,16 @@ describe('Test Utilities - Validation', () => {
         return { result: 'success', data: job.data };
       });
 
-      // Test successful job
+      const successCompletion = waitForJobCompletion(worker, 'success-1', 20000);
       worker.createJob('success-1', { shouldFail: false });
-      const successResult = await waitForJobCompletion(worker, 'success-1');
+      const successResult = await successCompletion;
 
       assert.equal(successResult.status, 'completed');
       assert.equal(successResult.job.result.result, 'success');
 
-      // Test failed job
+      const failCompletion = waitForJobCompletion(worker, 'fail-1', 20000);
       worker.createJob('fail-1', { shouldFail: true });
-      const failResult = await waitForJobCompletion(worker, 'fail-1');
+      const failResult = await failCompletion;
 
       assert.equal(failResult.status, 'failed');
       assert.equal(failResult.error.message, 'Intentional failure');

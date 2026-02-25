@@ -21,6 +21,7 @@
     "test:cache": "node --strip-types --test --test-timeout=60000 --test-force-exit tests/integration/cache-redis.test.ts",
     "test:all": "node --strip-types --test --test-timeout=30000 --test-force-exit tests/unit/**/*.test.ts tests/integration/*.test.ts",
     "test:validate-paths": "node --strip-types tests/scripts/validate-test-paths.ts",
+    "test:validate-backlog": "node --strip-types tests/scripts/validate-backlog.ts",
     "test:single": "node --strip-types tests/scripts/test-single-job.ts",
     "test:scanner": "node --strip-types tests/scripts/test-directory-scanner.ts",
     "test:gitignore": "node --strip-types tests/scripts/test-gitignore-respect.ts",
