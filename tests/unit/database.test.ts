@@ -581,7 +581,8 @@ describe('Database Module', () => {
     });
 
     it('should map pipeline IDs correctly', async () => {
-      const pipelineMap = {
+      const ts = Date.now();
+      const pipelineMap: Record<string, string> = {
         'git-activity': 'git-activity',
         'claude-health': 'claude-health',
         'plugin-audit': 'plugin-manager',
@@ -589,25 +590,39 @@ describe('Database Module', () => {
         'doc-enhancement': 'schema-enhancement'
       };
 
-      for (const [prefix, expectedId] of Object.entries(pipelineMap)) {
-        const logFile = path.join(tempDir, `${prefix}-map-test-${Date.now()}.json`);
+      for (const prefix of Object.keys(pipelineMap)) {
+        const logFile = path.join(tempDir, `${prefix}-map-test-${ts}.json`);
         fs.writeFileSync(logFile, JSON.stringify({
           startTime: new Date().toISOString()
         }));
       }
 
       const result = await importLogsToDatabase(tempDir);
-      assert.ok(result >= 0);
+      assert.strictEqual(result, 5, 'Should import all 5 log files');
+
+      const allJobs = getAllJobs({ limit: 1000 });
+      for (const [prefix, expectedPipelineId] of Object.entries(pipelineMap)) {
+        const job = allJobs.find(j => j.id?.includes(`${prefix}-map-test`));
+        assert.ok(job !== undefined, `Should have imported log with prefix '${prefix}'`);
+        assert.strictEqual(job!.pipelineId, expectedPipelineId,
+          `'${prefix}' should map to pipeline '${expectedPipelineId}'`);
+      }
     });
 
     it('should use unknown for unrecognized prefixes', async () => {
-      const logFile = path.join(tempDir, `unknown-prefix-${Date.now()}.json`);
+      const ts = Date.now();
+      const logFile = path.join(tempDir, `unknown-prefix-${ts}.json`);
       fs.writeFileSync(logFile, JSON.stringify({
         startTime: new Date().toISOString()
       }));
 
       const importCount = await importLogsToDatabase(tempDir);
-      assert.ok(importCount >= 0, 'Should handle unrecognized prefixes without error');
+      assert.strictEqual(importCount, 1, 'Should import 1 log with unrecognized prefix');
+
+      const allJobs = getAllJobs({ limit: 1000 });
+      const job = allJobs.find(j => j.id === `unknown-prefix-${ts}`);
+      assert.ok(job !== undefined, 'Job should exist for unrecognized prefix');
+      assert.strictEqual(job!.pipelineId, 'unknown', 'Unrecognized prefix should use pipeline ID "unknown"');
     });
 
     it('should ignore non-JSON files', async () => {

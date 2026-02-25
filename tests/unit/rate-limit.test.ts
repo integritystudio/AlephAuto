@@ -10,7 +10,7 @@
 // @ts-nocheck
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { rateLimiter, strictRateLimiter } from '../../api/middleware/rate-limit.ts';
+import { rateLimiter, strictRateLimiter, bulkImportRateLimiter } from '../../api/middleware/rate-limit.ts';
 
 describe('Rate Limiter Middleware', () => {
   describe('rateLimiter configuration', () => {
@@ -26,6 +26,17 @@ describe('Rate Limiter Middleware', () => {
 
     it('should be a separate middleware from rateLimiter', () => {
       assert.notStrictEqual(rateLimiter, strictRateLimiter);
+    });
+  });
+
+  describe('bulkImportRateLimiter configuration', () => {
+    it('should be a function (middleware)', () => {
+      assert.strictEqual(typeof bulkImportRateLimiter, 'function');
+    });
+
+    it('should be a separate middleware from rateLimiter and strictRateLimiter', () => {
+      assert.notStrictEqual(bulkImportRateLimiter, rateLimiter);
+      assert.notStrictEqual(bulkImportRateLimiter, strictRateLimiter);
     });
   });
 });

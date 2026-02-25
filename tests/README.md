@@ -30,38 +30,37 @@ Tests are organized by type for clarity and maintainability:
 
 ```
 tests/
-├── unit/              # Unit tests (*.test.js)
-│   ├── api-routes.test.js
-│   ├── directory-scanner.test.js
-│   ├── filepath-imports.test.js
-│   ├── retry-logic.test.js
-│   ├── sidequest-server.test.js
-│   └── websocket.test.js
+├── unit/              # Unit tests (*.test.ts)
+│   ├── api-routes.test.ts
+│   ├── directory-scanner.test.ts
+│   ├── filepath-imports.test.ts
+│   ├── sidequest-server.test.ts
+│   └── websocket.test.ts
 │
-├── integration/       # Integration tests (test-*.js)
-│   ├── test-automated-pipeline.js
-│   ├── test-cache-layer.js
-│   ├── test-inter-project-scan.js
+├── integration/       # Integration tests (test-*.ts)
+│   ├── test-automated-pipeline.ts
+│   ├── test-cache-layer.ts
+│   ├── test-inter-project-scan.ts
 │   └── test-api-routes.sh
 │
 ├── accuracy/          # Accuracy test suite
-│   └── accuracy-test.js
+│   └── accuracy-test.ts
 │
 ├── scripts/           # Test utility scripts
-│   ├── test-single-job.js
-│   ├── test-directory-scanner.js
-│   ├── validate-test-paths.js
+│   ├── test-single-job.ts
+│   ├── test-directory-scanner.ts
+│   ├── validate-test-paths.ts
 │   └── ...
 │
 └── fixtures/          # Test fixtures and helpers
-    └── test-helpers.js
+    └── test-helpers.ts
 ```
 
 ### Naming Conventions
 
-- **Unit tests**: `*.test.js` (e.g., `retry-logic.test.js`)
-- **Integration tests**: `test-*.js` (e.g., `test-cache-layer.js`)
-- **Test scripts**: Descriptive names (e.g., `validate-test-paths.js`)
+- **Unit tests**: `*.test.ts` (e.g., `database.test.ts`)
+- **Integration tests**: `test-*.ts` (e.g., `test-cache-layer.ts`)
+- **Test scripts**: Descriptive names (e.g., `validate-test-paths.ts`)
 
 ## Running Tests
 
@@ -82,10 +81,10 @@ npm run test:all
 
 ```bash
 # Run a single test file
-node --test tests/unit/retry-logic.test.js
+node --strip-types --test tests/unit/database.test.ts
 
 # Run with verbose output
-node --test tests/unit/retry-logic.test.js --verbose
+node --strip-types --test tests/unit/database.test.ts --verbose
 
 # Run integration test
 node tests/integration/test-cache-layer.js
