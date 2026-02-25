@@ -403,10 +403,10 @@ Technical debt and planned improvements extracted from codebase TODOs.
 
 | ID | Project | Location | Description | Status |
 |----|---------|----------|-------------|--------|
-| TST-C1 | tcad-scraper | `server/src/lib/__tests__/claude-mock-repro.test.ts` | **Documentation-as-tests** — 5 tests assert only `expect(true).toBe(true)`. Useful knowledge belongs in docs, not test code. Delete file. | |
-| TST-C2 | tcad-scraper | `server/src/services/__tests__/token-refresh-mock-repro.test.ts` | **"BROKEN" test block committed** — Documents known-broken pattern. Working pattern already in `token-refresh.service.test.ts`. Delete file. | |
-| TST-C3 | tcad-scraper | `server/src/__tests__/ci-fixes.test.ts` | **Tests compile-time invariants at runtime** — Mocks the thing it tests, validates string literals, exercises Vitest internals. TSC already enforces these. Delete file. | |
-| TST-C4 | tcad-scraper | `server/src/queues/__tests__/scraper.queue.database-tracking.test.ts` | **Tests `Array.filter`, not production code** — No production module imported. Every test validates JS array semantics. Delete or rewrite to test actual queue processor. | |
+| TST-C1 | tcad-scraper | `server/src/lib/__tests__/claude-mock-repro.test.ts` | **Documentation-as-tests** — 5 tests assert only `expect(true).toBe(true)`. Useful knowledge belongs in docs, not test code. Delete file. | ✅ Done |
+| TST-C2 | tcad-scraper | `server/src/services/__tests__/token-refresh-mock-repro.test.ts` | **"BROKEN" test block committed** — Documents known-broken pattern. Working pattern already in `token-refresh.service.test.ts`. Delete file. | ✅ Done |
+| TST-C3 | tcad-scraper | `server/src/__tests__/ci-fixes.test.ts` | **Tests compile-time invariants at runtime** — Mocks the thing it tests, validates string literals, exercises Vitest internals. TSC already enforces these. Delete file. | ✅ Done |
+| TST-C4 | tcad-scraper | `server/src/queues/__tests__/scraper.queue.database-tracking.test.ts` | **Tests `Array.filter`, not production code** — No production module imported. Every test validates JS array semantics. Delete or rewrite to test actual queue processor. | ✅ Done |
 | TST-C5 | AlephAuto | `tests/unit/retry-logic.test.js:189` | **Tests local shadow copy of `extractOriginalJobId`** — Function reimplemented in test file instead of imported from production. Suite is useless for regression detection. | ✅ Done |
 | TST-C6 | AlephAuto | `tests/unit/mcp-server.test.js:25` | **420 lines fully `describe.skip`'d** — Blocked on MCP server binary implementation. Delete or move to `tests/future/`. | ✅ Done |
 | TST-C7 | AlephAuto | `tests/unit/rate-limit.test.js` | **Mock theater** — Manually calls `mockRes.status(429)` then asserts it. Actual middleware never invoked. `next()` called directly at line 249. Rewrite with `supertest`. | ✅ Done |
@@ -417,7 +417,7 @@ Technical debt and planned improvements extracted from codebase TODOs.
 
 | ID | Project | Location | Description | Status |
 |----|---------|----------|-------------|--------|
-| TST-H1 | tcad-scraper | 3 Claude test files (lines 8-36, 18-49, 46-64) | **Duplicate Anthropic mock setup** — `vi.hoisted`/`MockAnthropic` block copy-pasted across `claude.service.test.ts`, `claude.service.json-parsing.test.ts`, `claude-mock-repro.test.ts`. Extract to `__tests__/helpers/claude-mock.ts`. | |
+| TST-H1 | tcad-scraper | 2 Claude test files (lines 8-36, 18-49) | **Duplicate Anthropic mock setup** — `vi.hoisted`/`MockAnthropic` block copy-pasted across `claude.service.test.ts`, `claude.service.json-parsing.test.ts`. Extract to `__tests__/helpers/claude-mock.ts`. (`claude-mock-repro.test.ts` deleted in TST-C1.) | |
 | TST-H2 | tcad-scraper | `claude.service.test.ts` + `claude.service.json-parsing.test.ts` | **Redundant fallback tests** — "fallback on API error", "empty response", "invalid JSON" duplicated. Keep fallbacks in `claude.service.test.ts`, narrow `json-parsing` to markdown/extraction logic. | |
 | TST-H3 | tcad-scraper | `server/src/__tests__/auth-database.integration.test.ts` | **`isRedisAvailable(3000)` called 8 times** — Each creates new Redis connection. Use `describe.skipIf` once. Also `expect([200, 500]).toContain(status)` always passes — a 500 crash is "expected". | |
 | TST-H4 | tcad-scraper | `server/src/queues/__tests__/scraper.queue.test.ts:230-326` | **6 tests repeat identical `resetModules + import`** — Move `vi.clearAllMocks(); vi.resetModules(); await import(...)` to shared `beforeEach` in `Queue Event Listeners` block. | |
@@ -467,14 +467,15 @@ Technical debt and planned improvements extracted from codebase TODOs.
 ### Completed (2026-02-24 to 2026-02-25)
 
 AlephAuto items: TST-C5..C9 (Critical), TST-H13..H16 (High), TST-M8..M15 (Medium), TST-L2..L5 (Low), LOG13 (Zod consolidation)
+tcad-scraper items: TST-C1..C4 (Critical) — deleted 4 zero-value test files (-818 lines)
 
 ### Summary
 
 | Priority | Count | Theme |
 |----------|-------|-------|
-| Critical | 4 (tcad-scraper) | Delete mock-repro/ci-fixes files — not in scope for this repo |
+| Critical | 0 | ~~Delete mock-repro/ci-fixes files~~ ✅ Complete |
 | High | 12 (tcad-scraper) | Conditional assertions, duplicate mocks, timing races |
 | Medium | 7 (tcad-scraper) | Redundant tests, hardcoded sleeps |
 | Low | 1 (tcad-scraper) | Weak assertions |
 | AlephAuto | 0 | ✅ All AlephAuto items complete |
-| **Total** | **24** | tcad-scraper items remain (separate repo) |
+| **Total** | **20** | tcad-scraper H/M/L items remain (separate repo) |
