@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements extracted from codebase TODOs.
 
-**Last Updated:** 2026-02-16 (Session 3)
+**Last Updated:** 2026-02-25 (Session 4)
 
 ---
 
@@ -189,16 +189,16 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | LOG9 | TODO comments in `schema-enhancement-pipeline.js`, `grouping.py`, `extract_blocks.py` | Feature work (Layer 3 semantic equivalence), not cleanup |
 | LOG11 | 14 deep relative imports in `api/` | ✅ Done 2026-02-23 — migrated 41 imports across 12 files to Node `#imports` subpath aliases; Step 11 reverse deps in `sidequest/core/` also migrated |
 | LOG12 | `doppler-resilience.example.js` (290 lines) | Moved to [`docs/quickstart/doppler-circuit-breaker.md`](quickstart/doppler-circuit-breaker.md) |
-| LOG13 | Zod schema consolidation in `api/types/` | Duplicate `ErrorResponseSchema`, `ValidationErrorResponseSchema`, `createErrorResponse` in `scan-requests.ts` + `pipeline-requests.ts` — extract to `api/types/shared-schemas.ts` |
+| LOG13 | Zod schema consolidation in `api/types/` | Duplicate `ErrorResponseSchema`, `ValidationErrorResponseSchema`, `createErrorResponse` in `scan-requests.ts` + `pipeline-requests.ts` — extract to `api/types/shared-schemas.ts` | ✅ Done |
 
 ### Summary
 
 | Priority | Count | Theme |
 |----------|-------|-------|
 | Medium | 0 | ~~Pruning performance (CL-M1), test coverage (CL-M2)~~ ✅ Complete |
-| Low | 1 | LOG13 Zod schema consolidation (low risk, separate PR) |
+| Low | 0 | ~~LOG13 Zod schema consolidation~~ ✅ Complete |
 | Deferred | 3 | Blocked by SQLite WASM, TS migration, or feature scope |
-| **Total** | **4** | LOG11 complete, LOG13 added |
+| **Total** | **3** | LOG11 + LOG13 complete |
 
 ---
 
@@ -407,11 +407,11 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | TST-C2 | tcad-scraper | `server/src/services/__tests__/token-refresh-mock-repro.test.ts` | **"BROKEN" test block committed** — Documents known-broken pattern. Working pattern already in `token-refresh.service.test.ts`. Delete file. | |
 | TST-C3 | tcad-scraper | `server/src/__tests__/ci-fixes.test.ts` | **Tests compile-time invariants at runtime** — Mocks the thing it tests, validates string literals, exercises Vitest internals. TSC already enforces these. Delete file. | |
 | TST-C4 | tcad-scraper | `server/src/queues/__tests__/scraper.queue.database-tracking.test.ts` | **Tests `Array.filter`, not production code** — No production module imported. Every test validates JS array semantics. Delete or rewrite to test actual queue processor. | |
-| TST-C5 | AlephAuto | `tests/unit/retry-logic.test.js:189` | **Tests local shadow copy of `extractOriginalJobId`** — Function reimplemented in test file instead of imported from production. Suite is useless for regression detection. | |
-| TST-C6 | AlephAuto | `tests/unit/mcp-server.test.js:25` | **420 lines fully `describe.skip`'d** — Blocked on MCP server binary implementation. Delete or move to `tests/future/`. | |
-| TST-C7 | AlephAuto | `tests/unit/rate-limit.test.js` | **Mock theater** — Manually calls `mockRes.status(429)` then asserts it. Actual middleware never invoked. `next()` called directly at line 249. Rewrite with `supertest`. | |
-| TST-C8 | AlephAuto | `tests/unit/websocket-unit.test.js:144-415` | **~270 lines asserting hand-crafted object literals** — No production imports. `assert.strictEqual(30000, 30000)`. Remove or rewrite against real module. | |
-| TST-C9 | AlephAuto | `tests/unit/database.test.js:560,611` | **`assert.ok(true)` — two tests pass unconditionally** regardless of function behavior. Add real assertions on return value or DB state. | |
+| TST-C5 | AlephAuto | `tests/unit/retry-logic.test.js:189` | **Tests local shadow copy of `extractOriginalJobId`** — Function reimplemented in test file instead of imported from production. Suite is useless for regression detection. | ✅ Done |
+| TST-C6 | AlephAuto | `tests/unit/mcp-server.test.js:25` | **420 lines fully `describe.skip`'d** — Blocked on MCP server binary implementation. Delete or move to `tests/future/`. | ✅ Done |
+| TST-C7 | AlephAuto | `tests/unit/rate-limit.test.js` | **Mock theater** — Manually calls `mockRes.status(429)` then asserts it. Actual middleware never invoked. `next()` called directly at line 249. Rewrite with `supertest`. | ✅ Done |
+| TST-C8 | AlephAuto | `tests/unit/websocket-unit.test.js:144-415` | **~270 lines asserting hand-crafted object literals** — No production imports. `assert.strictEqual(30000, 30000)`. Remove or rewrite against real module. | ✅ Done |
+| TST-C9 | AlephAuto | `tests/unit/database.test.js:560,611` | **`assert.ok(true)` — two tests pass unconditionally** regardless of function behavior. Add real assertions on return value or DB state. | ✅ Done |
 
 ### High — Correctness or Performance Risk
 
@@ -429,10 +429,10 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | TST-H10 | tcad-scraper | `playwright.config.ts:9` | **`workers: 1` on CI** negates `fullyParallel: true` — 5 spec files run serially. Increase to 2+ or remove CI cap. | |
 | TST-H11 | tcad-scraper | `e2e/search.spec.ts:37-46` | **Loading state assertion is a timing race** — No network interception to hold response. Use `page.route` to delay API response. | |
 | TST-H12 | tcad-scraper | 3 e2e spec files | **`page.locator("h3").first()` as results sentinel** — Matches any `<h3>` on page, not just result cards. Use `[data-testid="results-grid"] h3`. | |
-| TST-H13 | AlephAuto | `tests/integration/activity-feed.integration.test.js` (6 sites) | **Bare `setTimeout` waits (500ms–2s)** — Use event-based `waitForQueueDrain` (already imported in `api-routes.test.js`) or `EventEmitter` promises. | |
-| TST-H14 | AlephAuto | `tests/unit/worker-registry.test.js:42-45` | **Re-imports module in `beforeEach` without resetting cache** — Returns same singleton. False isolation, shared mutable state across blocks. | |
-| TST-H15 | AlephAuto | `tests/unit/database.test.js:28-757` | **3 top-level describe blocks each call `initDatabase`/`closeDatabase`** — Teardown ordering risk on shared singleton. `beforeEach` in `Query Options` re-inserts 20 jobs per test. | |
-| TST-H16 | AlephAuto | `tests/unit/port-manager.test.js:61-408` | **Hardcoded port numbers** — Inter-test conflict risk if cleanup fails. Use `port: 0` (OS-assigned) and read `server.address().port`. | |
+| TST-H13 | AlephAuto | `tests/integration/activity-feed.integration.test.js` (6 sites) | **Bare `setTimeout` waits (500ms–2s)** — Use event-based `waitForQueueDrain` (already imported in `api-routes.test.js`) or `EventEmitter` promises. | ✅ Done |
+| TST-H14 | AlephAuto | `tests/unit/worker-registry.test.js:42-45` | **Re-imports module in `beforeEach` without resetting cache** — Returns same singleton. False isolation, shared mutable state across blocks. | ✅ Done |
+| TST-H15 | AlephAuto | `tests/unit/database.test.js:28-757` | **3 top-level describe blocks each call `initDatabase`/`closeDatabase`** — Teardown ordering risk on shared singleton. `beforeEach` in `Query Options` re-inserts 20 jobs per test. | ✅ Done |
+| TST-H16 | AlephAuto | `tests/unit/port-manager.test.js:61-408` | **Hardcoded port numbers** — Inter-test conflict risk if cleanup fails. Use `port: 0` (OS-assigned) and read `server.address().port`. | ✅ Done |
 
 ### Medium — Redundancy and Noise
 
@@ -445,31 +445,36 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | TST-M5 | tcad-scraper | `server/src/__tests__/security.test.ts:196-199` | **Documentation-only test** — `expect(true).toBe(true)` with "This is a note" comment. Delete test case. | |
 | TST-M6 | tcad-scraper | `src/__tests__/App.test.tsx:63-88` | **Two tests assert same thing** — Both render `<App>` and check `PropertySearchContainer`. Neither observes loading state. Collapse into one. | |
 | TST-M7 | tcad-scraper | `src/utils/__tests__/formatters.test.ts:78-103` | **"Type safety" block duplicates "edge cases"** for null/undefined — Same calls, zero runtime value from TS annotations. Remove block. | |
-| TST-M8 | AlephAuto | `tests/unit/error-classifier.test.js` (3 sites) | **ENOENT tested 3 times, ETIMEDOUT 3 times** — Exact duplicate assertions across describe blocks. Deduplicate. | |
-| TST-M9 | AlephAuto | `tests/unit/directory-scanner.test.js` (7 sites) | **Uses raw `os.tmpdir() + Date.now()`** instead of `createTempRepository` fixture per project convention. | |
-| TST-M10 | AlephAuto | `tests/unit/scan-orchestrator.test.js:22-94` | **9 individual constructor-option tests** — Could be parameterized. Same sub-object assertions appear in 4 describe blocks. | |
-| TST-M11 | AlephAuto | `tests/unit/activity-feed.test.js` (3 blocks) | **3 top-level describe blocks duplicate `beforeEach`/`afterEach` setup** — Extract shared factory helper (~60 lines boilerplate). | |
-| TST-M12 | AlephAuto | `tests/unit/api-routes.test.js:92` | **`afterEach` has hardcoded `100ms` sleep** — `waitForQueueDrain` already imported. Use it instead. | |
-| TST-M13 | AlephAuto | `tests/integration/pipeline-execution.integration.test.js:80-104` | **Scenario 3 subsumed by Scenario 9** — Both run same syntax check. Remove Scenario 3 or fold into 9. | |
-| TST-M14 | AlephAuto | `tests/unit/websocket.test.js:46-57` | **`afterEach` race between `wss.close` and `httpServer.close`** — Port not released before next `beforeEach`. Use `Promise.all`. | |
-| TST-M15 | AlephAuto | `tests/integration/port-manager.integration.test.js:133` | **Skipped flaky test** — Concurrent port allocation race condition. Investigate mutex or sequential port offsets. | |
+| TST-M8 | AlephAuto | `tests/unit/error-classifier.test.js` (3 sites) | **ENOENT tested 3 times, ETIMEDOUT 3 times** — Exact duplicate assertions across describe blocks. Deduplicate. | ✅ Done |
+| TST-M9 | AlephAuto | `tests/unit/directory-scanner.test.js` (7 sites) | **Uses raw `os.tmpdir() + Date.now()`** instead of `createTempRepository` fixture per project convention. | ✅ Done |
+| TST-M10 | AlephAuto | `tests/unit/scan-orchestrator.test.js:22-94` | **9 individual constructor-option tests** — Could be parameterized. Same sub-object assertions appear in 4 describe blocks. | ✅ Done |
+| TST-M11 | AlephAuto | `tests/unit/activity-feed.test.js` (3 blocks) | **3 top-level describe blocks duplicate `beforeEach`/`afterEach` setup** — Extract shared factory helper (~60 lines boilerplate). | ✅ Done |
+| TST-M12 | AlephAuto | `tests/unit/api-routes.test.js:92` | **`afterEach` has hardcoded `100ms` sleep** — `waitForQueueDrain` already imported. Use it instead. | ✅ Done |
+| TST-M13 | AlephAuto | `tests/integration/pipeline-execution.integration.test.js:80-104` | **Scenario 3 subsumed by Scenario 9** — Both run same syntax check. Remove Scenario 3 or fold into 9. | ✅ Done |
+| TST-M14 | AlephAuto | `tests/unit/websocket.test.js:46-57` | **`afterEach` race between `wss.close` and `httpServer.close`** — Port not released before next `beforeEach`. Use `Promise.all`. | ✅ Done |
+| TST-M15 | AlephAuto | `tests/integration/port-manager.integration.test.js:133` | **Skipped flaky test** — Concurrent port allocation race condition. Investigate mutex or sequential port offsets. | ✅ Done |
 
 ### Low — Info
 
 | ID | Project | Location | Description | Status |
 |----|---------|----------|-------------|--------|
 | TST-L1 | tcad-scraper | `server/src/lib/__tests__/tcad-scraper.test.ts:188-307` | **Weak assertions** — `humanDelay` tests assert `expect(true).toBe(true)`, user agent tests assert only `expect(scraper).toBeDefined()`. | |
-| TST-L2 | AlephAuto | `tests/unit/repository-scanner.test.js:383` | **Tests placeholder** — `getFileMetadata` returns `[]`. Test will silently pass forever. Add TODO marker. | |
-| TST-L3 | AlephAuto | `tests/unit/database.test.js:139-149` | **`beforeEach` in `getJobs` adds 5 jobs per test run** — Counter accumulates but assertions only check `> 0`. Fragile for exact-count tests in other blocks. | |
-| TST-L4 | AlephAuto | `tests/integration/error-recovery.integration.test.js:150` | **`findAvailablePort` reimplemented locally** instead of importing from `port-manager`. | |
-| TST-L5 | AlephAuto | `tests/integration/pipeline-triggering.test.js:112` | **`console.log` in test body** — Noise in CI output. Remove or use test runner diagnostics. | |
+| TST-L2 | AlephAuto | `tests/unit/repository-scanner.test.js:383` | **Tests placeholder** — `getFileMetadata` returns `[]`. Test will silently pass forever. Add TODO marker. | ✅ Done |
+| TST-L3 | AlephAuto | `tests/unit/database.test.js:139-149` | **`beforeEach` in `getJobs` adds 5 jobs per test run** — Counter accumulates but assertions only check `> 0`. Fragile for exact-count tests in other blocks. | ✅ Done |
+| TST-L4 | AlephAuto | `tests/integration/error-recovery.integration.test.js:150` | **`findAvailablePort` reimplemented locally** instead of importing from `port-manager`. | ✅ Done |
+| TST-L5 | AlephAuto | `tests/integration/pipeline-triggering.test.js:112` | **`console.log` in test body** — Noise in CI output. Remove or use test runner diagnostics. | ✅ Done |
+
+### Completed (2026-02-24 to 2026-02-25)
+
+AlephAuto items: TST-C5..C9 (Critical), TST-H13..H16 (High), TST-M8..M15 (Medium), TST-L2..L5 (Low), LOG13 (Zod consolidation)
 
 ### Summary
 
 | Priority | Count | Theme |
 |----------|-------|-------|
-| Critical | 9 | Delete mock-repro/ci-fixes files, rewrite mock theater tests |
-| High | 16 | Conditional assertions, duplicate mocks, timing races, shared state |
-| Medium | 15 | Redundant tests, hardcoded sleeps, setup duplication |
-| Low | 5 | Weak assertions, placeholder tests, console noise |
-| **Total** | **45** | |
+| Critical | 4 (tcad-scraper) | Delete mock-repro/ci-fixes files — not in scope for this repo |
+| High | 12 (tcad-scraper) | Conditional assertions, duplicate mocks, timing races |
+| Medium | 7 (tcad-scraper) | Redundant tests, hardcoded sleeps |
+| Low | 1 (tcad-scraper) | Weak assertions |
+| AlephAuto | 0 | ✅ All AlephAuto items complete |
+| **Total** | **24** | tcad-scraper items remain (separate repo) |
