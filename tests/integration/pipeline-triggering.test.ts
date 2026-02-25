@@ -109,7 +109,6 @@ describe('POST /api/sidequest/pipeline-runners/:id/trigger Integration Tests', {
           `Job ID should include pipeline name: ${data.jobId}`
         );
 
-        console.log(`  - ${pipelineId}: Job created with ID ${data.jobId}`);
       });
     }
   });

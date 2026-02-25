@@ -45,60 +45,14 @@ export const ScanResponseSchema = z.object({
 
 export type ScanResponse = z.infer<typeof ScanResponseSchema>;
 
-/**
- * Error Response Schema
- */
-export const ErrorResponseSchema = z.object({
-  error: z.string(),
-  message: z.string(),
-  timestamp: z.string().datetime(),
-  status: z.number().optional()
-});
-
-export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
-
-/**
- * Validation Error Details
- */
-export interface ValidationErrorDetail {
-  field: string;
-  message: string;
-  code: string;
-}
-
-/**
- * Validation Error Response (extends base error)
- */
-export const ValidationErrorResponseSchema = ErrorResponseSchema.extend({
-  errors: z.array(z.object({
-    field: z.string(),
-    message: z.string(),
-    code: z.string()
-  })).optional()
-});
-
-export type ValidationErrorResponse = z.infer<typeof ValidationErrorResponseSchema>;
-
-/**
- * Helper function to create validation error response
- */
-export function createValidationError(
-  field: string,
-  message: string,
-  code: string = 'VALIDATION_ERROR'
-): ValidationErrorResponse {
-  return {
-    error: 'Bad Request',
-    message: `Validation failed: ${message}`,
-    timestamp: new Date().toISOString(),
-    status: 400,
-    errors: [{
-      field,
-      message,
-      code
-    }]
-  };
-}
+export {
+  ErrorResponseSchema,
+  type ErrorResponse,
+  type ValidationErrorDetail,
+  ValidationErrorResponseSchema,
+  type ValidationErrorResponse,
+  createValidationError
+} from './shared-schemas.ts';
 
 /**
  * Scan Results Schema
@@ -133,18 +87,4 @@ export const ScanResultsSchema = z.object({
 
 export type ScanResults = z.infer<typeof ScanResultsSchema>;
 
-/**
- * Helper function to create error response
- */
-export function createErrorResponse(
-  error: string,
-  message: string,
-  status: number = 500
-): ErrorResponse {
-  return {
-    error,
-    message,
-    timestamp: new Date().toISOString(),
-    status
-  };
-}
+export { createErrorResponse } from './shared-schemas.ts';

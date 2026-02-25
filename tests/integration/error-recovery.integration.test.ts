@@ -23,6 +23,7 @@ import os from 'os';
 import { DopplerResilience } from '../../sidequest/utils/doppler-resilience.ts';
 import {
   isPortAvailable,
+  findAvailablePort,
   setupServerWithPortFallback
 } from '../../api/utils/port-manager.ts';
 import { ActivityFeedManager } from '../../api/activity-feed.ts';
@@ -415,12 +416,3 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
   });
 });
 
-// Helper function for finding available port
-async function findAvailablePort(start, end) {
-  for (let port = start; port <= end; port++) {
-    if (await isPortAvailable(port)) {
-      return port;
-    }
-  }
-  return null;
-}

@@ -381,6 +381,8 @@ describe('RepositoryScanner', () => {
   });
 
   describe('getFileMetadata', () => {
+    // TODO: getFileMetadata always returns [] (not yet implemented in production).
+    // Expand this test once the method reads actual file metadata.
     it('should return empty array (placeholder)', async () => {
       const scanner = new RepositoryScanner();
       const metadata = await scanner.getFileMetadata(tempDir, {});

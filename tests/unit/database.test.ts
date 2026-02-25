@@ -134,9 +134,13 @@ describe('Database Module', () => {
   });
 
   describe('getJobs', () => {
-    const testPipelineId = `test-getjobs-${Date.now()}`;
+    // testPipelineId is assigned fresh in each beforeEach to prevent job-count
+    // accumulation across tests (each run would otherwise add 5 more rows to the
+    // same pipeline, making assertion counts non-deterministic).
+    let testPipelineId: string;
 
     beforeEach(() => {
+      testPipelineId = `test-getjobs-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       // Create test jobs
       for (let i = 0; i < 5; i++) {
         saveJob({

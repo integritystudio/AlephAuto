@@ -159,72 +159,16 @@ export const ManualTriggerResponseSchema = z.object({
 
 export type ManualTriggerResponse = z.infer<typeof ManualTriggerResponseSchema>;
 
-/**
- * Error Response Schema
- * Standard error response format
- */
-export const ErrorResponseSchema = z.object({
-  error: z.string(),
-  message: z.string(),
-  timestamp: z.string().datetime(),
-  status: z.number().optional()
-}).strict();
-
-export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
-
-/**
- * Validation Error Detail Schema
- * Individual validation error information
- */
-export const ValidationErrorDetailSchema = z.object({
-  field: z.string(),
-  message: z.string(),
-  code: z.string()
-}).strict();
-
-export type ValidationErrorDetail = z.infer<typeof ValidationErrorDetailSchema>;
-
-/**
- * Validation Error Response Schema
- * Extended error response with validation details
- */
-export const ValidationErrorResponseSchema = ErrorResponseSchema.extend({
-  errors: z.array(ValidationErrorDetailSchema).optional()
-}).strict();
-
-export type ValidationErrorResponse = z.infer<typeof ValidationErrorResponseSchema>;
-
-/**
- * Helper function to create a standardized error response
- */
-export function createErrorResponse(
-  error: string,
-  message: string,
-  status?: number
-): ErrorResponse {
-  return {
-    error,
-    message,
-    timestamp: new Date().toISOString(),
-    status
-  };
-}
-
-/**
- * Helper function to create a validation error response
- */
-export function createValidationErrorResponse(
-  message: string,
-  errors?: ValidationErrorDetail[]
-): ValidationErrorResponse {
-  return {
-    error: 'Bad Request',
-    message,
-    timestamp: new Date().toISOString(),
-    status: 400,
-    errors
-  };
-}
+export {
+  ErrorResponseSchema,
+  type ErrorResponse,
+  ValidationErrorDetailSchema,
+  type ValidationErrorDetail,
+  ValidationErrorResponseSchema,
+  type ValidationErrorResponse,
+  createErrorResponse,
+  createValidationErrorResponse
+} from './shared-schemas.ts';
 
 /**
  * Pipeline Documentation Request Schema
