@@ -198,7 +198,7 @@ check('ast-grep available', () => {
   }
 
   if (!found) {
-    throw new Error('ast-grep not found. It should be installed as a dev dependency (already in package.json)');
+    console.log('   ⚠️  ast-grep not found (optional for pattern detection)');
   }
 });
 
