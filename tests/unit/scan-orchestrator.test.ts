@@ -18,14 +18,6 @@ describe('ScanOrchestrator', () => {
       assert.strictEqual(orchestrator.autoGenerateReports, true);
     });
 
-    it('should accept custom pythonPath option', () => {
-      const orchestrator = new ScanOrchestrator({
-        pythonPath: '/custom/python'
-      });
-
-      assert.strictEqual(orchestrator.pythonPath, '/custom/python');
-    });
-
     it('should defer Python validation when not provided', () => {
       const orchestrator = new ScanOrchestrator();
 
@@ -33,65 +25,42 @@ describe('ScanOrchestrator', () => {
       assert.strictEqual(orchestrator._pythonValidated, false);
     });
 
-    it('should accept custom extractorScript path', () => {
+    it('should pass scanner and detector options to sub-components', () => {
       const orchestrator = new ScanOrchestrator({
-        extractorScript: '/custom/extractor.py'
-      });
-
-      assert.strictEqual(orchestrator.extractorScript, '/custom/extractor.py');
-    });
-
-    it('should accept custom outputDir', () => {
-      const orchestrator = new ScanOrchestrator({
-        outputDir: '/custom/output'
-      });
-
-      assert.strictEqual(orchestrator.outputDir, '/custom/output');
-    });
-
-    it('should accept custom report config', () => {
-      const reportConfig = { format: 'html', includeStats: true };
-      const orchestrator = new ScanOrchestrator({
-        reports: reportConfig
-      });
-
-      assert.deepStrictEqual(orchestrator.reportConfig, reportConfig);
-    });
-
-    it('should allow disabling auto-generated reports', () => {
-      const orchestrator = new ScanOrchestrator({
-        autoGenerateReports: false
-      });
-
-      assert.strictEqual(orchestrator.autoGenerateReports, false);
-    });
-
-    it('should accept custom config', () => {
-      const config = { key: 'value' };
-      const orchestrator = new ScanOrchestrator({
-        config
-      });
-
-      assert.deepStrictEqual(orchestrator.config, config);
-    });
-
-    it('should pass scanner options to RepositoryScanner', () => {
-      const scannerOpts = { maxFileSize: 10000 };
-      const orchestrator = new ScanOrchestrator({
-        scanner: scannerOpts
+        scanner: { maxFileSize: 10000 },
+        detector: { patterns: ['test'] },
       });
 
       assert.ok(orchestrator.repositoryScanner);
-    });
-
-    it('should pass detector options to PatternDetector', () => {
-      const detectorOpts = { patterns: ['test'] };
-      const orchestrator = new ScanOrchestrator({
-        detector: detectorOpts
-      });
-
       assert.ok(orchestrator.patternDetector);
     });
+
+    // Parameterized single-option acceptance tests
+    const singleOptionCases: Array<{
+      name: string;
+      options: object;
+      prop: string;
+      expected: unknown;
+      deep?: boolean;
+    }> = [
+      { name: 'pythonPath', options: { pythonPath: '/custom/python' }, prop: 'pythonPath', expected: '/custom/python' },
+      { name: 'extractorScript', options: { extractorScript: '/custom/extractor.py' }, prop: 'extractorScript', expected: '/custom/extractor.py' },
+      { name: 'outputDir', options: { outputDir: '/custom/output' }, prop: 'outputDir', expected: '/custom/output' },
+      { name: 'autoGenerateReports=false', options: { autoGenerateReports: false }, prop: 'autoGenerateReports', expected: false },
+      { name: 'report config', options: { reports: { format: 'html', includeStats: true } }, prop: 'reportConfig', expected: { format: 'html', includeStats: true }, deep: true },
+      { name: 'config', options: { config: { key: 'value' } }, prop: 'config', expected: { key: 'value' }, deep: true },
+    ];
+
+    for (const { name, options, prop, expected, deep } of singleOptionCases) {
+      it(`should accept custom ${name} option`, () => {
+        const orchestrator = new ScanOrchestrator(options) as Record<string, unknown>;
+        if (deep) {
+          assert.deepStrictEqual(orchestrator[prop], expected);
+        } else {
+          assert.strictEqual(orchestrator[prop], expected);
+        }
+      });
+    }
   });
 
   describe('scanRepository validation', () => {

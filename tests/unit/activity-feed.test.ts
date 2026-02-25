@@ -10,27 +10,36 @@ import assert from 'node:assert';
 import { EventEmitter } from 'node:events';
 import { ActivityFeedManager } from '../../api/activity-feed.ts';
 
+interface TestContext {
+  feed: ActivityFeedManager;
+  broadcaster: { broadcast: (msg: unknown, ch: string) => void };
+  worker: EventEmitter;
+  broadcastCalls: Array<{ message: unknown; channel: string }>;
+}
+
+function makeActivityFeedCtx(maxActivities = 50): TestContext {
+  const broadcastCalls: Array<{ message: unknown; channel: string }> = [];
+  const broadcaster = {
+    broadcast: (message: unknown, channel: string) => {
+      broadcastCalls.push({ message, channel });
+    }
+  };
+  const feed = new ActivityFeedManager(broadcaster, { maxActivities });
+  const worker = new EventEmitter();
+  feed.listenToWorker(worker);
+  return { feed, broadcaster, worker, broadcastCalls };
+}
+
 describe('ActivityFeedManager - Error Handling', () => {
-  let activityFeed;
-  let mockBroadcaster;
-  let mockWorker;
+  let activityFeed: ActivityFeedManager;
+  let mockBroadcaster: TestContext['broadcaster'];
+  let mockWorker: EventEmitter;
 
   beforeEach(() => {
-    // Mock broadcaster
-    mockBroadcaster = {
-      broadcast: () => {}
-    };
-
-    // Create activity feed instance
-    activityFeed = new ActivityFeedManager(mockBroadcaster, {
-      maxActivities: 10
-    });
-
-    // Create mock worker (EventEmitter)
-    mockWorker = new EventEmitter();
-
-    // Setup listeners
-    activityFeed.listenToWorker(mockWorker);
+    const ctx = makeActivityFeedCtx(10);
+    activityFeed = ctx.feed;
+    mockBroadcaster = ctx.broadcaster;
+    mockWorker = ctx.worker;
   });
 
   afterEach(() => {
@@ -476,21 +485,13 @@ describe('ActivityFeedManager - Error Handling', () => {
 });
 
 describe('ActivityFeedManager - Core Functionality', () => {
-  let activityFeed;
-  let mockBroadcaster;
-  let broadcastCalls;
+  let activityFeed: ActivityFeedManager;
+  let broadcastCalls: TestContext['broadcastCalls'];
 
   beforeEach(() => {
-    broadcastCalls = [];
-    mockBroadcaster = {
-      broadcast: (message, channel) => {
-        broadcastCalls.push({ message, channel });
-      }
-    };
-
-    activityFeed = new ActivityFeedManager(mockBroadcaster, {
-      maxActivities: 5
-    });
+    const ctx = makeActivityFeedCtx(5);
+    activityFeed = ctx.feed;
+    broadcastCalls = ctx.broadcastCalls;
   });
 
   afterEach(() => {
@@ -671,15 +672,13 @@ describe('ActivityFeedManager - Core Functionality', () => {
 });
 
 describe('ActivityFeedManager - Worker Events', () => {
-  let activityFeed;
-  let mockBroadcaster;
-  let mockWorker;
+  let activityFeed: ActivityFeedManager;
+  let mockWorker: EventEmitter;
 
   beforeEach(() => {
-    mockBroadcaster = { broadcast: () => {} };
-    activityFeed = new ActivityFeedManager(mockBroadcaster, { maxActivities: 50 });
-    mockWorker = new EventEmitter();
-    activityFeed.listenToWorker(mockWorker);
+    const ctx = makeActivityFeedCtx(50);
+    activityFeed = ctx.feed;
+    mockWorker = ctx.worker;
   });
 
   afterEach(() => {

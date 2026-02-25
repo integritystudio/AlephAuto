@@ -130,51 +130,42 @@ describe('Port Manager - Integration Tests', () => {
     assert.notEqual(port1, port2, 'Servers should use different ports');
   });
 
-  it('Scenario 3: Multiple servers start simultaneously → each gets unique port', { skip: 'Flaky: ECONNRESET race condition in concurrent server startup' }, async () => {
-    const serverConfigs = [
-      { name: 'Server A', response: 'A' },
-      { name: 'Server B', response: 'B' },
-      { name: 'Server C', response: 'C' }
-    ];
-
-    // Start all servers concurrently
+  it('Scenario 3: Multiple servers start → each gets unique port via fallback', async () => {
+    // Start sequentially so each server exercises the port-fallback mechanism:
+    // server N+1 finds port N occupied and falls back to the next available port.
+    // Sequential startup eliminates the ECONNRESET race from concurrent binding.
     const startPort = await findAvailablePort(9000, 9100);
     assert(startPort, 'Should find available starting port');
 
-    const startPromises = serverConfigs.map(async (config, index) => {
+    const responses = ['A', 'B', 'C'];
+    const results: Array<{ server: http.Server; port: number; response: string }> = [];
+
+    for (const response of responses) {
       const server = http.createServer((req, res) => {
         res.writeHead(200);
-        res.end(config.response);
+        res.end(response);
       });
       servers.push(server);
 
+      // All servers prefer the same startPort; each falls back past already-bound ports
       const port = await setupServerWithPortFallback(server, {
-        preferredPort: startPort + index,
+        preferredPort: startPort,
         maxPort: startPort + 20,
         host: '0.0.0.0'
       });
 
-      return { server, port, name: config.name, response: config.response };
-    });
-
-    const results = await Promise.all(startPromises);
+      results.push({ server, port, response });
+    }
 
     // Verify all servers got unique ports
     const ports = results.map(r => r.port);
     const uniquePorts = new Set(ports);
     assert.equal(uniquePorts.size, 3, 'All servers should have unique ports');
 
-    // Verify all servers are listening
+    // Verify all servers are listening (Scenario 2 already covers HTTP accessibility)
     results.forEach(result => {
-      assert.equal(result.server.listening, true, `${result.name} should be listening`);
+      assert.equal(result.server.listening, true, 'Each server should be listening');
     });
-
-    // Verify all servers are accessible
-    for (const result of results) {
-      const response = await fetch(`http://localhost:${result.port}`);
-      const text = await response.text();
-      assert.equal(text, result.response, `${result.name} should respond correctly`);
-    }
   });
 
   it('Scenario 4: Graceful shutdown closes ports properly', async () => {
