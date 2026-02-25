@@ -77,22 +77,6 @@ describe('Error Classifier', () => {
     });
   });
 
-  describe('Helper Functions', () => {
-    it('isRetryable() should return false for ENOENT', () => {
-      const error = new Error('File not found');
-      error.code = 'ENOENT';
-
-      assert.strictEqual(isRetryable(error), false);
-    });
-
-    it('isRetryable() should return true for ETIMEDOUT', () => {
-      const error = new Error('Timeout');
-      error.code = 'ETIMEDOUT';
-
-      assert.strictEqual(isRetryable(error), true);
-    });
-  });
-
   describe('Null/Undefined Handling', () => {
     it('should handle null error', () => {
       const result = classifyError(null);
@@ -231,6 +215,8 @@ describe('Error Classifier - Extended API', () => {
       assert.strictEqual(scanError.message, 'Scan failed');
       assert.strictEqual(scanError.cause, cause);
       assert.strictEqual(scanError.code, 'ENOENT');
+      assert.strictEqual(scanError.retryable, false);
+      assert.ok(scanError.classification);
     });
 
     it('should preserve HTTP status from cause', () => {
@@ -257,16 +243,6 @@ describe('Error Classifier - Extended API', () => {
 
       assert.strictEqual(scanError.name, 'ScanError');
       assert.strictEqual(scanError.cause, null);
-    });
-
-    it('should handle filesystem errors', () => {
-      const cause = new Error('No such file');
-      cause.code = 'ENOENT';
-
-      const scanError = createScanError('File not found', cause);
-
-      assert.strictEqual(scanError.retryable, false);
-      assert.ok(scanError.classification);
     });
 
     it('should handle network errors', () => {

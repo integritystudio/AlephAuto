@@ -4,6 +4,7 @@ import { DirectoryScanner } from '../../sidequest/utils/directory-scanner.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
+import { createTempRepository } from '../fixtures/test-helpers.ts';
 
 describe('DirectoryScanner', () => {
   test('should initialize with default options', () => {
@@ -42,12 +43,13 @@ describe('DirectoryScanner', () => {
   });
 
   test('should scan directories in test fixture', async () => {
-    // Create a temporary test directory structure with git repositories
-    const tempDir = path.join(os.tmpdir(), 'test-scanner-' + Date.now());
+    const tempRepo = await createTempRepository('scanner');
+    // Use a nested subdirectory so the scan root itself has no .git
+    // (scanRecursive stops when baseDir itself is a git repo)
+    const tempDir = path.join(tempRepo.path, 'repos');
+    await fs.mkdir(tempDir);
 
     try {
-      await fs.mkdir(tempDir, { recursive: true });
-
       // Create git repositories (DirectoryScanner only finds git repos)
       await fs.mkdir(path.join(tempDir, 'project1'));
       await fs.mkdir(path.join(tempDir, 'project1', '.git'));
@@ -86,17 +88,18 @@ describe('DirectoryScanner', () => {
         assert.ok(dir.isGitRepo, `${dir.name} should be marked as git repo`);
       });
     } finally {
-      // Cleanup
-      await fs.rm(tempDir, { recursive: true, force: true });
+      await tempRepo.cleanup();
     }
   });
 
   test('should respect maxDepth limit', async () => {
-    const tempDir = path.join(os.tmpdir(), 'test-depth-' + Date.now());
+    const tempRepo = await createTempRepository('depth');
+    // Use a nested subdirectory so the scan root itself has no .git
+    const tempDir = path.join(tempRepo.path, 'repos');
+    await fs.mkdir(tempDir);
 
     try {
       // Create deep directory structure with git repos at different levels
-      await fs.mkdir(tempDir, { recursive: true });
 
       // Git repo at depth 1
       await fs.mkdir(path.join(tempDir, 'level1'));
@@ -125,7 +128,7 @@ describe('DirectoryScanner', () => {
       assert.ok(names.includes('level1'), 'Should include level1');
       assert.ok(!names.includes('level2'), 'Should not include level2 (exceeds maxDepth)');
     } finally {
-      await fs.rm(tempDir, { recursive: true, force: true });
+      await tempRepo.cleanup();
     }
   });
 
@@ -140,33 +143,29 @@ describe('DirectoryScanner', () => {
   });
 
   test('shouldProcess should return true for valid directories', async () => {
-    const tempDir = path.join(os.tmpdir(), 'test-process-' + Date.now());
+    const tempRepo = await createTempRepository('process');
 
     try {
-      await fs.mkdir(tempDir, { recursive: true });
-      await fs.writeFile(path.join(tempDir, 'file.txt'), 'content');
-
       const scanner = new DirectoryScanner();
-      const result = await scanner.shouldProcess(tempDir);
+      const result = await scanner.shouldProcess(tempRepo.path);
 
       assert.strictEqual(result, true);
     } finally {
-      await fs.rm(tempDir, { recursive: true, force: true });
+      await tempRepo.cleanup();
     }
   });
 
   test('shouldProcess should return false for non-directories', async () => {
-    const tempFile = path.join(os.tmpdir(), 'test-file-' + Date.now() + '.txt');
+    const tempRepo = await createTempRepository('file');
+    const tempFile = path.join(tempRepo.path, 'README.md');
 
     try {
-      await fs.writeFile(tempFile, 'content');
-
       const scanner = new DirectoryScanner();
       const result = await scanner.shouldProcess(tempFile);
 
       assert.strictEqual(result, false);
     } finally {
-      await fs.rm(tempFile, { force: true });
+      await tempRepo.cleanup();
     }
   });
 
@@ -206,7 +205,8 @@ describe('DirectoryScanner', () => {
   });
 
   test('should save scan report', async () => {
-    const tempOutputDir = path.join(os.tmpdir(), 'test-output-' + Date.now());
+    const tempRepo = await createTempRepository('output');
+    const tempOutputDir = tempRepo.path;
 
     try {
       const scanner = new DirectoryScanner({
@@ -234,12 +234,13 @@ describe('DirectoryScanner', () => {
       assert.strictEqual(report.scanStats.total, 1);
       assert.strictEqual(report.directories.length, 1);
     } finally {
-      await fs.rm(tempOutputDir, { recursive: true, force: true });
+      await tempRepo.cleanup();
     }
   });
 
   test('should save directory tree', async () => {
-    const tempOutputDir = path.join(os.tmpdir(), 'test-tree-' + Date.now());
+    const tempRepo = await createTempRepository('tree');
+    const tempOutputDir = tempRepo.path;
 
     try {
       const scanner = new DirectoryScanner({
@@ -262,12 +263,13 @@ describe('DirectoryScanner', () => {
       assert.ok(treeContent.includes('Directory Tree:'));
       assert.ok(treeContent.includes('/test'));
     } finally {
-      await fs.rm(tempOutputDir, { recursive: true, force: true });
+      await tempRepo.cleanup();
     }
   });
 
   test('should generate and save complete scan results', async () => {
-    const tempOutputDir = path.join(os.tmpdir(), 'test-complete-' + Date.now());
+    const tempRepo = await createTempRepository('complete');
+    const tempOutputDir = tempRepo.path;
 
     try {
       const scanner = new DirectoryScanner({
@@ -309,7 +311,7 @@ describe('DirectoryScanner', () => {
       assert.strictEqual(summary.totalDirectories, 2);
       assert.ok(summary.stats.topDirectoryNames);
     } finally {
-      await fs.rm(tempOutputDir, { recursive: true, force: true });
+      await tempRepo.cleanup();
     }
   });
 });
