@@ -417,18 +417,18 @@ Technical debt and planned improvements extracted from codebase TODOs.
 
 | ID | Project | Location | Description | Status |
 |----|---------|----------|-------------|--------|
-| TST-H1 | tcad-scraper | 2 Claude test files (lines 8-36, 18-49) | **Duplicate Anthropic mock setup** — `vi.hoisted`/`MockAnthropic` block copy-pasted across `claude.service.test.ts`, `claude.service.json-parsing.test.ts`. Extract to `__tests__/helpers/claude-mock.ts`. (`claude-mock-repro.test.ts` deleted in TST-C1.) | |
-| TST-H2 | tcad-scraper | `claude.service.test.ts` + `claude.service.json-parsing.test.ts` | **Redundant fallback tests** — "fallback on API error", "empty response", "invalid JSON" duplicated. Keep fallbacks in `claude.service.test.ts`, narrow `json-parsing` to markdown/extraction logic. | |
-| TST-H3 | tcad-scraper | `server/src/__tests__/auth-database.integration.test.ts` | **`isRedisAvailable(3000)` called 8 times** — Each creates new Redis connection. Use `describe.skipIf` once. Also `expect([200, 500]).toContain(status)` always passes — a 500 crash is "expected". | |
-| TST-H4 | tcad-scraper | `server/src/queues/__tests__/scraper.queue.test.ts:230-326` | **6 tests repeat identical `resetModules + import`** — Move `vi.clearAllMocks(); vi.resetModules(); await import(...)` to shared `beforeEach` in `Queue Event Listeners` block. | |
-| TST-H5 | tcad-scraper | `server/src/__tests__/enqueue.test.ts:373-400` | **Wall-clock timing test** — `Date.now()` delta assertions flaky under load. Test verifies `setTimeout` delays, not queue behavior. Delete; test rate limiting via `canScheduleJob` with fake timers. | |
-| TST-H6 | tcad-scraper | `server/src/__tests__/integration.test.ts:52` | **Conditional assertion** — `if (csp) { expect(csp)... }` passes vacuously when header absent. Assert unconditionally. | |
-| TST-H7 | tcad-scraper | `server/vitest.config.ts:40` | **`property.routes.claude.test.ts` excluded as "requires API key"** — File is fully mocked. Never runs in `npm test`. Remove exclusion. | |
-| TST-H8 | tcad-scraper | `src/components/__tests__/PropertyCard.test.tsx:284-292` | **Analytics mock never checked** — Clicks expand, asserts button text, never verifies `logPropertyView` was called. | |
-| TST-H9 | tcad-scraper | `src/lib/__tests__/api-config.test.ts:25-118` | **No `vi.resetModules()`** between dynamic imports — all tests share cached module. 5 of 9 tests redundant structural checks. | |
-| TST-H10 | tcad-scraper | `playwright.config.ts:9` | **`workers: 1` on CI** negates `fullyParallel: true` — 5 spec files run serially. Increase to 2+ or remove CI cap. | |
-| TST-H11 | tcad-scraper | `e2e/search.spec.ts:37-46` | **Loading state assertion is a timing race** — No network interception to hold response. Use `page.route` to delay API response. | |
-| TST-H12 | tcad-scraper | 3 e2e spec files | **`page.locator("h3").first()` as results sentinel** — Matches any `<h3>` on page, not just result cards. Use `[data-testid="results-grid"] h3`. | |
+| TST-H1 | tcad-scraper | 2 Claude test files (lines 8-36, 18-49) | **Duplicate Anthropic mock setup** — `vi.hoisted`/`MockAnthropic` block copy-pasted across `claude.service.test.ts`, `claude.service.json-parsing.test.ts`. Extract to `__tests__/helpers/claude-mock.ts`. (`claude-mock-repro.test.ts` deleted in TST-C1.) | ✅ Done |
+| TST-H2 | tcad-scraper | `claude.service.test.ts` + `claude.service.json-parsing.test.ts` | **Redundant fallback tests** — "fallback on API error", "empty response", "invalid JSON" duplicated. Keep fallbacks in `claude.service.test.ts`, narrow `json-parsing` to markdown/extraction logic. | ✅ Done |
+| TST-H3 | tcad-scraper | `server/src/__tests__/auth-database.integration.test.ts` | **`isRedisAvailable(3000)` called 8 times** — Each creates new Redis connection. Use `describe.skipIf` once. Also `expect([200, 500]).toContain(status)` always passes — a 500 crash is "expected". | ✅ Done |
+| TST-H4 | tcad-scraper | `server/src/queues/__tests__/scraper.queue.test.ts:230-326` | **6 tests repeat identical `resetModules + import`** — Move `vi.clearAllMocks(); vi.resetModules(); await import(...)` to shared `beforeEach` in `Queue Event Listeners` block. | ✅ Done |
+| TST-H5 | tcad-scraper | `server/src/__tests__/enqueue.test.ts:373-400` | **Wall-clock timing test** — `Date.now()` delta assertions flaky under load. Test verifies `setTimeout` delays, not queue behavior. Delete; test rate limiting via `canScheduleJob` with fake timers. | ✅ Done |
+| TST-H6 | tcad-scraper | `server/src/__tests__/integration.test.ts:52` | **Conditional assertion** — `if (csp) { expect(csp)... }` passes vacuously when header absent. Assert unconditionally. Also converted `if (!hasFrontend) return` to `test.skipIf`. | ✅ Done |
+| TST-H7 | tcad-scraper | `server/vitest.config.ts:40` | **`property.routes.claude.test.ts` excluded as "requires API key"** — File is fully mocked. Never runs in `npm test`. Remove exclusion. | ✅ Done |
+| TST-H8 | tcad-scraper | `src/components/__tests__/PropertyCard.test.tsx:284-292` | **Analytics mock never checked** — Clicks expand, asserts button text, never verifies `logPropertyView` was called. | ✅ Done |
+| TST-H9 | tcad-scraper | `src/lib/__tests__/api-config.test.ts:25-118` | **No `vi.resetModules()`** between dynamic imports — all tests share cached module. 5 of 9 tests redundant structural checks. | ✅ Done |
+| TST-H10 | tcad-scraper | `playwright.config.ts:9` | **`workers: 1` on CI** negates `fullyParallel: true` — 5 spec files run serially. Increase to 2+ or remove CI cap. | ✅ Done |
+| TST-H11 | tcad-scraper | `e2e/search.spec.ts:37-46` | **Loading state assertion is a timing race** — No network interception to hold response. Use `page.route` to delay API response. | ✅ Done |
+| TST-H12 | tcad-scraper | 3 e2e spec files | **`page.locator("h3").first()` as results sentinel** — Matches any `<h3>` on page, not just result cards. Use `.results-grid h3`. | ✅ Done |
 | TST-H13 | AlephAuto | `tests/integration/activity-feed.integration.test.js` (6 sites) | **Bare `setTimeout` waits (500ms–2s)** — Use event-based `waitForQueueDrain` (already imported in `api-routes.test.js`) or `EventEmitter` promises. | ✅ Done |
 | TST-H14 | AlephAuto | `tests/unit/worker-registry.test.js:42-45` | **Re-imports module in `beforeEach` without resetting cache** — Returns same singleton. False isolation, shared mutable state across blocks. | ✅ Done |
 | TST-H15 | AlephAuto | `tests/unit/database.test.js:28-757` | **3 top-level describe blocks each call `initDatabase`/`closeDatabase`** — Teardown ordering risk on shared singleton. `beforeEach` in `Query Options` re-inserts 20 jobs per test. | ✅ Done |
@@ -439,7 +439,7 @@ Technical debt and planned improvements extracted from codebase TODOs.
 | ID | Project | Location | Description | Status |
 |----|---------|----------|-------------|--------|
 | TST-M1 | tcad-scraper | `server/vitest.config.ts:68-70` | **`mockReset + clearMocks` redundant** — `mockReset: true` supersedes `clearMocks: true`. Drop `clearMocks`. | |
-| TST-M2 | tcad-scraper | `server/src/__tests__/integration.test.ts:117-129` | **`if (!hasFrontend) return` instead of `test.skipIf`** — Tests silently pass with no assertion. 3 of 4 frontend tests use wrong pattern. | |
+| TST-M2 | tcad-scraper | `server/src/__tests__/integration.test.ts:117-129` | **`if (!hasFrontend) return` instead of `test.skipIf`** — Tests silently pass with no assertion. 3 of 4 frontend tests use wrong pattern. (1 of 3 fixed in TST-H6.) | |
 | TST-M3 | tcad-scraper | `server/src/__tests__/factories.ts:22-24` | **`resetFactoryCounter` exported but never called** — Counter accumulates across tests, latent isolation issue. Call in global `beforeEach` or use `crypto.randomUUID()`. | |
 | TST-M4 | tcad-scraper | `server/src/__tests__/test-utils.ts:62-123` | **`skipIfRedisUnavailable` throws errors to "skip"** — Reports as failure, not skip. Functions unused — all tests use `isRedisAvailable` directly. Remove. | |
 | TST-M5 | tcad-scraper | `server/src/__tests__/security.test.ts:196-199` | **Documentation-only test** — `expect(true).toBe(true)` with "This is a note" comment. Delete test case. | |
@@ -467,15 +467,16 @@ Technical debt and planned improvements extracted from codebase TODOs.
 ### Completed (2026-02-24 to 2026-02-25)
 
 AlephAuto items: TST-C5..C9 (Critical), TST-H13..H16 (High), TST-M8..M15 (Medium), TST-L2..L5 (Low), LOG13 (Zod consolidation)
-tcad-scraper items: TST-C1..C4 (Critical) — deleted 4 zero-value test files (-818 lines)
+tcad-scraper items: TST-C1..C4 (Critical) — deleted 4 zero-value test files (-975 lines)
+tcad-scraper items: TST-H1..H12 (High) — shared mocks, deduplicated tests, fixed assertions (-268 lines)
 
 ### Summary
 
 | Priority | Count | Theme |
 |----------|-------|-------|
 | Critical | 0 | ~~Delete mock-repro/ci-fixes files~~ ✅ Complete |
-| High | 12 (tcad-scraper) | Conditional assertions, duplicate mocks, timing races |
+| High | 0 | ~~Conditional assertions, duplicate mocks, timing races~~ ✅ Complete |
 | Medium | 7 (tcad-scraper) | Redundant tests, hardcoded sleeps |
 | Low | 1 (tcad-scraper) | Weak assertions |
 | AlephAuto | 0 | ✅ All AlephAuto items complete |
-| **Total** | **20** | tcad-scraper H/M/L items remain (separate repo) |
+| **Total** | **8** | tcad-scraper M/L items remain (separate repo) |
