@@ -4558,7 +4558,7 @@ import type { ScanResult as ReportScanResult } from './reports/json-report-gener
 import { InterProjectScanner } from './inter-project-scanner.ts';
 import { createComponentLogger, logStart, logStage } from '../utils/logger.ts';
 import { DependencyValidator } from '../utils/dependency-validator.ts';
-import { spawn, ChildProcess, execSync } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 ⋮----
 import { existsSync } from 'fs';
 ⋮----
@@ -4590,15 +4590,15 @@ export interface ScanConfig {
     includeTests?: boolean;
     maxDepth?: number;
     excludePaths?: string[];
-    [key: string]: any;
+    [key: string]: unknown;
   };
   pattern_config?: {
     rulesDirectory?: string;
     configPath?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   generateReports?: boolean;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 export interface PythonPipelineInput {
   repository_info: RepositoryInfo;
@@ -4695,14 +4695,14 @@ export interface ReportOptions {
   maxSuggestions?: number;
 }
 export interface ScanOrchestratorOptions {
-  scanner?: Record<string, any>;
-  detector?: Record<string, any>;
+  scanner?: Record<string, unknown>;
+  detector?: Record<string, unknown>;
   pythonPath?: string;
   extractorScript?: string;
   reports?: ReportOptions;
   outputDir?: string;
   autoGenerateReports?: boolean;
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
 }
 export interface CrossRepositoryDuplicate {
   group_id: string;
@@ -4756,7 +4756,7 @@ interface RepositoryScanOutput {
     totalLines: number;
     languages: string[];
   };
-  repomix_output?: any;
+  repomix_output?: unknown;
 }
 interface PatternDetectionOutput {
   matches: PatternMatch[];
@@ -5283,7 +5283,7 @@ import { PRCreator, type PRCreationResults } from '../pipeline-core/git/pr-creat
 import { createComponentLogger, logStart, logRetry } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS, RETRY } from '../core/constants.ts';
-import { isRetryable, getErrorInfo } from '../pipeline-core/errors/error-classifier.ts';
+import { getErrorInfo } from '../pipeline-core/errors/error-classifier.ts';
 ⋮----
 import type { Logger } from 'pino';
 ⋮----
@@ -5304,7 +5304,7 @@ export interface Job {
   startedAt: Date | null;
   completedAt: Date | null;
   error: Error | null;
-  result: any;
+  result: JobResult | null;
 }
 export interface RetryInfo {
   attempts: number;
@@ -5342,18 +5342,18 @@ export interface ScanResult {
   scan_type: 'single-project' | 'inter-project' | 'intra-project';
   scan_metadata?: {
     duration_seconds: number;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   metrics: {
     total_duplicate_groups?: number;
     total_cross_repository_groups?: number;
     total_suggestions?: number;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   duplicate_groups?: DuplicateGroup[];
   cross_repository_duplicates?: DuplicateGroup[];
   suggestions?: Suggestion[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 export interface DuplicateGroup {
   id: string;
@@ -5362,21 +5362,21 @@ export interface DuplicateGroup {
     path: string;
     repository?: string;
   }>;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 export interface Suggestion {
   id: string;
   type: string;
   impact: number;
   files: string[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 export interface PRCreationResult {
   prsCreated: number;
   prUrls: string[];
   errors: Array<{
     message: string;
-    [key: string]: any;
+    [key: string]: unknown;
   }>;
 }
 export interface DuplicateDetectionWorkerOptions {
@@ -5854,6 +5854,7 @@ scheduleEnhancements(cronSchedule: string = '0 3 * * 0'): cron.ScheduledTask
 
 <file path="pipeline-runners/test-refactor-pipeline.ts">
 import { TestRefactorWorker } from '../workers/test-refactor-worker.ts';
+import type { Job as BaseJob } from '../core/server.ts';
 import { DirectoryScanner } from '../utils/directory-scanner.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
@@ -5861,10 +5862,6 @@ import { TIMEOUTS } from '../core/constants.ts';
 import cron from 'node-cron';
 import path from 'path';
 ⋮----
-interface DirectoryInfo {
-  path: string;
-  name: string;
-}
 interface PipelineMetrics {
   totalProjects: number;
   successfulRefactors: number;
@@ -6763,8 +6760,7 @@ export function isKnownPipeline(id: string): boolean
 
 <file path="utils/plugin-manager.ts">
 import { SidequestServer } from '../core/server.ts';
-import { config } from '../core/config.ts';
-import { createComponentLogger, logStart, logComplete, logError, logWarn } from './logger.ts';
+import { createComponentLogger, logStart, logError, logWarn } from './logger.ts';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
@@ -7228,7 +7224,7 @@ async checkEnvironment(): Promise<EnvironmentCheck>
 async checkDirectories(): Promise<Record<string, DirectoryInfo>>
 async checkConfiguration(): Promise<ConfigCheck>
 async checkHooks(): Promise<HooksCheck>
-async checkComponents(detailed = false): Promise<ComponentCounts>
+async checkComponents(_detailed = false): Promise<ComponentCounts>
 async checkPlugins(): Promise<PluginsCheck | null>
 async checkPerformance(): Promise<PerformanceCheck | null>
 analyzeResults(checks: AllChecks): Analysis
@@ -7288,7 +7284,7 @@ async runJobHandler(job: Job): Promise<PopulateOutput>
 
 <file path="workers/duplicate-detection-worker.ts">
 import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
-import { RepositoryConfigLoader, type RepositoryConfig, type NotificationSettings } from '../pipeline-core/config/repository-config-loader.ts';
+import { RepositoryConfigLoader, type RepositoryConfig } from '../pipeline-core/config/repository-config-loader.ts';
 import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.ts';
 import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.ts';
 import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.ts';
@@ -7390,12 +7386,6 @@ interface RetryMetrics {
     attempt3Plus: number;
     nearingLimit: number;
   };
-}
-interface RetryDistribution {
-  attempt1: number;
-  attempt2: number;
-  attempt3Plus: number;
-  nearingLimit: number;
 }
 export class DuplicateDetectionWorker extends SidequestServer
 ⋮----
@@ -7780,11 +7770,6 @@ interface JobData {
   e2eDir: string;
   framework: string;
   dryRun: boolean;
-}
-interface RefactorJob {
-  id: string;
-  data: JobData;
-  result?: JobResult;
 }
 interface AnalysisPatterns {
   renderWaitFor: number;
