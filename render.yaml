@@ -48,7 +48,7 @@ services:
 
       echo "✅ Build complete: Node.js, Python, and Doppler configured"
     # Start command: Activate venv for Python access, then start server with Doppler
-    startCommand: . venv/bin/activate && doppler run -c prd -- node --strip-types api/server.js
+    startCommand: . venv/bin/activate && doppler run -c prd -- node --strip-types api/server.ts
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
