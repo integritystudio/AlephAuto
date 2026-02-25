@@ -25,10 +25,22 @@ const DB_PATH = path.join(__dirname, '../../data/jobs.db');
 // Base URL for API - uses localhost by default
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8080';
 
-// Skip in CI - requires running API server
+// Skip unless API server is running
 const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
 
-describe('GET /api/status Integration Tests', { skip: isCI ? 'Requires running API server' : false }, () => {
+async function isServerRunning(): Promise<boolean> {
+  try {
+    await fetch(`${API_BASE_URL}/api/status`, { signal: AbortSignal.timeout(2000) });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const serverUp = isCI ? false : await isServerRunning();
+const skipReason = !serverUp ? 'Requires running API server (start with: npm run dashboard)' : false;
+
+describe('GET /api/status Integration Tests', { skip: skipReason }, () => {
   let db;
 
   // Helper to get current pipeline counts from database
@@ -217,7 +229,7 @@ describe('GET /api/status Integration Tests', { skip: isCI ? 'Requires running A
   });
 });
 
-describe('GET /api/sidequest/pipeline-runners/:id/jobs Pagination Tests', { skip: isCI ? 'Requires running API server' : false }, () => {
+describe('GET /api/sidequest/pipeline-runners/:id/jobs Pagination Tests', { skip: skipReason }, () => {
   let db;
 
   before(() => {

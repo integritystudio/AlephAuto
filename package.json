@@ -17,7 +17,7 @@
     "test": "node --strip-types --test --test-timeout=30000 --test-force-exit --test-name-pattern='.' tests/unit/*.test.ts",
     "test:coverage": "c8 --reporter=text --reporter=text-summary node --strip-types --test --test-timeout=30000 --test-force-exit --test-name-pattern='.' tests/unit/*.test.ts",
     "test:coverage:html": "c8 --reporter=html --reporter=text-summary node --strip-types --test --test-timeout=30000 --test-force-exit --test-name-pattern='.' tests/unit/*.test.ts",
-    "test:integration": "node --strip-types --test --test-timeout=60000 --test-force-exit tests/integration/*.test.ts",
+    "test:integration": "node --strip-types --test --test-timeout=60000 --test-force-exit --test-concurrency=1 tests/integration/*.test.ts",
     "test:cache": "node --strip-types --test --test-timeout=60000 --test-force-exit tests/integration/cache-redis.test.ts",
     "test:all": "node --strip-types --test --test-timeout=30000 --test-force-exit tests/unit/**/*.test.ts tests/integration/*.test.ts",
     "test:validate-paths": "node --strip-types tests/scripts/validate-test-paths.ts",

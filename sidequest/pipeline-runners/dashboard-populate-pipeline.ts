@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node --strip-types
 
 /**
  * Dashboard Populate Pipeline - AlephAuto Integration

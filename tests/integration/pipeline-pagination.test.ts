@@ -8,21 +8,39 @@
  * - hasMore flag accuracy
  * - No duplicate jobs across pages
  *
- * Note: Uses the better-sqlite3 database via the database module.
+ * Note: Uses an in-memory database seeded with test data.
  * Tests verify internal consistency of the pagination system.
  */
 
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
-import { getJobs, initDatabase, getJobCounts, closeDatabase } from '../../sidequest/core/database.ts';
+import { getJobs, initDatabase, getJobCounts, closeDatabase, saveJob } from '../../sidequest/core/database.ts';
+
+/** Seed the in-memory database with realistic test jobs */
+function seedTestData() {
+  const now = new Date();
+  for (let i = 0; i < 15; i++) {
+    const status = i < 10 ? 'completed' : 'failed';
+    saveJob({
+      id: `test-dd-job-${i}`,
+      pipelineId: 'duplicate-detection',
+      status,
+      createdAt: new Date(now.getTime() - i * 60_000).toISOString(),
+      startedAt: new Date(now.getTime() - i * 60_000 + 1000).toISOString(),
+      completedAt: new Date(now.getTime() - i * 60_000 + 5000).toISOString(),
+      data: { repository: `repo-${i}` },
+      result: status === 'completed' ? { duplicates: i } : null,
+      error: status === 'failed' ? { message: `Error ${i}` } : null,
+    });
+  }
+}
 
 describe('Pipeline Pagination Integration Tests', () => {
-  // Initialize database BEFORE tests run (async)
   before(async () => {
-    await initDatabase();
+    await initDatabase(':memory:');
+    seedTestData();
   });
 
-  // Close database AFTER tests to clear interval timer
   after(() => {
     closeDatabase();
   });
@@ -42,7 +60,6 @@ describe('Pipeline Pagination Integration Tests', () => {
   });
 
   it('should handle different limit/offset combinations', () => {
-    // Get total first using includeTotal
     const initial = getJobs('duplicate-detection', {
       limit: 1,
       offset: 0,
@@ -52,7 +69,6 @@ describe('Pipeline Pagination Integration Tests', () => {
     const totalCount = initial.total;
 
     if (totalCount === 0) {
-      // Skip test if no data
       return;
     }
 

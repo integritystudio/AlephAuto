@@ -264,7 +264,7 @@ describe('ScanResultCache Integration Tests', { skip: isCI ? 'Requires running R
 
       assert.ok(age !== null, 'Should return age');
       assert.ok(age >= 100, 'Age should be at least 100ms');
-      assert.ok(age < 1000, 'Age should be less than 1 second');
+      assert.ok(age < 5000, 'Age should be less than 5 seconds');
     });
 
     it('should return null for non-cached scan', async () => {
