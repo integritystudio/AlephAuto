@@ -20,6 +20,7 @@ docs/
 ├── ADDING_PIPELINES.md      # How to add a new pipeline/job type
 ├── API_REFERENCE.md         # REST API endpoints (22 endpoints)
 ├── MCP_SERVERS.md           # MCP server configuration (Sentry, Redis, etc.)
+├── ROADMAP.md               # Future enhancements (Phases 5-7)
 │
 ├── architecture/            # System architecture and design
 │   ├── CHEAT-SHEET.md       # Quick reference for common patterns
@@ -36,9 +37,9 @@ docs/
 │   └── GITIGNORE_UPDATER_README.md
 │
 ├── dashboard_ui/            # Dashboard UI documentation
-│   ├── DASHBOARD.md         # Main dashboard docs
-│   ├── DASHBOARD_INDEX.md   # Dashboard feature index
-│   └── DATAFLOW_DIAGRAMS.md
+│   ├── DASHBOARD.md         # Operations: quick start, config, troubleshooting
+│   ├── DASHBOARD_DESIGN.md  # Design system: layout, tokens, components, patterns
+│   └── DATAFLOW_DIAGRAMS.md # System architecture diagrams
 │
 ├── deployment/              # Deployment guides
 │   ├── README.md            # Deployment overview
@@ -102,8 +103,11 @@ docs/
 - [Plugin Manager](./components/plugin-manager.md)
 
 ### Dashboard
-- [Dashboard Overview](./dashboard_ui/DASHBOARD.md) - Real-time monitoring UI
-- [Dashboard Index](./dashboard_ui/DASHBOARD_INDEX.md) - Feature documentation
+- [Dashboard Overview](./dashboard_ui/DASHBOARD.md) - Operations, config, troubleshooting
+- [Dashboard Design](./dashboard_ui/DASHBOARD_DESIGN.md) - Design system, tokens, components
+
+### Planning
+- [Roadmap](./ROADMAP.md) - Future enhancements (Phases 5-7)
 
 ## Related Documentation
 
