@@ -11,7 +11,6 @@
  */
 
 import { ScanOrchestrator, ScanError } from '../../sidequest/pipeline-core/scan-orchestrator.ts';
-import { strict as assert } from 'assert';
 
 /**
  * Type guard to check if error is ScanError

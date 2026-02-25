@@ -10,7 +10,7 @@
  * - api/activity-feed.ts: WebSocket job event broadcasts
  */
 
-import { describe, it, before, after, beforeEach, afterEach, mock } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { EventEmitter } from 'node:events';
 import fs from 'fs/promises';
@@ -22,10 +22,7 @@ import { ActivityFeedManager } from '../../api/activity-feed.ts';
 import {
   initDatabase,
   getJobs,
-  getLastJob,
-  isDatabaseReady,
-  saveJob,
-  closeDatabase
+  isDatabaseReady
 } from '../../sidequest/core/database.ts';
 
 // Test implementation of SidequestServer

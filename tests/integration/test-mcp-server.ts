@@ -7,11 +7,8 @@
  */
 
 import { spawn } from 'child_process';
-import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 
-const logger = createComponentLogger('TestMCPServer');
-
-async function sendMCPRequest(request) {
+async function _sendMCPRequest(request) {
   return new Promise((resolve, reject) => {
     const serverProcess = spawn('node', [
       'mcp-servers/duplicate-detection/index.js'
@@ -65,7 +62,7 @@ async function testListTools() {
   console.log('╚══════════════════════════════════════════════════════════╝\n');
 
   try {
-    const request = {
+    const _request = {
       jsonrpc: '2.0',
       id: 1,
       method: 'tools/list',

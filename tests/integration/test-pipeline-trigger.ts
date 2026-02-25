@@ -7,7 +7,7 @@
  * - Error handling for unknown pipelines
  */
 
-import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
+import { describe, it, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { workerRegistry } from '../../api/utils/worker-registry.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';

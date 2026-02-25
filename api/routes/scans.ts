@@ -17,9 +17,10 @@ import {
   type ScanResponse,
   type ScanResults
 } from '../types/scan-requests.ts';
-import { getJobs } from '#sidequest/core/database.ts';
+import { getJobs, type ParsedJob } from '#sidequest/core/database.ts';
 import { JOB_STATUS } from '../types/job-status.ts';
 import { PAGINATION } from '#sidequest/core/constants.ts';
+import { type RepositoryConfig } from '#sidequest/pipeline-core/config/repository-config-loader.ts';
 import path from 'path';
 
 const router = express.Router();
@@ -57,7 +58,7 @@ router.post(
       const job = worker.scheduleScan('intra-project', [{
         name: path.basename(repositoryPath),
         path: repositoryPath
-      }] as any);
+      }] as unknown as Parameters<typeof worker.scheduleScan>[1]);
 
       const response: ScanResponse = {
         scanId: job.id, // Use the actual job ID for consistency
@@ -97,7 +98,7 @@ router.post('/start-multi', strictRateLimiter, async (req, res, next) => {
       path: repoPath
     }));
 
-    const job = worker.scheduleScan('inter-project', repositories as any);
+    const job = worker.scheduleScan('inter-project', repositories as RepositoryConfig[]);
 
     res.status(201).json({
       success: true,
@@ -151,15 +152,18 @@ router.get('/:scanId/results', async (req, res, next) => {
 
     // Query database for the scan job
     // First try duplicate-detection pipeline (most scans)
-    let jobs = getJobs('duplicate-detection', { limit: PAGINATION.MAX_LIMIT }) as any[];
-    let job = jobs.find((j: any) => j.id === scanId);
+    const getJobsArray = (result: ReturnType<typeof getJobs>): ParsedJob[] =>
+      Array.isArray(result) ? result : result.jobs;
+
+    let jobs = getJobsArray(getJobs('duplicate-detection', { limit: PAGINATION.MAX_LIMIT }));
+    let job = jobs.find((j) => j.id === scanId);
 
     // If not found, check all pipeline types in the database
     if (!job) {
       const allPipelines = ['repomix', 'schema-enhancement', 'git-activity', 'gitignore-manager', 'plugin-manager', 'claude-health'];
       for (const pipelineId of allPipelines) {
-        jobs = getJobs(pipelineId, { limit: PAGINATION.MAX_LIMIT }) as any[];
-        job = jobs.find((j: any) => j.id === scanId);
+        jobs = getJobsArray(getJobs(pipelineId, { limit: PAGINATION.MAX_LIMIT }));
+        job = jobs.find((j) => j.id === scanId);
         if (job) break;
       }
     }
@@ -190,17 +194,19 @@ router.get('/:scanId/results', async (req, res, next) => {
 
     // Add results for completed jobs
     if (job.status === JOB_STATUS.COMPLETED && job.result) {
+      const result = job.result as Record<string, unknown>;
+      const data = job.data as Record<string, unknown> | null | undefined;
       response.results = {
-        scanType: job.data?.scanType,
-        totalDuplicates: job.result.totalDuplicates ?? job.result.duplicates ?? job.result.crossRepoDuplicates,
-        duplicates: job.result.duplicates,
-        crossRepoDuplicates: job.result.crossRepoDuplicates,
-        totalBlocks: job.result.totalBlocks,
-        scanDuration: job.result.duration ?? job.result.scanDuration,
-        suggestions: job.result.suggestions,
-        repositories: job.data?.repositories,
-        reportPath: job.result.reportPath,
-        prResults: job.result.prResults
+        scanType: data?.scanType as string | undefined,
+        totalDuplicates: (result.totalDuplicates ?? result.duplicates ?? result.crossRepoDuplicates) as number | undefined,
+        duplicates: result.duplicates as number | undefined,
+        crossRepoDuplicates: result.crossRepoDuplicates as number | undefined,
+        totalBlocks: result.totalBlocks as number | undefined,
+        scanDuration: (result.duration ?? result.scanDuration) as number | undefined,
+        suggestions: result.suggestions as number | undefined,
+        repositories: data?.repositories as { name: string; path: string }[] | undefined,
+        reportPath: result.reportPath as string | undefined,
+        prResults: result.prResults as unknown
       };
     }
 

@@ -4,7 +4,7 @@
  * Tests for the scan orchestrator that coordinates the duplicate detection pipeline.
  */
 
-import { describe, it, beforeEach, mock } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { ScanOrchestrator, ScanError, type ScanOrchestratorOptions } from '../../sidequest/pipeline-core/scan-orchestrator.ts';
 

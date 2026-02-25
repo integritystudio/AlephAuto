@@ -5,7 +5,7 @@
  * Listens to worker events and broadcasts activity updates via WebSocket.
  */
 
-import type { SidequestServer } from '../sidequest/core/server.ts';
+import type { SidequestServer, Job } from '../sidequest/core/server.ts';
 import { createComponentLogger, logError } from '../sidequest/utils/logger.ts';
 import { TIMEOUTS, TIME } from '../sidequest/core/constants.ts';
 import * as Sentry from '@sentry/node';
@@ -168,14 +168,14 @@ export class ActivityFeedManager {
       logger.info('Setting up worker event listeners');
 
       // Job created
-      worker.on('job:created', (job: any) => {
+      worker.on('job:created', (job: Job) => {
         try {
           this.addActivity({
             type: 'job:created',
             event: 'Job Created',
             message: `Job ${job.id} created`,
             jobId: job.id,
-            jobType: job.data?.type || 'unknown',
+            jobType: (job.data?.type as string) || 'unknown',
             status: 'created',
             icon: '\u{1f4dd}'
           });
@@ -187,7 +187,7 @@ export class ActivityFeedManager {
               job: {
                 id: job.id,
                 status: job.status,
-                pipelineId: job.data?.pipelineId || (worker as any).jobType,
+                pipelineId: (job.data?.pipelineId as string) || worker.jobType,
                 createdAt: job.createdAt,
                 data: job.data
               }
@@ -203,14 +203,14 @@ export class ActivityFeedManager {
       });
 
       // Job started
-      worker.on('job:started', (job: any) => {
+      worker.on('job:started', (job: Job) => {
         try {
           this.addActivity({
             type: 'job:started',
             event: 'Job Started',
             message: `Job ${job.id} started processing`,
             jobId: job.id,
-            jobType: job.data?.type || 'unknown',
+            jobType: (job.data?.type as string) || 'unknown',
             status: 'running',
             icon: '\u25b6\ufe0f'
           });
@@ -222,7 +222,7 @@ export class ActivityFeedManager {
               job: {
                 id: job.id,
                 status: job.status,
-                pipelineId: job.data?.pipelineId || (worker as any).jobType,
+                pipelineId: (job.data?.pipelineId as string) || worker.jobType,
                 startedAt: job.startedAt,
                 data: job.data
               }
@@ -238,10 +238,11 @@ export class ActivityFeedManager {
       });
 
       // Job completed
-      worker.on('job:completed', (job: any) => {
+      worker.on('job:completed', (job: Job) => {
         try {
           // Calculate duration from timestamps, fallback to result.duration_seconds
-          let durationSeconds = job.result?.duration_seconds;
+          const jobResult = job.result as Record<string, unknown> | null | undefined;
+          let durationSeconds = (jobResult as Record<string, unknown> | null | undefined)?.duration_seconds as number | undefined;
           if (!durationSeconds && job.startedAt && job.completedAt) {
             const startTime = job.startedAt instanceof Date ? job.startedAt : new Date(job.startedAt);
             const endTime = job.completedAt instanceof Date ? job.completedAt : new Date(job.completedAt);
@@ -257,7 +258,7 @@ export class ActivityFeedManager {
             event: 'Job Completed',
             message: `Job ${job.id} completed successfully (${duration})`,
             jobId: job.id,
-            jobType: job.data?.type || 'unknown',
+            jobType: (job.data?.type as string) || 'unknown',
             status: 'completed',
             duration: durationSeconds,
             icon: '\u2705'
@@ -270,7 +271,7 @@ export class ActivityFeedManager {
               job: {
                 id: job.id,
                 status: job.status,
-                pipelineId: job.data?.pipelineId || (worker as any).jobType,
+                pipelineId: (job.data?.pipelineId as string) || worker.jobType,
                 completedAt: job.completedAt,
                 result: job.result,
                 data: job.data
@@ -287,41 +288,43 @@ export class ActivityFeedManager {
       });
 
       // Job failed
-      worker.on('job:failed', (job: any, error: any) => {
+      worker.on('job:failed', (job: Job, error: unknown) => {
+        // Hoist activeError so catch block can reference it
+        let activeError: unknown = error;
         try {
-          // Defensive: validate error parameter FIRST (before any usage)
-          if (error === undefined || error === null) {
+          if (activeError === undefined || activeError === null) {
             logger.warn({
               jobId: job?.id || 'unknown',
-              errorType: typeof error
+              errorType: typeof activeError
             }, 'job:failed event received with undefined/null error');
-            error = new Error('Job failed with no error details');
+            activeError = new Error('Job failed with no error details');
           }
 
           // Defensive: ensure job object exists
           if (!job) {
             logger.warn({
-              error: safeErrorMessage(error)
+              error: safeErrorMessage(activeError)
             }, 'job:failed event received with no job object');
             return;
           }
 
-          const errorObj = toErrorObject(error, {
+          const errorObj = toErrorObject(activeError, {
             fallbackMessage: 'Unknown error',
             metadata: { jobId: job.id }
           });
 
           // Defensive: ensure errorObj has required properties
           const errorMessage = errorObj?.message || 'Unknown error';
-          const errorCode = error?.code;
-          const errorRetryable = error?.retryable || false;
+          const activeErrorRecord = activeError as Record<string, unknown>;
+          const errorCode = activeErrorRecord?.code as string | undefined;
+          const errorRetryable = (activeErrorRecord?.retryable as boolean) || false;
 
           this.addActivity({
             type: 'job:failed',
             event: 'Job Failed',
             message: `Job ${job.id} failed: ${errorMessage}`,
             jobId: job.id,
-            jobType: job.data?.type || 'unknown',
+            jobType: (job.data?.type as string) || 'unknown',
             status: 'failed',
             error: {
               message: errorMessage,
@@ -338,7 +341,7 @@ export class ActivityFeedManager {
               job: {
                 id: job.id,
                 status: job.status,
-                pipelineId: job.data?.pipelineId || (worker as any).jobType,
+                pipelineId: (job.data?.pipelineId as string) || worker.jobType,
                 completedAt: job.completedAt,
                 error: { message: errorMessage, code: errorCode },
                 data: job.data
@@ -347,8 +350,8 @@ export class ActivityFeedManager {
           }
 
           // Capture job failure in Sentry
-          const sentryError = error instanceof Error
-            ? error
+          const sentryError = activeError instanceof Error
+            ? activeError
             : new Error(errorMessage);
 
           Sentry.captureException(sentryError, {
@@ -356,7 +359,7 @@ export class ActivityFeedManager {
               component: 'ActivityFeed',
               event: 'job:failed',
               jobId: job.id,
-              jobType: job.data?.type || 'unknown',
+              jobType: (job.data?.type as string) || 'unknown',
               retryable: errorRetryable
             },
             extra: {
@@ -372,14 +375,14 @@ export class ActivityFeedManager {
             tags: { component: 'ActivityFeed', event: 'job:failed:activity-error' },
             extra: {
               jobId: job?.id || 'unknown',
-              originalError: safeErrorMessage(error)
+              originalError: safeErrorMessage(activeError)
             }
           });
         }
       });
 
       // Retry created
-      worker.on('retry:created', (job: any, retryInfo: RetryInfo) => {
+      worker.on('retry:created', (job: Job, retryInfo: RetryInfo) => {
         try {
           // Defensive: ensure required parameters exist
           if (!job?.id) {
@@ -394,7 +397,7 @@ export class ActivityFeedManager {
             event: 'Retry Scheduled',
             message: `Job ${job.id} scheduled for retry (attempt ${attempt}/${maxAttempts})`,
             jobId: job.id,
-            jobType: job.data?.type || 'unknown',
+            jobType: (job.data?.type as string) || 'unknown',
             attempt,
             maxAttempts,
             delay,
@@ -410,7 +413,7 @@ export class ActivityFeedManager {
               job: {
                 id: job.id,
                 status: job.status,
-                pipelineId: job.data?.pipelineId || (worker as any).jobType,
+                pipelineId: (job.data?.pipelineId as string) || worker.jobType,
                 retryCount: job.retryCount,
                 data: job.data
               },
@@ -463,7 +466,7 @@ export class ActivityFeedManager {
               component: 'ActivityFeed',
               event: 'retry:max-attempts',
               jobId: String(jobId),
-              attempts: Number(attempts) as any
+              attempts: String(Number(attempts))
             }
           });
         } catch (activityError) {

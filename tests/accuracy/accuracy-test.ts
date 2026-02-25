@@ -277,7 +277,7 @@ function printTargetComparison(targets) {
   console.log('='.repeat(70));
   console.log();
 
-  const formatTarget = (name, target, prefix = '') => {
+  const formatTarget = (name, target, _prefix = '') => {
     const icon = target.met ? '✅' : '❌';
     const sign = target.delta > 0 ? '+' : '';
     const targetPrefix = name === 'FP Rate' ? '<' : '';

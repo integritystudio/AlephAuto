@@ -9,7 +9,7 @@
  * - Constants: Immutability of JOB_STATUS and TERMINAL_STATUSES
  */
 
-import { describe, it, beforeEach, afterEach, mock } from 'node:test';
+import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert';
 
 // Import modules under test

@@ -442,7 +442,7 @@ describe('Error Helper Utilities', () => {
     });
 
     test('should handle job:failed event with null error', () => {
-      const job = { id: '456' };
+      const _job = { id: '456' };
       const error = null;
 
       const errorObj = toErrorObject(error);
@@ -452,7 +452,7 @@ describe('Error Helper Utilities', () => {
     });
 
     test('should handle retry:created event with undefined error', () => {
-      const jobId = '789';
+      const _jobId = '789';
       const error = undefined;
 
       const errorMessage = safeErrorMessage(error);

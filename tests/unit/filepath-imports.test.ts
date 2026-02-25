@@ -136,7 +136,7 @@ describe('Filepath Imports Test Suite', () => {
       try {
         const stats = await fs.stat(dirPath);
         assert.ok(stats.isDirectory(), 'sidequest/output/condense/ directory should exist');
-      } catch (error) {
+      } catch (_error) {
         console.warn('⚠️  sidequest/output/condense/ directory not found - may need to be created');
       }
     });
@@ -146,7 +146,7 @@ describe('Filepath Imports Test Suite', () => {
       try {
         const stats = await fs.stat(dirPath);
         assert.ok(stats.isDirectory(), 'logs/ directory should exist');
-      } catch (error) {
+      } catch (_error) {
         console.warn('⚠️  logs/ directory not found - may need to be created');
       }
     });
@@ -156,7 +156,7 @@ describe('Filepath Imports Test Suite', () => {
       try {
         const stats = await fs.stat(dirPath);
         assert.ok(stats.isDirectory(), 'directory-scan-reports/ directory should exist');
-      } catch (error) {
+      } catch (_error) {
         console.warn('⚠️  directory-scan-reports/ directory not found - may need to be created');
       }
     });
@@ -166,7 +166,7 @@ describe('Filepath Imports Test Suite', () => {
       try {
         const stats = await fs.stat(dirPath);
         assert.ok(stats.isDirectory(), 'document-enhancement-impact-measurement/ directory should exist');
-      } catch (error) {
+      } catch (_error) {
         console.warn('⚠️  document-enhancement-impact-measurement/ directory not found - may need to be created');
       }
     });

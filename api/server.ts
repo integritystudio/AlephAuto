@@ -36,6 +36,7 @@ import { ActivityFeedManager } from './activity-feed.ts';
 import { DopplerHealthMonitor } from '../sidequest/pipeline-core/doppler-health-monitor.ts';
 import { setupServerWithPortFallback, setupGracefulShutdown } from './utils/port-manager.ts';
 import { jobRepository } from '../sidequest/core/job-repository.ts';
+import type { ParsedJob } from '../sidequest/core/database.ts';
 import { getPipelineName } from '../sidequest/utils/pipeline-names.ts';
 import { workerRegistry } from './utils/worker-registry.ts';
 import fs from 'fs/promises';
@@ -198,7 +199,7 @@ app.get('/api/status', (req: Request, res: Response) => {
     const runningJobs = jobRepository.getAllJobs({ status: 'running', limit: 20 });
     const queuedJobs2 = jobRepository.getAllJobs({ status: 'queued', limit: 20 });
 
-    const mapJobForApi = (job: any) => ({
+    const mapJobForApi = (job: ParsedJob) => ({
       '@type': 'https://schema.org/Action',
       id: job.id,
       pipelineId: job.pipelineId,
@@ -251,7 +252,8 @@ app.get('/api/pipeline-data-flow', async (req: Request, res: Response) => {
 
     // Sanitize HTML to prevent XSS (allow mermaid code blocks)
     const window = new JSDOM('').window;
-    const purify = DOMPurify(window as any);
+    // Cast to unknown first then to the type DOMPurify expects (WindowLike)
+    const purify = DOMPurify(window as unknown as Parameters<typeof DOMPurify>[0]);
     const cleanHtml = purify.sanitize(rawHtml, {
       ADD_TAGS: ['pre', 'code'],
       ADD_ATTR: ['class', 'data-lang']

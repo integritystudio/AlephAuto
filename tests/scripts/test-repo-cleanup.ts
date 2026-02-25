@@ -5,10 +5,7 @@
  */
 
 import { RepoCleanupWorker } from '../../sidequest/workers/repo-cleanup-worker.ts';
-import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 import path from 'path';
-
-const logger = createComponentLogger('TestRepoCleanup');
 
 async function main() {
   console.log('Testing RepoCleanupWorker...\n');
@@ -37,7 +34,7 @@ async function main() {
 
   // Test 3: Listen for job events
   console.log('Test 3: Test job events');
-  worker.on('job:started', (j) => {
+  worker.on('job:started', (_j) => {
     console.log('✓ Job started event received');
   });
 

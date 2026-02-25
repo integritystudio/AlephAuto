@@ -33,7 +33,7 @@ class RedisMCPClient {
       const { stdout } = await execPromise('redis-cli ping');
       this.connected = stdout.trim() === 'PONG';
       return this.connected;
-    } catch (error) {
+    } catch (_error) {
       this.connected = false;
       return false;
     }
@@ -56,7 +56,7 @@ class RedisMCPClient {
       const { stdout } = await execPromise(`redis-cli HGET "${name}" "${key}"`);
       const result = stdout.trim();
       return result === '(nil)' ? null : result;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -76,7 +76,7 @@ class RedisMCPClient {
       const { stdout } = await execPromise(`redis-cli --scan --pattern "${pattern}"`);
       const keys = stdout.trim().split('\n').filter(k => k.length > 0);
       return keys;
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -96,7 +96,7 @@ class RedisMCPClient {
       const { stdout } = await execPromise(`redis-cli LRANGE "${name}" ${start} ${stop}`);
       const lines = stdout.trim().split('\n').filter(l => l.length > 0);
       return lines;
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -485,7 +485,7 @@ describe('CachedScanner Integration Tests', { skip: isCI ? 'Requires running Red
     if (tempRepo) {
       try {
         await fs.rm(tempRepo, { recursive: true, force: true });
-      } catch (error) {
+      } catch (_error) {
         // Ignore cleanup errors
       }
     }

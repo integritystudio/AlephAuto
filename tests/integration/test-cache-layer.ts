@@ -19,7 +19,7 @@ const logger = createComponentLogger('TestCacheLayer');
 
 // Redis MCP client - mock for testing without Redis
 const mockRedisClient = {
-  async hset({ name, key, value, expire_seconds }) {
+  async hset({ name, key, value: _value, expire_seconds: _expire_seconds }) {
     logger.debug({ name, key }, 'Mock Redis: HSET');
     return true;
   },
@@ -44,7 +44,7 @@ const mockRedisClient = {
     return [];
   },
 
-  async lpush({ name, value, expire }) {
+  async lpush({ name, value: _value, expire: _expire }) {
     logger.debug({ name }, 'Mock Redis: LPUSH');
     return true;
   },

@@ -9,7 +9,7 @@
  * - Verify all pipelines can be syntax-checked with node --check
  */
 
-import { describe, it, beforeEach, afterEach } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -85,7 +85,7 @@ describe('Pipeline Execution - Integration Tests', () => {
     }
 
     // Execute directly (shebang should work)
-    const { stdout, stderr } = await execAsync(
+    const { stdout: _stdout, stderr } = await execAsync(
       `"${pipelinePath}" --version || true`,
       {
         cwd: projectRoot,
@@ -155,7 +155,7 @@ describe('Pipeline Execution - Integration Tests', () => {
     // Check if ecosystem file exists
     try {
       await fs.access(ecosystemPath);
-    } catch (error) {
+    } catch (_error) {
       // config/ecosystem.config.cjs might not exist, skip test
       return;
     }

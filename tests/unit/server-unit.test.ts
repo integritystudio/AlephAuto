@@ -7,7 +7,7 @@
  */
 
 // @ts-nocheck
-import { describe, it, before, after, beforeEach, afterEach, mock } from 'node:test';
+import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { SidequestServer } from '../../sidequest/core/server.ts';
 import { initDatabase, closeDatabase } from '../../sidequest/core/database.ts';
@@ -600,10 +600,10 @@ describe('SidequestServer - resumeJob', () => {
 describe('SidequestServer - handleJob setter', () => {
   it('should allow setting job handler via property', () => {
     const server = new TestSidequestServer();
-    let handlerCalled = false;
+    let _handlerCalled = false;
 
-    server.handleJob = async (job) => {
-      handlerCalled = true;
+    server.handleJob = async (_job) => {
+      _handlerCalled = true;
       return { handled: true };
     };
 

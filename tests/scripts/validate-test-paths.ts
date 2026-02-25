@@ -147,7 +147,7 @@ ${index + 1}. ${issue.file}:${issue.line}:${issue.column}
 /**
  * Main validation function
  */
-async function validate(options = {}) {
+async function validate(_options = {}) {
   console.log('🔍 Scanning test files for hardcoded paths...\n');
 
   const issues = await scanAllTests();

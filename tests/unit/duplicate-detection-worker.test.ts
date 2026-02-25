@@ -4,7 +4,7 @@
  * Tests for the duplicate detection worker that handles scanning jobs.
  */
 
-import { describe, it, beforeEach, afterEach, mock } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { DuplicateDetectionWorker } from '../../sidequest/workers/duplicate-detection-worker.ts';
 

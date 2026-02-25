@@ -27,7 +27,7 @@ const TESTS_TO_RUN = {
 /**
  * Wait for a condition to be true
  */
-async function waitFor(conditionFn, timeout = 30000, interval = 500) {
+async function _waitFor(conditionFn, timeout = 30000, interval = 500) {
   const startTime = Date.now();
   while (Date.now() - startTime < timeout) {
     if (await conditionFn()) {
@@ -85,7 +85,7 @@ async function testRetryableError() {
   await testRepo.cleanup();
 
   // Trigger scan on non-existent directory
-  const scanId = await triggerFailingScan(repoPath);
+  const _scanId = await triggerFailingScan(repoPath);
 
   // Wait for retry to be scheduled
   await new Promise(resolve => setTimeout(resolve, 2000));

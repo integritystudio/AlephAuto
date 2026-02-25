@@ -32,7 +32,7 @@ describe('GET /api/status Integration Tests', { skip: isCI ? 'Requires running A
   let db;
 
   // Helper to get current pipeline counts from database
-  function getExpectedPipelines() {
+  function _getExpectedPipelines() {
     return db.prepare(`
       SELECT
         pipeline_id,

@@ -296,7 +296,7 @@ describe('Deployment Workflow Tests', () => {
   });
 
   describe('4. Doppler Integration', () => {
-    let installScript;
+    let _installScript;
     let restartScript;
 
     beforeEach(() => {
@@ -306,7 +306,7 @@ describe('Deployment Workflow Tests', () => {
       const restartStep = workflowConfig.jobs.deploy.steps.find(
         s => s.name === 'Restart services with PM2'
       );
-      installScript = installStep?.with?.script || installStep?.script || '';
+      _installScript = installStep?.with?.script || installStep?.script || '';
       restartScript = restartStep?.with?.script || restartStep?.script || '';
     });
 

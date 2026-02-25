@@ -1,6 +1,5 @@
 import { EventEmitter } from 'events';
 import { SidequestServer } from '../../sidequest/core/server.ts';
-import type * as SentryTypes from '@sentry/node';
 
 interface TestWorkerOptions {
   jobType?: string;

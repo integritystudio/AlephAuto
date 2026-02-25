@@ -22,7 +22,7 @@ describe('ScanEventBroadcaster', () => {
       broadcast: mock.fn((message, filter) => {
         broadcastedMessages.push({ message, filter });
       }),
-      sendToClient: mock.fn((clientId, message) => {
+      sendToClient: mock.fn((_clientId, _message) => {
         return true;
       }),
       getClientInfo: mock.fn(() => ({

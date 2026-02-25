@@ -69,15 +69,15 @@ export interface ScanConfig {
     includeTests?: boolean;
     maxDepth?: number;
     excludePaths?: string[];
-    [key: string]: any;
+    [key: string]: unknown;
   };
   pattern_config?: {
     rulesDirectory?: string;
     configPath?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   generateReports?: boolean;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -214,14 +214,14 @@ export interface ReportOptions {
  * Scan orchestrator constructor options
  */
 export interface ScanOrchestratorOptions {
-  scanner?: Record<string, any>;
-  detector?: Record<string, any>;
+  scanner?: Record<string, unknown>;
+  detector?: Record<string, unknown>;
   pythonPath?: string;
   extractorScript?: string;
   reports?: ReportOptions;
   outputDir?: string;
   autoGenerateReports?: boolean;
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
 }
 
 /**
@@ -291,7 +291,7 @@ interface RepositoryScanOutput {
     totalLines: number;
     languages: string[];
   };
-  repomix_output?: any;
+  repomix_output?: unknown;
 }
 
 /**
@@ -324,7 +324,7 @@ export class ScanOrchestrator {
   private readonly reportConfig: ReportOptions;
   private readonly outputDir: string;
   private readonly autoGenerateReports: boolean;
-  private readonly config: Record<string, any>;
+  private readonly config: Record<string, unknown>;
 
   constructor(options: ScanOrchestratorOptions = {}) {
     // JavaScript components
@@ -342,7 +342,7 @@ export class ScanOrchestrator {
     } else {
       // Defer Python detection/validation until first scan
       // This allows server to start without Python for health checks
-      this.pythonPath = null as any;
+      this.pythonPath = null as unknown as string;
       this._pythonValidated = false;
     }
 
@@ -755,7 +755,12 @@ export class ScanOrchestrator {
 
     try {
       // Delegate to InterProjectScanner for full cross-repository analysis
-      const interProjectResult = await interProjectScanner.scanRepositories(repoPaths, scanConfig) as any;
+      const interProjectResult = await interProjectScanner.scanRepositories(repoPaths, scanConfig) as unknown as {
+        repository_scans: Array<{ error?: string; repository_path: string; scan_result?: ScanResult }>;
+        cross_repository_duplicates?: CrossRepositoryDuplicate[];
+        cross_repository_suggestions?: CrossRepositorySuggestion[];
+        metrics?: ScanMetrics;
+      };
 
       // Transform InterProjectScanner result to MultiRepositoryScanResult
       const results: Array<ScanResult | { error: string; repository_path: string }> = [];
@@ -824,7 +829,7 @@ export class ScanError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
     super(message);
     if (options?.cause) {
-      (this as any).cause = options.cause;
+      (this as unknown as Record<string, unknown>).cause = options.cause;
     }
     this.name = 'ScanError';
   }

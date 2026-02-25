@@ -12,11 +12,9 @@
 
 import { GitignoreWorker } from '../../sidequest/workers/gitignore-worker.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
-import { createMultipleTempRepositories } from '../fixtures/test-helpers.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import assert from 'assert';
 
 const logger = createComponentLogger('GitignoreManagerTest');
 

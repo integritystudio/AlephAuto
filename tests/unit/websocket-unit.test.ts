@@ -13,7 +13,7 @@ import { EventEmitter } from 'events';
 import { createWebSocketServer } from '../../api/websocket.ts';
 
 // Mock WebSocket client
-class MockWebSocket extends EventEmitter {
+class _MockWebSocket extends EventEmitter {
   constructor() {
     super();
     this.readyState = 1; // OPEN
@@ -43,7 +43,7 @@ class MockHttpServer extends EventEmitter {
 }
 
 // Mock WebSocketServer (ws library)
-class MockWSS extends EventEmitter {
+class _MockWSS extends EventEmitter {
   constructor() {
     super();
     this.clients = new Set();
@@ -123,7 +123,7 @@ describe('WebSocket Server - Unit Tests', () => {
       wss = createWebSocketServer(mockHttpServer);
 
       assert.doesNotThrow(() => {
-        wss.broadcast({ type: 'test' }, (client, clientId) => true);
+        wss.broadcast({ type: 'test' }, (_client, _clientId) => true);
       });
     });
   });

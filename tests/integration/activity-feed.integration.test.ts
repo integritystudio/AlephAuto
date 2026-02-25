@@ -29,7 +29,7 @@ describe('Activity Feed - Integration Tests', () => {
   let broadcaster;
   let broadcastedMessages = [];
   const sentryEvents = [];
-  const sentryBreadcrumbs = [];
+  const _sentryBreadcrumbs = [];
 
   beforeEach(async () => {
     // Initialize database FIRST (it's async)
@@ -76,7 +76,7 @@ describe('Activity Feed - Integration Tests', () => {
     });
 
     // Define handler that throws Error
-    worker.handleJob = async (job) => {
+    worker.handleJob = async (_job) => {
       const error = new Error('Database connection failed');
       error.code = 'ECONNREFUSED';
       error.retryable = true;
@@ -183,7 +183,7 @@ describe('Activity Feed - Integration Tests', () => {
     }
 
     let failureCount = 0;
-    worker.handleJob = async (job) => {
+    worker.handleJob = async (_job) => {
       failureCount++;
       const error = new Error(`Failure ${failureCount}`);
       error.code = `ERR_${failureCount}`;
@@ -201,7 +201,7 @@ describe('Activity Feed - Integration Tests', () => {
     assert.equal(failedActivities.length, 10, 'Should record all 10 failures');
 
     // Verify each job has its activity
-    jobIds.forEach((jobId, index) => {
+    jobIds.forEach((jobId, _index) => {
       const activity = failedActivities.find(a => a.jobId === jobId);
       assert(activity, `Should have activity for job ${jobId}`);
     });
@@ -232,7 +232,7 @@ describe('Activity Feed - Integration Tests', () => {
       throw new Error('WebSocket broadcast failed');
     };
 
-    worker.handleJob = async (job) => {
+    worker.handleJob = async (_job) => {
       throw new Error('Job execution failed');
     };
 
@@ -263,7 +263,7 @@ describe('Activity Feed - Integration Tests', () => {
     });
 
     // Handler that succeeds
-    worker.handleJob = async (job) => {
+    worker.handleJob = async (_job) => {
       return {
         success: true,
         duration_seconds: 1.5,
@@ -296,7 +296,7 @@ describe('Activity Feed - Integration Tests', () => {
     assert(completed.duration, 'Should include duration');
 
     // Verify order: completed → started → created (newest first)
-    const activityIds = [created.id, started.id, completed.id];
+    const _activityIds = [created.id, started.id, completed.id];
     assert(completed.id > started.id, 'Completed should have higher ID than started');
     assert(started.id > created.id, 'Started should have higher ID than created');
   });
@@ -319,7 +319,7 @@ describe('Activity Feed - Integration Tests', () => {
     });
 
     let attempts = 0;
-    worker.handleJob = async (job) => {
+    worker.handleJob = async (_job) => {
       attempts++;
       if (attempts === 1) {
         const error = new Error('Temporary failure');

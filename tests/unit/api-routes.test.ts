@@ -2,12 +2,10 @@ import { test, describe, before, after, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert';
 import request from 'supertest';
 import express from 'express';
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = path.join(__dirname, '../../data/jobs.db');
 
 // Dynamic imports to control initialization order
 let scanRoutes, worker, repositoryRoutes, reportRoutes;

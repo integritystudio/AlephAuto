@@ -49,7 +49,7 @@ describe('DopplerResilience', () => {
     // Cleanup test cache directory
     try {
       await fs.rm(testCacheDir, { recursive: true, force: true });
-    } catch (error) {
+    } catch (_error) {
       // Ignore cleanup errors
     }
   });

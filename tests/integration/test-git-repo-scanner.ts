@@ -65,7 +65,7 @@ async function testGitRepoScanner() {
 
 // Run the test
 testGitRepoScanner()
-  .then((result) => {
+  .then((_result) => {
     console.log('\n✅ Test completed successfully');
     process.exit(0);
   })

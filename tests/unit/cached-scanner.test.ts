@@ -6,7 +6,7 @@
  */
 
 // @ts-nocheck
-import { describe, it, beforeEach } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanner.ts';
 
@@ -59,7 +59,7 @@ class MockCache {
     return this.cache.has(key);
   }
 
-  async getCacheAge(repoPath, commitHash) {
+  async getCacheAge(_repoPath, _commitHash) {
     return 3600000; // 1 hour
   }
 
@@ -88,8 +88,8 @@ class MockCache {
   }
 }
 
-class MockScanner {
-  async scanRepository(repoPath, options) {
+class _MockScanner {
+  async scanRepository(repoPath, _options) {
     return {
       repository_info: {
         path: repoPath,
@@ -438,7 +438,7 @@ describe('CachedScanner - Integration Behavior', () => {
 describe('CachedScanner - warmCache', () => {
   // Mock scanner that always succeeds
   class SuccessScanner {
-    async scanRepository(repoPath, options) {
+    async scanRepository(repoPath, _options) {
       return {
         repository_info: { path: repoPath },
         metrics: { total_duplicate_groups: 1 }
@@ -448,7 +448,7 @@ describe('CachedScanner - warmCache', () => {
 
   // Mock scanner that always fails
   class FailingScanner {
-    async scanRepository(repoPath, options) {
+    async scanRepository(_repoPath, _options) {
       throw new Error('Simulated scan failure');
     }
   }
@@ -495,7 +495,7 @@ describe('CachedScanner - warmCache', () => {
   it('should continue after individual failures', async () => {
     let callCount = 0;
     class MixedScanner {
-      async scanRepository(repoPath, options) {
+      async scanRepository(repoPath, _options) {
         callCount++;
         if (callCount === 2) {
           throw new Error('Fails on second repo');

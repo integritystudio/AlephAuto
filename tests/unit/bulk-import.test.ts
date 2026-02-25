@@ -12,14 +12,12 @@
  */
 
 // @ts-nocheck
-import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
+import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
   initDatabase,
   isDatabaseReady,
-  saveJob,
-  getJobs,
   getAllJobs,
   bulkImportJobs,
   closeDatabase

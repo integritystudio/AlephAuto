@@ -44,7 +44,7 @@ describe('Doppler Resilience - Integration Tests', () => {
     // Cleanup real cache directory
     try {
       await fs.rm(testCacheDir, { recursive: true, force: true });
-    } catch (error) {
+    } catch (_error) {
       // Ignore cleanup errors
     }
   });
@@ -58,9 +58,9 @@ describe('Doppler Resilience - Integration Tests', () => {
     });
 
     // Simulate Doppler API failures
-    let callCount = 0;
+    let _callCount = 0;
     doppler.fetchFromDoppler = async () => {
-      callCount++;
+      _callCount++;
       throw new Error('HTTP 500: Doppler API Internal Server Error');
     };
 

@@ -90,7 +90,7 @@ const data = { foo: 'bar' };
 writeJsonFile('output.json', data);
       `.trim());
 
-      const result = await transformer.applyMigrationSteps(suggestion, tempDir);
+      await transformer.applyMigrationSteps(suggestion, tempDir);
 
       // Read transformed file
       const transformed = await fs.readFile(testFile, 'utf-8');
@@ -122,7 +122,7 @@ legacyWrite(data);
         ]
       };
 
-      const result = await transformer.applyMigrationSteps(suggestion, tempDir);
+      await transformer.applyMigrationSteps(suggestion, tempDir);
 
       // Read transformed file
       const transformed = await fs.readFile(testFile, 'utf-8');
@@ -155,7 +155,7 @@ function otherFunction() {
 }
       `.trim());
 
-      const result = await transformer.applyMigrationSteps(suggestion, tempDir);
+      await transformer.applyMigrationSteps(suggestion, tempDir);
 
       // Read transformed file
       const transformed = await fs.readFile(testFile, 'utf-8');
@@ -334,7 +334,7 @@ const result = legacyHelper(1, 2);
       };
 
       // This should complete without throwing (just no transformations)
-      const result = await transformer.applyMigrationSteps(suggestion, tempDir);
+      await transformer.applyMigrationSteps(suggestion, tempDir);
 
       // File should remain unchanged
       const fileContent = await fs.readFile(testFile, 'utf-8');

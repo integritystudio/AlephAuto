@@ -14,7 +14,7 @@
  * 4. Graceful shutdown closes ports properly
  */
 
-import { describe, it, beforeEach, afterEach, mock } from 'node:test';
+import { describe, it, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'http';
 import {
@@ -275,9 +275,9 @@ describe('Port Manager - Integration Tests', () => {
     const startPort = await findAvailablePort(9800, 9900);
     await new Promise(resolve => server.listen(startPort, resolve));
 
-    let customShutdownCalled = false;
+    let _customShutdownCalled = false;
     const customHandler = async (signal) => {
-      customShutdownCalled = true;
+      _customShutdownCalled = true;
       assert(signal, 'Signal should be provided to handler');
     };
 

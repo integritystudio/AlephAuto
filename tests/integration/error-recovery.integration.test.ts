@@ -63,7 +63,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     // Cleanup cache directory
     try {
       await fs.rm(testCacheDir, { recursive: true, force: true });
-    } catch (error) {
+    } catch (_error) {
       // Ignore
     }
   });
@@ -128,7 +128,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     // Create broadcaster that throws errors
     let broadcastCallCount = 0;
     const faultyBroadcaster = {
-      broadcast: (message, channel) => {
+      broadcast: (_message, _channel) => {
         broadcastCallCount++;
         if (broadcastCallCount <= 2) {
           throw new Error('WebSocket broadcast failed');
@@ -173,8 +173,8 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     assert.equal(server.listening, true);
 
     // Create jobs that will trigger activity feed (broadcaster will fail initially)
-    const jobId1 = worker.createJob({ type: 'test' });
-    const jobId2 = worker.createJob({ type: 'test' });
+    const _jobId1 = worker.createJob({ type: 'test' });
+    const _jobId2 = worker.createJob({ type: 'test' });
 
     worker.handleJob = async () => {
       throw new Error('Test failure');
@@ -187,7 +187,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
 
     // Despite broadcaster errors, activities should still be tracked internally
     const activities = activityFeed.getRecentActivities(10);
-    const failedJobs = activities.filter(a => a.type === 'job:failed');
+    const _failedJobs = activities.filter(a => a.type === 'job:failed');
 
     // Activities are added even if broadcast fails (errors are caught)
     // But addActivity itself will throw, so activities won't be added
@@ -221,7 +221,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     }
 
     // 3. Activity feed with failing broadcaster
-    const broadcaster = {
+    const _broadcaster = {
       broadcast: () => {
         throw new Error('Broadcast failed');
       }
@@ -314,7 +314,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
       JOBS_API_PORT: '9500'
     });
 
-    const secrets = await doppler.getSecrets();
+    const _secrets = await doppler.getSecrets();
     assert.equal(doppler.getState(), 'CLOSED', 'Doppler should work');
 
     // Port manager works (finds available port)
@@ -347,7 +347,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
         type: 'test',
         message: 'Test activity'
       });
-    } catch (error) {
+    } catch (_error) {
       // Expected to fail
     }
 

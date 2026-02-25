@@ -78,7 +78,7 @@ export function validateQuery(schema: ZodSchema) {
     try {
       const validated = schema.parse(req.query);
       // Store in custom property since req.query is read-only
-      (req as any).validatedQuery = validated;
+      (req as Request & { validatedQuery: unknown }).validatedQuery = validated;
       next();
     } catch (error) {
       if (error instanceof ZodError) {

@@ -48,7 +48,7 @@ router.get(
   ) => {
     const { pipelineId } = req.params;
     // Use validatedQuery from validation middleware
-    const { status, limit, offset, tab } = (req as any).validatedQuery as JobQueryParams;
+    const { status, limit, offset, tab } = (req as unknown as { validatedQuery: JobQueryParams }).validatedQuery;
 
     try {
       logger.info({
@@ -194,48 +194,49 @@ async function fetchJobsForPipeline(
   });
 
   // Extract jobs and total from database result
-  const dbJobs = (dbResult as any).jobs || [];
-  const totalCount = (dbResult as any).total || 0;
+  const dbResult2 = dbResult as Record<string, unknown>;
+  const dbJobs = (dbResult2.jobs as Record<string, unknown>[]) || [];
+  const totalCount = (dbResult2.total as number) || 0;
 
   // Map database schema to API response schema
   // Include all fields needed by the dashboard modal
-  const jobs: JobDetails[] = dbJobs.map((dbJob: any) => {
+  const jobs: JobDetails[] = dbJobs.map((dbJob: Record<string, unknown>) => {
     const job: JobDetails = {
-      id: dbJob.id,
-      pipelineId: dbJob.pipelineId,
-      status: dbJob.status,
-      startTime: dbJob.startedAt || dbJob.createdAt,
-      createdAt: dbJob.createdAt, // Needed for timeline display
+      id: dbJob.id as string,
+      pipelineId: dbJob.pipelineId as string,
+      status: dbJob.status as JobDetails['status'],
+      startTime: (dbJob.startedAt ?? dbJob.createdAt) as string,
+      createdAt: dbJob.createdAt as string | undefined, // Needed for timeline display
     };
 
     // Add optional fields only if they exist
     if (dbJob.data) {
-      job.parameters = dbJob.data;
+      job.parameters = dbJob.data as Record<string, unknown>;
     }
 
     // Add endTime and duration if job is completed
     if (dbJob.completedAt) {
-      job.endTime = dbJob.completedAt;
+      job.endTime = dbJob.completedAt as string;
 
       // Calculate duration in milliseconds
-      const start = new Date(dbJob.startedAt || dbJob.createdAt).getTime();
-      const end = new Date(dbJob.completedAt).getTime();
+      const start = new Date((dbJob.startedAt ?? dbJob.createdAt) as string).getTime();
+      const end = new Date(dbJob.completedAt as string).getTime();
       job.duration = end - start;
     }
 
     // Add result data
     if (dbJob.result) {
-      job.result = { ...dbJob.result };
+      job.result = { ...(dbJob.result as Record<string, unknown>) };
     }
 
     // Add error at top level (modal checks job.error, not job.result.error)
     if (dbJob.error) {
-      job.error = dbJob.error;
+      job.error = dbJob.error as JobDetails['error'];
     }
 
     // Add git info if available (needed for git workflow display in modal)
     if (dbJob.git) {
-      job.git = dbJob.git;
+      job.git = dbJob.git as JobDetails['git'];
     }
 
     return job;

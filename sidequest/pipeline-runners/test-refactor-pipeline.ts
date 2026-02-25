@@ -12,6 +12,7 @@
  */
 
 import { TestRefactorWorker } from '../workers/test-refactor-worker.ts';
+import type { Job as BaseJob } from '../core/server.ts';
 import { DirectoryScanner } from '../utils/directory-scanner.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
@@ -69,31 +70,31 @@ async function runPipeline(targetPath: string | null = null): Promise<PipelineRe
   });
 
   // Set up event handlers
-  worker.on('job:created', ((job: any) => {
-    logger.debug({ jobId: job.id, project: job.data.repository }, 'Job created');
-  }) as (...args: any[]) => void);
+  worker.on('job:created', (job: BaseJob) => {
+    logger.debug({ jobId: job.id, project: job.data['repository'] }, 'Job created');
+  });
 
-  worker.on('job:started', ((job: any) => {
-    logger.info({ jobId: job.id, project: job.data.repository }, 'Job started');
-  }) as (...args: any[]) => void);
+  worker.on('job:started', (job: BaseJob) => {
+    logger.info({ jobId: job.id, project: job.data['repository'] }, 'Job started');
+  });
 
-  worker.on('job:completed', ((job: any) => {
-    const result = job.result;
+  worker.on('job:completed', (job: BaseJob) => {
+    const result = job.result as { generatedFiles?: unknown[]; recommendations?: unknown[] } | null;
     logger.info({
       jobId: job.id,
-      project: job.data.repository,
-      filesGenerated: result.generatedFiles?.length || 0,
-      recommendations: result.recommendations?.length || 0
+      project: job.data['repository'],
+      filesGenerated: result?.generatedFiles?.length || 0,
+      recommendations: result?.recommendations?.length || 0
     }, 'Job completed');
-  }) as (...args: any[]) => void);
+  });
 
-  worker.on('job:failed', ((job: any, error: Error) => {
+  worker.on('job:failed', (job: BaseJob, error: Error) => {
     logger.error({
       jobId: job.id,
-      project: job.data.repository,
+      project: job.data['repository'],
       error: error.message
     }, 'Job failed');
-  }) as (...args: any[]) => void);
+  });
 
   try {
     if (targetPath) {

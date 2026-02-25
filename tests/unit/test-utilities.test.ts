@@ -36,7 +36,7 @@ describe('Test Utilities - Validation', () => {
 
     it('should allow setting a custom handler', () => {
       worker = new TestWorker();
-      const handler = async (job) => ({ success: true });
+      const handler = async (_job) => ({ success: true });
       worker.setHandler(handler);
       assert.ok(worker._testHandler);
     });
@@ -200,7 +200,7 @@ describe('Test Utilities - Validation', () => {
 
     it('should track spans', async () => {
       const mock = createSentryMock();
-      const result = await mock.startSpan({ name: 'test-span' }, async (span) => {
+      const result = await mock.startSpan({ name: 'test-span' }, async (_span) => {
         return 'test-result';
       });
 

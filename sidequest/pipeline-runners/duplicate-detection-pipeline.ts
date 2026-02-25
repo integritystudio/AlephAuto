@@ -80,7 +80,7 @@ export interface Job {
   startedAt: Date | null;
   completedAt: Date | null;
   error: Error | null;
-  result: any;
+  result: JobResult | null;
 }
 
 /**
@@ -134,18 +134,18 @@ export interface ScanResult {
   scan_type: 'single-project' | 'inter-project' | 'intra-project';
   scan_metadata?: {
     duration_seconds: number;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   metrics: {
     total_duplicate_groups?: number;
     total_cross_repository_groups?: number;
     total_suggestions?: number;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   duplicate_groups?: DuplicateGroup[];
   cross_repository_duplicates?: DuplicateGroup[];
   suggestions?: Suggestion[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -158,7 +158,7 @@ export interface DuplicateGroup {
     path: string;
     repository?: string;
   }>;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -169,7 +169,7 @@ export interface Suggestion {
   type: string;
   impact: number;
   files: string[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -180,7 +180,7 @@ export interface PRCreationResult {
   prUrls: string[];
   errors: Array<{
     message: string;
-    [key: string]: any;
+    [key: string]: unknown;
   }>;
 }
 
@@ -258,7 +258,7 @@ class DuplicateDetectionWorker extends SidequestServer {
       sentryDsn: options.sentryDsn
     });
 
-    this.configLoader = new RepositoryConfigLoader(options.configPath as any);
+    this.configLoader = new RepositoryConfigLoader(options.configPath as string);
     this.interProjectScanner = new InterProjectScanner({
       outputDir: path.join(process.cwd(), 'output', 'automated-scans')
     });
@@ -266,7 +266,7 @@ class DuplicateDetectionWorker extends SidequestServer {
     // (venv for local dev, system Python for CI/production)
     this.orchestrator = new ScanOrchestrator({});
     this.reportCoordinator = new ReportCoordinator(
-      path.join(process.cwd(), 'output', 'reports') as any
+      path.join(process.cwd(), 'output', 'reports')
     );
     this.prCreator = new PRCreator({
       baseBranch: options.baseBranch || 'main',
@@ -376,7 +376,15 @@ class DuplicateDetectionWorker extends SidequestServer {
     const originalJobId = this._getOriginalJobId(job.id);
 
     // Classify error to determine if retry is appropriate
-    const errorInfo = getErrorInfo(error) as any;
+    const errorInfo = getErrorInfo(error) as unknown as {
+      retryable: boolean;
+      code?: string;
+      message?: string;
+      category?: string;
+      reason?: string;
+      suggestedDelay?: number;
+    };
+    const errorCode = (error as NodeJS.ErrnoException).code;
 
     if (!errorInfo.retryable) {
       logger.warn({
@@ -419,7 +427,7 @@ class DuplicateDetectionWorker extends SidequestServer {
         tags: {
           component: 'retry-logic',
           jobId: originalJobId,
-          errorType: (error as any).code || error.name
+          errorType: errorCode || error.name
         },
         extra: {
           jobId: job.id,
@@ -451,7 +459,7 @@ class DuplicateDetectionWorker extends SidequestServer {
         tags: {
           component: 'retry-logic',
           jobId: originalJobId,
-          errorType: (error as any).code || error.name
+          errorType: errorCode || error.name
         },
         extra: {
           jobId: job.id,
@@ -475,7 +483,7 @@ class DuplicateDetectionWorker extends SidequestServer {
         tags: {
           component: 'retry-logic',
           jobId: originalJobId,
-          errorType: (error as any).code || error.name
+          errorType: errorCode || error.name
         },
         extra: {
           jobId: job.id,
@@ -879,7 +887,7 @@ class DuplicateDetectionWorker extends SidequestServer {
   /**
    * Get scan metrics
    */
-  public getScanMetrics(): ScanMetrics & { queueStats: any; retryMetrics: RetryMetrics } {
+  public getScanMetrics(): ScanMetrics & { queueStats: unknown; retryMetrics: RetryMetrics } {
     return {
       ...this.scanMetrics,
       // @ts-ignore - getStats is inherited from SidequestServer
@@ -893,7 +901,8 @@ class DuplicateDetectionWorker extends SidequestServer {
  * Main execution
  */
 async function main(): Promise<void> {
-  const cronSchedule = (config as any).duplicateScanCronSchedule || process.env.DUPLICATE_SCAN_CRON_SCHEDULE || '0 2 * * *';
+  const extendedConfig = config as unknown as Record<string, unknown>;
+  const cronSchedule = (extendedConfig.duplicateScanCronSchedule as string | undefined) || process.env.DUPLICATE_SCAN_CRON_SCHEDULE || '0 2 * * *';
   const runOnStartup = process.env.RUN_ON_STARTUP === 'true';
 
   console.log('╔══════════════════════════════════════════════════════════╗');
@@ -903,7 +912,7 @@ async function main(): Promise<void> {
   try {
     // Initialize worker
     const worker = new DuplicateDetectionWorker({
-      maxConcurrentScans: (config as any).maxConcurrentDuplicateScans || 3
+      maxConcurrentScans: (extendedConfig.maxConcurrentDuplicateScans as number | undefined) || 3
     });
 
     await worker.initialize();

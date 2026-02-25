@@ -12,8 +12,6 @@
 // @ts-nocheck
 import { createTempRepository } from '../fixtures/test-helpers.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
-import fs from 'fs/promises';
-import path from 'path';
 
 const logger = createComponentLogger('ErrorClassificationTest');
 
@@ -28,7 +26,7 @@ const TESTS_TO_RUN = {
 /**
  * Wait for a condition to be true
  */
-async function waitFor(conditionFn, timeout = 30000, interval = 500) {
+async function _waitFor(conditionFn, timeout = 30000, interval = 500) {
   const startTime = Date.now();
   while (Date.now() - startTime < timeout) {
     if (await conditionFn()) {
@@ -244,7 +242,7 @@ async function testActivityFeed() {
 
   // Trigger an actual scan job (not validation error) to populate activity feed
   // Use a valid path format but non-existent path to trigger a job failure
-  const result = await triggerScan('/tmp/non-existent-repo-12345');
+  const _result = await triggerScan('/tmp/non-existent-repo-12345');
 
   // Wait for job to be created and fail
   await new Promise(resolve => setTimeout(resolve, 2000));

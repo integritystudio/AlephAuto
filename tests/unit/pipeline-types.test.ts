@@ -11,11 +11,7 @@ import {
   JobQueryParamsSchema,
   JobDetailsSchema,
   JobsListResponseSchema,
-  PipelineDetailsSchema,
   ManualTriggerRequestSchema,
-  ManualTriggerResponseSchema,
-  ErrorResponseSchema,
-  ValidationErrorResponseSchema,
   createErrorResponse,
   createValidationErrorResponse
 } from '../../api/types/pipeline-requests.ts';

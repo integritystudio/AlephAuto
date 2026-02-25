@@ -18,10 +18,16 @@ interface WsClient {
   connectedAt: Date;
 }
 
+export interface WsClientInfo {
+  client_id: string;
+  connected_at: Date;
+  subscriptions: string[];
+}
+
 export interface ExtendedWebSocketServer extends WebSocketServer {
-  broadcast: (message: Record<string, any>, filter?: ((client: WsClient, clientId: string) => boolean) | null) => void;
-  sendToClient: (clientId: string, message: Record<string, any>) => boolean;
-  getClientInfo: () => { total_clients: number; clients: any[] };
+  broadcast: (message: Record<string, unknown>, filter?: ((client: WsClient, clientId: string) => boolean) | null) => void;
+  sendToClient: (clientId: string, message: Record<string, unknown>) => boolean;
+  getClientInfo: () => { total_clients: number; clients: WsClientInfo[] };
 }
 
 /**
@@ -106,7 +112,7 @@ export function createWebSocketServer(httpServer: HttpServer): ExtendedWebSocket
   });
 
   // Broadcast function
-  wss.broadcast = (message: Record<string, any>, filter: ((client: WsClient, clientId: string) => boolean) | null = null) => {
+  wss.broadcast = (message: Record<string, unknown>, filter: ((client: WsClient, clientId: string) => boolean) | null = null) => {
     const data = JSON.stringify(message);
     let sentCount = 0;
 
@@ -130,7 +136,7 @@ export function createWebSocketServer(httpServer: HttpServer): ExtendedWebSocket
   };
 
   // Targeted send function
-  wss.sendToClient = (clientId: string, message: Record<string, any>): boolean => {
+  wss.sendToClient = (clientId: string, message: Record<string, unknown>): boolean => {
     const client = clients.get(clientId);
 
     if (!client) {
@@ -147,7 +153,7 @@ export function createWebSocketServer(httpServer: HttpServer): ExtendedWebSocket
   };
 
   // Get client info
-  wss.getClientInfo = () => {
+  wss.getClientInfo = (): { total_clients: number; clients: WsClientInfo[] } => {
     return {
       total_clients: clients.size,
       clients: Array.from(clients.entries()).map(([id, client]) => ({
@@ -173,7 +179,7 @@ function generateClientId(): string {
 /**
  * Handle client message
  */
-function handleClientMessage(clientId: string, message: Record<string, any>, clients: Map<string, WsClient>): void {
+function handleClientMessage(clientId: string, message: Record<string, unknown>, clients: Map<string, WsClient>): void {
   const client = clients.get(clientId);
 
   if (!client) {
@@ -219,8 +225,8 @@ function handleClientMessage(clientId: string, message: Record<string, any>, cli
 /**
  * Handle subscribe message
  */
-function handleSubscribe(clientId: string, message: Record<string, any>, client: WsClient): void {
-  const { channels = [] } = message;
+function handleSubscribe(clientId: string, message: Record<string, unknown>, client: WsClient): void {
+  const channels = (message.channels as string[]) ?? [];
 
   channels.forEach((channel: string) => {
     client.subscriptions.add(channel);
@@ -243,8 +249,8 @@ function handleSubscribe(clientId: string, message: Record<string, any>, client:
 /**
  * Handle unsubscribe message
  */
-function handleUnsubscribe(clientId: string, message: Record<string, any>, client: WsClient): void {
-  const { channels = [] } = message;
+function handleUnsubscribe(clientId: string, message: Record<string, unknown>, client: WsClient): void {
+  const channels = (message.channels as string[]) ?? [];
 
   channels.forEach((channel: string) => {
     client.subscriptions.delete(channel);

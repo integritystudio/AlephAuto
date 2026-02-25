@@ -1,5 +1,4 @@
 import { RepomixWorker } from '../../sidequest/workers/repomix-worker.ts';
-import { DirectoryScanner } from '../../sidequest/utils/directory-scanner.ts';
 import path from 'path';
 import os from 'os';
 

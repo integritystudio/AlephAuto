@@ -6,17 +6,13 @@
  */
 
 import { RepomixWorker } from '../../sidequest/workers/repomix-worker.ts';
-import { createComponentLogger } from '../../sidequest/logger.ts';
-
-const logger = createComponentLogger('RepomixFixTest');
-
 async function testRepomixFix() {
   console.log('🔍 Testing Repomix Fix...\n');
 
   try {
     // Test 1: Verify RepomixWorker can be instantiated
     console.log('Test 1: Instantiating RepomixWorker...');
-    const worker = new RepomixWorker({
+    const _worker = new RepomixWorker({
       outputBaseDir: './test-output',
       maxConcurrent: 1,
     });
@@ -48,7 +44,7 @@ async function testRepomixFix() {
         console.log(`⚠️  Found ${errorFiles.length} existing error files (from before fix)`);
         console.log('   These should not increase after running repomix jobs\n');
       }
-    } catch (err) {
+    } catch (_err) {
       console.log('⚠️  Could not check logs directory (might not exist yet)\n');
     }
 

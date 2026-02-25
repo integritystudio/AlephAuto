@@ -334,7 +334,7 @@ describe('ReportCoordinator - Edge Cases', () => {
       suggestions: []
     };
 
-    const result = await nestedCoordinator.generateAllReports(scanResult);
+    await nestedCoordinator.generateAllReports(scanResult);
 
     const dirExists = await fs.access(newDir).then(() => true).catch(() => false);
     assert.ok(dirExists, 'Directory should be created');

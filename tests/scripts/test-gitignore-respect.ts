@@ -7,7 +7,6 @@
 import { RepomixWorker } from '../../sidequest/workers/repomix-worker.ts';
 import fs from 'fs/promises';
 import path from 'path';
-import { execSync } from 'child_process';
 import { createTempRepository } from '../fixtures/test-helpers.ts';
 import os from 'os';
 
@@ -56,7 +55,7 @@ async function testGitignoreRespect() {
       maxConcurrent: 1,
     });
 
-    const job1 = worker1.createRepomixJob(testDir, 'gitignore-test');
+    const _job1 = worker1.createRepomixJob(testDir, 'gitignore-test');
 
     await new Promise((resolve) => {
       worker1.on('job:completed', async (job) => {
@@ -91,7 +90,7 @@ async function testGitignoreRespect() {
     });
 
     console.log('\nTest 2: RepomixWorker with additional ignore patterns...');
-    const worker2 = new RepomixWorker({
+    const _worker2 = new RepomixWorker({
       outputBaseDir: outputDir,
       maxConcurrent: 1,
       additionalIgnorePatterns: ['*.log', 'temp/**'],
@@ -125,7 +124,7 @@ async function testGitignoreRespect() {
     try {
       await testRepo.cleanup();
       await fs.rm(outputDir, { recursive: true, force: true });
-    } catch (cleanupError) {
+    } catch (_cleanupError) {
       // Ignore cleanup errors
     }
 

@@ -162,7 +162,7 @@ describe('Report Generator', () => {
         outputDir: nestedDir
       };
 
-      const reportPaths = await generateReport(options);
+      await generateReport(options);
 
       const dirExists = await fs.access(nestedDir).then(() => true).catch(() => false);
       assert.ok(dirExists);

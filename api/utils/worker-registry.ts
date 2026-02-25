@@ -293,8 +293,9 @@ class WorkerRegistry {
       const existingWorker = this._workers.get(pipelineId);
       if (existingWorker) {
         logger.warn({ pipelineId }, 'Duplicate worker detected (unexpected) - shutting down duplicate');
-        if (typeof (worker as any).shutdown === 'function') {
-          await (worker as any).shutdown().catch((shutdownError: Error) => {
+        const workerWithShutdown = worker as unknown as { shutdown?: () => Promise<void> };
+        if (typeof workerWithShutdown.shutdown === 'function') {
+          await workerWithShutdown.shutdown().catch((shutdownError: Error) => {
             logger.error({ error: shutdownError.message, pipelineId }, 'Failed to shutdown duplicate worker');
           });
         }
@@ -316,8 +317,9 @@ class WorkerRegistry {
       return worker;
     } catch (error) {
       // If we created a worker but failed after, clean it up
-      if (worker && typeof (worker as any).shutdown === 'function') {
-        await (worker as any).shutdown().catch((shutdownError: Error) => {
+      const workerWithShutdown = worker as unknown as { shutdown?: () => Promise<void> } | null;
+      if (workerWithShutdown && typeof workerWithShutdown.shutdown === 'function') {
+        await workerWithShutdown.shutdown().catch((shutdownError: Error) => {
           logger.error({ error: shutdownError.message, pipelineId }, 'Failed to cleanup worker after init failure');
         });
       }
@@ -389,9 +391,10 @@ class WorkerRegistry {
     }
 
     // Initialize worker if it has an initialize method
-    if (typeof (worker as any).initialize === 'function') {
+    const workerWithInit = worker as unknown as { initialize?: () => Promise<void> };
+    if (typeof workerWithInit.initialize === 'function') {
       try {
-        await (worker as any).initialize();
+        await workerWithInit.initialize();
       } catch (initError) {
         logError(logger, initError, 'Worker initialize() method failed', { pipelineId });
         throw new Error(`Failed to initialize ${pipelineId} worker: ${(initError as Error).message}`);
@@ -460,8 +463,9 @@ class WorkerRegistry {
    */
   getScanMetrics(pipelineId: string): Record<string, unknown> | null {
     const worker = this._workers.get(pipelineId);
-    if (worker && typeof (worker as any).getScanMetrics === 'function') {
-      return (worker as any).getScanMetrics();
+    const workerWithMetrics = worker as unknown as { getScanMetrics?: () => Record<string, unknown> } | undefined;
+    if (workerWithMetrics && typeof workerWithMetrics.getScanMetrics === 'function') {
+      return workerWithMetrics.getScanMetrics();
     }
     return null;
   }
@@ -484,9 +488,10 @@ class WorkerRegistry {
     const shutdownPromises: Promise<void>[] = [];
 
     for (const [pipelineId, worker] of this._workers.entries()) {
-      if (typeof (worker as any).shutdown === 'function') {
+      const workerWithShutdown = worker as unknown as { shutdown?: () => Promise<void> };
+      if (typeof workerWithShutdown.shutdown === 'function') {
         shutdownPromises.push(
-          (worker as any).shutdown().catch((error: Error) => {
+          workerWithShutdown.shutdown().catch((error: Error) => {
             logError(logger, error, 'Worker shutdown failed', { pipelineId });
           })
         );

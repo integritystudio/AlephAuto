@@ -14,7 +14,6 @@ import {
   setupGracefulShutdown,
   killProcessOnPort
 } from '../../api/utils/port-manager.ts';
-import net from 'net';
 import { createServer } from 'http';
 
 describe('Port Manager', () => {
@@ -22,7 +21,7 @@ describe('Port Manager', () => {
 
   // Track process listeners added by setupGracefulShutdown so we can remove them
   const SHUTDOWN_EVENTS = ['SIGTERM', 'SIGINT', 'SIGHUP', 'uncaughtException', 'unhandledRejection'];
-  let listenerSnapshot: Map<string, Function[]>;
+  let listenerSnapshot: Map<string, ((...args: unknown[]) => void)[]>;
 
   // Helper to create and track servers for cleanup
   const createTestServer = () => {
@@ -310,10 +309,10 @@ describe('Port Manager', () => {
       assert.strictEqual(server.listening, true);
 
       // Setup graceful shutdown
-      let shutdownCalled = false;
+      let _shutdownCalled = false;
       setupGracefulShutdown(server, {
         onShutdown: async () => {
-          shutdownCalled = true;
+          _shutdownCalled = true;
         }
       });
 
@@ -480,11 +479,11 @@ describe('Port Manager', () => {
   describe('setupGracefulShutdown - Extended', () => {
     test('should accept custom onShutdown handler', () => {
       const server = createTestServer();
-      let handlerProvided = false;
+      let _handlerProvided = false;
 
       setupGracefulShutdown(server, {
         onShutdown: async () => {
-          handlerProvided = true;
+          _handlerProvided = true;
         }
       });
 

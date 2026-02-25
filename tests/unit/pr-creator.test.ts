@@ -6,7 +6,7 @@
  */
 
 // @ts-nocheck
-import { describe, it, beforeEach } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { PRCreator } from '../../sidequest/pipeline-core/git/pr-creator.ts';
 

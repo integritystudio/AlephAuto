@@ -6,7 +6,7 @@
 
 import type { ExtendedError } from '../sidequest/pipeline-core/errors/error-classifier.ts';
 import { createComponentLogger } from '../sidequest/utils/logger.ts';
-import type { ExtendedWebSocketServer } from './websocket.ts';
+import type { ExtendedWebSocketServer, WsClientInfo } from './websocket.ts';
 
 const logger = createComponentLogger('EventBroadcaster');
 
@@ -20,7 +20,7 @@ export class ScanEventBroadcaster {
   /**
    * Broadcast scan started event
    */
-  broadcastScanStarted(scanId: string, details: Record<string, any>): void {
+  broadcastScanStarted(scanId: string, details: Record<string, unknown>): void {
     this.broadcast({
       type: 'scan:started',
       scan_id: scanId,
@@ -33,7 +33,7 @@ export class ScanEventBroadcaster {
   /**
    * Broadcast scan progress event
    */
-  broadcastProgress(scanId: string, progress: Record<string, any>): void {
+  broadcastProgress(scanId: string, progress: Record<string, unknown>): void {
     this.broadcast({
       type: 'scan:progress',
       scan_id: scanId,
@@ -50,7 +50,7 @@ export class ScanEventBroadcaster {
   /**
    * Broadcast duplicate found event
    */
-  broadcastDuplicateFound(scanId: string, duplicate: Record<string, any>): void {
+  broadcastDuplicateFound(scanId: string, duplicate: Record<string, unknown>): void {
     this.broadcast({
       type: 'duplicate:found',
       scan_id: scanId,
@@ -60,7 +60,7 @@ export class ScanEventBroadcaster {
         occurrence_count: duplicate.occurrence_count,
         impact_score: duplicate.impact_score,
         similarity_score: duplicate.similarity_score,
-        affected_files: duplicate.affected_files?.slice(0, 5) // Limit to 5 files
+        affected_files: (duplicate.affected_files as unknown[])?.slice(0, 5) // Limit to 5 files
       },
       timestamp: new Date().toISOString()
     }, 'scans');
@@ -69,16 +69,17 @@ export class ScanEventBroadcaster {
   /**
    * Broadcast scan completed event
    */
-  broadcastScanCompleted(scanId: string, results: Record<string, any>): void {
+  broadcastScanCompleted(scanId: string, results: Record<string, unknown>): void {
+    const metrics = results.metrics as Record<string, unknown> | undefined;
     this.broadcast({
       type: 'scan:completed',
       scan_id: scanId,
       duration: results.duration_seconds,
       metrics: {
-        duplicate_groups: results.metrics?.total_duplicate_groups || 0,
-        suggestions: results.metrics?.total_suggestions || 0,
-        duplicated_lines: results.metrics?.total_duplicated_lines || 0,
-        high_impact: results.metrics?.high_impact_duplicates || 0
+        duplicate_groups: (metrics?.total_duplicate_groups as number) || 0,
+        suggestions: (metrics?.total_suggestions as number) || 0,
+        duplicated_lines: (metrics?.total_duplicated_lines as number) || 0,
+        high_impact: (metrics?.high_impact_duplicates as number) || 0
       },
       timestamp: new Date().toISOString()
     }, 'scans');
@@ -103,7 +104,7 @@ export class ScanEventBroadcaster {
   /**
    * Broadcast high-impact duplicate alert
    */
-  broadcastHighImpactAlert(scanId: string, duplicate: Record<string, any>): void {
+  broadcastHighImpactAlert(scanId: string, duplicate: Record<string, unknown>): void {
     this.broadcast({
       type: 'alert:high-impact',
       scan_id: scanId,
@@ -121,7 +122,7 @@ export class ScanEventBroadcaster {
   /**
    * Broadcast cache event
    */
-  broadcastCacheEvent(eventType: string, details: Record<string, any>): void {
+  broadcastCacheEvent(eventType: string, details: Record<string, unknown>): void {
     this.broadcast({
       type: `cache:${eventType}`,
       repository: details.repository,
@@ -134,7 +135,7 @@ export class ScanEventBroadcaster {
   /**
    * Broadcast system stats update
    */
-  broadcastStatsUpdate(stats: Record<string, any>): void {
+  broadcastStatsUpdate(stats: Record<string, unknown>): void {
     this.broadcast({
       type: 'stats:update',
       stats: {
@@ -151,7 +152,7 @@ export class ScanEventBroadcaster {
   /**
    * Broadcast message to subscribed clients
    */
-  broadcast(message: Record<string, any>, channel: string | null = null): void {
+  broadcast(message: Record<string, unknown>, channel: string | null = null): void {
     if (!this.wss) {
       logger.warn('WebSocket server not initialized');
       return;
@@ -159,7 +160,7 @@ export class ScanEventBroadcaster {
 
     // Filter clients by subscription if channel specified
     const filter = channel
-      ? (client: any) => client.subscriptions.has(channel) || client.subscriptions.has('*')
+      ? (client: { subscriptions: Set<string> }) => client.subscriptions.has(channel) || client.subscriptions.has('*')
       : null;
 
     this.wss.broadcast(message, filter);
@@ -173,7 +174,7 @@ export class ScanEventBroadcaster {
   /**
    * Send message to specific client
    */
-  sendToClient(clientId: string, message: Record<string, any>): boolean {
+  sendToClient(clientId: string, message: Record<string, unknown>): boolean {
     if (!this.wss) {
       logger.warn('WebSocket server not initialized');
       return false;
@@ -185,7 +186,7 @@ export class ScanEventBroadcaster {
   /**
    * Get connected clients info
    */
-  getClientInfo(): { total_clients: number; clients: any[] } {
+  getClientInfo(): { total_clients: number; clients: WsClientInfo[] } {
     if (!this.wss) {
       return { total_clients: 0, clients: [] };
     }

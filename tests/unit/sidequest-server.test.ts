@@ -100,7 +100,7 @@ describe('SidequestServer', () => {
         logDir: tempLogDir,
       });
 
-      const job = server.createJob('test-job-1', { foo: 'bar' });
+      const _job = server.createJob('test-job-1', { foo: 'bar' });
 
       // Wait for job to complete
       await new Promise((resolve) => {
