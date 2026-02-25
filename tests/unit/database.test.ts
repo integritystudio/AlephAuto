@@ -765,6 +765,10 @@ describe('Database Edge Cases', () => {
 describe('Database Query Options', () => {
   const queryPipelineId = `query-options-${Date.now()}`;
 
+  before(async () => {
+    await initDatabase(':memory:');
+  });
+
   after(() => {
     closeDatabase();
   });

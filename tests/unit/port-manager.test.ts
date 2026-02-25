@@ -5,7 +5,7 @@
  * graceful shutdown, and process cleanup.
  */
 
-import { describe, test, after, afterEach } from 'node:test';
+import { describe, test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import {
   isPortAvailable,
@@ -19,6 +19,10 @@ import { createServer } from 'http';
 
 describe('Port Manager', () => {
   let servers = [];
+
+  // Track process listeners added by setupGracefulShutdown so we can remove them
+  const SHUTDOWN_EVENTS = ['SIGTERM', 'SIGINT', 'SIGHUP', 'uncaughtException', 'unhandledRejection'];
+  let listenerSnapshot: Map<string, Function[]>;
 
   // Helper to create and track servers for cleanup
   const createTestServer = () => {
@@ -39,8 +43,26 @@ describe('Port Manager', () => {
     });
   };
 
-  // Cleanup servers after EACH test to prevent port conflicts on cleanup failure
+  // Snapshot process listeners before each test so afterEach can remove additions
+  beforeEach(() => {
+    listenerSnapshot = new Map();
+    for (const event of SHUTDOWN_EVENTS) {
+      listenerSnapshot.set(event, [...process.listeners(event)]);
+    }
+  });
+
   afterEach(async () => {
+    // Remove signal listeners added during this test
+    for (const event of SHUTDOWN_EVENTS) {
+      const before = listenerSnapshot.get(event) || [];
+      for (const listener of process.listeners(event)) {
+        if (!before.includes(listener)) {
+          process.removeListener(event, listener as (...args: any[]) => void);
+        }
+      }
+    }
+
+    // Cleanup servers
     await Promise.all(
       servers.map(
         (server) =>

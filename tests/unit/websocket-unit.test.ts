@@ -55,88 +55,85 @@ class MockWSS extends EventEmitter {
 
 describe('WebSocket Server - Unit Tests', () => {
   let mockHttpServer;
+  let wss;
 
   beforeEach(() => {
     mockHttpServer = new MockHttpServer();
+    wss = null;
+  });
+
+  afterEach(async () => {
+    if (wss) {
+      await new Promise((resolve) => wss.close(resolve));
+      wss = null;
+    }
   });
 
   describe('createWebSocketServer', () => {
     it('should return a WebSocket server instance', () => {
-      const wss = createWebSocketServer(mockHttpServer);
+      wss = createWebSocketServer(mockHttpServer);
       assert.ok(wss);
-      wss.close();
     });
 
     it('should add broadcast method to wss', () => {
-      const wss = createWebSocketServer(mockHttpServer);
+      wss = createWebSocketServer(mockHttpServer);
       assert.strictEqual(typeof wss.broadcast, 'function');
-      wss.close();
     });
 
     it('should add sendToClient method to wss', () => {
-      const wss = createWebSocketServer(mockHttpServer);
+      wss = createWebSocketServer(mockHttpServer);
       assert.strictEqual(typeof wss.sendToClient, 'function');
-      wss.close();
     });
 
     it('should add getClientInfo method to wss', () => {
-      const wss = createWebSocketServer(mockHttpServer);
+      wss = createWebSocketServer(mockHttpServer);
       assert.strictEqual(typeof wss.getClientInfo, 'function');
-      wss.close();
     });
   });
 
   describe('getClientInfo', () => {
     it('should return client info structure', () => {
-      const wss = createWebSocketServer(mockHttpServer);
+      wss = createWebSocketServer(mockHttpServer);
       const info = wss.getClientInfo();
 
       assert.ok('total_clients' in info);
       assert.ok('clients' in info);
       assert.ok(Array.isArray(info.clients));
-      wss.close();
     });
 
     it('should return 0 clients initially', () => {
-      const wss = createWebSocketServer(mockHttpServer);
+      wss = createWebSocketServer(mockHttpServer);
       const info = wss.getClientInfo();
 
       assert.strictEqual(info.total_clients, 0);
       assert.strictEqual(info.clients.length, 0);
-      wss.close();
     });
   });
 
   describe('broadcast', () => {
     it('should not throw when no clients connected', () => {
-      const wss = createWebSocketServer(mockHttpServer);
+      wss = createWebSocketServer(mockHttpServer);
 
       assert.doesNotThrow(() => {
         wss.broadcast({ type: 'test', data: 'hello' });
       });
-
-      wss.close();
     });
 
     it('should accept filter function', () => {
-      const wss = createWebSocketServer(mockHttpServer);
+      wss = createWebSocketServer(mockHttpServer);
 
       assert.doesNotThrow(() => {
         wss.broadcast({ type: 'test' }, (client, clientId) => true);
       });
-
-      wss.close();
     });
   });
 
   describe('sendToClient', () => {
     it('should return false for non-existent client', () => {
-      const wss = createWebSocketServer(mockHttpServer);
+      wss = createWebSocketServer(mockHttpServer);
       const result = wss.sendToClient('non-existent-id', { type: 'test' });
 
       assert.strictEqual(result, false);
-      wss.close();
     });
   });
 });
-
