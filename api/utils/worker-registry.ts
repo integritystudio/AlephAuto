@@ -245,6 +245,9 @@ class WorkerRegistry {
       resolveInit = resolve;
       rejectInit = reject;
     });
+    // Suppress unhandled rejection — the error is re-thrown synchronously for
+    // the primary caller; concurrent waiters get it via _initializing.get().
+    initPromise.catch(() => {});
     this._initializing.set(pipelineId, initPromise);
 
     try {
