@@ -2,16 +2,11 @@
  * Pipeline Execution Integration Tests
  *
  * Tests pipeline execution methods:
- * - Execute with `node <script>` → successful
+ * - Verify pipeline runners have correct shebangs
+ * - Verify pipeline runners have execute permissions
  * - Execute with `./<script>` (shebang) → successful
  * - Execute with PM2 → successful
- * - Verify all pipeline runners have correct shebangs
- *
- * Scenarios:
- * 1. Execute pipeline with `node <script>`
- * 2. Execute pipeline with `./<script>` (shebang)
- * 3. Verify all pipeline runners have correct shebangs
- * 4. Verify pipelines can be executed via PM2 ecosystem
+ * - Verify all pipelines can be syntax-checked with node --check
  */
 
 import { describe, it, beforeEach, afterEach } from 'node:test';

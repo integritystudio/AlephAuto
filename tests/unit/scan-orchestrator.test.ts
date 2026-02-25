@@ -6,7 +6,7 @@
 
 import { describe, it, beforeEach, mock } from 'node:test';
 import assert from 'node:assert';
-import { ScanOrchestrator, ScanError } from '../../sidequest/pipeline-core/scan-orchestrator.ts';
+import { ScanOrchestrator, ScanError, type ScanOrchestratorOptions } from '../../sidequest/pipeline-core/scan-orchestrator.ts';
 
 describe('ScanOrchestrator', () => {
   describe('Constructor', () => {
@@ -36,10 +36,11 @@ describe('ScanOrchestrator', () => {
     });
 
     // Parameterized single-option acceptance tests
+    type OrchestratorProp = 'pythonPath' | 'extractorScript' | 'outputDir' | 'autoGenerateReports' | 'reportConfig' | 'config';
     const singleOptionCases: Array<{
       name: string;
-      options: object;
-      prop: string;
+      options: ScanOrchestratorOptions;
+      prop: OrchestratorProp;
       expected: unknown;
       deep?: boolean;
     }> = [
@@ -53,7 +54,7 @@ describe('ScanOrchestrator', () => {
 
     for (const { name, options, prop, expected, deep } of singleOptionCases) {
       it(`should accept custom ${name} option`, () => {
-        const orchestrator = new ScanOrchestrator(options) as Record<string, unknown>;
+        const orchestrator = new ScanOrchestrator(options);
         if (deep) {
           assert.deepStrictEqual(orchestrator[prop], expected);
         } else {

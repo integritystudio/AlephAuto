@@ -32,13 +32,11 @@ function makeActivityFeedCtx(maxActivities = 50): TestContext {
 
 describe('ActivityFeedManager - Error Handling', () => {
   let activityFeed: ActivityFeedManager;
-  let mockBroadcaster: TestContext['broadcaster'];
   let mockWorker: EventEmitter;
 
   beforeEach(() => {
     const ctx = makeActivityFeedCtx(10);
     activityFeed = ctx.feed;
-    mockBroadcaster = ctx.broadcaster;
     mockWorker = ctx.worker;
   });
 

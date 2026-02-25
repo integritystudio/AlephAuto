@@ -45,10 +45,11 @@ describe('WebSocket Server', () => {
       client.terminate();
     }
 
-    await Promise.all([
-      new Promise(resolve => wss.close(resolve)),
-      new Promise(resolve => httpServer.close(resolve)),
-    ]);
+    // Close wss first (drains WS connections), then httpServer (releases the port).
+    // Ordering matters in attached mode: wss.close() fires immediately here because
+    // all clients were terminated above; httpServer.close() must come after.
+    await new Promise(resolve => wss.close(resolve));
+    await new Promise(resolve => httpServer.close(resolve));
   });
 
   /**
