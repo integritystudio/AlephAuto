@@ -6,6 +6,122 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.9.0] - 2026-02-25
+
+### Summary
+Cross-repo test suite cleanup across AlephAuto and tcad-scraper. Deleted zero-value tests, fixed correctness issues, removed duplication, and improved e2e reliability. Net -1,243 lines.
+
+### Removed (tcad-scraper)
+- `claude-mock-repro.test.ts` — 5 tests asserting `expect(true).toBe(true)` (TST-C1)
+- `token-refresh-mock-repro.test.ts` — documented broken pattern, working tests elsewhere (TST-C2)
+- `ci-fixes.test.ts` — tested compile-time invariants at runtime (TST-C3)
+- `scraper.queue.database-tracking.test.ts` — tested `Array.filter`, not production code (TST-C4)
+- Flaky `Date.now()` rate limiting test from `enqueue.test.ts` (TST-H5)
+- 3 redundant fallback tests from `claude.service.json-parsing.test.ts` (TST-H2)
+- 5 redundant structural tests from `api-config.test.ts` (TST-H9)
+
+### Fixed (tcad-scraper)
+- Consolidated 8 `isRedisAvailable()` calls to 1 via `describe.skipIf` in auth-database tests (TST-H3)
+- Tightened `expect([200, 500])` to `expect(200)` for database read endpoints (TST-H3)
+- Fixed vacuous CSP assertion (`if (csp)` → unconditional) in integration tests (TST-H6)
+- Removed `property.routes.claude.test.ts` from vitest exclude — file is fully mocked (TST-H7)
+- Fixed analytics mock in PropertyCard tests — now asserts `logPropertyView` called on expand (TST-H8)
+- Added `vi.resetModules()` to api-config tests to prevent module caching (TST-H9)
+- Fixed e2e loading state timing race with `page.route` interception (TST-H11)
+- Replaced fragile `h3` locators with `.results-grid h3` in 4 e2e files (TST-H12)
+
+### Changed (tcad-scraper)
+- Extracted shared prisma mock to `helpers/claude-mock.ts` (TST-H1)
+- Extracted repeated `resetModules+import` to `beforeEach` in queue event listener tests (TST-H4)
+- Converted `if (!hasFrontend) return` to `test.skipIf` in integration tests (TST-H6)
+- Increased Playwright CI workers from 1 to 2 (TST-H10)
+
+### Fixed (AlephAuto)
+- `retry-logic.test.js` — imported production function instead of local shadow copy (TST-C5)
+- `mcp-server.test.js` — moved 420 fully-skipped lines to `tests/future/` (TST-C6)
+- `rate-limit.test.js` — rewrote mock theater to use supertest (TST-C7)
+- `websocket-unit.test.js` — removed 270 lines asserting hand-crafted literals (TST-C8)
+- `database.test.js` — replaced `assert.ok(true)` with real assertions (TST-C9)
+- Activity feed integration tests — replaced bare `setTimeout` with event-based waits (TST-H13)
+- Worker registry tests — fixed module re-import without cache reset (TST-H14)
+- Database tests — fixed teardown ordering on shared singleton (TST-H15)
+- Port manager tests — switched from hardcoded ports to OS-assigned (TST-H16)
+- Error classifier tests — deduplicated 3x ENOENT, 3x ETIMEDOUT assertions (TST-M8)
+- Directory scanner tests — migrated to `createTempRepository` fixture (TST-M9)
+- Scan orchestrator tests — parameterized 9 constructor-option tests (TST-M10)
+- Activity feed unit tests — extracted shared factory helper (TST-M11)
+- API routes tests — replaced hardcoded 100ms sleep with `waitForQueueDrain` (TST-M12)
+- Pipeline execution tests — removed Scenario 3 subsumed by Scenario 9 (TST-M13)
+- WebSocket tests — fixed `afterEach` race with `Promise.all` (TST-M14)
+- Port manager integration — fixed flaky concurrent allocation test (TST-M15)
+- Repository scanner — added TODO marker for placeholder test (TST-L2)
+- Database tests — isolated `beforeEach` job insertion (TST-L3)
+- Error recovery tests — imported `findAvailablePort` from port-manager (TST-L4)
+- Pipeline triggering tests — removed `console.log` noise (TST-L5)
+- Zod schema consolidation — extracted shared schemas to `api/types/shared-schemas.ts` (LOG13)
+
+---
+
+## [1.8.9] - 2026-02-23
+
+### Summary
+Import path migration and test cleanup. Migrated 41 deep relative imports to Node `#imports` subpath aliases. Fixed websocket test suite.
+
+### Changed
+- Migrated 41 imports across 12 files in `api/` and `sidequest/core/` to Node `#imports` subpath aliases (LOG11)
+- `websocket.test.js` — cleanup + API alignment fix (LOG8 partial)
+
+### Removed
+- `doppler-resilience.example.js` (290 lines) — moved to `docs/quickstart/doppler-circuit-breaker.md` (LOG12)
+
+---
+
+## [1.8.8] - 2026-02-20
+
+### Summary
+Resolved all 15 deferred review findings from TS Migration Phase 4-6 code review. Addressed type safety, validation gaps, broken rollback, and documentation.
+
+### Fixed
+- `saveJob` now validates job ID format with `isValidJobId` guard (TS46-M1)
+- Added `@deprecated` markers on `BulkImportJob` snake_case fields (TS46-M2)
+- Narrowed `ParsedJob.error` type with `isParsedJobError` runtime guard (TS46-M3)
+- Sanitized `jobType` in `_generateBranchName` to prevent git branch creation failures (TS46-M4)
+- Replaced empty backup with `git checkout` rollback in MigrationTransformer (TS46-M5)
+- Replaced non-null assertion with null-safe `Map.get` in file resolution (TS46-M6)
+- Derived namespace import alias from module source instead of hardcoded `'imported'` (TS46-M9)
+- Added Node 22.6+ version guard for `--strip-types` integration test (TS46-M10)
+- Fixed relative log path in `saveRunSummary` — uses `this.worker.logDir` (TS46-L1)
+- Fixed error message "max 255 chars" → "max 100 chars" to match regex (TS46-L2)
+- Fixed `getChangedFiles` rename parsing for `git status --porcelain` (TS46-L4)
+
+### Removed
+- Deleted 8 stale `.js` dual files superseded by `.ts` — 5 type schemas, 2 route handlers, 1 middleware (JS/TS Migration)
+
+### Changed
+- Marked `GitWorkflowManager` config properties `readonly` (TS46-M7)
+- Changed `gitWorkflowManager!` to optional with narrowing guards (TS46-M8)
+- Documented `_dbReady` graceful degradation intent (TS46-L3)
+- Documented auto-executing entry point in `core/index.ts` (TS46-L5)
+
+---
+
+## [1.8.7] - 2026-02-16
+
+### Summary
+Production bugfix for jobs not populating in dashboard. Root cause: sql.js single-process limitation, missing pipeline registrations, and silent DB error swallowing.
+
+### Fixed
+- **PROD-H1:** Replaced sql.js with better-sqlite3 (WAL mode) for multi-process PM2 concurrency
+- **PROD-H2:** Registered `dashboard-populate` and `plugin-manager` pipelines in worker registry (8/11 → 11/11)
+- **PROD-H3:** `_persistJob()` now propagates DB errors instead of silently swallowing them
+- **PROD-M1:** Fixed DB init race condition — `jobRepository.initialize()` now awaited in `start()`
+- **PROD-L1:** Fixed `getAllPipelineStats()` snake_case inconsistency — returns camelCase like all other queries
+
+### Changed
+- **PROD-L2:** Tests use `:memory:` databases for cross-file isolation; `initDatabase()` accepts optional path
+
+---
+
 ## [1.8.6] - 2026-02-15
 
 ### Summary
