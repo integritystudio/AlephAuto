@@ -29,11 +29,6 @@ const RUN_ON_STARTUP = process.env.RUN_ON_STARTUP !== 'false';
 const DRY_RUN = process.env.DRY_RUN === 'true';
 const ENABLE_GIT_WORKFLOW = process.env.ENABLE_GIT_WORKFLOW === 'true';
 
-interface DirectoryInfo {
-  path: string;
-  name: string;
-}
-
 interface PipelineMetrics {
   totalProjects: number;
   successfulRefactors: number;

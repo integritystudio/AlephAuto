@@ -3,7 +3,7 @@
  * Provides access to job queue across all pipelines
  */
 
-import express, { type Request, type Response } from 'express';
+import express from 'express';
 import crypto from 'crypto';
 import { createComponentLogger, logError, logStart } from '#sidequest/utils/logger.ts';
 import { jobRepository } from '#sidequest/core/job-repository.ts';

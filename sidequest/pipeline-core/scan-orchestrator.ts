@@ -19,7 +19,7 @@ import type { ScanResult as ReportScanResult } from './reports/json-report-gener
 import { InterProjectScanner } from './inter-project-scanner.ts';
 import { createComponentLogger, logStart, logStage } from '../utils/logger.ts';
 import { DependencyValidator } from '../utils/dependency-validator.ts';
-import { spawn, ChildProcess, execSync } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
@@ -649,7 +649,7 @@ export class ScanOrchestrator {
 
       proc.on('close', (code: number | null, signal: string | null) => {
         const result = this._handleProcessClose(code, signal, stdout, stderr);
-        result.success ? resolve(result.data!) : reject(result.error!);
+        if (result.success) { resolve(result.data!); } else { reject(result.error!); }
       });
 
       proc.on('error', (error: Error & { code?: string }) => {

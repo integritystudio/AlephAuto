@@ -535,7 +535,7 @@ class ClaudeHealthWorker extends SidequestServer {
   /**
    * Check component counts
    */
-  async checkComponents(detailed = false): Promise<ComponentCounts> {
+  async checkComponents(_detailed = false): Promise<ComponentCounts> {
     const counts: ComponentCounts = {
       skills: 0,
       agents: 0,

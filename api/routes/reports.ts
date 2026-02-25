@@ -4,7 +4,7 @@
  * API endpoints for retrieving scan reports.
  */
 
-import express, { type Request, type Response, type NextFunction } from 'express';
+import express from 'express';
 import { createComponentLogger, logError } from '#sidequest/utils/logger.ts';
 import { validateQuery } from '../middleware/validation.ts';
 import { ReportQuerySchema } from '../types/report-requests.ts';

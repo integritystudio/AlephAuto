@@ -26,8 +26,8 @@ const router = express.Router();
 const logger = createComponentLogger('ScanRoutes');
 
 // Initialize scanners
-const cachedScanner = new CachedScanner({ cacheEnabled: true });
-const interProjectScanner = new InterProjectScanner();
+const _cachedScanner = new CachedScanner({ cacheEnabled: true });
+const _interProjectScanner = new InterProjectScanner();
 const worker = new DuplicateDetectionWorker({ maxConcurrentScans: 3 });
 
 // Export worker for use in status endpoint

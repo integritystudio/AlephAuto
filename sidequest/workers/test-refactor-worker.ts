@@ -18,8 +18,6 @@ import { createComponentLogger } from '../utils/logger.ts';
 import { glob } from 'glob';
 import path from 'path';
 import fs from 'fs/promises';
-import * as Sentry from '@sentry/node';
-
 const logger = createComponentLogger('TestRefactorWorker');
 
 // Type definitions
@@ -44,12 +42,6 @@ interface JobData {
   e2eDir: string;
   framework: string;
   dryRun: boolean;
-}
-
-interface RefactorJob {
-  id: string;
-  data: JobData;
-  result?: JobResult;
 }
 
 interface AnalysisPatterns {

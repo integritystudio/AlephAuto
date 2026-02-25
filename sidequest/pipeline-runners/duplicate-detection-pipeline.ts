@@ -30,7 +30,7 @@ import { PRCreator, type PRCreationResults } from '../pipeline-core/git/pr-creat
 import { createComponentLogger, logStart, logRetry } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS, RETRY } from '../core/constants.ts';
-import { isRetryable, getErrorInfo } from '../pipeline-core/errors/error-classifier.ts';
+import { getErrorInfo } from '../pipeline-core/errors/error-classifier.ts';
 // @ts-ignore - no declaration file for node-cron
 import * as cron from 'node-cron';
 import * as path from 'path';

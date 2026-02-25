@@ -30,7 +30,7 @@ describe('Pipeline Job Trigger', () => {
     // Cancel any pending jobs and shutdown all workers
     for (const worker of workerRegistry._workers?.values() ?? []) {
       if (worker.cancelAllJobs) {
-        try { await worker.cancelAllJobs(); } catch {}
+        try { await worker.cancelAllJobs(); } catch { /* cleanup best-effort */ }
       }
     }
     await workerRegistry.shutdown();

@@ -28,8 +28,8 @@ describe('Activity Feed - Integration Tests', () => {
   let worker;
   let broadcaster;
   let broadcastedMessages = [];
-  let sentryEvents = [];
-  let sentryBreadcrumbs = [];
+  const sentryEvents = [];
+  const sentryBreadcrumbs = [];
 
   beforeEach(async () => {
     // Initialize database FIRST (it's async)

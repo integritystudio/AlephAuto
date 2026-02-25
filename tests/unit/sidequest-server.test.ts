@@ -170,7 +170,7 @@ describe('SidequestServer', () => {
 
   test('should emit job events', (t, done) => {
     const server = createServer();
-    let eventsFired = [];
+    const eventsFired = [];
 
     server.on('job:created', () => eventsFired.push('created'));
     server.on('job:started', () => eventsFired.push('started'));
