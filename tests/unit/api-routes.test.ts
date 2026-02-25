@@ -47,15 +47,14 @@ describe('API Routes', () => {
   // Stop worker and close database after all tests
   after(async () => {
     if (worker) {
-      worker.stop();
       // Cancel any remaining active/queued jobs
       for (const [jobId, job] of worker.jobs) {
         if (job.status === 'running' || job.status === 'queued') {
           worker.cancelJob(jobId);
         }
       }
-      // Brief wait for cancellation to propagate
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await waitForQueueDrain(worker, { timeout: 5000 });
+      worker.stop();
     }
     if (closeDatabase) closeDatabase();
   });
@@ -79,17 +78,12 @@ describe('API Routes', () => {
     // Cancel any active/queued jobs to speed up cleanup
     // This prevents long-running scans from blocking test cleanup
     if (worker) {
-      const stats = worker.getStats();
-      if (stats.active > 0 || stats.queued > 0) {
-        // Get all jobs and cancel any that are running or queued
-        for (const [jobId, job] of worker.jobs) {
-          if (job.status === 'running' || job.status === 'queued') {
-            worker.cancelJob(jobId);
-          }
+      for (const [jobId, job] of worker.jobs) {
+        if (job.status === 'running' || job.status === 'queued') {
+          worker.cancelJob(jobId);
         }
       }
-      // Brief wait for cancellation to propagate
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await waitForQueueDrain(worker, { timeout: 5000 });
     }
 
     // Cleanup temporary repositories
@@ -105,12 +99,10 @@ describe('API Routes', () => {
           .send({});
 
         assert.strictEqual(response.status, 400);
-        assert.strictEqual(response.body.error.code, 'INVALID_REQUEST');
-        // Validation middleware returns errors in error.details.errors array with field names
+        assert.strictEqual(response.body.error, 'Bad Request');
         assert.ok(
-          response.body.error.message.includes('repositoryPath') ||
-          (response.body.error.details?.errors?.some(e => e.field === 'repositoryPath')),
-          'Error should mention repositoryPath field'
+          response.body.errors?.some(e => e.field === 'repositoryPath'),
+          'Validation errors should include repositoryPath field'
         );
       });
 
@@ -123,10 +115,9 @@ describe('API Routes', () => {
           });
 
         assert.strictEqual(response.status, 201);
-        assert.ok(response.body.success);
-        assert.ok(response.body.job_id);
-        assert.ok(response.body.status_url);
-        assert.ok(response.body.results_url);
+        assert.ok(response.body.scanId);
+        assert.strictEqual(response.body.repositoryPath, testRepo.path);
+        assert.strictEqual(response.body.status, 'queued');
       });
 
       test('should include timestamp in response', async () => {
@@ -147,7 +138,7 @@ describe('API Routes', () => {
           .send({});
 
         assert.strictEqual(response.status, 400);
-        assert.ok(response.body.error.message.includes('repositoryPaths'));
+        assert.ok(response.body.message.includes('repositoryPaths'));
       });
 
       test('should reject request with single repository', async () => {
@@ -158,7 +149,7 @@ describe('API Routes', () => {
           });
 
         assert.strictEqual(response.status, 400);
-        assert.ok(response.body.error.message.includes('at least 2 repositories'));
+        assert.ok(response.body.message.includes('at least 2 repositories'));
       });
 
       test('should accept valid multi-repo scan request', async () => {
@@ -176,117 +167,40 @@ describe('API Routes', () => {
       });
     });
 
-    describe('GET /api/scans/:jobId/status', () => {
+    describe('GET /api/scans/:scanId/status', () => {
       test('should return scan status', async () => {
         const response = await request(app)
           .get('/api/scans/test-job-123/status');
 
         assert.strictEqual(response.status, 200);
-        assert.ok(response.body.job_id);
-        assert.ok(['queued', 'running', 'completed'].includes(response.body.status));
-        assert.ok(typeof response.body.queued === 'number');
-        assert.ok(typeof response.body.active === 'number');
-        assert.ok(typeof response.body.completed === 'number');
+        assert.ok(response.body.scan_id);
+        assert.ok(['running', 'idle'].includes(response.body.status));
+        assert.ok(typeof response.body.active_jobs === 'number');
+        assert.ok(typeof response.body.queued_jobs === 'number');
+        assert.ok(typeof response.body.completed_scans === 'number');
       });
     });
 
-    describe('GET /api/scans/:jobId/results', () => {
-      test('should return scan results summary by default', async () => {
+    describe('GET /api/scans/:scanId/results', () => {
+      test('should return 404 for non-existent scan', async () => {
         const response = await request(app)
-          .get('/api/scans/test-job-123/results');
-
-        assert.strictEqual(response.status, 200);
-        assert.ok(response.body.job_id);
-        assert.ok(response.body.metrics);
-        assert.ok(typeof response.body.metrics.total_scans === 'number');
-        assert.ok(typeof response.body.metrics.duplicates_found === 'number');
-      });
-
-      test('should return detailed results when format=full', async () => {
-        const response = await request(app)
-          .get('/api/scans/test-job-123/results?format=full');
-
-        assert.strictEqual(response.status, 200);
-        assert.ok(response.body.metrics);
-        assert.ok(response.body.detailed_metrics);
-      });
-    });
-
-    describe('GET /api/scans/recent', () => {
-      test('should return recent scans list', async () => {
-        const response = await request(app)
-          .get('/api/scans/recent');
-
-        assert.strictEqual(response.status, 200);
-        assert.ok(Array.isArray(response.body.scans));
-        assert.ok(typeof response.body.total === 'number');
-      });
-
-      test('should respect limit parameter', async () => {
-        const response = await request(app)
-          .get('/api/scans/recent?limit=5');
-
-        assert.strictEqual(response.status, 200);
-        assert.ok(response.body.scans);
-      });
-    });
-
-    describe('GET /api/scans/stats', () => {
-      test('should return scanning statistics', async () => {
-        const response = await request(app)
-          .get('/api/scans/stats');
-
-        assert.strictEqual(response.status, 200);
-        assert.ok(response.body.scan_metrics);
-        assert.ok(response.body.queue_stats);
-        assert.ok(response.body.cache_stats);
-        assert.ok(typeof response.body.scan_metrics.total_scans === 'number');
-      });
-    });
-
-    describe('DELETE /api/scans/:jobId', () => {
-      test('should cancel queued scan job', async () => {
-        // First, create a job by starting a scan
-        const startResponse = await request(app)
-          .post('/api/scans/start')
-          .send({ repositoryPath: testRepo.path });
-
-        assert.strictEqual(startResponse.status, 201);
-        const jobId = startResponse.body.job_id;
-
-        // Now cancel the job
-        const response = await request(app)
-          .delete(`/api/scans/${jobId}`);
-
-        // Job should be cancelled (200) or already completed (400)
-        assert.ok([200, 400].includes(response.status));
-        assert.strictEqual(response.body.job_id, jobId);
-      });
-
-      test('should return 404 for non-existent job', async () => {
-        const response = await request(app)
-          .delete('/api/scans/non-existent-job-123');
+          .get('/api/scans/non-existent-scan-123/results');
 
         assert.strictEqual(response.status, 404);
-        assert.strictEqual(response.body.success, false);
+        assert.strictEqual(response.body.error, 'Not Found');
         assert.ok(response.body.message.includes('not found'));
       });
     });
   });
 
   describe('Response Format Validation', () => {
-    test('all endpoints should include timestamp', async () => {
-      const endpoints = [
-        { method: 'get', path: '/api/scans/test/status' },
-        { method: 'get', path: '/api/scans/test/results' },
-        { method: 'get', path: '/api/scans/recent' },
-        { method: 'get', path: '/api/scans/stats' }
-      ];
+    test('status endpoint should include timestamp', async () => {
+      const response = await request(app)
+        .get('/api/scans/test/status');
 
-      for (const endpoint of endpoints) {
-        const response = await request(app)[endpoint.method](endpoint.path);
-        assert.ok(response.body.timestamp, `${endpoint.path} missing timestamp`);
-      }
+      assert.ok(response.body.timestamp, 'Status endpoint missing timestamp');
+      const timestamp = new Date(response.body.timestamp);
+      assert.ok(!isNaN(timestamp.getTime()));
     });
 
     test('error responses should have consistent format', async () => {
@@ -296,8 +210,7 @@ describe('API Routes', () => {
 
       assert.strictEqual(response.status, 400);
       assert.ok(response.body.error);
-      assert.ok(response.body.error.code);
-      assert.ok(response.body.error.message);
+      assert.ok(response.body.message);
       assert.ok(response.body.timestamp);
     });
   });

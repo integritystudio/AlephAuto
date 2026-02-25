@@ -45,15 +45,10 @@ describe('WebSocket Server', () => {
       client.terminate();
     }
 
-    await new Promise((resolve) => {
-      const fallback = setTimeout(() => {
-        httpServer.close(() => resolve());
-      }, 2000);
-      wss.close(() => {
-        clearTimeout(fallback);
-        httpServer.close(() => resolve());
-      });
-    });
+    await Promise.all([
+      new Promise(resolve => wss.close(resolve)),
+      new Promise(resolve => httpServer.close(resolve)),
+    ]);
   });
 
   /**

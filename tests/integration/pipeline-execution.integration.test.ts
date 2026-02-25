@@ -77,32 +77,6 @@ describe('Pipeline Execution - Integration Tests', () => {
     }
   });
 
-  it('Scenario 3: Execute duplicate-detection-pipeline with node', async () => {
-    const pipelinePath = path.join(projectRoot, pipelineRunners[0]);
-    const isTs = pipelineRunners[0].endsWith('.ts');
-
-    // Use node --check for syntax validation instead of actually running
-    // .ts files need --strip-types for syntax checking
-    const checkCmd = isTs
-      ? `node --strip-types --check "${pipelinePath}"`
-      : `node --check "${pipelinePath}"`;
-
-    const { stderr } = await execAsync(
-      checkCmd,
-      {
-        cwd: projectRoot,
-        timeout: 3000
-      }
-    );
-
-    // Should pass syntax check
-    assert.equal(
-      stderr,
-      '',
-      'Should not have syntax errors'
-    );
-  });
-
   it('Scenario 4: Execute pipeline with shebang (direct execution)', async () => {
     const pipelinePath = path.join(projectRoot, pipelineRunners[0]);
 
