@@ -7,8 +7,8 @@
  * Detects common anti-patterns like /tmp/test, /tmp/repo, etc.
  *
  * Usage:
- *   node tests/scripts/validate-test-paths.js              # Scan all tests
- *   node tests/scripts/validate-test-paths.js --fix        # Auto-fix issues
+ *   node --strip-types tests/scripts/validate-test-paths.ts              # Scan all tests
+ *   node --strip-types tests/scripts/validate-test-paths.ts --fix        # Auto-fix issues
  *   npm run test:validate-paths                            # npm script
  *
  * Exit codes:
@@ -60,8 +60,8 @@ const HARDCODED_PATH_PATTERNS = [
  * Files to skip (fixtures, helpers, etc.)
  */
 const SKIP_FILES = [
-  'test-helpers.js',
-  'validate-test-paths.js',
+  'test-helpers.ts',
+  'validate-test-paths.ts',
   'test-fixture'
 ];
 
@@ -115,7 +115,7 @@ async function scanAllTests(dir = TESTS_DIR) {
 
       if (entry.isDirectory()) {
         await scanDir(fullPath);
-      } else if (entry.name.endsWith('.test.js') || entry.name.endsWith('.js')) {
+      } else if (entry.name.endsWith('.test.ts') || entry.name.endsWith('.ts')) {
         // Skip certain files
         if (SKIP_FILES.some(skip => entry.name.includes(skip))) {
           continue;
@@ -167,7 +167,7 @@ async function validate(options = {}) {
   console.log('='.repeat(70));
   console.log('\n📝 Recommended Actions:\n');
   console.log('1. Import test fixtures:');
-  console.log('   import { createTempRepository } from \'../fixtures/test-helpers.js\';\n');
+  console.log('   import { createTempRepository } from \'../fixtures/test-helpers.ts\';\n');
   console.log('2. Create temp repos in beforeEach:');
   console.log('   beforeEach(async () => {');
   console.log('     testRepo = await createTempRepository(\'test\');');

@@ -2,7 +2,7 @@ import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { spawn } from 'child_process';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
-import { createTempRepository } from '../fixtures/test-helpers.js';
+import { createTempRepository } from '../fixtures/test-helpers.ts';
 
 const logger = createComponentLogger('MCPServerTest');
 

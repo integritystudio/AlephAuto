@@ -552,13 +552,12 @@ describe('Database Module', () => {
         error: { message: 'Test error' }
       }));
 
-      await importLogsToDatabase(tempDir);
+      const importCount = await importLogsToDatabase(tempDir);
+      assert.strictEqual(importCount, 1, 'Should import 1 failed log');
 
-      // The job should be imported with failed status
       const jobs = getAllJobs({ status: 'failed' });
       const failedJob = jobs.find(j => j.id?.includes('git-activity-failed'));
-      // Job might exist if imported
-      assert.ok(true); // Test passes if no error thrown
+      assert.ok(failedJob !== undefined, 'Failed log should be imported as a failed job');
     });
 
     it('should skip already imported logs', async () => {
@@ -607,9 +606,8 @@ describe('Database Module', () => {
         startTime: new Date().toISOString()
       }));
 
-      await importLogsToDatabase(tempDir);
-      // Test passes if no error thrown
-      assert.ok(true);
+      const importCount = await importLogsToDatabase(tempDir);
+      assert.ok(importCount >= 0, 'Should handle unrecognized prefixes without error');
     });
 
     it('should ignore non-JSON files', async () => {

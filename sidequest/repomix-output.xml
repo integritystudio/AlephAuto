@@ -65,11 +65,11 @@ pipeline-core/
     semantic_annotator.pyi
     test_semantic_annotator.py
   cache/
-    cached-scanner.js
-    git-tracker.js
-    scan-cache.js
+    cached-scanner.ts
+    git-tracker.ts
+    scan-cache.ts
   config/
-    repository-config-loader.js
+    repository-config-loader.ts
   errors/
     error-classifier.ts
   extractors/
@@ -92,17 +92,17 @@ pipeline-core/
     scan_report.pyi
     test_models.py
   reports/
-    html-report-generator.js
-    json-report-generator.js
-    markdown-report-generator.js
-    report-coordinator.js
+    html-report-generator.ts
+    json-report-generator.ts
+    markdown-report-generator.ts
+    report-coordinator.ts
   scanners/
-    ast-grep-detector.js
-    codebase-health-scanner.js
-    repository-scanner.js
-    root-directory-analyzer.js
+    ast-grep-detector.ts
+    codebase-health-scanner.ts
+    repository-scanner.ts
+    root-directory-analyzer.ts
     timeout_detector.py
-    timeout-pattern-detector.js
+    timeout-pattern-detector.ts
   similarity/
     __init__.py
     __init__.pyi
@@ -127,49 +127,49 @@ pipeline-core/
     timing-helpers.ts
     timing.py
     timing.pyi
-  doppler-health-monitor.js
-  inter-project-scanner.js
+  doppler-health-monitor.ts
+  inter-project-scanner.ts
   py.typed
   scan-orchestrator.ts
 pipeline-runners/
-  bugfix-audit-pipeline.js
-  claude-health-pipeline.js
+  bugfix-audit-pipeline.ts
+  claude-health-pipeline.ts
   collect_git_activity.py
-  dashboard-populate-pipeline.js
+  dashboard-populate-pipeline.ts
   duplicate-detection-pipeline.ts
-  git-activity-pipeline.js
-  gitignore-pipeline.js
+  git-activity-pipeline.ts
+  gitignore-pipeline.ts
   plugin-management-audit.sh
-  plugin-management-pipeline.js
-  repo-cleanup-pipeline.js
-  schema-enhancement-pipeline.js
+  plugin-management-pipeline.ts
+  repo-cleanup-pipeline.ts
+  schema-enhancement-pipeline.ts
   test-refactor-pipeline.ts
   universal-repo-cleanup.sh
 types/
   duplicate-detection-types.ts
 utils/
-  dependency-validator.js
-  directory-scanner.js
+  dependency-validator.ts
+  directory-scanner.ts
   doppler-resilience.example.js
-  doppler-resilience.js
-  gitignore-repomix-updater.js
+  doppler-resilience.ts
+  gitignore-repomix-updater.ts
   logger.ts
   pipeline-names.ts
-  plugin-manager.js
+  plugin-manager.ts
   refactor-test-suite.ts
-  report-generator.js
-  schema-mcp-tools.js
+  report-generator.ts
+  schema-mcp-tools.ts
   time-helpers.ts
 workers/
-  bugfix-audit-worker.js
-  claude-health-worker.js
-  dashboard-populate-worker.js
-  duplicate-detection-worker.js
-  git-activity-worker.js
-  gitignore-worker.js
-  repo-cleanup-worker.js
-  repomix-worker.js
-  schema-enhancement-worker.js
+  bugfix-audit-worker.ts
+  claude-health-worker.ts
+  dashboard-populate-worker.ts
+  duplicate-detection-worker.ts
+  git-activity-worker.ts
+  gitignore-worker.ts
+  repo-cleanup-worker.ts
+  repomix-worker.ts
+  schema-enhancement-worker.ts
   test-refactor-worker.ts
 .env.example
 .gitignore
@@ -228,7 +228,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createComponentLogger, logMetrics } from '../utils/logger.ts';
-import { isValidJobStatus } from '../../api/types/job-status.ts';
+import { isValidJobStatus } from '#api/types/job-status.ts';
 import { VALIDATION } from './constants.ts';
 ⋮----
 export interface JobRow {
@@ -416,8 +416,8 @@ async executeWorkflow(repositoryPath: string, gitInfo: GitInfo, messageGenerator
 
 <file path="core/index.ts">
 import cron from 'node-cron';
-import { RepomixWorker } from '../workers/repomix-worker.js';
-import { DirectoryScanner } from '../utils/directory-scanner.js';
+import { RepomixWorker } from '../workers/repomix-worker.ts';
+import { DirectoryScanner } from '../utils/directory-scanner.ts';
 import { config } from './config.ts';
 import { TIMEOUTS, TIME } from './constants.ts';
 import path from 'path';
@@ -531,8 +531,8 @@ import { jobRepository } from './job-repository.ts';
 import { CONCURRENCY, RETRY } from './constants.ts';
 import { isRetryable, classifyError } from '../pipeline-core/errors/error-classifier.ts';
 import { toISOString } from '../utils/time-helpers.ts';
-import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '../../api/types/job-status.ts';
-import type { JobStatus } from '../../api/types/job-status.ts';
+import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '#api/types/job-status.ts';
+import type { JobStatus } from '#api/types/job-status.ts';
 ⋮----
 export interface JobGitMetadata {
   branchName: string | null;
@@ -1002,79 +1002,330 @@ instance = test_class()
 method = getattr(instance, name)
 </file>
 
-<file path="pipeline-core/cache/cached-scanner.js">
+<file path="pipeline-core/cache/cached-scanner.ts">
+import { GitCommitTracker, type RepositoryStatus } from './git-tracker.ts';
+import { ScanResultCache, type ScanResultWithCache, type CacheStats, type RedisClient, type ScanCacheOptions } from './scan-cache.ts';
+import { ScanOrchestrator, type ScanResult, type ScanConfig } from '../scan-orchestrator.ts';
+import { createComponentLogger, logStart, logError, logWarn, logSkip } from '../../utils/logger.ts';
+⋮----
+export interface CachedScannerOptions {
+  cache?: ScanResultCache | null;
+  scannerOptions?: Record<string, unknown>;
+  cacheEnabled?: boolean;
+  forceRefresh?: boolean;
+  trackUncommitted?: boolean;
+}
+export interface WarmUpError {
+  repository: string;
+  error: string;
+}
+export interface WarmUpResults {
+  total: number;
+  successful: number;
+  failed: number;
+  errors: WarmUpError[];
+}
+export interface ScannerStats {
+  cache_enabled: boolean;
+  force_refresh: boolean;
+  track_uncommitted: boolean;
+  cache_initialized: boolean;
+  cache_stats: CacheStats | null;
+}
+export interface CacheStatusResult {
+  is_cached: boolean;
+  reason?: string;
+  cache_age_ms: number | null;
+  cache_age_hours: number | null;
+  cache_age_days: number | null;
+  metadata: import('./scan-cache.ts').CacheMetadata | null;
+  repository_status: RepositoryStatus;
+}
+export interface CachedScanOptions extends ScanConfig {
+  forceRefresh?: boolean;
+}
+export interface CachedScanResult extends ScanResult {
+  scan_metadata: ScanResult['scan_metadata'] & {
+    git_status?: RepositoryStatus;
+    from_cache?: boolean;
+  };
+  cache_metadata?: import('./scan-cache.ts').CacheMetadataAttachment;
+}
 export class CachedScanner
 ⋮----
-initializeCache(redisClient, cacheOptions =
-async scanRepository(repoPath, options =
-async _shouldUseCache(repoPath, repoStatus, options)
-async _getCachedResult(repoPath, commitHash)
-async _cacheResult(repoPath, commitHash, scanResult)
-async invalidateCache(repoPath)
-async getCacheStatus(repoPath)
-async getStats()
-async warmCache(repoPaths, options =
+constructor(options: CachedScannerOptions =
+initializeCache(redisClient: RedisClient, cacheOptions: ScanCacheOptions =
+async scanRepository(repoPath: string, options: CachedScanOptions =
+private async _shouldUseCache(
+    repoPath: string,
+    repoStatus: RepositoryStatus,
+    options: CachedScanOptions
+): Promise<boolean>
+private async _getCachedResult(
+    repoPath: string,
+    commitHash: string | null
+): Promise<CachedScanResult | null>
+private async _cacheResult(
+    repoPath: string,
+    commitHash: string,
+    scanResult: ScanResult
+): Promise<void>
+async invalidateCache(repoPath: string): Promise<number>
+async getCacheStatus(repoPath: string): Promise<CacheStatusResult>
+async getStats(): Promise<ScannerStats>
+async warmCache(repoPaths: string[], options: CachedScanOptions =
 </file>
 
-<file path="pipeline-core/cache/git-tracker.js">
+<file path="pipeline-core/cache/git-tracker.ts">
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import fs from 'fs/promises';
+import path from 'path';
+import { createComponentLogger } from '../../utils/logger.ts';
+⋮----
+export interface CommitMetadata {
+  hash: string;
+  shortHash: string;
+  author: string;
+  email: string;
+  date: string;
+  message: string;
+}
+export interface RepositoryStatus {
+  is_git_repository: boolean;
+  current_commit: string | null;
+  short_commit: string | null;
+  branch: string | null;
+  has_uncommitted_changes: boolean;
+  remote_url: string | null;
+  scanned_at: string;
+}
 export class GitCommitTracker
 ⋮----
-async getRepositoryCommit(repoPath)
-async getShortCommit(repoPath)
-async hasChanged(repoPath, lastCommit)
-async getChangedFiles(repoPath, fromCommit)
-async getCommitMetadata(repoPath, commitHash = 'HEAD')
-async getBranchName(repoPath)
-async hasUncommittedChanges(repoPath)
-async getRemoteUrl(repoPath, remoteName = 'origin')
-async getCommitCount(repoPath)
-async isGitRepository(repoPath)
-async getRepositoryStatus(repoPath)
-async getCommitHistory(repoPath, limit = 10)
+async getRepositoryCommit(repoPath: string): Promise<string | null>
+async getShortCommit(repoPath: string): Promise<string | null>
+async hasChanged(repoPath: string, lastCommit: string | null): Promise<boolean>
+async getChangedFiles(repoPath: string, fromCommit: string | null): Promise<string[]>
+async getCommitMetadata(repoPath: string, commitHash = 'HEAD'): Promise<CommitMetadata | null>
+async getBranchName(repoPath: string): Promise<string | null>
+async hasUncommittedChanges(repoPath: string): Promise<boolean>
+async getRemoteUrl(repoPath: string, remoteName = 'origin'): Promise<string | null>
+async getCommitCount(repoPath: string): Promise<number>
+async isGitRepository(repoPath: string): Promise<boolean>
+async getRepositoryStatus(repoPath: string): Promise<RepositoryStatus>
+async getCommitHistory(repoPath: string, limit = 10): Promise<CommitMetadata[]>
 </file>
 
-<file path="pipeline-core/cache/scan-cache.js">
+<file path="pipeline-core/cache/scan-cache.ts">
+import { createComponentLogger, logError } from '../../utils/logger.ts';
+import crypto from 'crypto';
+⋮----
+export interface RedisClient {
+  hexists(args: { name: string; key: string }): Promise<boolean>;
+  hget(args: { name: string; key: string }): Promise<string | null>;
+  hset(args: { name: string; key: string; value: string; expire_seconds: number }): Promise<unknown>;
+  lpush(args: { name: string; value: string; expire: number }): Promise<unknown>;
+  lrange(args: { name: string; start: number; stop: number }): Promise<string[]>;
+  scan_all_keys(args: { pattern: string }): Promise<string[]>;
+  delete(args: { key: string }): Promise<unknown>;
+}
+⋮----
+hexists(args:
+hget(args:
+hset(args:
+lpush(args:
+lrange(args:
+scan_all_keys(args:
+delete(args:
+⋮----
+export interface ScanCacheOptions {
+  ttl?: number;
+  keyPrefix?: string;
+  enabled?: boolean;
+}
+export interface CacheMetadata {
+  repository_path: string;
+  commit_hash: string | null;
+  short_commit: string | null;
+  cached_at: string;
+  ttl: number;
+  scan_type: string;
+  total_duplicates: number;
+  total_suggestions: number;
+}
+export interface IndexEntry {
+  cache_key: string;
+  repository_path: string;
+  commit_hash: string | null;
+  indexed_at: string;
+}
+export interface CacheStats {
+  total_cached_scans: number;
+  cache_enabled: boolean;
+  ttl_seconds: number;
+  ttl_days: number;
+  prefix: string;
+  error?: string;
+}
+export interface ScanResultWithCache extends Record<string, unknown> {
+  scan_type?: string;
+  metrics?: {
+    total_duplicate_groups?: number;
+    total_suggestions?: number;
+    [key: string]: unknown;
+  };
+  cache_metadata?: CacheMetadataAttachment;
+  scan_metadata?: Record<string, unknown>;
+}
+export interface CacheMetadataAttachment {
+  cached_at?: string;
+  from_cache?: boolean;
+  cache_key?: string;
+  age?: number | null;
+  age_hours?: number | null;
+  age_days?: number | null;
+  [key: string]: unknown;
+}
 export class ScanResultCache
 ⋮----
-_generateCacheKey(repoPath, commitHash)
-async getCachedScan(repoPath, commitHash)
-async cacheScan(repoPath, commitHash, scanResult, options =
-async _addToIndex(cacheKey, repoPath, commitHash)
-async invalidateCache(repoPath)
-async getStats()
-async listCachedScans(limit = 10)
-async getCacheMetadata(repoPath, commitHash)
-async clearAll()
-async isCached(repoPath, commitHash)
-async getCacheAge(repoPath, commitHash)
+constructor(redisClient: RedisClient, options: ScanCacheOptions =
+private _generateCacheKey(repoPath: string, commitHash: string | null): string
+async getCachedScan(repoPath: string, commitHash: string | null): Promise<ScanResultWithCache | null>
+async cacheScan(
+    repoPath: string,
+    commitHash: string | null,
+    scanResult: ScanResultWithCache,
+    _options: Record<string, unknown> = {}
+): Promise<boolean>
+private async _addToIndex(cacheKey: string, repoPath: string, commitHash: string | null): Promise<void>
+async invalidateCache(repoPath: string): Promise<number>
+async getStats(): Promise<CacheStats>
+async listCachedScans(limit = 10): Promise<IndexEntry[]>
+async getCacheMetadata(repoPath: string, commitHash: string | null): Promise<CacheMetadata | null>
+async clearAll(): Promise<number>
+async isCached(repoPath: string, commitHash: string | null): Promise<boolean>
+async getCacheAge(repoPath: string, commitHash: string | null): Promise<number | null>
 </file>
 
-<file path="pipeline-core/config/repository-config-loader.js">
+<file path="pipeline-core/config/repository-config-loader.ts">
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import os from 'os';
+import { createComponentLogger, logError } from '../../utils/logger.ts';
+⋮----
+export type ScanFrequency = 'daily' | 'weekly' | 'monthly' | 'on-demand';
+export type Priority = 'critical' | 'high' | 'medium' | 'low';
+export interface ScanHistoryEntry {
+  timestamp?: string;
+  status?: string;
+  duration?: number;
+  duplicatesFound?: number;
+  [key: string]: unknown;
+}
+export interface RepositoryConfig {
+  name: string;
+  path: string;
+  priority: Priority;
+  scanFrequency: ScanFrequency;
+  enabled: boolean;
+  tags?: string[];
+  excludePatterns?: string[];
+  lastScannedAt?: string;
+  scanHistory?: ScanHistoryEntry[];
+}
+export interface RepositoryGroup {
+  name: string;
+  description?: string;
+  repositories: string[];
+  scanType?: string;
+  enabled: boolean;
+}
+export interface ScanConfigSettings {
+  enabled: boolean;
+  schedule: string;
+  maxRepositoriesPerNight: number;
+  maxConcurrentScans?: number;
+  scanTimeout?: number;
+  retryAttempts?: number;
+  retryDelay?: number;
+}
+export interface CacheConfigSettings {
+  enabled: boolean;
+  provider?: string;
+  ttl?: number;
+  invalidateOnChange?: boolean;
+  trackGitCommits?: boolean;
+  trackUncommittedChanges?: boolean;
+}
+export interface ScanDefaults {
+  languages?: string[];
+  includeSourceCode?: boolean;
+  includeCodeBlocks?: boolean;
+  generateReports?: boolean;
+  reportFormats?: string[];
+  [key: string]: unknown;
+}
+export interface NotificationSettings {
+  enabled: boolean;
+  channels?: string[];
+  onSuccess?: boolean;
+  onFailure?: boolean;
+  onHighImpactDuplicates?: boolean;
+  highImpactThreshold?: number;
+  [key: string]: unknown;
+}
+export interface RepositoryScanConfig {
+  $schema?: string;
+  version?: string;
+  scanConfig: ScanConfigSettings;
+  cacheConfig?: CacheConfigSettings;
+  repositories: RepositoryConfig[];
+  repositoryGroups?: RepositoryGroup[];
+  scanDefaults?: ScanDefaults;
+  notifications?: NotificationSettings;
+}
+export interface ConfigStats {
+  totalRepositories: number;
+  enabledRepositories: number;
+  disabledRepositories: number;
+  byPriority: Record<Priority, number>;
+  byFrequency: {
+    daily: number;
+    weekly: number;
+    monthly: number;
+    onDemand: number;
+  };
+  groups: number;
+  lastLoaded: Date | null;
+}
+⋮----
 export class RepositoryConfigLoader
 ⋮----
-async load()
-async reload()
-getScanConfig()
-getAllRepositories()
-getEnabledRepositories()
-getRepositoriesByPriority(priority)
-getRepositoriesByFrequency(frequency)
-getRepositoriesByTag(tag)
-getRepository(name)
-getAllGroups()
-getEnabledGroups()
-getGroup(name)
-getGroupRepositories(groupName)
-getRepositoriesToScanTonight(maxRepos = null)
-getScanDefaults()
-getNotificationSettings()
-async updateLastScanned(repoName, timestamp = null)
-async addScanHistory(repoName, historyEntry)
-async save()
-validate()
-getStats()
-_ensureLoaded()
-_expandPaths()
+constructor(configPath: string | null = null)
+async load(): Promise<RepositoryScanConfig>
+async reload(): Promise<RepositoryScanConfig>
+getScanConfig(): ScanConfigSettings
+getAllRepositories(): RepositoryConfig[]
+getEnabledRepositories(): RepositoryConfig[]
+getRepositoriesByPriority(priority: Priority): RepositoryConfig[]
+getRepositoriesByFrequency(frequency: ScanFrequency): RepositoryConfig[]
+getRepositoriesByTag(tag: string): RepositoryConfig[]
+getRepository(name: string): RepositoryConfig | undefined
+getAllGroups(): RepositoryGroup[]
+getEnabledGroups(): RepositoryGroup[]
+getGroup(name: string): RepositoryGroup | undefined
+getGroupRepositories(groupName: string): RepositoryConfig[]
+getRepositoriesToScanTonight(maxRepos: number | null = null): RepositoryConfig[]
+getScanDefaults(): ScanDefaults
+getNotificationSettings(): NotificationSettings
+async updateLastScanned(repoName: string, timestamp: Date | null = null): Promise<void>
+async addScanHistory(repoName: string, historyEntry: Omit<ScanHistoryEntry, 'timestamp'>): Promise<void>
+async save(): Promise<void>
+validate(): true
+getStats(): ConfigStats
+private _ensureLoaded(): void
+private _expandPaths(): void
 </file>
 
 <file path="pipeline-core/errors/error-classifier.ts">
@@ -2556,113 +2807,427 @@ roi = calculate_roi_score(impact, hours)
 def main()
 </file>
 
-<file path="pipeline-core/reports/html-report-generator.js">
+<file path="pipeline-core/reports/html-report-generator.ts">
+import fs from 'fs/promises';
+import { ensureParentDir } from '../utils/index.ts';
+import type { ScanResult } from './json-report-generator.ts';
+export interface HTMLReportOptions {
+  title?: string;
+}
 export class HTMLReportGenerator
 ⋮----
-static generateReport(scanResult, options =
-static async saveReport(scanResult, outputPath, options =
-static _generateHeader(scanResult, title, isInterProject)
-static _generateMetrics(scanResult, isInterProject)
-static _generateSummaryCharts(scanResult, isInterProject)
-static _generateCrossRepoSection(scanResult)
-static _generateDuplicateGroups(scanResult, isInterProject)
+static generateReport(scanResult: ScanResult, options: HTMLReportOptions =
+static async saveReport(scanResult: ScanResult, outputPath: string, options: HTMLReportOptions =
+private static _generateHeader(scanResult: ScanResult, title: string, isInterProject: boolean): string
+private static _generateMetrics(scanResult: ScanResult, isInterProject: boolean): string
+private static _generateSummaryCharts(scanResult: ScanResult, isInterProject: boolean): string
+private static _generateCrossRepoSection(scanResult: ScanResult): string
+private static _generateDuplicateGroups(scanResult: ScanResult, isInterProject: boolean): string
 /**
    * Generate suggestions section
    * @private
    */
-static _generateSuggestions(scanResult, isInterProject)
+private static _generateSuggestions(scanResult: ScanResult, isInterProject: boolean): string
 /**
    * Generate footer
    * @private
    */
-static _generateFooter(scanResult)
+private static _generateFooter(): string
 /**
    * Get CSS styles
    * @private
    */
-static _getStyles()
+private static _getStyles(): string
 /**
    * Get JavaScript
    * @private
    */
-static _getScripts()
-static _getImpactClass(score)
-static _getROIClass(score)
-static _escapeHtml(text)
+private static _getScripts(): string
+private static _getImpactClass(score: number): string
+private static _getROIClass(score: number): string
+private static _escapeHtml(text: string): string
 </file>
 
-<file path="pipeline-core/reports/json-report-generator.js">
+<file path="pipeline-core/reports/json-report-generator.ts">
+import fs from 'fs/promises';
+import { ensureParentDir } from '../utils/index.ts';
+export interface ScanMetadata {
+  repository_count?: number;
+  scanned_at?: string;
+  duration_seconds?: number;
+  total_code_blocks?: number;
+}
+export interface RepositoryInfo {
+  name?: string;
+  path?: string;
+  total_files?: number;
+  languages?: string[];
+}
+export interface ScannedRepository {
+  name: string;
+  code_blocks?: number;
+  duplicate_groups?: number;
+  error?: string;
+}
+export interface MemberBlock {
+  source_code?: string;
+}
+export interface DuplicateGroup {
+  group_id: string;
+  pattern_id: string;
+  category: string;
+  language: string;
+  occurrence_count: number;
+  total_lines: number;
+  impact_score: number;
+  similarity_score: number;
+  similarity_method: string;
+  member_block_ids?: string[];
+  affected_files?: string[];
+  repository_count?: number;
+  affected_repositories?: string[];
+  member_blocks?: MemberBlock[];
+}
+export interface MigrationStep {
+  step_number: number;
+  description: string;
+  automated: boolean;
+  estimated_time: string;
+}
+export interface Suggestion {
+  suggestion_id: string;
+  duplicate_group_id: string;
+  strategy: string;
+  target_location: string;
+  impact_score: number;
+  roi_score: number;
+  complexity: string;
+  migration_risk: string;
+  estimated_effort_hours?: number;
+  breaking_changes?: boolean;
+  confidence?: number;
+  strategy_rationale?: string;
+  affected_repositories?: string[];
+  affected_repositories_count?: number;
+  affected_files_count?: number;
+  migration_steps?: MigrationStep[];
+}
+export interface CodeBlock {
+  block_id: string;
+  pattern_id: string;
+  category: string;
+  language: string;
+  line_count: number;
+  location?: {
+    file_path?: string;
+    line_start?: number;
+    line_end?: number;
+  };
+  relative_path?: string;
+  content_hash?: string;
+  semantic_tags?: string[];
+  source_code?: string;
+}
+export interface RepositoryScan {
+  repository_name: string;
+  repository_path: string;
+  code_blocks?: CodeBlock[];
+  duplicate_groups?: DuplicateGroup[];
+  suggestions?: Suggestion[];
+  error?: string;
+}
+export interface ScanResult {
+  scan_type?: string;
+  scan_metadata?: ScanMetadata;
+  repository_info?: RepositoryInfo;
+  metrics?: Record<string, number>;
+  duplicate_groups?: DuplicateGroup[];
+  suggestions?: Suggestion[];
+  cross_repository_duplicates?: DuplicateGroup[];
+  cross_repository_suggestions?: Suggestion[];
+  scanned_repositories?: ScannedRepository[];
+  repository_scans?: RepositoryScan[];
+  code_blocks?: CodeBlock[];
+}
+export interface JSONReportOptions {
+  includeSourceCode?: boolean;
+  includeCodeBlocks?: boolean;
+  maxDuplicates?: number | null;
+  maxSuggestions?: number | null;
+  prettyPrint?: boolean;
+}
+export interface StrategyDistribution {
+  local_util: number;
+  shared_package: number;
+  mcp_server: number;
+  autonomous_agent: number;
+}
+export interface ComplexityDistribution {
+  trivial: number;
+  simple: number;
+  moderate: number;
+  complex: number;
+}
+export interface ROIStatistics {
+  average: number;
+  min: number;
+  max: number;
+}
+export interface ReportSummary {
+  total_duplicate_groups: number;
+  total_suggestions: number;
+  repositories_scanned?: number;
+  cross_repo_duplicates?: number;
+  top_impact_score?: number;
+  code_blocks_detected?: number;
+  exact_duplicates?: number;
+  structural_duplicates?: number;
+  duplicated_lines?: number;
+  potential_loc_reduction?: number;
+  quick_wins?: number;
+  strategy_distribution: StrategyDistribution;
+  complexity_distribution: ComplexityDistribution;
+  roi_statistics?: ROIStatistics;
+}
 export class JSONReportGenerator
 ⋮----
-static generateReport(scanResult, options =
-static generateSummary(scanResult)
-static async saveReport(scanResult, outputPath, options =
-static async saveSummary(scanResult, outputPath)
-static _generateMetadata(scanResult, isInterProject)
-static _generateSummary(scanResult, isInterProject)
-static _formatDuplicateGroups(scanResult, isInterProject, maxGroups, includeSourceCode)
-static _formatSuggestions(scanResult, isInterProject, maxSuggestions)
-static _formatRepositoryScans(scanResult, includeCodeBlocks, includeSourceCode)
-static _formatCodeBlocks(scanResult, includeSourceCode)
-static _calculateStrategyDistribution(suggestions)
-static _calculateComplexityDistribution(suggestions)
+static generateReport(scanResult: ScanResult, options: JSONReportOptions =
+static generateSummary(scanResult: ScanResult): Record<string, unknown>
+static async saveReport(scanResult: ScanResult, outputPath: string, options: JSONReportOptions =
+static async saveSummary(scanResult: ScanResult, outputPath: string): Promise<string>
+private static _generateMetadata(scanResult: ScanResult, isInterProject: boolean): Record<string, unknown>
+private static _generateSummary(scanResult: ScanResult, isInterProject: boolean): ReportSummary
+private static _formatDuplicateGroups(
+    scanResult: ScanResult,
+    isInterProject: boolean,
+    maxGroups: number | null,
+    includeSourceCode: boolean
+): Record<string, unknown>[]
+private static _formatSuggestions(
+    scanResult: ScanResult,
+    isInterProject: boolean,
+    maxSuggestions: number | null
+): Record<string, unknown>[]
+private static _formatRepositoryScans(
+    scanResult: ScanResult,
+    includeCodeBlocks: boolean,
+    includeSourceCode: boolean
+): Record<string, unknown>[]
+private static _formatCodeBlocks(scanResult: ScanResult, includeSourceCode: boolean): Record<string, unknown>[]
+private static _calculateStrategyDistribution(suggestions: Suggestion[]): StrategyDistribution
+private static _calculateComplexityDistribution(suggestions: Suggestion[]): ComplexityDistribution
 </file>
 
-<file path="pipeline-core/reports/markdown-report-generator.js">
+<file path="pipeline-core/reports/markdown-report-generator.ts">
+import fs from 'fs/promises';
+import { ensureParentDir } from '../utils/index.ts';
+import type { ScanResult } from './json-report-generator.ts';
+export interface MarkdownReportOptions {
+  includeDetails?: boolean;
+  maxDuplicates?: number;
+  maxSuggestions?: number;
+}
 export class MarkdownReportGenerator
 ⋮----
-static generateReport(scanResult, options =
+static generateReport(scanResult: ScanResult, options: MarkdownReportOptions =
 ⋮----
 // Header
 ⋮----
-static generateSummary(scanResult)
-static async saveReport(scanResult, outputPath, options =
-static async saveSummary(scanResult, outputPath)
-static _generateHeader(scanResult, isInterProject)
-static _generateMetrics(scanResult, isInterProject)
-static _generateRepositoryInfo(scanResult)
-static _generateDuplicateGroups(scanResult, isInterProject, maxGroups, includeDetails)
-static _generateSuggestions(scanResult, isInterProject, maxSuggestions, includeDetails)
-static _generateFooter(scanResult)
-static _formatScore(score)
-static _formatStrategy(strategy)
-static _formatComplexity(complexity)
-static _formatRisk(risk)
+static generateSummary(scanResult: ScanResult): string
+static async saveReport(scanResult: ScanResult, outputPath: string, options: MarkdownReportOptions =
+static async saveSummary(scanResult: ScanResult, outputPath: string): Promise<string>
+private static _generateHeader(scanResult: ScanResult, isInterProject: boolean): string
+private static _generateMetrics(scanResult: ScanResult, isInterProject: boolean): string
+private static _generateRepositoryInfo(scanResult: ScanResult): string
+private static _generateDuplicateGroups(
+    scanResult: ScanResult,
+    isInterProject: boolean,
+    maxGroups: number,
+    includeDetails: boolean
+): string
+private static _generateSuggestions(
+    scanResult: ScanResult,
+    isInterProject: boolean,
+    maxSuggestions: number,
+    includeDetails: boolean
+): string
+private static _generateFooter(scanResult: ScanResult): string
+private static _formatScore(score: number): string
+private static _formatStrategy(strategy: string): string
+private static _formatComplexity(complexity: string): string
+private static _formatRisk(risk: string): string
 </file>
 
-<file path="pipeline-core/reports/report-coordinator.js">
+<file path="pipeline-core/reports/report-coordinator.ts">
+import { HTMLReportGenerator } from './html-report-generator.ts';
+import { MarkdownReportGenerator } from './markdown-report-generator.ts';
+import { JSONReportGenerator } from './json-report-generator.ts';
+import type { ScanResult } from './json-report-generator.ts';
+import { createComponentLogger, logError } from '../../utils/logger.ts';
+import { createTimer, ensureDir } from '../utils/index.ts';
+import path from 'path';
+⋮----
+export interface ReportOptions {
+  title?: string;
+  includeDetails?: boolean;
+  maxDuplicates?: number | null;
+  maxSuggestions?: number | null;
+  includeSourceCode?: boolean;
+  includeCodeBlocks?: boolean;
+  prettyPrint?: boolean;
+  html?: Record<string, unknown>;
+  markdown?: Record<string, unknown>;
+  json?: Record<string, unknown>;
+}
+export interface GeneratedReportPaths {
+  html: string;
+  markdown: string;
+  json: string;
+  summary: string;
+  output_dir: string;
+  duration_seconds: number;
+}
 export class ReportCoordinator
 ⋮----
-async generateAllReports(scanResult, options =
-async generateHTMLReport(scanResult, baseFilename = null, options =
-async generateMarkdownReport(scanResult, baseFilename = null, options =
-async generateJSONReport(scanResult, baseFilename = null, options =
-async generateJSONSummary(scanResult, baseFilename = null)
-async generateMarkdownSummary(scanResult, baseFilename = null)
-_generateBaseFilename(scanResult, isInterProject = null)
-_generateTitle(scanResult)
-static generateQuickSummary(scanResult)
-static printQuickSummary(scanResult)
+constructor(outputDir: string | null = null)
+async generateAllReports(scanResult: ScanResult, options: ReportOptions =
+async generateHTMLReport(
+    scanResult: ScanResult,
+    baseFilename: string | null = null,
+    options: ReportOptions = {}
+): Promise<string>
+async generateMarkdownReport(
+    scanResult: ScanResult,
+    baseFilename: string | null = null,
+    options: ReportOptions = {}
+): Promise<string>
+async generateJSONReport(
+    scanResult: ScanResult,
+    baseFilename: string | null = null,
+    options: ReportOptions = {}
+): Promise<string>
+async generateJSONSummary(
+    scanResult: ScanResult,
+    baseFilename: string | null = null
+): Promise<string>
+async generateMarkdownSummary(
+    scanResult: ScanResult,
+    baseFilename: string | null = null
+): Promise<string>
+private _generateBaseFilename(scanResult: ScanResult, isInterProject: boolean | null = null): string
+private _generateTitle(scanResult: ScanResult): string
+static generateQuickSummary(scanResult: ScanResult): string
+static printQuickSummary(scanResult: ScanResult): void
 </file>
 
-<file path="pipeline-core/scanners/ast-grep-detector.js">
+<file path="pipeline-core/scanners/ast-grep-detector.ts">
+import { spawn, ChildProcess } from 'child_process';
+import { createComponentLogger, logStart } from '../../utils/logger.ts';
+import { createTimer, captureProcessOutput } from '../utils/index.ts';
+import fs from 'fs/promises';
+import path from 'path';
+⋮----
+export interface AstGrepDetectorOptions {
+  rulesDirectory?: string;
+  configPath?: string;
+}
+export interface DetectConfig {
+  include_patterns?: string[];
+  [key: string]: unknown;
+}
+export interface NormalizedMatch {
+  rule_id: string | undefined;
+  file_path: string;
+  line_start: number;
+  line_end: number;
+  column_start: number | undefined;
+  column_end: number | undefined;
+  matched_text: string;
+  message: string | undefined;
+  severity: string;
+  ast_node: Record<string, unknown>;
+  meta_variables: Record<string, unknown>;
+  _repoPath: string;
+}
+export interface DetectionStatistics {
+  total_matches: number;
+  rules_applied: number;
+  files_scanned: number;
+  scan_duration_ms: number;
+}
+export interface DetectionResult {
+  matches: NormalizedMatch[];
+  statistics: DetectionStatistics;
+}
+export interface RuleEntry {
+  path: string;
+  name: string;
+}
+interface RawAstGrepMatch {
+  file?: string;
+  path?: string;
+  range?: {
+    start?: { line?: number; column?: number };
+    end?: { line?: number; column?: number };
+  };
+  line?: number;
+  lines?: string;
+  text?: string;
+  matched?: string;
+  column?: number;
+  ruleId?: string;
+  rule_id?: string;
+  message?: string;
+  severity?: string;
+  metaVars?: Record<string, unknown>;
+}
+interface ProcessError extends Error {
+  code?: number | string;
+  stdout?: string;
+  stderr?: string;
+}
 export class AstGrepPatternDetector
 ⋮----
-async detectPatterns(repoPath, detectConfig =
-async runAstGrepScan(repoPath, config)
-normalizeMatch(match, repoPath)
-async loadRules(rulesDir)
+constructor(options: AstGrepDetectorOptions =
+async detectPatterns(repoPath: string, _detectConfig: DetectConfig =
+async runAstGrepScan(repoPath: string, _config: DetectConfig): Promise<RawAstGrepMatch[]>
+normalizeMatch(match: RawAstGrepMatch, repoPath: string): NormalizedMatch
 ⋮----
-async function walkRules(dir)
+// Use 'lines' for full context (includes operators like !==, ===), fallback to 'text' for match pattern
 ⋮----
-async detectInFile(filePath, rules = [])
+async loadRules(rulesDir: string): Promise<RuleEntry[]>
+⋮----
+async function walkRules(dir: string): Promise<void>
+⋮----
+async detectInFile(filePath: string, _rules: RuleEntry[] = []): Promise<NormalizedMatch[]>
 ⋮----
 export class PatternDetectionError extends Error
+⋮----
+constructor(message: string, options?:
 </file>
 
-<file path="pipeline-core/scanners/codebase-health-scanner.js">
-async function main()
-function generateMarkdownReport(results)
+<file path="pipeline-core/scanners/codebase-health-scanner.ts">
+import { TimeoutPatternDetector } from './timeout-pattern-detector.ts';
+import type { TimeoutFindings } from './timeout-pattern-detector.ts';
+import { RootDirectoryAnalyzer } from './root-directory-analyzer.ts';
+import type { RootDirectoryAnalysis } from './root-directory-analyzer.ts';
+import { createComponentLogger, logError } from '../../utils/logger.ts';
+⋮----
+interface ScanResults {
+  repository: string;
+  timestamp: string;
+  scans: {
+    timeout?: TimeoutFindings;
+    root?: RootDirectoryAnalysis;
+  };
+}
+interface HealthScanOptions {
+  logger?: typeof logger;
+  scanTimeout?: boolean;
+  scanRoot?: boolean;
+}
+async function main(): Promise<void>
+function generateMarkdownReport(results: ScanResults): string
 ⋮----
 // Timeout scan report
 ⋮----
@@ -2670,55 +3235,173 @@ function generateMarkdownReport(results)
 ⋮----
 // Summary
 ⋮----
-export async function runHealthScan(repoPath, options =
+export async function runHealthScan(repoPath: string, options: HealthScanOptions =
 </file>
 
-<file path="pipeline-core/scanners/repository-scanner.js">
+<file path="pipeline-core/scanners/repository-scanner.ts">
+import { RepomixWorker } from '../../workers/repomix-worker.ts';
+import { createComponentLogger, logStart } from '../../utils/logger.ts';
+import { config } from '../../core/config.ts';
+import fs from 'fs/promises';
+import path from 'path';
+import { execSync } from 'child_process';
+⋮----
+export interface RepositoryScannerOptions {
+  outputBaseDir?: string;
+  codeBaseDir?: string;
+  maxConcurrent?: number;
+}
+export interface ScanConfig {
+  [key: string]: unknown;
+}
+export interface RepositoryInfo {
+  path: string;
+  name: string;
+  git_remote: string | null;
+  git_branch: string | null;
+  git_commit: string | null;
+}
+export interface RepomixMetadata {
+  totalFiles: number;
+  totalLines: number;
+  languages: string[];
+}
+export interface RepositoryScanOutput {
+  repository_info: RepositoryInfo & {
+    total_files: number;
+    total_lines: number;
+    languages: string[];
+  };
+  file_metadata: unknown[];
+  scan_metadata: {
+    duration_seconds: number;
+    repomix_output: string | null;
+    timestamp: string;
+    used_repomix: boolean;
+  };
+}
+interface FileFilter {
+  languages?: string[];
+}
 export class RepositoryScanner
 ⋮----
-async scanRepository(repoPath, scanConfig =
-async validateRepository(repoPath)
-async getRepositoryInfo(repoPath)
-async runRepomixScan(repoPath)
-async parseRepomixOutput(outputFile)
-async getFileMetadata(repoPath, scanConfig)
-async listFiles(repoPath, filter =
+constructor(options: RepositoryScannerOptions =
+async scanRepository(repoPath: string, scanConfig: ScanConfig =
+async validateRepository(repoPath: string): Promise<void>
+async getRepositoryInfo(repoPath: string): Promise<RepositoryInfo>
+async runRepomixScan(repoPath: string): Promise<Record<string, unknown>>
+async parseRepomixOutput(outputFile: string): Promise<RepomixMetadata>
+async getFileMetadata(_repoPath: string, _scanConfig: ScanConfig): Promise<unknown[]>
+async listFiles(repoPath: string, filter: FileFilter =
 ⋮----
-async function walk(dir)
+async function walk(dir: string): Promise<void>
 ⋮----
-detectLanguages(files)
+detectLanguages(files: string[]): string[]
 ⋮----
 export class RepositoryScanError extends Error
+⋮----
+constructor(message: string, options?:
 </file>
 
-<file path="pipeline-core/scanners/root-directory-analyzer.js">
+<file path="pipeline-core/scanners/root-directory-analyzer.ts">
+export interface RootDirectoryAnalyzerOptions {
+  logger?: Pick<Console, 'info' | 'error'>;
+  maxRootFiles?: number;
+}
+export interface AnalyzeOptions {
+  [key: string]: unknown;
+}
+export interface RootFile {
+  name: string;
+  path: string;
+  extension: string;
+}
+export interface CategorizedFiles {
+  python: RootFile[];
+  shell: RootFile[];
+  javascript: RootFile[];
+  typescript: RootFile[];
+  config: RootFile[];
+  data: RootFile[];
+  documentation: RootFile[];
+  packageManager: RootFile[];
+  deployment: RootFile[];
+  other: RootFile[];
+}
+export interface PythonDependencyInfo {
+  imports_from_root: string[];
+  imported_by: string[];
+  can_move: boolean;
+}
+export interface PythonImports {
+  fromRoot: string[];
+  fromPackages: string[];
+  relative: string[];
+}
+export interface Dependencies {
+  python: Record<string, PythonDependencyInfo>;
+  javascript: Record<string, unknown>;
+}
+export interface ImportChange {
+  file: string;
+  old_import: string;
+  new_import: string;
+}
+export interface Recommendation {
+  id: string;
+  title: string;
+  description: string;
+  files: RootFile[];
+  target_directory: string;
+  impact: 'low' | 'medium' | 'high';
+  requires_import_updates: boolean;
+  import_changes?: ImportChange[];
+  commands: string[];
+  path_updates_required?: string;
+}
+export interface AnalysisStatistics {
+  total_root_files: number;
+  reduction_potential: number;
+  final_root_files: number;
+  reduction_percentage: number;
+  scan_duration_ms: number;
+}
+export interface RootDirectoryAnalysis {
+  root_files: RootFile[];
+  categorized: CategorizedFiles;
+  dependencies: Dependencies;
+  recommendations: Recommendation[];
+  statistics: AnalysisStatistics;
+}
+type FileCategoryKey = keyof CategorizedFiles;
 export class RootDirectoryAnalyzer
 ⋮----
-async analyze(repoPath, options =
-async getRootFiles(repoPath)
-categorizeFiles(files)
-async analyzeImportDependencies(repoPath, categorized)
-async analyzePythonImports(filePath, repoPath)
-isLocalModule(moduleName, repoPath)
-generateRecommendations(categorized, dependencies)
+constructor(options: RootDirectoryAnalyzerOptions =
+async analyze(repoPath: string, _options: AnalyzeOptions =
+async getRootFiles(repoPath: string): Promise<RootFile[]>
+categorizeFiles(files: RootFile[]): CategorizedFiles
+async analyzeImportDependencies(repoPath: string, categorized: CategorizedFiles): Promise<Dependencies>
+async analyzePythonImports(filePath: string, repoPath: string): Promise<PythonImports>
+isLocalModule(moduleName: string, repoPath: string): boolean
+generateRecommendations(categorized: CategorizedFiles, dependencies: Dependencies): Recommendation[]
 ⋮----
 // Identify as library if:
 // - Has "lib", "utils", "helper", "middleware", "config" in name
 // - Is imported by other root files
 // - Is not a main entry point (server, app, main)
 ⋮----
-calculateImportChanges(files, targetDir, dependencies)
+calculateImportChanges(files: RootFile[], targetDir: string, dependencies: Dependencies): ImportChange[]
 ⋮----
 // This module's imports from other root files need updating
 ⋮----
-generateMoveCommands(files, targetDir)
-generateReport(analysis)
+generateMoveCommands(files: RootFile[], targetDir: string): string[]
+generateReport(analysis: RootDirectoryAnalysis): string
 ⋮----
 // Category breakdown
 ⋮----
 // Recommendations
 ⋮----
-export function createRootDirectoryAnalyzer(options)
+export function createRootDirectoryAnalyzer(options?: RootDirectoryAnalyzerOptions): RootDirectoryAnalyzer
 </file>
 
 <file path="pipeline-core/scanners/timeout_detector.py">
@@ -2819,28 +3502,75 @@ output = detector.generate_report(results)
 high_severity_count = results['statistics']['severity_breakdown'].get('high', 0)
 </file>
 
-<file path="pipeline-core/scanners/timeout-pattern-detector.js">
+<file path="pipeline-core/scanners/timeout-pattern-detector.ts">
+import { spawn, ChildProcess } from 'child_process';
+import { captureProcessOutput } from '@shared/process-io';
+⋮----
+import { createComponentLogger } from '../../utils/logger.ts';
+export interface TimeoutPatternDetectorOptions {
+  logger?: ReturnType<typeof createComponentLogger>;
+  astGrepBinary?: string;
+}
+export interface SearchOptions {
+  language?: string;
+  extensions?: string[];
+}
+export interface PatternMatch {
+  file_path: string;
+  line_start: number;
+  line_end: number;
+  matched_text: string;
+  meta_variables: Record<string, unknown>;
+}
+export interface TimeoutFinding extends PatternMatch {
+  severity: 'high' | 'medium' | 'low' | 'info';
+  category: string;
+  message: string;
+  recommendation: string;
+  fix_example?: string;
+}
+export interface SeverityBreakdown {
+  high: number;
+  medium: number;
+  low: number;
+  info: number;
+}
+export interface ScanStatistics {
+  total_issues: number;
+  affected_files: number;
+  scan_duration_ms: number;
+  severity_breakdown: SeverityBreakdown;
+}
+export interface TimeoutFindings {
+  promiseRaceWithoutTimeout: TimeoutFinding[];
+  loadingWithoutFinally: TimeoutFinding[];
+  asyncWithoutErrorHandling: TimeoutFinding[];
+  missingTimeoutConstants: TimeoutFinding[];
+  setLoadingWithoutReset: TimeoutFinding[];
+  statistics: ScanStatistics;
+}
 export class TimeoutPatternDetector
 ⋮----
-async scan(repoPath, options =
-async findPromiseRaceWithoutTimeout(repoPath)
-async findLoadingWithoutFinally(repoPath)
-async findAsyncWithoutErrorHandling(repoPath)
-async findMissingTimeoutConstants(repoPath)
-async findSetLoadingWithoutReset(repoPath)
-async searchPattern(repoPath, pattern, options =
-async readFile(filePath)
+constructor(options: TimeoutPatternDetectorOptions =
+async scan(repoPath: string, _options: Record<string, unknown> =
+async findPromiseRaceWithoutTimeout(repoPath: string): Promise<TimeoutFinding[]>
+async findLoadingWithoutFinally(repoPath: string): Promise<TimeoutFinding[]>
+async findAsyncWithoutErrorHandling(repoPath: string): Promise<TimeoutFinding[]>
+async findMissingTimeoutConstants(repoPath: string): Promise<TimeoutFinding[]>
+async findSetLoadingWithoutReset(repoPath: string): Promise<TimeoutFinding[]>
+async searchPattern(repoPath: string, pattern: string, options: SearchOptions =
+async readFile(filePath: string): Promise<string>
 /**
    * Group matches by file
    */
-groupByFile(matches)
+groupByFile(matches: PatternMatch[]): Record<string, PatternMatch[]>
 /**
    * Calculate severity breakdown
    */
-calculateSeverityBreakdown(findings)
-generateReport(findings)
+calculateSeverityBreakdown(findings: Omit<TimeoutFindings, 'statistics'>): SeverityBreakdown
+generateReport(findings: TimeoutFindings): string
 ⋮----
-export function createTimeoutPatternDetector(options)
+export function createTimeoutPatternDetector(options?: TimeoutPatternDetectorOptions): TimeoutPatternDetector
 </file>
 
 <file path="pipeline-core/similarity/__init__.py">
@@ -3633,32 +4363,186 @@ class Timer:
     def __exit__(self, *args) -> None: ...
 </file>
 
-<file path="pipeline-core/doppler-health-monitor.js">
+<file path="pipeline-core/doppler-health-monitor.ts">
+import { createComponentLogger, logError } from '../utils/logger.ts';
+import { CACHE, TIME } from '../core/constants.ts';
+import Sentry from '@sentry/node';
+import fs from 'fs/promises';
+import path from 'path';
+import os from 'os';
+⋮----
+export type CacheSeverity = 'healthy' | 'warning' | 'critical' | 'error';
+export interface CacheHealthStatus {
+  healthy: boolean;
+  cacheAgeMs: number;
+  cacheAgeHours: number;
+  cacheAgeMinutes: number;
+  lastModified: string | null;
+  usingFallback: boolean;
+  fileCount: number;
+  severity: CacheSeverity;
+  newestFile?: string;
+  error?: string;
+  errorCode?: string;
+}
+export interface DopplerHealthMonitorOptions {
+  cacheDir?: string;
+  maxCacheAge?: number;
+  warningThreshold?: number;
+}
 export class DopplerHealthMonitor
 ⋮----
-async checkCacheHealth()
-getSeverity(cacheAge)
-async startMonitoring(intervalMinutes = 15)
-stopMonitoring()
-getCacheDirectoryPath()
+constructor(options: DopplerHealthMonitorOptions =
+async checkCacheHealth(): Promise<CacheHealthStatus>
+getSeverity(cacheAge: number): CacheSeverity
+async startMonitoring(intervalMinutes = 15): Promise<CacheHealthStatus>
+stopMonitoring(): void
+getCacheDirectoryPath(): string
 </file>
 
-<file path="pipeline-core/inter-project-scanner.js">
+<file path="pipeline-core/inter-project-scanner.ts">
+import { ScanOrchestrator, type ScanResult, type CodeBlock, type DuplicateGroup, type ConsolidationSuggestion } from './scan-orchestrator.ts';
+import { createComponentLogger, logError, logStart, logStage } from '../utils/logger.ts';
+import path from 'path';
+import fs from 'fs/promises';
+⋮----
+export type CrossRepoStrategy = 'shared_package' | 'mcp_server' | 'autonomous_agent';
+export type Complexity = 'simple' | 'moderate' | 'complex';
+export type MigrationRisk = 'low' | 'medium' | 'high';
+export type CategoryBonus = 'api_handler' | 'auth_check' | 'database_operation' | 'validator' | 'error_handler';
+export interface CodeBlockWithSource {
+  block_id?: string;
+  file_path?: string;
+  line_start?: number;
+  line_end?: number;
+  source_code?: string;
+  tags?: string[];
+  source_repository: string;
+  source_repository_path: string;
+  content_hash: string;
+  pattern_id?: string;
+  relative_path?: string;
+  line_count?: number;
+  category?: string;
+  language?: string;
+  semantic_category?: string;
+  [key: string]: unknown;
+}
+export interface RepositoryScanEntry {
+  repository_path: string;
+  repository_name: string;
+  scan_result?: ScanResult;
+  code_blocks: CodeBlock[];
+  duplicate_groups: DuplicateGroup[];
+  suggestions: ConsolidationSuggestion[];
+  error?: string;
+}
+export interface CrossRepoDuplicateGroup {
+  group_id: string;
+  pattern_id?: string;
+  content_hash: string;
+  member_blocks: CodeBlockWithSource[];
+  occurrence_count: number;
+  repository_count: number;
+  affected_repositories: string[];
+  affected_files: string[];
+  category?: string;
+  language?: string;
+  total_lines: number;
+  similarity_score: number;
+  similarity_method: string;
+  impact_score: number;
+}
+export interface CrossRepoSuggestion {
+  suggestion_id: string;
+  duplicate_group_id: string;
+  strategy: CrossRepoStrategy;
+  strategy_rationale: string;
+  target_location: string;
+  impact_score: number;
+  complexity: Complexity;
+  migration_risk: MigrationRisk;
+  affected_repositories: string[];
+  affected_repositories_count: number;
+  affected_files_count: number;
+  breaking_changes: boolean;
+  confidence: number;
+  roi_score: number;
+}
+export interface InterProjectMetrics {
+  total_repositories_scanned: number;
+  total_code_blocks: number;
+  total_intra_project_groups: number;
+  total_cross_repository_groups: number;
+  cross_repository_occurrences: number;
+  cross_repository_duplicated_lines: number;
+  total_suggestions: number;
+  shared_package_candidates: number;
+  mcp_server_candidates: number;
+  average_repositories_per_duplicate: number | string;
+}
+export interface ScannedRepositorySummary {
+  path: string;
+  name: string;
+  code_blocks: number;
+  duplicate_groups: number;
+  error?: string;
+}
+export interface InterProjectScanResult {
+  scan_type: 'inter-project';
+  scanned_repositories: ScannedRepositorySummary[];
+  cross_repository_duplicates: CrossRepoDuplicateGroup[];
+  cross_repository_suggestions: CrossRepoSuggestion[];
+  repository_scans: RepositoryScanEntry[];
+  metrics: InterProjectMetrics;
+  scan_metadata: {
+    duration_seconds: number;
+    scanned_at: string;
+    repository_count: number;
+    total_code_blocks: number;
+  };
+}
+export interface InterProjectScannerConfig {
+  orchestrator?: Record<string, unknown>;
+  outputDir?: string;
+}
+export interface InterProjectScanConfig {
+  [key: string]: unknown;
+}
+⋮----
 export class InterProjectScanner
 ⋮----
-async scanRepositories(repoPaths, scanConfig =
-_aggregateCodeBlocks(repositoryScans)
-_detectCrossRepoDuplicates(allCodeBlocks)
-_calculateCrossRepoImpactScore(group)
-_generateCrossRepoSuggestions(crossRepoDuplicates, repositoryScans)
-_determineCrossRepoStrategy(group)
-_generateCrossRepoRationale(group)
-_assessComplexity(group)
-_assessRisk(group, strategy)
-_suggestCrossRepoLocation(group, strategy)
-_calculateCrossRepoROI(group, complexity, risk)
-_calculateInterProjectMetrics(repositoryScans, crossRepoDuplicates, suggestions)
-async saveResults(results, filename = 'inter-project-scan.json')
+constructor(config: InterProjectScannerConfig =
+async scanRepositories(
+    repoPaths: string[],
+    scanConfig: InterProjectScanConfig = {}
+): Promise<InterProjectScanResult>
+private _aggregateCodeBlocks(repositoryScans: RepositoryScanEntry[]): CodeBlockWithSource[]
+private _detectCrossRepoDuplicates(allCodeBlocks: CodeBlockWithSource[]): CrossRepoDuplicateGroup[]
+private _calculateCrossRepoImpactScore(group: CrossRepoDuplicateGroup): number
+/**
+   * Generate consolidation suggestions for cross-repository duplicates
+   */
+private _generateCrossRepoSuggestions(
+    crossRepoDuplicates: CrossRepoDuplicateGroup[],
+    _repositoryScans: RepositoryScanEntry[]
+): CrossRepoSuggestion[]
+private _determineCrossRepoStrategy(group: CrossRepoDuplicateGroup): CrossRepoStrategy
+private _generateCrossRepoRationale(group: CrossRepoDuplicateGroup): string
+private _assessComplexity(group: CrossRepoDuplicateGroup): Complexity
+private _assessRisk(strategy: CrossRepoStrategy): MigrationRisk
+private _suggestCrossRepoLocation(group: CrossRepoDuplicateGroup, strategy: CrossRepoStrategy): string
+private _calculateCrossRepoROI(
+    group: CrossRepoDuplicateGroup,
+    complexity: Complexity,
+    risk: MigrationRisk
+): number
+private _calculateInterProjectMetrics(
+    repositoryScans: RepositoryScanEntry[],
+    crossRepoDuplicates: CrossRepoDuplicateGroup[],
+    suggestions: CrossRepoSuggestion[]
+): InterProjectMetrics
+async saveResults(results: InterProjectScanResult, filename = 'inter-project-scan.json'): Promise<string>
 </file>
 
 <file path="pipeline-core/py.typed">
@@ -3666,13 +4550,14 @@ async saveResults(results, filename = 'inter-project-scan.json')
 </file>
 
 <file path="pipeline-core/scan-orchestrator.ts">
-import { RepositoryScanner } from './scanners/repository-scanner.js';
-import { AstGrepPatternDetector } from './scanners/ast-grep-detector.js';
-import { HTMLReportGenerator } from './reports/html-report-generator.js';
-import { MarkdownReportGenerator } from './reports/markdown-report-generator.js';
-import { InterProjectScanner } from './inter-project-scanner.js';
+import { RepositoryScanner } from './scanners/repository-scanner.ts';
+import { AstGrepPatternDetector } from './scanners/ast-grep-detector.ts';
+import { HTMLReportGenerator } from './reports/html-report-generator.ts';
+import { MarkdownReportGenerator } from './reports/markdown-report-generator.ts';
+import type { ScanResult as ReportScanResult } from './reports/json-report-generator.ts';
+import { InterProjectScanner } from './inter-project-scanner.ts';
 import { createComponentLogger, logStart, logStage } from '../utils/logger.ts';
-import { DependencyValidator } from '../utils/dependency-validator.js';
+import { DependencyValidator } from '../utils/dependency-validator.ts';
 import { spawn, ChildProcess, execSync } from 'child_process';
 ⋮----
 import { existsSync } from 'fs';
@@ -3925,35 +4810,196 @@ export class ScanError extends Error
 constructor(message: string, options?:
 </file>
 
-<file path="pipeline-runners/bugfix-audit-pipeline.js">
+<file path="pipeline-runners/bugfix-audit-pipeline.ts">
+import { BugfixAuditWorker } from '../workers/bugfix-audit-worker.ts';
+import { config } from '../core/config.ts';
+import { TIMEOUTS } from '../core/constants.ts';
+import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
+import cron from 'node-cron';
+import fs from 'fs/promises';
+import path from 'path';
+⋮----
+interface BugfixAuditOptions {
+  maxConcurrent?: number;
+  activeDocsDir?: string;
+  outputBaseDir?: string;
+  gitBaseBranch?: string;
+  gitBranchPrefix?: string;
+  gitDryRun?: boolean;
+  [key: string]: unknown;
+}
+interface JobData {
+  projectName: string;
+  markdownFile: string;
+  repoPath: string;
+}
+interface JobResult {
+  pullRequestUrl?: string;
+}
+interface Job {
+  id: string;
+  data: JobData;
+  result?: JobResult;
+  status: string;
+  completedAt: string;
+  startedAt: string;
+  error?: Error;
+}
+interface WorkerStats {
+  active: number;
+  queued: number;
+  total: number;
+  completed: number;
+  failed: number;
+}
+interface RunResult {
+  status: string;
+  jobsCreated?: number;
+  duration?: number;
+  active?: number;
+  queued?: number;
+  total?: number;
+  completed?: number;
+  failed?: number;
+}
 class BugfixAuditPipeline
 ⋮----
-setupEventListeners()
-async runBugfixAudit()
-async waitForCompletion()
-async saveRunSummary(stats, duration, jobs)
-scheduleAudits(cronSchedule = '0 1 * * *')
-scheduleTonight()
+constructor(options: BugfixAuditOptions =
+private setupEventListeners(): void
+async runBugfixAudit(): Promise<RunResult>
+⋮----
+const jobs: Job[] = await (this.worker as unknown as
+⋮----
+const stats = (this.worker as unknown as
+⋮----
+async waitForCompletion(): Promise<void>
+async saveRunSummary(stats: WorkerStats, duration: number, jobs: Job[]): Promise<void>
+scheduleAudits(cronSchedule: string = '0 1 * * *'): cron.ScheduledTask
+scheduleTonight(): void
 </file>
 
-<file path="pipeline-runners/claude-health-pipeline.js">
+<file path="pipeline-runners/claude-health-pipeline.ts">
+import { ClaudeHealthWorker } from '../workers/claude-health-worker.ts';
+import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
+import { config } from '../core/config.ts';
+import cron from 'node-cron';
+⋮----
+interface HealthCheckOptions {
+  detailed?: boolean;
+  validateConfig?: boolean;
+  checkPerformance?: boolean;
+  analyzePlugins?: boolean;
+  [key: string]: unknown;
+}
+interface PipelineOptions {
+  detailed: boolean;
+  skipValidation: boolean;
+  skipPerformance: boolean;
+  skipPlugins: boolean;
+}
+interface Recommendation {
+  priority: string;
+  type: string;
+  message: string;
+  action: string;
+  details?: Array<{
+    category?: string;
+    plugins?: string[];
+    suggestion?: string;
+  }>;
+}
+interface HealthCheckResult {
+  summary: {
+    healthScore: number;
+    status: string;
+    message: string;
+    criticalIssues: number;
+    warnings: number;
+  };
+  checks: {
+    components?: {
+      skills: number;
+      agents: number;
+      commands: number;
+      activeTasks: number;
+      archivedTasks: number;
+    };
+    hooks?: {
+      executableHooks: number;
+      totalHooks: number;
+      registeredHooks: number;
+      hooks?: Array<{ name: string; executable: boolean }>;
+    };
+    plugins?: {
+      totalPlugins: number;
+      duplicateCategories?: Array<{
+        category: string;
+        count: number;
+        plugins: string[];
+      }>;
+    };
+    environment?: {
+      nodeVersion?: string;
+      npmVersion?: string;
+      direnv?: boolean;
+      direnvAllowed?: boolean;
+    };
+    configuration?: {
+      settingsJson: { valid: boolean };
+      skillRulesJson: { valid: boolean };
+      packageJson: { valid: boolean };
+      envrc: { exists: boolean };
+    };
+    performance?: {
+      logExists: boolean;
+      logSize: number;
+      totalEntries: number;
+      slowHooks: number;
+      failures: number;
+      slowHookDetails?: Array<{ hook: string; duration: number }>;
+    };
+  };
+  recommendations: Recommendation[];
+  duration: number;
+}
+interface WorkerStats {
+  active: number;
+  queued: number;
+  total: number;
+  completed: number;
+  failed: number;
+}
+interface Job {
+  id: string;
+  data: Record<string, unknown>;
+  result: HealthCheckResult;
+  error?: Error;
+}
 class ClaudeHealthPipeline
 ⋮----
-setupEventListeners()
-displayResults(result)
-async runHealthCheck(options =
-async waitForCompletion()
-scheduleHealthChecks(cronSchedule)
-getStats()
+constructor(options: Record<string, unknown> =
+private setupEventListeners(): void
+private displayResults(result: HealthCheckResult): void
+async runHealthCheck(options: HealthCheckOptions =
 ⋮----
-function printSummary(result)
+const job = (this.worker as unknown as
+⋮----
+const stats = (this.worker as unknown as
+⋮----
+async waitForCompletion(): Promise<void>
+scheduleHealthChecks(cronSchedule: string): cron.ScheduledTask
+getStats(): WorkerStats
+⋮----
+return (this.worker as unknown as
+⋮----
+function printSummary(result: HealthCheckResult): void
 ⋮----
 // Environment
 ⋮----
 // Summary statistics
 ⋮----
-function printRecommendations(recommendations)
-function printDetailedChecks(checks)
+function printRecommendations(recommendations: Recommendation[]): void
+function printDetailedChecks(checks: HealthCheckResult['checks']): void
 ⋮----
 // Hooks
 ⋮----
@@ -3961,8 +5007,8 @@ function printDetailedChecks(checks)
 ⋮----
 // Performance
 ⋮----
-function getScoreColor(score)
-function formatBytes(bytes)
+function getScoreColor(score: number): string
+function formatBytes(bytes: number): string
 </file>
 
 <file path="pipeline-runners/collect_git_activity.py">
@@ -4208,33 +5254,42 @@ report_file = default_report_dir / f'{report_date}-git-activity-report.md'
 output_dir = _resolve_output_dir(args)
 </file>
 
-<file path="pipeline-runners/dashboard-populate-pipeline.js">
-async function main()
+<file path="pipeline-runners/dashboard-populate-pipeline.ts">
+import { DashboardPopulateWorker } from '../workers/dashboard-populate-worker.ts';
+import { createComponentLogger, logError } from '../utils/logger.ts';
+⋮----
+import cron from 'node-cron';
+import type { Job } from '../core/server.ts';
+⋮----
+interface CliOptions {
+  seed: boolean;
+  dryRun: boolean;
+  skipJudge: boolean;
+  skipSync: boolean;
+  limit: number | undefined;
+}
+⋮----
+async function main(): Promise<void>
 </file>
 
 <file path="pipeline-runners/duplicate-detection-pipeline.ts">
 import { SidequestServer } from '../core/server.ts';
-import { RepositoryConfigLoader } from '../pipeline-core/config/repository-config-loader.js';
-import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.js';
+import { RepositoryConfigLoader, type RepositoryConfig } from '../pipeline-core/config/repository-config-loader.ts';
+import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.ts';
 import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.ts';
-import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.js';
-import { PRCreator, PRCreationResults } from '../pipeline-core/git/pr-creator.ts';
+import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.ts';
+import type { ScanResult as ReportScanResult } from '../pipeline-core/reports/json-report-generator.ts';
+import { PRCreator, type PRCreationResults } from '../pipeline-core/git/pr-creator.ts';
 import { createComponentLogger, logStart, logRetry } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS, RETRY } from '../core/constants.ts';
 import { isRetryable, getErrorInfo } from '../pipeline-core/errors/error-classifier.ts';
 ⋮----
 import type { Logger } from 'pino';
-export enum JobStatus {
-  QUEUED = 'queued',
-  RUNNING = 'running',
-  COMPLETED = 'completed',
-  FAILED = 'failed'
-}
-export enum ScanType {
-  INTER_PROJECT = 'inter-project',
-  INTRA_PROJECT = 'intra-project'
-}
+⋮----
+export type JobStatus = typeof JobStatus[keyof typeof JobStatus];
+⋮----
+export type ScanType = typeof ScanType[keyof typeof ScanType];
 export interface JobData {
   scanType: ScanType | string;
   repositories?: RepositoryConfig[];
@@ -4250,22 +5305,6 @@ export interface Job {
   completedAt: Date | null;
   error: Error | null;
   result: any;
-}
-export interface RepositoryConfig {
-  name: string;
-  path: string;
-  enabled?: boolean;
-  frequency?: string;
-  lastScanned?: string | null;
-  priority?: number;
-  groups?: string[];
-  scanHistory?: ScanHistoryEntry[];
-}
-export interface ScanHistoryEntry {
-  date: string;
-  status: 'success' | 'failure';
-  duration: number;
-  duplicatesFound: number;
 }
 export interface RetryInfo {
   attempts: number;
@@ -4400,18 +5439,105 @@ public getScanMetrics(): ScanMetrics &
 async function main(): Promise<void>
 </file>
 
-<file path="pipeline-runners/git-activity-pipeline.js">
+<file path="pipeline-runners/git-activity-pipeline.ts">
+import cron from 'node-cron';
+import { GitActivityWorker } from '../workers/git-activity-worker.ts';
+import { config } from '../core/config.ts';
+import { TIMEOUTS } from '../core/constants.ts';
+import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
+⋮----
+interface ReportOptions {
+  reportType?: string;
+  sinceDate?: string;
+  untilDate?: string;
+  days?: number;
+}
+interface OutputFile {
+  path: string;
+  size: number;
+  exists: boolean;
+}
+interface JobData {
+  reportType?: string;
+  days?: number;
+}
+interface JobResult {
+  reportType: string;
+  stats: {
+    totalCommits: number;
+    totalRepositories: number;
+  };
+  outputFiles: OutputFile[];
+}
+interface Job {
+  id: string;
+  data: JobData;
+  result: JobResult;
+  completedAt: string;
+  startedAt: string;
+  error?: Error;
+}
+interface WorkerStats {
+  active: number;
+  queued: number;
+  total: number;
+  completed: number;
+  failed: number;
+}
 class GitActivityPipeline
 ⋮----
-setupEventListeners()
-async runReport(options =
-async waitForCompletion()
-scheduleWeeklyReports(cronSchedule = '0 20 * * 0')
-scheduleMonthlyReports(cronSchedule = '0 0 1 * *')
+constructor(options: Record<string, unknown> =
+private setupEventListeners(): void
+async runReport(options: ReportOptions =
+⋮----
+createCustomReportJob(since: string, until: string): Job;
+createMonthlyReportJob(): Job;
+createWeeklyReportJob(): Job;
+createReportJob(opts: ReportOptions): Job;
+getStats(): WorkerStats;
+⋮----
+async waitForCompletion(): Promise<void>
+⋮----
+const stats = (this.worker as unknown as
+⋮----
+scheduleWeeklyReports(cronSchedule: string = '0 20 * * 0'): cron.ScheduledTask
+scheduleMonthlyReports(cronSchedule: string = '0 0 1 * *'): cron.ScheduledTask
 </file>
 
-<file path="pipeline-runners/gitignore-pipeline.js">
-async function main()
+<file path="pipeline-runners/gitignore-pipeline.ts">
+import { GitignoreWorker } from '../workers/gitignore-worker.ts';
+import { createComponentLogger, logError } from '../utils/logger.ts';
+⋮----
+import cron from 'node-cron';
+import path from 'path';
+import os from 'os';
+⋮----
+interface JobData {
+  type?: string;
+  dryRun?: boolean;
+  baseDir?: string;
+  maxDepth?: number;
+}
+interface JobResult {
+  totalRepositories?: number;
+  summary?: {
+    added?: number;
+    skipped?: number;
+    would_add?: number;
+    error?: number;
+  };
+}
+interface Job {
+  id: string;
+  data: JobData;
+  result?: JobResult;
+  error?: string | Error;
+  retries?: number;
+}
+⋮----
+async function main(): Promise<void>
+⋮----
+const job = (worker as unknown as
 </file>
 
 <file path="pipeline-runners/plugin-management-audit.sh">
@@ -4567,39 +5693,168 @@ else
 fi
 </file>
 
-<file path="pipeline-runners/plugin-management-pipeline.js">
+<file path="pipeline-runners/plugin-management-pipeline.ts">
+import cron from 'node-cron';
+import { PluginManagerWorker } from '../utils/plugin-manager.ts';
+import { config } from '../core/config.ts';
+import { TIMEOUTS } from '../core/constants.ts';
+import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
+⋮----
+interface AuditOptions {
+  detailed?: boolean;
+}
+interface AuditRecommendation {
+  priority: string;
+  type: string;
+  message: string;
+  action: string;
+  details?: Array<{
+    category: string;
+    plugins: string[];
+    suggestion: string;
+  }>;
+}
+interface AuditResult {
+  totalPlugins: number;
+  duplicateCategories?: Array<{ category: string; count: number }>;
+  recommendations?: AuditRecommendation[];
+}
+interface WorkerStats {
+  active: number;
+  queued: number;
+  total: number;
+  completed: number;
+  failed: number;
+}
+interface Job {
+  id: string;
+  data: { detailed?: boolean };
+  result: AuditResult;
+  completedAt: number;
+  startedAt: number;
+  error?: Error;
+}
 class PluginManagementPipeline
 ⋮----
-setupEventListeners()
-displayRecommendations(result)
+constructor(options: Record<string, unknown> =
+private setupEventListeners(): void
+private displayRecommendations(result: AuditResult): void
 /**
    * Run a single audit
-   * @param {Object} options - Audit options
    */
-async runAudit(options =
-async waitForCompletion()
-scheduleAudits(cronSchedule = '0 9 * * 1')
+async runAudit(options: AuditOptions =
+⋮----
+const job = (this.worker as unknown as
+⋮----
+const stats = (this.worker as unknown as
+⋮----
+async waitForCompletion(): Promise<void>
+scheduleAudits(cronSchedule: string = '0 9 * * 1'): cron.ScheduledTask
 </file>
 
-<file path="pipeline-runners/repo-cleanup-pipeline.js">
-async function main()
+<file path="pipeline-runners/repo-cleanup-pipeline.ts">
+import { RepoCleanupWorker } from '../workers/repo-cleanup-worker.ts';
+import { createComponentLogger, logError } from '../utils/logger.ts';
+⋮----
+import cron from 'node-cron';
+import path from 'path';
+import os from 'os';
+⋮----
+interface CleanupSummary {
+  venvs?: number;
+  tempFiles?: number;
+  outputFiles?: number;
+  buildArtifacts?: number;
+  redundantDirs?: number;
+}
+interface JobData {
+  type?: string;
+  targetDir?: string;
+  dryRun?: boolean;
+}
+interface JobResult {
+  initialSize?: number;
+  finalSize?: number;
+  totalItems?: number;
+  summary?: CleanupSummary;
+}
+interface Job {
+  id: string;
+  data: JobData;
+  result?: JobResult;
+  error?: string | Error;
+  retries?: number;
+}
+⋮----
+async function main(): Promise<void>
+⋮----
+const job = (worker as unknown as
 </file>
 
-<file path="pipeline-runners/schema-enhancement-pipeline.js">
+<file path="pipeline-runners/schema-enhancement-pipeline.ts">
+import { SchemaEnhancementWorker } from '../workers/schema-enhancement-worker.ts';
+import { config } from '../core/config.ts';
+import { TIMEOUTS } from '../core/constants.ts';
+import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
+import cron from 'node-cron';
+import fs from 'fs/promises';
+import path from 'path';
+⋮----
+interface ReadmeFile {
+  fullPath: string;
+  relativePath: string;
+  name: string;
+  dirPath: string;
+}
+interface RepoContext {
+  totalReadmes: number;
+  baseDir: string;
+  hasPackageJson: boolean;
+  hasPyproject: boolean;
+  gitRemote: string | null;
+}
+interface EnhancementResult {
+  status: string;
+  readmesFound?: number;
+  enhanced?: number;
+  duration?: number;
+  jobs?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+interface SchemaEnhancementOptions {
+  gitWorkflowEnabled?: boolean;
+  gitBranchPrefix?: string;
+  gitBaseBranch?: string;
+  gitDryRun?: boolean;
+  outputBaseDir?: string;
+  dryRun?: boolean;
+  baseDir?: string;
+  [key: string]: unknown;
+}
+⋮----
 class SchemaEnhancementPipeline
 ⋮----
-setupEventListeners()
-async scanForReadmes(dir, baseDir = dir, results = [])
-async scanDirectory(directory)
-async createEnhancementJobs(readmeFiles)
-async runEnhancement(directory = this.baseDir)
-async waitForCompletion()
-scheduleEnhancements(cronSchedule = '0 3 * * 0')
+constructor(options: SchemaEnhancementOptions =
+private setupEventListeners(): void
+async scanForReadmes(dir: string, baseDir: string = dir, results: ReadmeFile[] = []): Promise<ReadmeFile[]>
+async scanDirectory(directory: string): Promise<ReadmeFile[]>
+async createEnhancementJobs(readmeFiles: ReadmeFile[]): Promise<unknown[]>
+⋮----
+const job = await (this.worker as unknown as
+⋮----
+async runEnhancement(directory: string = this.baseDir): Promise<EnhancementResult>
+⋮----
+const stats = (this.worker as unknown as
+const jobStats = (this.worker as unknown as
+await (this.worker as unknown as
+⋮----
+async waitForCompletion(): Promise<void>
+scheduleEnhancements(cronSchedule: string = '0 3 * * 0'): cron.ScheduledTask
 </file>
 
 <file path="pipeline-runners/test-refactor-pipeline.ts">
-import { TestRefactorWorker } from '../workers/test-refactor-worker.js';
-import { DirectoryScanner } from '../utils/directory-scanner.js';
+import { TestRefactorWorker } from '../workers/test-refactor-worker.ts';
+import { DirectoryScanner } from '../utils/directory-scanner.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS } from '../core/constants.ts';
@@ -5268,32 +6523,86 @@ export function isIntraProjectJobResult(result: JobResult): result is IntraProje
 export function isInterProjectJobResult(result: JobResult): result is InterProjectJobResult
 </file>
 
-<file path="utils/dependency-validator.js">
+<file path="utils/dependency-validator.ts">
+import { execSync } from 'child_process';
+import { createComponentLogger } from './logger.ts';
+import { TIMEOUTS } from '../core/constants.ts';
+⋮----
 export class DependencyValidationError extends Error
+⋮----
+constructor(failures: string[])
+⋮----
 export class DependencyValidator
 ⋮----
-static async validateAll()
-static async validateRepomix()
-static async validateAstGrep()
-static async validatePython()
+static async validateAll(): Promise<void>
+static async validateRepomix(): Promise<void>
+static async validateAstGrep(): Promise<void>
+static async validatePython(): Promise<string>
 </file>
 
-<file path="utils/directory-scanner.js">
+<file path="utils/directory-scanner.ts">
+import fs from 'fs/promises';
+import path from 'path';
+import os from 'os';
+import { createComponentLogger, logWarn } from './logger.ts';
+⋮----
+interface DirectoryScannerOptions {
+  baseDir?: string;
+  outputDir?: string;
+  excludeDirs?: string[];
+  maxDepth?: number;
+}
+interface ScannedDirectory {
+  fullPath: string;
+  relativePath: string;
+  name: string;
+  depth: number;
+  isGitRepo: boolean;
+}
+interface ScanStats {
+  total: number;
+  byDepth: Record<number, number>;
+  totalSize: number;
+  byName: Record<string, number>;
+  topDirectoryNames?: Array<{ name: string; count: number }>;
+}
+interface ScanReport {
+  timestamp: string;
+  baseDir: string;
+  scanStats: ScanStats;
+  directories: Array<{ relativePath: string; name: string; depth: number }>;
+}
+interface ScanSummary {
+  timestamp: string;
+  baseDir: string;
+  totalDirectories: number;
+  maxDepth: number;
+  reportPath: string;
+  treePath: string;
+  stats: ScanStats;
+}
+interface DirectoryInfo {
+  path: string;
+  size: number;
+  fileCount: number;
+  modifiedAt: Date;
+}
 export class DirectoryScanner
 ⋮----
-async scanDirectories()
+constructor(options: DirectoryScannerOptions =
+async scanDirectories(): Promise<ScannedDirectory[]>
 /**
    * Check if a directory is a git repository root
    */
-async isGitRepository(dirPath)
-async scanRecursive(currentPath, relativePath, depth, results)
-async shouldProcess(dirPath)
-async getDirectoryInfo(dirPath)
-generateScanStats(directories)
-async saveScanReport(directories, stats)
-generateDirectoryTree(directories)
-async saveDirectoryTree(directories)
-async generateAndSaveScanResults(directories)
+async isGitRepository(dirPath: string): Promise<boolean>
+async scanRecursive(currentPath: string, relativePath: string, depth: number, results: ScannedDirectory[]): Promise<void>
+async shouldProcess(dirPath: string): Promise<boolean>
+async getDirectoryInfo(dirPath: string): Promise<DirectoryInfo>
+generateScanStats(directories: ScannedDirectory[]): ScanStats
+async saveScanReport(directories: ScannedDirectory[], stats: ScanStats): Promise<string>
+generateDirectoryTree(directories: ScannedDirectory[]): string
+async saveDirectoryTree(directories: ScannedDirectory[]): Promise<string>
+async generateAndSaveScanResults(directories: ScannedDirectory[]): Promise<
 </file>
 
 <file path="utils/doppler-resilience.example.js">
@@ -5317,32 +6626,116 @@ stop()
 async getHealth()
 </file>
 
-<file path="utils/doppler-resilience.js">
+<file path="utils/doppler-resilience.ts">
+import { createComponentLogger, logError } from './logger.ts';
+import { TIMEOUTS, RETRY, CACHE } from '../core/constants.ts';
+import Sentry from '@sentry/node';
+import fs from 'fs/promises';
+import path from 'path';
+import os from 'os';
+⋮----
+type CircuitStateType = typeof CircuitState[keyof typeof CircuitState];
+interface DopplerResilienceOptions {
+  failureThreshold?: number;
+  successThreshold?: number;
+  timeout?: number;
+  maxBackoffMs?: number;
+  baseDelayMs?: number;
+  backoffMultiplier?: number;
+  cacheFile?: string;
+}
+interface ResilienceMetrics {
+  totalRequests: number;
+  totalFailures: number;
+  totalSuccesses: number;
+  currentBackoffMs: number;
+  lastError: { message: string; timestamp: string } | null;
+}
+interface HealthStatus {
+  healthy: boolean;
+  circuitState: CircuitStateType;
+  failureCount: number;
+  consecutiveFailures: number;
+  successCount: number;
+  lastFailureTime: string | null;
+  lastSuccessTime: string | null;
+  nextAttemptTime: string | null;
+  waitTimeMs: number;
+  currentBackoffMs: number;
+  metrics: {
+    totalRequests: number;
+    totalFailures: number;
+    totalSuccesses: number;
+    successRate: string;
+    lastError: { message: string; timestamp: string } | null;
+  };
+  usingFallback: boolean;
+  cacheLoadedAt: string | null;
+}
 export class DopplerResilience
 ⋮----
-async getSecrets()
-async fetchFromDoppler()
-async getFallbackSecrets()
-isCacheStale()
-handleSuccess()
-handleFailure(error)
-getHealth()
-reset()
-getState()
+constructor(options: DopplerResilienceOptions =
+async getSecrets(): Promise<Record<string, unknown>>
+async fetchFromDoppler(): Promise<Record<string, unknown>>
+async getFallbackSecrets(): Promise<Record<string, unknown>>
+isCacheStale(): boolean
+handleSuccess(): void
+handleFailure(error: Error): void
+getHealth(): HealthStatus
+reset(): void
+getState(): CircuitStateType
 </file>
 
-<file path="utils/gitignore-repomix-updater.js">
+<file path="utils/gitignore-repomix-updater.ts">
+import fs from 'fs/promises';
+import path from 'path';
+import os from 'os';
+import { createComponentLogger, logError, logWarn } from './logger.ts';
+⋮----
+interface UpdaterOptions {
+  baseDir?: string;
+  excludeDirs?: string[];
+  maxDepth?: number;
+  dryRun?: boolean;
+}
+interface ScannedRepo {
+  fullPath: string;
+  depth: number;
+}
+interface UpdateResult {
+  path: string;
+  action: 'added' | 'skipped' | 'would_add' | 'error';
+  reason: string;
+}
+interface RepoUpdateResult {
+  repository: string;
+  path: string;
+  action: string;
+  reason: string;
+}
+interface UpdateSummary {
+  added: number;
+  skipped: number;
+  would_add: number;
+  error: number;
+}
+interface ProcessResults {
+  totalRepositories: number;
+  results: RepoUpdateResult[];
+  summary: UpdateSummary;
+}
 export class GitignoreRepomixUpdater
 ⋮----
-async findGitRepositories()
-async scanForGitRepos(currentPath, depth, results)
-async gitignoreContainsEntry(gitignorePath)
-async addToGitignore(repoPath)
-async processRepositories()
-generateSummary(results)
-async saveResults(results, outputPath)
+constructor(options: UpdaterOptions =
+async findGitRepositories(): Promise<ScannedRepo[]>
+async scanForGitRepos(currentPath: string, depth: number, results: ScannedRepo[]): Promise<void>
+async gitignoreContainsEntry(gitignorePath: string): Promise<boolean>
+async addToGitignore(repoPath: string): Promise<UpdateResult>
+async processRepositories(): Promise<ProcessResults>
+generateSummary(results: RepoUpdateResult[]): UpdateSummary
+async saveResults(results: ProcessResults, outputPath: string): Promise<object>
 ⋮----
-export async function main()
+export async function main(): Promise<void>
 </file>
 
 <file path="utils/logger.ts">
@@ -5368,15 +6761,66 @@ export function getAllKnownPipelineIds(): string[]
 export function isKnownPipeline(id: string): boolean
 </file>
 
-<file path="utils/plugin-manager.js">
+<file path="utils/plugin-manager.ts">
+import { SidequestServer } from '../core/server.ts';
+import { config } from '../core/config.ts';
+import { createComponentLogger, logStart, logComplete, logError, logWarn } from './logger.ts';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import fs from 'fs/promises';
+import path from 'path';
+import type { Job } from '../core/server.ts';
+⋮----
+interface PluginManagerOptions {
+  maxConcurrent?: number;
+  [key: string]: unknown;
+}
+interface AuditResults {
+  total_enabled: number;
+  enabled_plugins: string[];
+  potential_duplicates: Record<string, string[]>;
+}
+interface DuplicateCategory {
+  category: string;
+  plugins: string[];
+  count: number;
+}
+interface ExceededThresholds {
+  maxPlugins: boolean;
+  warnPlugins: boolean;
+}
+interface PluginMetadata {
+  enabledPlugins?: Record<string, unknown>;
+  pluginSettings?: Record<string, unknown>;
+  lastModified?: Date;
+}
+interface Analysis {
+  totalPlugins: number;
+  enabledPlugins: string[];
+  duplicateCategories: DuplicateCategory[];
+  exceededThresholds: ExceededThresholds;
+  pluginMetadata: PluginMetadata;
+}
+interface Recommendation {
+  priority: string;
+  type: string;
+  message: string;
+  action: string;
+  details?: Array<{
+    category: string;
+    plugins: string[];
+    suggestion: string;
+  }>;
+}
 class PluginManagerWorker extends SidequestServer
 ⋮----
-async runJobHandler(job)
-async runAuditScript(detailed = false)
-async analyzeResults(auditResults)
-async loadPluginMetadata()
-generateRecommendations(analysis)
-addJob(options =
+constructor(options: PluginManagerOptions =
+async runJobHandler(job: Job): Promise<
+async runAuditScript(detailed: boolean = false): Promise<AuditResults>
+async analyzeResults(auditResults: AuditResults): Promise<Analysis>
+async loadPluginMetadata(): Promise<PluginMetadata>
+generateRecommendations(analysis: Analysis): Recommendation[]
+addJob(options:
 </file>
 
 <file path="utils/refactor-test-suite.ts">
@@ -5455,84 +6899,118 @@ function generateIndexFile(): string
 async function main()
 </file>
 
-<file path="utils/report-generator.js">
-export async function generateReport(options)
-function generateHTMLReport(data)
-function generateJSONReport(data)
-function generateHTMLHeader(title, jobId, status, statusClass, timestamp, duration)
-function generateHTMLParameters(parameters)
-/**
- * Generate HTML metadata section
- *
- * @private
- */
-function generateHTMLMetadata(metadata)
-/**
- * Generate HTML results section
- *
- * @private
- */
-function generateHTMLResults(result, jobType)
+<file path="utils/report-generator.ts">
+import fs from 'fs/promises';
+import path from 'path';
 ⋮----
-// Try to detect metrics/stats in result
+import { createComponentLogger, logError } from './logger.ts';
+import { TIME } from '../core/constants.ts';
 ⋮----
-/**
- * Generate metrics cards
- *
- * @private
- */
-function generateMetricsSection(metrics)
-/**
- * Generate details section
- *
- * @private
- */
-function generateDetailsSection(details, jobType)
-/**
- * Generate HTML footer
- *
- * @private
- */
-function generateHTMLFooter(timestamp)
-/**
- * Extract metrics from result object
- *
- * @private
- */
-function extractMetrics(result)
-⋮----
-// Look for common metric field names
-⋮----
-function extractDetails(result)
-function getJobTypeTitle(jobType)
-function formatValue(value)
-export async function pruneOldReports(outputDir = DEFAULT_OUTPUT_DIR, maxAgeMs = 30 * TIME.DAY)
-function escapeHtml(text)
-function getHTMLStyles()
+interface ReportOptions {
+  jobId: string;
+  jobType: string;
+  status: string;
+  result: unknown;
+  startTime: number;
+  endTime: number;
+  parameters?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  outputDir?: string;
+}
+interface ReportPaths {
+  timestamp: string;
+  html?: string;
+  json?: string;
+}
+interface ReportData {
+  jobId: string;
+  jobType: string;
+  status: string;
+  result: unknown;
+  startTime: number;
+  endTime: number;
+  parameters: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  timestamp: string;
+}
+export async function generateReport(options: ReportOptions): Promise<ReportPaths>
+function generateHTMLReport(data: ReportData): string
+function generateJSONReport(data: ReportData): object
+function generateHTMLHeader(title: string, jobId: string, status: string, statusClass: string, timestamp: string, duration: string): string
+function generateHTMLParameters(parameters: Record<string, unknown>): string
+function generateHTMLMetadata(metadata: Record<string, unknown>): string
+function generateHTMLResults(result: unknown): string
+function generateMetricsSection(metrics: Record<string, unknown>): string
+function generateDetailsSection(details: Record<string, unknown>): string
+function generateHTMLFooter(timestamp: string): string
+function extractMetrics(result: Record<string, unknown>): Record<string, unknown> | null
+function extractDetails(result: Record<string, unknown>): Record<string, unknown> | null
+function getJobTypeTitle(jobType: string): string
+function formatValue(value: unknown): string
+export async function pruneOldReports(outputDir: string = DEFAULT_OUTPUT_DIR, maxAgeMs: number = 30 * TIME.DAY): Promise<void>
+function escapeHtml(text: string): string
+function getHTMLStyles(): string
 </file>
 
-<file path="utils/schema-mcp-tools.js">
+<file path="utils/schema-mcp-tools.ts">
+import { config } from '../core/config.ts';
+interface SchemaContext {
+  hasPackageJson?: boolean;
+  hasPyproject?: boolean;
+  gitRemote?: string;
+  languages?: string[];
+}
+export interface SchemaObject {
+  '@context': string;
+  '@type': string;
+  name?: string;
+  description?: string;
+  codeRepository?: string;
+  programmingLanguage?: Array<{ '@type': string; name: string }>;
+  applicationCategory?: string;
+  operatingSystem?: string;
+  dateModified?: string;
+  inLanguage?: string;
+  additionalType?: string;
+  url?: string;
+  [key: string]: unknown;
+}
+interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+interface SchemaImpact {
+  timestamp: string;
+  schemaType: string;
+  metrics: {
+    contentSize: {
+      original: number;
+      enhanced: number;
+      increase: number;
+    };
+    schemaProperties: number;
+    structuredDataAdded: boolean;
+  };
+  seoImprovements: string[];
+  richResultsEligibility: string[];
+  impactScore?: number;
+  rating?: string;
+}
 export class SchemaMCPTools
 ⋮----
-async getSchemaType(readmePath, content, context)
-async generateSchema(readmePath, content, context, schemaType)
-extractDescription(content)
-⋮----
-// Skip title
-⋮----
-// Skip empty lines and code blocks
-⋮----
-if (description) break; // Stop at first empty line after description
-⋮----
-// Found description
-⋮----
-// Limit description length
-⋮----
-async validateSchema(schema)
-async analyzeSchemaImpact(originalContent, enhancedContent, schema)
-getRating(score)
-createJSONLDScript(schema)
-injectSchema(content, schema)
+constructor(options:
+/**
+   * Get appropriate schema type for content
+   */
+async getSchemaType(readmePath: string, content: string, context: SchemaContext): Promise<string>
+async generateSchema(readmePath: string, content: string, context: SchemaContext, schemaType: string): Promise<SchemaObject>
+extractDescription(content: string): string
+async validateSchema(schema: SchemaObject): Promise<ValidationResult>
+async analyzeSchemaImpact(originalContent: string, enhancedContent: string, schema: SchemaObject): Promise<SchemaImpact>
+getRating(score: number): string
+createJSONLDScript(schema: SchemaObject): string
+injectSchema(content: string, schema: SchemaObject): string
 </file>
 
 <file path="utils/time-helpers.ts">
@@ -5542,122 +7020,737 @@ export function calculateDurationSeconds(startTime: Date | string | null, endTim
 export function formatDuration(seconds: number | null | undefined): string
 </file>
 
-<file path="workers/bugfix-audit-worker.js">
+<file path="workers/bugfix-audit-worker.ts">
+import { SidequestServer, type Job } from '../core/server.ts';
+import { GitWorkflowManager } from '../core/git-workflow-manager.ts';
+import { execCommand } from '@shared/process-io';
+import { createComponentLogger, logError, logStage } from '../utils/logger.ts';
+import { config } from '../core/config.ts';
+import fs from 'fs/promises';
+import path from 'path';
+⋮----
+interface BugfixAuditWorkerOptions {
+  activeDocsDir?: string;
+  outputBaseDir?: string;
+  gitBaseBranch?: string;
+  gitBranchPrefix?: string;
+  gitDryRun?: boolean;
+  maxConcurrent?: number;
+  logDir?: string;
+  gitWorkflowEnabled?: boolean;
+  sentryDsn?: string;
+}
+interface StageResult {
+  name: string;
+  status: string;
+  output: string;
+}
+interface WorkflowResults {
+  markdownFile: string;
+  projectName: string;
+  repoPath: string;
+  stages: StageResult[];
+  branchName: string;
+  pullRequestUrl: string | null;
+  timestamp: string;
+}
+interface RepositoryInfo {
+  projectName: string | null;
+  possibleRepoPaths: string[];
+}
 export class BugfixAuditWorker extends SidequestServer
 ⋮----
-async findMarkdownFiles()
+constructor(options: BugfixAuditWorkerOptions =
+async findMarkdownFiles(): Promise<string[]>
 ⋮----
-async function scanDirectory(dir)
+async function scanDirectory(dir: string): Promise<void>
 ⋮----
-getRepositoryFromPath(markdownPath)
+getRepositoryFromPath(markdownPath: string): RepositoryInfo
 /**
    * Run Claude Code agent via CLI
    */
-async runClaudeAgent(agentType, prompt, cwd)
-async runSlashCommand(command, cwd)
-async runJobHandler(job)
-createBugfixJob(markdownFile, projectName, repoPath)
-async createJobsForAllMarkdownFiles()
+async runClaudeAgent(agentType: string, prompt: string, cwd: string): Promise<
+async runSlashCommand(command: string, cwd: string): Promise<
+async runJobHandler(job: Job): Promise<WorkflowResults>
+createBugfixJob(markdownFile: string, projectName: string, repoPath: string): Job
+async createJobsForAllMarkdownFiles(): Promise<Job[]>
 </file>
 
-<file path="workers/claude-health-worker.js">
+<file path="workers/claude-health-worker.ts">
+import { SidequestServer, type Job } from '../core/server.ts';
+import { config } from '../core/config.ts';
+import { TIMEOUTS } from '../core/constants.ts';
+import { createComponentLogger, logError, logWarn, logStart } from '../utils/logger.ts';
+import { generateReport } from '../utils/report-generator.ts';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import fs from 'fs/promises';
+import path from 'path';
+⋮----
+interface ClaudeHealthWorkerOptions {
+  maxConcurrent?: number;
+  logDir?: string;
+  gitWorkflowEnabled?: boolean;
+  gitBranchPrefix?: string;
+  gitBaseBranch?: string;
+  gitDryRun?: boolean;
+  sentryDsn?: string;
+}
+interface Thresholds {
+  maxPlugins: number;
+  warnPlugins: number;
+  maxHookExecutionTime: number;
+  minDiskSpace: number;
+  maxLogSize: number;
+}
+interface CheckOptions {
+  detailed?: boolean;
+  validateConfig?: boolean;
+  checkPerformance?: boolean;
+  analyzePlugins?: boolean;
+}
+interface EnvironmentCheck {
+  direnv: boolean;
+  direnvConfigured: boolean;
+  direnvAllowed: boolean;
+  nodeVersion: string | null;
+  npmVersion: string | null;
+  envVars: Record<string, string | null>;
+}
+interface DirectoryInfo {
+  exists: boolean;
+  path: string;
+  size?: number | null;
+  error?: string;
+}
+interface ConfigCheck {
+  settingsJson: Record<string, unknown>;
+  skillRulesJson: Record<string, unknown>;
+  packageJson: Record<string, unknown>;
+  envrc: Record<string, unknown>;
+}
+interface HookInfo {
+  name: string;
+  executable: boolean;
+  size: number;
+}
+interface HooksCheck {
+  totalHooks: number;
+  executableHooks: number;
+  registeredHooks: number;
+  hooks: HookInfo[];
+}
+interface ComponentCounts {
+  skills: number;
+  agents: number;
+  commands: number;
+  activeTasks: number;
+  archivedTasks: number;
+  templates: number;
+}
+interface DuplicateCategory {
+  category: string;
+  plugins: string[];
+  count: number;
+}
+interface PluginsCheck {
+  totalPlugins: number;
+  enabledPlugins: string[];
+  duplicateCategories: DuplicateCategory[];
+  exceededThresholds: {
+    maxPlugins: boolean;
+    warnPlugins: boolean;
+  };
+}
+interface SlowHookDetail {
+  hook: string;
+  duration: number;
+}
+interface PerformanceCheck {
+  logExists: boolean;
+  logSize?: number;
+  totalEntries?: number;
+  recentEntries?: number;
+  slowHooks?: number;
+  failures?: number;
+  slowHookDetails?: SlowHookDetail[];
+  message?: string;
+}
+interface AllChecks {
+  environment: EnvironmentCheck;
+  directories: Record<string, DirectoryInfo>;
+  configuration: ConfigCheck | null;
+  hooks: HooksCheck;
+  components: ComponentCounts;
+  plugins: PluginsCheck | null;
+  performance: PerformanceCheck | null;
+}
+interface Issue {
+  type: string;
+  message: string;
+  action?: string;
+}
+interface Analysis {
+  issues: Issue[];
+  warnings: Issue[];
+  successes: Issue[];
+  healthScore: number;
+}
+interface Recommendation {
+  priority: 'high' | 'medium' | 'info';
+  type: string;
+  message: string;
+  action: string;
+}
+interface Summary {
+  healthScore: number;
+  status: 'healthy' | 'warning' | 'critical';
+  criticalIssues: number;
+  warnings: number;
+  message: string;
+}
+interface HealthCheckResult {
+  success: boolean;
+  timestamp: string;
+  duration: number;
+  checks: AllChecks;
+  analysis: Analysis;
+  recommendations: Recommendation[];
+  summary: Summary;
+  reportPaths?: unknown;
+}
 class ClaudeHealthWorker extends SidequestServer
 ⋮----
-async runJobHandler(job)
-async runAllChecks(options =
-async checkEnvironment()
-async checkDirectories()
-async checkConfiguration()
-async checkHooks()
-async checkComponents(detailed = false)
-async checkPlugins()
-async checkPerformance()
-analyzeResults(checks)
-calculateHealthScore(issues, warnings, successes)
-generateRecommendations(analysis)
-generateSummary(analysis, recommendations)
-getStatusMessage(healthScore, critical, warnings)
-addJob(options =
+constructor(options: ClaudeHealthWorkerOptions =
+async runJobHandler(job: Job): Promise<HealthCheckResult>
+async runAllChecks(options: CheckOptions =
+async checkEnvironment(): Promise<EnvironmentCheck>
+async checkDirectories(): Promise<Record<string, DirectoryInfo>>
+async checkConfiguration(): Promise<ConfigCheck>
+async checkHooks(): Promise<HooksCheck>
+async checkComponents(detailed = false): Promise<ComponentCounts>
+async checkPlugins(): Promise<PluginsCheck | null>
+async checkPerformance(): Promise<PerformanceCheck | null>
+analyzeResults(checks: AllChecks): Analysis
+calculateHealthScore(issues: Issue[], warnings: Issue[], successes: Issue[]): number
+generateRecommendations(analysis: Analysis): Recommendation[]
+generateSummary(analysis: Analysis, recommendations: Recommendation[]): Summary
+getStatusMessage(healthScore: number, critical: number, warnings: number): string
+addJob(options: CheckOptions =
 </file>
 
-<file path="workers/dashboard-populate-worker.js">
+<file path="workers/dashboard-populate-worker.ts">
+import { SidequestServer } from '../core/server.ts';
+import { generateReport } from '../utils/report-generator.ts';
+import { createComponentLogger } from '../utils/logger.ts';
+⋮----
+import { execCommandOrThrow } from '@shared/process-io';
+import path from 'path';
+import os from 'os';
+import type { Job } from '../core/server.ts';
+⋮----
+interface PopulateOptions {
+  seed?: boolean;
+  dryRun?: boolean;
+  skipJudge?: boolean;
+  skipSync?: boolean;
+  limit?: number;
+}
+export interface PopulateWorkerOptions {
+  maxConcurrent?: number;
+  dashboardDir?: string;
+  toolkitDir?: string;
+  [key: string]: unknown;
+}
+interface StepTiming {
+  name: string;
+  ms: number;
+}
+interface PopulateOutput {
+  seed: boolean;
+  dryRun: boolean;
+  skipJudge: boolean;
+  skipSync: boolean;
+  limit: number | undefined;
+  steps: StepTiming[];
+  durationMs: number;
+  stdout: string;
+  stderr: string;
+  timestamp: string;
+  reportPaths?: object;
+}
 export class DashboardPopulateWorker extends SidequestServer
 ⋮----
-createPopulateJob(options =
-async runJobHandler(job)
+constructor(options: PopulateWorkerOptions =
+createPopulateJob(options: PopulateOptions =
+async runJobHandler(job: Job): Promise<PopulateOutput>
 </file>
 
-<file path="workers/duplicate-detection-worker.js">
+<file path="workers/duplicate-detection-worker.ts">
+import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
+import { RepositoryConfigLoader, type RepositoryConfig, type NotificationSettings } from '../pipeline-core/config/repository-config-loader.ts';
+import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.ts';
+import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.ts';
+import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.ts';
+import { PRCreator, type PRCreationResults } from '../pipeline-core/git/pr-creator.ts';
+import { createComponentLogger, logError, logWarn, logStart, logRetry } from '../utils/logger.ts';
+import { getErrorInfo, type ExtendedError } from '../pipeline-core/errors/error-classifier.ts';
+import path from 'path';
+⋮----
+import { RETRY } from '../core/constants.ts';
+import { config } from '../core/config.ts';
+⋮----
+interface DuplicateDetectionWorkerOptions extends SidequestServerOptions {
+  configPath?: string;
+  maxConcurrentScans?: number;
+  baseBranch?: string;
+  branchPrefix?: string;
+  dryRun?: boolean;
+  maxSuggestionsPerPR?: number;
+  enablePRCreation?: boolean;
+}
+interface ScanJobData {
+  scanType: 'inter-project' | 'intra-project';
+  repositories: RepositoryConfig[];
+  groupName: string | null;
+  type?: string;
+}
+interface RetryInfo {
+  attempts: number;
+  lastAttempt: number;
+  maxAttempts: number;
+  delay: number;
+}
+interface ScanMetrics {
+  totalScans: number;
+  successfulScans: number;
+  failedScans: number;
+  totalDuplicatesFound: number;
+  totalSuggestionsGenerated: number;
+  highImpactDuplicates: number;
+  prsCreated: number;
+  prCreationErrors: number;
+}
+interface DuplicateEntry {
+  impact_score: number;
+  [key: string]: unknown;
+}
+interface ScanResultMetrics {
+  total_cross_repository_groups?: number;
+  total_suggestions?: number;
+  total_duplicate_groups?: number;
+  [key: string]: unknown;
+}
+interface ScanMetadata {
+  duration_seconds?: number;
+  [key: string]: unknown;
+}
+interface ScanResult {
+  scan_type?: string;
+  metrics: ScanResultMetrics;
+  scan_metadata?: ScanMetadata;
+  cross_repository_duplicates?: DuplicateEntry[];
+  duplicate_groups?: DuplicateEntry[];
+  suggestions?: unknown[];
+  [key: string]: unknown;
+}
+interface InterProjectScanResult {
+  scanType: string;
+  repositories: number;
+  crossRepoDuplicates: number;
+  suggestions: number;
+  duration: number;
+  reportPaths: unknown;
+}
+interface IntraProjectScanResult {
+  scanType: string;
+  repository: string;
+  duplicates: number;
+  suggestions: number;
+  duration: number;
+  reportPaths: unknown;
+  prResults: {
+    prsCreated: number;
+    prUrls: string[];
+    errors: number;
+  } | null;
+}
+interface RetryMetrics {
+  activeRetries: number;
+  totalRetryAttempts: number;
+  jobsBeingRetried: {
+    jobId: string;
+    attempts: number;
+    maxAttempts: number;
+    lastAttempt: string;
+  }[];
+  retryDistribution: {
+    attempt1: number;
+    attempt2: number;
+    attempt3Plus: number;
+    nearingLimit: number;
+  };
+}
+interface RetryDistribution {
+  attempt1: number;
+  attempt2: number;
+  attempt3Plus: number;
+  nearingLimit: number;
+}
 export class DuplicateDetectionWorker extends SidequestServer
 ⋮----
-async initialize()
-async runJobHandler(job)
-_getOriginalJobId(jobId)
+constructor(options: DuplicateDetectionWorkerOptions =
+async initialize(): Promise<void>
+async runJobHandler(job: Job): Promise<InterProjectScanResult | IntraProjectScanResult>
+_getOriginalJobId(jobId: string): string
 /**
    * Handle retry logic with exponential backoff
    */
-async _handleRetry(job, error)
+async _handleRetry(job: Job, error: Error & Partial<ExtendedError>): Promise<boolean>
 ⋮----
 // Get original job ID to track retries correctly
 ⋮----
 // Classify error to determine if retry is appropriate
 ⋮----
-async _runInterProjectScan(job, repositoryConfigs)
-async _runIntraProjectScan(job, repositoryConfig)
-_updateMetrics(scanResult)
-async _updateRepositoryConfigs(repositoryConfigs, scanResult)
-async _checkForHighImpactDuplicates(scanResult)
-scheduleScan(scanType, repositories, groupName = null)
-async runNightlyScan()
-getRetryMetrics()
-getScanMetrics()
+async _runInterProjectScan(job: Job, repositoryConfigs: RepositoryConfig[]): Promise<InterProjectScanResult>
+async _runIntraProjectScan(job: Job, repositoryConfig: RepositoryConfig): Promise<IntraProjectScanResult>
+_updateMetrics(scanResult: ScanResult): void
+async _updateRepositoryConfigs(repositoryConfigs: RepositoryConfig[], scanResult: ScanResult): Promise<void>
+async _checkForHighImpactDuplicates(scanResult: ScanResult): Promise<void>
+scheduleScan(scanType: string, repositories: RepositoryConfig[], groupName: string | null = null): Job
+async runNightlyScan(): Promise<void>
+getRetryMetrics(): RetryMetrics
+getScanMetrics(): ScanMetrics &
 </file>
 
-<file path="workers/git-activity-worker.js">
+<file path="workers/git-activity-worker.ts">
+import { SidequestServer, type Job } from '../core/server.ts';
+import { generateReport } from '../utils/report-generator.ts';
+import { spawn } from 'child_process';
+import { captureProcessOutput } from '@shared/process-io';
+import fs from 'fs/promises';
+import path from 'path';
+import os from 'os';
+import { createComponentLogger } from '../utils/logger.ts';
+import { TIMEOUTS, TIME } from '../core/constants.ts';
+⋮----
+interface GitActivityWorkerOptions {
+  codeBaseDir?: string;
+  pythonScript?: string;
+  personalSiteDir?: string;
+  outputDir?: string;
+  logDir?: string;
+  maxConcurrent?: number;
+  gitWorkflowEnabled?: boolean;
+  gitBranchPrefix?: string;
+  gitBaseBranch?: string;
+  gitDryRun?: boolean;
+  sentryDsn?: string;
+}
+interface PythonArgs {
+  reportType?: string;
+  days?: number;
+  sinceDate?: string;
+  untilDate?: string;
+  outputFormat?: string;
+  generateVisualizations?: boolean;
+}
+interface PythonScriptResult {
+  stdout: string;
+  stderr: string;
+  outputFiles: string[];
+}
+interface GitActivityStats {
+  totalCommits: number;
+  totalRepositories: number;
+  linesAdded: number;
+  linesDeleted: number;
+  filesChanged?: number;
+}
+interface VerifiedFile {
+  path: string;
+  size?: number;
+  exists: boolean;
+}
+interface ReportJobOptions {
+  jobId?: string;
+  reportType?: string;
+  days?: number;
+  sinceDate?: string;
+  untilDate?: string;
+  outputFormat?: string;
+  generateVisualizations?: boolean;
+}
 export class GitActivityWorker extends SidequestServer
 ⋮----
-async runJobHandler(job)
+constructor(options: GitActivityWorkerOptions =
+async runJobHandler(job: Job): Promise<unknown>
 ⋮----
-createWeeklyReportJob()
-createMonthlyReportJob()
-createCustomReportJob(sinceDate, untilDate)
-createReportJob(options =
+createWeeklyReportJob(): Job
+createMonthlyReportJob(): Job
+createCustomReportJob(sinceDate: string, untilDate: string): Job
+createReportJob(options: ReportJobOptions =
 </file>
 
-<file path="workers/gitignore-worker.js">
+<file path="workers/gitignore-worker.ts">
+import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
+import { GitignoreRepomixUpdater } from '../utils/gitignore-repomix-updater.ts';
+import { generateReport } from '../utils/report-generator.ts';
+import { createComponentLogger } from '../utils/logger.ts';
+⋮----
+import path from 'path';
+import os from 'os';
+⋮----
+interface GitignoreWorkerOptions extends SidequestServerOptions {
+  baseDir?: string;
+  excludeDirs?: string[];
+  maxDepth?: number;
+  gitignoreEntry?: string;
+}
+interface GitignoreJobData {
+  baseDir?: string;
+  excludeDirs?: string[];
+  maxDepth?: number;
+  gitignoreEntry?: string;
+  dryRun?: boolean;
+  repositories?: string[] | null;
+  type?: string;
+}
+interface RepositoryResult {
+  repository: string;
+  action: string;
+  reason?: string;
+  [key: string]: unknown;
+}
+interface ProcessSummary {
+  added: number;
+  skipped: number;
+  would_add: number;
+  error: number;
+  [key: string]: unknown;
+}
+interface ProcessResults {
+  totalRepositories: number;
+  results: RepositoryResult[];
+  summary: ProcessSummary;
+}
+interface GitignoreUpdateResult extends ProcessResults {
+  timestamp: string;
+  dryRun: boolean;
+  gitignoreEntry: string;
+  reportPaths?: unknown;
+}
+interface UpdateJobOptions {
+  baseDir?: string;
+  dryRun?: boolean;
+  gitignoreEntry?: string;
+  excludeDirs?: string[];
+  maxDepth?: number;
+  repositories?: string[];
+}
 export class GitignoreWorker extends SidequestServer
 ⋮----
-async runJobHandler(job)
-⋮----
-createUpdateAllJob(options =
-createUpdateRepositoriesJob(repositories, options =
-createDryRunJob(options =
+constructor(options: GitignoreWorkerOptions =
+async runJobHandler(job: Job): Promise<GitignoreUpdateResult>
+private async processSpecificRepositories(updater: GitignoreRepomixUpdater, repositories: string[]): Promise<ProcessResults>
+createUpdateAllJob(options: UpdateJobOptions =
+createUpdateRepositoriesJob(repositories: string[], options: UpdateJobOptions =
+createDryRunJob(options: UpdateJobOptions =
 </file>
 
-<file path="workers/repo-cleanup-worker.js">
+<file path="workers/repo-cleanup-worker.ts">
+import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
+import { generateReport } from '../utils/report-generator.ts';
+import { createComponentLogger } from '../utils/logger.ts';
+⋮----
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import path from 'path';
+import os from 'os';
+import fs from 'fs/promises';
+import { fileURLToPath } from 'url';
+⋮----
+interface RepoCleanupWorkerOptions extends SidequestServerOptions {
+  baseDir?: string;
+}
+interface CleanupJobData {
+  targetDir?: string;
+  dryRun?: boolean;
+  type?: string;
+}
+interface ScanCategories {
+  venvs: string[];
+  tempFiles: string[];
+  outputFiles: string[];
+  buildArtifacts: string[];
+  redundantDirs: string[];
+}
+interface CleanupSummary {
+  venvs: number;
+  tempFiles: number;
+  outputFiles: number;
+  buildArtifacts: number;
+  redundantDirs: number;
+}
+interface ScanResult {
+  categories: ScanCategories;
+  totalItems: number;
+  summary: CleanupSummary;
+}
+interface CleanupResult {
+  totalItems: number;
+  summary: CleanupSummary;
+  rawOutput: string;
+}
+interface CleanupOutput {
+  targetDir: string;
+  dryRun: boolean;
+  initialSize: string;
+  finalSize: string;
+  savedSpace: string;
+  totalItems: number;
+  summary: CleanupSummary;
+  categories?: ScanCategories;
+  rawOutput?: string;
+  timestamp: string;
+  reportPaths?: unknown;
+}
+interface CleanupJobOptions {
+  dryRun?: boolean;
+}
 export class RepoCleanupWorker extends SidequestServer
 ⋮----
-async runJobHandler(job)
-⋮----
-createCleanupJob(targetDir, options =
-createDryRunJob(targetDir, options =
+constructor(options: RepoCleanupWorkerOptions =
+async runJobHandler(job: Job): Promise<CleanupOutput>
+private async scanRepository(targetDir: string): Promise<ScanResult>
+private async runCleanup(targetDir: string): Promise<CleanupResult>
+private parseCleanupOutput(output: string): CleanupResult
+private async getDirectorySize(dirPath: string): Promise<string>
+private formatSizeDiff(initial: string, final: string): string
+createCleanupJob(targetDir?: string, options: CleanupJobOptions =
+createDryRunJob(targetDir?: string, _options: CleanupJobOptions =
 </file>
 
-<file path="workers/repomix-worker.js">
+<file path="workers/repomix-worker.ts">
+import { SidequestServer, type Job } from '../core/server.ts';
+import { generateReport } from '../utils/report-generator.ts';
+import { spawn, execSync } from 'child_process';
+import { captureProcessOutput } from '@shared/process-io';
+import fs from 'fs/promises';
+import path from 'path';
+import os from 'os';
+import { createComponentLogger, logError } from '../utils/logger.ts';
+import { config } from '../core/config.ts';
+import { TIMEOUTS, LIMITS } from '../core/constants.ts';
+⋮----
+interface RepomixWorkerOptions {
+  outputBaseDir?: string;
+  codeBaseDir?: string;
+  respectGitignore?: boolean;
+  additionalIgnorePatterns?: string[];
+  maxConcurrent?: number;
+  logDir?: string;
+  gitWorkflowEnabled?: boolean;
+  gitBranchPrefix?: string;
+  gitBaseBranch?: string;
+  gitDryRun?: boolean;
+  sentryDsn?: string;
+}
+interface RepomixCommandResult {
+  stdout: string;
+  stderr: string;
+}
 export class RepomixWorker extends SidequestServer
 ⋮----
-async runJobHandler(job)
+constructor(options: RepomixWorkerOptions =
 ⋮----
-createRepomixJob(sourceDir, relativePath)
+async runJobHandler(job: Job): Promise<unknown>
+⋮----
+createRepomixJob(sourceDir: string, relativePath: string): Job
 </file>
 
-<file path="workers/schema-enhancement-worker.js">
-async runJobHandler(job)
-async saveImpactReport(relativePath, schema, impact)
-async saveEnhancedCopy(relativePath, enhancedContent)
-async findGitRoot(startPath)
-async createEnhancementJob(readme, context)
-async _generateCommitMessage(job)
+<file path="workers/schema-enhancement-worker.ts">
+import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
+import { SchemaMCPTools, type SchemaObject } from '../utils/schema-mcp-tools.ts';
+import { generateReport } from '../utils/report-generator.ts';
+import { createComponentLogger } from '../utils/logger.ts';
+import { config } from '../core/config.ts';
+import fs from 'fs/promises';
+import path from 'path';
+⋮----
+interface SchemaEnhancementWorkerOptions extends SidequestServerOptions {
+  outputBaseDir?: string;
+  dryRun?: boolean;
+  gitWorkflowEnabled?: boolean;
+  gitBranchPrefix?: string;
+  gitBaseBranch?: string;
+  gitDryRun?: boolean;
+  mcpServerUrl?: string;
+  useRealMCP?: boolean;
+}
+interface EnhancementJobData {
+  readmePath: string;
+  relativePath: string;
+  repositoryPath: string | null;
+  repository: string | null;
+  context: Record<string, unknown>;
+  type?: string;
+}
+interface SchemaValidation {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+interface SchemaImpact {
+  impactScore: number;
+  rating: string;
+  seoImprovements: string[];
+  richResultsEligibility: string[];
+  timestamp: string;
+  schemaType: string;
+  metrics: Record<string, unknown>;
+}
+interface EnhancementResult {
+  status: string;
+  reason?: string;
+  readmePath: string;
+  relativePath: string;
+  schemaType?: string;
+  schema?: SchemaObject;
+  impact?: SchemaImpact;
+  validation?: SchemaValidation;
+  timestamp?: string;
+  reportPaths?: unknown;
+}
+interface ReadmeInfo {
+  fullPath: string;
+  relativePath: string;
+  dirPath: string;
+}
+interface EnhancementStats {
+  enhanced: number;
+  skipped: number;
+  failed: number;
+  total: number;
+  successRate: string | number;
+}
+interface EnhancementSummary {
+  timestamp: string;
+  enhancement: EnhancementStats;
+  jobs: unknown;
+  outputDirectory: string;
+}
+export class SchemaEnhancementWorker extends SidequestServer
+⋮----
+constructor(options: SchemaEnhancementWorkerOptions =
+async runJobHandler(job: Job): Promise<EnhancementResult>
+async saveImpactReport(relativePath: string, schema: SchemaObject, impact: SchemaImpact): Promise<void>
+async saveEnhancedCopy(relativePath: string, enhancedContent: string): Promise<void>
+async findGitRoot(startPath: string): Promise<string | null>
+async createEnhancementJob(readme: ReadmeInfo, context: Record<string, unknown>): Promise<Job>
+async _generateCommitMessage(job: Job): Promise<
+⋮----
+'- [ ] Verify structured data using [Schema.org validator](https://validator.schema.org/)',
 </file>
 
 <file path="workers/test-refactor-worker.ts">

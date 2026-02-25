@@ -10,7 +10,7 @@
  */
 
 // @ts-nocheck
-import { createTempRepository } from '../fixtures/test-helpers.js';
+import { createTempRepository } from '../fixtures/test-helpers.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 import fs from 'fs/promises';
 import path from 'path';

@@ -16,7 +16,7 @@
 
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
-import { createTempRepository, createMultipleTempRepositories, cleanupRepositories } from '../fixtures/test-helpers.js';
+import { createTempRepository, createMultipleTempRepositories, cleanupRepositories } from '../fixtures/test-helpers.ts';
 
 // Base URL for API - uses localhost by default
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8080';

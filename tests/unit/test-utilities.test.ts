@@ -16,7 +16,7 @@ import {
   waitForMultipleEvents,
   assertJobState,
   createTestContext
-} from '../utils/test-utilities.js';
+} from '../utils/test-utilities.ts';
 
 describe('Test Utilities - Validation', () => {
   describe('TestWorker', () => {

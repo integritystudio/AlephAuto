@@ -1,11 +1,11 @@
-import { RepomixWorker } from '../../sidequest/repomix-worker.js';
+import { RepomixWorker } from '../../sidequest/workers/repomix-worker.ts';
 import { DirectoryScanner } from '../../sidequest/utils/directory-scanner.ts';
 import path from 'path';
 import os from 'os';
 
 /**
  * Test script to run a single repomix job
- * Usage: node test-single-job.js [directory-path]
+ * Usage: node --strip-types test-single-job.ts [directory-path]
  */
 
 async function testSingleJob() {

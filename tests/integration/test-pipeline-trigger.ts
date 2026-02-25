@@ -11,7 +11,7 @@ import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { workerRegistry } from '../../api/utils/worker-registry.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
-import { createTempRepository } from '../fixtures/test-helpers.js';
+import { createTempRepository } from '../fixtures/test-helpers.ts';
 
 const logger = createComponentLogger('PipelineTriggerTest');
 

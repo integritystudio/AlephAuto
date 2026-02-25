@@ -37,7 +37,7 @@ describe('API Routes', () => {
     const reportModule = await import('../../api/routes/reports.ts');
     reportRoutes = reportModule.default;
 
-    const helpersModule = await import('../fixtures/test-helpers.js');
+    const helpersModule = await import('../fixtures/test-helpers.ts');
     createTempRepository = helpersModule.createTempRepository;
     createMultipleTempRepositories = helpersModule.createMultipleTempRepositories;
     cleanupRepositories = helpersModule.cleanupRepositories;

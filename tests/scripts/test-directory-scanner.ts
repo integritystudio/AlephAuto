@@ -3,7 +3,7 @@ import path from 'path';
 
 /**
  * Test script for directory scanner with output generation
- * Usage: node test-directory-scanner.js [directory-path]
+ * Usage: node --strip-types test-directory-scanner.ts [directory-path]
  */
 
 async function testDirectoryScanner() {

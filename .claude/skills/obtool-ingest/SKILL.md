@@ -1,0 +1,1 @@
+/Users/alyshialedlie/.claude/mcp-servers/observability-toolkit/skills/obtool-ingest/SKILL.md

@@ -5,7 +5,7 @@
  * Tests that RepomixWorker can instantiate and verify repomix is available
  */
 
-import { RepomixWorker } from '../../sidequest/repomix-worker.js';
+import { RepomixWorker } from '../../sidequest/workers/repomix-worker.ts';
 import { createComponentLogger } from '../../sidequest/logger.ts';
 
 const logger = createComponentLogger('RepomixFixTest');

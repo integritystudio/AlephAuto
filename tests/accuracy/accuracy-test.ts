@@ -10,7 +10,7 @@
  */
 
 import { ScanOrchestrator } from '../../sidequest/pipeline-core/scan-orchestrator.ts';
-import { compareResults, calculateAllMetrics, generateAccuracyReport } from './metrics.js';
+import { compareResults, calculateAllMetrics, generateAccuracyReport } from './metrics.ts';
 import { readFile, writeFile } from 'fs/promises';
 import { createComponentLogger } from '../../sidequest/logger.ts';
 import path from 'path';

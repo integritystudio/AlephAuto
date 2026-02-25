@@ -17,9 +17,9 @@
  * - Log to Sentry for monitoring
  *
  * Usage:
- *   node scripts/validate-permissions.js
- *   node scripts/validate-permissions.js --fix
- *   node scripts/validate-permissions.js --check-only
+ *   node --strip-types scripts/validate-permissions.ts
+ *   node --strip-types scripts/validate-permissions.ts --fix
+ *   node --strip-types scripts/validate-permissions.ts --check-only
  */
 
 import fs from 'fs/promises';

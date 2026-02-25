@@ -4,11 +4,11 @@
  * Test script to verify RepomixWorker respects .gitignore files
  */
 
-import { RepomixWorker } from '../../sidequest/repomix-worker.js';
+import { RepomixWorker } from '../../sidequest/workers/repomix-worker.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import { execSync } from 'child_process';
-import { createTempRepository } from '../fixtures/test-helpers.js';
+import { createTempRepository } from '../fixtures/test-helpers.ts';
 import os from 'os';
 
 async function testGitignoreRespect() {

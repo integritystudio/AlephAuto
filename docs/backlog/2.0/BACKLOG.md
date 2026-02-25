@@ -1,8 +1,8 @@
 # AlephAuto 2.0: TypeScript Migration Design Doc
 
-**Status:** In Progress (Phases 0-6 complete)
+**Status:** ✅ COMPLETE (All Phases 0-10 done)
 **Date:** 2026-02-10
-**Last Updated:** 2026-02-17
+**Last Updated:** 2026-02-24
 **Scope:** Full migration of all JS source/test files to TypeScript
 **Runtime:** Node.js v25 `--strip-types` (native TS stripping, no build step)
 **Strictness:** `strict: true` in root tsconfig
@@ -302,9 +302,11 @@ PM2 requires CommonJS config files. This file stays as `.cjs` and is excluded fr
 
 ---
 
-### Phase 7: Pipeline Core
+### Phase 7: Pipeline Core — ✅ COMPLETE
 
 **Goal:** Migrate scanners, caches, reports, and config loaders.
+
+**Status:** All 15 files migrated. Zero JS files remain in `sidequest/pipeline-core/`.
 
 | Subdir | Files | Lines | Key Files |
 |--------|------:|------:|-----------|
@@ -316,100 +318,84 @@ PM2 requires CommonJS config files. This file stays as `.cjs` and is excluded fr
 
 **Total:** 15 files, ~5,849 lines
 
-**After this phase:** Delete `sidequest/pipeline-core/scan-orchestrator.d.ts` (already `.ts`, but verify `.d.ts` is gone).
-
-**Verification:** `npm run typecheck && npm test`
-
 ---
 
-### Phase 8: Workers & Runners (Parallelizable)
+### Phase 8: Workers & Runners — ✅ COMPLETE
 
 **Goal:** Migrate all worker implementations and pipeline runners.
+
+**Status:** All workers and runners migrated. Zero JS files remain in `sidequest/workers/` and `sidequest/pipeline-runners/`.
 
 **Workers (8 files, ~4,008 lines):**
 
 | Worker | Lines | Special Dependencies |
 |--------|------:|----------------------|
-| `duplicate-detection-worker.js` | ~600 | scan-orchestrator, report-coordinator, pr-creator |
-| `schema-enhancement-worker.js` | ~500 | config-loader |
-| `gitignore-worker.js` | ~400 | gitignore-repomix-updater |
-| `repo-cleanup-worker.js` | ~500 | directory-scanner |
-| `git-activity-worker.js` | ~500 | @shared/process-io |
-| `repomix-worker.js` | ~500 | directory-scanner |
-| `claude-health-worker.js` | ~500 | @shared/process-io |
-| `bugfix-audit-worker.js` | ~508 | error-classifier |
+| `duplicate-detection-worker.ts` | ~600 | scan-orchestrator, report-coordinator, pr-creator |
+| `schema-enhancement-worker.ts` | ~500 | config-loader |
+| `gitignore-worker.ts` | ~400 | gitignore-repomix-updater |
+| `repo-cleanup-worker.ts` | ~500 | directory-scanner |
+| `git-activity-worker.ts` | ~500 | @shared/process-io |
+| `repomix-worker.ts` | ~500 | directory-scanner |
+| `claude-health-worker.ts` | ~500 | @shared/process-io |
+| `bugfix-audit-worker.ts` | ~508 | error-classifier |
 
-**Runners (6 JS files remaining, ~1,929 lines):**
-- `schema-enhancement-pipeline.js`
-- `gitignore-pipeline.js`
-- `repo-cleanup-pipeline.js`
-- `git-activity-pipeline.js`
-- `claude-health-pipeline.js`
-- `plugin-management-pipeline.js`
-- `bugfix-audit-pipeline.js`
-
-(`duplicate-detection-pipeline.ts` and `test-refactor-pipeline.ts` already migrated.)
+**Runners (all `.ts`):**
+- `schema-enhancement-pipeline.ts`, `gitignore-pipeline.ts`, `repo-cleanup-pipeline.ts`
+- `git-activity-pipeline.ts`, `claude-health-pipeline.ts`, `plugin-management-pipeline.ts`
+- `bugfix-audit-pipeline.ts`, `duplicate-detection-pipeline.ts`, `test-refactor-pipeline.ts`
 
 **Total:** ~15 files, ~5,937 lines
 
-**Note:** Workers and runners within this phase are independent of each other and can be migrated in parallel by multiple contributors.
-
-**Verification:** `npm run typecheck && npm test`
-
 ---
 
-### Phase 9: API Layer
+### Phase 9: API Layer — ✅ COMPLETE
 
 **Goal:** Migrate routes, middleware, server, and utilities.
 
+**Status:** All 12 files migrated. Zero JS files remain in `api/`. `ecosystem.config.cjs` updated to point to `api/server.ts`.
+
 | File | Lines | Notes |
 |------|------:|-------|
-| `api/middleware/auth.js` | 96 | |
-| `api/middleware/rate-limit.js` | 113 | |
-| `api/middleware/error-handler.js` | 62 | |
-| `api/routes/jobs.js` | 439 | Largest route file |
-| `api/routes/repositories.js` | 301 | |
-| `api/routes/reports.js` | 271 | |
-| `api/utils/worker-registry.js` | 524 | High complexity |
-| `api/utils/port-manager.js` | 264 | |
-| `api/server.js` | 440 | Entry point |
-| `api/event-broadcaster.js` | 214 | WebSocket events |
-| `api/activity-feed.js` | 498 | |
-| `api/websocket.js` | 261 | |
+| `api/middleware/auth.ts` | 96 | |
+| `api/middleware/rate-limit.ts` | 113 | |
+| `api/middleware/error-handler.ts` | 62 | |
+| `api/routes/jobs.ts` | 439 | Largest route file |
+| `api/routes/repositories.ts` | 301 | |
+| `api/routes/reports.ts` | 271 | |
+| `api/utils/worker-registry.ts` | 524 | High complexity |
+| `api/utils/port-manager.ts` | 264 | |
+| `api/server.ts` | 440 | Entry point |
+| `api/event-broadcaster.ts` | 214 | WebSocket events |
+| `api/activity-feed.ts` | 498 | |
+| `api/websocket.ts` | 261 | |
 
 **Total:** 12 files, ~3,483 lines
 
-**Note:** `api/server.js` is the PM2 entry point. After migrating it to `.ts`, update `ecosystem.config.cjs` to point to `api/server.ts`.
-
-**Verification:** `npm run typecheck && npm test && npm run test:integration`
-
 ---
 
-### Phase 10: Tests, Scripts, Packages
+### Phase 10: Tests, Scripts, Packages — ✅ COMPLETE
 
 **Goal:** Migrate remaining test files, scripts, and utilities.
 
-| Category | Files | Lines |
-|----------|------:|------:|
-| `tests/unit/` | 46 | 18,876 |
-| `tests/integration/` | 22 | 6,818 |
-| `tests/utils/` | 1 | 550 |
-| `tests/accuracy/` | 7 | 1,269 |
-| `tests/scripts/` | 8 | 1,179 |
-| `tests/fixtures/test-helpers.js` | 1 | 324 |
-| `scripts/` | 9 | 1,762 |
-| `sidequest/utils/` (remaining) | ~8 | ~2,200 |
+**Status:** All files migrated. Zero JS files remain in tests/ or scripts/. `package.json` scripts updated to use `--strip-types` with `.ts` extensions. Typecheck: 0 errors.
 
-**Total:** ~102 files, ~32,978 lines
+| Category | Files | Extensions | Notes |
+|----------|------:|-----------|-------|
+| `tests/unit/` | 44 | `.test.ts` | All 44 unit tests migrated |
+| `tests/integration/` | 24 | `.test.ts` / `.ts` | All integration tests migrated |
+| `tests/utils/` | 1 | `.ts` | `test-utilities.ts` |
+| `tests/accuracy/` | 2 | `.ts` | `accuracy-test.ts`, `metrics.ts` |
+| `tests/scripts/` | 9 | `.ts` | All test scripts migrated |
+| `tests/fixtures/` | 1 | `.ts` | `test-helpers.ts` with typed interfaces |
+| `scripts/` | 4 | `.ts` | `cleanup-error-logs.ts`, `fix-types.ts`, `validate-permissions.ts`, `verify-setup.ts` |
 
-**Note:** This is the largest phase by file count but lowest risk. Test files are leaf nodes with no downstream consumers. Can be parallelized heavily.
+**Not migrated (intentional):**
+- `tests/fixtures/test-repo/src/index.js` — fake repo fixture for scanner tests
+- `tests/accuracy/fixtures/src/*.js` — fake source files for accuracy testing
+- `tests/integration/lib/errors/error-classifier.js` — test-only copy
+- `sidequest/utils/doppler-resilience.example.js` — deferred (LOG12)
 
-**Sidequest utils to migrate:**
-- `report-generator.js` (593), `directory-scanner.js` (277), `dependency-validator.js` (158)
-- `doppler-resilience.js` (372), `plugin-manager.js` (243), `schema-mcp-tools.js` (293)
-- `gitignore-repomix-updater.js` (293), `doppler-resilience.example.js` (289)
-
-**Verification:** `npm run typecheck && npm test && npm run test:integration`
+**Verification:** `npx tsc --noEmit` → 0 errors (2026-02-24)
 
 ---
 
@@ -424,10 +410,10 @@ PM2 requires CommonJS config files. This file stays as `.cjs` and is excluded fr
 | 4 | Data Layer | 2 | 1,171 | Medium | ✅ Done |
 | 5 | Git & Workflow | 4 | 2,046 | Low | ✅ Done |
 | 6 | Core Server | 2 | 1,012 | **High** | ✅ Done |
-| 7 | Pipeline Core | 15 | 5,849 | Medium | Pending |
-| 8 | Workers & Runners | ~15 | 5,937 | Low | Pending |
-| 9 | API Layer | 12 | 3,483 | Medium | Pending |
-| 10 | Tests, Scripts, Packages | ~102 | 32,978 | Low | Pending |
+| 7 | Pipeline Core | 15 | 5,849 | Medium | ✅ Done |
+| 8 | Workers & Runners | ~15 | 5,937 | Low | ✅ Done |
+| 9 | API Layer | 12 | 3,483 | Medium | ✅ Done |
+| 10 | Tests, Scripts, Packages | ~102 | 32,978 | Low | ✅ Done |
 
 ---
 
