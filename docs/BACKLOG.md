@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-02-26 | **Last Session:** 2026-02-26 (DRY-M1..M5, DRY-L1..L2, CR-H1, CR-H3, CR-M4, CR-M8 implemented; CR-H2, CR-M1..M3, CR-M5, CR-L1..L4 captured from final review)
+**Last Updated:** 2026-02-26 | **Last Session:** 2026-02-26 (CR-H2, CR-M1..M3, CR-M5, CR-L1..L4 implemented; all pipeline review findings resolved)
 
 ---
 
@@ -85,25 +85,25 @@ Technical debt and planned improvements.
 | ID | Location | Description | Status |
 |----|----------|-------------|--------|
 | CR-H1 | `base-pipeline.ts` | **`waitForCompletion()` race condition** — Replaced polling with event-based drain via `job:completed`/`job:failed`. Listeners registered before immediate stats check to close TOCTOU window. | Done |
-| CR-H2 | `duplicate-detection-pipeline.ts` | **Local Job interface shadows canonical type** — Local `Job` type with incompatible error shape (bare object vs Error class) hides SidequestServer's typed definition. Consolidate to single canonical type or rename to avoid shadowing. | |
+| CR-H2 | `duplicate-detection-pipeline.ts` | **Local Job interface shadows canonical type** — Local `Job` type with incompatible error shape (bare object vs Error class) hides SidequestServer's typed definition. Consolidate to single canonical type or rename to avoid shadowing. | Done |
 | CR-H3 | 5 pipeline runners | **Worker methods accessed via `as unknown as` casts** — All casts removed; worker methods called directly via typed `this.worker`. plugin-management-pipeline also fixed (missed in initial pass). | Done |
 
 ### Medium — Pre-existing
 
 | ID | Location | Description | Status |
 |----|----------|-------------|--------|
-| CR-M1 | `process-helpers.ts` | **Duplicate `runCommand` import** — `runCommand` re-exported via `export * from '@shared/process-io'` then explicitly imported as `{ runCommand }` in same file. Remove explicit import, rely on re-export. | |
-| CR-M2 | All 8 pipeline runners | **`config as Record<string, unknown>` pattern violates CLAUDE.md** — Direct pattern violates CLAUDE.md §2 (config-first approach). Use `config.propertyName as TargetType` with proper type inference instead of blanket cast. | |
-| CR-M3 | `gitignore-pipeline.ts`, `repo-cleanup-pipeline.ts` | **Inconsistent job property access** — Uses `job.retries` in one place, `job.retryCount` elsewhere. Verify canonical property name and standardize across codebase. | |
+| CR-M1 | `process-helpers.ts` | **Duplicate `runCommand` import** — `runCommand` re-exported via `export * from '@shared/process-io'` then explicitly imported as `{ runCommand }` in same file. Remove explicit import, rely on re-export. | Done |
+| CR-M2 | All 8 pipeline runners | **`config as Record<string, unknown>` pattern violates CLAUDE.md** — Direct pattern violates CLAUDE.md §2 (config-first approach). Use `config.propertyName as TargetType` with proper type inference instead of blanket cast. | Done |
+| CR-M3 | `gitignore-pipeline.ts`, `repo-cleanup-pipeline.ts` | **Inconsistent job property access** — Uses `job.retries` in one place, `job.retryCount` elsewhere. Verify canonical property name and standardize across codebase. | Done |
 | CR-M4 | All 8 pipeline runners + base-pipeline.ts | **`job.error as Error` unsafe cast** — Removed all `as Error` and `as unknown as Error` casts in job:failed handlers and catch blocks. `logError` accepts `Error \| unknown`. | Done |
-| CR-M5 | `sidequest/pipeline-core/utils/fs-helpers.ts` | **`joinLines` utility exported but unused** — Function exported from module but no callers found. Either remove or document usage pattern. | |
+| CR-M5 | `sidequest/pipeline-core/utils/fs-helpers.ts` | **`joinLines` utility exported but unused** — Function exported from module but no callers found. Either remove or document usage pattern. | Done |
 | CR-M8 | `bugfix-audit-pipeline.ts`, `schema-enhancement-pipeline.ts` | **Trailing `...options` spread overrides validated defaults** — Moved `...options` to first position so explicit values are not overridden. | Done |
 
 ### Low — Info
 
 | ID | Location | Description | Status |
 |----|----------|-------------|--------|
-| CR-L1 | `duplicate-detection-pipeline.ts` | **Inconsistent `node-cron` import style** — Uses `import cron from 'node-cron'` (default) while base-pipeline uses named import pattern. Standardize style across runners. | |
-| CR-L2 | `branch-manager.ts` | **`runCommand` import alongside `runGitCommand`** — File imports both `runCommand` and `runGitCommand` (the latter extracted from private method). Document intent: is runCommand still needed for non-git gh CLI calls? | |
-| CR-L3 | `sidequest/pipeline-core/utils/test_runner.py` | **Bare relative import requires specific working directory** — Uses `from utils.test_runner import run_test_classes` which requires CWD to be correct. Consider absolute imports or path insertion in test files. | |
-| CR-L4 | Multiple pipeline runners | **Direct `process.env` access violates CLAUDE.md** — Pattern used in process-helpers.ts and others violates CLAUDE.md §2 (config-first). Use config object throughout instead. | |
+| CR-L1 | `duplicate-detection-pipeline.ts` | **Inconsistent `node-cron` import style** — Uses `import cron from 'node-cron'` (default) while base-pipeline uses named import pattern. Standardize style across runners. | Done |
+| CR-L2 | `branch-manager.ts` | **`runCommand` import alongside `runGitCommand`** — File imports both `runCommand` and `runGitCommand` (the latter extracted from private method). Document intent: is runCommand still needed for non-git gh CLI calls? | Done |
+| CR-L3 | `sidequest/pipeline-core/utils/test_runner.py` | **Bare relative import requires specific working directory** — Uses `from utils.test_runner import run_test_classes` which requires CWD to be correct. Consider absolute imports or path insertion in test files. | Done |
+| CR-L4 | Multiple pipeline runners | **Direct `process.env` access violates CLAUDE.md** — Pattern used in process-helpers.ts and others violates CLAUDE.md §2 (config-first). Use config object throughout instead. | Done |
