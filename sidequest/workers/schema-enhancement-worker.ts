@@ -17,10 +17,6 @@ const logger = createComponentLogger('SchemaEnhancementWorker');
 interface SchemaEnhancementWorkerOptions extends SidequestServerOptions {
   outputBaseDir?: string;
   dryRun?: boolean;
-  gitWorkflowEnabled?: boolean;
-  gitBranchPrefix?: string;
-  gitBaseBranch?: string;
-  gitDryRun?: boolean;
   mcpServerUrl?: string;
   useRealMCP?: boolean;
 }

@@ -1,4 +1,4 @@
-import { SidequestServer, type Job } from '../core/server.ts';
+import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
 import { generateReport } from '../utils/report-generator.ts';
 import { spawn } from 'child_process';
 import { captureProcessOutput } from '@shared/process-io';
@@ -10,18 +10,11 @@ import { TIMEOUTS, TIME } from '../core/constants.ts';
 
 const logger = createComponentLogger('GitActivityWorker');
 
-interface GitActivityWorkerOptions {
+interface GitActivityWorkerOptions extends SidequestServerOptions {
   codeBaseDir?: string;
   pythonScript?: string;
   personalSiteDir?: string;
   outputDir?: string;
-  logDir?: string;
-  maxConcurrent?: number;
-  gitWorkflowEnabled?: boolean;
-  gitBranchPrefix?: string;
-  gitBaseBranch?: string;
-  gitDryRun?: boolean;
-  sentryDsn?: string;
 }
 
 interface PythonArgs {

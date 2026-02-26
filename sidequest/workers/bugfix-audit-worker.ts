@@ -1,4 +1,4 @@
-import { SidequestServer, type Job } from '../core/server.ts';
+import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
 import { GitWorkflowManager } from '../core/git-workflow-manager.ts';
 import { execCommand } from '@shared/process-io';
 import { createComponentLogger, logError, logStage } from '../utils/logger.ts';
@@ -8,16 +8,9 @@ import path from 'path';
 
 const logger = createComponentLogger('BugfixAuditWorker');
 
-interface BugfixAuditWorkerOptions {
+interface BugfixAuditWorkerOptions extends SidequestServerOptions {
   activeDocsDir?: string;
   outputBaseDir?: string;
-  gitBaseBranch?: string;
-  gitBranchPrefix?: string;
-  gitDryRun?: boolean;
-  maxConcurrent?: number;
-  logDir?: string;
-  gitWorkflowEnabled?: boolean;
-  sentryDsn?: string;
 }
 
 interface StageResult {

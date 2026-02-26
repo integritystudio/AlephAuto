@@ -1,4 +1,4 @@
-import { SidequestServer, type Job } from '../core/server.ts';
+import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
 import { generateReport } from '../utils/report-generator.ts';
 import { spawn, execSync } from 'child_process';
 import { captureProcessOutput } from '@shared/process-io';
@@ -11,18 +11,11 @@ import { TIMEOUTS, LIMITS } from '../core/constants.ts';
 
 const logger = createComponentLogger('RepomixWorker');
 
-interface RepomixWorkerOptions {
+interface RepomixWorkerOptions extends SidequestServerOptions {
   outputBaseDir?: string;
   codeBaseDir?: string;
   respectGitignore?: boolean;
   additionalIgnorePatterns?: string[];
-  maxConcurrent?: number;
-  logDir?: string;
-  gitWorkflowEnabled?: boolean;
-  gitBranchPrefix?: string;
-  gitBaseBranch?: string;
-  gitDryRun?: boolean;
-  sentryDsn?: string;
 }
 
 interface RepomixCommandResult {

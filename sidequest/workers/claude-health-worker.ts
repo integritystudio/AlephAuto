@@ -13,7 +13,7 @@
  * @extends SidequestServer
  */
 
-import { SidequestServer, type Job } from '../core/server.ts';
+import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logWarn, logStart } from '../utils/logger.ts';
@@ -28,15 +28,7 @@ const logger = createComponentLogger('ClaudeHealth');
 
 // --- Type definitions ---
 
-interface ClaudeHealthWorkerOptions {
-  maxConcurrent?: number;
-  logDir?: string;
-  gitWorkflowEnabled?: boolean;
-  gitBranchPrefix?: string;
-  gitBaseBranch?: string;
-  gitDryRun?: boolean;
-  sentryDsn?: string;
-}
+type ClaudeHealthWorkerOptions = SidequestServerOptions;
 
 interface Thresholds {
   maxPlugins: number;
