@@ -155,7 +155,7 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
         }
       }
     } catch (error) {
-      logger.error({ dir, error: (error as Error).message }, 'Error scanning directory');
+      logger.error({ dir, error: error instanceof Error ? error.message : String(error) }, 'Error scanning directory');
     }
 
     return results;

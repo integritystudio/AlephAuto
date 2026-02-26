@@ -19,24 +19,31 @@ export abstract class BasePipeline<TWorker extends SidequestServer = SidequestSe
 
   /**
    * Wait for all queued and active jobs to drain using events.
-   * Uses job:completed and job:failed events to avoid polling race conditions.
+   * Listens for job:completed, job:failed, and retry:created to avoid
+   * polling race conditions and premature resolution during retries.
+   * Precondition: all jobs must be enqueued before calling this method.
    */
   waitForCompletion(): Promise<void> {
     return new Promise<void>((resolve) => {
+      const cleanup = () => {
+        this.worker.off('job:completed', checkAndResolve);
+        this.worker.off('job:failed', checkAndResolve);
+        this.worker.off('retry:created', checkAndResolve);
+      };
+
       const checkAndResolve = () => {
         const stats = this.worker.getStats();
         if (stats.active === 0 && stats.queued === 0) {
-          this.worker.off('job:completed', checkAndResolve);
-          this.worker.off('job:failed', checkAndResolve);
+          cleanup();
           resolve();
         }
       };
 
       // Register listeners before checking to avoid missing events between
-      // the check and registration. Precondition: all jobs must be enqueued
-      // before calling waitForCompletion().
+      // the check and registration.
       this.worker.on('job:completed', checkAndResolve);
       this.worker.on('job:failed', checkAndResolve);
+      this.worker.on('retry:created', checkAndResolve);
       // Immediate check handles already-drained case.
       checkAndResolve();
     });

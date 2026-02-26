@@ -141,7 +141,7 @@ export class PRCreator {
         logError(logger, error, 'Failed to create PR for batch', { batch: i + 1 });
         results.errors.push({
           batch: i + 1,
-          error: (error as Error).message,
+          error: error instanceof Error ? error.message : String(error),
           suggestions: batch.map(s => s.suggestion_id)
         });
 
