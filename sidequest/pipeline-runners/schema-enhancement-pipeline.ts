@@ -56,7 +56,7 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
   constructor(options: SchemaEnhancementOptions = {}) {
     super(new SchemaEnhancementWorker({
       ...options,
-      maxConcurrent: config.maxConcurrent || 2,
+      maxConcurrent: config.maxConcurrent ?? 2,
       logDir: config.logDir,
       sentryDsn: config.sentryDsn,
       gitWorkflowEnabled: options.gitWorkflowEnabled ?? config.enableGitWorkflow,

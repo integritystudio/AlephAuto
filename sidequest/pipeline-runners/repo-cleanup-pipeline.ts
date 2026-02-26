@@ -1,6 +1,7 @@
 #!/usr/bin/env -S node --strip-types
 import { RepoCleanupWorker } from '../workers/repo-cleanup-worker.ts';
 import type { Job } from '../core/server.ts';
+import { config } from '../core/config.ts';
 import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
@@ -61,7 +62,7 @@ const DRY_RUN = process.env.CLEANUP_DRY_RUN === 'true';
 
 // Support both env var and --run-now flag
 const args = process.argv.slice(2);
-const RUN_ON_STARTUP = process.env.RUN_ON_STARTUP === 'true' || args.includes('--run-now') || args.includes('--run');
+const RUN_ON_STARTUP = config.runOnStartup || args.includes('--run-now') || args.includes('--run');
 
 async function main(): Promise<void> {
   logger.info({

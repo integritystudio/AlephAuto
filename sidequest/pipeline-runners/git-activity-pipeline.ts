@@ -43,7 +43,7 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
 
   constructor(options: Record<string, unknown> = {}) {
     super(new GitActivityWorker({
-      maxConcurrent: config.maxConcurrent || 2,
+      maxConcurrent: config.maxConcurrent ?? 2,
       logDir: config.logDir,
       sentryDsn: config.sentryDsn,
       codeBaseDir: config.codeBaseDir,

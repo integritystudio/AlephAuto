@@ -26,7 +26,7 @@ const logger = createComponentLogger('TestRefactorPipeline');
 // Configuration
 const CODE_BASE_DIR = config.codeBaseDir;
 const CRON_SCHEDULE = process.env.TEST_REFACTOR_CRON || '0 4 * * 0'; // Sunday 4 AM
-const RUN_ON_STARTUP = process.env.RUN_ON_STARTUP !== 'false';
+const RUN_ON_STARTUP = process.env.RUN_ON_STARTUP !== 'false'; // opt-out default; intentionally differs from config.runOnStartup (opt-in)
 const DRY_RUN = process.env.DRY_RUN === 'true';
 const ENABLE_GIT_WORKFLOW = config.enableGitWorkflow;
 
