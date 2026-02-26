@@ -6,6 +6,7 @@
  */
 
 import { runCommand } from '@shared/process-io';
+import { runGitCommand } from '../utils/process-helpers.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
@@ -176,36 +177,36 @@ export class PRCreator {
     }, 'Creating PR for suggestion batch');
 
     try {
-      await this._runGitCommand(repositoryPath, ['checkout', this.baseBranch]);
+      await runGitCommand(repositoryPath, ['checkout', this.baseBranch]);
 
       if (!this.dryRun) {
-        await this._runGitCommand(repositoryPath, ['pull', 'origin', this.baseBranch]);
+        await runGitCommand(repositoryPath, ['pull', 'origin', this.baseBranch]);
       }
 
-      await this._runGitCommand(repositoryPath, ['checkout', '-b', branchName]);
+      await runGitCommand(repositoryPath, ['checkout', '-b', branchName]);
 
       const filesModified = await this._applySuggestions(suggestions, repositoryPath);
 
       if (filesModified.length === 0) {
         logger.warn({ branchName }, 'No files were modified, skipping PR creation');
-        await this._runGitCommand(repositoryPath, ['checkout', this.baseBranch]);
-        await this._runGitCommand(repositoryPath, ['branch', '-D', branchName]);
+        await runGitCommand(repositoryPath, ['checkout', this.baseBranch]);
+        await runGitCommand(repositoryPath, ['branch', '-D', branchName]);
         return null;
       }
 
-      await this._runGitCommand(repositoryPath, ['add', '.']);
+      await runGitCommand(repositoryPath, ['add', '.']);
 
       const commitMessage = this._generateCommitMessage(suggestions, filesModified);
-      await this._runGitCommand(repositoryPath, ['commit', '-m', commitMessage]);
+      await runGitCommand(repositoryPath, ['commit', '-m', commitMessage]);
 
       if (this.dryRun) {
         logger.info({ branchName }, 'Dry run: Skipping push and PR creation');
-        await this._runGitCommand(repositoryPath, ['checkout', this.baseBranch]);
-        await this._runGitCommand(repositoryPath, ['branch', '-D', branchName]);
+        await runGitCommand(repositoryPath, ['checkout', this.baseBranch]);
+        await runGitCommand(repositoryPath, ['branch', '-D', branchName]);
         return `dry-run-${branchName}`;
       }
 
-      await this._runGitCommand(repositoryPath, ['push', '-u', 'origin', branchName]);
+      await runGitCommand(repositoryPath, ['push', '-u', 'origin', branchName]);
 
       const prDescription = this._generatePRDescription(suggestions, filesModified);
       const prTitle = this._generatePRTitle(suggestions, batchNumber);
@@ -218,8 +219,8 @@ export class PRCreator {
       logError(logger, error, 'Failed to create PR', { branchName });
 
       try {
-        await this._runGitCommand(repositoryPath, ['checkout', this.baseBranch]);
-        await this._runGitCommand(repositoryPath, ['branch', '-D', branchName]);
+        await runGitCommand(repositoryPath, ['checkout', this.baseBranch]);
+        await runGitCommand(repositoryPath, ['branch', '-D', branchName]);
       } catch (cleanupError) {
         logger.warn({ error: cleanupError }, 'Failed to cleanup branch');
       }
@@ -299,10 +300,6 @@ export class PRCreator {
     }
 
     return filesModified;
-  }
-
-  private async _runGitCommand(cwd: string, args: string[]): Promise<string> {
-    return runCommand(cwd, 'git', args);
   }
 
   private async _createPR(cwd: string, branch: string, title: string, body: string): Promise<string> {

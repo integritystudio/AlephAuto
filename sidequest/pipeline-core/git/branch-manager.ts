@@ -6,6 +6,7 @@
  */
 
 import { runCommand } from '@shared/process-io';
+import { runGitCommand } from '../utils/process-helpers.ts';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 
@@ -57,7 +58,7 @@ export class BranchManager {
 
   async hasChanges(repositoryPath: string): Promise<boolean> {
     try {
-      const status = await this._runGitCommand(repositoryPath, ['status', '--porcelain']);
+      const status = await runGitCommand(repositoryPath, ['status', '--porcelain']);
       return status.trim().length > 0;
     } catch (error) {
       logger.warn({ error, repositoryPath }, 'Failed to check git status');
@@ -67,7 +68,7 @@ export class BranchManager {
 
   async getChangedFiles(repositoryPath: string): Promise<string[]> {
     try {
-      const status = await this._runGitCommand(repositoryPath, ['status', '--porcelain']);
+      const status = await runGitCommand(repositoryPath, ['status', '--porcelain']);
 
       const files = status
         .split('\n')
@@ -88,7 +89,7 @@ export class BranchManager {
 
   async getCurrentBranch(repositoryPath: string): Promise<string> {
     try {
-      const branch = await this._runGitCommand(repositoryPath, ['rev-parse', '--abbrev-ref', 'HEAD']);
+      const branch = await runGitCommand(repositoryPath, ['rev-parse', '--abbrev-ref', 'HEAD']);
       return branch.trim();
     } catch (error) {
       logger.warn({ error, repositoryPath }, 'Failed to get current branch');
@@ -98,7 +99,7 @@ export class BranchManager {
 
   async isGitRepository(repositoryPath: string): Promise<boolean> {
     try {
-      await this._runGitCommand(repositoryPath, ['rev-parse', '--git-dir']);
+      await runGitCommand(repositoryPath, ['rev-parse', '--git-dir']);
       return true;
     } catch {
       return false;
@@ -126,18 +127,18 @@ export class BranchManager {
         jobId: jobContext.jobId
       }, 'Creating job branch');
 
-      await this._runGitCommand(repositoryPath, ['checkout', this.baseBranch]);
+      await runGitCommand(repositoryPath, ['checkout', this.baseBranch]);
 
       if (!this.dryRun) {
         try {
-          await this._runGitCommand(repositoryPath, ['pull', 'origin', this.baseBranch]);
+          await runGitCommand(repositoryPath, ['pull', 'origin', this.baseBranch]);
         } catch (error) {
           logger.warn({ error }, 'Failed to pull latest changes, continuing anyway');
         }
       }
 
       const branchName = this._generateBranchName(jobContext);
-      await this._runGitCommand(repositoryPath, ['checkout', '-b', branchName]);
+      await runGitCommand(repositoryPath, ['checkout', '-b', branchName]);
 
       logger.info({ branchName, repositoryPath }, 'Branch created and checked out');
 
@@ -185,12 +186,12 @@ export class BranchManager {
       const changedFiles = await this.getChangedFiles(repositoryPath);
       logger.info({ changedFiles, count: changedFiles.length }, 'Files changed');
 
-      await this._runGitCommand(repositoryPath, ['add', '.']);
+      await runGitCommand(repositoryPath, ['add', '.']);
 
       const commitMessage = this._generateCommitMessage(commitContext, changedFiles);
-      await this._runGitCommand(repositoryPath, ['commit', '-m', commitMessage]);
+      await runGitCommand(repositoryPath, ['commit', '-m', commitMessage]);
 
-      const commitSha = await this._runGitCommand(repositoryPath, ['rev-parse', 'HEAD']);
+      const commitSha = await runGitCommand(repositoryPath, ['rev-parse', 'HEAD']);
 
       logger.info({ commitSha: commitSha.trim(), filesCount: changedFiles.length }, 'Changes committed');
 
@@ -234,7 +235,7 @@ export class BranchManager {
 
       logger.info({ repositoryPath, branchName }, 'Pushing branch to remote');
 
-      await this._runGitCommand(repositoryPath, ['push', '-u', 'origin', branchName]);
+      await runGitCommand(repositoryPath, ['push', '-u', 'origin', branchName]);
 
       logger.info({ branchName }, 'Branch pushed successfully');
 
@@ -294,7 +295,7 @@ export class BranchManager {
         args.push('--label', prContext.labels.join(','));
       }
 
-      const prUrl = await this._runCommand(repositoryPath, 'gh', args);
+      const prUrl = await runCommand(repositoryPath, 'gh', args);
 
       logger.info({ prUrl: prUrl.trim() }, 'Pull request created');
 
@@ -327,9 +328,9 @@ export class BranchManager {
       logger.info({ repositoryPath, branchName, originalBranch }, 'Cleaning up branch');
 
       const targetBranch = originalBranch || this.baseBranch;
-      await this._runGitCommand(repositoryPath, ['checkout', targetBranch]);
+      await runGitCommand(repositoryPath, ['checkout', targetBranch]);
 
-      await this._runGitCommand(repositoryPath, ['branch', '-D', branchName]);
+      await runGitCommand(repositoryPath, ['branch', '-D', branchName]);
 
       logger.info({ branchName }, 'Branch cleaned up');
 
@@ -370,11 +371,4 @@ export class BranchManager {
     return lines.join('\n');
   }
 
-  private async _runGitCommand(cwd: string, args: string[]): Promise<string> {
-    return this._runCommand(cwd, 'git', args);
-  }
-
-  private async _runCommand(cwd: string, command: string, args: string[]): Promise<string> {
-    return runCommand(cwd, command, args);
-  }
 }

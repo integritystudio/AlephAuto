@@ -13,3 +13,13 @@ export {
   execCommandOrThrow,
   runCommand
 } from '@shared/process-io';
+
+import { runCommand } from '@shared/process-io';
+
+/**
+ * Run a git command in the given working directory.
+ * Extracted from BranchManager and PRCreator private methods.
+ */
+export async function runGitCommand(cwd: string, args: string[]): Promise<string> {
+  return runCommand(cwd, 'git', args);
+}
