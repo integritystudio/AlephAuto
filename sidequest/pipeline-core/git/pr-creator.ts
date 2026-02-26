@@ -11,14 +11,10 @@ import path from 'path';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import { MigrationTransformer } from './migration-transformer.ts';
+import type { MigrationStep } from '../types/migration-types.ts';
 
 const logger = createComponentLogger('PRCreator');
 
-interface MigrationStep {
-  description: string;
-  step_number: number;
-  code_example?: string;
-}
 
 interface Suggestion {
   suggestion_id: string;

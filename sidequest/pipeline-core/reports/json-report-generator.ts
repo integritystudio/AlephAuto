@@ -7,6 +7,7 @@
 
 import fs from 'fs/promises';
 import { ensureParentDir } from '../utils/index.ts';
+import type { MigrationStep } from '../types/migration-types.ts';
 
 export interface ScanMetadata {
   repository_count?: number;
@@ -50,12 +51,7 @@ export interface DuplicateGroup {
   member_blocks?: MemberBlock[];
 }
 
-export interface MigrationStep {
-  step_number: number;
-  description: string;
-  automated: boolean;
-  estimated_time: string;
-}
+export type { MigrationStep };
 
 export interface Suggestion {
   suggestion_id: string;

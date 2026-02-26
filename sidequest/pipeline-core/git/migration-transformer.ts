@@ -16,6 +16,8 @@ import type { NodePath, TraverseOptions } from '@babel/traverse';
 import _generate from '@babel/generator';
 import type { GeneratorOptions, GeneratorResult } from '@babel/generator';
 
+import type { MigrationStep } from '../types/migration-types.ts';
+
 // ESM/CJS interop: Babel packages nest the callable under .default at runtime
 const traverse = ((_traverse as unknown as { default: (node: t.Node, opts?: TraverseOptions) => void }).default
   ?? _traverse) as (node: t.Node, opts?: TraverseOptions) => void;
@@ -40,11 +42,6 @@ type ParsedMigrationStep =
   | { type: 'remove-declaration'; name: string }
   | { type: 'add-import'; imported: string; source: string };
 
-interface MigrationStep {
-  description: string;
-  code_example?: string;
-  step_number?: number;
-}
 
 interface MigrationSuggestion {
   suggestion_id?: string;
