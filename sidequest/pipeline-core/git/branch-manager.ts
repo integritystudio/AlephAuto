@@ -5,8 +5,8 @@
  * for any AlephAuto worker that modifies code.
  */
 
-import { runCommand } from '@shared/process-io';
-import { runGitCommand } from '../utils/process-helpers.ts';
+import { runCommand } from '@shared/process-io'; // non-git CLI calls (gh)
+import { runGitCommand } from '../utils/process-helpers.ts'; // git operations
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 

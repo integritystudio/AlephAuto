@@ -381,7 +381,7 @@ const pipeline = new ClaudeHealthPipeline();
 
 // Configuration
 const CRON_SCHEDULE = process.env.CLAUDE_HEALTH_CRON_SCHEDULE || '0 8 * * *';
-const RUN_ON_STARTUP = process.env.RUN_ON_STARTUP === 'true';
+const RUN_ON_STARTUP = config.runOnStartup;
 const CRON_ENABLED = process.argv.includes('--cron');
 
 logger.info({

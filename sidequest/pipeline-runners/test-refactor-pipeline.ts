@@ -24,11 +24,11 @@ import path from 'path';
 const logger = createComponentLogger('TestRefactorPipeline');
 
 // Configuration
-const CODE_BASE_DIR = process.env.CODE_BASE_DIR || config.codeBaseDir || process.env.HOME + '/code';
+const CODE_BASE_DIR = config.codeBaseDir;
 const CRON_SCHEDULE = process.env.TEST_REFACTOR_CRON || '0 4 * * 0'; // Sunday 4 AM
 const RUN_ON_STARTUP = process.env.RUN_ON_STARTUP !== 'false';
 const DRY_RUN = process.env.DRY_RUN === 'true';
-const ENABLE_GIT_WORKFLOW = process.env.ENABLE_GIT_WORKFLOW === 'true';
+const ENABLE_GIT_WORKFLOW = config.enableGitWorkflow;
 
 interface PipelineMetrics {
   totalProjects: number;
@@ -66,7 +66,7 @@ async function runPipeline(targetPath: string | null = null): Promise<PipelineRe
   const worker = new TestRefactorWorker({
     dryRun: DRY_RUN,
     gitWorkflowEnabled: ENABLE_GIT_WORKFLOW,
-    maxConcurrent: parseInt(process.env.MAX_CONCURRENT || '3', 10)
+    maxConcurrent: config.maxConcurrent
   });
 
   // Set up event handlers

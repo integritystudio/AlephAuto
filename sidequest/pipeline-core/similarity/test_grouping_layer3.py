@@ -403,7 +403,7 @@ class TestSemanticGrouping:
 
 def run_tests():
     """Run all tests without pytest."""
-    from utils.test_runner import run_test_classes
+    from utils.test_runner import run_test_classes  # path covered by sys.path.insert above
 
     return run_test_classes("Layer 3 Grouping Tests", [
         TestJaccardSimilarity,

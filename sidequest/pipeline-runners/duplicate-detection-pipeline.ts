@@ -33,7 +33,7 @@ import { config } from '../core/config.ts';
 import { TIMEOUTS, RETRY } from '../core/constants.ts';
 import { getErrorInfo } from '../pipeline-core/errors/error-classifier.ts';
 // @ts-ignore - no declaration file for node-cron
-import * as cron from 'node-cron';
+import cron from 'node-cron';
 import * as path from 'path';
 import * as Sentry from '@sentry/node';
 
@@ -204,7 +204,7 @@ class DuplicateDetectionWorker extends SidequestServer {
     this.prCreator = new PRCreator({
       baseBranch: options.baseBranch || 'main',
       branchPrefix: options.branchPrefix || 'consolidate',
-      dryRun: options.dryRun ?? (process.env.PR_DRY_RUN === 'true'),
+      dryRun: options.dryRun ?? config.prDryRun,
       maxSuggestionsPerPR: options.maxSuggestionsPerPR || 5
     });
 
@@ -219,7 +219,7 @@ class DuplicateDetectionWorker extends SidequestServer {
       prCreationErrors: 0
     };
 
-    this.enablePRCreation = options.enablePRCreation ?? (process.env.ENABLE_PR_CREATION === 'true');
+    this.enablePRCreation = options.enablePRCreation ?? config.enablePRCreation;
 
     this.retryQueue = new Map<string, RetryInfo>();
   }
@@ -834,7 +834,7 @@ class DuplicateDetectionWorker extends SidequestServer {
  */
 async function main(): Promise<void> {
   const cronSchedule = process.env.DUPLICATE_SCAN_CRON_SCHEDULE || '0 2 * * *';
-  const runOnStartup = process.env.RUN_ON_STARTUP === 'true';
+  const runOnStartup = config.runOnStartup;
 
   console.log('╔══════════════════════════════════════════════════════════╗');
   console.log('║     DUPLICATE DETECTION AUTOMATED PIPELINE              ║');

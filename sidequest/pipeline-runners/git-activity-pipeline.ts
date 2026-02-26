@@ -168,7 +168,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // Parse command line arguments
   const args = process.argv.slice(2);
   const options: ReportOptions = {};
-  let runNow = process.env.RUN_ON_STARTUP === 'true';
+  let runNow = config.runOnStartup;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--run-now' || args[i] === '--run') {

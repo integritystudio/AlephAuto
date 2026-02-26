@@ -277,7 +277,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   };
 
   let directory: string = config.codeBaseDir || config.homeDir;
-  let runNow = process.env.RUN_ON_STARTUP === 'true';
+  let runNow = config.runOnStartup;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--run-now' || args[i] === '--run') {

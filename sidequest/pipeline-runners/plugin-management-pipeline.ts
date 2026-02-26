@@ -163,7 +163,7 @@ class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const pipeline = new PluginManagementPipeline();
 
-  const runOnStartup = process.env.RUN_ON_STARTUP === 'true';
+  const runOnStartup = config.runOnStartup;
   const detailed = process.env.DETAILED === 'true';
   const pluginCronSchedule = process.env.PLUGIN_CRON_SCHEDULE || '0 9 * * 1'; // Monday 9 AM
 
