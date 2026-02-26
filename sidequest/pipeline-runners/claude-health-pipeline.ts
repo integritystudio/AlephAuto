@@ -172,7 +172,7 @@ class ClaudeHealthPipeline extends BasePipeline<ClaudeHealthWorker> {
     });
 
     this.worker.on('job:failed', (job: Job) => {
-      logError(logger, job.error as unknown as Error, 'Health check job failed', { jobId: job.id });
+      logError(logger, job.error, 'Health check job failed', { jobId: job.id });
     });
   }
 
@@ -201,12 +201,11 @@ class ClaudeHealthPipeline extends BasePipeline<ClaudeHealthWorker> {
 
     try {
       // Create health check job
-      const job = (this.worker as unknown as { addJob(data: HealthCheckOptions): Job }).addJob({
-        detailed: this.options.detailed,
-        validateConfig: !this.options.skipValidation,
-        checkPerformance: !this.options.skipPerformance,
-        analyzePlugins: !this.options.skipPlugins,
-        ...options
+      const job = this.worker.addJob({
+        detailed: options.detailed ?? this.options.detailed,
+        validateConfig: options.validateConfig ?? !this.options.skipValidation,
+        checkPerformance: options.checkPerformance ?? !this.options.skipPerformance,
+        analyzePlugins: options.analyzePlugins ?? !this.options.skipPlugins,
       });
 
       logger.info({ jobId: job.id }, 'Health check job created');

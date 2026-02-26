@@ -100,7 +100,7 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
     });
 
     this.worker.on('job:failed', (job: Job) => {
-      logError(logger, job.error as unknown as Error, 'Job failed', { jobId: job.id });
+      logError(logger, job.error, 'Job failed', { jobId: job.id });
     });
   }
 
@@ -114,23 +114,16 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
 
     try {
       // Create job based on options
-      const typedWorker = this.worker as unknown as {
-        createCustomReportJob(since: string, until: string): Job;
-        createMonthlyReportJob(): Job;
-        createWeeklyReportJob(): Job;
-        createReportJob(opts: ReportOptions): Job;
-      };
-
       let job: Job;
 
       if (options.sinceDate && options.untilDate) {
-        job = typedWorker.createCustomReportJob(options.sinceDate, options.untilDate);
+        job = this.worker.createCustomReportJob(options.sinceDate, options.untilDate);
       } else if (options.reportType === 'monthly' || options.days === 30) {
-        job = typedWorker.createMonthlyReportJob();
+        job = this.worker.createMonthlyReportJob();
       } else if (options.reportType === 'weekly' || options.days === 7) {
-        job = typedWorker.createWeeklyReportJob();
+        job = this.worker.createWeeklyReportJob();
       } else {
-        job = typedWorker.createReportJob(options);
+        job = this.worker.createReportJob(options);
       }
 
       logger.info({ jobId: job.id }, 'Report job created');

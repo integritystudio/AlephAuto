@@ -80,7 +80,7 @@ class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
     });
 
     this.worker.on('job:failed', (job: Job) => {
-      logError(logger, job.error as unknown as Error, 'Plugin audit failed', { jobId: job.id });
+      logError(logger, job.error, 'Plugin audit failed', { jobId: job.id });
     });
   }
 

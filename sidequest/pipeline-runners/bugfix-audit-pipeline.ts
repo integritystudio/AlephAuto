@@ -49,6 +49,7 @@ interface RunResult {
 class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
   constructor(options: BugfixAuditOptions = {}) {
     super(new BugfixAuditWorker({
+      ...options,
       maxConcurrent: options.maxConcurrent ?? 3,
       logDir: cfg.logDir as string | undefined,
       sentryDsn: cfg.sentryDsn as string | undefined,
@@ -57,7 +58,6 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
       gitBaseBranch: options.gitBaseBranch ?? (cfg.gitBaseBranch as string | undefined),
       gitBranchPrefix: options.gitBranchPrefix ?? 'bugfix',
       gitDryRun: options.gitDryRun ?? (cfg.gitDryRun as boolean | undefined),
-      ...options,
     }));
 
     this.setupEventListeners();
@@ -97,7 +97,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
 
     this.worker.on('job:failed', (job: Job) => {
       const data = job.data as unknown as JobData;
-      logError(logger, job.error as unknown as Error, 'Bugfix audit job failed', {
+      logError(logger, job.error, 'Bugfix audit job failed', {
         jobId: job.id,
         projectName: data.projectName,
       });
@@ -112,7 +112,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
 
     const startTime = Date.now();
 
-    const jobs = await (this.worker as unknown as { createJobsForAllMarkdownFiles(): Promise<Job[]> }).createJobsForAllMarkdownFiles();
+    const jobs = await this.worker.createJobsForAllMarkdownFiles();
 
     if (jobs.length === 0) {
       logger.info('No eligible projects found for bug fix audit');

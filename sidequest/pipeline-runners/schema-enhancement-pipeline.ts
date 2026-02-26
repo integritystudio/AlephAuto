@@ -15,7 +15,7 @@ interface ReadmeFile {
   dirPath: string;
 }
 
-interface RepoContext {
+interface RepoContext extends Record<string, unknown> {
   totalReadmes: number;
   baseDir: string;
   hasPackageJson: boolean;
@@ -57,6 +57,7 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
 
   constructor(options: SchemaEnhancementOptions = {}) {
     super(new SchemaEnhancementWorker({
+      ...options,
       maxConcurrent: (cfg.maxConcurrent as number) || 2,
       logDir: cfg.logDir as string | undefined,
       sentryDsn: cfg.sentryDsn as string | undefined,
@@ -66,7 +67,6 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
       gitDryRun: (options.gitDryRun ?? cfg.gitDryRun) as boolean | undefined,
       outputBaseDir: options.outputBaseDir || './document-enhancement-impact-measurement',
       dryRun: options.dryRun || false,
-      ...options
     }));
 
     this.options = options;
@@ -119,7 +119,7 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
     });
 
     this.worker.on('job:failed', (job: Job) => {
-      logError(logger, job.error as unknown as Error, 'Schema enhancement job failed', {
+      logError(logger, job.error, 'Schema enhancement job failed', {
         jobId: job.id,
         readmePath: (job.data as Record<string, unknown>).relativePath
       });
@@ -196,7 +196,7 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
         gitRemote: null        // Would need to extract
       };
 
-      const job = await (this.worker as unknown as { createEnhancementJob(readme: ReadmeFile, ctx: RepoContext): Promise<unknown> }).createEnhancementJob(readme, repoContext);
+      const job = await this.worker.createEnhancementJob(readme, repoContext);
       jobs.push(job);
     }
 
@@ -235,11 +235,11 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
       await this.waitForCompletion();
 
       const duration = Date.now() - startTime;
-      const stats = (this.worker as unknown as { getEnhancementStats(): Record<string, unknown> }).getEnhancementStats();
+      const stats = this.worker.getEnhancementStats();
       const jobStats = this.getStats();
 
       // Generate summary report
-      await (this.worker as unknown as { generateSummaryReport(): Promise<void> }).generateSummaryReport();
+      await this.worker.generateSummaryReport();
 
       logger.info({
         duration,
