@@ -38,6 +38,7 @@ import * as Sentry from '@sentry/node';
 
 // Type imports
 import type { Logger } from 'pino';
+import type { RetryInfo, RetryMetrics, WorkerScanMetrics as ScanMetrics } from '../types/duplicate-detection-types.ts';
 
 /**
  * Job status values
@@ -83,49 +84,7 @@ export interface Job {
   result: JobResult | null;
 }
 
-/**
- * Interface for retry information
- */
-export interface RetryInfo {
-  attempts: number;
-  lastAttempt: number;
-  maxAttempts: number;
-  delay: number;
-}
-
-/**
- * Interface for scan metrics
- */
-export interface ScanMetrics {
-  totalScans: number;
-  successfulScans: number;
-  failedScans: number;
-  totalDuplicatesFound: number;
-  totalSuggestionsGenerated: number;
-  highImpactDuplicates: number;
-  prsCreated: number;
-  prCreationErrors: number;
-}
-
-/**
- * Interface for retry metrics
- */
-export interface RetryMetrics {
-  activeRetries: number;
-  totalRetryAttempts: number;
-  jobsBeingRetried: Array<{
-    jobId: string;
-    attempts: number;
-    maxAttempts: number;
-    lastAttempt: string;
-  }>;
-  retryDistribution: {
-    attempt1: number;
-    attempt2: number;
-    attempt3Plus: number;
-    nearingLimit: number;
-  };
-}
+export type { RetryInfo, RetryMetrics, ScanMetrics };
 
 /**
  * Interface for scan result

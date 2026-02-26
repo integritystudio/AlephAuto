@@ -24,6 +24,7 @@ import { getErrorInfo, type ExtendedError } from '../pipeline-core/errors/error-
 import path from 'path';
 import * as Sentry from '@sentry/node';
 import { RETRY } from '../core/constants.ts';
+import type { RetryInfo, RetryMetrics, WorkerScanMetrics as ScanMetrics } from '../types/duplicate-detection-types.ts';
 import { config } from '../core/config.ts';
 
 const logger = createComponentLogger('DuplicateDetectionWorker');
@@ -47,23 +48,6 @@ interface ScanJobData {
   type?: string;
 }
 
-interface RetryInfo {
-  attempts: number;
-  lastAttempt: number;
-  maxAttempts: number;
-  delay: number;
-}
-
-interface ScanMetrics {
-  totalScans: number;
-  successfulScans: number;
-  failedScans: number;
-  totalDuplicatesFound: number;
-  totalSuggestionsGenerated: number;
-  highImpactDuplicates: number;
-  prsCreated: number;
-  prCreationErrors: number;
-}
 
 interface DuplicateEntry {
   impact_score: number;
@@ -115,22 +99,7 @@ interface IntraProjectScanResult {
   } | null;
 }
 
-interface RetryMetrics {
-  activeRetries: number;
-  totalRetryAttempts: number;
-  jobsBeingRetried: {
-    jobId: string;
-    attempts: number;
-    maxAttempts: number;
-    lastAttempt: string;
-  }[];
-  retryDistribution: {
-    attempt1: number;
-    attempt2: number;
-    attempt3Plus: number;
-    nearingLimit: number;
-  };
-}
+
 
 /**
  * DuplicateDetectionWorker
