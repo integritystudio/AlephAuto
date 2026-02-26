@@ -7,14 +7,8 @@
  * @module lib/utils/process-helpers
  */
 
-export {
-  captureProcessOutput,
-  execCommand,
-  execCommandOrThrow,
-  runCommand
-} from '@shared/process-io';
-
-import { runCommand } from '@shared/process-io';
+import { captureProcessOutput, execCommand, execCommandOrThrow, runCommand } from '@shared/process-io';
+export { captureProcessOutput, execCommand, execCommandOrThrow, runCommand };
 
 /**
  * Run a git command in the given working directory.
