@@ -66,10 +66,3 @@ export async function saveGeneratedReport(filePath: string, content: string): Pr
   await writeFileWithDir(filePath, content);
   return filePath;
 }
-
-/**
- * Joins lines with newlines (consolidates repeated pattern)
- */
-export function joinLines(lines: string[]): string {
-  return lines.join('\n');
-}
