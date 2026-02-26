@@ -254,7 +254,7 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
         jobs: jobStats
       };
     } catch (error) {
-      logError(logger, error as Error, 'Schema enhancement pipeline failed');
+      logError(logger, error, 'Schema enhancement pipeline failed');
       throw error;
     }
   }
@@ -307,7 +307,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         process.exit(0);
       })
       .catch((error: unknown) => {
-        logError(logger, error as Error, 'Enhancement failed');
+        logError(logger, error, 'Enhancement failed');
         process.exit(1);
       });
   } else {

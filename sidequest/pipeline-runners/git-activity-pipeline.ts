@@ -141,7 +141,7 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
 
       return stats;
     } catch (error) {
-      logError(logger, error as Error, 'Git activity report pipeline failed');
+      logError(logger, error, 'Git activity report pipeline failed');
       throw error;
     }
   }
@@ -205,7 +205,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         process.exit(0);
       })
       .catch((error: unknown) => {
-        logError(logger, error as Error, 'Report failed');
+        logError(logger, error, 'Report failed');
         process.exit(1);
       });
   } else {

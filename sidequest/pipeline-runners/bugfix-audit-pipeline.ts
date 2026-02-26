@@ -198,7 +198,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
       try {
         await this.runBugfixAudit();
       } catch (error) {
-        logError(logger, error as Error, 'One-time bugfix audit failed');
+        logError(logger, error, 'One-time bugfix audit failed');
       }
     }, delay);
   }
@@ -228,7 +228,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         process.exit(0);
       })
       .catch((error: unknown) => {
-        logError(logger, error as Error, 'Bugfix audit failed');
+        logError(logger, error, 'Bugfix audit failed');
         process.exit(1);
       });
   } else if (recurring) {

@@ -223,7 +223,7 @@ class ClaudeHealthPipeline extends BasePipeline<ClaudeHealthWorker> {
 
       return stats;
     } catch (error) {
-      logError(logger, error as Error, 'Health check pipeline failed');
+      logError(logger, error, 'Health check pipeline failed');
       throw error;
     }
   }
@@ -425,7 +425,7 @@ logger.info({
       process.exit(hasFailures ? 1 : 0);
     }
   } catch (error) {
-    logError(logger, error as Error, 'Pipeline execution failed');
+    logError(logger, error, 'Pipeline execution failed');
     process.exit(1);
   }
 })();

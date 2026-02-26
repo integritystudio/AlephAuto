@@ -135,7 +135,7 @@ async function main(): Promise<void> {
   });
 
   worker.on('job:failed', (job: Job) => {
-    logError(logger, job.error as Error, 'Job failed', { jobId: job.id, retries: job.retries });
+    logError(logger, job.error, 'Job failed', { jobId: job.id, retries: job.retries });
 
     Sentry.captureException(new Error(String(job.error)), {
       tags: {
@@ -163,7 +163,7 @@ async function main(): Promise<void> {
         dryRun: DRY_RUN,
       }, 'Startup job created');
     } catch (error) {
-      logError(logger, error as Error, 'Failed to create startup job');
+      logError(logger, error, 'Failed to create startup job');
       Sentry.captureException(error, {
         tags: { component: 'repo-cleanup-pipeline', phase: 'startup' },
       });
@@ -185,7 +185,7 @@ async function main(): Promise<void> {
         dryRun: DRY_RUN,
       }, 'Scheduled job created');
     } catch (error) {
-      logError(logger, error as Error, 'Failed to create scheduled job');
+      logError(logger, error, 'Failed to create scheduled job');
       Sentry.captureException(error, {
         tags: { component: 'repo-cleanup-pipeline', phase: 'cron' },
       });
@@ -208,7 +208,7 @@ async function main(): Promise<void> {
 
 // Run the pipeline
 main().catch((error: unknown) => {
-  logError(logger, error as Error, 'Fatal error in cleanup pipeline');
+  logError(logger, error, 'Fatal error in cleanup pipeline');
   Sentry.captureException(error, {
     tags: { component: 'repo-cleanup-pipeline', phase: 'startup' },
   });

@@ -129,8 +129,8 @@ class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
 
     try {
       // Create audit job
-      const job = (this.worker as unknown as { addJob(data: { detailed: boolean }): Job }).addJob({
-        detailed: options.detailed || false
+      const job = this.worker.addJob({
+        detailed: options.detailed ?? false
       });
 
       logger.info({ jobId: job.id }, 'Audit job created');
@@ -148,7 +148,7 @@ class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
 
       return stats;
     } catch (error) {
-      logError(logger, error as Error, 'Plugin audit pipeline failed');
+      logError(logger, error, 'Plugin audit pipeline failed');
       throw error;
     }
   }
@@ -178,7 +178,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         process.exit(0);
       })
       .catch((error: unknown) => {
-        logError(logger, error as Error, 'Plugin audit failed');
+        logError(logger, error, 'Plugin audit failed');
         process.exit(1);
       });
   } else {

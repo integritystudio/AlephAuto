@@ -32,10 +32,13 @@ export abstract class BasePipeline<TWorker extends SidequestServer = SidequestSe
         }
       };
 
-      // Immediate check handles already-drained case
-      checkAndResolve();
+      // Register listeners before checking to avoid missing events between
+      // the check and registration. Precondition: all jobs must be enqueued
+      // before calling waitForCompletion().
       this.worker.on('job:completed', checkAndResolve);
       this.worker.on('job:failed', checkAndResolve);
+      // Immediate check handles already-drained case.
+      checkAndResolve();
     });
   }
 
@@ -59,7 +62,7 @@ export abstract class BasePipeline<TWorker extends SidequestServer = SidequestSe
       try {
         await runFn();
       } catch (error) {
-        logError(logger, error as Error, `Scheduled ${name} failed`);
+        logError(logger, error, `Scheduled ${name} failed`);
       }
     });
 
