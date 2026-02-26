@@ -4,7 +4,7 @@ Job queue framework with real-time dashboard for automation pipelines.
 
 ```mermaid
 graph TD
-    root["AlephAuto<br/><i>v1.9.0 &bull; Node + Python</i>"]
+    root["AlephAuto<br/><i>v2.1.0 &bull; Node + Python</i>"]
 
     root --> api["api/<br/><i>REST API + WebSocket</i>"]
     root --> frontend["frontend/<br/><i>React Dashboard (Vite + TS)</i>"]
@@ -177,7 +177,8 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 - [Adding Pipelines](docs/ADDING_PIPELINES.md) - Pipeline creation guide
 - [Deployment](docs/DEPLOYMENT.md) - Production deployment
 - [Installation](docs/INSTALL.md) - Setup instructions
-- [Changelog](docs/CHANGELOG.md) - Version history
+- [Changelog](docs/CHANGELOG.md) - Version history (1.x)
+- [Changelog v2.1](docs/2.1/CHANGELOG.md) - v2.1 release
 
 ## License
 
