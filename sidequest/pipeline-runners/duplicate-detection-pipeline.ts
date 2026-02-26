@@ -21,6 +21,7 @@
  */
 
 import { SidequestServer } from '../core/server.ts';
+import type { Job } from '../core/server.ts';
 import { RepositoryConfigLoader, type RepositoryConfig } from '../pipeline-core/config/repository-config-loader.ts';
 import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.ts';
 import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.ts';
@@ -68,20 +69,6 @@ export interface JobData {
   repositories?: RepositoryConfig[];
   groupName?: string | null;
   type?: string;
-}
-
-/**
- * Interface for a job
- */
-export interface Job {
-  id: string;
-  status: JobStatus;
-  data: JobData;
-  createdAt: Date;
-  startedAt: Date | null;
-  completedAt: Date | null;
-  error: Error | null;
-  result: JobResult | null;
 }
 
 export type { RetryInfo, RetryMetrics, ScanMetrics };
@@ -265,9 +252,8 @@ class DuplicateDetectionWorker extends SidequestServer {
   /**
    * Run job handler (required by SidequestServer)
    */
-  async runJobHandler(baseJob: import('../core/server.ts').Job): Promise<unknown> {
-    const job = baseJob as unknown as Job;
-    const { scanType, repositories, groupName } = job.data;
+  async runJobHandler(job: Job): Promise<unknown> {
+    const { scanType, repositories, groupName } = job.data as unknown as JobData;
 
     logger.info({
       jobId: job.id,
