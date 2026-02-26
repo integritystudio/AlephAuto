@@ -59,6 +59,15 @@ export async function pathExists(filePath: string): Promise<boolean> {
 }
 
 /**
+ * Saves generated report content to a file, ensuring parent directory exists.
+ * Returns the output path for method chaining.
+ */
+export async function saveGeneratedReport(filePath: string, content: string): Promise<string> {
+  await writeFileWithDir(filePath, content);
+  return filePath;
+}
+
+/**
  * Joins lines with newlines (consolidates repeated pattern)
  */
 export function joinLines(lines: string[]): string {

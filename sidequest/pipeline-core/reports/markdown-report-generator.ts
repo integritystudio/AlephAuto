@@ -5,8 +5,7 @@
  * Suitable for terminal viewing, GitHub README integration, and quick reviews.
  */
 
-import fs from 'fs/promises';
-import { ensureParentDir } from '../utils/index.ts';
+import { saveGeneratedReport } from '../utils/index.ts';
 import type { ScanResult } from './json-report-generator.ts';
 
 export interface MarkdownReportOptions {
@@ -89,20 +88,14 @@ export class MarkdownReportGenerator {
    * Save Markdown report to file
    */
   static async saveReport(scanResult: ScanResult, outputPath: string, options: MarkdownReportOptions = {}): Promise<string> {
-    const markdown = this.generateReport(scanResult, options);
-    await ensureParentDir(outputPath);
-    await fs.writeFile(outputPath, markdown);
-    return outputPath;
+    return saveGeneratedReport(outputPath, this.generateReport(scanResult, options));
   }
 
   /**
    * Save concise summary to file
    */
   static async saveSummary(scanResult: ScanResult, outputPath: string): Promise<string> {
-    const markdown = this.generateSummary(scanResult);
-    await ensureParentDir(outputPath);
-    await fs.writeFile(outputPath, markdown);
-    return outputPath;
+    return saveGeneratedReport(outputPath, this.generateSummary(scanResult));
   }
 
   // Private helper methods

@@ -4,8 +4,7 @@
  * Generates interactive HTML dashboards for duplicate detection results
  */
 
-import fs from 'fs/promises';
-import { ensureParentDir } from '../utils/index.ts';
+import { saveGeneratedReport } from '../utils/index.ts';
 import type { ScanResult } from './json-report-generator.ts';
 
 export interface HTMLReportOptions {
@@ -53,10 +52,7 @@ export class HTMLReportGenerator {
    * Save HTML report to file
    */
   static async saveReport(scanResult: ScanResult, outputPath: string, options: HTMLReportOptions = {}): Promise<string> {
-    const html = this.generateReport(scanResult, options);
-    await ensureParentDir(outputPath);
-    await fs.writeFile(outputPath, html);
-    return outputPath;
+    return saveGeneratedReport(outputPath, this.generateReport(scanResult, options));
   }
 
   /**

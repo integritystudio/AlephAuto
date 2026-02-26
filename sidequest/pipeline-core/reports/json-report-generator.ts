@@ -5,8 +5,7 @@
  * Suitable for programmatic consumption, API integration, and data analysis.
  */
 
-import fs from 'fs/promises';
-import { ensureParentDir } from '../utils/index.ts';
+import { saveGeneratedReport } from '../utils/index.ts';
 import type { MigrationStep } from '../types/migration-types.ts';
 
 export interface ScanMetadata {
@@ -251,21 +250,15 @@ export class JSONReportGenerator {
    */
   static async saveReport(scanResult: ScanResult, outputPath: string, options: JSONReportOptions = {}): Promise<string> {
     const report = this.generateReport(scanResult, options);
-    await ensureParentDir(outputPath);
-    const prettyPrint = options.prettyPrint !== false;
-    const json = prettyPrint ? JSON.stringify(report, null, 2) : JSON.stringify(report);
-    await fs.writeFile(outputPath, json);
-    return outputPath;
+    const json = options.prettyPrint !== false ? JSON.stringify(report, null, 2) : JSON.stringify(report);
+    return saveGeneratedReport(outputPath, json);
   }
 
   /**
    * Save concise summary to file
    */
   static async saveSummary(scanResult: ScanResult, outputPath: string): Promise<string> {
-    const summary = this.generateSummary(scanResult);
-    await ensureParentDir(outputPath);
-    await fs.writeFile(outputPath, JSON.stringify(summary, null, 2));
-    return outputPath;
+    return saveGeneratedReport(outputPath, JSON.stringify(this.generateSummary(scanResult), null, 2));
   }
 
   // Private helper methods
