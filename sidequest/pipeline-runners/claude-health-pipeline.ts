@@ -34,8 +34,6 @@ import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 
 const logger = createComponentLogger('ClaudeHealthPipeline');
 
-// Cast config to access dynamic properties
-const cfg = config as Record<string, unknown>;
 
 interface HealthCheckOptions {
   detailed?: boolean;
@@ -128,8 +126,8 @@ class ClaudeHealthPipeline extends BasePipeline<ClaudeHealthWorker> {
   constructor(options: Record<string, unknown> = {}) {
     super(new ClaudeHealthWorker({
       maxConcurrent: 1,
-      logDir: cfg.logDir as string | undefined,
-      sentryDsn: cfg.sentryDsn as string | undefined,
+      logDir: config.logDir,
+      sentryDsn: config.sentryDsn,
       ...options
     }));
 

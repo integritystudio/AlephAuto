@@ -6,8 +6,6 @@ import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 
 const logger = createComponentLogger('GitActivityPipeline');
 
-// Cast config to access dynamic properties
-const cfg = config as Record<string, unknown>;
 
 interface ReportOptions {
   reportType?: string;
@@ -45,10 +43,10 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
 
   constructor(options: Record<string, unknown> = {}) {
     super(new GitActivityWorker({
-      maxConcurrent: (cfg.maxConcurrent as number) || 2,
-      logDir: cfg.logDir as string | undefined,
-      sentryDsn: cfg.sentryDsn as string | undefined,
-      codeBaseDir: cfg.codeBaseDir as string | undefined,
+      maxConcurrent: config.maxConcurrent || 2,
+      logDir: config.logDir,
+      sentryDsn: config.sentryDsn,
+      codeBaseDir: config.codeBaseDir,
       ...options
     }));
 

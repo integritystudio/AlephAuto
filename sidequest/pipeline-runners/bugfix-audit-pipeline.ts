@@ -8,8 +8,6 @@ import path from 'path';
 
 const logger = createComponentLogger('BugfixAuditPipeline');
 
-// Cast config to access dynamic properties
-const cfg = config as Record<string, unknown>;
 
 interface BugfixAuditOptions {
   maxConcurrent?: number;
@@ -51,13 +49,13 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
     super(new BugfixAuditWorker({
       ...options,
       maxConcurrent: options.maxConcurrent ?? 3,
-      logDir: cfg.logDir as string | undefined,
-      sentryDsn: cfg.sentryDsn as string | undefined,
-      activeDocsDir: options.activeDocsDir ?? path.join(cfg.homeDir as string, 'dev', 'active'),
-      outputBaseDir: options.outputBaseDir ?? path.join(cfg.homeDir as string, 'code', 'jobs', 'sidequest', 'bug-fixes', 'output'),
-      gitBaseBranch: options.gitBaseBranch ?? (cfg.gitBaseBranch as string | undefined),
+      logDir: config.logDir,
+      sentryDsn: config.sentryDsn,
+      activeDocsDir: options.activeDocsDir ?? path.join(config.homeDir, 'dev', 'active'),
+      outputBaseDir: options.outputBaseDir ?? path.join(config.homeDir, 'code', 'jobs', 'sidequest', 'bug-fixes', 'output'),
+      gitBaseBranch: options.gitBaseBranch ?? config.gitBaseBranch,
       gitBranchPrefix: options.gitBranchPrefix ?? 'bugfix',
-      gitDryRun: options.gitDryRun ?? (cfg.gitDryRun as boolean | undefined),
+      gitDryRun: options.gitDryRun ?? config.gitDryRun,
     }));
 
     this.setupEventListeners();
@@ -158,7 +156,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
       }),
     };
 
-    const logsDir = path.join(cfg.homeDir as string, 'code', 'jobs', 'sidequest', 'bug-fixes', 'logs');
+    const logsDir = path.join(config.homeDir, 'code', 'jobs', 'sidequest', 'bug-fixes', 'logs');
     await fs.mkdir(logsDir, { recursive: true });
 
     const summaryPath = path.join(logsDir, `run-summary-${Date.now()}.json`);

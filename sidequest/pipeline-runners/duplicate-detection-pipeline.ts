@@ -833,8 +833,7 @@ class DuplicateDetectionWorker extends SidequestServer {
  * Main execution
  */
 async function main(): Promise<void> {
-  const extendedConfig = config as unknown as Record<string, unknown>;
-  const cronSchedule = (extendedConfig.duplicateScanCronSchedule as string | undefined) || process.env.DUPLICATE_SCAN_CRON_SCHEDULE || '0 2 * * *';
+  const cronSchedule = process.env.DUPLICATE_SCAN_CRON_SCHEDULE || '0 2 * * *';
   const runOnStartup = process.env.RUN_ON_STARTUP === 'true';
 
   console.log('╔══════════════════════════════════════════════════════════╗');
@@ -844,7 +843,7 @@ async function main(): Promise<void> {
   try {
     // Initialize worker
     const worker = new DuplicateDetectionWorker({
-      maxConcurrentScans: (extendedConfig.maxConcurrentDuplicateScans as number | undefined) || 3
+      maxConcurrentScans: 3
     });
 
     await worker.initialize();

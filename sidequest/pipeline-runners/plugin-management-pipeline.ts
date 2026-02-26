@@ -6,8 +6,6 @@ import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 
 const logger = createComponentLogger('PluginPipeline');
 
-// Cast config to access dynamic properties
-const cfg = config as Record<string, unknown>;
 
 interface AuditOptions {
   detailed?: boolean;
@@ -39,8 +37,8 @@ class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
   constructor(options: Record<string, unknown> = {}) {
     super(new PluginManagerWorker({
       maxConcurrent: 1,
-      logDir: cfg.logDir as string | undefined,
-      sentryDsn: cfg.sentryDsn as string | undefined,
+      logDir: config.logDir,
+      sentryDsn: config.sentryDsn,
       ...options
     }));
 

@@ -43,8 +43,6 @@ interface SchemaEnhancementOptions {
   [key: string]: unknown;
 }
 
-// Cast config to access dynamic properties
-const cfg = config as Record<string, unknown>;
 
 /**
  * Schema Enhancement Pipeline
@@ -58,13 +56,13 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
   constructor(options: SchemaEnhancementOptions = {}) {
     super(new SchemaEnhancementWorker({
       ...options,
-      maxConcurrent: (cfg.maxConcurrent as number) || 2,
-      logDir: cfg.logDir as string | undefined,
-      sentryDsn: cfg.sentryDsn as string | undefined,
-      gitWorkflowEnabled: (options.gitWorkflowEnabled ?? cfg.enableGitWorkflow) as boolean | undefined,
+      maxConcurrent: config.maxConcurrent || 2,
+      logDir: config.logDir,
+      sentryDsn: config.sentryDsn,
+      gitWorkflowEnabled: options.gitWorkflowEnabled ?? config.enableGitWorkflow,
       gitBranchPrefix: options.gitBranchPrefix || 'docs',
-      gitBaseBranch: (options.gitBaseBranch || cfg.gitBaseBranch) as string | undefined,
-      gitDryRun: (options.gitDryRun ?? cfg.gitDryRun) as boolean | undefined,
+      gitBaseBranch: options.gitBaseBranch || config.gitBaseBranch,
+      gitDryRun: options.gitDryRun ?? config.gitDryRun,
       outputBaseDir: options.outputBaseDir || './document-enhancement-impact-measurement',
       dryRun: options.dryRun || false,
     }));
@@ -81,7 +79,7 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
       '__pycache__'
     ]);
 
-    this.baseDir = options.baseDir || (cfg.codeBaseDir as string) || (cfg.homeDir as string);
+    this.baseDir = options.baseDir || config.codeBaseDir || config.homeDir;
     this.setupEventListeners();
   }
 
@@ -275,10 +273,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2);
   const options: SchemaEnhancementOptions = {
     dryRun: false,
-    gitWorkflowEnabled: cfg.enableGitWorkflow as boolean | undefined
+    gitWorkflowEnabled: config.enableGitWorkflow
   };
 
-  let directory: string = (cfg.codeBaseDir as string) || (cfg.homeDir as string);
+  let directory: string = config.codeBaseDir || config.homeDir;
   let runNow = process.env.RUN_ON_STARTUP === 'true';
 
   for (let i = 0; i < args.length; i++) {
