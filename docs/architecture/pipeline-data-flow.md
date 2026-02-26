@@ -1,7 +1,7 @@
 # AlephAuto Pipeline Data Flow Documentation
 
-**Last Updated:** 2026-02-13
-**Version:** 2.2
+**Last Updated:** 2026-02-25
+**Version:** 2.3
 **Author:** System Architecture Documentation
 
 ## Table of Contents
@@ -83,33 +83,32 @@ graph TB
 
 ### SidequestServer Base Class
 
-**File:** `sidequest/core/server.js`
+**File:** `sidequest/core/server.ts`
 
 All workers extend this base class which provides:
 
-```javascript
+```typescript
 class SidequestServer extends EventEmitter {
-  constructor(options) {
-    this.maxConcurrent = options.maxConcurrent || 3;
-    this.jobs = new Map();
-    this.queue = [];
-    this.activeJobs = new Set();
-    this.gitWorkflowEnabled = options.gitWorkflowEnabled || false;
+  constructor(options: SidequestServerOptions) {
+    this.maxConcurrent = options.maxConcurrent ?? CONCURRENCY.DEFAULT_MAX_JOBS;
+    this.jobs = new Map<string, Job>();
+    this.queue: string[] = [];
+    this.activeJobs = 0;
+    this.gitWorkflowEnabled = options.gitWorkflowEnabled ?? false;
     // ... circuit breaker, retry logic, Sentry integration
   }
 
   // Job management
-  createJob(jobId, data) { /* ... */ }
-  async runJobHandler(job) { /* Override in subclass */ }
+  createJob(jobId: string, data: Record<string, unknown>): Job { /* ... */ }
+  async runJobHandler(job: Job): Promise<unknown> { /* Override in subclass */ }
+  getStats(): JobStats { /* ... */ }
 
-  // Git workflow (if enabled)
-  async _createBranch(job) { /* ... */ }
-  async _commitChanges(job) { /* ... */ }
-  async _pushBranch(job) { /* ... */ }
-  async _createPullRequest(job) { /* ... */ }
+  // Git workflow (if enabled via GitWorkflowManager)
+  async _setupGitBranchIfEnabled(job: Job): Promise<boolean> { /* ... */ }
+  async _handleGitWorkflowSuccess(job: Job): Promise<void> { /* ... */ }
 
-  // Retry logic with circuit breaker
-  async _retryWithBackoff(job, fn) { /* ... */ }
+  // Retry logic with error classification
+  // Auto-retry for retryable errors (ETIMEDOUT, 5xx) up to maxRetries
 
   // Event emitters
   emit('job:created', job);
@@ -117,6 +116,61 @@ class SidequestServer extends EventEmitter {
   emit('job:completed', job);
   emit('job:failed', job, error);
 }
+```
+
+### BasePipeline Abstract Class
+
+**File:** `sidequest/pipeline-runners/base-pipeline.ts`
+
+Class-based pipeline runners extend `BasePipeline<TWorker>`, which provides shared scheduling, polling, and stats:
+
+```typescript
+abstract class BasePipeline<TWorker extends SidequestServer> {
+  protected worker: TWorker;
+
+  waitForCompletion(): Promise<void>;    // Poll getStats() until queue drains
+  protected scheduleCron(                // Validate + schedule + log + error-wrap
+    logger, name, cronSchedule, runFn
+  ): cron.ScheduledTask;
+  getStats(): JobStats;                  // Delegate to worker.getStats()
+}
+```
+
+**Pipelines extending BasePipeline:** BugfixAuditPipeline, ClaudeHealthPipeline, GitActivityPipeline, PluginManagementPipeline, SchemaEnhancementPipeline.
+
+**Pipelines using functional pattern (no base class):** DashboardPopulatePipeline, DuplicateDetectionPipeline, GitignorePipeline, RepoCleanupPipeline, TestRefactorPipeline.
+
+### Class Hierarchy
+
+```mermaid
+graph TB
+    EE[EventEmitter] --> SS[SidequestServer]
+    SS --> W1[BugfixAuditWorker]
+    SS --> W2[ClaudeHealthWorker]
+    SS --> W3[GitActivityWorker]
+    SS --> W4[SchemaEnhancementWorker]
+    SS --> W5[PluginManagerWorker]
+    SS --> W6[DuplicateDetectionWorker]
+    SS --> W7[GitignoreWorker]
+    SS --> W8[RepoCleanupWorker]
+    SS --> W9[RepomixWorker]
+    SS --> W10[TestRefactorWorker]
+    SS --> W11[DashboardPopulateWorker]
+
+    BP["BasePipeline&lt;TWorker&gt;"] --> P1["BugfixAuditPipeline&lt;W1&gt;"]
+    BP --> P2["ClaudeHealthPipeline&lt;W2&gt;"]
+    BP --> P3["GitActivityPipeline&lt;W3&gt;"]
+    BP --> P4["PluginManagementPipeline&lt;W5&gt;"]
+    BP --> P5["SchemaEnhancementPipeline&lt;W4&gt;"]
+
+    P1 -.->|owns| W1
+    P2 -.->|owns| W2
+    P3 -.->|owns| W3
+    P4 -.->|owns| W5
+    P5 -.->|owns| W4
+
+    style SS fill:#bbf,stroke:#333
+    style BP fill:#bfb,stroke:#333
 ```
 
 ### Common Data Flow Pattern
@@ -143,19 +197,19 @@ graph LR
 
 ## Pipeline Catalog
 
-| # | Pipeline | Job Type | Runner File | Worker File | Git Workflow | Languages |
-|---|----------|----------|-------------|-------------|--------------|-----------|
-| 1 | Duplicate Detection | `duplicate-detection` | `duplicate-detection-pipeline.js` | `duplicate-detection-worker.js` | ⚠️ Custom | JS + Python |
-| 2 | Schema Enhancement | `schema-enhancement` | `schema-enhancement-pipeline.js` | `schema-enhancement-worker.js` | ✅ Yes | JavaScript |
-| 3 | Git Activity | `git-activity-report` | `git-activity-pipeline.js` | `git-activity-worker.js` | ❌ No | JS + Python |
-| 4 | Gitignore Manager | `gitignore-update` | `gitignore-pipeline.js` | `gitignore-worker.js` | ⚠️ Batch N/A | JavaScript |
-| 5 | Repomix | `repomix-scan` | N/A (cron server) | `repomix-worker.js` | ❌ No | JavaScript |
-| 6 | Plugin Manager | `plugin-audit` | `plugin-management-pipeline.js` | (embedded in utils) | ❌ No | JavaScript |
-| 7 | Claude Health | `claude-health-check` | `claude-health-pipeline.js` | `claude-health-worker.js` | ❌ No | JS + Shell |
-| 8 | Test Refactor | `test-refactor` | `test-refactor-pipeline.ts` | `test-refactor-worker.ts` | ✅ Optional | TypeScript |
-| 9 | Repository Cleanup | `repo-cleanup` | `repo-cleanup-pipeline.js` | `repo-cleanup-worker.js` | ❌ No | JS + Shell |
-| 10 | Bugfix Audit | `bugfix-audit` | `bugfix-audit-pipeline.js` | `bugfix-audit-worker.js` | ✅ Multi-commit | JS + Shell |
-| 11 | Dashboard Populate | `dashboard-populate` | `dashboard-populate-pipeline.js` | `dashboard-populate-worker.js` | ❌ No | JS → TypeScript |
+| # | Pipeline | Job Type | Runner File | Worker File | Base Class | Git Workflow | Languages |
+|---|----------|----------|-------------|-------------|------------|--------------|-----------|
+| 1 | Duplicate Detection | `duplicate-detection` | `duplicate-detection-pipeline.ts` | `duplicate-detection-worker.ts` | functional | ⚠️ Custom | JS + Python |
+| 2 | Schema Enhancement | `schema-enhancement` | `schema-enhancement-pipeline.ts` | `schema-enhancement-worker.ts` | BasePipeline | ✅ Yes | JavaScript |
+| 3 | Git Activity | `git-activity-report` | `git-activity-pipeline.ts` | `git-activity-worker.ts` | BasePipeline | ❌ No | JS + Python |
+| 4 | Gitignore Manager | `gitignore-update` | `gitignore-pipeline.ts` | `gitignore-worker.ts` | functional | ⚠️ Batch N/A | JavaScript |
+| 5 | Repomix | `repomix-scan` | N/A (cron server) | `repomix-worker.ts` | — | ❌ No | JavaScript |
+| 6 | Plugin Manager | `plugin-audit` | `plugin-management-pipeline.ts` | (embedded in utils) | BasePipeline | ❌ No | JavaScript |
+| 7 | Claude Health | `claude-health-check` | `claude-health-pipeline.ts` | `claude-health-worker.ts` | BasePipeline | ❌ No | JS + Shell |
+| 8 | Test Refactor | `test-refactor` | `test-refactor-pipeline.ts` | `test-refactor-worker.ts` | functional | ✅ Optional | TypeScript |
+| 9 | Repository Cleanup | `repo-cleanup` | `repo-cleanup-pipeline.ts` | `repo-cleanup-worker.ts` | functional | ❌ No | JS + Shell |
+| 10 | Bugfix Audit | `bugfix-audit` | `bugfix-audit-pipeline.ts` | `bugfix-audit-worker.ts` | BasePipeline | ✅ Multi-commit | JS + Shell |
+| 11 | Dashboard Populate | `dashboard-populate` | `dashboard-populate-pipeline.ts` | `dashboard-populate-worker.ts` | functional | ❌ No | TypeScript |
 
 ---
 
@@ -1803,142 +1857,59 @@ json.dump(result, sys.stdout, indent=2)
 
 ### 2. Event-Driven Job Lifecycle
 
-**All workers emit standard events:**
-```javascript
-worker.on('job:created', (job) => {
+**All workers emit standard events (SidequestServer base):**
+```typescript
+// Pipeline runners register listeners in setupEventListeners()
+this.worker.on('job:created', (job: Job) => {
   logger.info({ jobId: job.id }, 'Job created');
 });
 
-worker.on('job:started', (job) => {
+this.worker.on('job:started', (job: Job) => {
   logger.info({ jobId: job.id }, 'Job started');
 });
 
-worker.on('job:completed', (job) => {
+this.worker.on('job:completed', (job: Job) => {
   logger.info({ jobId: job.id, result: job.result }, 'Job completed');
-  // Broadcast to WebSocket clients
-  broadcastJobUpdate(job);
 });
 
-worker.on('job:failed', (job, error) => {
-  logger.error({ jobId: job.id, error }, 'Job failed');
-  Sentry.captureException(error);
+this.worker.on('job:failed', (job: Job) => {
+  logError(logger, job.error as unknown as Error, 'Job failed', { jobId: job.id });
 });
 ```
 
 ### 3. Configuration via Doppler
 
-**All pipelines use centralized config:**
-```javascript
-// sidequest/config.js
-import dotenv from 'dotenv';
-dotenv.config();
-
-export const config = {
-  // API
-  jobsApiPort: parseInt(process.env.JOBS_API_PORT) || 8080,
-
-  // Redis
-  redisHost: process.env.REDIS_HOST || 'localhost',
-  redisPort: parseInt(process.env.REDIS_PORT) || 6379,
-
-  // Sentry
-  sentryDsn: process.env.SENTRY_DSN,
-  sentryEnvironment: process.env.SENTRY_ENVIRONMENT || 'development',
-
-  // Git Workflow
-  enableGitWorkflow: process.env.ENABLE_GIT_WORKFLOW === 'true',
-  gitBaseBranch: process.env.GIT_BASE_BRANCH || 'main',
-  gitBranchPrefix: process.env.GIT_BRANCH_PREFIX || 'automated',
-  gitDryRun: process.env.GIT_DRY_RUN === 'true',
-
-  // Cleanup
-  cleanupCronSchedule: process.env.CLEANUP_CRON_SCHEDULE || '0 3 * * 0',
-  cleanupTargetDir: process.env.CLEANUP_TARGET_DIR || '~/code',
-  cleanupDryRun: process.env.CLEANUP_DRY_RUN === 'true'
-};
+**All pipelines use centralized config (`sidequest/core/config.ts`):**
+```typescript
+import { config } from './sidequest/core/config.ts';
+const port = config.jobsApiPort;    // Correct — typed access
+// NEVER use process.env directly (see CLAUDE.md)
 ```
 
-### 4. Retry Logic with Circuit Breaker
+### 4. Retry Logic with Error Classification
 
-**Automatic retry for transient errors:**
-```javascript
-// SidequestServer base class
-async _retryWithBackoff(job, fn) {
-  const maxAttempts = 2;
-  let attempt = 0;
+**Automatic retry for transient errors (handled by `SidequestServer._finalizeJobFailure`):**
 
-  while (attempt < maxAttempts) {
-    try {
-      return await fn();
-    } catch (error) {
-      const isRetryable = this._isRetryableError(error);
-
-      if (!isRetryable || attempt === maxAttempts - 1) {
-        throw error;
-      }
-
-      // Exponential backoff: 1s, 2s, 4s...
-      const delay = Math.pow(2, attempt) * 1000;
-      await new Promise(resolve => setTimeout(resolve, delay));
-
-      attempt++;
-      logger.warn({
-        jobId: job.id,
-        attempt,
-        error: error.message
-      }, 'Retrying job after error');
-    }
-  }
-}
-
-_isRetryableError(error) {
-  // Retryable: Network issues, timeouts, 5xx
-  const retryableCodes = ['ETIMEDOUT', 'ECONNRESET', 'ENOTFOUND'];
-  if (retryableCodes.includes(error.code)) return true;
-
-  // Non-retryable: File not found, permission denied, 4xx
-  const nonRetryableCodes = ['ENOENT', 'EACCES', 'EPERM'];
-  if (nonRetryableCodes.includes(error.code)) return false;
-
-  return false;
-}
+```typescript
+// sidequest/core/server.ts — retry is built into the job lifecycle
+// Uses error-classifier.ts: isRetryable() + classifyError()
+//
+// Retryable: ETIMEDOUT, ECONNRESET, ENOTFOUND, 5xx
+// Non-retryable: ENOENT, EACCES, EPERM, 4xx
+//
+// On retry: status → queued, retryCount++, delay via setTimeout
+// On final failure: status → failed, Sentry capture, persist to SQLite
 ```
 
 ### 5. WebSocket Broadcasting
 
-**Real-time dashboard updates:**
-```javascript
-// api/websocket.js
-export function setupWebSocket(httpServer) {
-  const wss = new WebSocketServer({ server: httpServer });
+**Real-time dashboard updates (`api/websocket.ts`):**
 
-  wss.on('connection', (ws) => {
-    ws.on('message', (message) => {
-      const data = JSON.parse(message);
-      // Handle client messages
-    });
-  });
-
-  return {
-    broadcast: (event, data) => {
-      wss.clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify({ event, data }));
-        }
-      });
-    }
-  };
-}
-
-// Worker emits event → Server broadcasts → Dashboard updates
-worker.on('job:completed', (job) => {
-  websocket.broadcast('job:completed', {
-    jobId: job.id,
-    pipelineType: job.data.type,
-    result: job.result
-  });
-});
 ```
+Worker emits event → EventBroadcaster → WebSocket → Dashboard UI
+```
+
+Workers emit `job:completed`/`job:failed` → `EventBroadcaster` serializes and broadcasts to all connected WebSocket clients → React dashboard updates in real-time.
 
 ---
 
