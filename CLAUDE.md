@@ -42,8 +42,8 @@ node api/server.js                        # Wrong - secrets won't load
 ```
 
 ### 2. Configuration: NEVER use process.env directly
-```javascript
-import { config } from './sidequest/config.js';
+```typescript
+import { config } from './sidequest/core/config.ts';
 const port = config.jobsApiPort;          // Correct
 const port = process.env.JOBS_API_PORT;   // Wrong
 ```
@@ -81,8 +81,8 @@ const count = jobRepository.getJobCount({ status });  // Efficient COUNT(*) quer
 **Important:** Repository methods return **camelCase** objects with parsed JSON fields (`data`, `result`, `error`, `git`). Never access `job.pipeline_id` or `job.created_at` — use `job.pipelineId`, `job.createdAt`.
 
 ### 8. Constants: No Magic Numbers
-```javascript
-import { TIMEOUTS, RETRY, CONCURRENCY, TIME, CACHE } from './sidequest/core/constants.js';
+```typescript
+import { TIMEOUTS, RETRY, CONCURRENCY, TIME, CACHE } from './sidequest/core/constants.ts';
 const timeout = TIMEOUTS.PYTHON_PIPELINE_MS;     // Correct
 const oneDay = TIME.DAY;                          // Correct
 ```
@@ -123,14 +123,20 @@ JavaScript (Stages 1-2)          Python (Stages 3-7)
 
 ### Job Queue Framework
 ```
-SidequestServer (Base)
+SidequestServer (Base — sidequest/core/server.ts)
 ├── Event-driven lifecycle: created → queued → running → completed/failed
 ├── Concurrency control (default: 5, via CONCURRENCY.DEFAULT_MAX_JOBS)
-├── Auto-retry with circuit breaker (retryable: ETIMEDOUT, 5xx; non-retryable: ENOENT, 4xx)
+├── Auto-retry with error classification (retryable: ETIMEDOUT, 5xx; non-retryable: ENOENT, 4xx)
 ├── Sentry integration
 ├── GitWorkflowManager for branch/commit/PR operations
 ├── JobRepository for SQLite persistence
-└── Centralized config via sidequest/core/config.js
+└── Centralized config via sidequest/core/config.ts
+
+BasePipeline<TWorker> (sidequest/pipeline-runners/base-pipeline.ts)
+├── Shared base for class-based pipeline runners (5 of 11 pipelines)
+├── waitForCompletion() — polls worker stats until queue drains
+├── scheduleCron() — validate + schedule + log + error-wrap
+└── getStats() — delegates to worker.getStats(): JobStats
 ```
 
 ### Type System Flow
@@ -154,10 +160,10 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 │   └── utils/             # Port manager, worker registry, API error helpers
 ├── frontend/              # React dashboard (Vite + TypeScript)
 ├── sidequest/             # Job queue framework
-│   ├── core/              # server.js, job-repository, git-workflow, constants, config
+│   ├── core/              # server.ts, job-repository, git-workflow, constants, config
 │   ├── pipeline-core/     # Scan orchestrator, similarity (Python)
-│   ├── pipeline-runners/  # 11 pipeline entry points
-│   └── workers/           # 10 worker implementations
+│   ├── pipeline-runners/  # 11 pipeline entry points + base-pipeline.ts
+│   └── workers/           # 10 worker implementations (all extend SidequestServer)
 ├── packages/              # pnpm workspace packages
 │   ├── shared-logging/    # @shared/logging (Pino)
 │   └── shared-process-io/ # @shared/process-io (child process utils)
@@ -175,10 +181,11 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 |---------|------|
 | Pipeline coordinator | `sidequest/pipeline-core/scan-orchestrator.ts` |
 | Feature extraction | `sidequest/pipeline-core/similarity/structural.py:29` |
-| Base job queue | `sidequest/core/server.js` |
+| Base job queue | `sidequest/core/server.ts` |
+| Base pipeline runner | `sidequest/pipeline-runners/base-pipeline.ts` |
 | Job repository | `sidequest/core/job-repository.js` |
 | Git workflow manager | `sidequest/core/git-workflow-manager.js` |
-| Constants | `sidequest/core/constants.js` |
+| Constants | `sidequest/core/constants.ts` |
 | Job status types | `api/types/job-status.ts` |
 | Error classifier | `sidequest/pipeline-core/errors/error-classifier.js` |
 | Worker registry | `api/utils/worker-registry.js` |
@@ -193,4 +200,4 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 
 ---
 
-**Version:** 1.9.0 | **Updated:** 2026-02-16 | **Status:** Production Ready
+**Version:** 1.10.0 | **Updated:** 2026-02-25 | **Status:** Production Ready
