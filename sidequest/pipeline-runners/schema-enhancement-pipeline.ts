@@ -1,9 +1,8 @@
 #!/usr/bin/env -S node --strip-types
 import { SchemaEnhancementWorker } from '../workers/schema-enhancement-worker.ts';
 import { config } from '../core/config.ts';
-import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
-import cron from 'node-cron';
+import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -29,7 +28,7 @@ interface EnhancementResult {
   readmesFound?: number;
   enhanced?: number;
   duration?: number;
-  jobs?: Record<string, unknown>;
+  jobs?: JobStats;
   [key: string]: unknown;
 }
 
@@ -47,20 +46,17 @@ interface SchemaEnhancementOptions {
 // Cast config to access dynamic properties
 const cfg = config as Record<string, unknown>;
 
-//TODO: automatically updates README and CLAUDE files from directory commit data
 /**
  * Schema Enhancement Pipeline
  * Automatically enhances README files with Schema.org structured data
  */
-class SchemaEnhancementPipeline {
-  private worker: SchemaEnhancementWorker;
+class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
   private excludeDirs: Set<string>;
   private baseDir: string;
   private options: SchemaEnhancementOptions;
 
   constructor(options: SchemaEnhancementOptions = {}) {
-    this.options = options;
-    this.worker = new SchemaEnhancementWorker({
+    super(new SchemaEnhancementWorker({
       maxConcurrent: (cfg.maxConcurrent as number) || 2,
       logDir: cfg.logDir as string | undefined,
       sentryDsn: cfg.sentryDsn as string | undefined,
@@ -71,7 +67,9 @@ class SchemaEnhancementPipeline {
       outputBaseDir: options.outputBaseDir || './document-enhancement-impact-measurement',
       dryRun: options.dryRun || false,
       ...options
-    });
+    }));
+
+    this.options = options;
 
     this.excludeDirs = new Set([
       'node_modules',
@@ -83,7 +81,7 @@ class SchemaEnhancementPipeline {
       '__pycache__'
     ]);
 
-    this.baseDir = options.baseDir || (cfg.codeBaseDir as string) || process.env.HOME!;
+    this.baseDir = options.baseDir || (cfg.codeBaseDir as string) || (cfg.homeDir as string);
     this.setupEventListeners();
   }
 
@@ -91,26 +89,26 @@ class SchemaEnhancementPipeline {
    * Setup event listeners for job events
    */
   private setupEventListeners(): void {
-    this.worker.on('job:created', (job: Record<string, unknown>) => {
-      const data = job.data as Record<string, unknown>;
+    this.worker.on('job:created', (job: Job) => {
       logger.info({
         jobId: job.id,
-        readmePath: data.relativePath
+        readmePath: (job.data as Record<string, unknown>).relativePath
       }, 'Schema enhancement job created');
     });
 
-    this.worker.on('job:started', (job: Record<string, unknown>) => {
-      const data = job.data as Record<string, unknown>;
+    this.worker.on('job:started', (job: Job) => {
       logger.info({
         jobId: job.id,
-        readmePath: data.relativePath
+        readmePath: (job.data as Record<string, unknown>).relativePath
       }, 'Schema enhancement job started');
     });
 
-    this.worker.on('job:completed', (job: Record<string, unknown>) => {
+    this.worker.on('job:completed', (job: Job) => {
       const result = job.result as Record<string, unknown>;
       const impact = result.impact as Record<string, unknown> | undefined;
-      const duration = new Date(job.completedAt as string).getTime() - new Date(job.startedAt as string).getTime();
+      const duration = job.completedAt && job.startedAt
+        ? job.completedAt.getTime() - job.startedAt.getTime()
+        : undefined;
       logger.info({
         jobId: job.id,
         duration,
@@ -120,11 +118,10 @@ class SchemaEnhancementPipeline {
       }, 'Schema enhancement job completed');
     });
 
-    this.worker.on('job:failed', (job: Record<string, unknown>) => {
-      const data = job.data as Record<string, unknown>;
-      logError(logger, job.error as Error, 'Schema enhancement job failed', {
+    this.worker.on('job:failed', (job: Job) => {
+      logError(logger, job.error as unknown as Error, 'Schema enhancement job failed', {
         jobId: job.id,
-        readmePath: data.relativePath
+        readmePath: (job.data as Record<string, unknown>).relativePath
       });
     });
   }
@@ -239,7 +236,7 @@ class SchemaEnhancementPipeline {
 
       const duration = Date.now() - startTime;
       const stats = (this.worker as unknown as { getEnhancementStats(): Record<string, unknown> }).getEnhancementStats();
-      const jobStats = (this.worker as unknown as { getStats(): Record<string, unknown> }).getStats();
+      const jobStats = this.getStats();
 
       // Generate summary report
       await (this.worker as unknown as { generateSummaryReport(): Promise<void> }).generateSummaryReport();
@@ -263,41 +260,10 @@ class SchemaEnhancementPipeline {
   }
 
   /**
-   * Wait for all jobs to complete
-   */
-  async waitForCompletion(): Promise<void> {
-    return new Promise<void>((resolve) => {
-      const checkInterval = setInterval(() => {
-        const stats = (this.worker as unknown as { getStats(): { active: number; queued: number } }).getStats();
-        if (stats.active === 0 && stats.queued === 0) {
-          clearInterval(checkInterval);
-          resolve();
-        }
-      }, TIMEOUTS.POLL_INTERVAL_MS);
-    });
-  }
-
-  /**
    * Schedule enhancement runs
    */
-  scheduleEnhancements(cronSchedule: string = '0 3 * * 0'): cron.ScheduledTask {
-    logger.info({ cronSchedule }, 'Scheduling schema enhancement runs');
-
-    if (!cron.validate(cronSchedule)) {
-      throw new Error(`Invalid cron schedule: ${cronSchedule}`);
-    }
-
-    const task = cron.schedule(cronSchedule, async () => {
-      logger.info('Cron triggered - starting schema enhancement');
-      try {
-        await this.runEnhancement();
-      } catch (error) {
-        logError(logger, error as Error, 'Scheduled enhancement failed');
-      }
-    });
-
-    logger.info('Schema enhancement scheduled');
-    return task;
+  scheduleEnhancements(cronSchedule: string = '0 3 * * 0') {
+    return this.scheduleCron(logger, 'schema enhancement', cronSchedule, () => this.runEnhancement());
   }
 }
 
@@ -312,7 +278,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     gitWorkflowEnabled: cfg.enableGitWorkflow as boolean | undefined
   };
 
-  let directory: string = (cfg.codeBaseDir as string) || process.env.HOME!;
+  let directory: string = (cfg.codeBaseDir as string) || (cfg.homeDir as string);
   let runNow = process.env.RUN_ON_STARTUP === 'true';
 
   for (let i = 0; i < args.length; i++) {

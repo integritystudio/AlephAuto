@@ -30,7 +30,7 @@
 import { ClaudeHealthWorker } from '../workers/claude-health-worker.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
-import cron from 'node-cron';
+import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 
 const logger = createComponentLogger('ClaudeHealthPipeline');
 
@@ -119,35 +119,19 @@ interface HealthCheckResult {
   duration: number;
 }
 
-interface WorkerStats {
-  active: number;
-  queued: number;
-  total: number;
-  completed: number;
-  failed: number;
-}
-
-interface Job {
-  id: string;
-  data: Record<string, unknown>;
-  result: HealthCheckResult;
-  error?: Error;
-}
-
 /**
  * Claude Health Check Pipeline
  */
-class ClaudeHealthPipeline {
-  private worker: ClaudeHealthWorker;
+class ClaudeHealthPipeline extends BasePipeline<ClaudeHealthWorker> {
   private options: PipelineOptions;
 
   constructor(options: Record<string, unknown> = {}) {
-    this.worker = new ClaudeHealthWorker({
+    super(new ClaudeHealthWorker({
       maxConcurrent: 1,
       logDir: cfg.logDir as string | undefined,
       sentryDsn: cfg.sentryDsn as string | undefined,
       ...options
-    });
+    }));
 
     this.options = {
       detailed: process.env.DETAILED === 'true',
@@ -172,7 +156,7 @@ class ClaudeHealthPipeline {
     });
 
     this.worker.on('job:completed', (job: Job) => {
-      const result = job.result;
+      const result = job.result as unknown as HealthCheckResult;
 
       logger.info({
         jobId: job.id,
@@ -188,7 +172,7 @@ class ClaudeHealthPipeline {
     });
 
     this.worker.on('job:failed', (job: Job) => {
-      logError(logger, job.error as Error, 'Health check job failed', { jobId: job.id });
+      logError(logger, job.error as unknown as Error, 'Health check job failed', { jobId: job.id });
     });
   }
 
@@ -210,7 +194,7 @@ class ClaudeHealthPipeline {
   /**
    * Run a single health check
    */
-  async runHealthCheck(options: HealthCheckOptions = {}): Promise<WorkerStats> {
+  async runHealthCheck(options: HealthCheckOptions = {}): Promise<JobStats> {
     logStart(logger, 'health check', { options });
 
     const startTime = Date.now();
@@ -231,7 +215,7 @@ class ClaudeHealthPipeline {
       await this.waitForCompletion();
 
       const duration = Date.now() - startTime;
-      const stats = (this.worker as unknown as { getStats(): WorkerStats }).getStats();
+      const stats = this.getStats();
 
       logger.info({
         duration,
@@ -246,41 +230,10 @@ class ClaudeHealthPipeline {
   }
 
   /**
-   * Wait for all jobs to complete
-   */
-  async waitForCompletion(): Promise<void> {
-    return new Promise<void>((resolve) => {
-      const checkInterval = setInterval(() => {
-        const stats = (this.worker as unknown as { getStats(): WorkerStats }).getStats();
-        if (stats.active === 0 && stats.queued === 0) {
-          clearInterval(checkInterval);
-          resolve();
-        }
-      }, 100);
-    });
-  }
-
-  /**
    * Schedule automatic health checks
    */
-  scheduleHealthChecks(cronSchedule: string): cron.ScheduledTask {
-    logger.info({ cronSchedule }, 'Scheduling health checks');
-
-    const task = cron.schedule(cronSchedule, () => {
-      logger.info('Cron triggered health check');
-      this.runHealthCheck().catch((error: unknown) => {
-        logError(logger, error as Error, 'Scheduled health check failed');
-      });
-    });
-
-    return task;
-  }
-
-  /**
-   * Get worker statistics
-   */
-  getStats(): WorkerStats {
-    return (this.worker as unknown as { getStats(): WorkerStats }).getStats();
+  scheduleHealthChecks(cronSchedule: string) {
+    return this.scheduleCron(logger, 'health check', cronSchedule, () => this.runHealthCheck());
   }
 }
 

@@ -1,9 +1,8 @@
 #!/usr/bin/env -S node --strip-types
 import { BugfixAuditWorker } from '../workers/bugfix-audit-worker.ts';
 import { config } from '../core/config.ts';
-import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
-import cron from 'node-cron';
+import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -32,24 +31,6 @@ interface JobResult {
   pullRequestUrl?: string;
 }
 
-interface Job {
-  id: string;
-  data: JobData;
-  result?: JobResult;
-  status: string;
-  completedAt: string;
-  startedAt: string;
-  error?: Error;
-}
-
-interface WorkerStats {
-  active: number;
-  queued: number;
-  total: number;
-  completed: number;
-  failed: number;
-}
-
 interface RunResult {
   status: string;
   jobsCreated?: number;
@@ -65,11 +46,9 @@ interface RunResult {
  * Bugfix Audit Pipeline
  * Scans ~/dev/active for markdown files and orchestrates automated bug detection and fixing.
  */
-class BugfixAuditPipeline {
-  private worker: BugfixAuditWorker;
-
+class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
   constructor(options: BugfixAuditOptions = {}) {
-    this.worker = new BugfixAuditWorker({
+    super(new BugfixAuditWorker({
       maxConcurrent: options.maxConcurrent ?? 3,
       logDir: cfg.logDir as string | undefined,
       sentryDsn: cfg.sentryDsn as string | undefined,
@@ -79,41 +58,48 @@ class BugfixAuditPipeline {
       gitBranchPrefix: options.gitBranchPrefix ?? 'bugfix',
       gitDryRun: options.gitDryRun ?? (cfg.gitDryRun as boolean | undefined),
       ...options,
-    });
+    }));
 
     this.setupEventListeners();
   }
 
   private setupEventListeners(): void {
     this.worker.on('job:created', (job: Job) => {
+      const data = job.data as unknown as JobData;
       logger.info({
         jobId: job.id,
-        projectName: job.data.projectName,
-        markdownFile: job.data.markdownFile,
+        projectName: data.projectName,
+        markdownFile: data.markdownFile,
       }, 'Bugfix audit job created');
     });
 
     this.worker.on('job:started', (job: Job) => {
+      const data = job.data as unknown as JobData;
       logger.info({
         jobId: job.id,
-        projectName: job.data.projectName,
+        projectName: data.projectName,
       }, 'Bugfix audit job started');
     });
 
     this.worker.on('job:completed', (job: Job) => {
-      const duration = new Date(job.completedAt).getTime() - new Date(job.startedAt).getTime();
+      const data = job.data as unknown as JobData;
+      const result = job.result as unknown as JobResult | undefined;
+      const duration = job.completedAt && job.startedAt
+        ? job.completedAt.getTime() - job.startedAt.getTime()
+        : undefined;
       logger.info({
         jobId: job.id,
-        projectName: job.data.projectName,
-        pullRequestUrl: job.result?.pullRequestUrl,
+        projectName: data.projectName,
+        pullRequestUrl: result?.pullRequestUrl,
         duration,
       }, 'Bugfix audit job completed');
     });
 
     this.worker.on('job:failed', (job: Job) => {
-      logError(logger, job.error as Error, 'Bugfix audit job failed', {
+      const data = job.data as unknown as JobData;
+      logError(logger, job.error as unknown as Error, 'Bugfix audit job failed', {
         jobId: job.id,
-        projectName: job.data.projectName,
+        projectName: data.projectName,
       });
     });
   }
@@ -126,7 +112,7 @@ class BugfixAuditPipeline {
 
     const startTime = Date.now();
 
-    const jobs: Job[] = await (this.worker as unknown as { createJobsForAllMarkdownFiles(): Promise<Job[]> }).createJobsForAllMarkdownFiles();
+    const jobs = await (this.worker as unknown as { createJobsForAllMarkdownFiles(): Promise<Job[]> }).createJobsForAllMarkdownFiles();
 
     if (jobs.length === 0) {
       logger.info('No eligible projects found for bug fix audit');
@@ -138,7 +124,7 @@ class BugfixAuditPipeline {
     await this.waitForCompletion();
 
     const duration = Date.now() - startTime;
-    const stats = (this.worker as unknown as { getStats(): WorkerStats }).getStats();
+    const stats = this.getStats();
 
     logger.info({
       durationSeconds: Math.round(duration / 1000),
@@ -153,31 +139,23 @@ class BugfixAuditPipeline {
     return { status: 'completed', duration, ...stats };
   }
 
-  async waitForCompletion(): Promise<void> {
-    return new Promise<void>((resolve) => {
-      const checkInterval = setInterval(() => {
-        const stats = (this.worker as unknown as { getStats(): WorkerStats }).getStats();
-        if (stats.active === 0 && stats.queued === 0) {
-          clearInterval(checkInterval);
-          resolve();
-        }
-      }, TIMEOUTS.POLL_INTERVAL_MS);
-    });
-  }
-
-  async saveRunSummary(stats: WorkerStats, duration: number, jobs: Job[]): Promise<void> {
+  private async saveRunSummary(stats: JobStats, duration: number, jobs: Job[]): Promise<void> {
     const summary = {
       timestamp: new Date().toISOString(),
       duration,
       stats,
-      jobs: jobs.map((job) => ({
-        id: job.id,
-        projectName: job.data.projectName,
-        markdownFile: job.data.markdownFile,
-        repoPath: job.data.repoPath,
-        status: job.status,
-        pullRequestUrl: job.result?.pullRequestUrl,
-      })),
+      jobs: jobs.map((job) => {
+        const data = job.data as unknown as JobData;
+        const result = job.result as unknown as JobResult | undefined;
+        return {
+          id: job.id,
+          projectName: data.projectName,
+          markdownFile: data.markdownFile,
+          repoPath: data.repoPath,
+          status: job.status,
+          pullRequestUrl: result?.pullRequestUrl,
+        };
+      }),
     };
 
     const logsDir = path.join(cfg.homeDir as string, 'code', 'jobs', 'sidequest', 'bug-fixes', 'logs');
@@ -192,24 +170,8 @@ class BugfixAuditPipeline {
   /**
    * Schedule recurring bugfix audits
    */
-  scheduleAudits(cronSchedule: string = '0 1 * * *'): cron.ScheduledTask {
-    if (!cron.validate(cronSchedule)) {
-      throw new Error(`Invalid cron schedule: ${cronSchedule}`);
-    }
-
-    logger.info({ cronSchedule }, 'Scheduling bugfix audit runs');
-
-    const task = cron.schedule(cronSchedule, async () => {
-      logger.info('Cron triggered - starting bugfix audit');
-      try {
-        await this.runBugfixAudit();
-      } catch (error) {
-        logError(logger, error as Error, 'Scheduled bugfix audit failed');
-      }
-    });
-
-    logger.info('Bugfix audit scheduled');
-    return task;
+  scheduleAudits(cronSchedule: string = '0 1 * * *') {
+    return this.scheduleCron(logger, 'bugfix audit', cronSchedule, () => this.runBugfixAudit());
   }
 
   /**

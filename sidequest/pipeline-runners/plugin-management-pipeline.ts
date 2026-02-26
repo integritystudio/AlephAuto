@@ -1,9 +1,8 @@
 #!/usr/bin/env -S node --strip-types
-import cron from 'node-cron';
 import { PluginManagerWorker } from '../utils/plugin-manager.ts';
 import { config } from '../core/config.ts';
-import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
+import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 
 const logger = createComponentLogger('PluginPipeline');
 
@@ -32,37 +31,18 @@ interface AuditResult {
   recommendations?: AuditRecommendation[];
 }
 
-interface WorkerStats {
-  active: number;
-  queued: number;
-  total: number;
-  completed: number;
-  failed: number;
-}
-
-interface Job {
-  id: string;
-  data: { detailed?: boolean };
-  result: AuditResult;
-  completedAt: number;
-  startedAt: number;
-  error?: Error;
-}
-
 /**
  * Plugin Management Pipeline
  * Automatically audits Claude Code plugins on a schedule
  */
-class PluginManagementPipeline {
-  private worker: PluginManagerWorker;
-
+class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
   constructor(options: Record<string, unknown> = {}) {
-    this.worker = new PluginManagerWorker({
+    super(new PluginManagerWorker({
       maxConcurrent: 1,
       logDir: cfg.logDir as string | undefined,
       sentryDsn: cfg.sentryDsn as string | undefined,
       ...options
-    });
+    }));
 
     this.setupEventListeners();
   }
@@ -78,26 +58,29 @@ class PluginManagementPipeline {
     this.worker.on('job:started', (job: Job) => {
       logger.info({
         jobId: job.id,
-        detailed: job.data.detailed
+        detailed: (job.data as Record<string, unknown>).detailed
       }, 'Plugin audit started');
     });
 
     this.worker.on('job:completed', (job: Job) => {
-      const duration = job.completedAt - job.startedAt;
+      const result = job.result as unknown as AuditResult;
+      const duration = job.completedAt && job.startedAt
+        ? job.completedAt.getTime() - job.startedAt.getTime()
+        : undefined;
       logger.info({
         jobId: job.id,
         duration,
-        totalPlugins: job.result.totalPlugins,
-        duplicateCategories: job.result.duplicateCategories?.length ?? 0,
-        recommendations: job.result.recommendations?.length ?? 0
+        totalPlugins: result.totalPlugins,
+        duplicateCategories: result.duplicateCategories?.length ?? 0,
+        recommendations: result.recommendations?.length ?? 0
       }, 'Plugin audit completed');
 
       // Display recommendations
-      this.displayRecommendations(job.result);
+      this.displayRecommendations(result);
     });
 
     this.worker.on('job:failed', (job: Job) => {
-      logError(logger, job.error as Error, 'Plugin audit failed', { jobId: job.id });
+      logError(logger, job.error as unknown as Error, 'Plugin audit failed', { jobId: job.id });
     });
   }
 
@@ -139,7 +122,7 @@ class PluginManagementPipeline {
   /**
    * Run a single audit
    */
-  async runAudit(options: AuditOptions = {}): Promise<WorkerStats> {
+  async runAudit(options: AuditOptions = {}): Promise<JobStats> {
     logStart(logger, 'plugin audit', { options });
 
     const startTime = Date.now();
@@ -156,7 +139,7 @@ class PluginManagementPipeline {
       await this.waitForCompletion();
 
       const duration = Date.now() - startTime;
-      const stats = (this.worker as unknown as { getStats(): WorkerStats }).getStats();
+      const stats = this.getStats();
 
       logger.info({
         duration,
@@ -171,41 +154,10 @@ class PluginManagementPipeline {
   }
 
   /**
-   * Wait for all jobs to complete
-   */
-  async waitForCompletion(): Promise<void> {
-    return new Promise<void>((resolve) => {
-      const checkInterval = setInterval(() => {
-        const stats = (this.worker as unknown as { getStats(): WorkerStats }).getStats();
-        if (stats.active === 0 && stats.queued === 0) {
-          clearInterval(checkInterval);
-          resolve();
-        }
-      }, TIMEOUTS.POLL_INTERVAL_MS);
-    });
-  }
-
-  /**
    * Schedule automatic plugin audits
    */
-  scheduleAudits(cronSchedule: string = '0 9 * * 1'): cron.ScheduledTask {
-    logger.info({ cronSchedule }, 'Scheduling plugin audits');
-
-    if (!cron.validate(cronSchedule)) {
-      throw new Error(`Invalid cron schedule: ${cronSchedule}`);
-    }
-
-    const task = cron.schedule(cronSchedule, async () => {
-      logger.info('Cron triggered - starting plugin audit');
-      try {
-        await this.runAudit({ detailed: false });
-      } catch (error) {
-        logError(logger, error as Error, 'Scheduled plugin audit failed');
-      }
-    });
-
-    logger.info('Plugin audits scheduled');
-    return task;
+  scheduleAudits(cronSchedule: string = '0 9 * * 1') {
+    return this.scheduleCron(logger, 'plugin audit', cronSchedule, () => this.runAudit({ detailed: false }));
   }
 }
 
