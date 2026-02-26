@@ -34,7 +34,7 @@ The AlephAuto automation system consists of 11 specialized pipelines built on a 
 ### System Characteristics
 
 - **Framework:** AlephAuto (SidequestServer base class)
-- **Job Queue:** In-memory with configurable concurrency (default: 3)
+- **Job Queue:** In-memory with configurable concurrency (default: 5, via `CONCURRENCY.DEFAULT_MAX_JOBS`)
 - **Event System:** EventEmitter-based job lifecycle tracking
 - **Error Tracking:** Sentry v8 with automatic classification
 - **Dashboard:** Real-time WebSocket + REST API (port 8080)

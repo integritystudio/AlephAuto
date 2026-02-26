@@ -116,6 +116,7 @@ pipeline-core/
     structural.pyi
     test_grouping_layer3.py
   types/
+    migration-types.ts
     scan-orchestrator-types.ts
   utils/
     __init__.py
@@ -124,6 +125,7 @@ pipeline-core/
     fs-helpers.ts
     index.ts
     process-helpers.ts
+    test_runner.py
     timing-helpers.ts
     timing.py
     timing.pyi
@@ -132,6 +134,7 @@ pipeline-core/
   py.typed
   scan-orchestrator.ts
 pipeline-runners/
+  base-pipeline.ts
   bugfix-audit-pipeline.ts
   claude-health-pipeline.ts
   collect_git_activity.py
@@ -992,14 +995,7 @@ block = MockCodeBlock(source_code="test()")
 def run_tests()
 ⋮----
 """Run all tests without pytest."""
-⋮----
-test_classes = [
-passed = 0
-failed = 0
-⋮----
-instance = test_class()
-⋮----
-method = getattr(instance, name)
+from utils.test_runner import run_test_classes  # path covered by sys.path.insert above
 </file>
 
 <file path="pipeline-core/cache/cached-scanner.ts">
@@ -1845,6 +1841,7 @@ failed = 0
 
 <file path="pipeline-core/git/branch-manager.ts">
 import { runCommand } from '@shared/process-io';
+import { runGitCommand } from '../utils/process-helpers.ts';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 ⋮----
 export interface BranchManagerOptions {
@@ -1886,8 +1883,6 @@ async createPullRequest(repositoryPath: string, prContext: PRContext): Promise<s
 async cleanupBranch(repositoryPath: string, branchName: string, originalBranch: string): Promise<void>
 private _generateBranchName(jobContext: JobBranchContext): string
 private _generateCommitMessage(commitContext: CommitContext, changedFiles: string[]): string
-private async _runGitCommand(cwd: string, args: string[]): Promise<string>
-private async _runCommand(cwd: string, command: string, args: string[]): Promise<string>
 </file>
 
 <file path="pipeline-core/git/migration-transformer.ts">
@@ -1897,6 +1892,7 @@ import _traverse from '@babel/traverse';
 import type { NodePath, TraverseOptions } from '@babel/traverse';
 import _generate from '@babel/generator';
 import type { GeneratorOptions, GeneratorResult } from '@babel/generator';
+import type { MigrationStep } from '../types/migration-types.ts';
 ⋮----
 import type { File as BabelFile, Expression, Identifier, MemberExpression } from '@babel/types';
 import fs from 'fs/promises';
@@ -1911,11 +1907,6 @@ type ParsedMigrationStep =
   | { type: 'replace-call'; oldName: string; newName: string }
   | { type: 'remove-declaration'; name: string }
   | { type: 'add-import'; imported: string; source: string };
-interface MigrationStep {
-  description: string;
-  code_example?: string;
-  step_number?: number;
-}
 interface MigrationSuggestion {
   suggestion_id?: string;
   migration_steps?: MigrationStep[];
@@ -1989,17 +1980,14 @@ async rollback(repositoryPath: string): Promise<void>
 
 <file path="pipeline-core/git/pr-creator.ts">
 import { runCommand } from '@shared/process-io';
+import { runGitCommand } from '../utils/process-helpers.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 ⋮----
 import { MigrationTransformer } from './migration-transformer.ts';
+import type { MigrationStep } from '../types/migration-types.ts';
 ⋮----
-interface MigrationStep {
-  description: string;
-  step_number: number;
-  code_example?: string;
-}
 interface Suggestion {
   suggestion_id: string;
   automated_refactor_possible: boolean;
@@ -2044,7 +2032,6 @@ private async _createPRForBatch(
     _options: Record<string, unknown>
 ): Promise<string | null>
 private async _applySuggestions(suggestions: Suggestion[], repositoryPath: string): Promise<string[]>
-private async _runGitCommand(cwd: string, args: string[]): Promise<string>
 private async _createPR(cwd: string, branch: string, title: string, body: string): Promise<string>
 private _batchSuggestions(suggestions: Suggestion[]): Suggestion[][]
 private _generateBranchName(_suggestions: Suggestion[], batchNumber: number): string
@@ -2808,8 +2795,7 @@ def main()
 </file>
 
 <file path="pipeline-core/reports/html-report-generator.ts">
-import fs from 'fs/promises';
-import { ensureParentDir } from '../utils/index.ts';
+import { saveGeneratedReport } from '../utils/index.ts';
 import type { ScanResult } from './json-report-generator.ts';
 export interface HTMLReportOptions {
   title?: string;
@@ -2849,8 +2835,8 @@ private static _escapeHtml(text: string): string
 </file>
 
 <file path="pipeline-core/reports/json-report-generator.ts">
-import fs from 'fs/promises';
-import { ensureParentDir } from '../utils/index.ts';
+import { saveGeneratedReport } from '../utils/index.ts';
+import type { MigrationStep } from '../types/migration-types.ts';
 export interface ScanMetadata {
   repository_count?: number;
   scanned_at?: string;
@@ -2888,12 +2874,7 @@ export interface DuplicateGroup {
   affected_repositories?: string[];
   member_blocks?: MemberBlock[];
 }
-export interface MigrationStep {
-  step_number: number;
-  description: string;
-  automated: boolean;
-  estimated_time: string;
-}
+⋮----
 export interface Suggestion {
   suggestion_id: string;
   duplicate_group_id: string;
@@ -3019,8 +3000,7 @@ private static _calculateComplexityDistribution(suggestions: Suggestion[]): Comp
 </file>
 
 <file path="pipeline-core/reports/markdown-report-generator.ts">
-import fs from 'fs/promises';
-import { ensureParentDir } from '../utils/index.ts';
+import { saveGeneratedReport } from '../utils/index.ts';
 import type { ScanResult } from './json-report-generator.ts';
 export interface MarkdownReportOptions {
   includeDetails?: boolean;
@@ -4199,14 +4179,16 @@ blocks = [MockCodeBlock(block_id='b1', source_code='code1')]
 def test_multiple_groups_formed(self)
 def test_missing_annotation_skipped(self)
 def run_tests()
-⋮----
-test_classes = [
-passed = 0
-failed = 0
-⋮----
-instance = test_class()
-⋮----
-method = getattr(instance, name)
+</file>
+
+<file path="pipeline-core/types/migration-types.ts">
+export interface MigrationStep {
+  description: string;
+  step_number?: number;
+  code_example?: string;
+  automated?: boolean;
+  estimated_time?: string;
+}
 </file>
 
 <file path="pipeline-core/types/scan-orchestrator-types.ts">
@@ -4282,7 +4264,7 @@ export async function ensureParentDir(filePath: string): Promise<void>
 export async function writeFileWithDir(filePath: string, content: string | Buffer, options:
 export async function readFileIfExists(filePath: string, encoding: BufferEncoding = 'utf-8'): Promise<string | null>
 export async function pathExists(filePath: string): Promise<boolean>
-export function joinLines(lines: string[]): string
+export async function saveGeneratedReport(filePath: string, content: string): Promise<string>
 </file>
 
 <file path="pipeline-core/utils/index.ts">
@@ -4290,7 +4272,20 @@ export function joinLines(lines: string[]): string
 </file>
 
 <file path="pipeline-core/utils/process-helpers.ts">
+import { captureProcessOutput, execCommand, execCommandOrThrow, runCommand } from '@shared/process-io';
+⋮----
+export async function runGitCommand(cwd: string, args: string[]): Promise<string>
+</file>
 
+<file path="pipeline-core/utils/test_runner.py">
+def run_test_classes(title: str, test_classes: Sequence[type]) -> int
+⋮----
+passed = 0
+failed = 0
+⋮----
+instance = test_class()
+⋮----
+method = getattr(instance, name)
 </file>
 
 <file path="pipeline-core/utils/timing-helpers.ts">
@@ -4810,12 +4805,35 @@ export class ScanError extends Error
 constructor(message: string, options?:
 </file>
 
+<file path="pipeline-runners/base-pipeline.ts">
+import type { Job, JobStats } from '../core/server.ts';
+import { SidequestServer } from '../core/server.ts';
+import { logError } from '../utils/logger.ts';
+import cron from 'node-cron';
+import type { Logger } from 'pino';
+⋮----
+export abstract class BasePipeline<TWorker extends SidequestServer = SidequestServer>
+⋮----
+constructor(worker: TWorker)
+waitForCompletion(): Promise<void>
+⋮----
+const cleanup = () =>
+const checkAndResolve = () =>
+⋮----
+protected scheduleCron(
+    logger: Logger,
+    name: string,
+    cronSchedule: string,
+    runFn: () => Promise<unknown>
+): cron.ScheduledTask
+getStats(): JobStats
+</file>
+
 <file path="pipeline-runners/bugfix-audit-pipeline.ts">
 import { BugfixAuditWorker } from '../workers/bugfix-audit-worker.ts';
 import { config } from '../core/config.ts';
-import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
-import cron from 'node-cron';
+import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 import fs from 'fs/promises';
 import path from 'path';
 ⋮----
@@ -4836,22 +4854,6 @@ interface JobData {
 interface JobResult {
   pullRequestUrl?: string;
 }
-interface Job {
-  id: string;
-  data: JobData;
-  result?: JobResult;
-  status: string;
-  completedAt: string;
-  startedAt: string;
-  error?: Error;
-}
-interface WorkerStats {
-  active: number;
-  queued: number;
-  total: number;
-  completed: number;
-  failed: number;
-}
 interface RunResult {
   status: string;
   jobsCreated?: number;
@@ -4862,19 +4864,13 @@ interface RunResult {
   completed?: number;
   failed?: number;
 }
-class BugfixAuditPipeline
+class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker>
 ⋮----
 constructor(options: BugfixAuditOptions =
 private setupEventListeners(): void
 async runBugfixAudit(): Promise<RunResult>
-⋮----
-const jobs: Job[] = await (this.worker as unknown as
-⋮----
-const stats = (this.worker as unknown as
-⋮----
-async waitForCompletion(): Promise<void>
-async saveRunSummary(stats: WorkerStats, duration: number, jobs: Job[]): Promise<void>
-scheduleAudits(cronSchedule: string = '0 1 * * *'): cron.ScheduledTask
+private async saveRunSummary(stats: JobStats, duration: number, jobs: Job[]): Promise<void>
+scheduleAudits(cronSchedule: string = '0 1 * * *')
 scheduleTonight(): void
 </file>
 
@@ -4882,7 +4878,7 @@ scheduleTonight(): void
 import { ClaudeHealthWorker } from '../workers/claude-health-worker.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
-import cron from 'node-cron';
+import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 ⋮----
 interface HealthCheckOptions {
   detailed?: boolean;
@@ -4962,35 +4958,13 @@ interface HealthCheckResult {
   recommendations: Recommendation[];
   duration: number;
 }
-interface WorkerStats {
-  active: number;
-  queued: number;
-  total: number;
-  completed: number;
-  failed: number;
-}
-interface Job {
-  id: string;
-  data: Record<string, unknown>;
-  result: HealthCheckResult;
-  error?: Error;
-}
-class ClaudeHealthPipeline
+class ClaudeHealthPipeline extends BasePipeline<ClaudeHealthWorker>
 ⋮----
 constructor(options: Record<string, unknown> =
 private setupEventListeners(): void
 private displayResults(result: HealthCheckResult): void
 async runHealthCheck(options: HealthCheckOptions =
-⋮----
-const job = (this.worker as unknown as
-⋮----
-const stats = (this.worker as unknown as
-⋮----
-async waitForCompletion(): Promise<void>
-scheduleHealthChecks(cronSchedule: string): cron.ScheduledTask
-getStats(): WorkerStats
-⋮----
-return (this.worker as unknown as
+scheduleHealthChecks(cronSchedule: string)
 ⋮----
 function printSummary(result: HealthCheckResult): void
 ⋮----
@@ -5274,6 +5248,7 @@ async function main(): Promise<void>
 
 <file path="pipeline-runners/duplicate-detection-pipeline.ts">
 import { SidequestServer } from '../core/server.ts';
+import type { Job } from '../core/server.ts';
 import { RepositoryConfigLoader, type RepositoryConfig } from '../pipeline-core/config/repository-config-loader.ts';
 import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.ts';
 import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.ts';
@@ -5284,8 +5259,10 @@ import { createComponentLogger, logStart, logRetry } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS, RETRY } from '../core/constants.ts';
 import { getErrorInfo } from '../pipeline-core/errors/error-classifier.ts';
+import cron from 'node-cron';
 ⋮----
 import type { Logger } from 'pino';
+import type { RetryInfo, RetryMetrics, WorkerScanMetrics as ScanMetrics, DuplicateDetectionWorkerOptions } from '../types/duplicate-detection-types.ts';
 ⋮----
 export type JobStatus = typeof JobStatus[keyof typeof JobStatus];
 ⋮----
@@ -5296,48 +5273,7 @@ export interface JobData {
   groupName?: string | null;
   type?: string;
 }
-export interface Job {
-  id: string;
-  status: JobStatus;
-  data: JobData;
-  createdAt: Date;
-  startedAt: Date | null;
-  completedAt: Date | null;
-  error: Error | null;
-  result: JobResult | null;
-}
-export interface RetryInfo {
-  attempts: number;
-  lastAttempt: number;
-  maxAttempts: number;
-  delay: number;
-}
-export interface ScanMetrics {
-  totalScans: number;
-  successfulScans: number;
-  failedScans: number;
-  totalDuplicatesFound: number;
-  totalSuggestionsGenerated: number;
-  highImpactDuplicates: number;
-  prsCreated: number;
-  prCreationErrors: number;
-}
-export interface RetryMetrics {
-  activeRetries: number;
-  totalRetryAttempts: number;
-  jobsBeingRetried: Array<{
-    jobId: string;
-    attempts: number;
-    maxAttempts: number;
-    lastAttempt: string;
-  }>;
-  retryDistribution: {
-    attempt1: number;
-    attempt2: number;
-    attempt3Plus: number;
-    nearingLimit: number;
-  };
-}
+⋮----
 export interface ScanResult {
   scan_type: 'single-project' | 'inter-project' | 'intra-project';
   scan_metadata?: {
@@ -5379,17 +5315,7 @@ export interface PRCreationResult {
     [key: string]: unknown;
   }>;
 }
-export interface DuplicateDetectionWorkerOptions {
-  maxConcurrentScans?: number;
-  logDir?: string;
-  sentryDsn?: string;
-  configPath?: string;
-  baseBranch?: string;
-  branchPrefix?: string;
-  dryRun?: boolean;
-  maxSuggestionsPerPR?: number;
-  enablePRCreation?: boolean;
-}
+⋮----
 export interface InterProjectScanJobResult {
   scanType: 'inter-project';
   repositories: number;
@@ -5415,7 +5341,7 @@ class DuplicateDetectionWorker extends SidequestServer
 ⋮----
 constructor(options: DuplicateDetectionWorkerOptions =
 async initialize(): Promise<void>
-async runJobHandler(baseJob: import('../core/server.ts').Job): Promise<unknown>
+async runJobHandler(job: Job): Promise<unknown>
 private _getOriginalJobId(jobId: string): string
 /**
    * Handle retry logic with exponential backoff
@@ -5440,11 +5366,10 @@ async function main(): Promise<void>
 </file>
 
 <file path="pipeline-runners/git-activity-pipeline.ts">
-import cron from 'node-cron';
 import { GitActivityWorker } from '../workers/git-activity-worker.ts';
 import { config } from '../core/config.ts';
-import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
+import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 ⋮----
 interface ReportOptions {
   reportType?: string;
@@ -5469,43 +5394,19 @@ interface JobResult {
   };
   outputFiles: OutputFile[];
 }
-interface Job {
-  id: string;
-  data: JobData;
-  result: JobResult;
-  completedAt: string;
-  startedAt: string;
-  error?: Error;
-}
-interface WorkerStats {
-  active: number;
-  queued: number;
-  total: number;
-  completed: number;
-  failed: number;
-}
-class GitActivityPipeline
+class GitActivityPipeline extends BasePipeline<GitActivityWorker>
 ⋮----
 constructor(options: Record<string, unknown> =
 private setupEventListeners(): void
 async runReport(options: ReportOptions =
-⋮----
-createCustomReportJob(since: string, until: string): Job;
-createMonthlyReportJob(): Job;
-createWeeklyReportJob(): Job;
-createReportJob(opts: ReportOptions): Job;
-getStats(): WorkerStats;
-⋮----
-async waitForCompletion(): Promise<void>
-⋮----
-const stats = (this.worker as unknown as
-⋮----
-scheduleWeeklyReports(cronSchedule: string = '0 20 * * 0'): cron.ScheduledTask
-scheduleMonthlyReports(cronSchedule: string = '0 0 1 * *'): cron.ScheduledTask
+scheduleWeeklyReports(cronSchedule: string = '0 20 * * 0')
+scheduleMonthlyReports(cronSchedule: string = '0 0 1 * *')
 </file>
 
 <file path="pipeline-runners/gitignore-pipeline.ts">
 import { GitignoreWorker } from '../workers/gitignore-worker.ts';
+import type { Job } from '../core/server.ts';
+import { config } from '../core/config.ts';
 import { createComponentLogger, logError } from '../utils/logger.ts';
 ⋮----
 import cron from 'node-cron';
@@ -5526,13 +5427,6 @@ interface JobResult {
     would_add?: number;
     error?: number;
   };
-}
-interface Job {
-  id: string;
-  data: JobData;
-  result?: JobResult;
-  error?: string | Error;
-  retries?: number;
 }
 ⋮----
 async function main(): Promise<void>
@@ -5694,11 +5588,10 @@ fi
 </file>
 
 <file path="pipeline-runners/plugin-management-pipeline.ts">
-import cron from 'node-cron';
 import { PluginManagerWorker } from '../utils/plugin-manager.ts';
 import { config } from '../core/config.ts';
-import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
+import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 ⋮----
 interface AuditOptions {
   detailed?: boolean;
@@ -5719,22 +5612,7 @@ interface AuditResult {
   duplicateCategories?: Array<{ category: string; count: number }>;
   recommendations?: AuditRecommendation[];
 }
-interface WorkerStats {
-  active: number;
-  queued: number;
-  total: number;
-  completed: number;
-  failed: number;
-}
-interface Job {
-  id: string;
-  data: { detailed?: boolean };
-  result: AuditResult;
-  completedAt: number;
-  startedAt: number;
-  error?: Error;
-}
-class PluginManagementPipeline
+class PluginManagementPipeline extends BasePipeline<PluginManagerWorker>
 ⋮----
 constructor(options: Record<string, unknown> =
 private setupEventListeners(): void
@@ -5743,17 +5621,13 @@ private displayRecommendations(result: AuditResult): void
    * Run a single audit
    */
 async runAudit(options: AuditOptions =
-⋮----
-const job = (this.worker as unknown as
-⋮----
-const stats = (this.worker as unknown as
-⋮----
-async waitForCompletion(): Promise<void>
-scheduleAudits(cronSchedule: string = '0 9 * * 1'): cron.ScheduledTask
+scheduleAudits(cronSchedule: string = '0 9 * * 1')
 </file>
 
 <file path="pipeline-runners/repo-cleanup-pipeline.ts">
 import { RepoCleanupWorker } from '../workers/repo-cleanup-worker.ts';
+import type { Job } from '../core/server.ts';
+import { config } from '../core/config.ts';
 import { createComponentLogger, logError } from '../utils/logger.ts';
 ⋮----
 import cron from 'node-cron';
@@ -5778,13 +5652,6 @@ interface JobResult {
   totalItems?: number;
   summary?: CleanupSummary;
 }
-interface Job {
-  id: string;
-  data: JobData;
-  result?: JobResult;
-  error?: string | Error;
-  retries?: number;
-}
 ⋮----
 async function main(): Promise<void>
 ⋮----
@@ -5794,9 +5661,8 @@ const job = (worker as unknown as
 <file path="pipeline-runners/schema-enhancement-pipeline.ts">
 import { SchemaEnhancementWorker } from '../workers/schema-enhancement-worker.ts';
 import { config } from '../core/config.ts';
-import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
-import cron from 'node-cron';
+import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 import fs from 'fs/promises';
 import path from 'path';
 ⋮----
@@ -5806,7 +5672,7 @@ interface ReadmeFile {
   name: string;
   dirPath: string;
 }
-interface RepoContext {
+interface RepoContext extends Record<string, unknown> {
   totalReadmes: number;
   baseDir: string;
   hasPackageJson: boolean;
@@ -5818,7 +5684,7 @@ interface EnhancementResult {
   readmesFound?: number;
   enhanced?: number;
   duration?: number;
-  jobs?: Record<string, unknown>;
+  jobs?: JobStats;
   [key: string]: unknown;
 }
 interface SchemaEnhancementOptions {
@@ -5831,25 +5697,15 @@ interface SchemaEnhancementOptions {
   baseDir?: string;
   [key: string]: unknown;
 }
-⋮----
-class SchemaEnhancementPipeline
+class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker>
 ⋮----
 constructor(options: SchemaEnhancementOptions =
 private setupEventListeners(): void
 async scanForReadmes(dir: string, baseDir: string = dir, results: ReadmeFile[] = []): Promise<ReadmeFile[]>
 async scanDirectory(directory: string): Promise<ReadmeFile[]>
 async createEnhancementJobs(readmeFiles: ReadmeFile[]): Promise<unknown[]>
-⋮----
-const job = await (this.worker as unknown as
-⋮----
 async runEnhancement(directory: string = this.baseDir): Promise<EnhancementResult>
-⋮----
-const stats = (this.worker as unknown as
-const jobStats = (this.worker as unknown as
-await (this.worker as unknown as
-⋮----
-async waitForCompletion(): Promise<void>
-scheduleEnhancements(cronSchedule: string = '0 3 * * 0'): cron.ScheduledTask
+scheduleEnhancements(cronSchedule: string = '0 3 * * 0')
 </file>
 
 <file path="pipeline-runners/test-refactor-pipeline.ts">
@@ -6299,6 +6155,7 @@ main "$@"
 
 <file path="types/duplicate-detection-types.ts">
 import { z } from 'zod';
+import type { SidequestServerOptions } from '../core/server.ts';
 ⋮----
 export type ScanType = z.infer<typeof ScanTypeSchema>;
 ⋮----
@@ -6438,17 +6295,14 @@ export interface CompleteScanMetrics extends WorkerScanMetrics {
   };
   retryMetrics: RetryMetrics;
 }
-export interface DuplicateDetectionWorkerOptions {
+export interface DuplicateDetectionWorkerOptions extends SidequestServerOptions {
   maxConcurrentScans?: number;
-  maxConcurrent?: number;
-  logDir?: string;
   configPath?: string;
   enablePRCreation?: boolean;
   baseBranch?: string;
   branchPrefix?: string;
   dryRun?: boolean;
   maxSuggestionsPerPR?: number;
-  sentryDsn?: string;
 }
 export interface InitializedEventPayload {
   totalRepositories: number;
@@ -7017,7 +6871,7 @@ export function formatDuration(seconds: number | null | undefined): string
 </file>
 
 <file path="workers/bugfix-audit-worker.ts">
-import { SidequestServer, type Job } from '../core/server.ts';
+import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
 import { GitWorkflowManager } from '../core/git-workflow-manager.ts';
 import { execCommand } from '@shared/process-io';
 import { createComponentLogger, logError, logStage } from '../utils/logger.ts';
@@ -7025,16 +6879,9 @@ import { config } from '../core/config.ts';
 import fs from 'fs/promises';
 import path from 'path';
 ⋮----
-interface BugfixAuditWorkerOptions {
+interface BugfixAuditWorkerOptions extends SidequestServerOptions {
   activeDocsDir?: string;
   outputBaseDir?: string;
-  gitBaseBranch?: string;
-  gitBranchPrefix?: string;
-  gitDryRun?: boolean;
-  maxConcurrent?: number;
-  logDir?: string;
-  gitWorkflowEnabled?: boolean;
-  sentryDsn?: string;
 }
 interface StageResult {
   name: string;
@@ -7073,7 +6920,7 @@ async createJobsForAllMarkdownFiles(): Promise<Job[]>
 </file>
 
 <file path="workers/claude-health-worker.ts">
-import { SidequestServer, type Job } from '../core/server.ts';
+import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logWarn, logStart } from '../utils/logger.ts';
@@ -7083,15 +6930,7 @@ import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
 ⋮----
-interface ClaudeHealthWorkerOptions {
-  maxConcurrent?: number;
-  logDir?: string;
-  gitWorkflowEnabled?: boolean;
-  gitBranchPrefix?: string;
-  gitBaseBranch?: string;
-  gitDryRun?: boolean;
-  sentryDsn?: string;
-}
+type ClaudeHealthWorkerOptions = SidequestServerOptions;
 interface Thresholds {
   maxPlugins: number;
   warnPlugins: number;
@@ -7294,38 +7133,14 @@ import { getErrorInfo, type ExtendedError } from '../pipeline-core/errors/error-
 import path from 'path';
 ⋮----
 import { RETRY } from '../core/constants.ts';
+import type { RetryInfo, RetryMetrics, WorkerScanMetrics as ScanMetrics, DuplicateDetectionWorkerOptions } from '../types/duplicate-detection-types.ts';
 import { config } from '../core/config.ts';
 ⋮----
-interface DuplicateDetectionWorkerOptions extends SidequestServerOptions {
-  configPath?: string;
-  maxConcurrentScans?: number;
-  baseBranch?: string;
-  branchPrefix?: string;
-  dryRun?: boolean;
-  maxSuggestionsPerPR?: number;
-  enablePRCreation?: boolean;
-}
 interface ScanJobData {
   scanType: 'inter-project' | 'intra-project';
   repositories: RepositoryConfig[];
   groupName: string | null;
   type?: string;
-}
-interface RetryInfo {
-  attempts: number;
-  lastAttempt: number;
-  maxAttempts: number;
-  delay: number;
-}
-interface ScanMetrics {
-  totalScans: number;
-  successfulScans: number;
-  failedScans: number;
-  totalDuplicatesFound: number;
-  totalSuggestionsGenerated: number;
-  highImpactDuplicates: number;
-  prsCreated: number;
-  prCreationErrors: number;
 }
 interface DuplicateEntry {
   impact_score: number;
@@ -7371,22 +7186,6 @@ interface IntraProjectScanResult {
     errors: number;
   } | null;
 }
-interface RetryMetrics {
-  activeRetries: number;
-  totalRetryAttempts: number;
-  jobsBeingRetried: {
-    jobId: string;
-    attempts: number;
-    maxAttempts: number;
-    lastAttempt: string;
-  }[];
-  retryDistribution: {
-    attempt1: number;
-    attempt2: number;
-    attempt3Plus: number;
-    nearingLimit: number;
-  };
-}
 export class DuplicateDetectionWorker extends SidequestServer
 ⋮----
 constructor(options: DuplicateDetectionWorkerOptions =
@@ -7414,7 +7213,7 @@ getScanMetrics(): ScanMetrics &
 </file>
 
 <file path="workers/git-activity-worker.ts">
-import { SidequestServer, type Job } from '../core/server.ts';
+import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
 import { generateReport } from '../utils/report-generator.ts';
 import { spawn } from 'child_process';
 import { captureProcessOutput } from '@shared/process-io';
@@ -7424,18 +7223,11 @@ import os from 'os';
 import { createComponentLogger } from '../utils/logger.ts';
 import { TIMEOUTS, TIME } from '../core/constants.ts';
 ⋮----
-interface GitActivityWorkerOptions {
+interface GitActivityWorkerOptions extends SidequestServerOptions {
   codeBaseDir?: string;
   pythonScript?: string;
   personalSiteDir?: string;
   outputDir?: string;
-  logDir?: string;
-  maxConcurrent?: number;
-  gitWorkflowEnabled?: boolean;
-  gitBranchPrefix?: string;
-  gitBaseBranch?: string;
-  gitDryRun?: boolean;
-  sentryDsn?: string;
 }
 interface PythonArgs {
   reportType?: string;
@@ -7622,7 +7414,7 @@ createDryRunJob(targetDir?: string, _options: CleanupJobOptions =
 </file>
 
 <file path="workers/repomix-worker.ts">
-import { SidequestServer, type Job } from '../core/server.ts';
+import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
 import { generateReport } from '../utils/report-generator.ts';
 import { spawn, execSync } from 'child_process';
 import { captureProcessOutput } from '@shared/process-io';
@@ -7633,18 +7425,11 @@ import { createComponentLogger, logError } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS, LIMITS } from '../core/constants.ts';
 ⋮----
-interface RepomixWorkerOptions {
+interface RepomixWorkerOptions extends SidequestServerOptions {
   outputBaseDir?: string;
   codeBaseDir?: string;
   respectGitignore?: boolean;
   additionalIgnorePatterns?: string[];
-  maxConcurrent?: number;
-  logDir?: string;
-  gitWorkflowEnabled?: boolean;
-  gitBranchPrefix?: string;
-  gitBaseBranch?: string;
-  gitDryRun?: boolean;
-  sentryDsn?: string;
 }
 interface RepomixCommandResult {
   stdout: string;
@@ -7671,10 +7456,6 @@ import path from 'path';
 interface SchemaEnhancementWorkerOptions extends SidequestServerOptions {
   outputBaseDir?: string;
   dryRun?: boolean;
-  gitWorkflowEnabled?: boolean;
-  gitBranchPrefix?: string;
-  gitBaseBranch?: string;
-  gitDryRun?: boolean;
   mcpServerUrl?: string;
   useRealMCP?: boolean;
 }
