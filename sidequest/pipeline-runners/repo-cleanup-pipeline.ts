@@ -1,5 +1,6 @@
 #!/usr/bin/env -S node --strip-types
 import { RepoCleanupWorker } from '../workers/repo-cleanup-worker.ts';
+import type { Job } from '../core/server.ts';
 import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
@@ -54,14 +55,6 @@ interface JobResult {
   summary?: CleanupSummary;
 }
 
-interface Job {
-  id: string;
-  data: JobData;
-  result?: JobResult;
-  error?: string | Error;
-  retries?: number;
-}
-
 const CRON_SCHEDULE = process.env.CLEANUP_CRON_SCHEDULE || '0 3 * * 0'; // Weekly Sunday 3 AM
 const TARGET_DIR = process.env.CLEANUP_TARGET_DIR || path.join(os.homedir(), 'code');
 const DRY_RUN = process.env.CLEANUP_DRY_RUN === 'true';
@@ -88,26 +81,26 @@ async function main(): Promise<void> {
   worker.on('job:created', (job: Job) => {
     logger.info({
       jobId: job.id,
-      type: job.data.type,
-      targetDir: job.data.targetDir,
-      dryRun: job.data.dryRun,
+      type: (job.data as unknown as JobData).type,
+      targetDir: (job.data as unknown as JobData).targetDir,
+      dryRun: (job.data as unknown as JobData).dryRun,
     }, 'Job created');
   });
 
   worker.on('job:started', (job: Job) => {
     logger.info({
       jobId: job.id,
-      targetDir: job.data.targetDir,
-      dryRun: job.data.dryRun,
+      targetDir: (job.data as unknown as JobData).targetDir,
+      dryRun: (job.data as unknown as JobData).dryRun,
     }, 'Job started');
   });
 
   worker.on('job:completed', (job: Job) => {
-    const { initialSize, finalSize, totalItems, summary } = job.result ?? {};
+    const { initialSize, finalSize, totalItems, summary } = (job.result as JobResult | undefined) ?? {};
 
     logger.info({
       jobId: job.id,
-      targetDir: job.data.targetDir,
+      targetDir: (job.data as unknown as JobData).targetDir,
       initialSize,
       finalSize,
       totalItems,
@@ -135,17 +128,17 @@ async function main(): Promise<void> {
   });
 
   worker.on('job:failed', (job: Job) => {
-    logError(logger, job.error, 'Job failed', { jobId: job.id, retries: job.retries });
+    logError(logger, job.error, 'Job failed', { jobId: job.id, retryCount: job.retryCount });
 
-    Sentry.captureException(new Error(String(job.error)), {
+    Sentry.captureException(new Error(job.error?.message ?? 'Job failed'), {
       tags: {
         component: 'repo-cleanup-pipeline',
         job_id: job.id,
       },
       extra: {
-        targetDir: job.data.targetDir,
-        dryRun: job.data.dryRun,
-        retries: job.retries,
+        targetDir: (job.data as unknown as JobData).targetDir,
+        dryRun: (job.data as unknown as JobData).dryRun,
+        retryCount: job.retryCount,
       },
     });
   });

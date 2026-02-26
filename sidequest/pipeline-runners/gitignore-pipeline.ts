@@ -1,5 +1,6 @@
 #!/usr/bin/env -S node --strip-types
 import { GitignoreWorker } from '../workers/gitignore-worker.ts';
+import type { Job } from '../core/server.ts';
 import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
@@ -46,14 +47,6 @@ interface JobResult {
   };
 }
 
-interface Job {
-  id: string;
-  data: JobData;
-  result?: JobResult;
-  error?: string | Error;
-  retries?: number;
-}
-
 const CRON_SCHEDULE = process.env.GITIGNORE_CRON_SCHEDULE || '0 4 * * *'; // Daily at 4 AM
 const BASE_DIR = process.env.GITIGNORE_BASE_DIR || path.join(os.homedir(), 'code');
 const MAX_DEPTH = parseInt(process.env.GITIGNORE_MAX_DEPTH || '10', 10);
@@ -83,21 +76,21 @@ async function main(): Promise<void> {
   worker.on('job:created', (job: Job) => {
     logger.info({
       jobId: job.id,
-      type: job.data.type,
-      dryRun: job.data.dryRun
+      type: (job.data as unknown as JobData).type,
+      dryRun: (job.data as unknown as JobData).dryRun
     }, 'Job created');
   });
 
   worker.on('job:started', (job: Job) => {
     logger.info({
       jobId: job.id,
-      baseDir: job.data.baseDir,
-      dryRun: job.data.dryRun
+      baseDir: (job.data as unknown as JobData).baseDir,
+      dryRun: (job.data as unknown as JobData).dryRun
     }, 'Job started');
   });
 
   worker.on('job:completed', (job: Job) => {
-    const { totalRepositories, summary } = job.result ?? {};
+    const { totalRepositories, summary } = (job.result as JobResult | undefined) ?? {};
 
     logger.info({
       jobId: job.id,
@@ -123,17 +116,17 @@ async function main(): Promise<void> {
   });
 
   worker.on('job:failed', (job: Job) => {
-    logError(logger, job.error, 'Job failed', { jobId: job.id, retries: job.retries });
+    logError(logger, job.error, 'Job failed', { jobId: job.id, retryCount: job.retryCount });
 
-    Sentry.captureException(new Error(String(job.error)), {
+    Sentry.captureException(new Error(job.error?.message ?? 'Job failed'), {
       tags: {
         component: 'gitignore-pipeline',
         job_id: job.id,
       },
       extra: {
-        baseDir: job.data.baseDir,
-        dryRun: job.data.dryRun,
-        retries: job.retries,
+        baseDir: (job.data as unknown as JobData).baseDir,
+        dryRun: (job.data as unknown as JobData).dryRun,
+        retryCount: job.retryCount,
       },
     });
   });
