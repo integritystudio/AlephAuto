@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-02-25 | **Last Session:** 2026-02-25 (DRY refactor items 1-3 + code review fixes)
+**Last Updated:** 2026-02-26 | **Last Session:** 2026-02-26 (DRY-M1..M5, DRY-L1..L2, CR-H1, CR-H3, CR-M4, CR-M8 implemented)
 
 ---
 
@@ -50,46 +50,46 @@ Technical debt and planned improvements.
 
 ## DRY Refactoring Opportunities — sidequest/ (2026-02-25)
 
-> **Context:** Analyzed `repomix-output.xml` and identified high-impact code duplication across pipeline runners and workers. Items 1-3 implemented (BasePipeline, JobStats import, Job type unification). Items 4-10 deferred for future refactoring.
+> **Context:** Analyzed `repomix-output.xml` and identified high-impact code duplication across pipeline runners and workers. Items 1-3 implemented (BasePipeline, JobStats import, Job type unification). Items 4-10 implemented 2026-02-26.
 
 ### Medium
 
-| ID | Location | Description |
-|----|----------|-------------|
-| DRY-M1 | `sidequest/workers/*.ts` (5 files) | **Git workflow options duplicated** — All workers redefine `gitWorkflowEnabled`, `gitBranchPrefix`, `gitBaseBranch`, `gitDryRun` in their options interfaces. Extract `BaseWorkerOptions` interface in `sidequest/core/server.ts` for inheritance. — `bugfix-audit-worker.ts`, `claude-health-worker.ts`, `git-activity-worker.ts`, `schema-enhancement-worker.ts`, `repomix-worker.ts` |
-| DRY-M2 | `sidequest/pipeline-runners/duplicate-detection-pipeline.ts:75-84`, `sidequest/workers/duplicate-detection-worker.ts`, `sidequest/types/duplicate-detection-types.ts` | **RetryInfo/RetryMetrics/ScanMetrics redeclared** — Pipeline and worker both locally re-declare types that exist in canonical `duplicate-detection-types.ts`. Remove local copies, import from types file. — ~60 lines of redundant interface definitions |
-| DRY-M3 | `sidequest/pipeline-core/git/pr-creator.ts`, `sidequest/pipeline-core/git/migration-transformer.ts`, `sidequest/pipeline-core/reports/json-report-generator.ts` | **MigrationStep TS interface inconsistent** — Three files define `MigrationStep` locally with diverging fields (`automated`, `estimated_time` missing in some). Create single shared type in `pipeline-core/types/` and import everywhere. |
-| DRY-M4 | `sidequest/pipeline-core/reports/html-report-generator.ts`, `sidequest/pipeline-core/reports/json-report-generator.ts`, `sidequest/pipeline-core/reports/markdown-report-generator.ts` | **saveReport boilerplate** — All 3 generators implement identical `saveReport()` + `ensureParentDir()` pattern (~15-20 lines each). Extract shared `saveGeneratedReport(path, content)` helper or provide abstract base class. |
-| DRY-M5 | `sidequest/pipeline-runners/duplicate-detection-pipeline.ts:~5382-5392` and `sidequest/pipeline-runners/types/duplicate-detection-types.ts:~6441-6452` | **DuplicateDetectionWorkerOptions in two places** — Type defined in both pipeline runner and types file with minor inconsistency (`maxConcurrentScans` vs `maxConcurrent`). Use canonical types version only, reconcile field names. |
+| ID | Location | Description | Status |
+|----|----------|-------------|--------|
+| DRY-M1 | `sidequest/workers/*.ts` (5 files) | **Git workflow options duplicated** — Worker options now extend `SidequestServerOptions`, removing ~40 lines of redeclared fields. | Done |
+| DRY-M2 | `duplicate-detection-pipeline.ts`, `duplicate-detection-worker.ts`, `duplicate-detection-types.ts` | **RetryInfo/RetryMetrics/ScanMetrics redeclared** — Pipeline and worker now import from canonical `duplicate-detection-types.ts`. Removed ~60 lines. | Done |
+| DRY-M3 | `pr-creator.ts`, `migration-transformer.ts`, `json-report-generator.ts` | **MigrationStep TS interface inconsistent** — Unified into `sidequest/pipeline-core/types/migration-types.ts` with all fields covered. | Done |
+| DRY-M4 | `html-report-generator.ts`, `json-report-generator.ts`, `markdown-report-generator.ts` | **saveReport boilerplate** — Extracted `saveGeneratedReport(path, content)` to `fs-helpers.ts`. | Done |
+| DRY-M5 | `duplicate-detection-pipeline.ts`, `duplicate-detection-worker.ts`, `duplicate-detection-types.ts` | **DuplicateDetectionWorkerOptions in two places** — Canonical version now extends `SidequestServerOptions`, reconciled `maxConcurrentScans` vs `maxConcurrent`. | Done |
 
 ### Low-Medium
 
-| ID | Location | Description |
-|----|----------|-------------|
-| DRY-L2 | `sidequest/pipeline-core/git/branch-manager.ts:~1889`, `sidequest/pipeline-core/git/pr-creator.ts:~2047` | **_runGitCommand private method duplicated** — Both classes implement identical `private async _runGitCommand(cwd, args)`. Extract to shared `runGitCommand()` util in `pipeline-core/utils/` or have `PRCreator` delegate to `BranchManager`. — ~15 lines of duplication |
+| ID | Location | Description | Status |
+|----|----------|-------------|--------|
+| DRY-L2 | `branch-manager.ts`, `pr-creator.ts` | **_runGitCommand private method duplicated** — Extracted to shared `runGitCommand()` in `sidequest/pipeline-core/utils/process-helpers.ts`. | Done |
 
 ### Low
 
-| ID | Location | Description |
-|----|----------|-------------|
-| DRY-L1 | `sidequest/pipeline-core/annotators/test_semantic_annotator.py:~992-1002`, `sidequest/pipeline-core/similarity/test_grouping_layer3.py:~4201-4209` | **Python run_tests() runner duplicated** — Two test files re-implement identical manual test runner (~20 lines each). Extract to shared `pipeline-core/utils/test_runner.py:run_test_classes(classes)` utility. — Low impact on prod, but reduces test maintenance burden. |
+| ID | Location | Description | Status |
+|----|----------|-------------|--------|
+| DRY-L1 | `test_semantic_annotator.py`, `test_grouping_layer3.py` | **Python run_tests() runner duplicated** — Extracted to `pipeline-core/utils/test_runner.py:run_test_classes()`. | Done |
 
 ---
 
 ## Code Review Findings — Pipeline Runners (2026-02-25)
 
-> **Source:** code-reviewer audit of `BasePipeline` refactoring session. High #2, Medium #5, Low #9 fixed inline. Remaining findings deferred.
+> **Source:** code-reviewer audit of `BasePipeline` refactoring session. High #2, Medium #5, Low #9 fixed inline. Remaining findings implemented 2026-02-26.
 
 ### High — Pre-existing (amplified by centralization)
 
-| ID | Location | Description |
-|----|----------|-------------|
-| CR-H1 | `sidequest/pipeline-runners/base-pipeline.ts:24-34` | **`waitForCompletion()` race condition** — Poll can resolve before work drains if first tick fires when `active=0 && queued=0` between dequeue and execute in `SidequestServer.processQueue()`. Fix: event-based drain via `job:completed`/`job:failed` counts instead of polling. |
-| CR-H3 | `bugfix-audit-pipeline.ts:115`, `claude-health-pipeline.ts:204`, `git-activity-pipeline.ts:117-122`, `schema-enhancement-pipeline.ts:200,239,243` | **Worker methods accessed via `as unknown as` casts** — Defeats `TWorker` generic typing; renames/signature changes won't be caught by TS. Fix: make worker methods `public` on their respective classes. |
+| ID | Location | Description | Status |
+|----|----------|-------------|--------|
+| CR-H1 | `base-pipeline.ts` | **`waitForCompletion()` race condition** — Replaced polling with event-based drain via `job:completed`/`job:failed`. Listeners registered before immediate stats check to close TOCTOU window. | Done |
+| CR-H3 | 5 pipeline runners | **Worker methods accessed via `as unknown as` casts** — All casts removed; worker methods called directly via typed `this.worker`. plugin-management-pipeline also fixed (missed in initial pass). | Done |
 
 ### Medium — Pre-existing
 
-| ID | Location | Description |
-|----|----------|-------------|
-| CR-M4 | All 5 pipeline `job:failed` handlers, `base-pipeline.ts:55` | **`job.error as Error` unsafe cast** — `Job.error` is `{ message, stack?, code?, cancelled? } \| null`, not an `Error` instance. Fix: update `logError` signature to accept error shape, or construct real `Error` from fields. |
-| CR-M8 | `bugfix-audit-pipeline.ts:51-62`, `schema-enhancement-pipeline.ts:60-71` | **Trailing `...options` spread overrides validated defaults** — `...options` at end of worker constructor args silently overrides all explicit values above it. Fix: spread first, then set explicit values after. |
+| ID | Location | Description | Status |
+|----|----------|-------------|--------|
+| CR-M4 | All 8 pipeline runners + base-pipeline.ts | **`job.error as Error` unsafe cast** — Removed all `as Error` and `as unknown as Error` casts in job:failed handlers and catch blocks. `logError` accepts `Error \| unknown`. | Done |
+| CR-M8 | `bugfix-audit-pipeline.ts`, `schema-enhancement-pipeline.ts` | **Trailing `...options` spread overrides validated defaults** — Moved `...options` to first position so explicit values are not overridden. | Done |
