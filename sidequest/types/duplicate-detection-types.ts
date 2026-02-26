@@ -8,6 +8,7 @@
  */
 
 import { z } from 'zod';
+import type { SidequestServerOptions } from '../core/server.ts';
 
 // ============================================================================
 // Scan Types & Enums
@@ -278,18 +279,16 @@ export interface CompleteScanMetrics extends WorkerScanMetrics {
 
 /**
  * Duplicate Detection Worker Options
+ * maxConcurrentScans maps to SidequestServerOptions.maxConcurrent in the constructor.
  */
-export interface DuplicateDetectionWorkerOptions {
+export interface DuplicateDetectionWorkerOptions extends SidequestServerOptions {
   maxConcurrentScans?: number;
-  maxConcurrent?: number;
-  logDir?: string;
   configPath?: string;
   enablePRCreation?: boolean;
   baseBranch?: string;
   branchPrefix?: string;
   dryRun?: boolean;
   maxSuggestionsPerPR?: number;
-  sentryDsn?: string;
 }
 
 // ============================================================================

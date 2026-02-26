@@ -38,7 +38,7 @@ import * as Sentry from '@sentry/node';
 
 // Type imports
 import type { Logger } from 'pino';
-import type { RetryInfo, RetryMetrics, WorkerScanMetrics as ScanMetrics } from '../types/duplicate-detection-types.ts';
+import type { RetryInfo, RetryMetrics, WorkerScanMetrics as ScanMetrics, DuplicateDetectionWorkerOptions } from '../types/duplicate-detection-types.ts';
 
 /**
  * Job status values
@@ -143,20 +143,7 @@ export interface PRCreationResult {
   }>;
 }
 
-/**
- * Interface for worker options
- */
-export interface DuplicateDetectionWorkerOptions {
-  maxConcurrentScans?: number;
-  logDir?: string;
-  sentryDsn?: string;
-  configPath?: string;
-  baseBranch?: string;
-  branchPrefix?: string;
-  dryRun?: boolean;
-  maxSuggestionsPerPR?: number;
-  enablePRCreation?: boolean;
-}
+export type { DuplicateDetectionWorkerOptions };
 
 /**
  * Interface for inter-project scan result

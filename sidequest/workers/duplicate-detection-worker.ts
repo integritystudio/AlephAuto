@@ -24,22 +24,13 @@ import { getErrorInfo, type ExtendedError } from '../pipeline-core/errors/error-
 import path from 'path';
 import * as Sentry from '@sentry/node';
 import { RETRY } from '../core/constants.ts';
-import type { RetryInfo, RetryMetrics, WorkerScanMetrics as ScanMetrics } from '../types/duplicate-detection-types.ts';
+import type { RetryInfo, RetryMetrics, WorkerScanMetrics as ScanMetrics, DuplicateDetectionWorkerOptions } from '../types/duplicate-detection-types.ts';
 import { config } from '../core/config.ts';
 
 const logger = createComponentLogger('DuplicateDetectionWorker');
 
 // Type definitions
 
-interface DuplicateDetectionWorkerOptions extends SidequestServerOptions {
-  configPath?: string;
-  maxConcurrentScans?: number;
-  baseBranch?: string;
-  branchPrefix?: string;
-  dryRun?: boolean;
-  maxSuggestionsPerPR?: number;
-  enablePRCreation?: boolean;
-}
 
 interface ScanJobData {
   scanType: 'inter-project' | 'intra-project';
