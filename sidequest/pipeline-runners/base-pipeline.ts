@@ -1,6 +1,5 @@
 import type { Job, JobStats } from '../core/server.ts';
 import { SidequestServer } from '../core/server.ts';
-import { TIMEOUTS } from '../core/constants.ts';
 import { logError } from '../utils/logger.ts';
 import cron from 'node-cron';
 import type { Logger } from 'pino';
@@ -19,17 +18,24 @@ export abstract class BasePipeline<TWorker extends SidequestServer = SidequestSe
   }
 
   /**
-   * Poll worker stats until all jobs are drained.
+   * Wait for all queued and active jobs to drain using events.
+   * Uses job:completed and job:failed events to avoid polling race conditions.
    */
   waitForCompletion(): Promise<void> {
     return new Promise<void>((resolve) => {
-      const checkInterval = setInterval(() => {
+      const checkAndResolve = () => {
         const stats = this.worker.getStats();
         if (stats.active === 0 && stats.queued === 0) {
-          clearInterval(checkInterval);
+          this.worker.off('job:completed', checkAndResolve);
+          this.worker.off('job:failed', checkAndResolve);
           resolve();
         }
-      }, TIMEOUTS.POLL_INTERVAL_MS);
+      };
+
+      // Immediate check handles already-drained case
+      checkAndResolve();
+      this.worker.on('job:completed', checkAndResolve);
+      this.worker.on('job:failed', checkAndResolve);
     });
   }
 
