@@ -253,9 +253,10 @@ describe('Validation Middleware', () => {
 
       assert.ok(!wasNextCalled());
       assert.strictEqual(res.statusCode, 400);
-      assert.strictEqual(res.responseData.error, 'Bad Request');
-      assert.strictEqual(res.responseData.message, 'Request validation failed');
-      assert.ok(Array.isArray(res.responseData.errors));
+      assert.strictEqual(res.responseData.success, false);
+      assert.strictEqual(res.responseData.error.code, 'INVALID_REQUEST');
+      assert.strictEqual(res.responseData.error.message, 'Request validation failed');
+      assert.ok(Array.isArray(res.responseData.error.details.errors));
       assert.ok(res.responseData.timestamp);
     });
 
@@ -266,7 +267,7 @@ describe('Validation Middleware', () => {
       middleware(req, res, next);
 
       assert.strictEqual(res.statusCode, 400);
-      const errors = res.responseData.errors;
+      const errors = res.responseData.error.details.errors;
       assert.ok(errors.some(e => e.field === 'name'));
       assert.ok(errors.some(e => e.field === 'value'));
     });
@@ -324,7 +325,7 @@ describe('Validation Middleware', () => {
 
       assert.ok(!wasNextCalled());
       assert.strictEqual(res.statusCode, 400);
-      assert.strictEqual(res.responseData.message, 'Query parameter validation failed');
+      assert.strictEqual(res.responseData.error.message, 'Query parameter validation failed');
     });
 
     it('should store validated data in req.validatedQuery', () => {
@@ -383,7 +384,7 @@ describe('Validation Middleware', () => {
 
       assert.ok(!wasNextCalled());
       assert.strictEqual(res.statusCode, 400);
-      assert.strictEqual(res.responseData.message, 'Path parameter validation failed');
+      assert.strictEqual(res.responseData.error.message, 'Path parameter validation failed');
     });
 
     it('should include error details in response', () => {
@@ -393,8 +394,8 @@ describe('Validation Middleware', () => {
       middleware(req, res, next);
 
       assert.strictEqual(res.statusCode, 400);
-      assert.ok(res.responseData.errors.length >= 1);
-      assert.ok(res.responseData.errors.every(e => e.field && e.message && e.code));
+      assert.ok(res.responseData.error.details.errors.length >= 1);
+      assert.ok(res.responseData.error.details.errors.every(e => e.field && e.message && e.code));
     });
 
     it('should pass non-Zod errors to next', () => {
