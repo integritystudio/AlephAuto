@@ -7,7 +7,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { type ZodSchema, ZodError } from 'zod';
 import { createComponentLogger } from '#sidequest/utils/logger.ts';
-import { sendValidationError } from '../utils/api-error.js';
+import { sendValidationError } from '../utils/api-error.ts';
 
 const logger = createComponentLogger('ValidationMiddleware');
 
