@@ -122,13 +122,13 @@ class SidequestServer extends EventEmitter {
 
 **File:** `sidequest/pipeline-runners/base-pipeline.ts`
 
-Class-based pipeline runners extend `BasePipeline<TWorker>`, which provides shared scheduling, polling, and stats:
+Class-based pipeline runners extend `BasePipeline<TWorker>`, which provides shared scheduling, event-driven completion, and stats:
 
 ```typescript
 abstract class BasePipeline<TWorker extends SidequestServer> {
   protected worker: TWorker;
 
-  waitForCompletion(): Promise<void>;    // Poll getStats() until queue drains
+  waitForCompletion(): Promise<void>;    // Event-driven: listens for job:completed, job:failed, retry:created
   protected scheduleCron(                // Validate + schedule + log + error-wrap
     logger, name, cronSchedule, runFn
   ): cron.ScheduledTask;
@@ -199,13 +199,13 @@ graph LR
 
 | # | Pipeline | Job Type | Runner File | Worker File | Base Class | Git Workflow | Languages |
 |---|----------|----------|-------------|-------------|------------|--------------|-----------|
-| 1 | Duplicate Detection | `duplicate-detection` | `duplicate-detection-pipeline.ts` | `duplicate-detection-worker.ts` | functional | ⚠️ Custom | JS + Python |
+| 1 | Duplicate Detection | `duplicate-detection` | `duplicate-detection-pipeline.ts` | `workers/duplicate-detection-worker.ts` (API/registry) · inline class in pipeline file (CLI runner) | functional | ⚠️ Custom | JS + Python |
 | 2 | Schema Enhancement | `schema-enhancement` | `schema-enhancement-pipeline.ts` | `schema-enhancement-worker.ts` | BasePipeline | ✅ Yes | JavaScript |
-| 3 | Git Activity | `git-activity-report` | `git-activity-pipeline.ts` | `git-activity-worker.ts` | BasePipeline | ❌ No | JS + Python |
-| 4 | Gitignore Manager | `gitignore-update` | `gitignore-pipeline.ts` | `gitignore-worker.ts` | functional | ⚠️ Batch N/A | JavaScript |
-| 5 | Repomix | `repomix-scan` | N/A (cron server) | `repomix-worker.ts` | — | ❌ No | JavaScript |
-| 6 | Plugin Manager | `plugin-audit` | `plugin-management-pipeline.ts` | (embedded in utils) | BasePipeline | ❌ No | JavaScript |
-| 7 | Claude Health | `claude-health-check` | `claude-health-pipeline.ts` | `claude-health-worker.ts` | BasePipeline | ❌ No | JS + Shell |
+| 3 | Git Activity | `git-activity` | `git-activity-pipeline.ts` | `git-activity-worker.ts` | BasePipeline | ❌ No | JS + Python |
+| 4 | Gitignore Manager | `gitignore-manager` | `gitignore-pipeline.ts` | `gitignore-worker.ts` | functional | ⚠️ Batch N/A | JavaScript |
+| 5 | Repomix | `repomix` | N/A (cron server) | `repomix-worker.ts` | — | ❌ No | JavaScript |
+| 6 | Plugin Manager | `plugin-manager` | `plugin-management-pipeline.ts` | (embedded in utils) | BasePipeline | ❌ No | JavaScript |
+| 7 | Claude Health | `claude-health` | `claude-health-pipeline.ts` | `claude-health-worker.ts` | BasePipeline | ❌ No | JS + Shell |
 | 8 | Test Refactor | `test-refactor` | `test-refactor-pipeline.ts` | `test-refactor-worker.ts` | functional | ✅ Optional | TypeScript |
 | 9 | Repository Cleanup | `repo-cleanup` | `repo-cleanup-pipeline.ts` | `repo-cleanup-worker.ts` | functional | ❌ No | JS + Shell |
 | 10 | Bugfix Audit | `bugfix-audit` | `bugfix-audit-pipeline.ts` | `bugfix-audit-worker.ts` | BasePipeline | ✅ Multi-commit | JS + Shell |
@@ -249,13 +249,13 @@ graph TB
 
 #### Stage Details
 
-**Stage 1: Repository Scanner** (`sidequest/pipeline-core/scanners/repository-scanner.js`)
+**Stage 1: Repository Scanner** (`sidequest/pipeline-core/scanners/repository-scanner.ts`)
 - Duration: ~500ms - 2s
 - Input: `{ repoPath: "/path/to/repo" }`
 - Process: Git validation → repomix scan → metadata extraction
 - Output: Repository info (files, lines, languages)
 
-**Stage 2: AST-Grep Pattern Detector** (`sidequest/pipeline-core/scanners/ast-grep-detector.js`)
+**Stage 2: AST-Grep Pattern Detector** (`sidequest/pipeline-core/scanners/ast-grep-detector.ts`)
 - Duration: ~1-5s
 - Input: Repository path
 - Process: Execute `sg scan --json` with 18 AST-grep rules
@@ -469,9 +469,9 @@ graph TB
 
 | Component | Path |
 |-----------|------|
-| Worker | `sidequest/workers/schema-enhancement-worker.js` |
-| Runner | `sidequest/pipeline-runners/schema-enhancement-pipeline.js` |
-| MCP Tools | `sidequest/utils/schema-mcp-tools.js` |
+| Worker | `sidequest/workers/schema-enhancement-worker.ts` |
+| Runner | `sidequest/pipeline-runners/schema-enhancement-pipeline.ts` |
+| MCP Tools | `sidequest/utils/schema-mcp-tools.ts` |
 | Output | `./document-enhancement-impact-measurement/` |
 
 ---
@@ -633,7 +633,7 @@ graph TB
 
 #### Update Logic
 
-**File:** `sidequest/workers/gitignore-repomix-updater.js`
+**File:** `sidequest/workers/gitignore-repomix-updater.ts`
 
 ```javascript
 async addToGitignore(repoPath) {
@@ -702,7 +702,7 @@ async addToGitignore(repoPath) {
 ### 5. Repomix Automation Pipeline
 
 **Purpose:** Automated repomix scan scheduling and execution
-**Job Type:** `repomix-scan`
+**Job Type:** `repomix`
 **Languages:** JavaScript
 **Git Workflow:** ❌ No (cron-based execution)
 
@@ -736,7 +736,7 @@ graph TB
 
 #### Repomix Command Construction
 
-**File:** `sidequest/workers/repomix-worker.js`
+**File:** `sidequest/workers/repomix-worker.ts`
 
 ```javascript
 #runRepomixCommand(cwd) {
@@ -755,8 +755,7 @@ graph TB
   // Execute: npx repomix [--no-gitignore] [--ignore patterns]
   const proc = spawn('npx', args, {
     cwd,
-    timeout: 300000,  // 5 minutes
-    maxBuffer: 10 * 1024 * 1024  // 10MB
+    timeout: TIMEOUTS.REPOMIX_MS  // 10 minutes (from constants)
   });
 
   // Capture output and save to file
@@ -840,7 +839,7 @@ graph TB
 
 #### Audit Logic
 
-**File:** `sidequest/utils/plugin-manager.js`
+**File:** `sidequest/utils/plugin-manager.ts`
 
 ```javascript
 async auditPlugins() {
@@ -1110,6 +1109,7 @@ graph TB
 **Job Type:** `test-refactor`
 **Languages:** TypeScript
 **Git Workflow:** ✅ Optional
+**Status:** ⚠️ Disabled in worker registry (`disabled: true, disabledReason: 'TypeScript compilation required'`). Run via the dedicated pipeline runner directly.
 
 #### Data Flow
 
@@ -1565,8 +1565,8 @@ This pattern is documented in [Adding New Pipelines](../ADDING_PIPELINES.md) as 
 
 | Component | Path |
 |-----------|------|
-| Worker | `sidequest/workers/bugfix-audit-worker.js` |
-| Runner | `sidequest/pipeline-runners/bugfix-audit-pipeline.js` |
+| Worker | `sidequest/workers/bugfix-audit-worker.ts` |
+| Runner | `sidequest/pipeline-runners/bugfix-audit-pipeline.ts` |
 | Output | `~/code/jobs/sidequest/bug-fixes/output/<project>/<date>/` |
 | Logs | `~/code/jobs/sidequest/bug-fixes/logs/` |
 
@@ -1678,8 +1678,8 @@ npm run dashboard:populate:schedule  # Start cron scheduler
 
 | Component | Path |
 |-----------|------|
-| Worker | `sidequest/workers/dashboard-populate-worker.js` |
-| Runner | `sidequest/pipeline-runners/dashboard-populate-pipeline.js` |
+| Worker | `sidequest/workers/dashboard-populate-worker.ts` |
+| Runner | `sidequest/pipeline-runners/dashboard-populate-pipeline.ts` |
 | External | `~/.claude/mcp-servers/observability-toolkit/dashboard/` |
 
 ---
@@ -1884,6 +1884,9 @@ this.worker.on('job:failed', (job: Job) => {
 import { config } from './sidequest/core/config.ts';
 const port = config.jobsApiPort;    // Correct — typed access
 // NEVER use process.env directly (see CLAUDE.md)
+// Exception: test-refactor-pipeline and dashboard-populate-pipeline read
+// RUN_ON_STARTUP directly — intentional opt-out/opt-in defaults that differ
+// from config.runOnStartup (documented inline with comments in those files)
 ```
 
 ### 4. Retry Logic with Error Classification
@@ -1917,7 +1920,7 @@ Workers emit `job:completed`/`job:failed` → `EventBroadcaster` serializes and 
 
 ### Error Classification
 
-**File:** `sidequest/pipeline-core/errors/error-classifier.js`
+**File:** `sidequest/pipeline-core/errors/error-classifier.ts`
 
 ```javascript
 export function classifyError(error) {
@@ -1988,38 +1991,24 @@ Sentry.captureException(error, {
 ### Doppler Health Monitor
 
 **Circuit breaker for stale cache:**
-```javascript
-// sidequest/pipeline-core/doppler-health-monitor.js
+```typescript
+// sidequest/pipeline-core/doppler-health-monitor.ts
 class DopplerHealthMonitor {
-  constructor() {
-    this.warningThreshold = 12 * 60 * 60 * 1000;  // 12 hours
-    this.criticalThreshold = 24 * 60 * 60 * 1000; // 24 hours
-
-    // Check cache staleness every 15 minutes
-    setInterval(() => this.checkHealth(), 15 * 60 * 1000);
+  // Configurable options — all optional with defaults from CACHE constants
+  constructor(options: DopplerHealthMonitorOptions = {}) {
+    this.cacheDir = options.cacheDir ?? path.join(os.homedir(), '.doppler', 'fallback');
+    this.maxCacheAge = options.maxCacheAge ?? CACHE.MAX_AGE_MS;       // default: 24h
+    this.warningThreshold = options.warningThreshold ?? CACHE.WARNING_THRESHOLD_MS; // default: 12h
+    this.monitoringInterval = null;  // NOT auto-started in constructor
   }
 
-  checkHealth() {
-    const cacheAge = Date.now() - this.lastCacheUpdate;
+  // Start periodic monitoring (call explicitly after construction)
+  async startMonitoring(intervalMinutes = 15): Promise<void> { /* ... */ }
 
-    if (cacheAge > this.criticalThreshold) {
-      Sentry.captureMessage('Doppler cache critically stale', {
-        level: 'fatal',
-        extra: { cacheAge, threshold: this.criticalThreshold }
-      });
-    } else if (cacheAge > this.warningThreshold) {
-      Sentry.captureMessage('Doppler cache stale', {
-        level: 'warning',
-        extra: { cacheAge, threshold: this.warningThreshold }
-      });
-    }
-
-    return {
-      healthy: cacheAge < this.criticalThreshold,
-      cacheAge,
-      status: cacheAge > this.criticalThreshold ? 'critical' :
-              cacheAge > this.warningThreshold ? 'warning' : 'ok'
-    };
+  // On-demand check: reads file mtime from cacheDir, does not use stored state
+  async checkCacheHealth(): Promise<CacheHealthStatus> {
+    // Reads ~/.doppler/fallback/ files, computes age from newest mtime
+    // Returns: { healthy, cacheAgeMs, cacheAgeHours, severity, lastModified, ... }
   }
 }
 ```
@@ -2028,7 +2017,7 @@ class DopplerHealthMonitor {
 
 **Automatic fallback:**
 ```javascript
-// api/utils/port-manager.js
+// api/utils/port-manager.ts
 export async function setupServerWithPortFallback(httpServer, options) {
   const { preferredPort, maxPort } = options;
 
@@ -2075,7 +2064,7 @@ signals.forEach((signal) => {
     websocket.close();
 
     // 4. Close database connections
-    await redis.quit();
+    jobRepository.close();
 
     // 5. Exit
     process.exit(0);
