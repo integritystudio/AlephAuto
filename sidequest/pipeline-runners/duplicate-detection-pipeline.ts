@@ -23,12 +23,15 @@ import type { Logger } from 'pino';
 
 const logger: Logger = createComponentLogger('DuplicateDetectionPipeline');
 
-// Re-export worker and types for any external consumers
+// Re-export worker and types for any external consumers.
+// Types previously re-exported here (JobStatus, ScanType, JobData, ScanResult,
+// DuplicateGroup, Suggestion, PRCreationResult, JobResult, Inter/IntraProjectScanJobResult)
+// are now imported directly from '../types/duplicate-detection-types.ts'.
 export { DuplicateDetectionWorker };
 export type {
   RetryInfo,
   RetryMetrics,
-  WorkerScanMetrics as ScanMetrics,
+  WorkerScanMetrics,
   DuplicateDetectionWorkerOptions
 } from '../types/duplicate-detection-types.ts';
 
@@ -119,11 +122,9 @@ async function main(): Promise<void> {
 // Run the pipeline
 // Check if running directly (not imported as module)
 // Also check for PM2 execution (pm_id is set by PM2)
-// @ts-ignore - import.meta not available in ES2022 target
-const isDirectExecution = typeof import.meta !== 'undefined' && import.meta.url === `file://${process.argv[1]}` || process.env.pm_id !== undefined;
+const isDirectExecution = import.meta.url === `file://${process.argv[1]}` || process.env.pm_id !== undefined;
 
 if (isDirectExecution) {
-  // @ts-ignore - top-level await needs ES2022 module
   main().catch((error) => {
     console.error('Fatal error:', error);
     process.exit(1);

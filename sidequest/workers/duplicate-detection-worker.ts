@@ -99,14 +99,14 @@ interface IntraProjectScanResult {
  * PR creation, and comprehensive reporting.
  */
 export class DuplicateDetectionWorker extends SidequestServer {
-  configLoader: RepositoryConfigLoader;
-  interProjectScanner: InterProjectScanner;
-  orchestrator: ScanOrchestrator;
-  reportCoordinator: ReportCoordinator;
-  prCreator: PRCreator;
-  scanMetrics: ScanMetrics;
-  enablePRCreation: boolean;
-  retryQueue: Map<string, RetryInfo>;
+  readonly configLoader: RepositoryConfigLoader;
+  readonly enablePRCreation: boolean;
+  private interProjectScanner: InterProjectScanner;
+  private orchestrator: ScanOrchestrator;
+  private reportCoordinator: ReportCoordinator;
+  private prCreator: PRCreator;
+  private scanMetrics: ScanMetrics;
+  private retryQueue: Map<string, RetryInfo>;
 
   constructor(options: DuplicateDetectionWorkerOptions = {}) {
     super({
