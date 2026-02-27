@@ -27,6 +27,9 @@ import './App.css';
  * <App />
  * ```
  */
+/**
+ * App.
+ */
 function App() {
   // Connect WebSocket and load initial data
   useWebSocketConnection();

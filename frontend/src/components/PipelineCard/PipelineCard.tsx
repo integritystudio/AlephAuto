@@ -30,6 +30,13 @@ interface PipelineCardProps {
  * @param isoDate ISO 8601 date string
  * @returns Formatted date string
  */
+/**
+ * Format date.
+ *
+ * @param {string} isoDate - The isoDate
+ *
+ * @returns {string} The resulting string
+ */
 const formatDate = (isoDate: string): string => {
   const date = new Date(isoDate);
   return date.toLocaleDateString('en-US', {
@@ -45,6 +52,13 @@ const formatDate = (isoDate: string): string => {
  * @param ms Duration in milliseconds
  * @returns Formatted duration string
  */
+/**
+ * Format duration.
+ *
+ * @param {number} ms - The ms
+ *
+ * @returns {string} The resulting string
+ */
 const formatDuration = (ms: number): string => {
   const seconds = Math.floor(ms / 1000);
   const minutes = Math.floor(seconds / 60);
@@ -59,6 +73,13 @@ const formatDuration = (ms: number): string => {
  * Format success rate as percentage
  * @param rate Success rate (0-1)
  * @returns Formatted percentage string
+ */
+/**
+ * Format success rate.
+ *
+ * @param {number} rate - The rate
+ *
+ * @returns {string} The resulting string
  */
 const formatSuccessRate = (rate: number): string => {
   return `${(rate * 100).toFixed(1)}%`;
@@ -86,10 +107,18 @@ export const PipelineCard: React.FC<PipelineCardProps> = ({
 }) => {
   const [expanded, setExpanded] = useState(false);
 
+  /**
+   * Handle toggle.
+   */
   const handleToggle = () => {
     setExpanded(!expanded);
   };
 
+  /**
+   * Handle key press.
+   *
+   * @param {React.KeyboardEvent} e - The e
+   */
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -97,6 +126,11 @@ export const PipelineCard: React.FC<PipelineCardProps> = ({
     }
   };
 
+  /**
+   * Handle view click.
+   *
+   * @param {React.MouseEvent} e - The e
+   */
   const handleViewClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onView) {
@@ -104,6 +138,11 @@ export const PipelineCard: React.FC<PipelineCardProps> = ({
     }
   };
 
+  /**
+   * Handle retry click.
+   *
+   * @param {React.MouseEvent} e - The e
+   */
   const handleRetryClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onRetry) {

@@ -48,9 +48,7 @@ export const config = {
     ? path.resolve(process.env.LOG_DIR)
     : path.resolve(__dirname, 'logs'),
 
-  scanReportsDir: process.env.SCAN_REPORTS_DIR
-    ? path.resolve(process.env.SCAN_REPORTS_DIR)
-    : path.resolve(__dirname, 'output', 'directory-scan-reports'),
+  scanReportsDir: path.resolve(__dirname, '..', '..', 'output'),
 
   // Job processing
   maxConcurrent: safeParseInt(process.env.MAX_CONCURRENT, 5, 1, 50),

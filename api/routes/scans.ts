@@ -152,6 +152,13 @@ router.get('/:scanId/results', async (req, res, next) => {
 
     // Query database for the scan job
     // First try duplicate-detection pipeline (most scans)
+    /**
+     * Get the jobs array.
+     *
+     * @param {ReturnType<typeof getJobs>} result - The result
+     *
+     * @returns {ParsedJob[]} The jobs array
+     */
     const getJobsArray = (result: ReturnType<typeof getJobs>): ParsedJob[] =>
       Array.isArray(result) ? result : result.jobs;
 

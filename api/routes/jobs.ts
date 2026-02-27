@@ -15,6 +15,14 @@ import { PAGINATION, VALIDATION, RETRY } from '#sidequest/core/constants.ts';
 import { sendError, sendNotFoundError, sendInternalError, ERROR_CODES } from '../utils/api-error.ts';
 import { bulkImportRateLimiter } from '../middleware/rate-limit.ts';
 
+/**
+ * Timing safe equal.
+ *
+ * @param {unknown} a - The a
+ * @param {unknown} b - The b
+ *
+ * @returns {boolean} True if successful, False otherwise
+ */
 function timingSafeEqual(a: unknown, b: unknown): boolean {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
 
@@ -36,6 +44,13 @@ function timingSafeEqual(a: unknown, b: unknown): boolean {
 const router = express.Router();
 const logger = createComponentLogger('JobsAPI');
 
+/**
+ * Validate job id.
+ *
+ * @param {string} jobId - The jobId
+ *
+ * @returns {{ valid: boolean; sanitized?: string; error?: string }} True if successful, False otherwise
+ */
 function validateJobId(jobId: string): { valid: boolean; sanitized?: string; error?: string } {
   if (!jobId) {
     return { valid: false, error: 'Job ID is required' };
@@ -51,6 +66,14 @@ function validateJobId(jobId: string): { valid: boolean; sanitized?: string; err
   return { valid: true, sanitized: jobId };
 }
 
+/**
+ * Sanitize pagination params.
+ *
+ * @param {string | number} limit - The limit
+ * @param {string | number} offset - The offset
+ *
+ * @returns {{ limit: number; offset: number }} The { limit: number; offset: number }
+ */
 function sanitizePaginationParams(limit: string | number, offset: string | number): { limit: number; offset: number } {
   // Convert to string to ensure parseInt works correctly
   const limitStr = String(limit);

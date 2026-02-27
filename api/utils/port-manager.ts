@@ -27,6 +27,15 @@ interface GracefulShutdownOptions {
 /**
  * Check if a port is available for binding
  */
+/**
+ * Check if port available.
+ *
+ * @param {number} port - The port number
+ * @param {string} [host='0.0.0.0'] - The host address
+ *
+ * @returns {Promise<boolean>} True if port available, False otherwise
+ * @async
+ */
 export async function isPortAvailable(port: number, host: string = '0.0.0.0'): Promise<boolean> {
   return new Promise((resolve) => {
     const server = net.createServer();
@@ -56,6 +65,16 @@ export async function isPortAvailable(port: number, host: string = '0.0.0.0'): P
 /**
  * Find an available port within a range
  */
+/**
+ * Find the available port.
+ *
+ * @param {number} startPort - The startPort
+ * @param {number} endPort - The endPort
+ * @param {string} [host='0.0.0.0'] - The host address
+ *
+ * @returns {Promise<number | null>} The available port
+ * @async
+ */
 export async function findAvailablePort(startPort: number, endPort: number, host: string = '0.0.0.0'): Promise<number | null> {
   logger.info({ startPort, endPort, host }, 'Searching for available port');
 
@@ -73,6 +92,14 @@ export async function findAvailablePort(startPort: number, endPort: number, host
 
 /**
  * Kill processes using a specific port (macOS/Linux)
+ */
+/**
+ * Kill process on port.
+ *
+ * @param {number} port - The port number
+ *
+ * @returns {Promise<boolean>} True if successful, False otherwise
+ * @async
  */
 export async function killProcessOnPort(port: number): Promise<boolean> {
   try {
@@ -110,6 +137,12 @@ export async function killProcessOnPort(port: number): Promise<boolean> {
 /**
  * Setup graceful shutdown handlers for a server
  */
+/**
+ * Set up graceful shutdown.
+ *
+ * @param {HttpServer} httpServer - The httpServer
+ * @param {GracefulShutdownOptions} [options={}] - Options dictionary
+ */
 export function setupGracefulShutdown(httpServer: HttpServer, options: GracefulShutdownOptions = {}): void {
   const {
     onShutdown = () => {},
@@ -118,6 +151,12 @@ export function setupGracefulShutdown(httpServer: HttpServer, options: GracefulS
 
   let isShuttingDown = false;
 
+  /**
+   * Shutdown.
+   *
+   * @param {string} signal - The signal
+   * @async
+   */
   const shutdown = async (signal: string) => {
     if (isShuttingDown) {
       logger.warn({ signal }, 'Shutdown already in progress');
@@ -180,6 +219,15 @@ export function setupGracefulShutdown(httpServer: HttpServer, options: GracefulS
 
 /**
  * Setup server with automatic port fallback
+ */
+/**
+ * Set up server with port fallback.
+ *
+ * @param {HttpServer} httpServer - The httpServer
+ * @param {PortFallbackOptions} options - Options dictionary
+ *
+ * @returns {Promise<number>} The Promise<number>
+ * @async
  */
 export async function setupServerWithPortFallback(httpServer: HttpServer, options: PortFallbackOptions): Promise<number> {
   const {

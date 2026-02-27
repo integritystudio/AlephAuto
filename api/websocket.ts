@@ -33,6 +33,13 @@ export interface ExtendedWebSocketServer extends WebSocketServer {
 /**
  * Create WebSocket server
  */
+/**
+ * Create the web socket server.
+ *
+ * @param {HttpServer} httpServer - The httpServer
+ *
+ * @returns {ExtendedWebSocketServer} The created web socket server
+ */
 export function createWebSocketServer(httpServer: HttpServer): ExtendedWebSocketServer {
   const wss = new WebSocketServer({
     server: httpServer,
@@ -172,12 +179,26 @@ export function createWebSocketServer(httpServer: HttpServer): ExtendedWebSocket
 /**
  * Generate unique client ID
  */
+/**
+ * Generate the client id.
+ *
+ * @returns {string} The created client id
+ */
 function generateClientId(): string {
   return crypto.randomBytes(16).toString('hex');
 }
 
 /**
  * Handle client message
+ */
+/**
+ * Handle client message.
+ *
+ * @param {string} clientId - The clientId
+ * @param {Record<string} message - The message
+ * @param {*} unknown> - The unknown>
+ * @param {Map<string} clients - The clients
+ * @param {*} WsClient> - The WsClient>
  */
 function handleClientMessage(clientId: string, message: Record<string, unknown>, clients: Map<string, WsClient>): void {
   const client = clients.get(clientId);
@@ -225,6 +246,14 @@ function handleClientMessage(clientId: string, message: Record<string, unknown>,
 /**
  * Handle subscribe message
  */
+/**
+ * Handle subscribe.
+ *
+ * @param {string} clientId - The clientId
+ * @param {Record<string} message - The message
+ * @param {*} unknown> - The unknown>
+ * @param {WsClient} client - The client
+ */
 function handleSubscribe(clientId: string, message: Record<string, unknown>, client: WsClient): void {
   const channels = (message.channels as string[]) ?? [];
 
@@ -248,6 +277,14 @@ function handleSubscribe(clientId: string, message: Record<string, unknown>, cli
 
 /**
  * Handle unsubscribe message
+ */
+/**
+ * Handle unsubscribe.
+ *
+ * @param {string} clientId - The clientId
+ * @param {Record<string} message - The message
+ * @param {*} unknown> - The unknown>
+ * @param {WsClient} client - The client
  */
 function handleUnsubscribe(clientId: string, message: Record<string, unknown>, client: WsClient): void {
   const channels = (message.channels as string[]) ?? [];

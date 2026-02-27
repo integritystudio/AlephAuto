@@ -22,6 +22,13 @@ interface ValidationErrorDetail {
 /**
  * Format Zod validation errors into user-friendly messages
  */
+/**
+ * Format zod errors.
+ *
+ * @param {ZodError} error - The error
+ *
+ * @returns {ValidationErrorDetail[]} The ValidationErrorDetail[]
+ */
 function formatZodErrors(error: ZodError): ValidationErrorDetail[] {
   return error.errors.map(err => ({
     field: err.path.join('.'),
@@ -32,6 +39,11 @@ function formatZodErrors(error: ZodError): ValidationErrorDetail[] {
 
 /**
  * Create validation middleware for a Zod schema
+ */
+/**
+ * Validate request.
+ *
+ * @param {ZodSchema} schema - The schema
  */
 export function validateRequest(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -73,6 +85,11 @@ export function validateRequest(schema: ZodSchema) {
  * Validate query parameters
  * Stores validated data in req.validatedQuery to avoid read-only req.query
  */
+/**
+ * Validate query.
+ *
+ * @param {ZodSchema} schema - The schema
+ */
 export function validateQuery(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -105,6 +122,11 @@ export function validateQuery(schema: ZodSchema) {
 
 /**
  * Validate path parameters
+ */
+/**
+ * Validate params.
+ *
+ * @param {ZodSchema} schema - The schema
  */
 export function validateParams(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction) => {

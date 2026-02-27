@@ -17,6 +17,10 @@ import type { Pipeline, SystemHealth } from '../types';
  * Fetch status from the backend API
  * The /api/status endpoint returns all dashboard data
  */
+/**
+ * Fetch the status.
+ * @async
+ */
 async function fetchStatus() {
   const response = await fetch('/api/status');
   if (!response.ok) {
@@ -39,6 +43,9 @@ async function fetchStatus() {
  * }
  * ```
  */
+/**
+ * Use web socket connection.
+ */
 export const useWebSocketConnection = () => {
   const isInitialized = useRef(false);
 
@@ -50,6 +57,10 @@ export const useWebSocketConnection = () => {
     /**
      * Load initial data from API
      * Uses the /api/status endpoint which returns all data
+     */
+    /**
+     * Load the initial data.
+     * @async
      */
     const loadInitialData = async () => {
       const store = useDashboardStore.getState();
@@ -217,6 +228,13 @@ export const useWebSocketConnection = () => {
 /**
  * Get icon for pipeline based on ID
  */
+/**
+ * Get the pipeline icon.
+ *
+ * @param {string} pipelineId - The pipelineId
+ *
+ * @returns {string} The pipeline icon
+ */
 function getPipelineIcon(pipelineId: string): string {
   const icons: Record<string, string> = {
     'duplicate-detection': '🔍',
@@ -234,6 +252,13 @@ function getPipelineIcon(pipelineId: string): string {
 
 /**
  * Get color for pipeline based on ID
+ */
+/**
+ * Get the pipeline color.
+ *
+ * @param {string} pipelineId - The pipelineId
+ *
+ * @returns {'purple' | 'cyan' | 'pink' | 'teal' | 'blue' | 'green' | 'amber'} The pipeline color
  */
 function getPipelineColor(pipelineId: string): 'purple' | 'cyan' | 'pink' | 'teal' | 'blue' | 'green' | 'amber' {
   const colors: Record<string, 'purple' | 'cyan' | 'pink' | 'teal' | 'blue' | 'green' | 'amber'> = {

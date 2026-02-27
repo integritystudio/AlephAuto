@@ -29,6 +29,13 @@ const PUBLIC_PATHS = [
 /**
  * Validate API key
  */
+/**
+ * Validate api key.
+ *
+ * @param {string} apiKey - The apiKey
+ *
+ * @returns {boolean} True if successful, False otherwise
+ */
 function validateApiKey(apiKey: string): boolean {
   if (!apiKey) {
     return false;
@@ -55,6 +62,13 @@ function validateApiKey(apiKey: string): boolean {
 
 /**
  * Authentication middleware
+ */
+/**
+ * Auth middleware.
+ *
+ * @param {Request} req - The request
+ * @param {Response} res - The response
+ * @param {NextFunction} next - The next
  */
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   // Skip authentication for public paths (prefix match)

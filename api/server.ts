@@ -199,6 +199,11 @@ app.get('/api/status', (req: Request, res: Response) => {
     const runningJobs = jobRepository.getAllJobs({ status: 'running', limit: 20 });
     const queuedJobs2 = jobRepository.getAllJobs({ status: 'queued', limit: 20 });
 
+    /**
+     * Map job for api.
+     *
+     * @param {ParsedJob} job - The job
+     */
     const mapJobForApi = (job: ParsedJob) => ({
       '@type': 'https://schema.org/Action',
       id: job.id,

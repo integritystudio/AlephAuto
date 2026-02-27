@@ -19,6 +19,14 @@ interface ApiError extends Error {
 /**
  * Error handler middleware
  */
+/**
+ * Error handler.
+ *
+ * @param {ApiError} err - The err
+ * @param {Request} req - The request
+ * @param {Response} res - The response
+ * @param {NextFunction} _next - The  next
+ */
 export function errorHandler(err: ApiError, req: Request, res: Response, _next: NextFunction): void {
   // Log error
   logger.error({

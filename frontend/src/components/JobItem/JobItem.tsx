@@ -32,6 +32,13 @@ interface JobItemProps {
  * @param startDate ISO 8601 start date string
  * @returns Human-readable elapsed time
  */
+/**
+ * Format elapsed.
+ *
+ * @param {string} startDate - The startDate
+ *
+ * @returns {string} The resulting string
+ */
 const formatElapsed = (startDate: string): string => {
   const now = new Date();
   const start = new Date(startDate);
@@ -49,6 +56,13 @@ const formatElapsed = (startDate: string): string => {
  * @param ms Duration in milliseconds
  * @returns Human-readable duration
  */
+/**
+ * Format duration.
+ *
+ * @param {number} ms - The ms
+ *
+ * @returns {string} The resulting string
+ */
 const formatDuration = (ms: number): string => {
   const seconds = Math.floor(ms / 1000);
   const minutes = Math.floor(seconds / 60);
@@ -62,6 +76,14 @@ const formatDuration = (ms: number): string => {
  * @param str String to truncate
  * @param maxLength Maximum length
  * @returns Truncated string
+ */
+/**
+ * Truncate.
+ *
+ * @param {string} str - The str
+ * @param {number} maxLength - The maxLength
+ *
+ * @returns {string} The resulting string
  */
 const truncate = (str: string, maxLength: number): string => {
   if (str.length <= maxLength) return str;
@@ -91,10 +113,18 @@ export const JobItem: React.FC<JobItemProps> = ({
 }) => {
   const [expanded, setExpanded] = useState(false);
 
+  /**
+   * Handle toggle.
+   */
   const handleToggle = () => {
     setExpanded(!expanded);
   };
 
+  /**
+   * Handle key press.
+   *
+   * @param {React.KeyboardEvent} e - The e
+   */
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -102,6 +132,11 @@ export const JobItem: React.FC<JobItemProps> = ({
     }
   };
 
+  /**
+   * Handle cancel click.
+   *
+   * @param {React.MouseEvent} e - The e
+   */
   const handleCancelClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onCancel) {
@@ -109,6 +144,11 @@ export const JobItem: React.FC<JobItemProps> = ({
     }
   };
 
+  /**
+   * Handle view logs click.
+   *
+   * @param {React.MouseEvent} e - The e
+   */
   const handleViewLogsClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onViewLogs) {
@@ -116,6 +156,11 @@ export const JobItem: React.FC<JobItemProps> = ({
     }
   };
 
+  /**
+   * Handle retry click.
+   *
+   * @param {React.MouseEvent} e - The e
+   */
   const handleRetryClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onRetry) {

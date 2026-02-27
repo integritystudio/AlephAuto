@@ -42,6 +42,13 @@ const api = axios.create({
  * @param error Axios error
  * @returns Formatted error response
  */
+/**
+ * Handle error.
+ *
+ * @param {AxiosError} error - The error
+ *
+ * @returns {ApiErrorResponse} The ApiErrorResponse
+ */
 const handleError = (error: AxiosError): ApiErrorResponse => {
   if (error.response) {
     // Server responded with error status
@@ -89,6 +96,12 @@ export const apiService = {
    * Health Check
    * @returns Health check response
    */
+  /**
+   * Get the health.
+   *
+   * @returns {Promise<HealthCheckResponse>} The health
+   * @async
+   */
   async getHealth(): Promise<HealthCheckResponse> {
     try {
       const response = await api.get<HealthCheckResponse>('/health');
@@ -102,6 +115,12 @@ export const apiService = {
    * Get System Status
    * @returns System status with job queue metrics
    */
+  /**
+   * Get the system status.
+   *
+   * @returns {Promise<SystemStatusResponse>} The system status
+   * @async
+   */
   async getSystemStatus(): Promise<SystemStatusResponse> {
     try {
       const response = await api.get<SystemStatusResponse>('/status');
@@ -114,6 +133,12 @@ export const apiService = {
   /**
    * Get All Pipelines
    * @returns Array of pipelines
+   */
+  /**
+   * Get the pipelines.
+   *
+   * @returns {Promise<PipelinesResponse>} The pipelines
+   * @async
    */
   async getPipelines(): Promise<PipelinesResponse> {
     try {
@@ -129,6 +154,14 @@ export const apiService = {
    * @param pipelineId Pipeline ID
    * @returns Pipeline details
    */
+  /**
+   * Get the pipeline status.
+   *
+   * @param {string} pipelineId - The pipelineId
+   *
+   * @returns {Promise<PipelineResponse>} The pipeline status
+   * @async
+   */
   async getPipelineStatus(pipelineId: string): Promise<PipelineResponse> {
     try {
       const response = await api.get<PipelineResponse>(`/pipelines/${pipelineId}`);
@@ -143,6 +176,14 @@ export const apiService = {
    * @param params Query parameters
    * @returns Paginated jobs list
    */
+  /**
+   * Get the jobs.
+   *
+   * @param {GetJobsParams} params? - The params?
+   *
+   * @returns {Promise<JobsResponse>} The jobs
+   * @async
+   */
   async getJobs(params?: GetJobsParams): Promise<JobsResponse> {
     try {
       const response = await api.get<JobsResponse>('/jobs', { params });
@@ -156,6 +197,12 @@ export const apiService = {
    * Get Active Jobs
    * @returns Active jobs list
    */
+  /**
+   * Get the active jobs.
+   *
+   * @returns {Promise<JobsResponse>} The active jobs
+   * @async
+   */
   async getActiveJobs(): Promise<JobsResponse> {
     return this.getJobs({ status: 'running' as any });
   },
@@ -163,6 +210,12 @@ export const apiService = {
   /**
    * Get Queued Jobs
    * @returns Queued jobs list
+   */
+  /**
+   * Get the queued jobs.
+   *
+   * @returns {Promise<JobsResponse>} The queued jobs
+   * @async
    */
   async getQueuedJobs(): Promise<JobsResponse> {
     return this.getJobs({ status: 'queued' as any });
@@ -172,6 +225,14 @@ export const apiService = {
    * Get Job Details
    * @param jobId Job ID
    * @returns Job details
+   */
+  /**
+   * Get the job details.
+   *
+   * @param {string} jobId - The jobId
+   *
+   * @returns {Promise<JobResponse>} The job details
+   * @async
    */
   async getJobDetails(jobId: string): Promise<JobResponse> {
     try {
@@ -187,6 +248,14 @@ export const apiService = {
    * @param jobId Job ID
    * @returns Job logs
    */
+  /**
+   * Get the job logs.
+   *
+   * @param {string} jobId - The jobId
+   *
+   * @returns {Promise<JobLogsResponse>} The job logs
+   * @async
+   */
   async getJobLogs(jobId: string): Promise<JobLogsResponse> {
     try {
       const response = await api.get<JobLogsResponse>(`/jobs/${jobId}/logs`);
@@ -200,6 +269,14 @@ export const apiService = {
    * Cancel Job
    * @param jobId Job ID
    * @returns Response
+   */
+  /**
+   * Cancel job.
+   *
+   * @param {string} jobId - The jobId
+   *
+   * @returns {Promise<} The Promise<
+   * @async
    */
   async cancelJob(jobId: string): Promise<{ success: boolean; message: string }> {
     try {
@@ -215,6 +292,14 @@ export const apiService = {
    * @param jobId Job ID
    * @returns Response
    */
+  /**
+   * Retry job.
+   *
+   * @param {string} jobId - The jobId
+   *
+   * @returns {Promise<} The Promise<
+   * @async
+   */
   async retryJob(jobId: string): Promise<{ success: boolean; message: string }> {
     try {
       const response = await api.post(`/jobs/${jobId}/retry`);
@@ -228,6 +313,14 @@ export const apiService = {
    * Trigger Scan
    * @param request Scan request
    * @returns Scan response with job ID
+   */
+  /**
+   * Trigger scan.
+   *
+   * @param {TriggerScanRequest} request - The request
+   *
+   * @returns {Promise<TriggerScanResponse>} The Promise<TriggerScanResponse>
+   * @async
    */
   async triggerScan(request: TriggerScanRequest): Promise<TriggerScanResponse> {
     try {
@@ -243,6 +336,14 @@ export const apiService = {
    * @param scanId Scan ID
    * @returns Scan results
    */
+  /**
+   * Get the scan results.
+   *
+   * @param {string} scanId - The scanId
+   *
+   * @returns {Promise<any>} The scan results
+   * @async
+   */
   async getScanResults(scanId: string): Promise<any> {
     try {
       const response = await api.get(`/scan/${scanId}`);
@@ -255,6 +356,12 @@ export const apiService = {
   /**
    * Get Retry Metrics
    * @returns Retry metrics with circuit breaker status
+   */
+  /**
+   * Get the retry metrics.
+   *
+   * @returns {Promise<RetryMetricsResponse>} The retry metrics
+   * @async
    */
   async getRetryMetrics(): Promise<RetryMetricsResponse> {
     try {

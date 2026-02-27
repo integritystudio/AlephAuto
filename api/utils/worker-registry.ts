@@ -169,6 +169,9 @@ class WorkerRegistry {
   _maxConcurrentInits: number;
   _initQueue: Array<(value?: unknown) => void>;
 
+  /**
+   * Constructor.
+   */
   constructor() {
     this._workers = new Map();
     this._initializing = new Map();
@@ -180,6 +183,11 @@ class WorkerRegistry {
 
   /**
    * Set the activity feed manager to connect workers for real-time updates
+   */
+  /**
+   * Set activity feed.
+   *
+   * @param {ActivityFeedManager} activityFeed - The activityFeed
    */
   setActivityFeed(activityFeed: ActivityFeedManager): void {
     this._activityFeed = activityFeed;
@@ -194,6 +202,14 @@ class WorkerRegistry {
 
   /**
    * Get worker instance for a pipeline ID
+   */
+  /**
+   * Get the worker.
+   *
+   * @param {string} pipelineId - The pipelineId
+   *
+   * @returns {Promise<SidequestServer>} The worker
+   * @async
    */
   async getWorker(pipelineId: string): Promise<SidequestServer> {
     // Fast path: already initialized
@@ -408,6 +424,13 @@ class WorkerRegistry {
   /**
    * Check if a pipeline ID is supported
    */
+  /**
+   * Check if supported.
+   *
+   * @param {string} pipelineId - The pipelineId
+   *
+   * @returns {boolean} True if supported, False otherwise
+   */
   isSupported(pipelineId: string): boolean {
     return pipelineId in PIPELINE_CONFIGS;
   }
@@ -415,12 +438,22 @@ class WorkerRegistry {
   /**
    * Get all supported pipeline IDs
    */
+  /**
+   * Get the supported pipelines.
+   *
+   * @returns {string[]} The supported pipelines
+   */
   getSupportedPipelines(): string[] {
     return Object.keys(PIPELINE_CONFIGS);
   }
 
   /**
    * Get aggregated stats from all initialized workers
+   */
+  /**
+   * Get the all stats.
+   *
+   * @returns {WorkerStats} The all stats
    */
   getAllStats(): WorkerStats {
     const stats: WorkerStats = {
@@ -450,6 +483,13 @@ class WorkerRegistry {
   /**
    * Get stats for a specific pipeline worker (if initialized)
    */
+  /**
+   * Get the worker stats.
+   *
+   * @param {string} pipelineId - The pipelineId
+   *
+   * @returns {Record<string, number> | null} The worker stats
+   */
   getWorkerStats(pipelineId: string): Record<string, number> | null {
     const worker = this._workers.get(pipelineId);
     if (worker && typeof worker.getStats === 'function') {
@@ -460,6 +500,13 @@ class WorkerRegistry {
 
   /**
    * Get scan metrics for a specific pipeline worker (if supported)
+   */
+  /**
+   * Get the scan metrics.
+   *
+   * @param {string} pipelineId - The pipelineId
+   *
+   * @returns {Record<string, unknown> | null} The scan metrics
    */
   getScanMetrics(pipelineId: string): Record<string, unknown> | null {
     const worker = this._workers.get(pipelineId);
@@ -472,6 +519,12 @@ class WorkerRegistry {
 
   /**
    * Shutdown all workers gracefully
+   */
+  /**
+   * Shutdown.
+   *
+   * @returns {Promise<void>} The Promise<void>
+   * @async
    */
   async shutdown(): Promise<void> {
     logger.info({

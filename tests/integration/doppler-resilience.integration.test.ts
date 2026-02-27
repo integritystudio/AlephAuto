@@ -188,11 +188,12 @@ describe('Doppler Resilience - Integration Tests', () => {
     assert.equal(health.usingFallback, true);
   });
 
-  it('Scenario 4: Cache staleness detection and refresh', async () => {
+  it('Scenario 4: Cache staleness detection and refresh', async (t) => {
     const doppler = new DopplerResilience({
       cacheFile: testCacheFile,
       failureThreshold: 3,
-      timeout: 100
+      timeout: 100,
+      staleThresholdMs: 10, // Cache becomes stale after 10ms
     });
 
     doppler.fetchFromDoppler = async () => {
@@ -208,8 +209,48 @@ describe('Doppler Resilience - Integration Tests', () => {
     const firstLoadTime = health1.cacheLoadedAt;
     assert(firstLoadTime, 'Cache should have load timestamp');
 
-    // Manually set cache as stale (older than 5 minutes)
-    doppler.cacheLoadedAt = Date.now() - (6 * 60 * 1000);
+    // Wait for cache to become stale
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    // Update cache file with new data (simulating an external update)
+    const updatedSecrets = {
+      NODE_ENV: 'production',
+      JOBS_API_PORT: '9000',
+      API_KEY: 'updated-secret-456'
+    };
+    await fs.writeFile(testCacheFile, JSON.stringify(updatedSecrets, null, 2));
+
+    // Next request should trigger a reload from the stale cache file
+    const secrets = await doppler.getSecrets();
+    assert.equal(secrets.API_KEY, 'updated-secret-456', 'Should reload stale cache');
+    assert.equal(secrets.JOBS_API_PORT, '9000');
+
+    const health2 = doppler.getHealth();
+    const secondLoadTime = health2.cacheLoadedAt;
+
+    // Cache load time should be updated
+    assert(new Date(secondLoadTime).getTime() > new Date(firstLoadTime).getTime(), 'Cache should be reloaded');
+  });
+
+  it('Scenario 4.1: Direct getFallbackSecrets and isCacheStale check', async (t) => {
+    const doppler = new DopplerResilience({
+      cacheFile: testCacheFile,
+      staleThresholdMs: 10, // Cache becomes stale after 10ms
+    });
+
+    // Initially load cache
+    await doppler.getFallbackSecrets();
+    const initialSecrets = doppler.cachedSecrets;
+    const initialLoadTime = doppler.cacheLoadedAt;
+    assert.equal(initialSecrets.API_KEY, 'cached-secret-123', 'Initial secrets should be loaded');
+    assert.ok(initialLoadTime, 'Cache loaded at timestamp should exist');
+
+    // Check staleness before waiting
+    assert.equal(doppler.isCacheStale(), false, 'Cache should not be stale immediately');
+
+    // Wait for cache to become stale
+    await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal(doppler.isCacheStale(), true, 'Cache should be stale after waiting');
 
     // Update cache file with new data
     const updatedSecrets = {
@@ -219,16 +260,14 @@ describe('Doppler Resilience - Integration Tests', () => {
     };
     await fs.writeFile(testCacheFile, JSON.stringify(updatedSecrets, null, 2));
 
-    // Next request should reload from cache file
-    const secrets = await doppler.getSecrets();
-    assert.equal(secrets.API_KEY, 'updated-secret-456', 'Should reload stale cache');
-    assert.equal(secrets.JOBS_API_PORT, '9000');
+    // Call getFallbackSecrets again, it should reload
+    await doppler.getFallbackSecrets();
+    const reloadedSecrets = doppler.cachedSecrets;
+    const reloadedTime = doppler.cacheLoadedAt;
 
-    const health2 = doppler.getHealth();
-    const secondLoadTime = health2.cacheLoadedAt;
-
-    // Cache load time should be updated
-    assert(new Date(secondLoadTime) > new Date(firstLoadTime), 'Cache should be reloaded');
+    assert.equal(reloadedSecrets.API_KEY, 'updated-secret-456', 'Secrets should be reloaded from file');
+    assert.ok(reloadedTime, 'Reloaded timestamp should exist');
+    assert(reloadedTime > initialLoadTime, 'Reloaded timestamp should be newer');
   });
 
   it('Scenario 5: No cache file available - should throw error', async () => {

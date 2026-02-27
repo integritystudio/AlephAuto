@@ -30,6 +30,7 @@ interface DopplerResilienceOptions {
   baseDelayMs?: number;
   backoffMultiplier?: number;
   cacheFile?: string;
+  staleThresholdMs?: number; // Add this line
 }
 
 interface ResilienceMetrics {
@@ -79,6 +80,7 @@ export class DopplerResilience {
   cacheFile: string;
   cachedSecrets: Record<string, unknown> | null;
   cacheLoadedAt: number | null;
+  staleThresholdMs: number; // Add this line
   metrics: ResilienceMetrics;
 
   constructor(options: DopplerResilienceOptions = {}) {
@@ -89,6 +91,7 @@ export class DopplerResilience {
 
     this.baseDelayMs = options.baseDelayMs ?? RETRY.BASE_BACKOFF_MS;
     this.backoffMultiplier = options.backoffMultiplier ?? 2;
+    this.staleThresholdMs = options.staleThresholdMs ?? CACHE.STALE_THRESHOLD_MS; // Add this line
 
     this.state = CircuitState.CLOSED;
     this.failureCount = 0;
@@ -192,7 +195,7 @@ export class DopplerResilience {
     if (!this.cacheLoadedAt) return true;
 
     const cacheAgeMs = Date.now() - this.cacheLoadedAt;
-    const staleThresholdMs = CACHE.STALE_THRESHOLD_MS;
+    const staleThresholdMs = this.staleThresholdMs;
 
     return cacheAgeMs > staleThresholdMs;
   }

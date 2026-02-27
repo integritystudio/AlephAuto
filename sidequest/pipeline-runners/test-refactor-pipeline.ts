@@ -17,7 +17,6 @@ import { DirectoryScanner } from '../utils/directory-scanner.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS } from '../core/constants.ts';
-// @ts-ignore — no declaration file for node-cron
 import cron from 'node-cron';
 import path from 'path';
 
@@ -66,7 +65,7 @@ async function runPipeline(targetPath: string | null = null): Promise<PipelineRe
   const worker = new TestRefactorWorker({
     dryRun: DRY_RUN,
     gitWorkflowEnabled: ENABLE_GIT_WORKFLOW,
-    maxConcurrent: config.maxConcurrent
+    maxConcurrent: config.maxConcurrent ?? 3
   });
 
   // Set up event handlers
@@ -83,8 +82,8 @@ async function runPipeline(targetPath: string | null = null): Promise<PipelineRe
     logger.info({
       jobId: job.id,
       project: job.data['repository'],
-      filesGenerated: result?.generatedFiles?.length || 0,
-      recommendations: result?.recommendations?.length || 0
+      filesGenerated: result?.generatedFiles?.length ?? 0,
+      recommendations: result?.recommendations?.length ?? 0
     }, 'Job completed');
   });
 
@@ -172,10 +171,15 @@ async function hasTestDirectory(dirPath: string): Promise<boolean> {
  * Wait for all jobs to complete
  */
 function waitForCompletion(worker: TestRefactorWorker): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    const deadline = setTimeout(() => {
+      reject(new Error(`waitForCompletion timed out after ${TIMEOUTS.ONE_HOUR_MS}ms`));
+    }, TIMEOUTS.ONE_HOUR_MS);
+
     const checkCompletion = () => {
       const stats = worker.getStats();
       if (stats.queued === 0 && stats.active === 0) {
+        clearTimeout(deadline);
         resolve();
       } else {
         setTimeout(checkCompletion, TIMEOUTS.POLL_INTERVAL_MS);

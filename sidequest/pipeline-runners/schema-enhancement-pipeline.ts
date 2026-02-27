@@ -177,13 +177,11 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
   /**
    * Create enhancement jobs for README files
    */
-  async createEnhancementJobs(readmeFiles: ReadmeFile[]): Promise<unknown[]> {
+  async createEnhancementJobs(readmeFiles: ReadmeFile[]): Promise<void> {
     const context = {
       totalReadmes: readmeFiles.length,
       baseDir: this.baseDir
     };
-
-    const jobs: unknown[] = [];
 
     for (const readme of readmeFiles) {
       // Add context about the repository
@@ -194,15 +192,10 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
         gitRemote: null        // Would need to extract
       };
 
-      const job = await this.worker.createEnhancementJob(readme, repoContext);
-      jobs.push(job);
+      await this.worker.createEnhancementJob(readme, repoContext);
     }
 
-    logger.info({
-      jobsCreated: jobs.length
-    }, 'Enhancement jobs created');
-
-    return jobs;
+    logger.info({ jobsCreated: readmeFiles.length }, 'Enhancement jobs created');
   }
 
   /**

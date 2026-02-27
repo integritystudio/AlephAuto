@@ -41,6 +41,12 @@ export class ActivityFeedManager {
   activities: ActivityEntry[];
   activityId: number;
 
+  /**
+   * Constructor.
+   *
+   * @param {ScanEventBroadcaster | null} broadcaster - The broadcaster
+   * @param {{ maxActivities?: number }} [options={}] - Options dictionary
+   */
   constructor(broadcaster: ScanEventBroadcaster | null, options: { maxActivities?: number } = {}) {
     this.broadcaster = broadcaster;
     this.maxActivities = options.maxActivities || 50; // Keep last 50 activities
@@ -52,6 +58,14 @@ export class ActivityFeedManager {
 
   /**
    * Add activity to the feed
+   */
+  /**
+   * Add activity.
+   *
+   * @param {Record<string} activity - The activity
+   * @param {*} unknown> - The unknown>
+   *
+   * @returns {ActivityEntry} The ActivityEntry
    */
   addActivity(activity: Record<string, unknown>): ActivityEntry {
     try {
@@ -108,12 +122,22 @@ export class ActivityFeedManager {
   /**
    * Get recent activities
    */
+  /**
+   * Get the recent activities.
+   *
+   * @param {number} [limit=20] - The limit
+   *
+   * @returns {ActivityEntry[]} The recent activities
+   */
   getRecentActivities(limit: number = 20): ActivityEntry[] {
     return this.activities.slice(0, limit);
   }
 
   /**
    * Clear all activities
+   */
+  /**
+   * Clear.
    */
   clear(): void {
     this.activities = [];
@@ -123,6 +147,11 @@ export class ActivityFeedManager {
 
   /**
    * Get activity statistics
+   */
+  /**
+   * Get the stats.
+   *
+   * @returns {ActivityStats} The stats
    */
   getStats(): ActivityStats {
     const now = Date.now();
@@ -162,6 +191,11 @@ export class ActivityFeedManager {
 
   /**
    * Listen to worker events and populate activity feed
+   */
+  /**
+   * Listen to worker.
+   *
+   * @param {SidequestServer} worker - The worker
    */
   listenToWorker(worker: SidequestServer): void {
     try {

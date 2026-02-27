@@ -28,6 +28,13 @@ interface HeaderProps {
  * @param isoDate ISO 8601 date string
  * @returns Human-readable relative time
  */
+/**
+ * Format relative time.
+ *
+ * @param {string} isoDate - The isoDate
+ *
+ * @returns {string} The resulting string
+ */
 const formatRelativeTime = (isoDate: string): string => {
   const now = new Date();
   const date = new Date(isoDate);
@@ -44,6 +51,14 @@ const formatRelativeTime = (isoDate: string): string => {
  * @param active Number of active jobs
  * @param total Total capacity
  * @returns Utilization percentage (0-100)
+ */
+/**
+ * Calculate utilization.
+ *
+ * @param {number} active - Whether active
+ * @param {number} total - The total
+ *
+ * @returns {number} The calculated utilization
  */
 const calculateUtilization = (active: number, total: number): number => {
   if (total === 0) return 0;
@@ -73,12 +88,20 @@ export const Header: React.FC<HeaderProps> = ({
     systemStatus.totalCapacity
   );
 
+  /**
+   * Handle settings click.
+   */
   const handleSettingsClick = () => {
     if (onSettingsClick) {
       onSettingsClick();
     }
   };
 
+  /**
+   * Handle settings key press.
+   *
+   * @param {React.KeyboardEvent} e - The e
+   */
   const handleSettingsKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();

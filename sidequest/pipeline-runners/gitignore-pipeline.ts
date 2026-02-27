@@ -28,7 +28,7 @@ const logger = createComponentLogger('GitignorePipeline');
  * - GITIGNORE_BASE_DIR: Base directory to scan (default: ~/code)
  * - GITIGNORE_MAX_DEPTH: Maximum scan depth (default: 10)
  * - GITIGNORE_DRY_RUN: Dry run mode (default: false)
- * - RUN_ON_STARTUP: Run immediately on startup (default: false)
+ * - RUN_ON_STARTUP: Controlled via config.runOnStartup (opt-in) or --run-now/--run CLI flags
  */
 
 interface JobData {
@@ -55,6 +55,7 @@ const DRY_RUN = process.env.GITIGNORE_DRY_RUN === 'true';
 
 // Support both env var and --run-now flag
 const args = process.argv.slice(2);
+// || is correct here: CLI flags must also trigger when config.runOnStartup is false (boolean OR, not nullish coalescing)
 const RUN_ON_STARTUP = config.runOnStartup || args.includes('--run-now') || args.includes('--run');
 
 async function main(): Promise<void> {

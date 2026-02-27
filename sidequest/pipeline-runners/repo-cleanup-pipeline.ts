@@ -27,7 +27,7 @@ const logger = createComponentLogger('RepoCleanupPipeline');
  * - CLEANUP_CRON_SCHEDULE: Cron schedule (default: "0 3 * * 0" - Weekly Sunday 3 AM)
  * - CLEANUP_TARGET_DIR: Directory to clean (default: ~/code)
  * - CLEANUP_DRY_RUN: Dry run mode (default: false)
- * - RUN_ON_STARTUP: Run immediately on startup (default: false)
+ * - RUN_ON_STARTUP: Controlled via config.runOnStartup (opt-in) or --run-now/--run CLI flags
  *
  * Usage:
  *   npm run cleanup           # Start cron server
@@ -62,6 +62,7 @@ const DRY_RUN = process.env.CLEANUP_DRY_RUN === 'true';
 
 // Support both env var and --run-now flag
 const args = process.argv.slice(2);
+// || is correct here: CLI flags must also trigger when config.runOnStartup is false (boolean OR, not nullish coalescing)
 const RUN_ON_STARTUP = config.runOnStartup || args.includes('--run-now') || args.includes('--run');
 
 async function main(): Promise<void> {

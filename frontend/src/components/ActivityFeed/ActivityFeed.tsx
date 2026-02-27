@@ -32,6 +32,13 @@ interface ActivityFeedProps {
  * @param isoDate ISO 8601 date string
  * @returns Human-readable relative time
  */
+/**
+ * Format relative time.
+ *
+ * @param {string} isoDate - The isoDate
+ *
+ * @returns {string} The resulting string
+ */
 const formatRelativeTime = (isoDate: string): string => {
   const now = new Date();
   const date = new Date(isoDate);
@@ -47,6 +54,13 @@ const formatRelativeTime = (isoDate: string): string => {
  * Get icon for activity type
  * @param type Activity type
  * @returns Icon string
+ */
+/**
+ * Get the activity icon.
+ *
+ * @param {ActivityType} type - The type
+ *
+ * @returns {string} The activity icon
  */
 const getActivityIcon = (type: ActivityType): string => {
   const icons: Record<ActivityType, string> = {
@@ -65,6 +79,13 @@ const getActivityIcon = (type: ActivityType): string => {
  * Get CSS class for activity type
  * @param type Activity type
  * @returns CSS class name
+ */
+/**
+ * Get the activity class.
+ *
+ * @param {ActivityType} type - The type
+ *
+ * @returns {string} The activity class
  */
 const getActivityClass = (type: ActivityType): string => {
   const classes: Record<ActivityType, string> = {
@@ -104,12 +125,23 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
 }) => {
   const displayedActivities = activities.slice(0, maxItems);
 
+  /**
+   * Handle item click.
+   *
+   * @param {string} activityId - The activityId
+   */
   const handleItemClick = (activityId: string) => {
     if (onItemClick) {
       onItemClick(activityId);
     }
   };
 
+  /**
+   * Handle item key press.
+   *
+   * @param {React.KeyboardEvent} e - The e
+   * @param {string} activityId - The activityId
+   */
   const handleItemKeyPress = (e: React.KeyboardEvent, activityId: string) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -117,6 +149,9 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
     }
   };
 
+  /**
+   * Handle clear click.
+   */
   const handleClearClick = () => {
     if (onClear) {
       onClear();

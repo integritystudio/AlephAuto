@@ -88,6 +88,11 @@ export const Card: React.FC<CardProps> = ({
     paddingClasses[padding]
   ].filter(Boolean).join(' ');
 
+  /**
+   * Handle key down.
+   *
+   * @param {React.KeyboardEvent} e - The e
+   */
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (onKeyDown) {
       onKeyDown(e);
