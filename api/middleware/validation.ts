@@ -7,6 +7,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { type ZodSchema, ZodError } from 'zod';
 import { createComponentLogger } from '#sidequest/utils/logger.ts';
+import { sendValidationError } from '../utils/api-error.js';
 
 const logger = createComponentLogger('ValidationMiddleware');
 
@@ -22,13 +23,6 @@ interface ValidationErrorDetail {
 /**
  * Format Zod validation errors into user-friendly messages
  */
-/**
- * Format zod errors.
- *
- * @param {ZodError} error - The error
- *
- * @returns {ValidationErrorDetail[]} The ValidationErrorDetail[]
- */
 function formatZodErrors(error: ZodError): ValidationErrorDetail[] {
   return error.errors.map(err => ({
     field: err.path.join('.'),
@@ -39,11 +33,6 @@ function formatZodErrors(error: ZodError): ValidationErrorDetail[] {
 
 /**
  * Create validation middleware for a Zod schema
- */
-/**
- * Validate request.
- *
- * @param {ZodSchema} schema - The schema
  */
 export function validateRequest(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -66,12 +55,7 @@ export function validateRequest(schema: ZodSchema) {
         }, 'Request validation failed');
 
         // Return detailed validation error
-        return res.status(400).json({
-          error: 'Bad Request',
-          message: 'Request validation failed',
-          timestamp: new Date().toISOString(),
-          errors
-        });
+        return sendValidationError(res, 'Request validation failed', errors);
       }
 
       // Unknown error - pass to error handler
@@ -84,11 +68,6 @@ export function validateRequest(schema: ZodSchema) {
 /**
  * Validate query parameters
  * Stores validated data in req.validatedQuery to avoid read-only req.query
- */
-/**
- * Validate query.
- *
- * @param {ZodSchema} schema - The schema
  */
 export function validateQuery(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -107,12 +86,7 @@ export function validateQuery(schema: ZodSchema) {
           errors
         }, 'Query validation failed');
 
-        return res.status(400).json({
-          error: 'Bad Request',
-          message: 'Query parameter validation failed',
-          timestamp: new Date().toISOString(),
-          errors
-        });
+        return sendValidationError(res, 'Query parameter validation failed', errors);
       }
 
       next(error);
@@ -122,11 +96,6 @@ export function validateQuery(schema: ZodSchema) {
 
 /**
  * Validate path parameters
- */
-/**
- * Validate params.
- *
- * @param {ZodSchema} schema - The schema
  */
 export function validateParams(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -144,12 +113,7 @@ export function validateParams(schema: ZodSchema) {
           errors
         }, 'Path parameter validation failed');
 
-        return res.status(400).json({
-          error: 'Bad Request',
-          message: 'Path parameter validation failed',
-          timestamp: new Date().toISOString(),
-          errors
-        });
+        return sendValidationError(res, 'Path parameter validation failed', errors);
       }
 
       next(error);

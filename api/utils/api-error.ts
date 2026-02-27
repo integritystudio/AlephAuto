@@ -42,14 +42,6 @@ export class ApiError extends Error {
   status: number;
   details: object | null;
 
-  /**
-   * Constructor.
-   *
-   * @param {string} code - The code
-   * @param {string} message - The message
-   * @param {*} [status=400] - The status
-   * @param {object | null} [details=null] - The details
-   */
   constructor(code: string, message: string, status = 400, details: object | null = null) {
     super(message);
     this.code = code;
@@ -58,9 +50,6 @@ export class ApiError extends Error {
     this.name = 'ApiError';
   }
 
-  /**
-   * To json.
-   */
   toJSON() {
     const response: { success: false; error: { code: string; message: string; details?: object }; timestamp: string } = {
       success: false,
@@ -81,15 +70,6 @@ export class ApiError extends Error {
 
 /**
  * Send standardized error response
- */
-/**
- * Send error.
- *
- * @param {Response} res - The response
- * @param {string} code - The code
- * @param {string} message - The message
- * @param {*} [status=400] - The status
- * @param {object | null} [details=null] - The details
  */
 export function sendError(res: Response, code: string, message: string, status = 400, details: object | null = null) {
   const response: { success: false; error: { code: string; message: string; details?: object }; timestamp: string } = {
@@ -113,26 +93,12 @@ export function sendError(res: Response, code: string, message: string, status =
 /**
  * Send validation error response
  */
-/**
- * Send validation error.
- *
- * @param {Response} res - The response
- * @param {string} message - The message
- * @param {unknown[]} [errors=[]] - The errors
- */
 export function sendValidationError(res: Response, message: string, errors: unknown[] = []) {
   return sendError(res, ERROR_CODES.INVALID_REQUEST, message, 400, { errors });
 }
 
 /**
  * Send not found error response
- */
-/**
- * Send not found error.
- *
- * @param {Response} res - The response
- * @param {string} resource - The resource
- * @param {string} identifier - The identifier
  */
 export function sendNotFoundError(res: Response, resource: string, identifier: string) {
   return sendError(
@@ -145,12 +111,6 @@ export function sendNotFoundError(res: Response, resource: string, identifier: s
 
 /**
  * Send internal server error response
- */
-/**
- * Send internal error.
- *
- * @param {Response} res - The response
- * @param {*} [message='An internal error occurred'] - The message
  */
 export function sendInternalError(res: Response, message = 'An internal error occurred') {
   return sendError(res, ERROR_CODES.INTERNAL_ERROR, message, 500);

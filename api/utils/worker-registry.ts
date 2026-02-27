@@ -65,7 +65,7 @@ const PIPELINE_CONFIGS: Record<string, PipelineConfig> = {
   'schema-enhancement': {
     WorkerClass: SchemaEnhancementWorker as unknown as WorkerConstructor,
     getOptions: () => ({
-      maxConcurrent: config.maxConcurrent || 2,
+      maxConcurrent: config.maxConcurrent ?? 2,
       logDir: config.logDir,
       sentryDsn: config.sentryDsn,
       gitWorkflowEnabled: config.enableGitWorkflow,
@@ -77,7 +77,7 @@ const PIPELINE_CONFIGS: Record<string, PipelineConfig> = {
   'git-activity': {
     WorkerClass: GitActivityWorker as unknown as WorkerConstructor,
     getOptions: () => ({
-      maxConcurrent: config.maxConcurrent || 3,
+      maxConcurrent: config.maxConcurrent ?? 3,
       logDir: config.logDir,
       sentryDsn: config.sentryDsn
     })
@@ -85,7 +85,7 @@ const PIPELINE_CONFIGS: Record<string, PipelineConfig> = {
   'gitignore-manager': {
     WorkerClass: GitignoreWorker as unknown as WorkerConstructor,
     getOptions: () => ({
-      maxConcurrent: config.maxConcurrent || 3,
+      maxConcurrent: config.maxConcurrent ?? 3,
       logDir: config.logDir,
       sentryDsn: config.sentryDsn
     })
@@ -93,7 +93,7 @@ const PIPELINE_CONFIGS: Record<string, PipelineConfig> = {
   'repomix': {
     WorkerClass: RepomixWorker as unknown as WorkerConstructor,
     getOptions: () => ({
-      maxConcurrent: config.maxConcurrent || 3,
+      maxConcurrent: config.maxConcurrent ?? 3,
       logDir: config.logDir,
       sentryDsn: config.sentryDsn
     })
@@ -101,7 +101,7 @@ const PIPELINE_CONFIGS: Record<string, PipelineConfig> = {
   'claude-health': {
     WorkerClass: ClaudeHealthWorker as unknown as WorkerConstructor,
     getOptions: () => ({
-      maxConcurrent: config.maxConcurrent || 3,
+      maxConcurrent: config.maxConcurrent ?? 3,
       logDir: config.logDir,
       sentryDsn: config.sentryDsn
     })
@@ -109,7 +109,7 @@ const PIPELINE_CONFIGS: Record<string, PipelineConfig> = {
   'repo-cleanup': {
     WorkerClass: RepoCleanupWorker as unknown as WorkerConstructor,
     getOptions: () => ({
-      maxConcurrent: config.maxConcurrent || 3,
+      maxConcurrent: config.maxConcurrent ?? 3,
       logDir: config.logDir,
       sentryDsn: config.sentryDsn
     })
@@ -117,7 +117,7 @@ const PIPELINE_CONFIGS: Record<string, PipelineConfig> = {
   'bugfix-audit': {
     WorkerClass: BugfixAuditWorker as unknown as WorkerConstructor,
     getOptions: () => ({
-      maxConcurrent: config.maxConcurrent || 3,
+      maxConcurrent: config.maxConcurrent ?? 3,
       logDir: config.logDir,
       sentryDsn: config.sentryDsn,
       gitBaseBranch: config.gitBaseBranch,
@@ -184,11 +184,6 @@ class WorkerRegistry {
   /**
    * Set the activity feed manager to connect workers for real-time updates
    */
-  /**
-   * Set activity feed.
-   *
-   * @param {ActivityFeedManager} activityFeed - The activityFeed
-   */
   setActivityFeed(activityFeed: ActivityFeedManager): void {
     this._activityFeed = activityFeed;
 
@@ -202,14 +197,6 @@ class WorkerRegistry {
 
   /**
    * Get worker instance for a pipeline ID
-   */
-  /**
-   * Get the worker.
-   *
-   * @param {string} pipelineId - The pipelineId
-   *
-   * @returns {Promise<SidequestServer>} The worker
-   * @async
    */
   async getWorker(pipelineId: string): Promise<SidequestServer> {
     // Fast path: already initialized
@@ -424,13 +411,6 @@ class WorkerRegistry {
   /**
    * Check if a pipeline ID is supported
    */
-  /**
-   * Check if supported.
-   *
-   * @param {string} pipelineId - The pipelineId
-   *
-   * @returns {boolean} True if supported, False otherwise
-   */
   isSupported(pipelineId: string): boolean {
     return pipelineId in PIPELINE_CONFIGS;
   }
@@ -438,22 +418,12 @@ class WorkerRegistry {
   /**
    * Get all supported pipeline IDs
    */
-  /**
-   * Get the supported pipelines.
-   *
-   * @returns {string[]} The supported pipelines
-   */
   getSupportedPipelines(): string[] {
     return Object.keys(PIPELINE_CONFIGS);
   }
 
   /**
    * Get aggregated stats from all initialized workers
-   */
-  /**
-   * Get the all stats.
-   *
-   * @returns {WorkerStats} The all stats
    */
   getAllStats(): WorkerStats {
     const stats: WorkerStats = {
@@ -468,11 +438,11 @@ class WorkerRegistry {
     for (const [pipelineId, worker] of this._workers.entries()) {
       if (typeof worker.getStats === 'function') {
         const workerStats = worker.getStats() as unknown as Record<string, number>;
-        stats.total += workerStats.total || 0;
-        stats.queued += workerStats.queued || 0;
-        stats.active += workerStats.active || 0;
-        stats.completed += workerStats.completed || 0;
-        stats.failed += workerStats.failed || 0;
+        stats.total += workerStats.total ?? 0;
+        stats.queued += workerStats.queued ?? 0;
+        stats.active += workerStats.active ?? 0;
+        stats.completed += workerStats.completed ?? 0;
+        stats.failed += workerStats.failed ?? 0;
         stats.byPipeline[pipelineId] = workerStats;
       }
     }
@@ -482,13 +452,6 @@ class WorkerRegistry {
 
   /**
    * Get stats for a specific pipeline worker (if initialized)
-   */
-  /**
-   * Get the worker stats.
-   *
-   * @param {string} pipelineId - The pipelineId
-   *
-   * @returns {Record<string, number> | null} The worker stats
    */
   getWorkerStats(pipelineId: string): Record<string, number> | null {
     const worker = this._workers.get(pipelineId);
@@ -501,13 +464,6 @@ class WorkerRegistry {
   /**
    * Get scan metrics for a specific pipeline worker (if supported)
    */
-  /**
-   * Get the scan metrics.
-   *
-   * @param {string} pipelineId - The pipelineId
-   *
-   * @returns {Record<string, unknown> | null} The scan metrics
-   */
   getScanMetrics(pipelineId: string): Record<string, unknown> | null {
     const worker = this._workers.get(pipelineId);
     const workerWithMetrics = worker as unknown as { getScanMetrics?: () => Record<string, unknown> } | undefined;
@@ -519,12 +475,6 @@ class WorkerRegistry {
 
   /**
    * Shutdown all workers gracefully
-   */
-  /**
-   * Shutdown.
-   *
-   * @returns {Promise<void>} The Promise<void>
-   * @async
    */
   async shutdown(): Promise<void> {
     logger.info({

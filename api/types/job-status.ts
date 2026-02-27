@@ -44,13 +44,6 @@ export type JobStatus = z.infer<typeof JobStatusSchema>;
  * @param value - Value to check
  * @returns True if value is a valid JobStatus
  */
-/**
- * Check if valid job status.
- *
- * @param {unknown} value - The value
- *
- * @returns {value is JobStatus} True if valid job status, False otherwise
- */
 export function isValidJobStatus(value: unknown): value is JobStatus {
   return JobStatusSchema.safeParse(value).success;
 }
@@ -69,13 +62,6 @@ export const TERMINAL_STATUSES: readonly JobStatus[] = Object.freeze([
  *
  * @param status - Status to check
  * @returns True if status is terminal
- */
-/**
- * Check if terminal status.
- *
- * @param {JobStatus} status - The status
- *
- * @returns {boolean} True if terminal status, False otherwise
  */
 export function isTerminalStatus(status: JobStatus): boolean {
   return TERMINAL_STATUSES.includes(status);
