@@ -93,9 +93,9 @@ describe('API Routes', () => {
           .send({});
 
         assert.strictEqual(response.status, 400);
-        assert.strictEqual(response.body.error, 'Bad Request');
+        assert.strictEqual(response.body.error.code, 'INVALID_REQUEST');
         assert.ok(
-          response.body.errors?.some(e => e.field === 'repositoryPath'),
+          response.body.error.details?.errors?.some(e => e.field === 'repositoryPath'),
           'Validation errors should include repositoryPath field'
         );
       });
@@ -204,7 +204,7 @@ describe('API Routes', () => {
 
       assert.strictEqual(response.status, 400);
       assert.ok(response.body.error);
-      assert.ok(response.body.message);
+      assert.ok(response.body.error.message);
       assert.ok(response.body.timestamp);
     });
   });
