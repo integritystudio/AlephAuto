@@ -300,6 +300,24 @@ async function testActivityFeed() {
   };
 }
 
+function logTestResult(result: any, index: number) {
+  const status = result.passed ? '✓ PASS' : '✗ FAIL';
+  logger.info(`${index + 1}. ${result.test}: ${status}`);
+
+  if (result.scenarios) {
+    result.scenarios.forEach((scenario: any) => {
+      logger.info(`${scenario.passed ? '  ✓' : '  ✗'} ${scenario.scenario}: ${scenario.message}`);
+    });
+  } else if (result.errorMessage) {
+    logger.info(`   Error message: "${result.errorMessage}"`);
+  } else if (result.retryMetrics) {
+    logger.info({
+      activeRetries: result.retryMetrics.activeRetries,
+      totalAttempts: result.retryMetrics.totalRetryAttempts
+    }, '   Retry metrics');
+  }
+}
+
 /**
  * Main test runner
  */
@@ -310,60 +328,22 @@ async function runTests() {
   const results = [];
 
   try {
-    // Check API health first
     logger.info('Checking API health...');
     const healthResponse = await fetch(`${API_BASE_URL}/health`);
-    if (!healthResponse.ok) {
-      throw new Error('API server is not healthy');
-    }
+    if (!healthResponse.ok) throw new Error('API server is not healthy');
     logger.info('API server is healthy ✓');
 
-    // Run tests
-    if (TESTS_TO_RUN.retryableErrors) {
-      results.push(await testRetryableErrors());
-    }
+    if (TESTS_TO_RUN.retryableErrors) results.push(await testRetryableErrors());
+    if (TESTS_TO_RUN.nonRetryableErrors) results.push(await testNonRetryableErrors());
+    if (TESTS_TO_RUN.errorMessages) results.push(await testErrorMessages());
+    if (TESTS_TO_RUN.activityFeed) results.push(await testActivityFeed());
 
-    if (TESTS_TO_RUN.nonRetryableErrors) {
-      results.push(await testNonRetryableErrors());
-    }
-
-    if (TESTS_TO_RUN.errorMessages) {
-      results.push(await testErrorMessages());
-    }
-
-    if (TESTS_TO_RUN.activityFeed) {
-      results.push(await testActivityFeed());
-    }
-
-    // Summary
     logger.info('\n=== TEST SUMMARY ===');
     const passed = results.filter(r => r.passed).length;
-    const total = results.length;
+    results.forEach((result, index) => logTestResult(result, index));
+    logger.info(`\n${passed}/${results.length} tests passed`);
 
-    results.forEach((result, index) => {
-      const status = result.passed ? '✓ PASS' : '✗ FAIL';
-      logger.info(`${index + 1}. ${result.test}: ${status}`);
-
-      // Log additional details for each test
-      if (result.scenarios) {
-        result.scenarios.forEach(scenario => {
-          const scenarioStatus = scenario.passed ? '  ✓' : '  ✗';
-          logger.info(`${scenarioStatus} ${scenario.scenario}: ${scenario.message}`);
-        });
-      } else if (result.errorMessage) {
-        logger.info(`   Error message: "${result.errorMessage}"`);
-      } else if (result.retryMetrics) {
-        logger.info({
-          activeRetries: result.retryMetrics.activeRetries,
-          totalAttempts: result.retryMetrics.totalRetryAttempts
-        }, '   Retry metrics');
-      }
-    });
-
-    logger.info(`\n${passed}/${total} tests passed`);
-
-    // Exit with appropriate code
-    process.exit(passed === total ? 0 : 1);
+    process.exit(passed === results.length ? 0 : 1);
 
   } catch (error) {
     logger.error({ error: error.message, stack: error.stack }, 'Test runner failed');

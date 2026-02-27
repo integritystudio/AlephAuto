@@ -281,6 +281,16 @@ async function deleteOldArchives(archivedLogs, retentionDays, dryRun, verbose) {
   return { deleted: deletedCount, totalSize };
 }
 
+function printCleanupSummary(archiveResult: { archived: number; totalSize: number }, deleteResult: { deleted: number; totalSize: number }, dryRun: boolean) {
+  console.log('\n' + '='.repeat(50));
+  console.log('📊 Summary');
+  console.log('='.repeat(50));
+  console.log(`Error logs archived: ${archiveResult.archived}`);
+  console.log(`Old archives deleted: ${deleteResult.deleted}`);
+  console.log(`Total space reclaimed: ${formatBytes(archiveResult.totalSize + deleteResult.totalSize)}`);
+  if (dryRun) console.log('\n⚠️  This was a dry run - no files were modified');
+}
+
 /**
  * Main cleanup function
  */
@@ -290,57 +300,27 @@ async function cleanup(options) {
   console.log(`Retention period: ${options.retentionDays} days`);
   console.log(`Archive retention: ${ARCHIVE_RETENTION_DAYS} days`);
   console.log(`Mode: ${options.dryRun ? 'DRY RUN (no changes)' : 'LIVE'}`);
-  console.log('='.repeat(50));
-  console.log('');
+  console.log('='.repeat(50) + '\n');
 
-  // Scan for error logs
   console.log('📂 Scanning for error logs...');
   const errorLogs = await scanErrorLogs(LOGS_BASE_DIR);
   console.log(`Found ${errorLogs.length} error log files\n`);
 
   if (options.verbose && errorLogs.length > 0) {
-    const byAge = {
-      recent: errorLogs.filter(log => log.ageDays <= options.retentionDays).length,
-      old: errorLogs.filter(log => log.ageDays > options.retentionDays).length
-    };
-    console.log(`  Recent (≤${options.retentionDays} days): ${byAge.recent}`);
-    console.log(`  Old (>${options.retentionDays} days): ${byAge.old}\n`);
+    const recent = errorLogs.filter(log => log.ageDays <= options.retentionDays).length;
+    console.log(`  Recent (≤${options.retentionDays} days): ${recent}`);
+    console.log(`  Old (>${options.retentionDays} days): ${errorLogs.length - recent}\n`);
   }
 
-  // Archive old logs
-  const archiveResult = await archiveOldLogs(
-    errorLogs,
-    options.retentionDays,
-    options.dryRun,
-    options.verbose
-  );
+  const archiveResult = await archiveOldLogs(errorLogs, options.retentionDays, options.dryRun, options.verbose);
 
-  // Scan for archived logs
   const archiveDir = path.join(LOGS_BASE_DIR, 'archive');
   const archivedLogs = await scanArchivedLogs(archiveDir);
 
   if (archivedLogs.length > 0) {
     console.log(`\n📦 Found ${archivedLogs.length} archived logs`);
-
-    // Delete very old archives
-    const deleteResult = await deleteOldArchives(
-      archivedLogs,
-      ARCHIVE_RETENTION_DAYS,
-      options.dryRun,
-      options.verbose
-    );
-
-    // Summary
-    console.log('\n' + '='.repeat(50));
-    console.log('📊 Summary');
-    console.log('='.repeat(50));
-    console.log(`Error logs archived: ${archiveResult.archived}`);
-    console.log(`Old archives deleted: ${deleteResult.deleted}`);
-    console.log(`Total space reclaimed: ${formatBytes(archiveResult.totalSize + deleteResult.totalSize)}`);
-
-    if (options.dryRun) {
-      console.log('\n⚠️  This was a dry run - no files were modified');
-    }
+    const deleteResult = await deleteOldArchives(archivedLogs, ARCHIVE_RETENTION_DAYS, options.dryRun, options.verbose);
+    printCleanupSummary(archiveResult, deleteResult, options.dryRun);
   } else {
     console.log('\n' + '='.repeat(50));
     console.log('✅ Cleanup complete!');

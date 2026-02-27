@@ -868,39 +868,7 @@ export * from './test-constants';
 `;
 }
 
-/**
- * Main execution
- */
-async function main() {
-  const projectPath = process.argv[2] || process.cwd();
-
-  console.log('🔍 Test Suite Refactoring Script');
-  console.log('================================\n');
-  console.log(`Project: ${projectPath}\n`);
-
-  // Build configuration
-  const config: RefactorConfig = {
-    ...defaultConfig as RefactorConfig,
-    projectPath,
-    framework: detectFramework(projectPath)
-  };
-
-  console.log(`Detected framework: ${config.framework}`);
-
-  // Find test files
-  const testFiles = await findTestFiles(config);
-  console.log(`Found ${testFiles.length} test files\n`);
-
-  if (testFiles.length === 0) {
-    console.log('No test files found. Please check your project structure.');
-    process.exit(1);
-  }
-
-  // Analyze test files
-  console.log('Analyzing test files for patterns...\n');
-  const analysis = await analyzeTestFiles(config, testFiles);
-
-  // Print analysis results
+function printAnalysisResults(analysis: Awaited<ReturnType<typeof analyzeTestFiles>>) {
   console.log('Analysis Results:');
   console.log('─────────────────');
   console.log(`  render + waitFor patterns: ${analysis.patterns.renderWaitFor}`);
@@ -911,24 +879,20 @@ async function main() {
   console.log(`  Duplicate assertions: ${analysis.patterns.duplicateAssertions.length}`);
   console.log();
 
-  // Print recommendations
   if (analysis.recommendations.length > 0) {
     console.log('Recommendations:');
     console.log('────────────────');
-    analysis.recommendations.forEach((rec, i) => {
-      console.log(`  ${i + 1}. ${rec}`);
-    });
+    analysis.recommendations.forEach((rec, i) => console.log(`  ${i + 1}. ${rec}`));
     console.log();
   }
+}
 
-  // Create utils directory
-  const utilsPath = path.join(projectPath, config.utilsDir);
+function generateUtilityFiles(config: RefactorConfig, analysis: Awaited<ReturnType<typeof analyzeTestFiles>>, utilsPath: string) {
   if (!fs.existsSync(utilsPath)) {
     fs.mkdirSync(utilsPath, { recursive: true });
     console.log(`Created directory: ${config.utilsDir}`);
   }
 
-  // Generate utility files
   const filesToGenerate = [
     { name: 'assertions.ts', content: generateAssertionsFile(config.framework) },
     { name: 'semantic-validators.ts', content: generateSemanticValidatorsFile(config.framework) },
@@ -950,24 +914,60 @@ async function main() {
     }
   }
 
-  // Generate render helpers (to be added to existing test-utils)
   const renderHelpersPath = path.join(utilsPath, 'render-helpers.ts');
   fs.writeFileSync(renderHelpersPath, generateRenderHelpers());
   console.log(`  ✓ Created ${config.utilsDir}/render-helpers.ts (add to test-utils.tsx)`);
+}
 
-  // Generate E2E fixtures if e2e directory exists
+function generateE2EFixturesIfNeeded(config: RefactorConfig, projectPath: string) {
   const e2ePath = path.join(projectPath, config.e2eDir);
-  if (fs.existsSync(e2ePath)) {
-    const fixturesPath = path.join(e2ePath, 'fixtures');
-    if (!fs.existsSync(fixturesPath)) {
-      fs.mkdirSync(fixturesPath, { recursive: true });
-    }
-    const navFixturesPath = path.join(fixturesPath, 'navigation.ts');
-    if (!fs.existsSync(navFixturesPath)) {
-      fs.writeFileSync(navFixturesPath, generateE2EFixtures());
-      console.log(`  ✓ Created ${config.e2eDir}/fixtures/navigation.ts`);
-    }
+  if (!fs.existsSync(e2ePath)) return;
+
+  const fixturesPath = path.join(e2ePath, 'fixtures');
+  if (!fs.existsSync(fixturesPath)) {
+    fs.mkdirSync(fixturesPath, { recursive: true });
   }
+  const navFixturesPath = path.join(fixturesPath, 'navigation.ts');
+  if (!fs.existsSync(navFixturesPath)) {
+    fs.writeFileSync(navFixturesPath, generateE2EFixtures());
+    console.log(`  ✓ Created ${config.e2eDir}/fixtures/navigation.ts`);
+  }
+}
+
+/**
+ * Main execution
+ */
+async function main() {
+  const projectPath = process.argv[2] || process.cwd();
+
+  console.log('🔍 Test Suite Refactoring Script');
+  console.log('================================\n');
+  console.log(`Project: ${projectPath}\n`);
+
+  const config: RefactorConfig = {
+    ...defaultConfig as RefactorConfig,
+    projectPath,
+    framework: detectFramework(projectPath)
+  };
+
+  console.log(`Detected framework: ${config.framework}`);
+
+  const testFiles = await findTestFiles(config);
+  console.log(`Found ${testFiles.length} test files\n`);
+
+  if (testFiles.length === 0) {
+    console.log('No test files found. Please check your project structure.');
+    process.exit(1);
+  }
+
+  console.log('Analyzing test files for patterns...\n');
+  const analysis = await analyzeTestFiles(config, testFiles);
+
+  printAnalysisResults(analysis);
+
+  const utilsPath = path.join(projectPath, config.utilsDir);
+  generateUtilityFiles(config, analysis, utilsPath);
+  generateE2EFixturesIfNeeded(config, projectPath);
 
   console.log('\n✅ Refactoring complete!');
   console.log('\nNext steps:');

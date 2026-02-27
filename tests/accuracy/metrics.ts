@@ -242,6 +242,28 @@ export function compareResults(detectedGroups, expectedGroups, falsePositiveCand
  * @param {Object} comparisonResults - Results from compareResults()
  * @returns {Object} All metrics with scores and percentages
  */
+function interpretHigherIsBetter(score: number): string {
+  if (score >= 0.9) return 'Excellent';
+  if (score >= 0.8) return 'Good';
+  if (score >= 0.7) return 'Fair';
+  return 'Poor';
+}
+
+function interpretLowerIsBetter(score: number): string {
+  if (score <= 0.1) return 'Excellent';
+  if (score <= 0.2) return 'Good';
+  if (score <= 0.3) return 'Fair';
+  return 'Poor';
+}
+
+function scoreEntry(score: number, higherIsBetter = true) {
+  return {
+    score,
+    percentage: (score * 100).toFixed(2) + '%',
+    interpretation: higherIsBetter ? interpretHigherIsBetter(score) : interpretLowerIsBetter(score)
+  };
+}
+
 export function calculateAllMetrics(comparisonResults) {
   const tp = comparisonResults.truePositives.length;
   const fp = comparisonResults.falsePositives.length;
@@ -255,26 +277,10 @@ export function calculateAllMetrics(comparisonResults) {
 
   return {
     counts: { tp, fp, fn, tn },
-    precision: {
-      score: precision,
-      percentage: (precision * 100).toFixed(2) + '%',
-      interpretation: precision >= 0.9 ? 'Excellent' : precision >= 0.8 ? 'Good' : precision >= 0.7 ? 'Fair' : 'Poor'
-    },
-    recall: {
-      score: recall,
-      percentage: (recall * 100).toFixed(2) + '%',
-      interpretation: recall >= 0.9 ? 'Excellent' : recall >= 0.8 ? 'Good' : recall >= 0.7 ? 'Fair' : 'Poor'
-    },
-    f1Score: {
-      score: f1Score,
-      percentage: (f1Score * 100).toFixed(2) + '%',
-      interpretation: f1Score >= 0.9 ? 'Excellent' : f1Score >= 0.8 ? 'Good' : f1Score >= 0.7 ? 'Fair' : 'Poor'
-    },
-    falsePositiveRate: {
-      score: fpRate,
-      percentage: (fpRate * 100).toFixed(2) + '%',
-      interpretation: fpRate <= 0.1 ? 'Excellent' : fpRate <= 0.2 ? 'Good' : fpRate <= 0.3 ? 'Fair' : 'Poor'
-    }
+    precision: scoreEntry(precision),
+    recall: scoreEntry(recall),
+    f1Score: scoreEntry(f1Score),
+    falsePositiveRate: scoreEntry(fpRate, false)
   };
 }
 

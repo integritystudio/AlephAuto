@@ -89,24 +89,8 @@ async function fixFilePermissions(filePath) {
   }
 }
 
-async function main() {
-  console.log('🔍 Validating file permissions...\n');
-
-  const results = await Promise.all(
-    CRITICAL_FILES.map(checkFilePermissions)
-  );
-
-  const invalid = results.filter(r => !r.isValid);
-  const executable = results.filter(r => r.isExecutable);
-
-  // Report findings
-  if (invalid.length === 0) {
-    console.log('✅ All files have correct permissions (644)\n');
-    process.exit(0);
-  }
-
+function reportInvalidFiles(invalid: Awaited<ReturnType<typeof checkFilePermissions>>[]) {
   console.log(`⚠️  Found ${invalid.length} files with incorrect permissions:\n`);
-
   for (const result of invalid) {
     if (result.error) {
       console.log(`  ❌ ${result.path}`);
@@ -117,43 +101,57 @@ async function main() {
       console.log(`     Expected: 100644 (not executable)\n`);
     }
   }
+}
 
-  // Check-only mode
+async function applyPermissionFixes(executable: Awaited<ReturnType<typeof checkFilePermissions>>[]) {
+  console.log('🔧 Fixing permissions...\n');
+
+  const fixes = await Promise.all(executable.map(r => fixFilePermissions(r.path)));
+  const successful = fixes.filter(f => f.success);
+  const failed = fixes.filter(f => !f.success);
+
+  if (successful.length > 0) {
+    console.log(`✅ Fixed ${successful.length} files:`);
+    successful.forEach(f => console.log(`   - ${f.path}`));
+    console.log();
+  }
+
+  if (failed.length > 0) {
+    console.log(`❌ Failed to fix ${failed.length} files:`);
+    failed.forEach(f => console.log(`   - ${f.path}: ${f.error}`));
+    console.log();
+    process.exit(1);
+  }
+
+  console.log('✅ All permissions corrected\n');
+  process.exit(0);
+}
+
+async function main() {
+  console.log('🔍 Validating file permissions...\n');
+
+  const results = await Promise.all(CRITICAL_FILES.map(checkFilePermissions));
+  const invalid = results.filter(r => !r.isValid);
+  const executable = results.filter(r => r.isExecutable);
+
+  if (invalid.length === 0) {
+    console.log('✅ All files have correct permissions (644)\n');
+    process.exit(0);
+  }
+
+  reportInvalidFiles(invalid);
+
   if (CHECK_ONLY) {
     console.log('ℹ️  Check-only mode - no changes made');
     console.log('   Run with --fix to correct permissions\n');
     process.exit(1);
   }
 
-  // Auto-fix mode
   if (FIX_MODE || executable.length > 0) {
-    console.log('🔧 Fixing permissions...\n');
-
-    const fixes = await Promise.all(
-      executable.map(r => fixFilePermissions(r.path))
-    );
-
-    const successful = fixes.filter(f => f.success);
-    const failed = fixes.filter(f => !f.success);
-
-    if (successful.length > 0) {
-      console.log(`✅ Fixed ${successful.length} files:`);
-      successful.forEach(f => console.log(`   - ${f.path}`));
-      console.log();
-    }
-
-    if (failed.length > 0) {
-      console.log(`❌ Failed to fix ${failed.length} files:`);
-      failed.forEach(f => console.log(`   - ${f.path}: ${f.error}`));
-      console.log();
-      process.exit(1);
-    }
-
-    console.log('✅ All permissions corrected\n');
-    process.exit(0);
+    await applyPermissionFixes(executable);
+    return;
   }
 
-  // Default: report and suggest fix
   console.log('💡 Run with --fix to correct permissions automatically\n');
   process.exit(1);
 }
