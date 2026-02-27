@@ -7,7 +7,7 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { CachedScanner } from '#sidequest/pipeline-core/cache/cached-scanner.ts';
 import { InterProjectScanner } from '#sidequest/pipeline-core/inter-project-scanner.ts';
-import { DuplicateDetectionWorker } from '#sidequest/pipeline-runners/duplicate-detection-pipeline.ts';
+import { DuplicateDetectionWorker } from '#sidequest/workers/duplicate-detection-worker.ts';
 import { createComponentLogger, logStart } from '#sidequest/utils/logger.ts';
 import { strictRateLimiter } from '../middleware/rate-limit.ts';
 import { validateRequest } from '../middleware/validation.ts';
