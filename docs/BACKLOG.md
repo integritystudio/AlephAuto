@@ -71,8 +71,8 @@ Thresholds: ≤300 lines, ≤20 methods.
 | ID | Rule | Count | Severity | Details |
 |----|------|-------|----------|---------|
 | SV1 | `no-console-log` | 500+ | warning | Hit 500 cap; worst: `claude-health-pipeline.ts` (61), `test-automated-pipeline.ts` (50), `test-mcp-server.ts` (64) |
-| SV2 | `prefer-const` | 186 | info | `let` declarations never reassigned |
-| SV3 | `no-double-equals` | 3 | warning | `==` instead of `===` — correctness risk |
+| ~~SV2~~ | ~~`prefer-const`~~ | ~~186~~ | ~~info~~ | ~~`let` declarations never reassigned~~ | Investigated 2026-02-26 — ESLint finds 0 violations; ast-grep count inflated by loop/destructured bindings. All `let` are legitimately mutable. |
+| ~~SV3~~ | ~~`no-double-equals`~~ | ~~3~~ | ~~warning~~ | ~~`==` instead of `===` — correctness risk~~ | Done 2026-02-26 |
 
 ### Documentation Coverage
 
