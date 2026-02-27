@@ -2,7 +2,6 @@ import { test, describe, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { RepomixWorker } from '../../sidequest/workers/repomix-worker.ts';
 import { createTempRepository, createMultipleTempRepositories, cleanupRepositories } from '../fixtures/test-helpers.ts';
-import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 
@@ -65,36 +64,6 @@ describe('RepomixWorker', () => {
     const job2 = worker.createRepomixJob(repos[1].path, 'dir2');
 
     assert.notStrictEqual(job1.id, job2.id);
-  });
-
-  test('should create output directory structure', { skip: 'requires real repomix execution; move to integration tests' }, async () => {
-    const testRepo = await createTempRepository('test');
-    const outputRepo = await createTempRepository('output');
-    testRepos.push(testRepo, outputRepo);
-
-    const worker = new RepomixWorker({
-      outputBaseDir: outputRepo.path,
-      logDir: path.join(outputRepo.path, 'logs'),
-    });
-
-    await fs.mkdir(path.join(outputRepo.path, 'logs'), { recursive: true });
-
-    const relativePath = 'test/project';
-
-    const jobDone = new Promise((resolve) => {
-      const timeout = setTimeout(resolve, 5000);
-      worker.once('job:completed', () => { clearTimeout(timeout); resolve(); });
-      worker.once('job:failed', () => { clearTimeout(timeout); resolve(); });
-    });
-
-    worker.createRepomixJob(testRepo.path, relativePath);
-    await jobDone;
-
-    worker.stop();
-
-    const outputDir = path.join(outputRepo.path, relativePath);
-    const dirExists = await fs.access(outputDir).then(() => true).catch(() => false);
-    assert.ok(dirExists, 'Output directory should be created');
   });
 
   test('should queue multiple jobs', async () => {
