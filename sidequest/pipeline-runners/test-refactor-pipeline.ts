@@ -168,24 +168,36 @@ async function hasTestDirectory(dirPath: string): Promise<boolean> {
 }
 
 /**
- * Wait for all jobs to complete
+ * Wait for all jobs to complete using events (matches BasePipeline pattern).
+ * Listens for job:completed, job:failed, and retry:created to avoid polling.
+ * Includes a deadline timeout to prevent indefinite hangs.
  */
 function waitForCompletion(worker: TestRefactorWorker): Promise<void> {
   return new Promise((resolve, reject) => {
     const deadline = setTimeout(() => {
+      cleanup();
       reject(new Error(`waitForCompletion timed out after ${TIMEOUTS.ONE_HOUR_MS}ms`));
     }, TIMEOUTS.ONE_HOUR_MS);
 
-    const checkCompletion = () => {
+    const cleanup = () => {
+      worker.off('job:completed', checkAndResolve);
+      worker.off('job:failed', checkAndResolve);
+      worker.off('retry:created', checkAndResolve);
+    };
+
+    const checkAndResolve = () => {
       const stats = worker.getStats();
-      if (stats.queued === 0 && stats.active === 0) {
+      if (stats.active === 0 && stats.queued === 0) {
         clearTimeout(deadline);
+        cleanup();
         resolve();
-      } else {
-        setTimeout(checkCompletion, TIMEOUTS.POLL_INTERVAL_MS);
       }
     };
-    checkCompletion();
+
+    worker.on('job:completed', checkAndResolve);
+    worker.on('job:failed', checkAndResolve);
+    worker.on('retry:created', checkAndResolve);
+    checkAndResolve();
   });
 }
 

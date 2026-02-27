@@ -6,6 +6,7 @@
 
 import type { Request, Response, NextFunction } from 'express';
 import { createComponentLogger } from '#sidequest/utils/logger.ts';
+import { config } from '#sidequest/core/config.ts';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('ErrorHandler');
@@ -16,16 +17,19 @@ interface ApiError extends Error {
   code?: string;
 }
 
+const SENSITIVE_KEYS = new Set(['password', 'token', 'secret', 'apiKey', 'api_key', 'authorization', 'key', 'credential', 'credentials']);
+
+function sanitizeBody(body: unknown): unknown {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return body;
+  return Object.fromEntries(
+    Object.entries(body as Record<string, unknown>).map(([k, v]) =>
+      SENSITIVE_KEYS.has(k.toLowerCase()) ? [k, '[REDACTED]'] : [k, v]
+    )
+  );
+}
+
 /**
  * Error handler middleware
- */
-/**
- * Error handler.
- *
- * @param {ApiError} err - The err
- * @param {Request} req - The request
- * @param {Response} res - The response
- * @param {NextFunction} _next - The  next
  */
 export function errorHandler(err: ApiError, req: Request, res: Response, _next: NextFunction): void {
   // Log error
@@ -34,7 +38,7 @@ export function errorHandler(err: ApiError, req: Request, res: Response, _next: 
     method: req.method,
     path: req.path,
     query: req.query,
-    body: req.body
+    body: sanitizeBody(req.body)
   }, 'API error occurred');
 
   // Capture in Sentry
@@ -72,7 +76,7 @@ export function errorHandler(err: ApiError, req: Request, res: Response, _next: 
   };
 
   // Include stack trace in development
-  if (process.env.NODE_ENV === 'development') {
+  if (config.nodeEnv === 'development') {
     errorResponse.error.stack = err.stack;
   }
 
