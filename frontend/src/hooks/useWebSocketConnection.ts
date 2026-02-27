@@ -11,9 +11,21 @@
 import { useEffect, useRef } from 'react';
 import { wsService } from '../services/websocket';
 import { useDashboardStore } from '../store/dashboard';
+import { PipelineType } from '../types';
 import type { Pipeline, SystemHealth } from '../types';
 
 const POLL_INTERVAL_MS = 5000;
+
+const PIPELINE_TYPE_MAP: Record<string, PipelineType> = {
+  'duplicate-detection': PipelineType.DUPLICATE_DETECTION,
+  'schema-enhancement': PipelineType.DOC_ENHANCEMENT,
+  'git-activity': PipelineType.GIT_ACTIVITY,
+  'repomix': PipelineType.REPOMIX_AUTOMATION,
+  'claude-health': PipelineType.CLAUDE_HEALTH,
+  'gitignore-manager': PipelineType.GITIGNORE_MANAGER,
+  'plugin-manager': PipelineType.PLUGIN_AUDIT,
+  'test-refactor': PipelineType.TEST_REFACTOR,
+};
 
 async function fetchStatus() {
   const response = await fetch('/api/status');
@@ -57,7 +69,7 @@ function mapPipeline(p: any): Pipeline {
     icon: getPipelineIcon(p.id),
     color: getPipelineColor(p.id),
     status: p.status || 'idle',
-    type: p.id,
+    type: PIPELINE_TYPE_MAP[p.id] ?? PipelineType.DUPLICATE_DETECTION,
     totalJobs: (p.completedJobs || 0) + (p.failedJobs || 0),
     successRate: p.completedJobs > 0
       ? p.completedJobs / ((p.completedJobs || 0) + (p.failedJobs || 0))
@@ -70,10 +82,10 @@ function mapPipeline(p: any): Pipeline {
 }
 
 function applyJobsToStore(store: ReturnType<typeof useDashboardStore.getState>, statusData: any) {
-  if (statusData.activeJobs?.length > 0) {
+  if (statusData.activeJobs !== undefined) {
     store.setActiveJobs(statusData.activeJobs.map(mapActiveJob));
   }
-  if (statusData.queuedJobs?.length > 0) {
+  if (statusData.queuedJobs !== undefined) {
     store.setQueuedJobs(statusData.queuedJobs.map(mapQueuedJob));
   }
 }
@@ -189,6 +201,7 @@ export const useWebSocketConnection = () => {
       console.log('[Dashboard] Cleaning up...');
       clearInterval(pollInterval);
       wsService.disconnect();
+      isInitialized.current = false;
     };
   }, []);
 };
