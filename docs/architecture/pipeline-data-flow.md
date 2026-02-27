@@ -149,7 +149,7 @@ graph TB
     SS --> W2[ClaudeHealthWorker]
     SS --> W3[GitActivityWorker]
     SS --> W4[SchemaEnhancementWorker]
-    SS --> W5[PluginManagerWorker]
+    SS --> W5["PluginManagerWorker<br/><i>utils/plugin-manager.ts</i>"]
     SS --> W6[DuplicateDetectionWorker]
     SS --> W7[GitignoreWorker]
     SS --> W8[RepoCleanupWorker]
