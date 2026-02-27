@@ -46,7 +46,7 @@ interface FormatErrorOptions {
  */
 export function safeErrorMessage(error: unknown, fallback = 'Unknown error'): string {
   // Handle null/undefined
-  if (error == null) {
+  if (error === null || error === undefined) {
     return fallback;
   }
 
@@ -86,7 +86,7 @@ export function safeErrorMessage(error: unknown, fallback = 'Unknown error'): st
  * @returns {string | undefined} The resulting string
  */
 export function safeErrorStack(error: unknown): string | undefined {
-  if (error == null) {
+  if (error === null || error === undefined) {
     return undefined;
   }
 
@@ -146,7 +146,7 @@ export function toErrorObject(error: unknown, options: ToErrorObjectOptions = {}
  * @returns {string} The error type
  */
 function getErrorType(error: unknown): string {
-  if (error == null) {
+  if (error === null || error === undefined) {
     return error === null ? 'null' : 'undefined';
   }
 
