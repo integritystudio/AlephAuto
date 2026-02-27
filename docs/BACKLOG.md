@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-02-26 | **Last Session:** 2026-02-26 (completed items migrated to [v2.1 CHANGELOG](2.1/CHANGELOG.md))
+**Last Updated:** 2026-02-27 | **Last Session:** 2026-02-27 (backlog-implementer run — CX1-CX10, CS5, SV2-SV3 addressed)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -33,36 +33,35 @@ Technical debt and planned improvements.
 
 ### Critical Complexity (Cyclomatic/Cognitive/Length)
 
-| ID | File | Lines | Cyclomatic | Cognitive | Length | Exceeds |
-|----|------|-------|-----------|-----------|--------|---------|
-| CX1 | `frontend/src/hooks/useWebSocketConnection.ts` | 42-215 | **38** | **38** | **174** | All thresholds |
-| CX2 | `tests/integration/test-error-classification-ui.ts` | 234-301 | 16 | 12 | 68 | cyclomatic, length |
-| CX3 | `tests/integration/test-error-classification-ui.ts` | 306-372 | 14 | 12 | 67 | cyclomatic, length |
-| CX4 | `sidequest/utils/refactor-test-suite.ts` | 874-978 | 13 | 12 | 105 | cyclomatic, length |
-| CX5 | `tests/integration/test-scan-pipeline.ts` | 16-110 | 11 | 13 | 95 | cyclomatic, length |
-| CX6 | `tests/integration/test-inter-project-scan.ts` | 23-178 | 12 | 10 | 156 | cyclomatic, length |
-| CX7 | `tests/accuracy/accuracy-test.ts` | 42-81 | 15 | 14 | 40 | cyclomatic |
-| CX8 | `tests/accuracy/metrics.ts` | 245-279 | 13 | 0 | 35 | cyclomatic |
-| CX9 | `scripts/cleanup-error-logs.ts` | 287-351 | 9 | 5 | 65 | length |
-| CX10 | `scripts/validate-permissions.ts` | 92-159 | 10 | 11 | 68 | length |
-| CX11 | `docs/setup/sentry-to-discord.js` | 44-128 | **31** | 19 | 85 | cyclomatic, cognitive, length |
-| CX12 | `scripts/archive/migrate-db-to-render.js` | 184-259 | 13 | 18 | 76 | cyclomatic, cognitive, length |
-| CX13 | `scripts/archive/generate-retroactive-reports.js` | 76-176 | 11 | 14 | 101 | cyclomatic, length |
+| ID | File | Lines | Cyclomatic | Cognitive | Length | Exceeds | Status |
+|----|------|-------|-----------|-----------|--------|---------|--------|
+| ~~CX1~~ | ~~`frontend/src/hooks/useWebSocketConnection.ts`~~ | — | — | — | — | — | Done 2026-02-27 |
+| ~~CX2~~ | ~~`tests/integration/test-error-classification-ui.ts`~~ | — | — | — | — | — | Done 2026-02-27 |
+| ~~CX3~~ | ~~`tests/integration/test-error-classification-ui.ts`~~ | — | — | — | — | — | Done 2026-02-27 |
+| ~~CX4~~ | ~~`sidequest/utils/refactor-test-suite.ts`~~ | — | — | — | — | — | Done 2026-02-27 |
+| ~~CX5~~ | ~~`tests/integration/test-scan-pipeline.ts`~~ | — | — | — | — | — | Done 2026-02-27 |
+| CX6 | `tests/integration/test-inter-project-scan.ts` | 23-178 | 12 | 10 | 156 | cyclomatic, length | |
+| CX7 | `tests/accuracy/accuracy-test.ts` | 42-81 | 15 | 14 | 40 | cyclomatic | |
+| ~~CX8~~ | ~~`tests/accuracy/metrics.ts`~~ | — | — | — | — | — | Done 2026-02-27 |
+| ~~CX9~~ | ~~`scripts/cleanup-error-logs.ts`~~ | — | — | — | — | — | Done 2026-02-27 |
+| ~~CX10~~ | ~~`scripts/validate-permissions.ts`~~ | — | — | — | — | — | Done 2026-02-27 |
+| CX11 | `docs/setup/sentry-to-discord.js` | 44-128 | **31** | 19 | 85 | cyclomatic, cognitive, length | Archive file |
+| CX12 | `scripts/archive/migrate-db-to-render.js` | 184-259 | 13 | 18 | 76 | cyclomatic, cognitive, length | Archive file |
+| CX13 | `scripts/archive/generate-retroactive-reports.js` | 76-176 | 11 | 14 | 101 | cyclomatic, length | Archive file |
 
 Thresholds: cyclomatic ≤10, cognitive ≤15, nesting ≤4, length ≤50 lines.
 
+> CX6: `test-inter-project-scan.ts` main function — consider extracting print helpers similar to CX5 approach.
+> CX7: `extractFunctionName` — inherent fallback chain; hard to reduce without obscuring logic.
+> CX11-CX13: archive/docs files — low priority.
+
 ### Large Classes (Code Smells)
 
-| ID | File | Lines | Methods | Severity |
-|----|------|-------|---------|----------|
-
-
-
-
-| CS5 | `api/activity-feed.ts:38` | 460 | 16 | medium |
-
-| CS7 | `api/utils/worker-registry.ts:164` | 348 | 19 | low |
-| CS8 | `sidequest/utils/schema-mcp-tools.ts:54` | 259 | 27 | low |
+| ID | File | Lines | Methods | Severity | Status |
+|----|------|-------|---------|----------|--------|
+| ~~CS5~~ | ~~`api/activity-feed.ts:38`~~ | — | — | — | Done 2026-02-27 |
+| CS7 | `api/utils/worker-registry.ts:164` | 348 | 19 | low | |
+| CS8 | `sidequest/utils/schema-mcp-tools.ts:54` | 259 | 27 | low | |
 
 Thresholds: ≤300 lines, ≤20 methods.
 
@@ -71,8 +70,8 @@ Thresholds: ≤300 lines, ≤20 methods.
 | ID | Rule | Count | Severity | Details |
 |----|------|-------|----------|---------|
 | SV1 | `no-console-log` | 500+ | warning | Hit 500 cap; worst: `claude-health-pipeline.ts` (61), `test-automated-pipeline.ts` (50), `test-mcp-server.ts` (64) |
-| ~~SV2~~ | ~~`prefer-const`~~ | ~~186~~ | ~~info~~ | ~~`let` declarations never reassigned~~ | Investigated 2026-02-26 — ESLint finds 0 violations; ast-grep count inflated by loop/destructured bindings. All `let` are legitimately mutable. |
-| ~~SV3~~ | ~~`no-double-equals`~~ | ~~3~~ | ~~warning~~ | ~~`==` instead of `===` — correctness risk~~ | Done 2026-02-26 |
+| ~~SV2~~ | ~~`prefer-const`~~ | ~~186~~ | ~~info~~ | ~~`let` declarations never reassigned~~ | Investigated 2026-02-27 — ESLint finds 0 violations; ast-grep count inflated by loop/destructured bindings. All `let` are legitimately mutable. |
+| ~~SV3~~ | ~~`no-double-equals`~~ | ~~3~~ | ~~warning~~ | ~~`==` instead of `===` — correctness risk~~ | Done 2026-02-27 |
 
 ### Documentation Coverage
 
@@ -91,12 +90,9 @@ Thresholds: ≤300 lines, ≤20 methods.
 
 No issues found (SQL injection, XSS, command injection, hardcoded secrets, insecure crypto).
 
-### Recommended Priority
+### Remaining Priority
 
-1. **CX1** — Refactor `useWebSocketConnection.ts` (4x over every threshold)
-2. **SV3** — Fix 3 `==` to `===` (correctness risk)
-3. **CS1** — Split `html-report-generator.ts` (693 lines)
-4. **CS2** — Split `migration-transformer.ts` (564 lines, 44 methods)
-5. **SV1** — Replace `console.log` with structured logger in non-test code
-6. **SV2** — Convert 186 `let` to `const`
-7. **DOC1-8** — Add JSDoc starting with core modules (`database.ts`, `server.ts`, `activity-feed.ts`)
+1. **CX6** — Extract helpers from `test-inter-project-scan.ts` (156-line main)
+2. **SV1** — Replace `console.log` with structured logger in non-test code
+3. **CS7/CS8** — Large classes (low severity, low priority)
+4. **DOC1-8** — Add JSDoc starting with core modules
