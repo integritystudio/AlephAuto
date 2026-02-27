@@ -36,14 +36,14 @@ interface RetryInfo {
 }
 
 export class ActivityFeedManager {
-  broadcaster: ScanEventBroadcaster | null;
-  maxActivities: number;
+  private broadcaster: ScanEventBroadcaster | null;
+  private maxActivities: number;
   activities: ActivityEntry[];
   activityId: number;
 
   constructor(broadcaster: ScanEventBroadcaster | null, options: { maxActivities?: number } = {}) {
     this.broadcaster = broadcaster;
-    this.maxActivities = options.maxActivities || 50; // Keep last 50 activities
+    this.maxActivities = options.maxActivities ?? 50; // Keep last 50 activities
     this.activities = [];
     this.activityId = 0;
 
@@ -214,7 +214,7 @@ export class ActivityFeedManager {
     try {
       const jobResult = job.result as Record<string, unknown> | null | undefined;
       let durationSeconds = (jobResult as Record<string, unknown> | null | undefined)?.duration_seconds as number | undefined;
-      if (!durationSeconds && job.startedAt && job.completedAt) {
+      if (durationSeconds === undefined && job.startedAt && job.completedAt) {
         const startTime = job.startedAt instanceof Date ? job.startedAt : new Date(job.startedAt);
         const endTime = job.completedAt instanceof Date ? job.completedAt : new Date(job.completedAt);
         durationSeconds = (endTime.getTime() - startTime.getTime()) / TIME.SECOND;
