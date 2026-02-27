@@ -74,14 +74,22 @@ export interface MigrationTransformerOptions {
 }
 
 /**
- * Escape special regex characters in a string
+ * Escape reg exp.
+ *
+ * @param {string} str - The str
+ *
+ * @returns {string} The resulting string
  */
 function escapeRegExp(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
- * Parse migration step description to extract transformation details
+ * Parse migration step.
+ *
+ * @param {string} description - The description
+ *
+ * @returns {ParsedMigrationStep | null} The ParsedMigrationStep | null
  */
 function parseMigrationStep(description: string): ParsedMigrationStep | null {
   // Pattern 1: Update import
@@ -149,10 +157,24 @@ const PARSER_PLUGINS: ParserPlugin[] = [
 export class MigrationTransformer {
   dryRun: boolean;
 
+    /**
+   * Constructor.
+   *
+   * @param {MigrationTransformerOptions} [options={}] - Options dictionary
+   */
   constructor(options: MigrationTransformerOptions = {}) {
     this.dryRun = options.dryRun ?? false;
   }
 
+    /**
+   * Apply migration steps.
+   *
+   * @param {MigrationSuggestion} suggestion - The suggestion
+   * @param {string} repositoryPath - The repositoryPath
+   *
+   * @returns {Promise<MigrationResult>} The Promise<MigrationResult>
+   * @async
+   */
   async applyMigrationSteps(suggestion: MigrationSuggestion, repositoryPath: string): Promise<MigrationResult> {
     logger.info({
       suggestionId: suggestion.suggestion_id,
@@ -391,6 +413,11 @@ export class MigrationTransformer {
     let modified = false;
 
     traverse(ast, {
+            /**
+       * Import declaration.
+       *
+       * @param {NodePath<t.ImportDeclaration>} path - The file or directory path
+       */
       ImportDeclaration(path: NodePath<t.ImportDeclaration>) {
         if (path.node.source.value === oldPath) {
           path.node.source.value = newPath;
@@ -406,6 +433,11 @@ export class MigrationTransformer {
   private _addImport(ast: ParseResult<BabelFile>, imported: string, source: string): boolean {
     let alreadyExists = false;
     traverse(ast, {
+            /**
+       * Import declaration.
+       *
+       * @param {NodePath<t.ImportDeclaration>} path - The file or directory path
+       */
       ImportDeclaration(path: NodePath<t.ImportDeclaration>) {
         if (path.node.source.value === source) {
           alreadyExists = true;
@@ -448,6 +480,11 @@ export class MigrationTransformer {
     let modified = false;
 
     traverse(ast, {
+            /**
+       * Call expression.
+       *
+       * @param {NodePath<t.CallExpression>} path - The file or directory path
+       */
       CallExpression(path: NodePath<t.CallExpression>) {
         if (t.isIdentifier(path.node.callee, { name: oldName })) {
           if (newName.includes('.')) {
@@ -473,6 +510,11 @@ export class MigrationTransformer {
     let modified = false;
 
     traverse(ast, {
+            /**
+       * Function declaration.
+       *
+       * @param {NodePath<t.FunctionDeclaration>} path - The file or directory path
+       */
       FunctionDeclaration(path: NodePath<t.FunctionDeclaration>) {
         if (path.node.id && path.node.id.name === name) {
           path.remove();
@@ -481,6 +523,11 @@ export class MigrationTransformer {
         }
       },
 
+            /**
+       * Class declaration.
+       *
+       * @param {NodePath<t.ClassDeclaration>} path - The file or directory path
+       */
       ClassDeclaration(path: NodePath<t.ClassDeclaration>) {
         if (path.node.id && path.node.id.name === name) {
           path.remove();
@@ -489,6 +536,11 @@ export class MigrationTransformer {
         }
       },
 
+            /**
+       * Variable declarator.
+       *
+       * @param {NodePath<t.VariableDeclarator>} path - The file or directory path
+       */
       VariableDeclarator(path: NodePath<t.VariableDeclarator>) {
         if (t.isIdentifier(path.node.id, { name })) {
           const parent = path.parentPath;
@@ -686,6 +738,14 @@ export class MigrationTransformer {
     }
   }
 
+    /**
+   * Rollback.
+   *
+   * @param {string} repositoryPath - The repositoryPath
+   *
+   * @returns {Promise<void>} The Promise<void>
+   * @async
+   */
   async rollback(repositoryPath: string): Promise<void> {
     logger.info({ repositoryPath }, 'Rolling back transformations');
 

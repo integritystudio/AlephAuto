@@ -80,6 +80,12 @@ export class ScanResultCache {
   private readonly keyPrefix: string;
   private readonly enabled: boolean;
 
+    /**
+   * Constructor.
+   *
+   * @param {RedisClient} redisClient - The redisClient
+   * @param {ScanCacheOptions} [options={}] - Options dictionary
+   */
   constructor(redisClient: RedisClient, options: ScanCacheOptions = {}) {
     this.redis = redisClient;
     this.ttl = options.ttl ?? (30 * 24 * 60 * 60); // Default: 30 days in seconds
@@ -103,8 +109,14 @@ export class ScanResultCache {
     return `${this.keyPrefix}${pathHash}:${shortCommit}`;
   }
 
-  /**
-   * Get cached scan result
+    /**
+   * Get the cached scan.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {string | null} commitHash - The commitHash
+   *
+   * @returns {Promise<ScanResultWithCache | null>} The cached scan
+   * @async
    */
   async getCachedScan(repoPath: string, commitHash: string | null): Promise<ScanResultWithCache | null> {
     if (!this.enabled) {
@@ -260,8 +272,13 @@ export class ScanResultCache {
     }
   }
 
-  /**
-   * Invalidate cache for a repository
+    /**
+   * Invalidate cache.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<number>} The Promise<number>
+   * @async
    */
   async invalidateCache(repoPath: string): Promise<number> {
     try {
@@ -302,8 +319,11 @@ export class ScanResultCache {
     }
   }
 
-  /**
-   * Get cache statistics
+    /**
+   * Get the stats.
+   *
+   * @returns {Promise<CacheStats>} The stats
+   * @async
    */
   async getStats(): Promise<CacheStats> {
     try {
@@ -337,8 +357,13 @@ export class ScanResultCache {
     }
   }
 
-  /**
-   * List cached scans
+    /**
+   * List cached scans.
+   *
+   * @param {*} [limit=10] - The limit
+   *
+   * @returns {Promise<IndexEntry[]>} The Promise<IndexEntry[]>
+   * @async
    */
   async listCachedScans(limit = 10): Promise<IndexEntry[]> {
     try {
@@ -360,8 +385,14 @@ export class ScanResultCache {
     }
   }
 
-  /**
-   * Get cache metadata for a specific scan
+    /**
+   * Get the cache metadata.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {string | null} commitHash - The commitHash
+   *
+   * @returns {Promise<CacheMetadata | null>} The cache metadata
+   * @async
    */
   async getCacheMetadata(repoPath: string, commitHash: string | null): Promise<CacheMetadata | null> {
     const cacheKey = this._generateCacheKey(repoPath, commitHash);
@@ -384,8 +415,11 @@ export class ScanResultCache {
     }
   }
 
-  /**
-   * Clear all cached scans
+    /**
+   * Clear all.
+   *
+   * @returns {Promise<number>} The Promise<number>
+   * @async
    */
   async clearAll(): Promise<number> {
     try {
@@ -409,8 +443,14 @@ export class ScanResultCache {
     }
   }
 
-  /**
-   * Check if a scan is cached
+    /**
+   * Check if cached.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {string | null} commitHash - The commitHash
+   *
+   * @returns {Promise<boolean>} True if cached, False otherwise
+   * @async
    */
   async isCached(repoPath: string, commitHash: string | null): Promise<boolean> {
     const cacheKey = this._generateCacheKey(repoPath, commitHash);
@@ -427,8 +467,14 @@ export class ScanResultCache {
     }
   }
 
-  /**
-   * Get cache age in milliseconds
+    /**
+   * Get the cache age.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {string | null} commitHash - The commitHash
+   *
+   * @returns {Promise<number | null>} The cache age
+   * @async
    */
   async getCacheAge(repoPath: string, commitHash: string | null): Promise<number | null> {
     const metadata = await this.getCacheMetadata(repoPath, commitHash);

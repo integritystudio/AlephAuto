@@ -44,7 +44,10 @@ interface HealthScanOptions {
 }
 
 /**
- * Main CLI function
+ * Main.
+ *
+ * @returns {Promise<void>} The Promise<void>
+ * @async
  */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -139,7 +142,11 @@ async function main(): Promise<void> {
 }
 
 /**
- * Generate markdown report from results
+ * Generate the markdown report.
+ *
+ * @param {ScanResults} results - The results
+ *
+ * @returns {string} The created markdown report
  */
 function generateMarkdownReport(results: ScanResults): string {
   const lines: string[] = [
@@ -215,7 +222,13 @@ function generateMarkdownReport(results: ScanResults): string {
 }
 
 /**
- * Export for programmatic use
+ * Run health scan.
+ *
+ * @param {string} repoPath - The repoPath
+ * @param {HealthScanOptions} [options={}] - Options dictionary
+ *
+ * @returns {Promise<ScanResults>} The Promise<ScanResults>
+ * @async
  */
 export async function runHealthScan(repoPath: string, options: HealthScanOptions = {}): Promise<ScanResults> {
   const results: ScanResults = {

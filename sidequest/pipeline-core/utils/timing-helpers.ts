@@ -18,7 +18,9 @@ interface Timer {
 }
 
 /**
- * Creates a timer for measuring operation duration
+ * Create the timer.
+ *
+ * @returns {Timer} The created timer
  */
 export function createTimer(): Timer {
   const startTime = Date.now();

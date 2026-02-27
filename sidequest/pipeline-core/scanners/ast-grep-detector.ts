@@ -90,13 +90,24 @@ export class AstGrepPatternDetector {
   private readonly rulesDirectory: string;
   private readonly configPath: string;
 
+    /**
+   * Constructor.
+   *
+   * @param {AstGrepDetectorOptions} [options={}] - Options dictionary
+   */
   constructor(options: AstGrepDetectorOptions = {}) {
     this.rulesDirectory = options.rulesDirectory ?? path.join(process.cwd(), '.ast-grep/rules');
     this.configPath = options.configPath ?? path.join(process.cwd(), '.ast-grep/sgconfig.yml');
   }
 
-  /**
-   * Detect patterns in repository
+    /**
+   * Detect patterns.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {DetectConfig} [_detectConfig={}] - The  detectConfig
+   *
+   * @returns {Promise<DetectionResult>} The Promise<DetectionResult>
+   * @async
    */
   async detectPatterns(repoPath: string, _detectConfig: DetectConfig = {}): Promise<DetectionResult> {
     const timer = createTimer();
@@ -144,8 +155,14 @@ export class AstGrepPatternDetector {
     }
   }
 
-  /**
-   * Run ast-grep scan command
+    /**
+   * Run ast grep scan.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {DetectConfig} _config - Configuration for 
+   *
+   * @returns {Promise<RawAstGrepMatch[]>} The Promise<RawAstGrepMatch[]>
+   * @async
    */
   async runAstGrepScan(repoPath: string, _config: DetectConfig): Promise<RawAstGrepMatch[]> {
     return new Promise<RawAstGrepMatch[]>((resolve, reject) => {
@@ -215,9 +232,13 @@ export class AstGrepPatternDetector {
     });
   }
 
-  /**
-   * Normalize ast-grep match to standard format
-   * Includes file context to capture function declarations
+    /**
+   * Normalize match.
+   *
+   * @param {RawAstGrepMatch} match - The match
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {NormalizedMatch} The NormalizedMatch
    */
   normalizeMatch(match: RawAstGrepMatch, repoPath: string): NormalizedMatch {
     const filePath = match.file ?? match.path ?? '';
@@ -241,12 +262,25 @@ export class AstGrepPatternDetector {
     };
   }
 
-  /**
-   * Load all ast-grep rules from directory
+    /**
+   * Load the rules.
+   *
+   * @param {string} rulesDir - The rulesDir
+   *
+   * @returns {Promise<RuleEntry[]>} The rules
+   * @async
    */
   async loadRules(rulesDir: string): Promise<RuleEntry[]> {
     const rules: RuleEntry[] = [];
 
+        /**
+     * Walk rules.
+     *
+     * @param {string} dir - The dir
+     *
+     * @returns {Promise<void>} The Promise<void>
+     * @async
+     */
     async function walkRules(dir: string): Promise<void> {
       const entries = await fs.readdir(dir, { withFileTypes: true });
 
@@ -273,8 +307,14 @@ export class AstGrepPatternDetector {
     return rules;
   }
 
-  /**
-   * Detect patterns in a single file
+    /**
+   * Detect in file.
+   *
+   * @param {string} filePath - The filePath
+   * @param {RuleEntry[]} [_rules=[]] - The  rules
+   *
+   * @returns {Promise<NormalizedMatch[]>} The Promise<NormalizedMatch[]>
+   * @async
    */
   async detectInFile(filePath: string, _rules: RuleEntry[] = []): Promise<NormalizedMatch[]> {
     // For now, delegate to full scan
@@ -296,6 +336,12 @@ export class AstGrepPatternDetector {
  * Custom error class for pattern detection errors
  */
 export class PatternDetectionError extends Error {
+    /**
+   * Constructor.
+   *
+   * @param {string} message - The message
+   * @param {{ cause?: unknown }} options? - The options?
+   */
   constructor(message: string, options?: { cause?: unknown }) {
     super(message);
     if (options?.cause) {

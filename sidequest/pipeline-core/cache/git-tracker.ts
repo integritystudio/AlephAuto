@@ -34,8 +34,13 @@ export interface RepositoryStatus {
 }
 
 export class GitCommitTracker {
-  /**
-   * Get the current HEAD commit hash for a repository
+    /**
+   * Get the repository commit.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<string | null>} The repository commit
+   * @async
    */
   async getRepositoryCommit(repoPath: string): Promise<string | null> {
     try {
@@ -53,8 +58,13 @@ export class GitCommitTracker {
     }
   }
 
-  /**
-   * Get short commit hash (first 7 characters)
+    /**
+   * Get the short commit.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<string | null>} The short commit
+   * @async
    */
   async getShortCommit(repoPath: string): Promise<string | null> {
     try {
@@ -72,8 +82,14 @@ export class GitCommitTracker {
     }
   }
 
-  /**
-   * Check if repository has changed since a given commit
+    /**
+   * Check if has changed.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {string | null} lastCommit - The lastCommit
+   *
+   * @returns {Promise<boolean>} True if changed, False otherwise
+   * @async
    */
   async hasChanged(repoPath: string, lastCommit: string | null): Promise<boolean> {
     if (!lastCommit) {
@@ -99,8 +115,14 @@ export class GitCommitTracker {
     return changed;
   }
 
-  /**
-   * Get list of files changed since a given commit
+    /**
+   * Get the changed files.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {string | null} fromCommit - The fromCommit
+   *
+   * @returns {Promise<string[]>} The changed files
+   * @async
    */
   async getChangedFiles(repoPath: string, fromCommit: string | null): Promise<string[]> {
     try {
@@ -136,8 +158,14 @@ export class GitCommitTracker {
     }
   }
 
-  /**
-   * Get commit metadata (author, date, message)
+    /**
+   * Get the commit metadata.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {*} [commitHash='HEAD'] - The commitHash
+   *
+   * @returns {Promise<CommitMetadata | null>} The commit metadata
+   * @async
    */
   async getCommitMetadata(repoPath: string, commitHash = 'HEAD'): Promise<CommitMetadata | null> {
     try {
@@ -166,8 +194,13 @@ export class GitCommitTracker {
     }
   }
 
-  /**
-   * Get repository branch name
+    /**
+   * Get the branch name.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<string | null>} The branch name
+   * @async
    */
   async getBranchName(repoPath: string): Promise<string | null> {
     try {
@@ -185,8 +218,13 @@ export class GitCommitTracker {
     }
   }
 
-  /**
-   * Check if repository has uncommitted changes
+    /**
+   * Check if has uncommitted changes.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<boolean>} True if uncommitted changes, False otherwise
+   * @async
    */
   async hasUncommittedChanges(repoPath: string): Promise<boolean> {
     try {
@@ -208,8 +246,14 @@ export class GitCommitTracker {
     }
   }
 
-  /**
-   * Get repository remote URL
+    /**
+   * Get the remote url.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {*} [remoteName='origin'] - The remoteName
+   *
+   * @returns {Promise<string | null>} The remote url
+   * @async
    */
   async getRemoteUrl(repoPath: string, remoteName = 'origin'): Promise<string | null> {
     try {
@@ -227,8 +271,13 @@ export class GitCommitTracker {
     }
   }
 
-  /**
-   * Get total number of commits in repository
+    /**
+   * Get the commit count.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<number>} The commit count
+   * @async
    */
   async getCommitCount(repoPath: string): Promise<number> {
     try {
@@ -246,8 +295,13 @@ export class GitCommitTracker {
     }
   }
 
-  /**
-   * Check if path is a git repository
+    /**
+   * Check if git repository.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<boolean>} True if git repository, False otherwise
+   * @async
    */
   async isGitRepository(repoPath: string): Promise<boolean> {
     try {
@@ -264,8 +318,13 @@ export class GitCommitTracker {
     }
   }
 
-  /**
-   * Get repository status summary
+    /**
+   * Get the repository status.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<RepositoryStatus>} The repository status
+   * @async
    */
   async getRepositoryStatus(repoPath: string): Promise<RepositoryStatus> {
     const [
@@ -297,8 +356,14 @@ export class GitCommitTracker {
     return status;
   }
 
-  /**
-   * Get commit history for a repository
+    /**
+   * Get the commit history.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {*} [limit=10] - The limit
+   *
+   * @returns {Promise<CommitMetadata[]>} The commit history
+   * @async
    */
   async getCommitHistory(repoPath: string, limit = 10): Promise<CommitMetadata[]> {
     try {

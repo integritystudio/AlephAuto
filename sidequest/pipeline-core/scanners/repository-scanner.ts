@@ -70,6 +70,11 @@ interface FileFilter {
 export class RepositoryScanner {
   private readonly repomixWorker: InstanceType<typeof RepomixWorker>;
 
+    /**
+   * Constructor.
+   *
+   * @param {RepositoryScannerOptions} [options={}] - Options dictionary
+   */
   constructor(options: RepositoryScannerOptions = {}) {
     this.repomixWorker = new RepomixWorker({
       outputBaseDir: options.outputBaseDir ?? config.outputBaseDir,
@@ -78,8 +83,14 @@ export class RepositoryScanner {
     });
   }
 
-  /**
-   * Scan repository and extract metadata
+    /**
+   * Scan repository.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {ScanConfig} [scanConfig={}] - The scanConfig
+   *
+   * @returns {Promise<RepositoryScanOutput>} The Promise<RepositoryScanOutput>
+   * @async
    */
   async scanRepository(repoPath: string, scanConfig: ScanConfig = {}): Promise<RepositoryScanOutput> {
     const startTime = Date.now();
@@ -147,8 +158,13 @@ export class RepositoryScanner {
     }
   }
 
-  /**
-   * Validate that path is a valid repository
+    /**
+   * Validate repository.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<void>} The Promise<void>
+   * @async
    */
   async validateRepository(repoPath: string): Promise<void> {
     try {
@@ -169,8 +185,13 @@ export class RepositoryScanner {
     }
   }
 
-  /**
-   * Get repository information
+    /**
+   * Get the repository info.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<RepositoryInfo>} The repository info
+   * @async
    */
   async getRepositoryInfo(repoPath: string): Promise<RepositoryInfo> {
     const name = path.basename(repoPath);
@@ -225,8 +246,13 @@ export class RepositoryScanner {
     return info;
   }
 
-  /**
-   * Run repomix scan
+    /**
+   * Run repomix scan.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<Record<string, unknown>>} The resulting string
+   * @async
    */
   async runRepomixScan(repoPath: string): Promise<Record<string, unknown>> {
     const relativePath = path.relative(config.codeBaseDir, repoPath) || path.basename(repoPath);
@@ -236,8 +262,13 @@ export class RepositoryScanner {
     return await this.repomixWorker.runJobHandler(job) as Record<string, unknown>;
   }
 
-  /**
-   * Parse repomix output to extract metadata
+    /**
+   * Parse repomix output.
+   *
+   * @param {string} outputFile - The outputFile
+   *
+   * @returns {Promise<RepomixMetadata>} The Promise<RepomixMetadata>
+   * @async
    */
   async parseRepomixOutput(outputFile: string): Promise<RepomixMetadata> {
     try {
@@ -301,8 +332,14 @@ export class RepositoryScanner {
     }
   }
 
-  /**
-   * Get detailed file metadata
+    /**
+   * Get the file metadata.
+   *
+   * @param {string} _repoPath - The  repoPath
+   * @param {ScanConfig} _scanConfig - The  scanConfig
+   *
+   * @returns {Promise<unknown[]>} The file metadata
+   * @async
    */
   async getFileMetadata(_repoPath: string, _scanConfig: ScanConfig): Promise<unknown[]> {
     // For now, return empty array
@@ -310,8 +347,14 @@ export class RepositoryScanner {
     return [];
   }
 
-  /**
-   * List all files in repository
+    /**
+   * List files.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {FileFilter} [filter={}] - Filter function or criteria
+   *
+   * @returns {Promise<string[]>} The resulting string
+   * @async
    */
   async listFiles(repoPath: string, filter: FileFilter = {}): Promise<string[]> {
     const files: string[] = [];
@@ -325,6 +368,14 @@ export class RepositoryScanner {
       '.py': 'python'
     };
 
+        /**
+     * Walk.
+     *
+     * @param {string} dir - The dir
+     *
+     * @returns {Promise<void>} The Promise<void>
+     * @async
+     */
     async function walk(dir: string): Promise<void> {
       const entries = await fs.readdir(dir, { withFileTypes: true });
 
@@ -355,8 +406,12 @@ export class RepositoryScanner {
     return files;
   }
 
-  /**
-   * Detect languages from file list
+    /**
+   * Detect languages.
+   *
+   * @param {string[]} files - The files
+   *
+   * @returns {string[]} The resulting string
    */
   detectLanguages(files: string[]): string[] {
     const langMap: Record<string, string> = {
@@ -392,6 +447,12 @@ export class RepositoryScanner {
  * Custom error class for repository scanning errors
  */
 export class RepositoryScanError extends Error {
+    /**
+   * Constructor.
+   *
+   * @param {string} message - The message
+   * @param {{ cause?: unknown }} options? - The options?
+   */
   constructor(message: string, options?: { cause?: unknown }) {
     super(message);
     if (options?.cause) {

@@ -326,6 +326,11 @@ export class ScanOrchestrator {
   private readonly autoGenerateReports: boolean;
   private readonly config: Record<string, unknown>;
 
+    /**
+   * Constructor.
+   *
+   * @param {ScanOrchestratorOptions} [options={}] - Options dictionary
+   */
   constructor(options: ScanOrchestratorOptions = {}) {
     // JavaScript components
     this.repositoryScanner = new RepositoryScanner(options.scanner || {});
@@ -394,8 +399,14 @@ export class ScanOrchestrator {
     this._pythonValidated = true;
   }
 
-  /**
-   * Scan a single repository for duplicates
+    /**
+   * Scan repository.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {ScanConfig} [scanConfig={}] - The scanConfig
+   *
+   * @returns {Promise<ScanResult>} The Promise<ScanResult>
+   * @async
    */
   async scanRepository(repoPath: string, scanConfig: ScanConfig = {}): Promise<ScanResult> {
     const startTime = Date.now();
@@ -662,8 +673,14 @@ export class ScanOrchestrator {
     });
   }
 
-  /**
-   * Generate reports from scan results
+    /**
+   * Generate the reports.
+   *
+   * @param {ScanResult} scanResult - The scanResult
+   * @param {ReportOptions} [options={}] - Options dictionary
+   *
+   * @returns {Promise<ReportPaths>} The created reports
+   * @async
    */
   async generateReports(scanResult: ScanResult, options: ReportOptions = {}): Promise<ReportPaths> {
     const repoInfo = scanResult.repository_info || {} as RepositoryInfo;
@@ -826,6 +843,12 @@ export class ScanOrchestrator {
  * Custom error class for scan orchestration errors
  */
 export class ScanError extends Error {
+    /**
+   * Constructor.
+   *
+   * @param {string} message - The message
+   * @param {{ cause?: unknown }} options? - The options?
+   */
   constructor(message: string, options?: { cause?: unknown }) {
     super(message);
     if (options?.cause) {

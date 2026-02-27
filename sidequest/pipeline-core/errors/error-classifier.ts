@@ -204,6 +204,13 @@ const NULL_ERROR_CLASSIFICATION: ErrorClassification = {
 // CLASSIFICATION FUNCTIONS
 // =============================================================================
 
+/**
+ * Classify by error code.
+ *
+ * @param {string} errorCode - The errorCode
+ *
+ * @returns {ErrorClassification | null} The ErrorClassification | null
+ */
 function classifyByErrorCode(errorCode: string): ErrorClassification | null {
   const config = ERROR_CODE_CONFIG[errorCode];
   if (!config) return null;
@@ -215,6 +222,13 @@ function classifyByErrorCode(errorCode: string): ErrorClassification | null {
   };
 }
 
+/**
+ * Classify by http status.
+ *
+ * @param {number} statusCode - The statusCode
+ *
+ * @returns {ErrorClassification | null} The ErrorClassification | null
+ */
 function classifyByHttpStatus(statusCode: number): ErrorClassification | null {
   if (statusCode === HTTP_STATUS_CONFIG.RATE_LIMIT) {
     return {
@@ -245,6 +259,13 @@ function classifyByHttpStatus(statusCode: number): ErrorClassification | null {
   return null;
 }
 
+/**
+ * Classify by message pattern.
+ *
+ * @param {string} message - The message
+ *
+ * @returns {ErrorClassification | null} The ErrorClassification | null
+ */
 function classifyByMessagePattern(message: string): ErrorClassification | null {
   for (const config of MESSAGE_PATTERNS) {
     if (message.includes(config.pattern)) {
@@ -263,7 +284,11 @@ function classifyByMessagePattern(message: string): ErrorClassification | null {
 // =============================================================================
 
 /**
- * Classify an error as retryable or non-retryable.
+ * Classify error.
+ *
+ * @param {Error | null | undefined} error - The error
+ *
+ * @returns {ErrorClassification} The ErrorClassification
  */
 export function classifyError(error: Error | null | undefined): ErrorClassification {
   if (!error) {
@@ -299,21 +324,33 @@ export function classifyError(error: Error | null | undefined): ErrorClassificat
 }
 
 /**
- * Type guard: check if an error is an HTTPError.
+ * Check if http error.
+ *
+ * @param {Error} error - The error
+ *
+ * @returns {error is HTTPError} True if http error, False otherwise
  */
 export function isHTTPError(error: Error): error is HTTPError {
   return 'statusCode' in error || 'status' in error;
 }
 
 /**
- * Type guard: check if an error is a ClassifiedError.
+ * Check if classified error.
+ *
+ * @param {Error} error - The error
+ *
+ * @returns {error is ClassifiedError} True if classified error, False otherwise
  */
 export function isClassifiedError(error: Error): error is ClassifiedError {
   return 'classification' in error && 'retryable' in error;
 }
 
 /**
- * Check if an error is retryable.
+ * Check if retryable.
+ *
+ * @param {Error} error - The error
+ *
+ * @returns {boolean} True if retryable, False otherwise
  */
 export function isRetryable(error: Error): boolean {
   return classifyError(error).category === ErrorCategory.RETRYABLE;
@@ -333,7 +370,11 @@ export interface ErrorInfo {
 }
 
 /**
- * Get detailed error information including classification.
+ * Get the error info.
+ *
+ * @param {Error} error - The error
+ *
+ * @returns {ErrorInfo} The error info
  */
 export function getErrorInfo(error: Error): ErrorInfo {
   const classification = classifyError(error);
@@ -355,7 +396,11 @@ export function getErrorInfo(error: Error): ErrorInfo {
 }
 
 /**
- * Determine error category group for a given error.
+ * Get the error category group.
+ *
+ * @param {Error} error - The error
+ *
+ * @returns {'network' | 'file_system' | 'http' | 'database' | 'unknown'} The error category group
  */
 function getErrorCategoryGroup(error: Error): 'network' | 'file_system' | 'http' | 'database' | 'unknown' {
   const classification = classifyError(error);
@@ -374,7 +419,12 @@ function getErrorCategoryGroup(error: Error): 'network' | 'file_system' | 'http'
 }
 
 /**
- * Create a ScanError with classification.
+ * Create the scan error.
+ *
+ * @param {string} message - The message
+ * @param {Error} cause - The cause
+ *
+ * @returns {Error} The created scan error
  */
 export function createScanError(message: string, cause: Error): Error {
   const error = new Error(message);

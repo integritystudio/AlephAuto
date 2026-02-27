@@ -60,6 +60,11 @@ export class PRCreator {
   maxSuggestionsPerPR: number;
   migrationTransformer: MigrationTransformer;
 
+    /**
+   * Constructor.
+   *
+   * @param {PRCreatorOptions} [options={}] - Options dictionary
+   */
   constructor(options: PRCreatorOptions = {}) {
     this.baseBranch = options.baseBranch || 'main';
     this.branchPrefix = options.branchPrefix || 'consolidate';

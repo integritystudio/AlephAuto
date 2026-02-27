@@ -107,6 +107,11 @@ export class RootDirectoryAnalyzer {
     dataFiles: number;
   };
 
+    /**
+   * Constructor.
+   *
+   * @param {RootDirectoryAnalyzerOptions} [options={}] - Options dictionary
+   */
   constructor(options: RootDirectoryAnalyzerOptions = {}) {
     this.logger = options.logger ?? console;
     this.maxRootFiles = options.maxRootFiles ?? 20;
@@ -119,8 +124,14 @@ export class RootDirectoryAnalyzer {
     };
   }
 
-  /**
-   * Analyze repository root directory
+    /**
+   * Analyze.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {AnalyzeOptions} [_options={}] - Configuration for 
+   *
+   * @returns {Promise<RootDirectoryAnalysis>} The Promise<RootDirectoryAnalysis>
+   * @async
    */
   async analyze(repoPath: string, _options: AnalyzeOptions = {}): Promise<RootDirectoryAnalysis> {
     const startTime = Date.now();
@@ -171,8 +182,13 @@ export class RootDirectoryAnalyzer {
     }
   }
 
-  /**
-   * Get all files in root directory (depth 1)
+    /**
+   * Get the root files.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<RootFile[]>} The root files
+   * @async
    */
   async getRootFiles(repoPath: string): Promise<RootFile[]> {
     const entries = await fs.readdir(repoPath, { withFileTypes: true });
@@ -186,8 +202,12 @@ export class RootDirectoryAnalyzer {
       }));
   }
 
-  /**
-   * Categorize files by type
+    /**
+   * Categorize files.
+   *
+   * @param {RootFile[]} files - The files
+   *
+   * @returns {CategorizedFiles} The CategorizedFiles
    */
   categorizeFiles(files: RootFile[]): CategorizedFiles {
     const categories: CategorizedFiles = {
@@ -268,8 +288,14 @@ export class RootDirectoryAnalyzer {
     return categories;
   }
 
-  /**
-   * Analyze import dependencies for Python files
+    /**
+   * Analyze import dependencies.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {CategorizedFiles} categorized - The categorized
+   *
+   * @returns {Promise<Dependencies>} The Promise<Dependencies>
+   * @async
    */
   async analyzeImportDependencies(repoPath: string, categorized: CategorizedFiles): Promise<Dependencies> {
     const dependencies: Dependencies = {
@@ -300,8 +326,14 @@ export class RootDirectoryAnalyzer {
     return dependencies;
   }
 
-  /**
-   * Analyze Python imports in a file
+    /**
+   * Analyze python imports.
+   *
+   * @param {string} filePath - The filePath
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<PythonImports>} The Promise<PythonImports>
+   * @async
    */
   async analyzePythonImports(filePath: string, repoPath: string): Promise<PythonImports> {
     try {
@@ -350,8 +382,13 @@ export class RootDirectoryAnalyzer {
     }
   }
 
-  /**
-   * Check if module is local (exists as .py file in root)
+    /**
+   * Check if local module.
+   *
+   * @param {string} moduleName - The moduleName
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {boolean} True if local module, False otherwise
    */
   isLocalModule(moduleName: string, repoPath: string): boolean {
     const filePath = path.join(repoPath, `${moduleName}.py`);
@@ -364,8 +401,13 @@ export class RootDirectoryAnalyzer {
     }
   }
 
-  /**
-   * Generate cleanup recommendations
+    /**
+   * Generate the recommendations.
+   *
+   * @param {CategorizedFiles} categorized - The categorized
+   * @param {Dependencies} dependencies - The dependencies
+   *
+   * @returns {Recommendation[]} The created recommendations
    */
   generateRecommendations(categorized: CategorizedFiles, dependencies: Dependencies): Recommendation[] {
     const recommendations: Recommendation[] = [];
@@ -481,8 +523,14 @@ export class RootDirectoryAnalyzer {
     return recommendations;
   }
 
-  /**
-   * Calculate import changes needed for moving files
+    /**
+   * Calculate import changes.
+   *
+   * @param {RootFile[]} files - The files
+   * @param {string} targetDir - The targetDir
+   * @param {Dependencies} dependencies - The dependencies
+   *
+   * @returns {ImportChange[]} The calculated import changes
    */
   calculateImportChanges(files: RootFile[], targetDir: string, dependencies: Dependencies): ImportChange[] {
     const changes: ImportChange[] = [];
@@ -518,15 +566,24 @@ export class RootDirectoryAnalyzer {
     return changes;
   }
 
-  /**
-   * Generate move commands
+    /**
+   * Generate the move commands.
+   *
+   * @param {RootFile[]} files - The files
+   * @param {string} targetDir - The targetDir
+   *
+   * @returns {string[]} The created move commands
    */
   generateMoveCommands(files: RootFile[], targetDir: string): string[] {
     return files.map(f => `git mv ${f.name} ${targetDir}/`);
   }
 
-  /**
-   * Generate markdown report
+    /**
+   * Generate the report.
+   *
+   * @param {RootDirectoryAnalysis} analysis - The analysis
+   *
+   * @returns {string} The created report
    */
   generateReport(analysis: RootDirectoryAnalysis): string {
     const lines = [
@@ -609,7 +666,11 @@ export class RootDirectoryAnalyzer {
 // ============================================================================
 
 /**
- * Export analyzer instance creator
+ * Create the root directory analyzer.
+ *
+ * @param {RootDirectoryAnalyzerOptions} options? - The options?
+ *
+ * @returns {RootDirectoryAnalyzer} The created root directory analyzer
  */
 export function createRootDirectoryAnalyzer(options?: RootDirectoryAnalyzerOptions): RootDirectoryAnalyzer {
   return new RootDirectoryAnalyzer(options);

@@ -11,8 +11,13 @@ import { captureProcessOutput, execCommand, execCommandOrThrow, runCommand } fro
 export { captureProcessOutput, execCommand, execCommandOrThrow, runCommand };
 
 /**
- * Run a git command in the given working directory.
- * Extracted from BranchManager and PRCreator private methods.
+ * Run git command.
+ *
+ * @param {string} cwd - The cwd
+ * @param {string[]} args - Positional arguments
+ *
+ * @returns {Promise<string>} The resulting string
+ * @async
  */
 export async function runGitCommand(cwd: string, args: string[]): Promise<string> {
   return runCommand(cwd, 'git', args);

@@ -128,14 +128,22 @@ export class RepositoryConfigLoader {
   private config: RepositoryScanConfig | null;
   private lastLoaded: Date | null;
 
+    /**
+   * Constructor.
+   *
+   * @param {string | null} [configPath=null] - The configPath
+   */
   constructor(configPath: string | null = null) {
     this.configPath = configPath ?? path.join(process.cwd(), 'config', 'scan-repositories.json');
     this.config = null;
     this.lastLoaded = null;
   }
 
-  /**
-   * Load configuration from file
+    /**
+   * Load.
+   *
+   * @returns {Promise<RepositoryScanConfig>} The promise<repositoryscanconfig>
+   * @async
    */
   async load(): Promise<RepositoryScanConfig> {
     try {
@@ -160,40 +168,53 @@ export class RepositoryConfigLoader {
     }
   }
 
-  /**
-   * Reload configuration from file
+    /**
+   * Reload.
+   *
+   * @returns {Promise<RepositoryScanConfig>} The Promise<RepositoryScanConfig>
+   * @async
    */
   async reload(): Promise<RepositoryScanConfig> {
     logger.info('Reloading configuration');
     return await this.load();
   }
 
-  /**
-   * Get scan configuration
+    /**
+   * Get the scan config.
+   *
+   * @returns {ScanConfigSettings} The scan config
    */
   getScanConfig(): ScanConfigSettings {
     this._ensureLoaded();
     return this.config!.scanConfig;
   }
 
-  /**
-   * Get all repositories
+    /**
+   * Get the all repositories.
+   *
+   * @returns {RepositoryConfig[]} The all repositories
    */
   getAllRepositories(): RepositoryConfig[] {
     this._ensureLoaded();
     return this.config!.repositories;
   }
 
-  /**
-   * Get enabled repositories
+    /**
+   * Get the enabled repositories.
+   *
+   * @returns {RepositoryConfig[]} The enabled repositories
    */
   getEnabledRepositories(): RepositoryConfig[] {
     this._ensureLoaded();
     return this.config!.repositories.filter(repo => repo.enabled);
   }
 
-  /**
-   * Get repositories by priority
+    /**
+   * Get the repositories by priority.
+   *
+   * @param {Priority} priority - The priority
+   *
+   * @returns {RepositoryConfig[]} The repositories by priority
    */
   getRepositoriesByPriority(priority: Priority): RepositoryConfig[] {
     this._ensureLoaded();
@@ -202,8 +223,12 @@ export class RepositoryConfigLoader {
     );
   }
 
-  /**
-   * Get repositories by frequency
+    /**
+   * Get the repositories by frequency.
+   *
+   * @param {ScanFrequency} frequency - The frequency
+   *
+   * @returns {RepositoryConfig[]} The repositories by frequency
    */
   getRepositoriesByFrequency(frequency: ScanFrequency): RepositoryConfig[] {
     this._ensureLoaded();
@@ -212,8 +237,12 @@ export class RepositoryConfigLoader {
     );
   }
 
-  /**
-   * Get repositories by tag
+    /**
+   * Get the repositories by tag.
+   *
+   * @param {string} tag - The tag
+   *
+   * @returns {RepositoryConfig[]} The repositories by tag
    */
   getRepositoriesByTag(tag: string): RepositoryConfig[] {
     this._ensureLoaded();
@@ -222,40 +251,56 @@ export class RepositoryConfigLoader {
     );
   }
 
-  /**
-   * Get repository by name
+    /**
+   * Get the repository.
+   *
+   * @param {string} name - The name
+   *
+   * @returns {RepositoryConfig | undefined} The repository
    */
   getRepository(name: string): RepositoryConfig | undefined {
     this._ensureLoaded();
     return this.config!.repositories.find(repo => repo.name === name);
   }
 
-  /**
-   * Get all repository groups
+    /**
+   * Get the all groups.
+   *
+   * @returns {RepositoryGroup[]} The all groups
    */
   getAllGroups(): RepositoryGroup[] {
     this._ensureLoaded();
     return this.config!.repositoryGroups ?? [];
   }
 
-  /**
-   * Get enabled repository groups
+    /**
+   * Get the enabled groups.
+   *
+   * @returns {RepositoryGroup[]} The enabled groups
    */
   getEnabledGroups(): RepositoryGroup[] {
     this._ensureLoaded();
     return (this.config!.repositoryGroups ?? []).filter(group => group.enabled);
   }
 
-  /**
-   * Get group by name
+    /**
+   * Get the group.
+   *
+   * @param {string} name - The name
+   *
+   * @returns {RepositoryGroup | undefined} The group
    */
   getGroup(name: string): RepositoryGroup | undefined {
     this._ensureLoaded();
     return (this.config!.repositoryGroups ?? []).find(group => group.name === name);
   }
 
-  /**
-   * Get repositories for a group
+    /**
+   * Get the group repositories.
+   *
+   * @param {string} groupName - The groupName
+   *
+   * @returns {RepositoryConfig[]} The group repositories
    */
   getGroupRepositories(groupName: string): RepositoryConfig[] {
     const group = this.getGroup(groupName);
@@ -268,8 +313,12 @@ export class RepositoryConfigLoader {
       .filter((repo): repo is RepositoryConfig => repo !== undefined && repo.enabled);
   }
 
-  /**
-   * Get repositories to scan tonight (based on priority and frequency)
+    /**
+   * Get the repositories to scan tonight.
+   *
+   * @param {number | null} [maxRepos=null] - The maxRepos
+   *
+   * @returns {RepositoryConfig[]} The repositories to scan tonight
    */
   getRepositoriesToScanTonight(maxRepos: number | null = null): RepositoryConfig[] {
     this._ensureLoaded();
@@ -303,24 +352,34 @@ export class RepositoryConfigLoader {
     return sortedRepositories.slice(0, maxRepositories);
   }
 
-  /**
-   * Get scan defaults
+    /**
+   * Get the scan defaults.
+   *
+   * @returns {ScanDefaults} The scan defaults
    */
   getScanDefaults(): ScanDefaults {
     this._ensureLoaded();
     return this.config!.scanDefaults ?? {};
   }
 
-  /**
-   * Get notification settings
+    /**
+   * Get the notification settings.
+   *
+   * @returns {NotificationSettings} The notification settings
    */
   getNotificationSettings(): NotificationSettings {
     this._ensureLoaded();
     return this.config!.notifications ?? { enabled: false };
   }
 
-  /**
-   * Update repository last scanned timestamp
+    /**
+   * Update last scanned.
+   *
+   * @param {string} repoName - The repoName
+   * @param {Date | null} [timestamp=null] - The timestamp
+   *
+   * @returns {Promise<void>} The Promise<void>
+   * @async
    */
   async updateLastScanned(repoName: string, timestamp: Date | null = null): Promise<void> {
     this._ensureLoaded();
@@ -338,8 +397,14 @@ export class RepositoryConfigLoader {
     logger.info({ repoName, timestamp: repo.lastScannedAt }, 'Updated last scanned timestamp');
   }
 
-  /**
-   * Add scan history entry
+    /**
+   * Add scan history.
+   *
+   * @param {string} repoName - The repoName
+   * @param {Omit<ScanHistoryEntry, 'timestamp'>} historyEntry - The historyEntry
+   *
+   * @returns {Promise<void>} The Promise<void>
+   * @async
    */
   async addScanHistory(repoName: string, historyEntry: Omit<ScanHistoryEntry, 'timestamp'>): Promise<void> {
     this._ensureLoaded();
@@ -367,8 +432,11 @@ export class RepositoryConfigLoader {
     logger.info({ repoName, status: historyEntry['status'] }, 'Added scan history entry');
   }
 
-  /**
-   * Save configuration to file
+    /**
+   * Save.
+   *
+   * @returns {Promise<void>} The Promise<void>
+   * @async
    */
   async save(): Promise<void> {
     try {
@@ -386,8 +454,10 @@ export class RepositoryConfigLoader {
     }
   }
 
-  /**
-   * Validate configuration
+    /**
+   * Validate.
+   *
+   * @returns {true} The true
    */
   validate(): true {
     this._ensureLoaded();
@@ -450,8 +520,10 @@ export class RepositoryConfigLoader {
     return true;
   }
 
-  /**
-   * Get statistics
+    /**
+   * Get the stats.
+   *
+   * @returns {ConfigStats} The stats
    */
   getStats(): ConfigStats {
     this._ensureLoaded();

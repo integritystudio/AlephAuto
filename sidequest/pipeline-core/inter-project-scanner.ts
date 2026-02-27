@@ -168,6 +168,11 @@ export class InterProjectScanner {
   private orchestrator: ScanOrchestrator;
   private outputDir: string;
 
+    /**
+   * Constructor.
+   *
+   * @param {InterProjectScannerConfig} [config={}] - Configuration settings
+   */
   constructor(config: InterProjectScannerConfig = {}) {
     this.orchestrator = new ScanOrchestrator(config.orchestrator ?? {});
     this.outputDir = config.outputDir ?? path.join(process.cwd(), 'output', 'inter-project-scans');
@@ -558,8 +563,14 @@ export class InterProjectScanner {
     };
   }
 
-  /**
-   * Save inter-project scan results to file
+    /**
+   * Save results.
+   *
+   * @param {InterProjectScanResult} results - The results
+   * @param {*} [filename='inter-project-scan.json'] - The filename
+   *
+   * @returns {Promise<string>} The resulting string
+   * @async
    */
   async saveResults(results: InterProjectScanResult, filename = 'inter-project-scan.json'): Promise<string> {
     await fs.mkdir(this.outputDir, { recursive: true });

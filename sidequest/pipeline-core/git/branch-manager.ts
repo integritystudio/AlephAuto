@@ -50,12 +50,25 @@ export class BranchManager {
   branchPrefix: string;
   dryRun: boolean;
 
+    /**
+   * Constructor.
+   *
+   * @param {BranchManagerOptions} [options={}] - Options dictionary
+   */
   constructor(options: BranchManagerOptions = {}) {
     this.baseBranch = options.baseBranch || 'main';
     this.branchPrefix = options.branchPrefix || 'automated';
     this.dryRun = options.dryRun ?? false;
   }
 
+    /**
+   * Check if has changes.
+   *
+   * @param {string} repositoryPath - The repositoryPath
+   *
+   * @returns {Promise<boolean>} True if changes, False otherwise
+   * @async
+   */
   async hasChanges(repositoryPath: string): Promise<boolean> {
     try {
       const status = await runGitCommand(repositoryPath, ['status', '--porcelain']);
@@ -66,6 +79,14 @@ export class BranchManager {
     }
   }
 
+    /**
+   * Get the changed files.
+   *
+   * @param {string} repositoryPath - The repositoryPath
+   *
+   * @returns {Promise<string[]>} The changed files
+   * @async
+   */
   async getChangedFiles(repositoryPath: string): Promise<string[]> {
     try {
       const status = await runGitCommand(repositoryPath, ['status', '--porcelain']);
@@ -87,6 +108,14 @@ export class BranchManager {
     }
   }
 
+    /**
+   * Get the current branch.
+   *
+   * @param {string} repositoryPath - The repositoryPath
+   *
+   * @returns {Promise<string>} The current branch
+   * @async
+   */
   async getCurrentBranch(repositoryPath: string): Promise<string> {
     try {
       const branch = await runGitCommand(repositoryPath, ['rev-parse', '--abbrev-ref', 'HEAD']);
@@ -97,6 +126,14 @@ export class BranchManager {
     }
   }
 
+    /**
+   * Check if git repository.
+   *
+   * @param {string} repositoryPath - The repositoryPath
+   *
+   * @returns {Promise<boolean>} True if git repository, False otherwise
+   * @async
+   */
   async isGitRepository(repositoryPath: string): Promise<boolean> {
     try {
       await runGitCommand(repositoryPath, ['rev-parse', '--git-dir']);
@@ -106,6 +143,15 @@ export class BranchManager {
     }
   }
 
+    /**
+   * Create the job branch.
+   *
+   * @param {string} repositoryPath - The repositoryPath
+   * @param {JobBranchContext} jobContext - The jobContext
+   *
+   * @returns {Promise<BranchResult>} The created job branch
+   * @async
+   */
   async createJobBranch(repositoryPath: string, jobContext: JobBranchContext): Promise<BranchResult> {
     const span = Sentry.startInactiveSpan({
       op: 'git.create_branch',
@@ -167,6 +213,15 @@ export class BranchManager {
     }
   }
 
+    /**
+   * Commit changes.
+   *
+   * @param {string} repositoryPath - The repositoryPath
+   * @param {CommitContext} commitContext - The commitContext
+   *
+   * @returns {Promise<string>} The resulting string
+   * @async
+   */
   async commitChanges(repositoryPath: string, commitContext: CommitContext): Promise<string> {
     const span = Sentry.startInactiveSpan({
       op: 'git.commit',
@@ -220,6 +275,15 @@ export class BranchManager {
     }
   }
 
+    /**
+   * Push branch.
+   *
+   * @param {string} repositoryPath - The repositoryPath
+   * @param {string} branchName - The branchName
+   *
+   * @returns {Promise<boolean>} True if successful, False otherwise
+   * @async
+   */
   async pushBranch(repositoryPath: string, branchName: string): Promise<boolean> {
     const span = Sentry.startInactiveSpan({
       op: 'git.push',
@@ -263,6 +327,15 @@ export class BranchManager {
     }
   }
 
+    /**
+   * Create the pull request.
+   *
+   * @param {string} repositoryPath - The repositoryPath
+   * @param {PRContext} prContext - The prContext
+   *
+   * @returns {Promise<string | null>} The created pull request
+   * @async
+   */
   async createPullRequest(repositoryPath: string, prContext: PRContext): Promise<string | null> {
     const span = Sentry.startInactiveSpan({
       op: 'git.create_pr',
@@ -323,6 +396,16 @@ export class BranchManager {
     }
   }
 
+    /**
+   * Cleanup branch.
+   *
+   * @param {string} repositoryPath - The repositoryPath
+   * @param {string} branchName - The branchName
+   * @param {string} originalBranch - The originalBranch
+   *
+   * @returns {Promise<void>} The Promise<void>
+   * @async
+   */
   async cleanupBranch(repositoryPath: string, branchName: string, originalBranch: string): Promise<void> {
     try {
       logger.info({ repositoryPath, branchName, originalBranch }, 'Cleaning up branch');

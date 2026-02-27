@@ -71,6 +71,11 @@ export class CachedScanner {
   private readonly forceRefresh: boolean;
   private readonly trackUncommitted: boolean;
 
+    /**
+   * Constructor.
+   *
+   * @param {CachedScannerOptions} [options={}] - Options dictionary
+   */
   constructor(options: CachedScannerOptions = {}) {
     this.gitTracker = new GitCommitTracker();
     this.cache = options.cache ?? null; // ScanResultCache instance (optional)
@@ -87,8 +92,11 @@ export class CachedScanner {
     }, 'Cached scanner initialized');
   }
 
-  /**
-   * Initialize cache connection
+    /**
+   * Initialize cache.
+   *
+   * @param {RedisClient} redisClient - The redisClient
+   * @param {ScanCacheOptions} [cacheOptions={}] - The cacheOptions
    */
   initializeCache(redisClient: RedisClient, cacheOptions: ScanCacheOptions = {}): void {
     this.cache = new ScanResultCache(redisClient, {
@@ -99,8 +107,14 @@ export class CachedScanner {
     logger.info('Cache initialized with Redis client');
   }
 
-  /**
-   * Scan repository with intelligent caching
+    /**
+   * Scan repository.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {CachedScanOptions} [options={}] - Options dictionary
+   *
+   * @returns {Promise<CachedScanResult>} The Promise<CachedScanResult>
+   * @async
    */
   async scanRepository(repoPath: string, options: CachedScanOptions = {}): Promise<CachedScanResult> {
     const startTime = Date.now();
@@ -262,8 +276,13 @@ export class CachedScanner {
     }
   }
 
-  /**
-   * Invalidate cache for a repository
+    /**
+   * Invalidate cache.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<number>} The Promise<number>
+   * @async
    */
   async invalidateCache(repoPath: string): Promise<number> {
     if (!this.cache) {
@@ -288,8 +307,13 @@ export class CachedScanner {
     }
   }
 
-  /**
-   * Check if repository scan is cached
+    /**
+   * Get the cache status.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<CacheStatusResult>} The cache status
+   * @async
    */
   async getCacheStatus(repoPath: string): Promise<CacheStatusResult> {
     try {
@@ -325,8 +349,11 @@ export class CachedScanner {
     }
   }
 
-  /**
-   * Get scanner statistics
+    /**
+   * Get the stats.
+   *
+   * @returns {Promise<ScannerStats>} The stats
+   * @async
    */
   async getStats(): Promise<ScannerStats> {
     const cacheStats = this.cache ? await this.cache.getStats() : null;
@@ -340,8 +367,14 @@ export class CachedScanner {
     };
   }
 
-  /**
-   * Warm cache by scanning repositories
+    /**
+   * Warm cache.
+   *
+   * @param {string[]} repoPaths - The repoPaths
+   * @param {CachedScanOptions} [options={}] - Options dictionary
+   *
+   * @returns {Promise<WarmUpResults>} The Promise<WarmUpResults>
+   * @async
    */
   async warmCache(repoPaths: string[], options: CachedScanOptions = {}): Promise<WarmUpResults> {
     logStart(logger, 'cache warm-up', { repositoryCount: repoPaths.length });

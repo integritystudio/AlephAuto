@@ -54,6 +54,11 @@ export class DopplerHealthMonitor {
   private warningThreshold: number;
   private monitoringInterval: ReturnType<typeof setInterval> | null;
 
+    /**
+   * Constructor.
+   *
+   * @param {DopplerHealthMonitorOptions} [options={}] - Options dictionary
+   */
   constructor(options: DopplerHealthMonitorOptions = {}) {
     // Doppler fallback cache directory (not a single file)
     // Doppler CLI stores secrets in ~/.doppler/fallback/ as individual JSON files
@@ -68,8 +73,11 @@ export class DopplerHealthMonitor {
     this.monitoringInterval = null;
   }
 
-  /**
-   * Check Doppler cache health
+    /**
+   * Check cache health.
+   *
+   * @returns {Promise<CacheHealthStatus>} The Promise<CacheHealthStatus>
+   * @async
    */
   async checkCacheHealth(): Promise<CacheHealthStatus> {
     try {
@@ -223,8 +231,12 @@ export class DopplerHealthMonitor {
     }
   }
 
-  /**
-   * Get severity level based on cache age
+    /**
+   * Get the severity.
+   *
+   * @param {number} cacheAge - The cacheAge
+   *
+   * @returns {CacheSeverity} The severity
    */
   getSeverity(cacheAge: number): CacheSeverity {
     if (cacheAge > this.maxCacheAge) {
@@ -236,8 +248,13 @@ export class DopplerHealthMonitor {
     }
   }
 
-  /**
-   * Start periodic monitoring
+    /**
+   * Start monitoring.
+   *
+   * @param {*} [intervalMinutes=15] - The intervalMinutes
+   *
+   * @returns {Promise<CacheHealthStatus>} The Promise<CacheHealthStatus>
+   * @async
    */
   async startMonitoring(intervalMinutes = 15): Promise<CacheHealthStatus> {
     if (this.monitoringInterval) {
@@ -274,8 +291,10 @@ export class DopplerHealthMonitor {
     }
   }
 
-  /**
-   * Get cache directory path (for testing/debugging)
+    /**
+   * Get the cache directory path.
+   *
+   * @returns {string} The cache directory path
    */
   getCacheDirectoryPath(): string {
     return this.cacheDir;

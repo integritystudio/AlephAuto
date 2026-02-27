@@ -70,13 +70,24 @@ export class TimeoutPatternDetector {
   private readonly logger: ReturnType<typeof createComponentLogger>;
   private readonly astGrepBinary: string;
 
+    /**
+   * Constructor.
+   *
+   * @param {TimeoutPatternDetectorOptions} [options={}] - Options dictionary
+   */
   constructor(options: TimeoutPatternDetectorOptions = {}) {
     this.logger = options.logger ?? createComponentLogger('TimeoutPatternDetector');
     this.astGrepBinary = options.astGrepBinary ?? 'sg';
   }
 
-  /**
-   * Scan repository for timeout anti-patterns
+    /**
+   * Scan.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {Record<string, unknown>} [_options={}] - Configuration for 
+   *
+   * @returns {Promise<TimeoutFindings>} The Promise<TimeoutFindings>
+   * @async
    */
   async scan(repoPath: string, _options: Record<string, unknown> = {}): Promise<TimeoutFindings> {
     const startTime = Date.now();
@@ -150,8 +161,13 @@ export class TimeoutPatternDetector {
     }
   }
 
-  /**
-   * Find Promise.race() calls without proper timeout wrappers
+    /**
+   * Find the promise race without timeout.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<TimeoutFinding[]>} The promise race without timeout
+   * @async
    */
   async findPromiseRaceWithoutTimeout(repoPath: string): Promise<TimeoutFinding[]> {
     const pattern = 'Promise.race([$$$PROMISES])';
@@ -190,8 +206,13 @@ const result = await withTimeout(
       }));
   }
 
-  /**
-   * Find loading state setters without finally blocks
+    /**
+   * Find the loading without finally.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<TimeoutFinding[]>} The loading without finally
+   * @async
    */
   async findLoadingWithoutFinally(repoPath: string): Promise<TimeoutFinding[]> {
     const pattern = 'setLoading(true)';
@@ -219,8 +240,13 @@ try {
     }));
   }
 
-  /**
-   * Find async operations without error handling
+    /**
+   * Find the async without error handling.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<TimeoutFinding[]>} The async without error handling
+   * @async
    */
   async findAsyncWithoutErrorHandling(repoPath: string): Promise<TimeoutFinding[]> {
     const pattern = 'async $FUNC($$$PARAMS) { $$$BODY }';
@@ -247,8 +273,13 @@ try {
       }));
   }
 
-  /**
-   * Find missing timeout constants
+    /**
+   * Find the missing timeout constants.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<TimeoutFinding[]>} The missing timeout constants
+   * @async
    */
   async findMissingTimeoutConstants(repoPath: string): Promise<TimeoutFinding[]> {
     // Check if timeout utility exists
@@ -291,8 +322,13 @@ export const TIMEOUT = {
     }
   }
 
-  /**
-   * Find setLoading without corresponding reset in useEffect
+    /**
+   * Find the set loading without reset.
+   *
+   * @param {string} repoPath - The repoPath
+   *
+   * @returns {Promise<TimeoutFinding[]>} The set loading without reset
+   * @async
    */
   async findSetLoadingWithoutReset(repoPath: string): Promise<TimeoutFinding[]> {
     const pattern = 'setLoading($VAL)';
@@ -347,8 +383,15 @@ useEffect(() => {
     return findings;
   }
 
-  /**
-   * Search for pattern using ast-grep
+    /**
+   * Search for pattern.
+   *
+   * @param {string} repoPath - The repoPath
+   * @param {string} pattern - The pattern
+   * @param {SearchOptions} [options={}] - Options dictionary
+   *
+   * @returns {Promise<PatternMatch[]>} The pattern
+   * @async
    */
   async searchPattern(repoPath: string, pattern: string, options: SearchOptions = {}): Promise<PatternMatch[]> {
     return new Promise<PatternMatch[]>((resolve, reject) => {
@@ -402,8 +445,13 @@ useEffect(() => {
     });
   }
 
-  /**
-   * Read file contents
+    /**
+   * Read the file.
+   *
+   * @param {string} filePath - The filePath
+   *
+   * @returns {Promise<string>} The file
+   * @async
    */
   async readFile(filePath: string): Promise<string> {
     try {
@@ -413,8 +461,12 @@ useEffect(() => {
     }
   }
 
-  /**
-   * Group matches by file
+    /**
+   * Group by file.
+   *
+   * @param {PatternMatch[]} matches - The matches
+   *
+   * @returns {Record<string, PatternMatch[]>} The resulting string
    */
   groupByFile(matches: PatternMatch[]): Record<string, PatternMatch[]> {
     const groups: Record<string, PatternMatch[]> = {};
@@ -427,8 +479,12 @@ useEffect(() => {
     return groups;
   }
 
-  /**
-   * Calculate severity breakdown
+    /**
+   * Calculate severity breakdown.
+   *
+   * @param {Omit<TimeoutFindings, 'statistics'>} findings - The findings
+   *
+   * @returns {SeverityBreakdown} The calculated severity breakdown
    */
   calculateSeverityBreakdown(findings: Omit<TimeoutFindings, 'statistics'>): SeverityBreakdown {
     const breakdown: SeverityBreakdown = { high: 0, medium: 0, low: 0, info: 0 };
@@ -449,8 +505,12 @@ useEffect(() => {
     return breakdown;
   }
 
-  /**
-   * Generate report
+    /**
+   * Generate the report.
+   *
+   * @param {TimeoutFindings} findings - The findings
+   *
+   * @returns {string} The created report
    */
   generateReport(findings: TimeoutFindings): string {
     const lines = [
@@ -518,7 +578,11 @@ useEffect(() => {
 // ============================================================================
 
 /**
- * Export scanner instance creator
+ * Create the timeout pattern detector.
+ *
+ * @param {TimeoutPatternDetectorOptions} options? - The options?
+ *
+ * @returns {TimeoutPatternDetector} The created timeout pattern detector
  */
 export function createTimeoutPatternDetector(options?: TimeoutPatternDetectorOptions): TimeoutPatternDetector {
   return new TimeoutPatternDetector(options);

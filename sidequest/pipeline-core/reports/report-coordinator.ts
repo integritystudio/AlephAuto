@@ -43,12 +43,23 @@ export interface GeneratedReportPaths {
 export class ReportCoordinator {
   outputDir: string;
 
+    /**
+   * Constructor.
+   *
+   * @param {string | null} [outputDir=null] - The outputDir
+   */
   constructor(outputDir: string | null = null) {
     this.outputDir = outputDir ?? path.join(process.cwd(), 'output', 'reports');
   }
 
-  /**
-   * Generate all report formats for a scan
+    /**
+   * Generate the all reports.
+   *
+   * @param {ScanResult} scanResult - The scanResult
+   * @param {ReportOptions} [options={}] - Options dictionary
+   *
+   * @returns {Promise<GeneratedReportPaths>} The created all reports
+   * @async
    */
   async generateAllReports(scanResult: ScanResult, options: ReportOptions = {}): Promise<GeneratedReportPaths> {
     const timer = createTimer();

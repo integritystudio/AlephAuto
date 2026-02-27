@@ -10,14 +10,24 @@ import fs from 'fs/promises';
 import path from 'path';
 
 /**
- * Ensures a directory exists, creating it and parents if needed
+ * Ensure dir.
+ *
+ * @param {string} dirPath - The dirPath
+ *
+ * @returns {Promise<void>} The Promise<void>
+ * @async
  */
 export async function ensureDir(dirPath: string): Promise<void> {
   await fs.mkdir(dirPath, { recursive: true });
 }
 
 /**
- * Ensures the parent directory of a file path exists
+ * Ensure parent dir.
+ *
+ * @param {string} filePath - The filePath
+ *
+ * @returns {Promise<void>} The Promise<void>
+ * @async
  */
 export async function ensureParentDir(filePath: string): Promise<void> {
   const dir = path.dirname(filePath);
@@ -25,7 +35,14 @@ export async function ensureParentDir(filePath: string): Promise<void> {
 }
 
 /**
- * Writes a file, ensuring parent directory exists
+ * Write file with dir.
+ *
+ * @param {string} filePath - The filePath
+ * @param {string | Buffer} content - The content
+ * @param {{ encoding?: BufferEncoding }} [options={}] - Options dictionary
+ *
+ * @returns {Promise<void>} The Promise<void>
+ * @async
  */
 export async function writeFileWithDir(filePath: string, content: string | Buffer, options: { encoding?: BufferEncoding } = {}): Promise<void> {
   await ensureParentDir(filePath);
@@ -33,7 +50,13 @@ export async function writeFileWithDir(filePath: string, content: string | Buffe
 }
 
 /**
- * Reads a file if it exists, returns null if not found
+ * Read the file if exists.
+ *
+ * @param {string} filePath - The filePath
+ * @param {BufferEncoding} [encoding='utf-8'] - Character encoding
+ *
+ * @returns {Promise<string | null>} The file if exists
+ * @async
  */
 export async function readFileIfExists(filePath: string, encoding: BufferEncoding = 'utf-8'): Promise<string | null> {
   try {
@@ -47,7 +70,12 @@ export async function readFileIfExists(filePath: string, encoding: BufferEncodin
 }
 
 /**
- * Checks if a path exists
+ * Path exists.
+ *
+ * @param {string} filePath - The filePath
+ *
+ * @returns {Promise<boolean>} True if successful, False otherwise
+ * @async
  */
 export async function pathExists(filePath: string): Promise<boolean> {
   try {
@@ -59,8 +87,13 @@ export async function pathExists(filePath: string): Promise<boolean> {
 }
 
 /**
- * Saves generated report content to a file, ensuring parent directory exists.
- * Returns the output path for method chaining.
+ * Save generated report.
+ *
+ * @param {string} filePath - The filePath
+ * @param {string} content - The content
+ *
+ * @returns {Promise<string>} The resulting string
+ * @async
  */
 export async function saveGeneratedReport(filePath: string, content: string): Promise<string> {
   await writeFileWithDir(filePath, content);

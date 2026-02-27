@@ -37,7 +37,12 @@ interface FormatErrorOptions {
 }
 
 /**
- * Safely extracts an error message from any error type
+ * Safe error message.
+ *
+ * @param {unknown} error - The error
+ * @param {*} [fallback='Unknown error'] - Fallback value
+ *
+ * @returns {string} The resulting string
  */
 export function safeErrorMessage(error: unknown, fallback = 'Unknown error'): string {
   // Handle null/undefined
@@ -74,7 +79,11 @@ export function safeErrorMessage(error: unknown, fallback = 'Unknown error'): st
 }
 
 /**
- * Safely extracts a stack trace from an error
+ * Safe error stack.
+ *
+ * @param {unknown} error - The error
+ *
+ * @returns {string | undefined} The resulting string
  */
 export function safeErrorStack(error: unknown): string | undefined {
   if (error == null) {
@@ -95,7 +104,12 @@ export function safeErrorStack(error: unknown): string | undefined {
 }
 
 /**
- * Converts any error type to a structured error object
+ * To error object.
+ *
+ * @param {unknown} error - The error
+ * @param {ToErrorObjectOptions} [options={}] - Options dictionary
+ *
+ * @returns {ErrorObject} The ErrorObject
  */
 export function toErrorObject(error: unknown, options: ToErrorObjectOptions = {}): ErrorObject {
   const {
@@ -125,7 +139,11 @@ export function toErrorObject(error: unknown, options: ToErrorObjectOptions = {}
 }
 
 /**
- * Gets the type of an error value
+ * Get the error type.
+ *
+ * @param {unknown} error - The error
+ *
+ * @returns {string} The error type
  */
 function getErrorType(error: unknown): string {
   if (error == null) {
@@ -140,7 +158,11 @@ function getErrorType(error: unknown): string {
 }
 
 /**
- * Checks if a value is an error-like object
+ * Check if error like.
+ *
+ * @param {unknown} value - The value
+ *
+ * @returns {boolean} True if error like, False otherwise
  */
 export function isErrorLike(value: unknown): boolean {
   if (value instanceof Error) {
@@ -155,7 +177,12 @@ export function isErrorLike(value: unknown): boolean {
 }
 
 /**
- * Safely serializes an error for logging or transmission
+ * Serialize error.
+ *
+ * @param {unknown} error - The error
+ * @param {*} [includeStack=true] - The includeStack
+ *
+ * @returns {SerializedError} The SerializedError
  */
 export function serializeError(error: unknown, includeStack = true): SerializedError {
   const serialized: SerializedError = {
@@ -182,7 +209,12 @@ export function serializeError(error: unknown, includeStack = true): SerializedE
 }
 
 /**
- * Creates a formatted error message for display
+ * Format error message.
+ *
+ * @param {unknown} error - The error
+ * @param {FormatErrorOptions} [options={}] - Options dictionary
+ *
+ * @returns {string} The resulting string
  */
 export function formatErrorMessage(error: unknown, options: FormatErrorOptions = {}): string {
   const {
@@ -205,7 +237,12 @@ export function formatErrorMessage(error: unknown, options: FormatErrorOptions =
 }
 
 /**
- * Combines multiple errors into a single error message
+ * Combine errors.
+ *
+ * @param {unknown[]} errors - The errors
+ * @param {*} [separator='; '] - The separator
+ *
+ * @returns {string} The resulting string
  */
 export function combineErrors(errors: unknown[], separator = '; '): string {
   if (!Array.isArray(errors) || errors.length === 0) {
