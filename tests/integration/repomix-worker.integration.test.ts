@@ -15,6 +15,7 @@ import { execSync } from 'child_process';
 import { RepomixWorker } from '../../sidequest/workers/repomix-worker.ts';
 import { createTempRepository, cleanupRepositories } from '../fixtures/test-helpers.ts';
 import { initDatabase } from '../../sidequest/core/database.ts';
+import { TIMEOUTS } from '../../sidequest/core/constants.ts';
 
 let repomixAvailable = false;
 try {
@@ -56,7 +57,7 @@ describe('RepomixWorker - Integration Tests', { skip: !repomixAvailable && 'repo
     const relativePath = 'test/project';
 
     const jobDone = new Promise<void>((resolve) => {
-      const timeout = setTimeout(resolve, 15000);
+      const timeout = setTimeout(resolve, TIMEOUTS.MEDIUM_MS);
       worker!.once('job:completed', () => { clearTimeout(timeout); resolve(); });
       worker!.once('job:failed', () => { clearTimeout(timeout); resolve(); });
     });
