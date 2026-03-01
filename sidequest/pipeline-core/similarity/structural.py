@@ -431,12 +431,12 @@ def calculate_structural_similarity(code1: str, code2: str, threshold: float = S
         - similarity_score: 0.0 to 1.0
         - method: 'exact', 'structural', or 'different'
 
-    Algorithm (NEW TWO-PHASE FLOW):
-    1. Exact match: Compare hashes → 1.0 similarity
-    2. PHASE 1: Extract semantic features from ORIGINAL code (BEFORE normalization)
-    3. PHASE 2: Normalize code and calculate base structural similarity
-    4. PHASE 3: Apply unified semantic penalties using original features
-    5. Return final similarity score and method
+    Algorithm (multi-phase flow):
+    - Exact match: Compare hashes → 1.0 similarity
+    - Extract semantic features from ORIGINAL code (BEFORE normalization)
+    - Normalize code and calculate base structural similarity
+    - Apply unified semantic penalties using original features
+    - Return final similarity score and method
     """
     if not code1 or not code2:
         return 0.0, 'different'
