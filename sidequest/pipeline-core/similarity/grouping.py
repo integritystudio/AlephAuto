@@ -19,6 +19,7 @@ import sys
 
 # Import centralized config (H1 fix: use config module instead of os.environ)
 from .config import SimilarityConfig
+from constants import SemanticWeights, ExtractionDefaults
 
 # Debug mode from config
 DEBUG = SimilarityConfig.DEBUG
@@ -581,10 +582,10 @@ def _group_by_structural_similarity(
 
 # Weights for semantic similarity calculation
 SEMANTIC_WEIGHTS = {
-    'operations': 0.40,  # What the code does
-    'domains': 0.25,     # What domain it operates on
-    'patterns': 0.20,    # What patterns it uses
-    'data_types': 0.15,  # What data types it processes
+    'operations': SemanticWeights.OPERATIONS,
+    'domains': SemanticWeights.DOMAINS,
+    'patterns': SemanticWeights.PATTERNS,
+    'data_types': SemanticWeights.DATA_TYPES,
 }
 
 # Threshold for semantic similarity matching (from config)
@@ -602,9 +603,9 @@ def _calculate_jaccard_similarity(set1: set[str], set2: set[str]) -> float:
         Jaccard similarity coefficient (0.0 - 1.0)
     """
     if not set1 and not set2:
-        return 1.0  # Both empty = compatible
+        return SemanticWeights.BOTH_EMPTY_SIMILARITY  # Both empty = compatible
     if not set1 or not set2:
-        return 0.5  # One empty = partial match
+        return SemanticWeights.EMPTY_SET_SIMILARITY  # One empty = partial match
     intersection = len(set1 & set2)
     union = len(set1 | set2)
     return intersection / union if union > 0 else 0.0

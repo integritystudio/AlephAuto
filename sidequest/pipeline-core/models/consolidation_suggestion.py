@@ -5,10 +5,15 @@ Represents a specific recommendation for how to consolidate a DuplicateGroup,
 including the strategy tier, implementation steps, and impact assessment.
 """
 
+import sys
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, computed_field, field_validator
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from constants import EffortEstimates, ScoringThresholds
 
 
 class ConsolidationStrategy(str, Enum):
@@ -207,11 +212,11 @@ class ConsolidationSuggestion(BaseModel):
         # High impact, low complexity = highest priority
         # Low impact, high complexity = lowest priority
 
-        if self.impact_score >= 75 and self.complexity in ['trivial', 'simple']:
+        if self.impact_score >= ScoringThresholds.CRITICAL and self.complexity in ['trivial', 'simple']:
             return 'critical'
-        elif self.impact_score >= 50 and self.complexity in ['trivial', 'simple', 'moderate']:
+        elif self.impact_score >= ScoringThresholds.HIGH and self.complexity in ['trivial', 'simple', 'moderate']:
             return 'high'
-        elif self.impact_score >= 25:
+        elif self.impact_score >= ScoringThresholds.MEDIUM:
             return 'medium'
         else:
             return 'low'
@@ -226,11 +231,11 @@ class ConsolidationSuggestion(BaseModel):
         """
         # Complexity to hours mapping
         complexity_hours = {
-            ImplementationComplexity.TRIVIAL: 0.5,
-            ImplementationComplexity.SIMPLE: 2.5,
-            ImplementationComplexity.MODERATE: 12,
-            ImplementationComplexity.COMPLEX: 40,
-            ImplementationComplexity.VERY_COMPLEX: 80,
+            ImplementationComplexity.TRIVIAL: EffortEstimates.TRIVIAL,
+            ImplementationComplexity.SIMPLE: EffortEstimates.SIMPLE,
+            ImplementationComplexity.MODERATE: EffortEstimates.MODERATE,
+            ImplementationComplexity.COMPLEX: EffortEstimates.COMPLEX,
+            ImplementationComplexity.VERY_COMPLEX: EffortEstimates.VERY_COMPLEX,
         }
 
         effort = self.estimated_effort_hours or complexity_hours.get(self.complexity, 10)

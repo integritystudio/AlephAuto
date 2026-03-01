@@ -16,9 +16,13 @@ import json
 import math
 import os
 import subprocess
+import sys
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent / 'pipeline-core'))
+from constants import ChartDefaults
 
 
 # Configuration
@@ -240,10 +244,10 @@ def categorize_repositories(repositories):
     return categories
 
 
-def create_pie_chart_svg(data, title, output_file, width=800, height=600):
+def create_pie_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, height=ChartDefaults.HEIGHT):
     """Create SVG pie chart without matplotlib dependency"""
     cx, cy = width / 2, height / 2
-    radius = min(width, height) / 3
+    radius = min(width, height) / ChartDefaults.RADIUS_DIVISOR
 
     colors = [
         '#0066cc', '#4da6ff', '#99ccff', '#00994d', '#ffcc00',
@@ -256,11 +260,11 @@ def create_pie_chart_svg(data, title, output_file, width=800, height=600):
 
     svg_parts = [
         f'<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">',
-        f'<text x="{cx}" y="30" text-anchor="middle" font-size="20" font-weight="bold">{title}</text>'
+        f'<text x="{cx}" y="30" text-anchor="middle" font-size="{ChartDefaults.TITLE_FONT_SIZE}" font-weight="bold">{title}</text>'
     ]
 
     start_angle = 0
-    legend_y = 50
+    legend_y = ChartDefaults.MARGIN_TOP
 
     for i, (label, value) in enumerate(data.items()):
         if value == 0:
@@ -271,8 +275,8 @@ def create_pie_chart_svg(data, title, output_file, width=800, height=600):
         end_angle = start_angle + angle
 
         # Convert to radians
-        start_rad = math.radians(start_angle - 90)
-        end_rad = math.radians(end_angle - 90)
+        start_rad = math.radians(start_angle - ChartDefaults.SVG_ANGLE_OFFSET)
+        end_rad = math.radians(end_angle - ChartDefaults.SVG_ANGLE_OFFSET)
 
         # Calculate arc path
         x1 = cx + radius * math.cos(start_rad)
@@ -280,18 +284,18 @@ def create_pie_chart_svg(data, title, output_file, width=800, height=600):
         x2 = cx + radius * math.cos(end_rad)
         y2 = cy + radius * math.sin(end_rad)
 
-        large_arc = 1 if angle > 180 else 0
+        large_arc = 1 if angle > ChartDefaults.LARGE_ARC_THRESHOLD else 0
 
         # Create pie slice
         path = f'M {cx},{cy} L {x1},{y1} A {radius},{radius} 0 {large_arc},1 {x2},{y2} Z'
         color = colors[i % len(colors)]
-        svg_parts.append(f'<path d="{path}" fill="{color}" stroke="white" stroke-width="2"/>')
+        svg_parts.append(f'<path d="{path}" fill="{color}" stroke="white" stroke-width="{ChartDefaults.STROKE_WIDTH_PATH}"/>')
 
         # Add legend
-        legend_x = width - 200
+        legend_x = width - ChartDefaults.LEGEND_OFFSET_X
         svg_parts.append(f'<rect x="{legend_x}" y="{legend_y}" width="15" height="15" fill="{color}"/>')
         svg_parts.append(f'<text x="{legend_x + 20}" y="{legend_y + 12}" font-size="12">{label}: {value} ({percent:.1f}%)</text>')
-        legend_y += 25
+        legend_y += ChartDefaults.LEGEND_SPACING_Y
 
         start_angle = end_angle
 
@@ -303,34 +307,34 @@ def create_pie_chart_svg(data, title, output_file, width=800, height=600):
     print(f"Created: {output_file.name}")
 
 
-def create_bar_chart_svg(data, title, output_file, width=800, height=600):
+def create_bar_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, height=ChartDefaults.HEIGHT):
     """Create SVG horizontal bar chart"""
     max_value = max(data.values()) if data else 1
-    bar_height = 30
-    spacing = 10
+    bar_height = ChartDefaults.BAR_HEIGHT
+    spacing = ChartDefaults.BAR_SPACING
     chart_height = len(data) * (bar_height + spacing)
-    margin_left = 250
-    margin_top = 50
+    margin_left = ChartDefaults.MARGIN_LEFT
+    margin_top = ChartDefaults.MARGIN_TOP
 
-    actual_height = chart_height + margin_top + 50
+    actual_height = chart_height + margin_top + ChartDefaults.MARGIN_BOTTOM
 
     svg_parts = [
         f'<svg width="{width}" height="{actual_height}" xmlns="http://www.w3.org/2000/svg">',
-        f'<text x="{width/2}" y="30" text-anchor="middle" font-size="20" font-weight="bold">{title}</text>'
+        f'<text x="{width/2}" y="30" text-anchor="middle" font-size="{ChartDefaults.TITLE_FONT_SIZE}" font-weight="bold">{title}</text>'
     ]
 
     for i, (label, value) in enumerate(data.items()):
         y = margin_top + i * (bar_height + spacing)
-        bar_width = ((width - margin_left - 100) * value / max_value)
+        bar_width = ((width - margin_left - ChartDefaults.MARGIN_RIGHT) * value / max_value)
 
         # Bar
-        svg_parts.append(f'<rect x="{margin_left}" y="{y}" width="{bar_width}" height="{bar_height}" fill="#0066cc" stroke="#333" stroke-width="1"/>')
+        svg_parts.append(f'<rect x="{margin_left}" y="{y}" width="{bar_width}" height="{bar_height}" fill="#0066cc" stroke="#333" stroke-width="{ChartDefaults.STROKE_WIDTH_BAR}"/>')
 
         # Label
-        svg_parts.append(f'<text x="{margin_left - 10}" y="{y + bar_height/2 + 5}" text-anchor="end" font-size="14">{label}</text>')
+        svg_parts.append(f'<text x="{margin_left - 10}" y="{y + bar_height/2 + 5}" text-anchor="end" font-size="{ChartDefaults.LABEL_FONT_SIZE}">{label}</text>')
 
         # Value
-        svg_parts.append(f'<text x="{margin_left + bar_width + 5}" y="{y + bar_height/2 + 5}" font-size="14" font-weight="bold">{value}</text>')
+        svg_parts.append(f'<text x="{margin_left + bar_width + 5}" y="{y + bar_height/2 + 5}" font-size="{ChartDefaults.LABEL_FONT_SIZE}" font-weight="bold">{value}</text>')
 
     svg_parts.append('</svg>')
 
