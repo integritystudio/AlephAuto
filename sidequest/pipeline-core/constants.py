@@ -5,6 +5,33 @@ Eliminates magic numbers scattered across extractors, models, similarity,
 and visualization modules. Organized by domain into namespace classes.
 """
 
+from enum import IntEnum
+
+
+class HTTPCodes(IntEnum):
+    """Standard HTTP status codes referenced in structural similarity analysis."""
+    OK = 200
+    CREATED = 201
+    MOVED_PERMANENTLY = 301
+    FOUND = 302
+    BAD_REQUEST = 400
+    UNAUTHORIZED = 401
+    FORBIDDEN = 403
+    NOT_FOUND = 404
+    INTERNAL_SERVER_ERROR = 500
+    BAD_GATEWAY = 502
+    SERVICE_UNAVAILABLE = 503
+
+
+class ScanDefaults:
+    """Default thresholds for scan configuration and report recommendations."""
+    MIN_SIMILARITY_THRESHOLD = 0.8
+    MIN_DUPLICATE_SIZE = 3
+    CONTENT_HASH_LENGTH = 16
+    QUICK_WINS_RECOMMEND_THRESHOLD = 5
+    HIGH_DUPLICATION_PCT = 10
+    DEBUG_HASH_DISPLAY_LIMIT = 20
+
 
 class ChartDefaults:
     WIDTH = 800
@@ -17,8 +44,16 @@ class ChartDefaults:
     MARGIN_BOTTOM = 50
     LEGEND_OFFSET_X = 200
     LEGEND_SPACING_Y = 25
+    LEGEND_ICON_SIZE = 15
+    LEGEND_TEXT_OFFSET_X = 20
+    LEGEND_TEXT_OFFSET_Y = 12
+    LEGEND_FONT_SIZE = 12
     TITLE_FONT_SIZE = 20
+    TITLE_Y = 30
     LABEL_FONT_SIZE = 14
+    LABEL_GAP = 10
+    VALUE_GAP = 5
+    TEXT_VERTICAL_OFFSET = 5
     STROKE_WIDTH_PATH = 2
     STROKE_WIDTH_BAR = 1
     RADIUS_DIVISOR = 3
@@ -127,3 +162,33 @@ class SuggestionDefaults:
     DEFAULT_EFFORT_FALLBACK = 10
     ROI_NORMALIZER = 10
     QUICK_WIN_MIN_IMPACT = 60
+
+
+class GitActivityDefaults:
+    LEGACY_COMMIT_THRESHOLD = 5
+    TOP_N_DISPLAY = 5
+    WEEKLY_MAX_DAYS = 7
+    MONTHLY_MAX_DAYS = 31
+    SEPARATOR_LENGTH = 60
+
+
+class ValidationLimits:
+    FILE_PATH_MAX = 500
+    MATCHED_TEXT_MAX = 100_000
+    LINE_NUMBER_MAX = 1_000_000
+    COLUMN_MAX = 10_000
+    SEVERITY_MAX = 20
+    REPO_PATH_MAX = 1000
+    REPO_NAME_MAX = 200
+    GIT_REMOTE_MAX = 500
+    GIT_BRANCH_MAX = 200
+    GIT_COMMIT_MAX = 50
+    RULE_ID_MAX = 100
+    PATTERN_MATCHES_MAX = 50_000
+
+
+class BlockExtraction:
+    FUNCTION_TAG_PREFIX = "function:"
+    BLOCK_HASH_LENGTH = 12
+    DEBUG_LOG_DEDUP_LIMIT = 10
+    DEBUG_LOG_BLOCK_LIMIT = 3

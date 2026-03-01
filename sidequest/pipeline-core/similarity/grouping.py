@@ -19,7 +19,7 @@ import sys
 
 # Import centralized config (H1 fix: use config module instead of os.environ)
 from .config import SimilarityConfig
-from constants import SemanticWeights, ExtractionDefaults, StructuralDefaults
+from constants import BlockExtraction, ScanDefaults, SemanticWeights, ExtractionDefaults, StructuralDefaults
 
 # Debug mode from config
 DEBUG = SimilarityConfig.DEBUG
@@ -155,8 +155,8 @@ def _extract_function_names(blocks: List['CodeBlock']) -> list[str]:
     func_names = []
     for block in blocks:
         for tag in block.tags:
-            if tag.startswith('function:'):
-                func_names.append(tag[9:])
+            if tag.startswith(BlockExtraction.FUNCTION_TAG_PREFIX):
+                func_names.append(tag[len(BlockExtraction.FUNCTION_TAG_PREFIX):])
                 break
     return func_names
 
@@ -502,8 +502,8 @@ def _group_by_exact_hash(blocks: List['CodeBlock']) -> Dict[str, List['CodeBlock
         hash_val = block.content_hash
         hash_groups[hash_val].append(block)
 
-        # Debug: Show first 20 blocks and their hashes
-        if i < 20:
+        # Debug: Show first N blocks and their hashes
+        if i < ScanDefaults.DEBUG_HASH_DISPLAY_LIMIT:
             func_names = _extract_function_names([block])
             func_name = func_names[0] if func_names else 'unknown'
             print(f"Warning: DEBUG hash block {i}: {func_name} at {block.location.file_path}:{block.location.line_start}, hash={hash_val[:8]}, code_len={len(block.source_code)}", file=sys.stderr)

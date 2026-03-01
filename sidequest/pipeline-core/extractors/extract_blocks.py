@@ -29,6 +29,20 @@ from pydantic import BaseModel, Field, field_validator
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+# Add lib/models and lib/similarity to Python path (early for validation constants)
+sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from constants import (
+    BlockExtraction,
+    ConfidenceThresholds,
+    EffortHours,
+    ExtractionDefaults,
+    ROIMultipliers,
+    ScoringThresholds,
+    SuggestionDefaults,
+    ValidationLimits,
+)
 
 # ---------------------------------------------------------------------------
 # Input Validation Models (C2 Security Fix)
@@ -36,14 +50,14 @@ if TYPE_CHECKING:
 
 class PatternMatchInput(BaseModel):
     """Validated pattern match from ast-grep pipeline input"""
-    file_path: str = Field(..., max_length=500, description="Relative file path")
-    rule_id: str = Field(..., max_length=100, description="ast-grep rule ID")
-    matched_text: str = Field(..., max_length=100_000, description="Matched source code")
-    line_start: int = Field(..., ge=1, le=1_000_000, description="Start line number")
-    line_end: int = Field(..., ge=1, le=1_000_000, description="End line number")
-    column_start: Optional[int] = Field(None, ge=0, le=10_000)
-    column_end: Optional[int] = Field(None, ge=0, le=10_000)
-    severity: Optional[str] = Field(None, max_length=20)
+    file_path: str = Field(..., max_length=ValidationLimits.FILE_PATH_MAX, description="Relative file path")
+    rule_id: str = Field(..., max_length=ValidationLimits.RULE_ID_MAX, description="ast-grep rule ID")
+    matched_text: str = Field(..., max_length=ValidationLimits.MATCHED_TEXT_MAX, description="Matched source code")
+    line_start: int = Field(..., ge=1, le=ValidationLimits.LINE_NUMBER_MAX, description="Start line number")
+    line_end: int = Field(..., ge=1, le=ValidationLimits.LINE_NUMBER_MAX, description="End line number")
+    column_start: Optional[int] = Field(None, ge=0, le=ValidationLimits.COLUMN_MAX)
+    column_end: Optional[int] = Field(None, ge=0, le=ValidationLimits.COLUMN_MAX)
+    severity: Optional[str] = Field(None, max_length=ValidationLimits.SEVERITY_MAX)
     confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
 
     @field_validator('file_path')
@@ -68,11 +82,11 @@ class PatternMatchInput(BaseModel):
 
 class RepositoryInfoInput(BaseModel):
     """Validated repository information from pipeline input"""
-    path: str = Field(..., max_length=1000, description="Repository path")
-    name: Optional[str] = Field(None, max_length=200)
-    git_remote: Optional[str] = Field(None, max_length=500)
-    git_branch: Optional[str] = Field(None, max_length=200)
-    git_commit: Optional[str] = Field(None, max_length=50)
+    path: str = Field(..., max_length=ValidationLimits.REPO_PATH_MAX, description="Repository path")
+    name: Optional[str] = Field(None, max_length=ValidationLimits.REPO_NAME_MAX)
+    git_remote: Optional[str] = Field(None, max_length=ValidationLimits.GIT_REMOTE_MAX)
+    git_branch: Optional[str] = Field(None, max_length=ValidationLimits.GIT_BRANCH_MAX)
+    git_commit: Optional[str] = Field(None, max_length=ValidationLimits.GIT_COMMIT_MAX)
 
 
 class PipelineInput(BaseModel):
@@ -80,7 +94,7 @@ class PipelineInput(BaseModel):
     repository_info: RepositoryInfoInput
     pattern_matches: List[PatternMatchInput] = Field(
         ...,
-        max_length=50_000,
+        max_length=ValidationLimits.PATTERN_MATCHES_MAX,
         description="Pattern matches (max 50k to prevent DoS)"
     )
 
@@ -89,20 +103,8 @@ class PipelineInput(BaseModel):
         'extra': 'ignore'  # Ignore unexpected fields
     }
 
-# Add lib/models and lib/similarity to Python path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 # Import config for DEBUG flag (H1 fix: use config module)
 from similarity.config import SimilarityConfig
-from constants import (
-    ConfidenceThresholds,
-    EffortHours,
-    ExtractionDefaults,
-    ROIMultipliers,
-    ScoringThresholds,
-    SuggestionDefaults,
-)
 
 # Debug mode from centralized config
 DEBUG = SimilarityConfig.DEBUG
@@ -295,8 +297,8 @@ def extract_function_name(
 def _get_function_name_from_tags(tags: list[str]) -> str | None:
     """Extract function name from block tags."""
     for tag in tags:
-        if tag.startswith('function:'):
-            return tag[9:]  # Remove 'function:' prefix
+        if tag.startswith(BlockExtraction.FUNCTION_TAG_PREFIX):
+            return tag[len(BlockExtraction.FUNCTION_TAG_PREFIX):]
     return None
 
 
@@ -355,7 +357,7 @@ def deduplicate_blocks(blocks: list[CodeBlock]) -> list[CodeBlock]:
     for i, block in enumerate(blocks):
         function_name = _get_function_name_from_tags(block.tags)
 
-        if i < 10:
+        if i < BlockExtraction.DEBUG_LOG_DEDUP_LIMIT:
             _debug(f"dedup block {i}: {block.location.file_path}:{block.location.line_start}, func={function_name}")
 
         if function_name:
@@ -374,7 +376,7 @@ def _create_code_block(match: Dict, repository_info: Dict) -> CodeBlock:
     """Create a CodeBlock from a pattern match (H4 fix: extracted helper)."""
     # Generate unique block ID
     block_key = f"{match['file_path']}:{match['line_start']}"
-    block_hash = hashlib.sha256(block_key.encode()).hexdigest()[:12]
+    block_hash = hashlib.sha256(block_key.encode()).hexdigest()[:BlockExtraction.BLOCK_HASH_LENGTH]
     block_id = f"cb_{block_hash}"
 
     # Map pattern_id to category
@@ -403,7 +405,7 @@ def _create_code_block(match: Dict, repository_info: Dict) -> CodeBlock:
         category=category,
         repository_path=repository_info['path'],
         line_count=match.get('line_end', match['line_start']) - match['line_start'] + 1,
-        tags=[f"function:{function_name}"] if function_name else []
+        tags=[f"{BlockExtraction.FUNCTION_TAG_PREFIX}{function_name}"] if function_name else []
     )
 
 
@@ -420,7 +422,7 @@ def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> L
         try:
             block = _create_code_block(match, repository_info)
 
-            if i < 3:
+            if i < BlockExtraction.DEBUG_LOG_BLOCK_LIMIT:
                 _debug(f"block created: file={block.relative_path}, line={block.location.line_start}, tags={block.tags}")
 
             blocks.append(block)
@@ -480,7 +482,7 @@ def generate_suggestions(groups: List[DuplicateGroup]) -> List[ConsolidationSugg
             target_location=_suggest_target_location(group, strategy),
             migration_steps=migration_steps,
             code_example=code_example,
-            impact_score=min(group.impact_score, 100.0),
+            impact_score=min(group.impact_score, ROIMultipliers.MAX_SCORE),
             complexity=complexity,
             migration_risk=risk,
             estimated_effort_hours=_estimate_effort(group, complexity),

@@ -13,7 +13,7 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, computed_field
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from constants import DuplicationThresholds, OpportunityWeights, ScoringThresholds
+from constants import DuplicationThresholds, OpportunityWeights, ScanDefaults, ScoringThresholds
 
 # Import our other models
 # Note: In actual implementation, these would be proper imports
@@ -38,8 +38,8 @@ class ScanConfiguration(BaseModel):
     """Configuration used for the scan"""
     rules_used: List[str] = Field(default_factory=list, description="ast-grep rules applied")
     excluded_paths: List[str] = Field(default_factory=list, description="Paths excluded from scan")
-    min_similarity_threshold: float = Field(0.8, ge=0.0, le=1.0, description="Minimum similarity for grouping")
-    min_duplicate_size: int = Field(3, ge=1, description="Minimum lines for duplicate detection")
+    min_similarity_threshold: float = Field(ScanDefaults.MIN_SIMILARITY_THRESHOLD, ge=0.0, le=1.0, description="Minimum similarity for grouping")
+    min_duplicate_size: int = Field(ScanDefaults.MIN_DUPLICATE_SIZE, ge=1, description="Minimum lines for duplicate detection")
 
 
 class ScanMetrics(BaseModel):
@@ -265,8 +265,8 @@ Scanned {repos_text} containing {self.total_scanned_files:,} files and {self.tot
 
 ## Recommendation
 
-{'🚀 Immediate action recommended - many quick wins available!' if self.metrics.quick_wins >= 5 else
- '⚠️ Moderate duplication detected - consider prioritizing high-impact consolidations' if self.metrics.duplication_percentage >= 10 else
+{'🚀 Immediate action recommended - many quick wins available!' if self.metrics.quick_wins >= ScanDefaults.QUICK_WINS_RECOMMEND_THRESHOLD else
+ '⚠️ Moderate duplication detected - consider prioritizing high-impact consolidations' if self.metrics.duplication_percentage >= ScanDefaults.HIGH_DUPLICATION_PCT else
  '✅ Low duplication - focus on preventing new duplicates'}
 """
         return summary.strip()

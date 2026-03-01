@@ -6,12 +6,18 @@ including its location, AST structure, semantic categorization, and hash
 for similarity comparison.
 """
 
-from datetime import datetime
-from enum import Enum
-from typing import Optional, Dict, Any, List
-from pydantic import BaseModel, Field, computed_field, field_validator
 import hashlib
 import json
+import sys
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Optional, Dict, Any, List
+
+from pydantic import BaseModel, Field, computed_field, field_validator
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from constants import ScanDefaults
 
 
 class LanguageType(str, Enum):
@@ -173,7 +179,7 @@ class CodeBlock(BaseModel):
         """
         # Normalize: remove extra whitespace, consistent formatting
         normalized = ' '.join(self.source_code.split())
-        return hashlib.sha256(normalized.encode()).hexdigest()[:16]
+        return hashlib.sha256(normalized.encode()).hexdigest()[:ScanDefaults.CONTENT_HASH_LENGTH]
 
     @computed_field
     @property

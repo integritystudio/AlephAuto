@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'pipeline-core'))
-from constants import ChartDefaults
+from constants import ChartDefaults, GitActivityDefaults
 
 
 # Configuration
@@ -232,7 +232,7 @@ def categorize_repositories(repositories):
             categories['Personal Sites'].append(repo)
         elif 'mcp' in name or 'server' in name:
             categories['MCP Servers'].append(repo)
-        elif commits < 5:
+        elif commits < GitActivityDefaults.LEGACY_COMMIT_THRESHOLD:
             categories['Legacy'].append(repo)
         elif 'integrity' in name or 'studio' in name or 'visualizer' in name:
             categories['Infrastructure'].append(repo)
@@ -260,7 +260,7 @@ def create_pie_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, he
 
     svg_parts = [
         f'<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">',
-        f'<text x="{cx}" y="30" text-anchor="middle" font-size="{ChartDefaults.TITLE_FONT_SIZE}" font-weight="bold">{title}</text>'
+        f'<text x="{cx}" y="{ChartDefaults.TITLE_Y}" text-anchor="middle" font-size="{ChartDefaults.TITLE_FONT_SIZE}" font-weight="bold">{title}</text>'
     ]
 
     start_angle = 0
@@ -293,8 +293,8 @@ def create_pie_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, he
 
         # Add legend
         legend_x = width - ChartDefaults.LEGEND_OFFSET_X
-        svg_parts.append(f'<rect x="{legend_x}" y="{legend_y}" width="15" height="15" fill="{color}"/>')
-        svg_parts.append(f'<text x="{legend_x + 20}" y="{legend_y + 12}" font-size="12">{label}: {value} ({percent:.1f}%)</text>')
+        svg_parts.append(f'<rect x="{legend_x}" y="{legend_y}" width="{ChartDefaults.LEGEND_ICON_SIZE}" height="{ChartDefaults.LEGEND_ICON_SIZE}" fill="{color}"/>')
+        svg_parts.append(f'<text x="{legend_x + ChartDefaults.LEGEND_TEXT_OFFSET_X}" y="{legend_y + ChartDefaults.LEGEND_TEXT_OFFSET_Y}" font-size="{ChartDefaults.LEGEND_FONT_SIZE}">{label}: {value} ({percent:.1f}%)</text>')
         legend_y += ChartDefaults.LEGEND_SPACING_Y
 
         start_angle = end_angle
@@ -320,7 +320,7 @@ def create_bar_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, he
 
     svg_parts = [
         f'<svg width="{width}" height="{actual_height}" xmlns="http://www.w3.org/2000/svg">',
-        f'<text x="{width/2}" y="30" text-anchor="middle" font-size="{ChartDefaults.TITLE_FONT_SIZE}" font-weight="bold">{title}</text>'
+        f'<text x="{width/2}" y="{ChartDefaults.TITLE_Y}" text-anchor="middle" font-size="{ChartDefaults.TITLE_FONT_SIZE}" font-weight="bold">{title}</text>'
     ]
 
     for i, (label, value) in enumerate(data.items()):
@@ -331,10 +331,10 @@ def create_bar_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, he
         svg_parts.append(f'<rect x="{margin_left}" y="{y}" width="{bar_width}" height="{bar_height}" fill="#0066cc" stroke="#333" stroke-width="{ChartDefaults.STROKE_WIDTH_BAR}"/>')
 
         # Label
-        svg_parts.append(f'<text x="{margin_left - 10}" y="{y + bar_height/2 + 5}" text-anchor="end" font-size="{ChartDefaults.LABEL_FONT_SIZE}">{label}</text>')
+        svg_parts.append(f'<text x="{margin_left - ChartDefaults.LABEL_GAP}" y="{y + bar_height/2 + ChartDefaults.TEXT_VERTICAL_OFFSET}" text-anchor="end" font-size="{ChartDefaults.LABEL_FONT_SIZE}">{label}</text>')
 
         # Value
-        svg_parts.append(f'<text x="{margin_left + bar_width + 5}" y="{y + bar_height/2 + 5}" font-size="{ChartDefaults.LABEL_FONT_SIZE}" font-weight="bold">{value}</text>')
+        svg_parts.append(f'<text x="{margin_left + bar_width + ChartDefaults.VALUE_GAP}" y="{y + bar_height/2 + ChartDefaults.TEXT_VERTICAL_OFFSET}" font-size="{ChartDefaults.LABEL_FONT_SIZE}" font-weight="bold">{value}</text>')
 
     svg_parts.append('</svg>')
 
@@ -440,22 +440,22 @@ def _print_summary(data: dict, output_dir: Path) -> None:
     language_stats = data['languages']
     websites = data['websites']
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * GitActivityDefaults.SEPARATOR_LENGTH}")
     print("Summary")
-    print(f"{'='*60}")
+    print(f"{'=' * GitActivityDefaults.SEPARATOR_LENGTH}")
     print(f"Total commits: {data['total_commits']}")
     print(f"Active repositories: {len(repositories)}")
     print(f"File changes: {data['total_files']}")
     print(f"Languages detected: {len(language_stats)}")
     print(f"Websites found: {len(websites)}")
 
-    print("\nTop 5 repositories:")
-    for i, repo in enumerate(repositories[:5], 1):
+    print(f"\nTop {GitActivityDefaults.TOP_N_DISPLAY} repositories:")
+    for i, repo in enumerate(repositories[:GitActivityDefaults.TOP_N_DISPLAY], 1):
         print(f"  {i}. {repo['name']}: {repo['commits']} commits")
 
-    print("\nTop 5 languages:")
+    print(f"\nTop {GitActivityDefaults.TOP_N_DISPLAY} languages:")
     sorted_langs = sorted(language_stats.items(), key=lambda x: x[1], reverse=True)
-    for i, (lang, count) in enumerate(sorted_langs[:5], 1):
+    for i, (lang, count) in enumerate(sorted_langs[:GitActivityDefaults.TOP_N_DISPLAY], 1):
         print(f"  {i}. {lang}: {count} files")
 
     print(f"\n✅ Complete! Visualizations saved to: {output_dir}")
@@ -473,9 +473,9 @@ def generate_jekyll_report(data: dict, output_file: Path) -> None:
     end = datetime.strptime(end_date, '%Y-%m-%d')
     days = (end - start).days
 
-    if days <= 7:
+    if days <= GitActivityDefaults.WEEKLY_MAX_DAYS:
         report_type = "Weekly"
-    elif days <= 31:
+    elif days <= GitActivityDefaults.MONTHLY_MAX_DAYS:
         report_type = "Monthly"
     else:
         report_type = f"{days}-Day"
@@ -637,9 +637,9 @@ def main():
     since_date, until_date = date_range
 
     # Print header
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * GitActivityDefaults.SEPARATOR_LENGTH}")
     print("Git Activity Report Generator")
-    print(f"{'='*60}")
+    print(f"{'=' * GitActivityDefaults.SEPARATOR_LENGTH}")
     print(f"Date range: {since_date} to {until_date or 'now'}")
     print(f"Scan depth: {args.max_depth} directories")
     print(f"{'='*60}\n")
