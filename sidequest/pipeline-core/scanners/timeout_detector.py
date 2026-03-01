@@ -23,6 +23,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from constants import TimeoutDetectorDefaults
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -96,7 +99,7 @@ def _detect_loading_without_finally(
     if 'setLoading(true)' not in line and 'setLoading( true )' not in line:
         return None
 
-    if ctx.has_text_in_range('finally', line_num, 20):
+    if ctx.has_text_in_range('finally', line_num, TimeoutDetectorDefaults.FINALLY_LOOKAHEAD):
         return None
 
     return Finding(
@@ -117,8 +120,8 @@ def _detect_async_no_error_handling(
     if not re.match(r'^\s*async\s+(function|\w+)\s*\(', line):
         return None
 
-    has_try = ctx.has_pattern_in_range(r'\btry\b', line_num, 50)
-    has_catch = ctx.has_pattern_in_range(r'\bcatch\b', line_num, 50)
+    has_try = ctx.has_pattern_in_range(r'\btry\b', line_num, TimeoutDetectorDefaults.TRY_CATCH_LOOKAHEAD)
+    has_catch = ctx.has_pattern_in_range(r'\bcatch\b', line_num, TimeoutDetectorDefaults.TRY_CATCH_LOOKAHEAD)
 
     if has_try and has_catch:
         return None
@@ -274,7 +277,7 @@ class TimeoutDetector:
 
         return '\n'.join(lines)
 
-    def _add_findings_by_severity(self, lines: list[str], max_per_severity: int = 10) -> None:
+    def _add_findings_by_severity(self, lines: list[str], max_per_severity: int = TimeoutDetectorDefaults.MAX_FINDINGS_PER_SEVERITY) -> None:
         """Add findings grouped by severity to report lines."""
         for severity in ('high', 'medium', 'low'):
             severity_findings = [f for f in self.findings if f.severity == severity]

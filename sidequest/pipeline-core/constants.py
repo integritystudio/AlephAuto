@@ -187,6 +187,12 @@ class ValidationLimits:
     PATTERN_MATCHES_MAX = 50_000
 
 
+class TimeoutDetectorDefaults:
+    FINALLY_LOOKAHEAD = 20
+    TRY_CATCH_LOOKAHEAD = 50
+    MAX_FINDINGS_PER_SEVERITY = 10
+
+
 class BlockExtraction:
     FUNCTION_TAG_PREFIX = "function:"
     BLOCK_HASH_LENGTH = 12

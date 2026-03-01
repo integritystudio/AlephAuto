@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from code_block import CodeBlock, SemanticCategory
-from constants import SemanticWeights
+from constants import BlockExtraction, SemanticWeights
 
 
 def are_semantically_compatible(block1: 'CodeBlock', block2: 'CodeBlock') -> bool:
@@ -89,8 +89,8 @@ def calculate_tag_overlap(block1: 'CodeBlock', block2: 'CodeBlock') -> float:
 def _extract_function_tag(tags: set) -> Optional[str]:
     """Extract function name from tag set."""
     for tag in tags:
-        if tag.startswith('function:'):
-            return tag[9:]  # Remove 'function:' prefix
+        if tag.startswith(BlockExtraction.FUNCTION_TAG_PREFIX):
+            return tag[len(BlockExtraction.FUNCTION_TAG_PREFIX):]
     return None
 
 

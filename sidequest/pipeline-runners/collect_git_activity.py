@@ -459,7 +459,7 @@ def _print_summary(data: dict, output_dir: Path) -> None:
         print(f"  {i}. {lang}: {count} files")
 
     print(f"\n✅ Complete! Visualizations saved to: {output_dir}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * GitActivityDefaults.SEPARATOR_LENGTH}\n")
 
 
 def generate_jekyll_report(data: dict, output_file: Path) -> None:
@@ -642,7 +642,7 @@ def main():
     print(f"{'=' * GitActivityDefaults.SEPARATOR_LENGTH}")
     print(f"Date range: {since_date} to {until_date or 'now'}")
     print(f"Scan depth: {args.max_depth} directories")
-    print(f"{'='*60}\n")
+    print(f"{'=' * GitActivityDefaults.SEPARATOR_LENGTH}\n")
 
     # Find and process repositories
     repos = find_git_repos(args.max_depth)
