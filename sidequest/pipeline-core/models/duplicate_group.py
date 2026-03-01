@@ -5,10 +5,15 @@ Groups together CodeBlocks that are similar enough to be considered
 duplicates or candidates for consolidation.
 """
 
+import sys
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, computed_field, field_validator
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from constants import ImpactWeights, ScoringThresholds
 
 
 class SimilarityMethod(str, Enum):
@@ -159,20 +164,20 @@ class DuplicateGroup(BaseModel):
         - Similarity score
         - Lines of code affected
         """
-        # Normalize occurrence count (cap at 20 for scoring)
-        occurrence_factor = min(self.occurrence_count / 20.0, 1.0)
+        # Normalize occurrence count (cap at OCCURRENCE_CAP for scoring)
+        occurrence_factor = min(self.occurrence_count / ImpactWeights.OCCURRENCE_CAP, 1.0)
 
         # Similarity weight
         similarity_factor = self.similarity_score
 
-        # Lines of code factor (cap at 100 lines for scoring)
-        loc_factor = min(self.total_lines / 100.0, 1.0)
+        # Lines of code factor (cap at LOC_CAP lines for scoring)
+        loc_factor = min(self.total_lines / ImpactWeights.LOC_CAP, 1.0)
 
         # Weighted average
         score = (
-            occurrence_factor * 40 +  # Frequency is most important
-            similarity_factor * 35 +   # Similarity is very important
-            loc_factor * 25            # Size is moderately important
+            occurrence_factor * ImpactWeights.OCCURRENCE +
+            similarity_factor * ImpactWeights.SIMILARITY +
+            loc_factor * ImpactWeights.SIZE
         )
 
         return round(score, 2)
@@ -191,11 +196,11 @@ class DuplicateGroup(BaseModel):
 
         Returns: 'critical', 'high', 'medium', 'low'
         """
-        if self.impact_score >= 75:
+        if self.impact_score >= ScoringThresholds.CRITICAL:
             return 'critical'
-        elif self.impact_score >= 50:
+        elif self.impact_score >= ScoringThresholds.HIGH:
             return 'high'
-        elif self.impact_score >= 25:
+        elif self.impact_score >= ScoringThresholds.MEDIUM:
             return 'medium'
         else:
             return 'low'

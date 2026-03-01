@@ -95,6 +95,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import config for DEBUG flag (H1 fix: use config module)
 from similarity.config import SimilarityConfig
+from constants import ExtractionDefaults, ScoringThresholds
 
 # Debug mode from centralized config
 DEBUG = SimilarityConfig.DEBUG
@@ -239,8 +240,8 @@ def _search_file_for_function_name(
         print(f"Warning: Could not read file context for {file_path}: {e}", file=sys.stderr)
         return None
 
-    # Search backwards from match line (up to 10 lines before)
-    search_start = max(0, line_start - 11)
+    # Search backwards from match line (up to SEARCH_WINDOW lines before)
+    search_start = max(0, line_start - ExtractionDefaults.SEARCH_WINDOW - 1)
     for i in range(line_start - 1, search_start - 1, -1):
         if i < 0 or i >= len(lines):
             continue
@@ -827,13 +828,13 @@ def calculate_metrics(
     # Identify quick wins (simple to fix)
     quick_wins = [
         g for g in groups
-        if g.occurrence_count <= 3 and len(g.affected_files) == 1
+        if g.occurrence_count <= ExtractionDefaults.QUICK_WIN_MAX_OCCURRENCES and len(g.affected_files) == 1
     ]
 
     # Identify high-impact suggestions (significant refactoring value)
     high_impact = [
         g for g in groups
-        if g.total_lines >= 20 or g.occurrence_count >= 5
+        if g.total_lines >= ExtractionDefaults.HIGH_IMPACT_MIN_LINES or g.occurrence_count >= ExtractionDefaults.HIGH_IMPACT_MIN_OCCURRENCES
     ]
 
     # Semantic annotation metrics
@@ -871,7 +872,7 @@ def calculate_metrics(
         'complex_suggestions': len([s for s in suggestions if s.complexity == 'complex']),
 
         # High priority (by impact score)
-        'high_priority_suggestions': len([s for s in suggestions if s.impact_score >= 75]),
+        'high_priority_suggestions': len([s for s in suggestions if s.impact_score >= ScoringThresholds.CRITICAL]),
 
         # Semantic annotation coverage
         'blocks_with_tags': blocks_with_tags,

@@ -8,9 +8,13 @@ Compares code based on AST structure, ignoring variable names and minor differen
 import re
 import sys
 import hashlib
+from pathlib import Path
 from typing import Tuple, Set
 from difflib import SequenceMatcher
 from dataclasses import dataclass, field
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from constants import StructuralDefaults, ExtractionDefaults
 
 
 @dataclass
@@ -304,8 +308,8 @@ def extract_method_chain(source_code: str) -> list:
         method_name = match.group(1)
 
         # Check if this is part of a chain (close to previous match)
-        # Allow up to 100 characters between methods for complex arguments
-        if current_chain and match.start() - last_pos > 100:
+        # Allow up to METHOD_CHAIN_MAX_GAP characters between methods for complex arguments
+        if current_chain and match.start() - last_pos > ExtractionDefaults.METHOD_CHAIN_MAX_GAP:
             # Too far apart, start a new chain
             if len(current_chain) > 1:  # Only save actual chains (2+ methods)
                 chains.append(current_chain)
@@ -342,7 +346,7 @@ def compare_method_chains(code1: str, code2: str) -> float:
         return 1.0  # No chains in either
 
     if not chain1 or not chain2:
-        return 0.5  # One has chain, other doesn't
+        return StructuralDefaults.CHAIN_MISSING_SIMILARITY  # One has chain, other doesn't
 
     # Exact match
     if chain1 == chain2:
@@ -397,7 +401,7 @@ def calculate_semantic_penalty(features1: SemanticFeatures, features2: SemanticF
         if features1.http_status_codes != features2.http_status_codes:
             # Different status codes indicate different semantic intent
             # (e.g., 200 OK vs 201 Created vs 404 Not Found)
-            penalty *= 0.70
+            penalty *= StructuralDefaults.STATUS_CODE_PENALTY
             print(f"Warning: DEBUG: HTTP status code penalty: {features1.http_status_codes} vs {features2.http_status_codes}, penalty={penalty:.2f}", file=sys.stderr)
 
     # Penalty 2: Logical Operator Mismatch (20% penalty)
@@ -405,7 +409,7 @@ def calculate_semantic_penalty(features1: SemanticFeatures, features2: SemanticF
         if features1.logical_operators != features2.logical_operators:
             # Different logical operators indicate different boolean logic
             # (e.g., === vs !==, && vs ||)
-            penalty *= 0.80
+            penalty *= StructuralDefaults.LOGIC_OPERATOR_PENALTY
             print(f"Warning: DEBUG: Logical operator penalty: {features1.logical_operators} vs {features2.logical_operators}, penalty={penalty:.2f}", file=sys.stderr)
 
     # Penalty 3: Semantic Method Mismatch (25% penalty)
@@ -413,7 +417,7 @@ def calculate_semantic_penalty(features1: SemanticFeatures, features2: SemanticF
         if features1.semantic_methods != features2.semantic_methods:
             # Different semantic methods indicate different operations
             # (e.g., Math.max vs Math.min, toUpperCase vs toLowerCase)
-            penalty *= 0.75
+            penalty *= StructuralDefaults.SEMANTIC_METHOD_PENALTY
             print(f"Warning: DEBUG: Semantic method penalty: {features1.semantic_methods} vs {features2.semantic_methods}, penalty={penalty:.2f}", file=sys.stderr)
 
     return penalty
@@ -458,7 +462,7 @@ def calculate_structural_similarity(code1: str, code2: str, threshold: float = 0
 
     # Check if normalized versions are identical (structural duplicate)
     if normalized1 == normalized2:
-        base_similarity = 0.95  # Slightly less than exact match
+        base_similarity = StructuralDefaults.NORMALIZED_IDENTICAL  # Slightly less than exact match
     else:
         # Calculate similarity ratio using Levenshtein
         base_similarity = calculate_levenshtein_similarity(normalized1, normalized2)

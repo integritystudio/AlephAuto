@@ -6,9 +6,14 @@ scan across one or more repositories, including all code blocks, duplicate
 groups, consolidation suggestions, and summary metrics.
 """
 
+import sys
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, computed_field
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from constants import DuplicationThresholds, ScoringThresholds
 
 # Import our other models
 # Note: In actual implementation, these would be proper imports
@@ -172,13 +177,13 @@ class ScanReport(BaseModel):
         """
         dup_pct = self.metrics.duplication_percentage
 
-        if dup_pct < 5:
+        if dup_pct < DuplicationThresholds.MINIMAL_PCT:
             return 'minimal'
-        elif dup_pct < 10:
+        elif dup_pct < DuplicationThresholds.LOW_PCT:
             return 'low'
-        elif dup_pct < 20:
+        elif dup_pct < DuplicationThresholds.MODERATE_PCT:
             return 'moderate'
-        elif dup_pct < 40:
+        elif dup_pct < DuplicationThresholds.HIGH_PCT:
             return 'high'
         else:
             return 'critical'
@@ -192,9 +197,9 @@ class ScanReport(BaseModel):
         Higher score = more benefit from consolidation
         """
         # Factors: duplication %, number of quick wins, potential LOC reduction
-        dup_factor = min(self.metrics.duplication_percentage / 40 * 100, 100)  # Cap at 40%
+        dup_factor = min(self.metrics.duplication_percentage / DuplicationThresholds.HIGH_PCT * 100, 100)
 
-        quick_win_factor = min(self.metrics.quick_wins / 10 * 100, 100)  # Cap at 10 quick wins
+        quick_win_factor = min(self.metrics.quick_wins / DuplicationThresholds.QUICK_WIN_CAP * 100, 100)
 
         if self.total_scanned_lines > 0:
             loc_reduction_factor = (
