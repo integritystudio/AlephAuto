@@ -19,7 +19,7 @@ from constants import EffortEstimates, ROIMultipliers, ScoringThresholds, Sugges
 class ConsolidationStrategy(str, Enum):
     """Consolidation tier/strategy"""
     LOCAL_UTIL = "local_util"           # Utility within single project
-    SHARED_PACKAGE = "shared_package"   # Shared library across 2-3 projects
+    SHARED_PACKAGE = "shared_package"   # Shared library across few projects
     MCP_SERVER = "mcp_server"           # MCP server for cross-language/tool
     AUTONOMOUS_AGENT = "autonomous_agent"  # Complex orchestration requiring AI
     NO_ACTION = "no_action"             # Not worth consolidating
@@ -27,9 +27,9 @@ class ConsolidationStrategy(str, Enum):
 
 class ImplementationComplexity(str, Enum):
     """Estimated implementation effort"""
-    TRIVIAL = "trivial"      # < 1 hour
-    SIMPLE = "simple"        # 1-4 hours
-    MODERATE = "moderate"    # 1-2 days
+    TRIVIAL = "trivial"      # under an hour
+    SIMPLE = "simple"        # a few hours
+    MODERATE = "moderate"    # a day or two
     COMPLEX = "complex"      # 1+ weeks
     VERY_COMPLEX = "very_complex"  # Multiple weeks
 
