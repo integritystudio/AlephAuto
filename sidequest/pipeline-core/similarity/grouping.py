@@ -398,10 +398,10 @@ def group_by_similarity(
     Implements complexity filtering, exact matching, structural matching, and semantic matching.
 
     Algorithm:
-    0. Complexity layer: Filter trivial blocks (below complexity threshold)
-    1. Exact-match layer: Group by exact content hash (O(n))
-    2. Structural layer: Group remaining by structural similarity (O(n*k))
-    3. Semantic layer: Semantic validation (pattern, category, tags)
+    - Complexity layer: Filter trivial blocks (below complexity threshold)
+    - Exact-match layer: Group by exact content hash (O(n))
+    - Structural layer: Group remaining by structural similarity (O(n*k))
+    - Semantic layer: Semantic validation (pattern, category, tags)
 
     Returns:
         List of DuplicateGroup objects with similarity scores
