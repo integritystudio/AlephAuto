@@ -63,6 +63,16 @@ class ChartDefaults:
     FULL_CIRCLE_DEGREES = 360
 
 
+class ChartColors:
+    BAR_FILL = "#0066cc"
+    BAR_STROKE = "#333"
+    PIE_STROKE = "white"
+    PALETTE = (
+        "#0066cc", "#4da6ff", "#99ccff", "#00994d", "#ffcc00",
+        "#ff6600", "#cc0000", "#9966cc", "#66cc99", "#ff6699",
+    )
+
+
 class ScoringThresholds:
     CRITICAL = 75
     HIGH = 50

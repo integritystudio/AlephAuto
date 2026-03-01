@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'pipeline-core'))
-from constants import ChartDefaults, GitActivityDefaults
+from constants import ChartColors, ChartDefaults, GitActivityDefaults
 
 
 # Configuration
@@ -249,10 +249,7 @@ def create_pie_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, he
     cx, cy = width / 2, height / 2
     radius = min(width, height) / ChartDefaults.RADIUS_DIVISOR
 
-    colors = [
-        '#0066cc', '#4da6ff', '#99ccff', '#00994d', '#ffcc00',
-        '#ff6600', '#cc0000', '#9966cc', '#66cc99', '#ff6699'
-    ]
+    colors = list(ChartColors.PALETTE)
 
     total = sum(data.values())
     if total == 0:
@@ -289,7 +286,7 @@ def create_pie_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, he
         # Create pie slice
         path = f'M {cx},{cy} L {x1},{y1} A {radius},{radius} 0 {large_arc},1 {x2},{y2} Z'
         color = colors[i % len(colors)]
-        svg_parts.append(f'<path d="{path}" fill="{color}" stroke="white" stroke-width="{ChartDefaults.STROKE_WIDTH_PATH}"/>')
+        svg_parts.append(f'<path d="{path}" fill="{color}" stroke="{ChartColors.PIE_STROKE}" stroke-width="{ChartDefaults.STROKE_WIDTH_PATH}"/>')
 
         # Add legend
         legend_x = width - ChartDefaults.LEGEND_OFFSET_X
@@ -328,7 +325,7 @@ def create_bar_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, he
         bar_width = ((width - margin_left - ChartDefaults.MARGIN_RIGHT) * value / max_value)
 
         # Bar
-        svg_parts.append(f'<rect x="{margin_left}" y="{y}" width="{bar_width}" height="{bar_height}" fill="#0066cc" stroke="#333" stroke-width="{ChartDefaults.STROKE_WIDTH_BAR}"/>')
+        svg_parts.append(f'<rect x="{margin_left}" y="{y}" width="{bar_width}" height="{bar_height}" fill="{ChartColors.BAR_FILL}" stroke="{ChartColors.BAR_STROKE}" stroke-width="{ChartDefaults.STROKE_WIDTH_BAR}"/>')
 
         # Label
         svg_parts.append(f'<text x="{margin_left - ChartDefaults.LABEL_GAP}" y="{y + bar_height/2 + ChartDefaults.TEXT_VERTICAL_OFFSET}" text-anchor="end" font-size="{ChartDefaults.LABEL_FONT_SIZE}">{label}</text>')
