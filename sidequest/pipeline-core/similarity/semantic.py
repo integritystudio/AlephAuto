@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from code_block import CodeBlock, SemanticCategory
+from constants import SemanticWeights
 
 
 def are_semantically_compatible(block1: 'CodeBlock', block2: 'CodeBlock') -> bool:
@@ -55,7 +56,7 @@ def are_semantically_compatible(block1: 'CodeBlock', block2: 'CodeBlock') -> boo
     # Check 4: Complexity similarity
     # Blocks should have similar size (within 50% difference)
     line_ratio = min(block1.line_count, block2.line_count) / max(block1.line_count, block2.line_count)
-    if line_ratio < 0.5:
+    if line_ratio < SemanticWeights.LINE_RATIO_THRESHOLD:
         # One block is more than 2x the size of the other
         return False
 
@@ -76,7 +77,7 @@ def calculate_tag_overlap(block1: 'CodeBlock', block2: 'CodeBlock') -> float:
         return 1.0  # No tags on either
 
     if not tags1 or not tags2:
-        return 0.5  # One has tags, other doesn't
+        return SemanticWeights.PARTIAL_TAG_OVERLAP  # One has tags, other doesn't
 
     # Calculate Jaccard similarity
     intersection = tags1 & tags2

@@ -97,14 +97,6 @@ class SimilarityConfig:
             'debug': cls.DEBUG,
         }
 
-    @classmethod
-    def print_config(cls):
-        """Print current configuration."""
-        import json
-        print("=== Similarity Algorithm Configuration ===")
-        print(json.dumps(cls.to_dict(), indent=2))
-        print("=" * 42)
-
 
 # Global config instance
 config = SimilarityConfig()

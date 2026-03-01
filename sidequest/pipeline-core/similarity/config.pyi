@@ -48,8 +48,6 @@ class SimilarityConfig:
 
     @classmethod
     def to_dict(cls) -> dict: ...
-    @classmethod
-    def print_config(cls) -> None: ...
 
 
 config: SimilarityConfig

@@ -13,7 +13,7 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, computed_field, field_validator
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from constants import EffortEstimates, ScoringThresholds
+from constants import EffortEstimates, ROIMultipliers, ScoringThresholds, SuggestionDefaults
 
 
 class ConsolidationStrategy(str, Enum):
@@ -238,14 +238,14 @@ class ConsolidationSuggestion(BaseModel):
             ImplementationComplexity.VERY_COMPLEX: EffortEstimates.VERY_COMPLEX,
         }
 
-        effort = self.estimated_effort_hours or complexity_hours.get(self.complexity, 10)
+        effort = self.estimated_effort_hours or complexity_hours.get(self.complexity, SuggestionDefaults.DEFAULT_EFFORT_FALLBACK)
 
         # ROI = impact / effort (normalized to 0-100)
         if effort == 0:
-            return 100.0
+            return ROIMultipliers.MAX_SCORE
 
-        roi = (self.impact_score / effort) * 10
-        return min(round(roi, 2), 100.0)
+        roi = (self.impact_score / effort) * SuggestionDefaults.ROI_NORMALIZER
+        return min(round(roi, 2), ROIMultipliers.MAX_SCORE)
 
     @computed_field
     @property
@@ -256,7 +256,7 @@ class ConsolidationSuggestion(BaseModel):
         Quick win = high impact, low effort, low risk
         """
         return (
-            self.impact_score >= 60 and
+            self.impact_score >= SuggestionDefaults.QUICK_WIN_MIN_IMPACT and
             self.complexity in [ImplementationComplexity.TRIVIAL, ImplementationComplexity.SIMPLE] and
             self.migration_risk in [MigrationRisk.MINIMAL, MigrationRisk.LOW]
         )

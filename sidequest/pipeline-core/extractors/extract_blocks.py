@@ -95,7 +95,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import config for DEBUG flag (H1 fix: use config module)
 from similarity.config import SimilarityConfig
-from constants import ExtractionDefaults, ScoringThresholds
+from constants import (
+    ConfidenceThresholds,
+    EffortHours,
+    ExtractionDefaults,
+    ROIMultipliers,
+    ScoringThresholds,
+    SuggestionDefaults,
+)
 
 # Debug mode from centralized config
 DEBUG = SimilarityConfig.DEBUG
@@ -438,7 +445,7 @@ def group_duplicates(blocks: List[CodeBlock]) -> List[DuplicateGroup]:
     - Layer 3: Semantic equivalence (TODO)
     """
     # Use the multi-layer grouping algorithm
-    groups = group_by_similarity(blocks, similarity_threshold=0.85)
+    groups = group_by_similarity(blocks, similarity_threshold=SuggestionDefaults.GROUPING_SIMILARITY_THRESHOLD)
 
     return groups
 
@@ -480,7 +487,7 @@ def generate_suggestions(groups: List[DuplicateGroup]) -> List[ConsolidationSugg
             breaking_changes=breaking_changes,
             affected_files_count=len(group.affected_files),
             affected_repositories_count=len(group.affected_repositories),
-            confidence=0.9 if group.similarity_score >= 0.95 else 0.7,
+            confidence=ConfidenceThresholds.HIGH_CONFIDENCE if group.similarity_score >= ConfidenceThresholds.HIGH_SIMILARITY else ConfidenceThresholds.LOW_CONFIDENCE,
             roi_score=roi_score
         )
 
@@ -699,23 +706,23 @@ def _calculate_roi(group: DuplicateGroup, complexity: str, risk: str) -> float:
 
     # Adjust based on complexity (simpler = higher ROI)
     complexity_multipliers = {
-        'trivial': 1.3,
-        'simple': 1.1,
-        'moderate': 0.9,
-        'complex': 0.7
+        'trivial': ROIMultipliers.COMPLEXITY_TRIVIAL,
+        'simple': ROIMultipliers.COMPLEXITY_SIMPLE,
+        'moderate': ROIMultipliers.COMPLEXITY_MODERATE,
+        'complex': ROIMultipliers.COMPLEXITY_COMPLEX,
     }
     roi *= complexity_multipliers.get(complexity, 1.0)
 
     # Adjust based on risk (lower risk = higher ROI)
     risk_multipliers = {
-        'minimal': 1.2,
-        'low': 1.1,
-        'medium': 0.9,
-        'high': 0.7
+        'minimal': ROIMultipliers.RISK_MINIMAL,
+        'low': ROIMultipliers.RISK_LOW,
+        'medium': ROIMultipliers.RISK_MEDIUM,
+        'high': ROIMultipliers.RISK_HIGH,
     }
     roi *= risk_multipliers.get(risk, 1.0)
 
-    return min(roi, 100.0)
+    return min(roi, ROIMultipliers.MAX_SCORE)
 
 
 def _is_breaking_change(group: DuplicateGroup, strategy: str) -> bool:
@@ -768,19 +775,19 @@ def _estimate_effort(group: DuplicateGroup, complexity: str) -> float:
     """Estimate effort in hours"""
 
     base_hours = {
-        'trivial': 0.5,
-        'simple': 1.0,
-        'moderate': 3.0,
-        'complex': 8.0
+        'trivial': EffortHours.TRIVIAL,
+        'simple': EffortHours.SIMPLE,
+        'moderate': EffortHours.MODERATE,
+        'complex': EffortHours.COMPLEX,
     }
 
-    hours = base_hours.get(complexity, 2.0)
+    hours = base_hours.get(complexity, EffortHours.DEFAULT)
 
     # Add time per affected file (more files = more refactoring)
-    hours += len(group.affected_files) * 0.25
+    hours += len(group.affected_files) * EffortHours.PER_FILE_INCREMENT
 
     # Add time for testing
-    hours += 0.5
+    hours += EffortHours.TESTING_OVERHEAD
 
     return round(hours, 1)
 

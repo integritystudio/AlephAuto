@@ -402,7 +402,6 @@ def calculate_semantic_penalty(features1: SemanticFeatures, features2: SemanticF
             # Different status codes indicate different semantic intent
             # (e.g., 200 OK vs 201 Created vs 404 Not Found)
             penalty *= StructuralDefaults.STATUS_CODE_PENALTY
-            print(f"Warning: DEBUG: HTTP status code penalty: {features1.http_status_codes} vs {features2.http_status_codes}, penalty={penalty:.2f}", file=sys.stderr)
 
     # Penalty 2: Logical Operator Mismatch (20% penalty)
     if features1.logical_operators and features2.logical_operators:
@@ -410,7 +409,6 @@ def calculate_semantic_penalty(features1: SemanticFeatures, features2: SemanticF
             # Different logical operators indicate different boolean logic
             # (e.g., === vs !==, && vs ||)
             penalty *= StructuralDefaults.LOGIC_OPERATOR_PENALTY
-            print(f"Warning: DEBUG: Logical operator penalty: {features1.logical_operators} vs {features2.logical_operators}, penalty={penalty:.2f}", file=sys.stderr)
 
     # Penalty 3: Semantic Method Mismatch (25% penalty)
     if features1.semantic_methods and features2.semantic_methods:
@@ -418,12 +416,11 @@ def calculate_semantic_penalty(features1: SemanticFeatures, features2: SemanticF
             # Different semantic methods indicate different operations
             # (e.g., Math.max vs Math.min, toUpperCase vs toLowerCase)
             penalty *= StructuralDefaults.SEMANTIC_METHOD_PENALTY
-            print(f"Warning: DEBUG: Semantic method penalty: {features1.semantic_methods} vs {features2.semantic_methods}, penalty={penalty:.2f}", file=sys.stderr)
 
     return penalty
 
 
-def calculate_structural_similarity(code1: str, code2: str, threshold: float = 0.90) -> Tuple[float, str]:
+def calculate_structural_similarity(code1: str, code2: str, threshold: float = StructuralDefaults.DEFAULT_SIMILARITY_THRESHOLD) -> Tuple[float, str]:
     """
     Calculate structural similarity between two code blocks using unified penalty system.
 
@@ -473,7 +470,7 @@ def calculate_structural_similarity(code1: str, code2: str, threshold: float = 0
         if chain_similarity < 1.0:
             # Different chain structure → penalize similarity
             # Weight: 70% Levenshtein + 30% chain similarity
-            base_similarity = (base_similarity * 0.7) + (chain_similarity * 0.3)
+            base_similarity = (base_similarity * StructuralDefaults.CHAIN_LEVENSHTEIN_WEIGHT) + (chain_similarity * StructuralDefaults.CHAIN_STRUCTURE_WEIGHT)
 
     # ✅ PHASE 3: Apply unified semantic penalties using ORIGINAL features
     penalty = calculate_semantic_penalty(features1, features2)
@@ -486,7 +483,7 @@ def calculate_structural_similarity(code1: str, code2: str, threshold: float = 0
         return final_similarity, 'different'
 
 
-def are_structurally_similar(code1: str, code2: str, threshold: float = 0.90) -> bool:
+def are_structurally_similar(code1: str, code2: str, threshold: float = StructuralDefaults.DEFAULT_SIMILARITY_THRESHOLD) -> bool:
     """
     Check if two code blocks are structurally similar.
 

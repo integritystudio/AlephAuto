@@ -19,7 +19,7 @@ import sys
 
 # Import centralized config (H1 fix: use config module instead of os.environ)
 from .config import SimilarityConfig
-from constants import SemanticWeights, ExtractionDefaults
+from constants import SemanticWeights, ExtractionDefaults, StructuralDefaults
 
 # Debug mode from config
 DEBUG = SimilarityConfig.DEBUG
@@ -390,7 +390,7 @@ def _try_accept_group(
 
 def group_by_similarity(
     blocks: List['CodeBlock'],
-    similarity_threshold: float = 0.90
+    similarity_threshold: float = StructuralDefaults.DEFAULT_SIMILARITY_THRESHOLD
 ) -> List['DuplicateGroup']:
     """
     Group code blocks using multi-layer similarity algorithm with complexity filtering.

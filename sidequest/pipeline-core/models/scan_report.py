@@ -13,7 +13,7 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, computed_field
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from constants import DuplicationThresholds, ScoringThresholds
+from constants import DuplicationThresholds, OpportunityWeights, ScoringThresholds
 
 # Import our other models
 # Note: In actual implementation, these would be proper imports
@@ -210,9 +210,9 @@ class ScanReport(BaseModel):
 
         # Weighted average
         score = (
-            dup_factor * 0.35 +
-            quick_win_factor * 0.40 +
-            loc_reduction_factor * 0.25
+            dup_factor * OpportunityWeights.DUPLICATION +
+            quick_win_factor * OpportunityWeights.QUICK_WIN +
+            loc_reduction_factor * OpportunityWeights.LOC_REDUCTION
         )
 
         return round(min(score, 100), 2)
