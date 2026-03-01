@@ -5,7 +5,7 @@ Timeout Pattern Detector (Python Version)
 Simpler Python implementation for detecting timeout anti-patterns.
 Useful for Python-heavy projects or when ast-grep is not available.
 
-Based on AlephAuto debugging session: Nov 18, 2025
+Based on AlephAuto debugging session
 
 Usage:
     python3 timeout_detector.py /path/to/repo

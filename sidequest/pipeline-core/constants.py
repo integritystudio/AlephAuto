@@ -31,6 +31,7 @@ class ScanDefaults:
     QUICK_WINS_RECOMMEND_THRESHOLD = 5
     HIGH_DUPLICATION_PCT = 10
     DEBUG_HASH_DISPLAY_LIMIT = 20
+    PERCENTAGE_MAX = 100.0
 
 
 class ChartDefaults:
@@ -59,6 +60,7 @@ class ChartDefaults:
     RADIUS_DIVISOR = 3
     SVG_ANGLE_OFFSET = 90
     LARGE_ARC_THRESHOLD = 180
+    FULL_CIRCLE_DEGREES = 360
 
 
 class ScoringThresholds:
@@ -191,6 +193,15 @@ class TimeoutDetectorDefaults:
     FINALLY_LOOKAHEAD = 20
     TRY_CATCH_LOOKAHEAD = 50
     MAX_FINDINGS_PER_SEVERITY = 10
+
+
+class StrategyThresholds:
+    LOGGER_LOCAL_MAX = 5
+    API_LOCAL_MAX = 3
+    API_SHARED_MAX = 10
+    DEFAULT_LOCAL_MAX = 3
+    DEFAULT_SHARED_MAX = 8
+    DB_LOCAL_MAX = 3
 
 
 class BlockExtraction:

@@ -44,9 +44,9 @@ def extract_semantic_features(source_code: str) -> SemanticFeatures:
         SemanticFeatures containing all detected semantic markers
 
     Example:
-        code = "res.status(201).json({ data: user });"
+        code = "res.status(HTTP_CREATED).json({ data: user });"
         features = extract_semantic_features(code)
-        # features.http_status_codes = {201}
+        # features.http_status_codes = {HTTP_CREATED}
     """
     features = SemanticFeatures()
 
@@ -248,7 +248,7 @@ def extract_http_status_codes(source_code: str) -> set:
     Extract HTTP status codes from response patterns.
 
     Returns:
-        Set of status codes (e.g., {200, 201, 404})
+        Set of HTTP status codes found in response patterns
     """
     status_codes = set()
 
@@ -379,9 +379,9 @@ def calculate_semantic_penalty(features1: SemanticFeatures, features2: SemanticF
     Calculate combined semantic penalty based on extracted features.
 
     Penalties are multiplicative - each mismatch reduces similarity:
-    - HTTP status codes: 0.70x (30% penalty)
-    - Logical operators: 0.80x (20% penalty)
-    - Semantic methods: 0.75x (25% penalty)
+    - HTTP status codes: STATUS_CODE_PENALTY multiplier
+    - Logical operators: LOGIC_OPERATOR_PENALTY multiplier
+    - Semantic methods: SEMANTIC_METHOD_PENALTY multiplier
 
     Args:
         features1: Semantic features from first code block
@@ -391,8 +391,8 @@ def calculate_semantic_penalty(features1: SemanticFeatures, features2: SemanticF
         Penalty multiplier (0.0-1.0). Returns 1.0 if no penalties apply.
 
     Example:
-        Different status codes (200 vs 404) + different operators (=== vs !==)
-        = 0.70 * 0.80 = 0.56x final similarity
+        Different status codes + different operators (=== vs !==)
+        = STATUS_CODE_PENALTY * LOGIC_OPERATOR_PENALTY final similarity
     """
     penalty = 1.0
 
@@ -424,7 +424,7 @@ def calculate_structural_similarity(code1: str, code2: str, threshold: float = S
     """
     Calculate structural similarity between two code blocks using unified penalty system.
 
-    Priority 2: Structural Similarity (Layer 2 of 3-layer algorithm)
+    Priority: Structural Similarity (structural layer of multi-layer algorithm)
 
     Returns:
         (similarity_score, method)
@@ -464,7 +464,7 @@ def calculate_structural_similarity(code1: str, code2: str, threshold: float = S
         # Calculate similarity ratio using Levenshtein
         base_similarity = calculate_levenshtein_similarity(normalized1, normalized2)
 
-        # Layer 2.5: Method chain validation
+        # Method chain validation layer
         chain_similarity = compare_method_chains(code1, code2)
 
         if chain_similarity < 1.0:

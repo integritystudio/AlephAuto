@@ -1,8 +1,8 @@
 """
-Semantic Annotator - Stage 4 of the Duplicate Detection Pipeline
+Semantic Annotator - Fourth stage of the Duplicate Detection Pipeline
 
-Extracts rich semantic metadata from code blocks to enable Layer 3
-(semantic similarity) grouping.
+Extracts rich semantic metadata from code blocks to enable
+semantic similarity layer grouping.
 
 Semantic tags are organized into four categories:
 - Operations: What the code does (filter, map, validate, fetch, etc.)
@@ -311,10 +311,10 @@ _COMPILED_ALL_OPERATIONS = (
 
 
 class SemanticAnnotator:
-    """Stage 4: Full semantic annotation of code blocks.
+    """Full semantic annotation of code blocks (fourth stage).
 
     Analyzes code blocks and extracts rich semantic metadata for use in
-    Layer 3 (semantic similarity) grouping.
+    semantic similarity layer grouping.
 
     Usage:
         annotator = SemanticAnnotator()

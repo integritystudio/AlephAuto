@@ -4,9 +4,9 @@ Multi-Layer Similarity Grouping
 Priority 2: Implement multi-layer grouping algorithm from Phase 1 design.
 
 Combines:
-- Layer 1: Exact matching (hash-based)
-- Layer 2: Structural similarity (AST-based)
-- Layer 3: Semantic equivalence (category + tags) [TODO]
+- Layer one: Exact matching (hash-based)
+- Layer two: Structural similarity (AST-based)
+- Layer three: Semantic equivalence (category + tags) [TODO]
 """
 
 from __future__ import annotations
@@ -170,7 +170,7 @@ def _run_semantic_checks(code1: str, code2: str) -> SemanticCheckResult:
 
     Checks include:
     - Method chain differences (e.g., .sort() vs .sort().reverse())
-    - HTTP status code mismatches (200 vs 201)
+    - HTTP status code mismatches
     - Opposite logical operators (!== vs ===)
     - Semantic method opposites (Math.max vs Math.min)
 
@@ -247,10 +247,10 @@ def calculate_group_quality_score(group_blocks: List['CodeBlock'], similarity_sc
     Calculate quality score for a duplicate group.
 
     Factors:
-    - Average similarity score (40%)
-    - Group size (20%)
-    - Code complexity (20%)
-    - Semantic consistency (20%)
+    - Average similarity score (QUALITY_WEIGHT_SIMILARITY)
+    - Group size (QUALITY_WEIGHT_SIZE)
+    - Code complexity (QUALITY_WEIGHT_COMPLEXITY)
+    - Semantic consistency (QUALITY_WEIGHT_SEMANTIC)
 
     Returns:
         Quality score 0.0-1.0
@@ -303,10 +303,10 @@ def validate_exact_group_semantics(group_blocks: List['CodeBlock']) -> tuple:
     """
     Validate that exact hash matches don't have semantic differences.
 
-    This prevents Layer 1 from bypassing semantic validation that exists in Layer 2.
+    This prevents the exact-match layer from bypassing semantic validation that exists in the structural layer.
     Checks for:
     - Method chain differences (e.g., .reverse())
-    - HTTP status code differences (201 vs 200)
+    - HTTP status code differences
     - Opposite logical operators (!== vs ===)
     - Semantic method opposites (Math.max vs Math.min)
 
@@ -351,8 +351,8 @@ def _try_accept_group(
         similarity_method: Method used ('exact_match' or 'structural')
         groups: List to append accepted groups to
         grouped_block_ids: Set to mark grouped block IDs
-        layer_name: Name for debug logging ('Layer 1', 'Layer 2')
-        validate_semantics: Whether to run semantic validation (Layer 1 only)
+        layer_name: Name for debug logging (exact-match layer, structural layer)
+        validate_semantics: Whether to run semantic validation (exact-match layer only)
 
     Returns:
         True if group was accepted, False otherwise
@@ -395,13 +395,13 @@ def group_by_similarity(
     """
     Group code blocks using multi-layer similarity algorithm with complexity filtering.
 
-    Implements Layer 0 (complexity), Layer 1 (exact), Layer 2 (structural), and Layer 3 (semantic).
+    Implements complexity filtering, exact matching, structural matching, and semantic matching.
 
     Algorithm:
-    0. Layer 0: Filter trivial blocks (below complexity threshold)
-    1. Layer 1: Group by exact content hash (O(n))
-    2. Layer 2: Group remaining by structural similarity (O(n*k))
-    3. Layer 3: Semantic validation (pattern, category, tags)
+    0. Complexity layer: Filter trivial blocks (below complexity threshold)
+    1. Exact-match layer: Group by exact content hash (O(n))
+    2. Structural layer: Group remaining by structural similarity (O(n*k))
+    3. Semantic layer: Semantic validation (pattern, category, tags)
 
     Returns:
         List of DuplicateGroup objects with similarity scores
@@ -577,7 +577,7 @@ def _group_by_structural_similarity(
 
 
 # ---------------------------------------------------------------------------
-# Layer 3: Semantic Similarity
+# Semantic Similarity (third layer)
 # ---------------------------------------------------------------------------
 
 # Weights for semantic similarity calculation
@@ -618,10 +618,10 @@ def _calculate_semantic_similarity(
     """Calculate weighted semantic similarity between two annotations.
 
     Uses Jaccard similarity on each tag category with predefined weights:
-    - Operations: 40%
-    - Domains: 25%
-    - Patterns: 20%
-    - Data types: 15%
+    - Operations: OPERATIONS weight
+    - Domains: DOMAINS weight
+    - Patterns: PATTERNS weight
+    - Data types: DATA_TYPES weight
 
     Args:
         ann1: First semantic annotation
@@ -690,7 +690,7 @@ def _group_by_semantic_similarity(
     Args:
         blocks: List of code blocks to group
         annotations: Dict mapping block_id to SemanticAnnotation
-        threshold: Minimum similarity threshold (default 0.70)
+        threshold: Minimum similarity threshold (default: SEMANTIC_SIMILARITY_THRESHOLD)
 
     Returns:
         List of (group_blocks, similarity_score) tuples

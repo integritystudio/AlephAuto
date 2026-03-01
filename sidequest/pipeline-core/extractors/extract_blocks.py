@@ -40,6 +40,7 @@ from constants import (
     ExtractionDefaults,
     ROIMultipliers,
     ScoringThresholds,
+    StrategyThresholds,
     SuggestionDefaults,
     ValidationLimits,
 )
@@ -346,7 +347,7 @@ def _try_add_by_location(
 def deduplicate_blocks(blocks: list[CodeBlock]) -> list[CodeBlock]:
     """Remove duplicate code blocks from the same location and function.
 
-    Priority 4: Deduplicate Pattern Matches
+    Deduplicate Pattern Matches (priority four)
     ast-grep patterns can match the same code multiple times within a function.
     This removes duplicates based on file:function_name, keeping only the earliest match.
     """
@@ -442,9 +443,9 @@ def group_duplicates(blocks: List[CodeBlock]) -> List[DuplicateGroup]:
 
     Priority 2: Structural Similarity
     Uses the enhanced grouping algorithm that combines:
-    - Layer 1: Exact matching (hash-based)
-    - Layer 2: Structural similarity (AST-based)
-    - Layer 3: Semantic equivalence (TODO)
+    - Exact matching layer (hash-based)
+    - Structural similarity layer (AST-based)
+    - Semantic equivalence layer (TODO)
     """
     # Use the multi-layer grouping algorithm
     groups = group_by_similarity(blocks, similarity_threshold=SuggestionDefaults.GROUPING_SIMILARITY_THRESHOLD)
@@ -520,38 +521,38 @@ class StrategyRule:
 # Category-specific strategy rules
 CATEGORY_STRATEGY_RULES: dict[str, list[StrategyRule]] = {
     'logger': [
-        StrategyRule(5, 'local_util', "Logger/config pattern used {occ} times - extract to module constant", 'trivial', 'minimal'),
+        StrategyRule(StrategyThresholds.LOGGER_LOCAL_MAX, 'local_util', "Logger/config pattern used {occ} times - extract to module constant", 'trivial', 'minimal'),
         StrategyRule(None, 'shared_package', "Logger/config pattern used {occ} times across {files} files - centralize configuration", 'simple', 'low'),
     ],
     'config_access': [
-        StrategyRule(5, 'local_util', "Logger/config pattern used {occ} times - extract to module constant", 'trivial', 'minimal'),
+        StrategyRule(StrategyThresholds.LOGGER_LOCAL_MAX, 'local_util', "Logger/config pattern used {occ} times - extract to module constant", 'trivial', 'minimal'),
         StrategyRule(None, 'shared_package', "Logger/config pattern used {occ} times across {files} files - centralize configuration", 'simple', 'low'),
     ],
     'api_handler': [
-        StrategyRule(3, 'local_util', "API pattern used {occ} times - extract to middleware/util", 'simple', 'low'),
-        StrategyRule(10, 'shared_package', "API pattern used {occ} times across {files} files - create shared middleware", 'moderate', 'medium'),
+        StrategyRule(StrategyThresholds.API_LOCAL_MAX, 'local_util', "API pattern used {occ} times - extract to middleware/util", 'simple', 'low'),
+        StrategyRule(StrategyThresholds.API_SHARED_MAX, 'shared_package', "API pattern used {occ} times across {files} files - create shared middleware", 'moderate', 'medium'),
         StrategyRule(None, 'mcp_server', "API pattern used {occ} times - candidate for framework/MCP abstraction", 'complex', 'high'),
     ],
     'auth_check': [
-        StrategyRule(3, 'local_util', "API pattern used {occ} times - extract to middleware/util", 'simple', 'low'),
-        StrategyRule(10, 'shared_package', "API pattern used {occ} times across {files} files - create shared middleware", 'moderate', 'medium'),
+        StrategyRule(StrategyThresholds.API_LOCAL_MAX, 'local_util', "API pattern used {occ} times - extract to middleware/util", 'simple', 'low'),
+        StrategyRule(StrategyThresholds.API_SHARED_MAX, 'shared_package', "API pattern used {occ} times across {files} files - create shared middleware", 'moderate', 'medium'),
         StrategyRule(None, 'mcp_server', "API pattern used {occ} times - candidate for framework/MCP abstraction", 'complex', 'high'),
     ],
     'error_handler': [
-        StrategyRule(3, 'local_util', "API pattern used {occ} times - extract to middleware/util", 'simple', 'low'),
-        StrategyRule(10, 'shared_package', "API pattern used {occ} times across {files} files - create shared middleware", 'moderate', 'medium'),
+        StrategyRule(StrategyThresholds.API_LOCAL_MAX, 'local_util', "API pattern used {occ} times - extract to middleware/util", 'simple', 'low'),
+        StrategyRule(StrategyThresholds.API_SHARED_MAX, 'shared_package', "API pattern used {occ} times across {files} files - create shared middleware", 'moderate', 'medium'),
         StrategyRule(None, 'mcp_server', "API pattern used {occ} times - candidate for framework/MCP abstraction", 'complex', 'high'),
     ],
     'database_operation': [
-        StrategyRule(3, 'local_util', "Database pattern used {occ} times - extract to repository method", 'moderate', 'medium'),
+        StrategyRule(StrategyThresholds.DB_LOCAL_MAX, 'local_util', "Database pattern used {occ} times - extract to repository method", 'moderate', 'medium'),
         StrategyRule(None, 'shared_package', "Database pattern used {occ} times - create shared query builder", 'complex', 'high'),
     ],
 }
 
 # Default rules for categories not explicitly listed
 DEFAULT_STRATEGY_RULES: list[StrategyRule] = [
-    StrategyRule(3, 'local_util', "Utility pattern used {occ} times in {files} files - extract to local util", 'simple', 'minimal'),
-    StrategyRule(8, 'shared_package', "Utility pattern used {occ} times across {files} files - create shared utility", 'simple', 'low'),
+    StrategyRule(StrategyThresholds.DEFAULT_LOCAL_MAX, 'local_util', "Utility pattern used {occ} times in {files} files - extract to local util", 'simple', 'minimal'),
+    StrategyRule(StrategyThresholds.DEFAULT_SHARED_MAX, 'shared_package', "Utility pattern used {occ} times across {files} files - create shared utility", 'simple', 'low'),
     StrategyRule(None, 'mcp_server', "Utility pattern used {occ} times - consider MCP tool or shared package", 'moderate', 'medium'),
 ]
 

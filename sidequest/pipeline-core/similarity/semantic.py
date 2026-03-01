@@ -1,7 +1,7 @@
 """
 Semantic Similarity Validation
 
-Layer 3 of the multi-layer similarity algorithm.
+Third layer of the multi-layer similarity algorithm.
 Validates that structurally similar code blocks are also semantically equivalent.
 """
 
@@ -24,10 +24,10 @@ def are_semantically_compatible(block1: 'CodeBlock', block2: 'CodeBlock') -> boo
     Returns True if blocks can be considered semantic duplicates.
 
     Validation checks:
-    1. Same pattern_id (ast-grep rule)
-    2. Same category (semantic categorization)
-    3. Compatible tags (if present)
-    4. Similar complexity (line count within 50%)
+    - Same pattern_id (ast-grep rule)
+    - Same category (semantic categorization)
+    - Compatible tags (if present)
+    - Similar complexity (line count ratio check)
     """
 
     # Check 1: Must match same ast-grep pattern

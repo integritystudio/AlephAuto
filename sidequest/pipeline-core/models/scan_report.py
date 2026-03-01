@@ -65,7 +65,7 @@ class ScanMetrics(BaseModel):
     # Impact metrics
     total_duplicated_lines: int = Field(..., ge=0, description="Total lines in duplicate groups")
     potential_loc_reduction: int = Field(..., ge=0, description="Potential lines that could be removed")
-    duplication_percentage: float = Field(..., ge=0.0, le=100.0, description="Percentage of code that's duplicated")
+    duplication_percentage: float = Field(..., ge=0.0, le=ScanDefaults.PERCENTAGE_MAX, description="Percentage of code that's duplicated")
 
     # Consolidation suggestions
     total_suggestions: int = Field(..., ge=0, description="Total consolidation suggestions")

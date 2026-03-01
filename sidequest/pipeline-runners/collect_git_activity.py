@@ -6,8 +6,8 @@ Scans multiple repositories, analyzes commits, generates visualizations,
 and creates a formatted markdown report for Jekyll sites.
 
 Usage:
-    python3 collect_git_activity.py --start-date 2025-07-07 --end-date 2025-11-16
-    python3 collect_git_activity.py --days 7  # Last 7 days
+    python3 collect_git_activity.py --start-date YYYY-MM-DD --end-date YYYY-MM-DD
+    python3 collect_git_activity.py --days N  # Last N days
     python3 collect_git_activity.py --weekly  # Last week
 """
 
@@ -271,7 +271,7 @@ def create_pie_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, he
             continue
 
         percent = (value / total) * 100
-        angle = (value / total) * 360
+        angle = (value / total) * ChartDefaults.FULL_CIRCLE_DEGREES
         end_angle = start_angle + angle
 
         # Convert to radians
