@@ -6,6 +6,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
+import * as Sentry from '@sentry/node';
 import { createComponentLogger } from '../utils/logger.ts';
 import { TIMEOUTS, TIME, GIT_ACTIVITY } from '../core/constants.ts';
 
@@ -99,7 +100,18 @@ export async function parseGitActivityStatsFromJsonFiles(
       if (Object.prototype.hasOwnProperty.call(data, 'total_commits')) {
         return buildGitActivityStatsFromData(data);
       }
-    } catch {
+    } catch (error) {
+      const err = error as Error;
+      logger.warn({ file: resolvedPath, error: err.message }, 'Failed to parse git activity stats JSON file');
+      Sentry.captureException(err, {
+        tags: {
+          component: 'git-activity-worker',
+          operation: 'parse-stats-json',
+        },
+        extra: {
+          file: resolvedPath,
+        },
+      });
       // Continue to next JSON output file.
     }
   }

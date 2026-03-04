@@ -232,23 +232,32 @@ export function parseGitActivityCliArgs(args: string[], runOnStartup: boolean): 
   let runNow = runOnStartup;
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--run-now' || args[i] === '--run') {
+    const arg = args[i];
+    if (arg === '--run-now' || arg === '--run') {
       runNow = true;
-    } else if (args[i] === '--weekly') {
+    } else if (arg === '--weekly') {
       options.reportType = GIT_ACTIVITY.WEEKLY_REPORT_TYPE;
-    } else if (args[i] === '--monthly') {
+    } else if (arg === '--monthly') {
       options.reportType = GIT_ACTIVITY.MONTHLY_REPORT_TYPE;
-    } else if ((args[i] === '--start-date' || args[i] === '--since') && args[i + 1]) {
+    } else if (arg === '--start-date' || arg === '--since') {
+      if (!args[i + 1] || args[i + 1].startsWith('--')) {
+        errors.push(`${arg} requires a YYYY-MM-DD value`);
+        continue;
+      }
       options.sinceDate = args[i + 1];
       i++;
-    } else if (args[i] === '--start-date' || args[i] === '--since') {
-      errors.push(`${args[i]} requires a YYYY-MM-DD value`);
-    } else if ((args[i] === '--end-date' || args[i] === '--until') && args[i + 1]) {
+    } else if (arg === '--end-date' || arg === '--until') {
+      if (!args[i + 1] || args[i + 1].startsWith('--')) {
+        errors.push(`${arg} requires a YYYY-MM-DD value`);
+        continue;
+      }
       options.untilDate = args[i + 1];
       i++;
-    } else if (args[i] === '--end-date' || args[i] === '--until') {
-      errors.push(`${args[i]} requires a YYYY-MM-DD value`);
-    } else if (args[i] === '--days' && args[i + 1]) {
+    } else if (arg === '--days') {
+      if (!args[i + 1] || args[i + 1].startsWith('--')) {
+        errors.push('--days requires a positive integer value');
+        continue;
+      }
       const parsedDays = parseInt(args[i + 1], 10);
       if (Number.isNaN(parsedDays) || parsedDays <= 0) {
         errors.push(`--days must be a positive integer (received: ${args[i + 1]})`);
@@ -256,8 +265,10 @@ export function parseGitActivityCliArgs(args: string[], runOnStartup: boolean): 
         options.days = parsedDays;
       }
       i++;
-    } else if (args[i] === '--days') {
-      errors.push('--days requires a positive integer value');
+    } else if (arg.startsWith('--')) {
+      errors.push(`Unknown flag: ${arg}`);
+    } else {
+      errors.push(`Unexpected positional argument: ${arg}`);
     }
   }
 

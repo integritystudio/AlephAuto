@@ -50,6 +50,25 @@ test('parseGitActivityCliArgs rejects invalid date format', () => {
   assert.ok(parsed.errors.includes('--start-date must match YYYY-MM-DD (received: 03/01/2026)'));
 });
 
+test('parseGitActivityCliArgs rejects unknown flags', () => {
+  const parsed = parseGitActivityCliArgs(['--weekly', '--mothly'], false);
+
+  assert.equal(parsed.options.reportType, GIT_ACTIVITY.WEEKLY_REPORT_TYPE);
+  assert.ok(parsed.errors.includes('Unknown flag: --mothly'));
+});
+
+test('parseGitActivityCliArgs rejects positional arguments', () => {
+  const parsed = parseGitActivityCliArgs(['--weekly', 'extra-arg'], false);
+
+  assert.ok(parsed.errors.includes('Unexpected positional argument: extra-arg'));
+});
+
+test('parseGitActivityCliArgs rejects missing value when next token is another flag', () => {
+  const parsed = parseGitActivityCliArgs(['--start-date', '--end-date', '2026-03-04'], false);
+
+  assert.ok(parsed.errors.includes('--start-date requires a YYYY-MM-DD value'));
+});
+
 test('selectGitActivityJob chooses weekly strategy from default report type', () => {
   const selection = selectGitActivityJob({}, GIT_ACTIVITY.WEEKLY_REPORT_TYPE);
 
