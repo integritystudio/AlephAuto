@@ -9,6 +9,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TREE_FILE="token-tree"
 COMPRESSED_FILE="repo-compressed"
 LOSSLESS_FILE="repomix"
+DOCS_ONLY_FILE="repomix-docs"
+GIT_RANKED_FILE="repomix-git-ranked"
 
 # output filepaths
 OUTPUT_PATH="docs/repomix"
@@ -16,10 +18,14 @@ OUT_DIR="$ROOT/$OUTPUT_PATH"
 TOKEN_TREE_FILE="$OUT_DIR/$TREE_FILE.txt"
 COMPRESSED_REPO_FILE="$OUT_DIR/$COMPRESSED_FILE.xml"
 LOSSLESS_REPO_FILE="$OUT_DIR/$LOSSLESS_FILE.xml"
+DOCS_ONLY_REPO_FILE="$OUT_DIR/$DOCS_ONLY_FILE.xml"
+GIT_RANKED_REPO_FILE="$OUT_DIR/$GIT_RANKED_FILE.xml"
 GITLOG_TOP_FILE="$OUT_DIR/gitlog-top20.txt"
 TREE_FILE_NAME="$OUTPUT_PATH/$TREE_FILE.txt"
 COMPRESSED_FILE_NAME="$OUTPUT_PATH/$COMPRESSED_FILE.xml"
 LOSSLESS_FILE_NAME="$OUTPUT_PATH/$LOSSLESS_FILE.xml"
+DOCS_ONLY_FILE_NAME="$OUTPUT_PATH/$DOCS_ONLY_FILE.xml"
+GIT_RANKED_FILE_NAME="$OUTPUT_PATH/$GIT_RANKED_FILE.xml"
 GITLOG_TOP_FILE_NAME="$OUTPUT_PATH/gitlog-top20.txt"
 
 # input file paths
@@ -27,6 +33,8 @@ INPUT_DIR="$ROOT/scripts/generate-"
 TOKEN_TREE_SCRIPT="$INPUT_DIR$TREE_FILE.sh"
 COMPRESS_SCRIPT="$INPUT_DIR$COMPRESSED_FILE.sh"
 LOSSLESS_SCRIPT="$INPUT_DIR$LOSSLESS_FILE.sh"
+DOCS_ONLY_SCRIPT="$INPUT_DIR$DOCS_ONLY_FILE.sh"
+GIT_RANKED_SCRIPT="$INPUT_DIR$GIT_RANKED_FILE.sh"
 GITLOG_TOP_SCRIPT="$ROOT/scripts/generate-diff-summary.sh"
 
 echo "File set up..."
@@ -38,6 +46,8 @@ rm -f \
   "$TOKEN_TREE_FILE" \
   "$COMPRESSED_REPO_FILE" \
   "$LOSSLESS_REPO_FILE" \
+  "$DOCS_ONLY_REPO_FILE" \
+  "$GIT_RANKED_REPO_FILE" \
   "$GITLOG_TOP_FILE"
 
 # project-level logging
@@ -55,6 +65,16 @@ echo
 
 echo "Generating repomix file for $PROJECT_DIR at $LOSSLESS_FILE_NAME"
 bash "$LOSSLESS_SCRIPT" "$ROOT" "$LOSSLESS_REPO_FILE"
+echo "Success!"
+echo
+
+echo "Generating docs-only repomix file for $PROJECT_DIR at $DOCS_ONLY_FILE_NAME"
+bash "$DOCS_ONLY_SCRIPT" "$ROOT" "$DOCS_ONLY_REPO_FILE"
+echo "Success!"
+echo
+
+echo "Generating git-ranked repomix file for $PROJECT_DIR at $GIT_RANKED_FILE_NAME"
+bash "$GIT_RANKED_SCRIPT" "$ROOT" "$GIT_RANKED_REPO_FILE"
 echo "Success!"
 echo
 
@@ -84,4 +104,6 @@ print_artifact() {
 print_artifact "$TOKEN_TREE_FILE" "$TREE_FILE_NAME"
 print_artifact "$COMPRESSED_REPO_FILE" "$COMPRESSED_FILE_NAME"
 print_artifact "$LOSSLESS_REPO_FILE" "$LOSSLESS_FILE_NAME"
+print_artifact "$DOCS_ONLY_REPO_FILE" "$DOCS_ONLY_FILE_NAME"
+print_artifact "$GIT_RANKED_REPO_FILE" "$GIT_RANKED_FILE_NAME"
 print_artifact "$GITLOG_TOP_FILE" "$GITLOG_TOP_FILE_NAME"

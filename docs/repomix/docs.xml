@@ -153,9 +153,12 @@ scripts/
   fix-types.ts
   generate-diff-summary.sh
   generate-repo-compressed.sh
+  generate-repomix-docs.sh
+  generate-repomix-git-ranked.sh
   generate-repomix.sh
   generate-sidequest-gitlog.sh
   generate-token-tree.sh
+  repomix-docs.config.json
   repomix-regen.sh
   repomix.config.json
   run-python-tests.sh

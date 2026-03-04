@@ -153,9 +153,12 @@ scripts/
   fix-types.ts
   generate-diff-summary.sh
   generate-repo-compressed.sh
+  generate-repomix-docs.sh
+  generate-repomix-git-ranked.sh
   generate-repomix.sh
   generate-sidequest-gitlog.sh
   generate-token-tree.sh
+  repomix-docs.config.json
   repomix-regen.sh
   repomix.config.json
   run-python-tests.sh
@@ -3462,7 +3465,63 @@ echo &quot;Wrote: $OUT&quot;</file><file path="scripts/generate-repo-compressed.
 ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
 OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
 FORCE_COLOR=0 NO_COLOR=1 timeout 60 \
-npx repomix &quot;$ROOT&quot; --compress -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/generate-repomix.sh">set -euo pipefail
+npx repomix &quot;$ROOT&quot; --compress -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/generate-repomix-docs.sh">set -euo pipefail
+ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
+OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
+CONFIG_FILE=&quot;$ROOT/scripts/repomix-docs.config.json&quot;
+FORCE_COLOR=0 NO_COLOR=1 timeout 60 \
+npx repomix &quot;$ROOT&quot; -c &quot;$CONFIG_FILE&quot; -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/generate-repomix-git-ranked.sh">set -euo pipefail
+ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt; [include_logs_count]}&quot;
+OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt; [include_logs_count]}&quot;
+INCLUDE_LOGS_COUNT=&quot;${3:-200}&quot;
+INCLUDE_DIFFS=&quot;${REPOMIX_INCLUDE_DIFFS:-true}&quot;
+INCLUDE_LOGS=&quot;${REPOMIX_INCLUDE_LOGS:-true}&quot;
+SORT_BY_CHANGES_MAX_COMMITS=&quot;${REPOMIX_SORT_BY_CHANGES_MAX_COMMITS:-1000}&quot;
+TIMEOUT_SECONDS=&quot;${REPOMIX_TIMEOUT_SECONDS:-120}&quot;
+if ! [[ &quot;$INCLUDE_LOGS_COUNT&quot; =~ ^[0-9]+$ ]] || [[ &quot;$INCLUDE_LOGS_COUNT&quot; -lt 0 ]]; then
+  echo &quot;include_logs_count must be a non-negative integer: $INCLUDE_LOGS_COUNT&quot; &gt;&amp;2
+  exit 1
+fi
+if ! [[ &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot; =~ ^[0-9]+$ ]] || [[ &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot; -lt 1 ]]; then
+  echo &quot;REPOMIX_SORT_BY_CHANGES_MAX_COMMITS must be a positive integer: $SORT_BY_CHANGES_MAX_COMMITS&quot; &gt;&amp;2
+  exit 1
+fi
+if [[ &quot;$INCLUDE_DIFFS&quot; != &quot;true&quot; &amp;&amp; &quot;$INCLUDE_DIFFS&quot; != &quot;false&quot; ]]; then
+  echo &quot;REPOMIX_INCLUDE_DIFFS must be true|false: $INCLUDE_DIFFS&quot; &gt;&amp;2
+  exit 1
+fi
+if [[ &quot;$INCLUDE_LOGS&quot; != &quot;true&quot; &amp;&amp; &quot;$INCLUDE_LOGS&quot; != &quot;false&quot; ]]; then
+  echo &quot;REPOMIX_INCLUDE_LOGS must be true|false: $INCLUDE_LOGS&quot; &gt;&amp;2
+  exit 1
+fi
+TMP_CONFIG=&quot;$(mktemp &quot;${TMPDIR:-/tmp}/repomix-git-ranked.XXXXXX.json&quot;)&quot;
+cleanup() {
+  rm -f &quot;$TMP_CONFIG&quot;
+}
+trap cleanup EXIT
+cat &gt; &quot;$TMP_CONFIG&quot; &lt;&lt;EOF
+{
+  &quot;\$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
+  &quot;output&quot;: {
+    &quot;style&quot;: &quot;xml&quot;,
+    &quot;parsableStyle&quot;: true,
+    &quot;removeComments&quot;: true,
+    &quot;removeEmptyLines&quot;: true,
+    &quot;fileSummary&quot;: false,
+    &quot;directoryStructure&quot;: true,
+    &quot;files&quot;: true,
+    &quot;git&quot;: {
+      &quot;sortByChanges&quot;: true,
+      &quot;sortByChangesMaxCommits&quot;: $SORT_BY_CHANGES_MAX_COMMITS,
+      &quot;includeDiffs&quot;: $INCLUDE_DIFFS,
+      &quot;includeLogs&quot;: $INCLUDE_LOGS,
+      &quot;includeLogsCount&quot;: $INCLUDE_LOGS_COUNT
+    }
+  }
+}
+EOF
+FORCE_COLOR=0 NO_COLOR=1 timeout &quot;$TIMEOUT_SECONDS&quot; \
+  npx repomix &quot;$ROOT&quot; -c &quot;$TMP_CONFIG&quot; -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/generate-repomix.sh">set -euo pipefail
 ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
 OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
 FORCE_COLOR=0 NO_COLOR=1 timeout 60 \
@@ -3473,7 +3532,49 @@ FORCE_COLOR=0 NO_COLOR=1 npx repomix &quot;$ROOT&quot; --token-count-tree --no-f
   | tr -d &apos;\r&apos; \
   | sed -E &apos;s/\x1B\[[0-9;]*[A-Za-z]//g&apos; \
   | awk &apos;BEGIN{keep=0} /^🔢 Token Count Tree:/{keep=1} /^🔎 Security Check:/{keep=0} keep&apos; \
-  &gt; &quot;$OUTPUT_FILE&quot;</file><file path="scripts/validate-permissions.ts">import fs from &apos;fs/promises&apos;;
+  &gt; &quot;$OUTPUT_FILE&quot;</file><file path="scripts/repomix-docs.config.json">{
+  &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
+
+  &quot;output&quot;: {
+    &quot;style&quot;: &quot;xml&quot;,
+    &quot;parsableStyle&quot;: true,
+    &quot;removeComments&quot;: true,
+    &quot;removeEmptyLines&quot;: true,
+    &quot;truncateBase64&quot;: true,
+    &quot;fileSummary&quot;: false,
+    &quot;directoryStructure&quot;: true,
+    &quot;files&quot;: true,
+    &quot;showLineNumbers&quot;: false,
+    &quot;includeEmptyDirectories&quot;: false,
+    &quot;git&quot;: {
+      &quot;includeDiffs&quot;: false,
+      &quot;includeLogs&quot;: false,
+      &quot;includeLogsCount&quot;: 1
+    }
+  },
+
+  &quot;include&quot;: [
+    &quot;docs/**&quot;
+  ],
+
+  &quot;ignore&quot;: {
+    &quot;useGitignore&quot;: true,
+    &quot;useDotIgnore&quot;: true,
+    &quot;useDefaultPatterns&quot;: true,
+    &quot;customPatterns&quot;: [
+      &quot;docs/repomix/repomix-docs.xml&quot;,
+      &quot;**/node_modules/**&quot;
+    ]
+  },
+
+  &quot;security&quot;: {
+    &quot;enableSecurityCheck&quot;: true
+  },
+
+  &quot;tokenCount&quot;: {
+    &quot;encoding&quot;: &quot;o200k_base&quot;
+  }
+}</file><file path="scripts/validate-permissions.ts">import fs from &apos;fs/promises&apos;;
 import path from &apos;path&apos;;
 import { fileURLToPath } from &apos;url&apos;;
 ⋮----
@@ -10842,6 +10943,28 @@ npm run typecheck           # TypeScript checks
     &quot;useDefaultPatterns&quot;: true,
     &quot;customPatterns&quot;: [
       &quot;**/docs/**&quot;,
+      &quot;**/node_modules/**&quot;,
+      &quot;**/dist/**&quot;,
+      &quot;**/build/**&quot;,
+      &quot;**/out/**&quot;,
+      &quot;**/.next/**&quot;,
+      &quot;**/.turbo/**&quot;,
+      &quot;**/.vite/**&quot;,
+      &quot;**/coverage/**&quot;,
+      &quot;**/fixtures/**&quot;,
+      &quot;**/test-files/**&quot;,
+      &quot;**/__snapshots__/**&quot;,
+      &quot;**/*.snap&quot;,
+      &quot;tests/**&quot;,
+      &quot;**/*.test.*&quot;,
+      &quot;**/*.spec.*&quot;,
+      &quot;**/*.log&quot;,
+      &quot;**/*.tmp&quot;,
+      &quot;**/*.temp&quot;,
+      &quot;**/*.cache&quot;,
+      &quot;**/*.swp&quot;,
+      &quot;**/*.swo&quot;,
+      &quot;**/*.tsbuildinfo&quot;,
       &quot;**/__pycache__/**&quot;,
       &quot;**/*.pyc&quot;,
       &quot;**/*.pyo&quot;,
@@ -11701,6 +11824,9 @@ main &quot;$@&quot;</file><file path="scripts/repomix.config.json">{
 
       &quot;**/__snapshots__/**&quot;,
       &quot;**/*.snap&quot;,
+      &quot;tests/**&quot;,
+      &quot;**/*.test.*&quot;,
+      &quot;**/*.spec.*&quot;,
 
       &quot;**/fixtures/**&quot;,
       &quot;**/test-files/**&quot;,
@@ -13723,13 +13849,26 @@ createReportJob(options: ReportJobOptions =</file><file path="repomix.config.jso
       &quot;**/.vite/**&quot;,
       &quot;**/dist/**&quot;,
       &quot;**/build/**&quot;,
+      &quot;**/out/**&quot;,
       &quot;**/coverage/**&quot;,
 
       &quot;**/.ast-grep-backups/**&quot;,
 
+      &quot;**/fixtures/**&quot;,
+      &quot;**/test-files/**&quot;,
+      &quot;**/__snapshots__/**&quot;,
+      &quot;**/*.snap&quot;,
+      &quot;tests/**&quot;,
+      &quot;**/*.test.*&quot;,
+      &quot;**/*.spec.*&quot;,
+
       &quot;**/*.log&quot;,
       &quot;**/*.tmp&quot;,
+      &quot;**/*.temp&quot;,
       &quot;**/*.cache&quot;,
+      &quot;**/*.swp&quot;,
+      &quot;**/*.swo&quot;,
+      &quot;**/*.tsbuildinfo&quot;,
       &quot;**/*.map&quot;,
       &quot;**/*.min.js&quot;,
       &quot;**/*.min.css&quot;,
@@ -13758,7 +13897,8 @@ createReportJob(options: ReportJobOptions =</file><file path="repomix.config.jso
       &quot;**/*.pem&quot;,
       &quot;**/*.key&quot;,
       &quot;**/*.p12&quot;,
-      &quot;**/*.pfx&quot;
+      &quot;**/*.pfx&quot;,
+      &quot;**/*secret*&quot;
     ]
   },
 
@@ -13982,69 +14122,7 @@ if [[ &quot;$MIRROR_OUT&quot; != &quot;$OUT&quot; ]]; then
   echo &quot;Wrote: $MIRROR_OUT&quot;
 else
   echo &quot;Wrote: $OUT&quot;
-fi</file><file path="scripts/repomix-regen.sh">set -euo pipefail
-ROOT=&quot;$(cd &quot;$(dirname &quot;$0&quot;)/..&quot; &amp;&amp; pwd)&quot;
-TREE_FILE=&quot;token-tree&quot;
-COMPRESSED_FILE=&quot;repo-compressed&quot;
-LOSSLESS_FILE=&quot;repomix&quot;
-OUTPUT_PATH=&quot;docs/repomix&quot;
-OUT_DIR=&quot;$ROOT/$OUTPUT_PATH&quot;
-TOKEN_TREE_FILE=&quot;$OUT_DIR/$TREE_FILE.txt&quot;
-COMPRESSED_REPO_FILE=&quot;$OUT_DIR/$COMPRESSED_FILE.xml&quot;
-LOSSLESS_REPO_FILE=&quot;$OUT_DIR/$LOSSLESS_FILE.xml&quot;
-GITLOG_TOP_FILE=&quot;$OUT_DIR/gitlog-top20.txt&quot;
-TREE_FILE_NAME=&quot;$OUTPUT_PATH/$TREE_FILE.txt&quot;
-COMPRESSED_FILE_NAME=&quot;$OUTPUT_PATH/$COMPRESSED_FILE.xml&quot;
-LOSSLESS_FILE_NAME=&quot;$OUTPUT_PATH/$LOSSLESS_FILE.xml&quot;
-GITLOG_TOP_FILE_NAME=&quot;$OUTPUT_PATH/gitlog-top20.txt&quot;
-INPUT_DIR=&quot;$ROOT/scripts/generate-&quot;
-TOKEN_TREE_SCRIPT=&quot;$INPUT_DIR$TREE_FILE.sh&quot;
-COMPRESS_SCRIPT=&quot;$INPUT_DIR$COMPRESSED_FILE.sh&quot;
-LOSSLESS_SCRIPT=&quot;$INPUT_DIR$LOSSLESS_FILE.sh&quot;
-GITLOG_TOP_SCRIPT=&quot;$ROOT/scripts/generate-diff-summary.sh&quot;
-echo &quot;File set up...&quot;
-mkdir -p &quot;$OUT_DIR&quot;
-rm -f \
-  &quot;$TOKEN_TREE_FILE&quot; \
-  &quot;$COMPRESSED_REPO_FILE&quot; \
-  &quot;$LOSSLESS_REPO_FILE&quot; \
-  &quot;$GITLOG_TOP_FILE&quot;
-PROJECT_DIR=&quot;$(basename &quot;$ROOT&quot;)&quot;
-echo &quot;Generating token count tree for $PROJECT_DIR at $TREE_FILE_NAME&quot;
-bash &quot;$TOKEN_TREE_SCRIPT&quot; &quot;$ROOT&quot; &quot;$TOKEN_TREE_FILE&quot;
-echo &quot;Success!&quot;
-echo
-echo &quot;Generating compressed repomix file for $PROJECT_DIR at $COMPRESSED_FILE_NAME&quot;
-bash &quot;$COMPRESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$COMPRESSED_REPO_FILE&quot;
-echo &quot;Success!&quot;
-echo
-echo &quot;Generating repomix file for $PROJECT_DIR at $LOSSLESS_FILE_NAME&quot;
-bash &quot;$LOSSLESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$LOSSLESS_REPO_FILE&quot;
-echo &quot;Success!&quot;
-echo
-echo &quot;Generating top-file git history at $GITLOG_TOP_FILE_NAME&quot;
-(
-  cd &quot;$ROOT&quot;
-  bash &quot;$GITLOG_TOP_SCRIPT&quot;
-)
-echo &quot;Success!&quot;
-echo
-echo &quot;Artifacts:&quot;
-print_artifact() {
-  local file_path=&quot;$1&quot;
-  local display_name=&quot;$2&quot;
-  if [[ -f &quot;$file_path&quot; ]]; then
-    chars=$(wc -c &lt; &quot;$file_path&quot; | tr -d &apos; &apos;)
-    tokens=$((chars / 4))
-    echo &quot; - $display_name (~$tokens tokens, $chars chars)&quot;
-  else
-    echo &quot; - $display_name (missing)&quot;
-  fi
-}
-print_artifact &quot;$TOKEN_TREE_FILE&quot; &quot;$TREE_FILE_NAME&quot;
-print_artifact &quot;$COMPRESSED_REPO_FILE&quot; &quot;$COMPRESSED_FILE_NAME&quot;
-print_artifact &quot;$LOSSLESS_REPO_FILE&quot; &quot;$LOSSLESS_FILE_NAME&quot;
-print_artifact &quot;$GITLOG_TOP_FILE&quot; &quot;$GITLOG_TOP_FILE_NAME&quot;</file><file path="sidequest/pipeline-runners/claude-health-pipeline.ts">import { ClaudeHealthWorker } from &apos;../workers/claude-health-worker.ts&apos;;
+fi</file><file path="sidequest/pipeline-runners/claude-health-pipeline.ts">import { ClaudeHealthWorker } from &apos;../workers/claude-health-worker.ts&apos;;
 import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;
 import { config } from &apos;../core/config.ts&apos;;
 import { HEALTH, JOB_EVENTS } from &apos;../core/constants.ts&apos;;
@@ -14357,7 +14435,89 @@ function isDirectExecution(): boolean</file><file path="package.json">{
       &quot;qs&quot;: &quot;&gt;=6.14.1&quot;
     }
   }
-}</file><file path="sidequest/pipeline-runners/bugfix-audit-pipeline.ts">import { BugfixAuditWorker } from &apos;../workers/bugfix-audit-worker.ts&apos;;
+}</file><file path="scripts/repomix-regen.sh">set -euo pipefail
+ROOT=&quot;$(cd &quot;$(dirname &quot;$0&quot;)/..&quot; &amp;&amp; pwd)&quot;
+TREE_FILE=&quot;token-tree&quot;
+COMPRESSED_FILE=&quot;repo-compressed&quot;
+LOSSLESS_FILE=&quot;repomix&quot;
+DOCS_ONLY_FILE=&quot;repomix-docs&quot;
+GIT_RANKED_FILE=&quot;repomix-git-ranked&quot;
+OUTPUT_PATH=&quot;docs/repomix&quot;
+OUT_DIR=&quot;$ROOT/$OUTPUT_PATH&quot;
+TOKEN_TREE_FILE=&quot;$OUT_DIR/$TREE_FILE.txt&quot;
+COMPRESSED_REPO_FILE=&quot;$OUT_DIR/$COMPRESSED_FILE.xml&quot;
+LOSSLESS_REPO_FILE=&quot;$OUT_DIR/$LOSSLESS_FILE.xml&quot;
+DOCS_ONLY_REPO_FILE=&quot;$OUT_DIR/$DOCS_ONLY_FILE.xml&quot;
+GIT_RANKED_REPO_FILE=&quot;$OUT_DIR/$GIT_RANKED_FILE.xml&quot;
+GITLOG_TOP_FILE=&quot;$OUT_DIR/gitlog-top20.txt&quot;
+TREE_FILE_NAME=&quot;$OUTPUT_PATH/$TREE_FILE.txt&quot;
+COMPRESSED_FILE_NAME=&quot;$OUTPUT_PATH/$COMPRESSED_FILE.xml&quot;
+LOSSLESS_FILE_NAME=&quot;$OUTPUT_PATH/$LOSSLESS_FILE.xml&quot;
+DOCS_ONLY_FILE_NAME=&quot;$OUTPUT_PATH/$DOCS_ONLY_FILE.xml&quot;
+GIT_RANKED_FILE_NAME=&quot;$OUTPUT_PATH/$GIT_RANKED_FILE.xml&quot;
+GITLOG_TOP_FILE_NAME=&quot;$OUTPUT_PATH/gitlog-top20.txt&quot;
+INPUT_DIR=&quot;$ROOT/scripts/generate-&quot;
+TOKEN_TREE_SCRIPT=&quot;$INPUT_DIR$TREE_FILE.sh&quot;
+COMPRESS_SCRIPT=&quot;$INPUT_DIR$COMPRESSED_FILE.sh&quot;
+LOSSLESS_SCRIPT=&quot;$INPUT_DIR$LOSSLESS_FILE.sh&quot;
+DOCS_ONLY_SCRIPT=&quot;$INPUT_DIR$DOCS_ONLY_FILE.sh&quot;
+GIT_RANKED_SCRIPT=&quot;$INPUT_DIR$GIT_RANKED_FILE.sh&quot;
+GITLOG_TOP_SCRIPT=&quot;$ROOT/scripts/generate-diff-summary.sh&quot;
+echo &quot;File set up...&quot;
+mkdir -p &quot;$OUT_DIR&quot;
+rm -f \
+  &quot;$TOKEN_TREE_FILE&quot; \
+  &quot;$COMPRESSED_REPO_FILE&quot; \
+  &quot;$LOSSLESS_REPO_FILE&quot; \
+  &quot;$DOCS_ONLY_REPO_FILE&quot; \
+  &quot;$GIT_RANKED_REPO_FILE&quot; \
+  &quot;$GITLOG_TOP_FILE&quot;
+PROJECT_DIR=&quot;$(basename &quot;$ROOT&quot;)&quot;
+echo &quot;Generating token count tree for $PROJECT_DIR at $TREE_FILE_NAME&quot;
+bash &quot;$TOKEN_TREE_SCRIPT&quot; &quot;$ROOT&quot; &quot;$TOKEN_TREE_FILE&quot;
+echo &quot;Success!&quot;
+echo
+echo &quot;Generating compressed repomix file for $PROJECT_DIR at $COMPRESSED_FILE_NAME&quot;
+bash &quot;$COMPRESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$COMPRESSED_REPO_FILE&quot;
+echo &quot;Success!&quot;
+echo
+echo &quot;Generating repomix file for $PROJECT_DIR at $LOSSLESS_FILE_NAME&quot;
+bash &quot;$LOSSLESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$LOSSLESS_REPO_FILE&quot;
+echo &quot;Success!&quot;
+echo
+echo &quot;Generating docs-only repomix file for $PROJECT_DIR at $DOCS_ONLY_FILE_NAME&quot;
+bash &quot;$DOCS_ONLY_SCRIPT&quot; &quot;$ROOT&quot; &quot;$DOCS_ONLY_REPO_FILE&quot;
+echo &quot;Success!&quot;
+echo
+echo &quot;Generating git-ranked repomix file for $PROJECT_DIR at $GIT_RANKED_FILE_NAME&quot;
+bash &quot;$GIT_RANKED_SCRIPT&quot; &quot;$ROOT&quot; &quot;$GIT_RANKED_REPO_FILE&quot;
+echo &quot;Success!&quot;
+echo
+echo &quot;Generating top-file git history at $GITLOG_TOP_FILE_NAME&quot;
+(
+  cd &quot;$ROOT&quot;
+  bash &quot;$GITLOG_TOP_SCRIPT&quot;
+)
+echo &quot;Success!&quot;
+echo
+echo &quot;Artifacts:&quot;
+print_artifact() {
+  local file_path=&quot;$1&quot;
+  local display_name=&quot;$2&quot;
+  if [[ -f &quot;$file_path&quot; ]]; then
+    chars=$(wc -c &lt; &quot;$file_path&quot; | tr -d &apos; &apos;)
+    tokens=$((chars / 4))
+    echo &quot; - $display_name (~$tokens tokens, $chars chars)&quot;
+  else
+    echo &quot; - $display_name (missing)&quot;
+  fi
+}
+print_artifact &quot;$TOKEN_TREE_FILE&quot; &quot;$TREE_FILE_NAME&quot;
+print_artifact &quot;$COMPRESSED_REPO_FILE&quot; &quot;$COMPRESSED_FILE_NAME&quot;
+print_artifact &quot;$LOSSLESS_REPO_FILE&quot; &quot;$LOSSLESS_FILE_NAME&quot;
+print_artifact &quot;$DOCS_ONLY_REPO_FILE&quot; &quot;$DOCS_ONLY_FILE_NAME&quot;
+print_artifact &quot;$GIT_RANKED_REPO_FILE&quot; &quot;$GIT_RANKED_FILE_NAME&quot;
+print_artifact &quot;$GITLOG_TOP_FILE&quot; &quot;$GITLOG_TOP_FILE_NAME&quot;</file><file path="sidequest/pipeline-runners/bugfix-audit-pipeline.ts">import { BugfixAuditWorker } from &apos;../workers/bugfix-audit-worker.ts&apos;;
 import { config } from &apos;../core/config.ts&apos;;
 import { JOB_EVENTS } from &apos;../core/constants.ts&apos;;
 import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;

@@ -153,9 +153,12 @@ scripts/
   fix-types.ts
   generate-diff-summary.sh
   generate-repo-compressed.sh
+  generate-repomix-docs.sh
+  generate-repomix-git-ranked.sh
   generate-repomix.sh
   generate-sidequest-gitlog.sh
   generate-token-tree.sh
+  repomix-docs.config.json
   repomix-regen.sh
   repomix.config.json
   run-python-tests.sh
@@ -8402,7 +8405,63 @@ tsconfig.json</directory_structure><files>This section contains the contents of 
 2: ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
 3: OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
 4: FORCE_COLOR=0 NO_COLOR=1 timeout 60 \
-5: npx repomix &quot;$ROOT&quot; --compress -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/generate-repomix.sh">1: set -euo pipefail
+5: npx repomix &quot;$ROOT&quot; --compress -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/generate-repomix-docs.sh">1: set -euo pipefail
+2: ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
+3: OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
+4: CONFIG_FILE=&quot;$ROOT/scripts/repomix-docs.config.json&quot;
+5: FORCE_COLOR=0 NO_COLOR=1 timeout 60 \
+6: npx repomix &quot;$ROOT&quot; -c &quot;$CONFIG_FILE&quot; -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/generate-repomix-git-ranked.sh"> 1: set -euo pipefail
+ 2: ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt; [include_logs_count]}&quot;
+ 3: OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt; [include_logs_count]}&quot;
+ 4: INCLUDE_LOGS_COUNT=&quot;${3:-200}&quot;
+ 5: INCLUDE_DIFFS=&quot;${REPOMIX_INCLUDE_DIFFS:-true}&quot;
+ 6: INCLUDE_LOGS=&quot;${REPOMIX_INCLUDE_LOGS:-true}&quot;
+ 7: SORT_BY_CHANGES_MAX_COMMITS=&quot;${REPOMIX_SORT_BY_CHANGES_MAX_COMMITS:-1000}&quot;
+ 8: TIMEOUT_SECONDS=&quot;${REPOMIX_TIMEOUT_SECONDS:-120}&quot;
+ 9: if ! [[ &quot;$INCLUDE_LOGS_COUNT&quot; =~ ^[0-9]+$ ]] || [[ &quot;$INCLUDE_LOGS_COUNT&quot; -lt 0 ]]; then
+10:   echo &quot;include_logs_count must be a non-negative integer: $INCLUDE_LOGS_COUNT&quot; &gt;&amp;2
+11:   exit 1
+12: fi
+13: if ! [[ &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot; =~ ^[0-9]+$ ]] || [[ &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot; -lt 1 ]]; then
+14:   echo &quot;REPOMIX_SORT_BY_CHANGES_MAX_COMMITS must be a positive integer: $SORT_BY_CHANGES_MAX_COMMITS&quot; &gt;&amp;2
+15:   exit 1
+16: fi
+17: if [[ &quot;$INCLUDE_DIFFS&quot; != &quot;true&quot; &amp;&amp; &quot;$INCLUDE_DIFFS&quot; != &quot;false&quot; ]]; then
+18:   echo &quot;REPOMIX_INCLUDE_DIFFS must be true|false: $INCLUDE_DIFFS&quot; &gt;&amp;2
+19:   exit 1
+20: fi
+21: if [[ &quot;$INCLUDE_LOGS&quot; != &quot;true&quot; &amp;&amp; &quot;$INCLUDE_LOGS&quot; != &quot;false&quot; ]]; then
+22:   echo &quot;REPOMIX_INCLUDE_LOGS must be true|false: $INCLUDE_LOGS&quot; &gt;&amp;2
+23:   exit 1
+24: fi
+25: TMP_CONFIG=&quot;$(mktemp &quot;${TMPDIR:-/tmp}/repomix-git-ranked.XXXXXX.json&quot;)&quot;
+26: cleanup() {
+27:   rm -f &quot;$TMP_CONFIG&quot;
+28: }
+29: trap cleanup EXIT
+30: cat &gt; &quot;$TMP_CONFIG&quot; &lt;&lt;EOF
+31: {
+32:   &quot;\$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
+33:   &quot;output&quot;: {
+34:     &quot;style&quot;: &quot;xml&quot;,
+35:     &quot;parsableStyle&quot;: true,
+36:     &quot;removeComments&quot;: true,
+37:     &quot;removeEmptyLines&quot;: true,
+38:     &quot;fileSummary&quot;: false,
+39:     &quot;directoryStructure&quot;: true,
+40:     &quot;files&quot;: true,
+41:     &quot;git&quot;: {
+42:       &quot;sortByChanges&quot;: true,
+43:       &quot;sortByChangesMaxCommits&quot;: $SORT_BY_CHANGES_MAX_COMMITS,
+44:       &quot;includeDiffs&quot;: $INCLUDE_DIFFS,
+45:       &quot;includeLogs&quot;: $INCLUDE_LOGS,
+46:       &quot;includeLogsCount&quot;: $INCLUDE_LOGS_COUNT
+47:     }
+48:   }
+49: }
+50: EOF
+51: FORCE_COLOR=0 NO_COLOR=1 timeout &quot;$TIMEOUT_SECONDS&quot; \
+52:   npx repomix &quot;$ROOT&quot; -c &quot;$TMP_CONFIG&quot; -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/generate-repomix.sh">1: set -euo pipefail
 2: ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
 3: OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
 4: FORCE_COLOR=0 NO_COLOR=1 timeout 60 \
@@ -8413,7 +8472,49 @@ tsconfig.json</directory_structure><files>This section contains the contents of 
 5:   | tr -d &apos;\r&apos; \
 6:   | sed -E &apos;s/\x1B\[[0-9;]*[A-Za-z]//g&apos; \
 7:   | awk &apos;BEGIN{keep=0} /^🔢 Token Count Tree:/{keep=1} /^🔎 Security Check:/{keep=0} keep&apos; \
-8:   &gt; &quot;$OUTPUT_FILE&quot;</file><file path="scripts/validate-permissions.ts">  1: #!/usr/bin/env node
+8:   &gt; &quot;$OUTPUT_FILE&quot;</file><file path="scripts/repomix-docs.config.json"> 1: {
+ 2:   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
+ 3: 
+ 4:   &quot;output&quot;: {
+ 5:     &quot;style&quot;: &quot;xml&quot;,
+ 6:     &quot;parsableStyle&quot;: true,
+ 7:     &quot;removeComments&quot;: true,
+ 8:     &quot;removeEmptyLines&quot;: true,
+ 9:     &quot;truncateBase64&quot;: true,
+10:     &quot;fileSummary&quot;: false,
+11:     &quot;directoryStructure&quot;: true,
+12:     &quot;files&quot;: true,
+13:     &quot;showLineNumbers&quot;: false,
+14:     &quot;includeEmptyDirectories&quot;: false,
+15:     &quot;git&quot;: {
+16:       &quot;includeDiffs&quot;: false,
+17:       &quot;includeLogs&quot;: false,
+18:       &quot;includeLogsCount&quot;: 1
+19:     }
+20:   },
+21: 
+22:   &quot;include&quot;: [
+23:     &quot;docs/**&quot;
+24:   ],
+25: 
+26:   &quot;ignore&quot;: {
+27:     &quot;useGitignore&quot;: true,
+28:     &quot;useDotIgnore&quot;: true,
+29:     &quot;useDefaultPatterns&quot;: true,
+30:     &quot;customPatterns&quot;: [
+31:       &quot;docs/repomix/repomix-docs.xml&quot;,
+32:       &quot;**/node_modules/**&quot;
+33:     ]
+34:   },
+35: 
+36:   &quot;security&quot;: {
+37:     &quot;enableSecurityCheck&quot;: true
+38:   },
+39: 
+40:   &quot;tokenCount&quot;: {
+41:     &quot;encoding&quot;: &quot;o200k_base&quot;
+42:   }
+43: }</file><file path="scripts/validate-permissions.ts">  1: #!/usr/bin/env node
   2: import fs from &apos;fs/promises&apos;;
   3: import path from &apos;path&apos;;
   4: import { fileURLToPath } from &apos;url&apos;;
@@ -28193,85 +28294,107 @@ tsconfig.json</directory_structure><files>This section contains the contents of 
 360: - `../docs/API_REFERENCE.md` - REST API endpoints
 361: - `../docs/architecture/ERROR_HANDLING.md` - Retry logic details
 362: - `../docs/architecture/TYPE_SYSTEM.md` - Type patterns
-363: - `../docs/runbooks/troubleshooting.md` - Debugging guide</file><file path="sidequest/repomix.config.json"> 1: {
- 2:   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
- 3: 
- 4:   &quot;output&quot;: {
- 5:     &quot;style&quot;: &quot;xml&quot;,
- 6:     &quot;parsableStyle&quot;: true,
- 7: 
- 8:     &quot;compress&quot;: false,
- 9:     &quot;removeComments&quot;: true,
-10:     &quot;removeEmptyLines&quot;: true,
-11:     &quot;truncateBase64&quot;: true,
-12: 
-13:     &quot;directoryStructure&quot;: true,
-14:     &quot;files&quot;: true,
-15:     &quot;fileSummary&quot;: false,
-16: 
-17:     &quot;topFilesLength&quot;: 10,
-18:     &quot;showLineNumbers&quot;: false,
-19: 
-20:     &quot;git&quot;: {
-21:       &quot;sortByChanges&quot;: true,
-22:       &quot;sortByChangesMaxCommits&quot;: 200,
-23:       &quot;includeDiffs&quot;: false,
-24:       &quot;includeLogs&quot;: false,
-25:       &quot;includeLogsCount&quot;: 1
-26:     }
-27:   },
-28: 
-29:   &quot;ignore&quot;: {
-30:     &quot;useGitignore&quot;: true,
-31:     &quot;useDotIgnore&quot;: true,
-32:     &quot;useDefaultPatterns&quot;: true,
-33:     &quot;customPatterns&quot;: [
-34:       &quot;**/docs/**&quot;,
-35:       &quot;**/__pycache__/**&quot;,
-36:       &quot;**/*.pyc&quot;,
-37:       &quot;**/*.pyo&quot;,
-38:       &quot;**/*.map&quot;,
-39:       &quot;**/*.min.js&quot;,
-40:       &quot;**/*.min.css&quot;,
-41:       &quot;**/*.png&quot;,
-42:       &quot;**/*.jpg&quot;,
-43:       &quot;**/*.jpeg&quot;,
-44:       &quot;**/*.gif&quot;,
-45:       &quot;**/*.webp&quot;,
-46:       &quot;**/*.ico&quot;,
-47:       &quot;**/*.pdf&quot;,
-48:       &quot;**/*.zip&quot;,
-49:       &quot;**/*.tar&quot;,
-50:       &quot;**/*.gz&quot;,
-51:       &quot;**/*.tgz&quot;,
-52:       &quot;**/*.7z&quot;,
-53:       &quot;**/*.mp4&quot;,
-54:       &quot;**/*.mov&quot;,
-55:       &quot;**/*.avi&quot;,
-56:       &quot;**/*.mp3&quot;,
-57:       &quot;**/*.wav&quot;,
-58:       &quot;**/.env&quot;,
-59:       &quot;**/.env.*&quot;,
-60:       &quot;**/*.pem&quot;,
-61:       &quot;**/*.key&quot;,
-62:       &quot;**/*.p12&quot;,
-63:       &quot;**/*.pfx&quot;,
-64:       &quot;**/*secret*&quot;,
-65:       &quot;.claude/**&quot;,
-66:       &quot;**/.claude/**&quot;,
-67:       &quot;.ast-grep-backups/**&quot;,
-68:       &quot;**/.ast-grep-backups/**&quot;
-69:     ]
-70:   },
-71: 
-72:   &quot;security&quot;: {
-73:     &quot;enableSecurityCheck&quot;: false
-74:   },
-75: 
-76:   &quot;tokenCount&quot;: {
-77:     &quot;encoding&quot;: &quot;o200k_base&quot;
-78:   }
-79: }</file><file path="eslint.config.js"> 1: import eslint from &apos;@eslint/js&apos;;
+363: - `../docs/runbooks/troubleshooting.md` - Debugging guide</file><file path="sidequest/repomix.config.json">  1: {
+  2:   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
+  3: 
+  4:   &quot;output&quot;: {
+  5:     &quot;style&quot;: &quot;xml&quot;,
+  6:     &quot;parsableStyle&quot;: true,
+  7: 
+  8:     &quot;compress&quot;: false,
+  9:     &quot;removeComments&quot;: true,
+ 10:     &quot;removeEmptyLines&quot;: true,
+ 11:     &quot;truncateBase64&quot;: true,
+ 12: 
+ 13:     &quot;directoryStructure&quot;: true,
+ 14:     &quot;files&quot;: true,
+ 15:     &quot;fileSummary&quot;: false,
+ 16: 
+ 17:     &quot;topFilesLength&quot;: 10,
+ 18:     &quot;showLineNumbers&quot;: false,
+ 19: 
+ 20:     &quot;git&quot;: {
+ 21:       &quot;sortByChanges&quot;: true,
+ 22:       &quot;sortByChangesMaxCommits&quot;: 200,
+ 23:       &quot;includeDiffs&quot;: false,
+ 24:       &quot;includeLogs&quot;: false,
+ 25:       &quot;includeLogsCount&quot;: 1
+ 26:     }
+ 27:   },
+ 28: 
+ 29:   &quot;ignore&quot;: {
+ 30:     &quot;useGitignore&quot;: true,
+ 31:     &quot;useDotIgnore&quot;: true,
+ 32:     &quot;useDefaultPatterns&quot;: true,
+ 33:     &quot;customPatterns&quot;: [
+ 34:       &quot;**/docs/**&quot;,
+ 35:       &quot;**/node_modules/**&quot;,
+ 36:       &quot;**/dist/**&quot;,
+ 37:       &quot;**/build/**&quot;,
+ 38:       &quot;**/out/**&quot;,
+ 39:       &quot;**/.next/**&quot;,
+ 40:       &quot;**/.turbo/**&quot;,
+ 41:       &quot;**/.vite/**&quot;,
+ 42:       &quot;**/coverage/**&quot;,
+ 43:       &quot;**/fixtures/**&quot;,
+ 44:       &quot;**/test-files/**&quot;,
+ 45:       &quot;**/__snapshots__/**&quot;,
+ 46:       &quot;**/*.snap&quot;,
+ 47:       &quot;tests/**&quot;,
+ 48:       &quot;**/*.test.*&quot;,
+ 49:       &quot;**/*.spec.*&quot;,
+ 50:       &quot;**/*.log&quot;,
+ 51:       &quot;**/*.tmp&quot;,
+ 52:       &quot;**/*.temp&quot;,
+ 53:       &quot;**/*.cache&quot;,
+ 54:       &quot;**/*.swp&quot;,
+ 55:       &quot;**/*.swo&quot;,
+ 56:       &quot;**/*.tsbuildinfo&quot;,
+ 57:       &quot;**/__pycache__/**&quot;,
+ 58:       &quot;**/*.pyc&quot;,
+ 59:       &quot;**/*.pyo&quot;,
+ 60:       &quot;**/*.map&quot;,
+ 61:       &quot;**/*.min.js&quot;,
+ 62:       &quot;**/*.min.css&quot;,
+ 63:       &quot;**/*.png&quot;,
+ 64:       &quot;**/*.jpg&quot;,
+ 65:       &quot;**/*.jpeg&quot;,
+ 66:       &quot;**/*.gif&quot;,
+ 67:       &quot;**/*.webp&quot;,
+ 68:       &quot;**/*.ico&quot;,
+ 69:       &quot;**/*.pdf&quot;,
+ 70:       &quot;**/*.zip&quot;,
+ 71:       &quot;**/*.tar&quot;,
+ 72:       &quot;**/*.gz&quot;,
+ 73:       &quot;**/*.tgz&quot;,
+ 74:       &quot;**/*.7z&quot;,
+ 75:       &quot;**/*.mp4&quot;,
+ 76:       &quot;**/*.mov&quot;,
+ 77:       &quot;**/*.avi&quot;,
+ 78:       &quot;**/*.mp3&quot;,
+ 79:       &quot;**/*.wav&quot;,
+ 80:       &quot;**/.env&quot;,
+ 81:       &quot;**/.env.*&quot;,
+ 82:       &quot;**/*.pem&quot;,
+ 83:       &quot;**/*.key&quot;,
+ 84:       &quot;**/*.p12&quot;,
+ 85:       &quot;**/*.pfx&quot;,
+ 86:       &quot;**/*secret*&quot;,
+ 87:       &quot;.claude/**&quot;,
+ 88:       &quot;**/.claude/**&quot;,
+ 89:       &quot;.ast-grep-backups/**&quot;,
+ 90:       &quot;**/.ast-grep-backups/**&quot;
+ 91:     ]
+ 92:   },
+ 93: 
+ 94:   &quot;security&quot;: {
+ 95:     &quot;enableSecurityCheck&quot;: false
+ 96:   },
+ 97: 
+ 98:   &quot;tokenCount&quot;: {
+ 99:     &quot;encoding&quot;: &quot;o200k_base&quot;
+100:   }
+101: }</file><file path="eslint.config.js"> 1: import eslint from &apos;@eslint/js&apos;;
  2: import tseslint from &apos;typescript-eslint&apos;;
  3: export default tseslint.config(
  4:   {
@@ -30962,52 +31085,55 @@ tsconfig.json</directory_structure><files>This section contains the contents of 
 103: 
 104:       &quot;**/__snapshots__/**&quot;,
 105:       &quot;**/*.snap&quot;,
-106: 
-107:       &quot;**/fixtures/**&quot;,
-108:       &quot;**/test-files/**&quot;,
-109:       &quot;**/manual/**&quot;,
-110:       &quot;**/results/**&quot;,
-111: 
-112:       &quot;**/*.png&quot;,
-113:       &quot;**/*.jpg&quot;,
-114:       &quot;**/*.jpeg&quot;,
-115:       &quot;**/*.gif&quot;,
-116:       &quot;**/*.webp&quot;,
-117:       &quot;**/*.ico&quot;,
-118:       &quot;**/*.pdf&quot;,
-119:       &quot;**/*.zip&quot;,
-120:       &quot;**/*.tar&quot;,
-121:       &quot;**/*.gz&quot;,
-122:       &quot;**/*.tgz&quot;,
-123:       &quot;**/*.7z&quot;,
-124:       &quot;**/*.mp4&quot;,
-125:       &quot;**/*.mov&quot;,
-126:       &quot;**/*.avi&quot;,
-127:       &quot;**/*.mp3&quot;,
-128:       &quot;**/*.wav&quot;,
-129: 
-130:       &quot;**/.env&quot;,
-131:       &quot;**/.env.*&quot;,
-132:       &quot;**/*.pem&quot;,
-133:       &quot;**/*.key&quot;,
-134:       &quot;**/*.p12&quot;,
-135:       &quot;**/*.pfx&quot;,
-136:       &quot;**/*secret*&quot;
-137:     ]
-138:   },
-139: 
-140:   &quot;security&quot;: {
-141:     &quot;enableSecurityCheck&quot;: true
-142:   },
-143: 
-144:   &quot;tokenCount&quot;: {
-145:     &quot;encoding&quot;: &quot;o200k_base&quot;
-146:   },
-147: 
-148:   &quot;tokenBudget&quot;: {
-149:     &quot;maxTokens&quot;: 200000
-150:   }
-151: }</file><file path="scripts/run-python-tests.sh"> 1: set -euo pipefail
+106:       &quot;tests/**&quot;,
+107:       &quot;**/*.test.*&quot;,
+108:       &quot;**/*.spec.*&quot;,
+109: 
+110:       &quot;**/fixtures/**&quot;,
+111:       &quot;**/test-files/**&quot;,
+112:       &quot;**/manual/**&quot;,
+113:       &quot;**/results/**&quot;,
+114: 
+115:       &quot;**/*.png&quot;,
+116:       &quot;**/*.jpg&quot;,
+117:       &quot;**/*.jpeg&quot;,
+118:       &quot;**/*.gif&quot;,
+119:       &quot;**/*.webp&quot;,
+120:       &quot;**/*.ico&quot;,
+121:       &quot;**/*.pdf&quot;,
+122:       &quot;**/*.zip&quot;,
+123:       &quot;**/*.tar&quot;,
+124:       &quot;**/*.gz&quot;,
+125:       &quot;**/*.tgz&quot;,
+126:       &quot;**/*.7z&quot;,
+127:       &quot;**/*.mp4&quot;,
+128:       &quot;**/*.mov&quot;,
+129:       &quot;**/*.avi&quot;,
+130:       &quot;**/*.mp3&quot;,
+131:       &quot;**/*.wav&quot;,
+132: 
+133:       &quot;**/.env&quot;,
+134:       &quot;**/.env.*&quot;,
+135:       &quot;**/*.pem&quot;,
+136:       &quot;**/*.key&quot;,
+137:       &quot;**/*.p12&quot;,
+138:       &quot;**/*.pfx&quot;,
+139:       &quot;**/*secret*&quot;
+140:     ]
+141:   },
+142: 
+143:   &quot;security&quot;: {
+144:     &quot;enableSecurityCheck&quot;: true
+145:   },
+146: 
+147:   &quot;tokenCount&quot;: {
+148:     &quot;encoding&quot;: &quot;o200k_base&quot;
+149:   },
+150: 
+151:   &quot;tokenBudget&quot;: {
+152:     &quot;maxTokens&quot;: 200000
+153:   }
+154: }</file><file path="scripts/run-python-tests.sh"> 1: set -euo pipefail
  2: ROOT=&quot;$(cd &quot;$(dirname &quot;$0&quot;)/..&quot; &amp;&amp; pwd)&quot;
  3: TEST_TARGETS=(
  4:   &quot;sidequest/pipeline-core&quot;
@@ -36837,54 +36963,68 @@ tsconfig.json</directory_structure><files>This section contains the contents of 
  61:       &quot;**/.vite/**&quot;,
  62:       &quot;**/dist/**&quot;,
  63:       &quot;**/build/**&quot;,
- 64:       &quot;**/coverage/**&quot;,
- 65: 
- 66:       &quot;**/.ast-grep-backups/**&quot;,
- 67: 
- 68:       &quot;**/*.log&quot;,
- 69:       &quot;**/*.tmp&quot;,
- 70:       &quot;**/*.cache&quot;,
- 71:       &quot;**/*.map&quot;,
- 72:       &quot;**/*.min.js&quot;,
- 73:       &quot;**/*.min.css&quot;,
- 74: 
- 75:       &quot;**/*.png&quot;,
- 76:       &quot;**/*.jpg&quot;,
- 77:       &quot;**/*.jpeg&quot;,
- 78:       &quot;**/*.gif&quot;,
- 79:       &quot;**/*.webp&quot;,
- 80:       &quot;**/*.ico&quot;,
- 81:       &quot;**/*.pdf&quot;,
- 82:       &quot;**/*.zip&quot;,
- 83:       &quot;**/*.tar&quot;,
- 84:       &quot;**/*.gz&quot;,
- 85:       &quot;**/*.tgz&quot;,
- 86:       &quot;**/*.7z&quot;,
+ 64:       &quot;**/out/**&quot;,
+ 65:       &quot;**/coverage/**&quot;,
+ 66: 
+ 67:       &quot;**/.ast-grep-backups/**&quot;,
+ 68: 
+ 69:       &quot;**/fixtures/**&quot;,
+ 70:       &quot;**/test-files/**&quot;,
+ 71:       &quot;**/__snapshots__/**&quot;,
+ 72:       &quot;**/*.snap&quot;,
+ 73:       &quot;tests/**&quot;,
+ 74:       &quot;**/*.test.*&quot;,
+ 75:       &quot;**/*.spec.*&quot;,
+ 76: 
+ 77:       &quot;**/*.log&quot;,
+ 78:       &quot;**/*.tmp&quot;,
+ 79:       &quot;**/*.temp&quot;,
+ 80:       &quot;**/*.cache&quot;,
+ 81:       &quot;**/*.swp&quot;,
+ 82:       &quot;**/*.swo&quot;,
+ 83:       &quot;**/*.tsbuildinfo&quot;,
+ 84:       &quot;**/*.map&quot;,
+ 85:       &quot;**/*.min.js&quot;,
+ 86:       &quot;**/*.min.css&quot;,
  87: 
- 88:       &quot;**/*.mp4&quot;,
- 89:       &quot;**/*.mov&quot;,
- 90:       &quot;**/*.avi&quot;,
- 91:       &quot;**/*.mp3&quot;,
- 92:       &quot;**/*.wav&quot;,
- 93: 
- 94:       &quot;**/.env&quot;,
- 95:       &quot;**/.env.*&quot;,
- 96:       &quot;**/*.pem&quot;,
- 97:       &quot;**/*.key&quot;,
- 98:       &quot;**/*.p12&quot;,
- 99:       &quot;**/*.pfx&quot;
-100:     ]
-101:   },
-102: 
-103: 
-104:   &quot;security&quot;: {
-105:     &quot;enableSecurityCheck&quot;: true
-106:   },
-107: 
-108:   &quot;tokenCount&quot;: {
-109:     &quot;encoding&quot;: &quot;o200k_base&quot;
-110:   }
-111: }</file><file path="sidequest/core/server.ts">  1: import { EventEmitter } from &apos;events&apos;;
+ 88:       &quot;**/*.png&quot;,
+ 89:       &quot;**/*.jpg&quot;,
+ 90:       &quot;**/*.jpeg&quot;,
+ 91:       &quot;**/*.gif&quot;,
+ 92:       &quot;**/*.webp&quot;,
+ 93:       &quot;**/*.ico&quot;,
+ 94:       &quot;**/*.pdf&quot;,
+ 95:       &quot;**/*.zip&quot;,
+ 96:       &quot;**/*.tar&quot;,
+ 97:       &quot;**/*.gz&quot;,
+ 98:       &quot;**/*.tgz&quot;,
+ 99:       &quot;**/*.7z&quot;,
+100: 
+101:       &quot;**/*.mp4&quot;,
+102:       &quot;**/*.mov&quot;,
+103:       &quot;**/*.avi&quot;,
+104:       &quot;**/*.mp3&quot;,
+105:       &quot;**/*.wav&quot;,
+106: 
+107:       &quot;**/.env&quot;,
+108:       &quot;**/.env.*&quot;,
+109:       &quot;**/*.pem&quot;,
+110:       &quot;**/*.key&quot;,
+111:       &quot;**/*.p12&quot;,
+112:       &quot;**/*.pfx&quot;,
+113:       &quot;**/*secret*&quot;
+114:     ]
+115:   },
+116: 
+117: 
+118:   &quot;security&quot;: {
+119:     &quot;enableSecurityCheck&quot;: true
+120:   },
+121: 
+122:   &quot;tokenCount&quot;: {
+123:     &quot;encoding&quot;: &quot;o200k_base&quot;
+124:   }
+125: }</file><file path="sidequest/core/server.ts">  1: import { EventEmitter } from &apos;events&apos;;
   2: import * as Sentry from &apos;@sentry/node&apos;;
   3: import { config } from &apos;./config.ts&apos;;
   4: import fs from &apos;fs/promises&apos;;
@@ -38017,69 +38157,7 @@ tsconfig.json</directory_structure><files>This section contains the contents of 
 25:   echo &quot;Wrote: $MIRROR_OUT&quot;
 26: else
 27:   echo &quot;Wrote: $OUT&quot;
-28: fi</file><file path="scripts/repomix-regen.sh"> 1: set -euo pipefail
- 2: ROOT=&quot;$(cd &quot;$(dirname &quot;$0&quot;)/..&quot; &amp;&amp; pwd)&quot;
- 3: TREE_FILE=&quot;token-tree&quot;
- 4: COMPRESSED_FILE=&quot;repo-compressed&quot;
- 5: LOSSLESS_FILE=&quot;repomix&quot;
- 6: OUTPUT_PATH=&quot;docs/repomix&quot;
- 7: OUT_DIR=&quot;$ROOT/$OUTPUT_PATH&quot;
- 8: TOKEN_TREE_FILE=&quot;$OUT_DIR/$TREE_FILE.txt&quot;
- 9: COMPRESSED_REPO_FILE=&quot;$OUT_DIR/$COMPRESSED_FILE.xml&quot;
-10: LOSSLESS_REPO_FILE=&quot;$OUT_DIR/$LOSSLESS_FILE.xml&quot;
-11: GITLOG_TOP_FILE=&quot;$OUT_DIR/gitlog-top20.txt&quot;
-12: TREE_FILE_NAME=&quot;$OUTPUT_PATH/$TREE_FILE.txt&quot;
-13: COMPRESSED_FILE_NAME=&quot;$OUTPUT_PATH/$COMPRESSED_FILE.xml&quot;
-14: LOSSLESS_FILE_NAME=&quot;$OUTPUT_PATH/$LOSSLESS_FILE.xml&quot;
-15: GITLOG_TOP_FILE_NAME=&quot;$OUTPUT_PATH/gitlog-top20.txt&quot;
-16: INPUT_DIR=&quot;$ROOT/scripts/generate-&quot;
-17: TOKEN_TREE_SCRIPT=&quot;$INPUT_DIR$TREE_FILE.sh&quot;
-18: COMPRESS_SCRIPT=&quot;$INPUT_DIR$COMPRESSED_FILE.sh&quot;
-19: LOSSLESS_SCRIPT=&quot;$INPUT_DIR$LOSSLESS_FILE.sh&quot;
-20: GITLOG_TOP_SCRIPT=&quot;$ROOT/scripts/generate-diff-summary.sh&quot;
-21: echo &quot;File set up...&quot;
-22: mkdir -p &quot;$OUT_DIR&quot;
-23: rm -f \
-24:   &quot;$TOKEN_TREE_FILE&quot; \
-25:   &quot;$COMPRESSED_REPO_FILE&quot; \
-26:   &quot;$LOSSLESS_REPO_FILE&quot; \
-27:   &quot;$GITLOG_TOP_FILE&quot;
-28: PROJECT_DIR=&quot;$(basename &quot;$ROOT&quot;)&quot;
-29: echo &quot;Generating token count tree for $PROJECT_DIR at $TREE_FILE_NAME&quot;
-30: bash &quot;$TOKEN_TREE_SCRIPT&quot; &quot;$ROOT&quot; &quot;$TOKEN_TREE_FILE&quot;
-31: echo &quot;Success!&quot;
-32: echo
-33: echo &quot;Generating compressed repomix file for $PROJECT_DIR at $COMPRESSED_FILE_NAME&quot;
-34: bash &quot;$COMPRESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$COMPRESSED_REPO_FILE&quot;
-35: echo &quot;Success!&quot;
-36: echo
-37: echo &quot;Generating repomix file for $PROJECT_DIR at $LOSSLESS_FILE_NAME&quot;
-38: bash &quot;$LOSSLESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$LOSSLESS_REPO_FILE&quot;
-39: echo &quot;Success!&quot;
-40: echo
-41: echo &quot;Generating top-file git history at $GITLOG_TOP_FILE_NAME&quot;
-42: (
-43:   cd &quot;$ROOT&quot;
-44:   bash &quot;$GITLOG_TOP_SCRIPT&quot;
-45: )
-46: echo &quot;Success!&quot;
-47: echo
-48: echo &quot;Artifacts:&quot;
-49: print_artifact() {
-50:   local file_path=&quot;$1&quot;
-51:   local display_name=&quot;$2&quot;
-52:   if [[ -f &quot;$file_path&quot; ]]; then
-53:     chars=$(wc -c &lt; &quot;$file_path&quot; | tr -d &apos; &apos;)
-54:     tokens=$((chars / 4))
-55:     echo &quot; - $display_name (~$tokens tokens, $chars chars)&quot;
-56:   else
-57:     echo &quot; - $display_name (missing)&quot;
-58:   fi
-59: }
-60: print_artifact &quot;$TOKEN_TREE_FILE&quot; &quot;$TREE_FILE_NAME&quot;
-61: print_artifact &quot;$COMPRESSED_REPO_FILE&quot; &quot;$COMPRESSED_FILE_NAME&quot;
-62: print_artifact &quot;$LOSSLESS_REPO_FILE&quot; &quot;$LOSSLESS_FILE_NAME&quot;
-63: print_artifact &quot;$GITLOG_TOP_FILE&quot; &quot;$GITLOG_TOP_FILE_NAME&quot;</file><file path="sidequest/pipeline-runners/claude-health-pipeline.ts">  1: #!/usr/bin/env -S node --strip-types
+28: fi</file><file path="sidequest/pipeline-runners/claude-health-pipeline.ts">  1: #!/usr/bin/env -S node --strip-types
   2: import { ClaudeHealthWorker } from &apos;../workers/claude-health-worker.ts&apos;;
   3: import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;
   4: import { config } from &apos;../core/config.ts&apos;;
@@ -38855,7 +38933,89 @@ tsconfig.json</directory_structure><files>This section contains the contents of 
 153:       &quot;qs&quot;: &quot;&gt;=6.14.1&quot;
 154:     }
 155:   }
-156: }</file><file path="sidequest/pipeline-runners/bugfix-audit-pipeline.ts">  1: #!/usr/bin/env -S node --strip-types
+156: }</file><file path="scripts/repomix-regen.sh"> 1: set -euo pipefail
+ 2: ROOT=&quot;$(cd &quot;$(dirname &quot;$0&quot;)/..&quot; &amp;&amp; pwd)&quot;
+ 3: TREE_FILE=&quot;token-tree&quot;
+ 4: COMPRESSED_FILE=&quot;repo-compressed&quot;
+ 5: LOSSLESS_FILE=&quot;repomix&quot;
+ 6: DOCS_ONLY_FILE=&quot;repomix-docs&quot;
+ 7: GIT_RANKED_FILE=&quot;repomix-git-ranked&quot;
+ 8: OUTPUT_PATH=&quot;docs/repomix&quot;
+ 9: OUT_DIR=&quot;$ROOT/$OUTPUT_PATH&quot;
+10: TOKEN_TREE_FILE=&quot;$OUT_DIR/$TREE_FILE.txt&quot;
+11: COMPRESSED_REPO_FILE=&quot;$OUT_DIR/$COMPRESSED_FILE.xml&quot;
+12: LOSSLESS_REPO_FILE=&quot;$OUT_DIR/$LOSSLESS_FILE.xml&quot;
+13: DOCS_ONLY_REPO_FILE=&quot;$OUT_DIR/$DOCS_ONLY_FILE.xml&quot;
+14: GIT_RANKED_REPO_FILE=&quot;$OUT_DIR/$GIT_RANKED_FILE.xml&quot;
+15: GITLOG_TOP_FILE=&quot;$OUT_DIR/gitlog-top20.txt&quot;
+16: TREE_FILE_NAME=&quot;$OUTPUT_PATH/$TREE_FILE.txt&quot;
+17: COMPRESSED_FILE_NAME=&quot;$OUTPUT_PATH/$COMPRESSED_FILE.xml&quot;
+18: LOSSLESS_FILE_NAME=&quot;$OUTPUT_PATH/$LOSSLESS_FILE.xml&quot;
+19: DOCS_ONLY_FILE_NAME=&quot;$OUTPUT_PATH/$DOCS_ONLY_FILE.xml&quot;
+20: GIT_RANKED_FILE_NAME=&quot;$OUTPUT_PATH/$GIT_RANKED_FILE.xml&quot;
+21: GITLOG_TOP_FILE_NAME=&quot;$OUTPUT_PATH/gitlog-top20.txt&quot;
+22: INPUT_DIR=&quot;$ROOT/scripts/generate-&quot;
+23: TOKEN_TREE_SCRIPT=&quot;$INPUT_DIR$TREE_FILE.sh&quot;
+24: COMPRESS_SCRIPT=&quot;$INPUT_DIR$COMPRESSED_FILE.sh&quot;
+25: LOSSLESS_SCRIPT=&quot;$INPUT_DIR$LOSSLESS_FILE.sh&quot;
+26: DOCS_ONLY_SCRIPT=&quot;$INPUT_DIR$DOCS_ONLY_FILE.sh&quot;
+27: GIT_RANKED_SCRIPT=&quot;$INPUT_DIR$GIT_RANKED_FILE.sh&quot;
+28: GITLOG_TOP_SCRIPT=&quot;$ROOT/scripts/generate-diff-summary.sh&quot;
+29: echo &quot;File set up...&quot;
+30: mkdir -p &quot;$OUT_DIR&quot;
+31: rm -f \
+32:   &quot;$TOKEN_TREE_FILE&quot; \
+33:   &quot;$COMPRESSED_REPO_FILE&quot; \
+34:   &quot;$LOSSLESS_REPO_FILE&quot; \
+35:   &quot;$DOCS_ONLY_REPO_FILE&quot; \
+36:   &quot;$GIT_RANKED_REPO_FILE&quot; \
+37:   &quot;$GITLOG_TOP_FILE&quot;
+38: PROJECT_DIR=&quot;$(basename &quot;$ROOT&quot;)&quot;
+39: echo &quot;Generating token count tree for $PROJECT_DIR at $TREE_FILE_NAME&quot;
+40: bash &quot;$TOKEN_TREE_SCRIPT&quot; &quot;$ROOT&quot; &quot;$TOKEN_TREE_FILE&quot;
+41: echo &quot;Success!&quot;
+42: echo
+43: echo &quot;Generating compressed repomix file for $PROJECT_DIR at $COMPRESSED_FILE_NAME&quot;
+44: bash &quot;$COMPRESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$COMPRESSED_REPO_FILE&quot;
+45: echo &quot;Success!&quot;
+46: echo
+47: echo &quot;Generating repomix file for $PROJECT_DIR at $LOSSLESS_FILE_NAME&quot;
+48: bash &quot;$LOSSLESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$LOSSLESS_REPO_FILE&quot;
+49: echo &quot;Success!&quot;
+50: echo
+51: echo &quot;Generating docs-only repomix file for $PROJECT_DIR at $DOCS_ONLY_FILE_NAME&quot;
+52: bash &quot;$DOCS_ONLY_SCRIPT&quot; &quot;$ROOT&quot; &quot;$DOCS_ONLY_REPO_FILE&quot;
+53: echo &quot;Success!&quot;
+54: echo
+55: echo &quot;Generating git-ranked repomix file for $PROJECT_DIR at $GIT_RANKED_FILE_NAME&quot;
+56: bash &quot;$GIT_RANKED_SCRIPT&quot; &quot;$ROOT&quot; &quot;$GIT_RANKED_REPO_FILE&quot;
+57: echo &quot;Success!&quot;
+58: echo
+59: echo &quot;Generating top-file git history at $GITLOG_TOP_FILE_NAME&quot;
+60: (
+61:   cd &quot;$ROOT&quot;
+62:   bash &quot;$GITLOG_TOP_SCRIPT&quot;
+63: )
+64: echo &quot;Success!&quot;
+65: echo
+66: echo &quot;Artifacts:&quot;
+67: print_artifact() {
+68:   local file_path=&quot;$1&quot;
+69:   local display_name=&quot;$2&quot;
+70:   if [[ -f &quot;$file_path&quot; ]]; then
+71:     chars=$(wc -c &lt; &quot;$file_path&quot; | tr -d &apos; &apos;)
+72:     tokens=$((chars / 4))
+73:     echo &quot; - $display_name (~$tokens tokens, $chars chars)&quot;
+74:   else
+75:     echo &quot; - $display_name (missing)&quot;
+76:   fi
+77: }
+78: print_artifact &quot;$TOKEN_TREE_FILE&quot; &quot;$TREE_FILE_NAME&quot;
+79: print_artifact &quot;$COMPRESSED_REPO_FILE&quot; &quot;$COMPRESSED_FILE_NAME&quot;
+80: print_artifact &quot;$LOSSLESS_REPO_FILE&quot; &quot;$LOSSLESS_FILE_NAME&quot;
+81: print_artifact &quot;$DOCS_ONLY_REPO_FILE&quot; &quot;$DOCS_ONLY_FILE_NAME&quot;
+82: print_artifact &quot;$GIT_RANKED_REPO_FILE&quot; &quot;$GIT_RANKED_FILE_NAME&quot;
+83: print_artifact &quot;$GITLOG_TOP_FILE&quot; &quot;$GITLOG_TOP_FILE_NAME&quot;</file><file path="sidequest/pipeline-runners/bugfix-audit-pipeline.ts">  1: #!/usr/bin/env -S node --strip-types
   2: import { BugfixAuditWorker } from &apos;../workers/bugfix-audit-worker.ts&apos;;
   3: import { config } from &apos;../core/config.ts&apos;;
   4: import { JOB_EVENTS } from &apos;../core/constants.ts&apos;;
