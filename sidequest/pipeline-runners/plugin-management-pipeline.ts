@@ -3,6 +3,9 @@ import { PluginManagerWorker } from '../utils/plugin-manager.ts';
 import { config } from '../core/config.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
+import { realpathSync } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const logger = createComponentLogger('PluginPipeline');
 
@@ -162,8 +165,19 @@ class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
   }
 }
 
+function isDirectExecution(): boolean {
+  const currentModulePath = fileURLToPath(import.meta.url);
+  const entryPath = process.argv[1];
+  if (!entryPath) return false;
+  try {
+    return realpathSync(path.resolve(entryPath)) === realpathSync(currentModulePath);
+  } catch {
+    return false;
+  }
+}
+
 // Run if executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectExecution()) {
   const pipeline = new PluginManagementPipeline();
 
   const runOnStartup = config.runOnStartup;

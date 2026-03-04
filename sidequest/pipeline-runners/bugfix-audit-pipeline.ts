@@ -3,8 +3,10 @@ import { BugfixAuditWorker } from '../workers/bugfix-audit-worker.ts';
 import { config } from '../core/config.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
+import { realpathSync } from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 const logger = createComponentLogger('BugfixAuditPipeline');
 
@@ -205,8 +207,19 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
   }
 }
 
+function isDirectExecution(): boolean {
+  const currentModulePath = fileURLToPath(import.meta.url);
+  const entryPath = process.argv[1];
+  if (!entryPath) return false;
+  try {
+    return realpathSync(path.resolve(entryPath)) === realpathSync(currentModulePath);
+  } catch {
+    return false;
+  }
+}
+
 // CLI entry point
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectExecution()) {
   const args = process.argv.slice(2);
 
   const runNow = args.includes('--run-now') || args.includes('--now');

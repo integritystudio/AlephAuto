@@ -1,0 +1,34 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'fs/promises';
+import os from 'os';
+import path from 'path';
+import { RepoCleanupWorker } from './repo-cleanup-worker.ts';
+
+test('runCleanup treats targetDir as a literal path (no shell interpolation)', async (t) => {
+  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'repo-cleanup-worker-'));
+  const markerFile = `repo-cleanup-injection-marker-${Date.now()}`;
+  const markerPath = path.join(process.cwd(), markerFile);
+  const injectedDir = path.join(tmpRoot, `repo-$(touch ${markerFile})`);
+
+  await fs.rm(markerPath, { force: true });
+  await fs.mkdir(injectedDir, { recursive: true });
+
+  t.after(async () => {
+    await fs.rm(markerPath, { force: true });
+    await fs.rm(tmpRoot, { recursive: true, force: true });
+  });
+
+  const worker = new RepoCleanupWorker({ autoStart: false, baseDir: tmpRoot });
+  worker.stop();
+
+  const result = await (
+    worker as unknown as { runCleanup: (targetDir: string) => Promise<{ totalItems: number }> }
+  ).runCleanup(injectedDir);
+
+  assert.equal(result.totalItems, 0);
+  await assert.rejects(
+    fs.access(markerPath),
+    /ENOENT/
+  );
+});
