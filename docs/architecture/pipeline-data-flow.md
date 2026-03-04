@@ -492,12 +492,12 @@ graph TB
     C --> D{Report Type?}
     D -->|Weekly| E[--weekly flag]
     D -->|Monthly| F[--monthly flag]
-    D -->|Custom| G[--start-date/--end-date]
+    D -->|Custom| G[--start-date [--end-date]]
     E --> H[Execute Python Script]
     F --> H
     G --> H
     H --> I[collect_git_activity.py]
-    I --> J[Scan ~/code for git repos]
+    I --> J[Scan configured repos + dotfiles]
     J --> K[Collect commit data]
     K --> L[Calculate statistics]
     L --> M{Output format?}
@@ -521,20 +521,26 @@ graph TB
     style R fill:#bbf,stroke:#333
 ```
 
+#### Scheduling Behavior
+
+- Scheduled mode registers **both** weekly and monthly jobs.
+- Weekly cron: `GIT_CRON_SCHEDULE` (default `0 20 * * 0`).
+- Monthly cron: `GIT_MONTHLY_CRON_SCHEDULE` (default `0 8 1 * *`).
+
 #### Python Script Flow
 
 **File:** `sidequest/pipeline-runners/collect_git_activity.py`
 
 ```python
 # 1. Parse command-line arguments
-args = parse_args()  # --weekly, --monthly, --start-date/--end-date, --output-format, --no-visualizations
+args = parse_args()  # --weekly, --monthly, --start-date [--end-date], --output-format, --no-visualizations
 
 # 2. Find git repositories
-repos = find_git_repositories(base_dir="~/code")
+repos = find_git_repositories(config)  # CODE_DIR, REPORTS_DIR, additional_repositories, include_dotfiles
 
 # 3. Collect commit data per repository
 for repo in repos:
-    commits = git log --since={date} --until={date} --all
+    commits = git log --since={date} [--until={date}] --all
     parse_commit_data(commits)
 
 # 4. Aggregate statistics
@@ -564,7 +570,7 @@ print_summary(...)
   reportType: "weekly" | "monthly" | "custom",
   days: 7 | 30 | null,
   sinceDate: "2025-11-17" | null,
-  untilDate: "2025-11-24" | null,
+  untilDate: "2025-11-24" | null, // optional when sinceDate is provided
   outputFormat: "json" | "markdown" | "both",
   generateVisualizations: true
 }
