@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { RepomixWorker } from '../workers/repomix-worker.ts';
 import { DirectoryScanner } from '../utils/directory-scanner.ts';
 import { config } from './config.ts';
-import { TIMEOUTS, TIME } from './constants.ts';
+import { JOB_EVENTS, TIMEOUTS, TIME } from './constants.ts';
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
@@ -78,15 +78,15 @@ export class RepomixCronApp {
   }
 
   private setupEventListeners(): void {
-    this.worker.on('job:created', (job: Job) => {
+    this.worker.on(JOB_EVENTS.CREATED, (job: Job) => {
       logger.info({ jobId: job.id }, 'Job created');
     });
 
-    this.worker.on('job:started', (job: Job) => {
+    this.worker.on(JOB_EVENTS.STARTED, (job: Job) => {
       logger.info({ jobId: job.id, relativePath: job.data.relativePath }, 'Job started');
     });
 
-    this.worker.on('job:completed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
       const startedAtMs = job.startedAt?.getTime();
       const completedAtMs = job.completedAt?.getTime();
       const duration = (typeof startedAtMs === 'number' && typeof completedAtMs === 'number')
@@ -99,7 +99,7 @@ export class RepomixCronApp {
       }, 'Job completed');
     });
 
-    this.worker.on('job:failed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.FAILED, (job: Job) => {
       logger.error({
         jobId: job.id,
         relativePath: job.data.relativePath,

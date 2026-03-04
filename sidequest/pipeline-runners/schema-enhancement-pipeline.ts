@@ -1,6 +1,7 @@
 #!/usr/bin/env -S node --strip-types
 import { SchemaEnhancementWorker } from '../workers/schema-enhancement-worker.ts';
 import { config } from '../core/config.ts';
+import { JOB_EVENTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 import { realpathSync } from 'fs';
@@ -92,21 +93,21 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
    * Setup event listeners for job events
    */
   private setupEventListeners(): void {
-    this.worker.on('job:created', (job: Job) => {
+    this.worker.on(JOB_EVENTS.CREATED, (job: Job) => {
       logger.info({
         jobId: job.id,
         readmePath: (job.data as Record<string, unknown>).relativePath
       }, 'Schema enhancement job created');
     });
 
-    this.worker.on('job:started', (job: Job) => {
+    this.worker.on(JOB_EVENTS.STARTED, (job: Job) => {
       logger.info({
         jobId: job.id,
         readmePath: (job.data as Record<string, unknown>).relativePath
       }, 'Schema enhancement job started');
     });
 
-    this.worker.on('job:completed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
       const result = job.result as Record<string, unknown>;
       const impact = result.impact as Record<string, unknown> | undefined;
       const duration = job.completedAt && job.startedAt
@@ -121,7 +122,7 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
       }, 'Schema enhancement job completed');
     });
 
-    this.worker.on('job:failed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.FAILED, (job: Job) => {
       logError(logger, job.error, 'Schema enhancement job failed', {
         jobId: job.id,
         readmePath: (job.data as Record<string, unknown>).relativePath

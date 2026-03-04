@@ -36,6 +36,7 @@ const logger = createComponentLogger('ErrorLogCleanup');
 const DEFAULT_RETENTION_DAYS = 7;      // Keep error logs for 7 days
 const ARCHIVE_RETENTION_DAYS = 30;     // Keep archives for 30 days
 const LOGS_BASE_DIR = path.join(process.cwd(), 'logs');
+const DECIMAL_RADIX = 10;
 
 /**
  * Parse command line arguments
@@ -54,7 +55,7 @@ function parseArgs() {
     if (arg === '--dry-run' || arg === '-d') {
       args.dryRun = true;
     } else if (arg === '--retention' || arg === '-r') {
-      args.retentionDays = parseInt(process.argv[++i], 10);
+      args.retentionDays = parseInt(process.argv[++i], DECIMAL_RADIX);
     } else if (arg === '--verbose' || arg === '-v') {
       args.verbose = true;
     } else if (arg === '--help' || arg === '-h') {

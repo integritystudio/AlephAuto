@@ -520,7 +520,10 @@ def _calculate_date_range(args) -> tuple[str, str | None] | None:
     if args.days:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=args.days)
-        return start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
+        return (
+            start_date.strftime(GitActivityDefaults.ISO_DATE_FORMAT),
+            end_date.strftime(GitActivityDefaults.ISO_DATE_FORMAT),
+        )
 
     if args.start_date:
         return args.start_date, args.end_date
@@ -584,7 +587,8 @@ def _compile_activity_data(
     return {
         "date_range": {
             "start": since_date,
-            "end": until_date or datetime.now().strftime("%Y-%m-%d"),
+            "end": until_date
+            or datetime.now().strftime(GitActivityDefaults.ISO_DATE_FORMAT),
         },
         "total_commits": sum(r["commits"] for r in repositories),
         "total_additions": sum(r.get("additions", 0) for r in repositories),
@@ -644,8 +648,8 @@ def generate_jekyll_report(data: dict, output_file: Path) -> None:
     end_date = date_range["end"]
 
     # Calculate report type for title
-    start = datetime.strptime(start_date, "%Y-%m-%d")
-    end = datetime.strptime(end_date, "%Y-%m-%d")
+    start = datetime.strptime(start_date, GitActivityDefaults.ISO_DATE_FORMAT)
+    end = datetime.strptime(end_date, GitActivityDefaults.ISO_DATE_FORMAT)
     days = (end - start).days
 
     if days <= GitActivityDefaults.WEEKLY_MAX_DAYS:
@@ -656,7 +660,7 @@ def generate_jekyll_report(data: dict, output_file: Path) -> None:
         report_type = f"{days}-Day"
 
     # Format date for filename and frontmatter
-    report_date = datetime.now().strftime("%Y-%m-%d")
+    report_date = datetime.now().strftime(GitActivityDefaults.ISO_DATE_FORMAT)
 
     # Build frontmatter
     frontmatter = f"""---
@@ -676,7 +680,7 @@ header:
     # Build report content (no # title - Jekyll uses frontmatter title)
     content = f"""
 **Report Period**: {start_date} to {end_date}
-**Generated**: {datetime.now().strftime("%Y-%m-%d %H:%M")}
+**Generated**: {datetime.now().strftime(GitActivityDefaults.ISO_DATETIME_MINUTE_FORMAT)}
 **Report Type**: Automated Git Activity Analysis
 
 ## Executive Summary
@@ -694,8 +698,8 @@ header:
 |------------|---------|
 """
 
-    # Add top 10 repositories
-    for repo in data["repositories"][:10]:
+    # Add top repositories
+    for repo in data["repositories"][: GitActivityDefaults.TOP_N_TABLE_DISPLAY]:
         parent_prefix = f"{repo['parent']}/" if repo["parent"] else ""
         content += f"| {parent_prefix}{repo['name']} | {repo['commits']} |\n"
 
@@ -708,7 +712,7 @@ header:
         sorted_langs = sorted(
             data["languages"].items(), key=lambda x: x[1], reverse=True
         )
-        for lang, count in sorted_langs[:10]:
+        for lang, count in sorted_langs[: GitActivityDefaults.TOP_N_TABLE_DISPLAY]:
             content += f"| {lang} | {count} |\n"
 
     # Add category breakdown if available
@@ -758,16 +762,18 @@ def generate_visualizations(data, output_dir):
             output_dir / "monthly-commits.svg",
         )
 
-    # Top 10 repositories
+    # Top repositories
     top_10 = {}
-    for repo in data["repositories"][:10]:
+    for repo in data["repositories"][: GitActivityDefaults.TOP_N_TABLE_DISPLAY]:
         name = repo["name"]
         if repo["parent"]:
             name = f"{repo['parent']}/{name}"
         top_10[name] = repo["commits"]
 
     create_bar_chart_svg(
-        top_10, "Top 10 Repositories by Commits", output_dir / "top-10-repos.svg"
+        top_10,
+        f"Top {GitActivityDefaults.TOP_N_TABLE_DISPLAY} Repositories by Commits",
+        output_dir / "top-10-repos.svg",
     )
 
     # Project categories
@@ -788,7 +794,7 @@ def generate_visualizations(data, output_dir):
             language_data,
             f"File Changes by Language ({sum(language_data.values())} total)",
             output_dir / "language-distribution.svg",
-            width=900,
+            width=ChartDefaults.WIDE_WIDTH,
         )
 
 
@@ -850,7 +856,7 @@ def main():
         # Resolve output locations
         default_report_dir = PERSONALSITE_DIR / WORK_COLLECTION
         default_report_dir.mkdir(parents=True, exist_ok=True)
-        report_date = datetime.now().strftime("%Y-%m-%d")
+        report_date = datetime.now().strftime(GitActivityDefaults.ISO_DATE_FORMAT)
         report_file = default_report_dir / f"{report_date}-git-activity-report.md"
         default_json_file = (
             default_report_dir / f"{report_date}-git-activity-report.json"

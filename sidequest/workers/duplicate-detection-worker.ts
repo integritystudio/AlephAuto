@@ -24,6 +24,7 @@ import path from 'path';
 import * as Sentry from '@sentry/node';
 import type { RetryMetrics, WorkerScanMetrics as ScanMetrics, DuplicateDetectionWorkerOptions } from '../pipeline-core/types/duplicate-detection-types.ts';
 import { config } from '../core/config.ts';
+import { RETRY, WORKER_EVENTS } from '../core/constants.ts';
 
 const logger = createComponentLogger('DuplicateDetectionWorker');
 
@@ -222,12 +223,12 @@ export class DuplicateDetectionWorker extends SidequestServer {
 
       this.scanMetrics.totalScans++;
       this.scanMetrics.successfulScans++;
-      this.emit('metrics:updated', this.scanMetrics);
+      this.emit(WORKER_EVENTS.METRICS_UPDATED, this.scanMetrics);
       return result;
     } catch (error) {
       this.scanMetrics.totalScans++;
       this.scanMetrics.failedScans++;
-      this.emit('metrics:updated', this.scanMetrics);
+      this.emit(WORKER_EVENTS.METRICS_UPDATED, this.scanMetrics);
 
       // Retry authority lives in SidequestServer; rethrow and let the base queue handle retries.
       logError(logger, error, 'Duplicate detection job failed', { jobId: job.id });
@@ -662,7 +663,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
       } else {
         retryStats.retryDistribution.attempt3Plus++;
       }
-      if (attempts >= 3) {
+      if (attempts >= RETRY.NEARING_LIMIT_ATTEMPT_THRESHOLD) {
         retryStats.retryDistribution.nearingLimit++;
       }
     }

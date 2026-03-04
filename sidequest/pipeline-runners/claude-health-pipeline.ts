@@ -30,6 +30,7 @@
 import { ClaudeHealthWorker } from '../workers/claude-health-worker.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
+import { HEALTH, JOB_EVENTS } from '../core/constants.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -150,15 +151,15 @@ class ClaudeHealthPipeline extends BasePipeline<ClaudeHealthWorker> {
    * Setup event listeners for job events
    */
   private setupEventListeners(): void {
-    this.worker.on('job:created', (job: Job) => {
+    this.worker.on(JOB_EVENTS.CREATED, (job: Job) => {
       logger.info({ jobId: job.id }, 'Health check job created');
     });
 
-    this.worker.on('job:started', (job: Job) => {
+    this.worker.on(JOB_EVENTS.STARTED, (job: Job) => {
       logger.info({ jobId: job.id }, 'Health check job started');
     });
 
-    this.worker.on('job:completed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
       const result = job.result as unknown as HealthCheckResult;
 
       logger.info({
@@ -174,7 +175,7 @@ class ClaudeHealthPipeline extends BasePipeline<ClaudeHealthWorker> {
       this.displayResults(result);
     });
 
-    this.worker.on('job:failed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.FAILED, (job: Job) => {
       logError(logger, job.error, 'Health check job failed', { jobId: job.id });
     });
   }
@@ -248,7 +249,9 @@ function printSummary(result: HealthCheckResult): void {
   logger.info('║          Claude Code Health Check Summary                     ║');
   logger.info('╚════════════════════════════════════════════════════════════════╝\n');
 
-  logger.info(`Health Score: ${getScoreColor(result.summary.healthScore)}${result.summary.healthScore}/100\x1b[0m`);
+  logger.info(
+    `Health Score: ${getScoreColor(result.summary.healthScore)}${result.summary.healthScore}/${HEALTH.MAX_SCORE}\x1b[0m`
+  );
   logger.info(`Status:       ${result.summary.message}\n`);
 
   // Component inventory

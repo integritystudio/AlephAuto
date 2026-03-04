@@ -256,17 +256,24 @@ class ScanReport(BaseModel):
         """
         # Factors: duplication %, number of quick wins, potential LOC reduction
         dup_factor = min(
-            self.metrics.duplication_percentage / DuplicationThresholds.HIGH_PCT * 100,
-            100,
+            self.metrics.duplication_percentage
+            / DuplicationThresholds.HIGH_PCT
+            * ScanDefaults.PERCENTAGE_MAX,
+            ScanDefaults.PERCENTAGE_MAX,
         )
 
         quick_win_factor = min(
-            self.metrics.quick_wins / DuplicationThresholds.QUICK_WIN_CAP * 100, 100
+            self.metrics.quick_wins
+            / DuplicationThresholds.QUICK_WIN_CAP
+            * ScanDefaults.PERCENTAGE_MAX,
+            ScanDefaults.PERCENTAGE_MAX,
         )
 
         if self.total_scanned_lines > 0:
             loc_reduction_factor = (
-                self.metrics.potential_loc_reduction / self.total_scanned_lines * 100
+                self.metrics.potential_loc_reduction
+                / self.total_scanned_lines
+                * ScanDefaults.PERCENTAGE_MAX
             )
         else:
             loc_reduction_factor = 0

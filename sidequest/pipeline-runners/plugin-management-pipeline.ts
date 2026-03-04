@@ -1,6 +1,7 @@
 #!/usr/bin/env -S node --strip-types
 import { PluginManagerWorker } from '../utils/plugin-manager.ts';
 import { config } from '../core/config.ts';
+import { JOB_EVENTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 import { realpathSync } from 'fs';
@@ -55,18 +56,18 @@ class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
    * Setup event listeners for job events
    */
   private setupEventListeners(): void {
-    this.worker.on('job:created', (job: Job) => {
+    this.worker.on(JOB_EVENTS.CREATED, (job: Job) => {
       logger.info({ jobId: job.id }, 'Plugin audit job created');
     });
 
-    this.worker.on('job:started', (job: Job) => {
+    this.worker.on(JOB_EVENTS.STARTED, (job: Job) => {
       logger.info({
         jobId: job.id,
         detailed: (job.data as Record<string, unknown>).detailed
       }, 'Plugin audit started');
     });
 
-    this.worker.on('job:completed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
       const result = job.result as unknown as AuditResult;
       const duration = job.completedAt && job.startedAt
         ? job.completedAt.getTime() - job.startedAt.getTime()
@@ -83,7 +84,7 @@ class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
       this.displayRecommendations(result);
     });
 
-    this.worker.on('job:failed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.FAILED, (job: Job) => {
       logError(logger, job.error, 'Plugin audit failed', { jobId: job.id });
     });
   }

@@ -16,7 +16,7 @@ import type { Job as BaseJob } from '../core/server.ts';
 import { DirectoryScanner } from '../utils/directory-scanner.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
-import { TIMEOUTS } from '../core/constants.ts';
+import { JOB_EVENTS, RETRY_EVENTS, TIMEOUTS } from '../core/constants.ts';
 import cron from 'node-cron';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -70,15 +70,15 @@ async function runPipeline(targetPath: string | null = null): Promise<PipelineRe
   });
 
   // Set up event handlers
-  worker.on('job:created', (job: BaseJob) => {
+  worker.on(JOB_EVENTS.CREATED, (job: BaseJob) => {
     logger.debug({ jobId: job.id, project: job.data['repository'] }, 'Job created');
   });
 
-  worker.on('job:started', (job: BaseJob) => {
+  worker.on(JOB_EVENTS.STARTED, (job: BaseJob) => {
     logger.info({ jobId: job.id, project: job.data['repository'] }, 'Job started');
   });
 
-  worker.on('job:completed', (job: BaseJob) => {
+  worker.on(JOB_EVENTS.COMPLETED, (job: BaseJob) => {
     const result = job.result as { generatedFiles?: unknown[]; recommendations?: unknown[] } | null;
     logger.info({
       jobId: job.id,
@@ -88,7 +88,7 @@ async function runPipeline(targetPath: string | null = null): Promise<PipelineRe
     }, 'Job completed');
   });
 
-  worker.on('job:failed', (job: BaseJob, error: Error) => {
+  worker.on(JOB_EVENTS.FAILED, (job: BaseJob, error: Error) => {
     logger.error({
       jobId: job.id,
       project: job.data['repository'],
@@ -184,9 +184,9 @@ function waitForCompletion(worker: TestRefactorWorker): Promise<void> {
      * cleanup.
      */
     const cleanup = () => {
-      worker.off('job:completed', checkAndResolve);
-      worker.off('job:failed', checkAndResolve);
-      worker.off('retry:created', checkAndResolve);
+      worker.off(JOB_EVENTS.COMPLETED, checkAndResolve);
+      worker.off(JOB_EVENTS.FAILED, checkAndResolve);
+      worker.off(RETRY_EVENTS.CREATED, checkAndResolve);
     };
 
     /**
@@ -201,9 +201,9 @@ function waitForCompletion(worker: TestRefactorWorker): Promise<void> {
       }
     };
 
-    worker.on('job:completed', checkAndResolve);
-    worker.on('job:failed', checkAndResolve);
-    worker.on('retry:created', checkAndResolve);
+    worker.on(JOB_EVENTS.COMPLETED, checkAndResolve);
+    worker.on(JOB_EVENTS.FAILED, checkAndResolve);
+    worker.on(RETRY_EVENTS.CREATED, checkAndResolve);
     checkAndResolve();
   });
 }

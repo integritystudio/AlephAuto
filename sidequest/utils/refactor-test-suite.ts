@@ -14,6 +14,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { glob } from 'glob';
+import { LIMITS } from '../core/constants.ts';
 import { createComponentLogger } from './logger.ts';
 
 const logger = createComponentLogger('RefactorTestSuite');
@@ -46,6 +47,14 @@ const defaultConfig: Partial<RefactorConfig> = {
   e2eDir: 'tests/e2e',
   framework: 'vitest'
 };
+
+const REFACTOR_ANALYSIS_LIMITS = {
+  DUPLICATE_MIN_OCCURRENCES: LIMITS.HARD_CODED_STRING_MIN_OCCURRENCES,
+  MIN_HARDCODED_STRING_LENGTH: 5,
+  RECOMMENDATION_PATTERN_THRESHOLD: 5,
+  HARDCODED_STRINGS_RECOMMEND_THRESHOLD: 10,
+  MAX_EXTRACTED_CONSTANT_STRINGS: 50,
+} as const;
 
 /**
  * Detect test framework from package.json
@@ -147,37 +156,40 @@ async function analyzeTestFiles(config: RefactorConfig, testFiles: string[]): Pr
     }
   }
 
-  // Find duplicated strings (appearing 3+ times)
+  // Find duplicated strings (appearing minimum times)
   for (const [str, count] of stringCounts) {
-    if (count >= 3 && str.length > 5) {
+    if (
+      count >= REFACTOR_ANALYSIS_LIMITS.DUPLICATE_MIN_OCCURRENCES
+      && str.length > REFACTOR_ANALYSIS_LIMITS.MIN_HARDCODED_STRING_LENGTH
+    ) {
       result.patterns.hardcodedStrings.push(str);
     }
   }
 
-  // Find duplicated assertions (appearing 3+ times)
+  // Find duplicated assertions (appearing minimum times)
   for (const [assertion, count] of assertionCounts) {
-    if (count >= 3) {
+    if (count >= REFACTOR_ANALYSIS_LIMITS.DUPLICATE_MIN_OCCURRENCES) {
       result.patterns.duplicateAssertions.push(assertion);
     }
   }
 
   // Generate recommendations
-  if (result.patterns.renderWaitFor > 5) {
+  if (result.patterns.renderWaitFor > REFACTOR_ANALYSIS_LIMITS.RECOMMENDATION_PATTERN_THRESHOLD) {
     result.recommendations.push('Create renderAndWait helper to reduce render + waitFor boilerplate');
   }
-  if (result.patterns.linkValidation > 5) {
+  if (result.patterns.linkValidation > REFACTOR_ANALYSIS_LIMITS.RECOMMENDATION_PATTERN_THRESHOLD) {
     result.recommendations.push('Create link assertion helpers (expectExternalLink, expectInternalLink, etc.)');
   }
-  if (result.patterns.semanticChecks > 5) {
+  if (result.patterns.semanticChecks > REFACTOR_ANALYSIS_LIMITS.RECOMMENDATION_PATTERN_THRESHOLD) {
     result.recommendations.push('Create semantic validators (expectSectionWithId, expectHeadingLevel, etc.)');
   }
-  if (result.patterns.formInteractions > 5) {
+  if (result.patterns.formInteractions > REFACTOR_ANALYSIS_LIMITS.RECOMMENDATION_PATTERN_THRESHOLD) {
     result.recommendations.push('Create form helpers (fillContactForm, expectFormAccessibility, etc.)');
   }
-  if (result.patterns.hardcodedStrings.length > 10) {
+  if (result.patterns.hardcodedStrings.length > REFACTOR_ANALYSIS_LIMITS.HARDCODED_STRINGS_RECOMMEND_THRESHOLD) {
     result.recommendations.push('Extract hardcoded strings to test-constants.ts');
   }
-  if (result.patterns.duplicateAssertions.length > 5) {
+  if (result.patterns.duplicateAssertions.length > REFACTOR_ANALYSIS_LIMITS.RECOMMENDATION_PATTERN_THRESHOLD) {
     result.recommendations.push('Extract duplicate assertions to custom assertion helpers');
   }
 
@@ -636,7 +648,10 @@ function generateArrayExport(name: string, strings: string[], comment: string): 
  * Generate the test constants file template
  */
 function generateConstantsTemplate(hardcodedStrings: string[]): string {
-  const uniqueStrings = [...new Set(hardcodedStrings)].slice(0, 50);
+  const uniqueStrings = [...new Set(hardcodedStrings)].slice(
+    0,
+    REFACTOR_ANALYSIS_LIMITS.MAX_EXTRACTED_CONSTANT_STRINGS
+  );
   const categories = categorizeStrings(uniqueStrings);
 
   const sections: string[] = [];
@@ -881,7 +896,10 @@ function printAnalysisResults(analysis: Awaited<ReturnType<typeof analyzeTestFil
   logger.info(`  Link validation patterns: ${analysis.patterns.linkValidation}`);
   logger.info(`  Semantic checks: ${analysis.patterns.semanticChecks}`);
   logger.info(`  Form interactions: ${analysis.patterns.formInteractions}`);
-  logger.info(`  Hardcoded strings (3+ occurrences): ${analysis.patterns.hardcodedStrings.length}`);
+  logger.info(
+    `  Hardcoded strings (${REFACTOR_ANALYSIS_LIMITS.DUPLICATE_MIN_OCCURRENCES}+ occurrences): `
+    + `${analysis.patterns.hardcodedStrings.length}`
+  );
   logger.info(`  Duplicate assertions: ${analysis.patterns.duplicateAssertions.length}`);
   logger.info('');
 

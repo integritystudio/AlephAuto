@@ -38,6 +38,7 @@ class ScanDefaults:
 
 class ChartDefaults:
     WIDTH = 800
+    WIDE_WIDTH = 900
     HEIGHT = 600
     BAR_HEIGHT = 30
     BAR_SPACING = 10
@@ -189,9 +190,12 @@ class SuggestionDefaults:
 class GitActivityDefaults:
     LEGACY_COMMIT_THRESHOLD = 5
     TOP_N_DISPLAY = 5
+    TOP_N_TABLE_DISPLAY = 10
     WEEKLY_MAX_DAYS = 7
     MONTHLY_MAX_DAYS = 31
     SEPARATOR_LENGTH = 60
+    ISO_DATE_FORMAT = "%Y-%m-%d"
+    ISO_DATETIME_MINUTE_FORMAT = "%Y-%m-%d %H:%M"
 
 
 class ValidationLimits:

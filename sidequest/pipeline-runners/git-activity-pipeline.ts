@@ -1,7 +1,7 @@
 #!/usr/bin/env -S node --strip-types
 import { GitActivityWorker } from '../workers/git-activity-worker.ts';
 import { config } from '../core/config.ts';
-import { GIT_ACTIVITY } from '../core/constants.ts';
+import { GIT_ACTIVITY, JOB_EVENTS, NUMBER_BASE } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 import { realpathSync } from 'fs';
@@ -38,8 +38,18 @@ interface ParsedCliArgs {
   errors: string[];
 }
 
+const JOB_SELECTION_STRATEGY = {
+  CUSTOM: 'custom',
+  MONTHLY: 'monthly',
+  WEEKLY: 'weekly',
+  GENERIC: 'generic',
+} as const;
+
+type JobSelectionStrategy =
+  (typeof JOB_SELECTION_STRATEGY)[keyof typeof JOB_SELECTION_STRATEGY];
+
 interface JobSelection {
-  strategy: 'custom' | 'monthly' | 'weekly' | 'generic';
+  strategy: JobSelectionStrategy;
   options: ReportOptions;
 }
 
@@ -93,12 +103,12 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
    * Setup event listeners for job events
    */
   private setupEventListeners(): void {
-    this.worker.on('job:created', (job: Job) => {
+    this.worker.on(JOB_EVENTS.CREATED, (job: Job) => {
       const data = job.data as unknown as JobData;
       logger.info({ jobId: job.id, reportType: data.reportType }, 'Job created');
     });
 
-    this.worker.on('job:started', (job: Job) => {
+    this.worker.on(JOB_EVENTS.STARTED, (job: Job) => {
       const data = job.data as unknown as JobData;
       logger.info({
         jobId: job.id,
@@ -107,7 +117,7 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
       }, 'Job started');
     });
 
-    this.worker.on('job:completed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
       const result = job.result as unknown as JobResult;
       const duration = job.completedAt && job.startedAt
         ? job.completedAt.getTime() - job.startedAt.getTime()
@@ -132,7 +142,7 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
       });
     });
 
-    this.worker.on('job:failed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.FAILED, (job: Job) => {
       logError(logger, job.error, 'Job failed', { jobId: job.id });
     });
   }
@@ -150,11 +160,11 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
       let job: Job;
 
       const selection = selectGitActivityJob(options, this.reportType);
-      if (selection.strategy === 'custom') {
+      if (selection.strategy === JOB_SELECTION_STRATEGY.CUSTOM) {
         job = this.worker.createCustomReportJob(selection.options.sinceDate!, selection.options.untilDate!);
-      } else if (selection.strategy === 'monthly') {
+      } else if (selection.strategy === JOB_SELECTION_STRATEGY.MONTHLY) {
         job = this.worker.createMonthlyReportJob();
-      } else if (selection.strategy === 'weekly') {
+      } else if (selection.strategy === JOB_SELECTION_STRATEGY.WEEKLY) {
         job = this.worker.createWeeklyReportJob();
       } else {
         job = this.worker.createReportJob(selection.options);
@@ -216,25 +226,25 @@ export function selectGitActivityJob(
 
   if (normalizedOptions.sinceDate) {
     return normalizedOptions.untilDate
-      ? { strategy: 'custom', options: normalizedOptions }
-      : { strategy: 'generic', options: normalizedOptions };
+      ? { strategy: JOB_SELECTION_STRATEGY.CUSTOM, options: normalizedOptions }
+      : { strategy: JOB_SELECTION_STRATEGY.GENERIC, options: normalizedOptions };
   }
 
   if (
     normalizedOptions.reportType === GIT_ACTIVITY.MONTHLY_REPORT_TYPE
     || normalizedOptions.days === GIT_ACTIVITY.MONTHLY_WINDOW_DAYS
   ) {
-    return { strategy: 'monthly', options: normalizedOptions };
+    return { strategy: JOB_SELECTION_STRATEGY.MONTHLY, options: normalizedOptions };
   }
 
   if (
     normalizedOptions.reportType === GIT_ACTIVITY.WEEKLY_REPORT_TYPE
     || normalizedOptions.days === GIT_ACTIVITY.WEEKLY_WINDOW_DAYS
   ) {
-    return { strategy: 'weekly', options: normalizedOptions };
+    return { strategy: JOB_SELECTION_STRATEGY.WEEKLY, options: normalizedOptions };
   }
 
-  return { strategy: 'generic', options: normalizedOptions };
+  return { strategy: JOB_SELECTION_STRATEGY.GENERIC, options: normalizedOptions };
 }
 
 export function parseGitActivityCliArgs(args: string[], runOnStartup: boolean): ParsedCliArgs {
@@ -269,7 +279,7 @@ export function parseGitActivityCliArgs(args: string[], runOnStartup: boolean): 
         errors.push('--days requires a positive integer value');
         continue;
       }
-      const parsedDays = parseInt(args[i + 1], 10);
+      const parsedDays = parseInt(args[i + 1], NUMBER_BASE.DECIMAL);
       if (Number.isNaN(parsedDays) || parsedDays <= 0) {
         errors.push(`--days must be a positive integer (received: ${args[i + 1]})`);
       } else {

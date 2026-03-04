@@ -78,6 +78,9 @@ export const RETRY = {
   /** Maximum retry attempts before giving up (circuit breaker) */
   MAX_ABSOLUTE_ATTEMPTS: 5,
 
+  /** Attempt count considered "nearing retry limit" for reporting */
+  NEARING_LIMIT_ATTEMPT_THRESHOLD: 3,
+
   /** Maximum manual retry count for a job via API */
   MAX_MANUAL_RETRIES: 10,
 
@@ -107,6 +110,38 @@ export const RETRY = {
 
   /** Maximum database recovery delay (5 minutes) */
   DATABASE_RECOVERY_MAX_MS: 5 * MINUTE,
+} as const;
+
+/**
+ * Shared event names used by Sidequest workers and pipelines
+ */
+export const JOB_EVENTS = {
+  CREATED: 'job:created',
+  STARTED: 'job:started',
+  COMPLETED: 'job:completed',
+  FAILED: 'job:failed',
+} as const;
+
+export const RETRY_EVENTS = {
+  CREATED: 'retry:created',
+} as const;
+
+export const WORKER_EVENTS = {
+  METRICS_UPDATED: 'metrics:updated',
+} as const;
+
+/**
+ * Numeric parsing radix values
+ */
+export const NUMBER_BASE = {
+  DECIMAL: 10,
+} as const;
+
+/**
+ * Health scoring constants
+ */
+export const HEALTH = {
+  MAX_SCORE: 100,
 } as const;
 
 /**
@@ -247,6 +282,12 @@ export const LIMITS = {
 
   /** Maximum write queue size */
   MAX_WRITE_QUEUE_SIZE: 10000,
+
+  /** Number of scan history entries retained per repository */
+  REPOSITORY_SCAN_HISTORY_ENTRIES: 10,
+
+  /** Minimum hardcoded string occurrences before surfacing in analysis output */
+  HARD_CODED_STRING_MIN_OCCURRENCES: 3,
 } as const;
 
 /**

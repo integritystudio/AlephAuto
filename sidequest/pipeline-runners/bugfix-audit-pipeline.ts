@@ -1,6 +1,7 @@
 #!/usr/bin/env -S node --strip-types
 import { BugfixAuditWorker } from '../workers/bugfix-audit-worker.ts';
 import { config } from '../core/config.ts';
+import { JOB_EVENTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 import { realpathSync } from 'fs';
@@ -67,7 +68,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
   }
 
   private setupEventListeners(): void {
-    this.worker.on('job:created', (job: Job) => {
+    this.worker.on(JOB_EVENTS.CREATED, (job: Job) => {
       const data = job.data as unknown as JobData;
       logger.info({
         jobId: job.id,
@@ -76,7 +77,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
       }, 'Bugfix audit job created');
     });
 
-    this.worker.on('job:started', (job: Job) => {
+    this.worker.on(JOB_EVENTS.STARTED, (job: Job) => {
       const data = job.data as unknown as JobData;
       logger.info({
         jobId: job.id,
@@ -84,7 +85,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
       }, 'Bugfix audit job started');
     });
 
-    this.worker.on('job:completed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
       const data = job.data as unknown as JobData;
       const result = job.result as unknown as JobResult | undefined;
       const duration = job.completedAt && job.startedAt
@@ -98,7 +99,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
       }, 'Bugfix audit job completed');
     });
 
-    this.worker.on('job:failed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.FAILED, (job: Job) => {
       const data = job.data as unknown as JobData;
       logError(logger, job.error, 'Bugfix audit job failed', {
         jobId: job.id,

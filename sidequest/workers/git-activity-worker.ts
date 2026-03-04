@@ -8,7 +8,7 @@ import os from 'os';
 import { fileURLToPath } from 'url';
 import * as Sentry from '@sentry/node';
 import { createComponentLogger } from '../utils/logger.ts';
-import { TIMEOUTS, TIME, GIT_ACTIVITY } from '../core/constants.ts';
+import { TIMEOUTS, TIME, GIT_ACTIVITY, NUMBER_BASE } from '../core/constants.ts';
 
 const logger = createComponentLogger('GitActivityWorker');
 
@@ -129,27 +129,27 @@ export function parseGitActivityStatsFromText(stdout: string): GitActivityStats 
 
   const commitsMatch = stdout.match(/Total commits:\s*(\d+)/i);
   if (commitsMatch) {
-    stats.totalCommits = parseInt(commitsMatch[1], 10);
+    stats.totalCommits = parseInt(commitsMatch[1], NUMBER_BASE.DECIMAL);
   }
 
   const additionsMatch = stdout.match(/Lines added:\s*(\d+)/i);
   if (additionsMatch) {
-    stats.linesAdded = parseInt(additionsMatch[1], 10);
+    stats.linesAdded = parseInt(additionsMatch[1], NUMBER_BASE.DECIMAL);
   }
 
   const deletionsMatch = stdout.match(/Lines deleted:\s*(\d+)/i);
   if (deletionsMatch) {
-    stats.linesDeleted = parseInt(deletionsMatch[1], 10);
+    stats.linesDeleted = parseInt(deletionsMatch[1], NUMBER_BASE.DECIMAL);
   }
 
   const reposMatch = stdout.match(/Active repositories:\s*(\d+)/i);
   if (reposMatch) {
-    stats.totalRepositories = parseInt(reposMatch[1], 10);
+    stats.totalRepositories = parseInt(reposMatch[1], NUMBER_BASE.DECIMAL);
   }
 
   const filesMatch = stdout.match(/File changes:\s*(\d+)/i);
   if (filesMatch) {
-    stats.filesChanged = parseInt(filesMatch[1], 10);
+    stats.filesChanged = parseInt(filesMatch[1], NUMBER_BASE.DECIMAL);
   }
 
   return stats;

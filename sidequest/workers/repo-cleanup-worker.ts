@@ -22,6 +22,7 @@ import path from 'path';
 import os from 'os';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
+import { NUMBER_BASE } from '../core/constants.ts';
 
 const execFileAsync = promisify(execFile);
 const logger = createComponentLogger('RepoCleanupWorker');
@@ -341,19 +342,19 @@ export class RepoCleanupWorker extends SidequestServer {
 
     // Extract counts from output
     const venvMatch = output.match(/Removed (\d+) virtual environment/);
-    if (venvMatch) summary.venvs = parseInt(venvMatch[1], 10);
+    if (venvMatch) summary.venvs = parseInt(venvMatch[1], NUMBER_BASE.DECIMAL);
 
     const tempMatch = output.match(/Removed (\d+) temporary file/);
-    if (tempMatch) summary.tempFiles = parseInt(tempMatch[1], 10);
+    if (tempMatch) summary.tempFiles = parseInt(tempMatch[1], NUMBER_BASE.DECIMAL);
 
     const outputMatch = output.match(/Removed (\d+) output file/);
-    if (outputMatch) summary.outputFiles = parseInt(outputMatch[1], 10);
+    if (outputMatch) summary.outputFiles = parseInt(outputMatch[1], NUMBER_BASE.DECIMAL);
 
     const buildMatch = output.match(/Removed (\d+) build artifact/);
-    if (buildMatch) summary.buildArtifacts = parseInt(buildMatch[1], 10);
+    if (buildMatch) summary.buildArtifacts = parseInt(buildMatch[1], NUMBER_BASE.DECIMAL);
 
     const dirMatch = output.match(/Removed (\d+) redundant director/);
-    if (dirMatch) summary.redundantDirs = parseInt(dirMatch[1], 10);
+    if (dirMatch) summary.redundantDirs = parseInt(dirMatch[1], NUMBER_BASE.DECIMAL);
 
     const totalItems = Object.values(summary).reduce((sum, val) => sum + val, 0);
 

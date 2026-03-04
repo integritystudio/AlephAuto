@@ -2,7 +2,7 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { GIT_ACTIVITY, JOB_RETENTION } from './constants.ts';
+import { GIT_ACTIVITY, JOB_RETENTION, NUMBER_BASE } from './constants.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -12,7 +12,7 @@ const __dirname = dirname(__filename);
  * Prevents NaN propagation and enforces min/max limits
  */
 function safeParseInt(value: string | undefined, defaultValue: number, min?: number, max?: number): number {
-  const parsed = parseInt(value ?? String(defaultValue), 10);
+  const parsed = parseInt(value ?? String(defaultValue), NUMBER_BASE.DECIMAL);
   if (Number.isNaN(parsed)) return defaultValue;
   let result = parsed;
   if (min !== undefined) result = Math.max(min, result);
@@ -50,7 +50,7 @@ function safeParseRetentionByType(value: string | undefined): Record<string, num
       const parsedDays = typeof retentionValue === 'number'
         ? Math.floor(retentionValue)
         : typeof retentionValue === 'string'
-          ? parseInt(retentionValue, 10)
+          ? parseInt(retentionValue, NUMBER_BASE.DECIMAL)
           : Number.NaN;
 
       if (

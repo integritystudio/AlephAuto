@@ -2,7 +2,7 @@
 import { RepoCleanupWorker } from '../workers/repo-cleanup-worker.ts';
 import type { Job } from '../core/server.ts';
 import { config } from '../core/config.ts';
-import { TIMEOUTS } from '../core/constants.ts';
+import { JOB_EVENTS, TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
@@ -77,8 +77,8 @@ function waitForJobTerminalStatus(worker: RepoCleanupWorker, jobId: string): Pro
       if (timeoutHandle) {
         clearTimeout(timeoutHandle);
       }
-      worker.off('job:completed', onCompleted);
-      worker.off('job:failed', onFailed);
+      worker.off(JOB_EVENTS.COMPLETED, onCompleted);
+      worker.off(JOB_EVENTS.FAILED, onFailed);
     };
 
     const rejectWithFailure = (job: Job) => {
@@ -98,8 +98,8 @@ function waitForJobTerminalStatus(worker: RepoCleanupWorker, jobId: string): Pro
       rejectWithFailure(job);
     };
 
-    worker.on('job:completed', onCompleted);
-    worker.on('job:failed', onFailed);
+    worker.on(JOB_EVENTS.COMPLETED, onCompleted);
+    worker.on(JOB_EVENTS.FAILED, onFailed);
 
     timeoutHandle = setTimeout(() => {
       cleanup();
@@ -141,7 +141,7 @@ async function main(): Promise<void> {
   });
 
   // Event listeners
-  worker.on('job:created', (job: Job) => {
+  worker.on(JOB_EVENTS.CREATED, (job: Job) => {
     logger.info({
       jobId: job.id,
       type: (job.data as unknown as JobData).type,
@@ -150,7 +150,7 @@ async function main(): Promise<void> {
     }, 'Job created');
   });
 
-  worker.on('job:started', (job: Job) => {
+  worker.on(JOB_EVENTS.STARTED, (job: Job) => {
     logger.info({
       jobId: job.id,
       targetDir: (job.data as unknown as JobData).targetDir,
@@ -158,7 +158,7 @@ async function main(): Promise<void> {
     }, 'Job started');
   });
 
-  worker.on('job:completed', (job: Job) => {
+  worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
     const { initialSize, finalSize, totalItems, summary } = (job.result as JobResult | undefined) ?? {};
 
     logger.info({
@@ -190,7 +190,7 @@ async function main(): Promise<void> {
     }
   });
 
-  worker.on('job:failed', (job: Job) => {
+  worker.on(JOB_EVENTS.FAILED, (job: Job) => {
     logError(logger, job.error, 'Job failed', { jobId: job.id, retryCount: job.retryCount });
 
     Sentry.captureException(new Error(job.error?.message ?? 'Job failed'), {

@@ -9,6 +9,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import os from 'os';
+import { LIMITS } from '../../core/constants.ts';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -426,7 +427,7 @@ export class RepositoryConfigLoader {
     });
 
     // Keep only last 10 entries
-    repo.scanHistory = repo.scanHistory.slice(0, 10);
+    repo.scanHistory = repo.scanHistory.slice(0, LIMITS.REPOSITORY_SCAN_HISTORY_ENTRIES);
 
     // Save updated configuration
     await this.save();

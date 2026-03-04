@@ -1,5 +1,6 @@
 import type { Job, JobStats } from '../core/server.ts';
 import { SidequestServer } from '../core/server.ts';
+import { JOB_EVENTS, RETRY_EVENTS } from '../core/constants.ts';
 import { logError } from '../utils/logger.ts';
 import cron from 'node-cron';
 import type { Logger } from 'pino';
@@ -32,9 +33,9 @@ export abstract class BasePipeline<TWorker extends SidequestServer = SidequestSe
        * cleanup.
        */
       const cleanup = () => {
-        this.worker.off('job:completed', checkAndResolve);
-        this.worker.off('job:failed', checkAndResolve);
-        this.worker.off('retry:created', checkAndResolve);
+        this.worker.off(JOB_EVENTS.COMPLETED, checkAndResolve);
+        this.worker.off(JOB_EVENTS.FAILED, checkAndResolve);
+        this.worker.off(RETRY_EVENTS.CREATED, checkAndResolve);
       };
 
       /**
@@ -50,9 +51,9 @@ export abstract class BasePipeline<TWorker extends SidequestServer = SidequestSe
 
       // Register listeners before checking to avoid missing events between
       // the check and registration.
-      this.worker.on('job:completed', checkAndResolve);
-      this.worker.on('job:failed', checkAndResolve);
-      this.worker.on('retry:created', checkAndResolve);
+      this.worker.on(JOB_EVENTS.COMPLETED, checkAndResolve);
+      this.worker.on(JOB_EVENTS.FAILED, checkAndResolve);
+      this.worker.on(RETRY_EVENTS.CREATED, checkAndResolve);
       // Immediate check handles already-drained case.
       checkAndResolve();
     });

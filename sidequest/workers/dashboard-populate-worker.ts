@@ -6,6 +6,7 @@ import { execCommandOrThrow } from '@shared/process-io';
 import path from 'path';
 import os from 'os';
 import type { Job } from '../core/server.ts';
+import { NUMBER_BASE } from '../core/constants.ts';
 
 const logger = createComponentLogger('DashboardPopulateWorker');
 
@@ -192,7 +193,7 @@ export class DashboardPopulateWorker extends SidequestServer {
     for (const line of lines) {
       const match = line.match(/^\s{2}(\S+)\s+(\d+)ms$/);
       if (match && match[1] !== 'total') {
-        timings.push({ name: match[1], ms: parseInt(match[2], 10) });
+        timings.push({ name: match[1], ms: parseInt(match[2], NUMBER_BASE.DECIMAL) });
       }
     }
     return timings;

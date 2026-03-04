@@ -461,7 +461,7 @@ def group_by_similarity(
         )
         _try_accept_group(
             group_blocks,
-            1.0,
+            SemanticWeights.BOTH_EMPTY_SIMILARITY,
             "exact_match",
             groups,
             grouped_block_ids,
@@ -639,7 +639,9 @@ def _group_by_structural_similarity(
                 used.add(i)
                 # Average similarity score for the group
                 avg_similarity = (
-                    sum(similarities) / len(similarities) if similarities else 1.0
+                    sum(similarities) / len(similarities)
+                    if similarities
+                    else SemanticWeights.BOTH_EMPTY_SIMILARITY
                 )
                 groups.append((group, avg_similarity))
             else:
@@ -813,7 +815,9 @@ def _group_by_semantic_similarity(
         if len(group) >= 2:
             used.add(i)
             avg_similarity = (
-                sum(similarities) / len(similarities) if similarities else 1.0
+                sum(similarities) / len(similarities)
+                if similarities
+                else SemanticWeights.BOTH_EMPTY_SIMILARITY
             )
             groups.append((group, avg_similarity))
 

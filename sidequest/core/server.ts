@@ -7,7 +7,7 @@ import { createComponentLogger, logError, logWarn } from '../utils/logger.ts';
 import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.ts';
 import { GitWorkflowManager } from './git-workflow-manager.ts';
 import { jobRepository } from './job-repository.ts';
-import { CONCURRENCY, RETRY, TIME } from './constants.ts';
+import { CONCURRENCY, JOB_EVENTS, RETRY, RETRY_EVENTS, TIME } from './constants.ts';
 import { isRetryable, classifyError } from '../pipeline-core/errors/error-classifier.ts';
 import { toISOString } from '../utils/time-helpers.ts';
 import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '#api/types/job-status.ts';
@@ -215,7 +215,7 @@ export class SidequestServer extends EventEmitter {
       data: { jobId: resolvedJobId, jobData },
     });
 
-    this.emit('job:created', job);
+    this.emit(JOB_EVENTS.CREATED, job);
     this.processQueue();
 
     return job;
@@ -344,7 +344,7 @@ export class SidequestServer extends EventEmitter {
     job.status = JOB_STATUS.RUNNING;
     job.startedAt = new Date();
     job.retryPending = false;
-    this.emit('job:started', job);
+    this.emit(JOB_EVENTS.STARTED, job);
     try {
       this._persistJob(job);
     } catch {
@@ -403,7 +403,7 @@ export class SidequestServer extends EventEmitter {
       }
     }
 
-    this.emit('job:completed', job);
+    this.emit(JOB_EVENTS.COMPLETED, job);
     this.jobHistory.push({ ...job });
     this._pruneExpiredJobs();
     try {
@@ -445,7 +445,7 @@ export class SidequestServer extends EventEmitter {
       job.error = null;
       job.retryPending = true;
 
-      this.emit('retry:created', job, {
+      this.emit(RETRY_EVENTS.CREATED, job, {
         attempt: job.retryCount,
         maxAttempts: this.maxRetries,
         reason: classification?.reason,
@@ -504,7 +504,7 @@ export class SidequestServer extends EventEmitter {
       }
     }
 
-    this.emit('job:failed', job, error);
+    this.emit(JOB_EVENTS.FAILED, job, error);
     this.jobHistory.push({ ...job });
     this._pruneExpiredJobs();
     try {

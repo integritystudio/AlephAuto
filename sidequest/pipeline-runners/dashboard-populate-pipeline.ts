@@ -13,7 +13,7 @@ import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
 import type { Job } from '../core/server.ts';
-import { TIMEOUTS } from '../core/constants.ts';
+import { JOB_EVENTS, NUMBER_BASE, TIMEOUTS } from '../core/constants.ts';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -46,7 +46,7 @@ const cliOptions: CliOptions = {
 
 const limitIdx = args.indexOf('--limit');
 if (limitIdx !== -1 && args[limitIdx + 1]) {
-  cliOptions.limit = parseInt(args[limitIdx + 1], 10);
+  cliOptions.limit = parseInt(args[limitIdx + 1], NUMBER_BASE.DECIMAL);
 }
 
 if (process.env.DASHBOARD_SEED === 'false') {
@@ -61,8 +61,8 @@ function waitForJobTerminalStatus(worker: DashboardPopulateWorker, jobId: string
       if (timeoutHandle) {
         clearTimeout(timeoutHandle);
       }
-      worker.off('job:completed', onCompleted);
-      worker.off('job:failed', onFailed);
+      worker.off(JOB_EVENTS.COMPLETED, onCompleted);
+      worker.off(JOB_EVENTS.FAILED, onFailed);
     };
 
     const rejectWithFailure = (job: Job) => {
@@ -82,8 +82,8 @@ function waitForJobTerminalStatus(worker: DashboardPopulateWorker, jobId: string
       rejectWithFailure(job);
     };
 
-    worker.on('job:completed', onCompleted);
-    worker.on('job:failed', onFailed);
+    worker.on(JOB_EVENTS.COMPLETED, onCompleted);
+    worker.on(JOB_EVENTS.FAILED, onFailed);
 
     timeoutHandle = setTimeout(() => {
       cleanup();
@@ -120,7 +120,7 @@ async function main(): Promise<void> {
 
   const worker = new DashboardPopulateWorker({ maxConcurrent: 1 });
 
-  worker.on('job:created', (job: Job) => {
+  worker.on(JOB_EVENTS.CREATED, (job: Job) => {
     logger.info({
       jobId: job.id,
       seed: job.data.seed,
@@ -128,11 +128,11 @@ async function main(): Promise<void> {
     }, 'Job created');
   });
 
-  worker.on('job:started', (job: Job) => {
+  worker.on(JOB_EVENTS.STARTED, (job: Job) => {
     logger.info({ jobId: job.id }, 'Job started');
   });
 
-  worker.on('job:completed', (job: Job) => {
+  worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
     const result = job.result as Record<string, unknown> | null;
     const durationMs = result?.durationMs;
     const steps = result?.steps as Array<unknown> | undefined;
@@ -143,7 +143,7 @@ async function main(): Promise<void> {
     }, 'Job completed');
   });
 
-  worker.on('job:failed', (job: Job) => {
+  worker.on(JOB_EVENTS.FAILED, (job: Job) => {
     logError(logger, job.error, 'Job failed', { jobId: job.id, retryCount: job.retryCount });
     Sentry.captureException(new Error(job.error?.message ?? 'Unknown error'), {
       tags: { component: 'dashboard-populate-pipeline', job_id: job.id },
