@@ -71,3 +71,33 @@ test('getStats includes pendingRetries count', (t) => {
   const stats = server.getStats();
   assert.equal(stats.pendingRetries, 1);
 });
+
+test('cancelJob clears retryPending immediately', (t) => {
+  stubRepositoryInit(t);
+
+  const server = new SidequestServer({ autoStart: false, jobType: 'action-guards' });
+  server.stop();
+
+  const job = server.createJob('cancel-pending-retry', {});
+  job.retryPending = true;
+
+  const result = server.cancelJob(job.id);
+  assert.equal(result.success, true);
+  assert.equal(job.retryPending, false);
+  assert.equal(server.getStats().pendingRetries, 0);
+});
+
+test('pauseJob clears retryPending immediately', (t) => {
+  stubRepositoryInit(t);
+
+  const server = new SidequestServer({ autoStart: false, jobType: 'action-guards' });
+  server.stop();
+
+  const job = server.createJob('pause-pending-retry', {});
+  job.retryPending = true;
+
+  const result = server.pauseJob(job.id);
+  assert.equal(result.success, true);
+  assert.equal(job.retryPending, false);
+  assert.equal(server.getStats().pendingRetries, 0);
+});

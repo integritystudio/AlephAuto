@@ -813,6 +813,7 @@ export class SidequestServer extends EventEmitter {
         : `Cannot cancel job with status '${s}'`,
       mutate: (job) => {
         job.status = JOB_STATUS.CANCELLED;
+        job.retryPending = false;
         job.completedAt = new Date();
         job.error = { message: 'Job cancelled by user', cancelled: true };
       },
@@ -835,6 +836,7 @@ export class SidequestServer extends EventEmitter {
         : `Cannot pause job with status '${s}'`,
       mutate: (job) => {
         job.status = JOB_STATUS.PAUSED;
+        job.retryPending = false;
         job.pausedAt = new Date();
       }
     });

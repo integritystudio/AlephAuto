@@ -193,7 +193,7 @@ function waitForCompletion(worker: TestRefactorWorker): Promise<void> {
      */
     const checkAndResolve = () => {
       const stats = worker.getStats();
-      if (stats.active === 0 && stats.queued === 0) {
+      if (stats.active === 0 && stats.queued === 0 && stats.pendingRetries === 0) {
         clearTimeout(deadline);
         cleanup();
         resolve();
