@@ -12,17 +12,14 @@ Combines:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Dict, Set, Callable, Any
+from typing import List, Dict, Callable, Any
 from collections import defaultdict
 from pathlib import Path
 import sys
 
 # Import centralized config (H1 fix: use config module instead of os.environ)
 from .config import SimilarityConfig
-from constants import BlockExtraction, ScanDefaults, SemanticWeights, ExtractionDefaults, StructuralDefaults
-
-# Debug mode from config
-DEBUG = SimilarityConfig.DEBUG
+from constants import BlockExtraction, ScanDefaults, SemanticWeights, StructuralDefaults
 
 # Import models from correct path (relative to pipeline-core)
 sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
@@ -42,7 +39,6 @@ except ImportError:
 try:
     from .structural import (
         calculate_structural_similarity,
-        calculate_ast_hash,
         extract_logical_operators,
         extract_http_status_codes,
         extract_semantic_methods,
@@ -52,13 +48,15 @@ try:
 except ImportError:
     from structural import (
         calculate_structural_similarity,
-        calculate_ast_hash,
         extract_logical_operators,
         extract_http_status_codes,
         extract_semantic_methods,
         extract_method_chain
     )
     from semantic import are_semantically_compatible, validate_duplicate_group
+
+# Debug mode from config
+DEBUG = SimilarityConfig.DEBUG
 
 # Minimum complexity threshold for duplicate detection
 # Uses values from SimilarityConfig for consistency
@@ -417,7 +415,7 @@ def group_by_similarity(
     grouped_block_ids = set()
 
     # Layer 1: Exact matching (hash-based)
-    print(f"Layer 1: Grouping by exact content hash...", file=sys.stderr)
+    print("Layer 1: Grouping by exact content hash...", file=sys.stderr)
     exact_groups = _group_by_exact_hash(complex_blocks)
 
     for hash_val, group_blocks in exact_groups.items():
@@ -479,7 +477,7 @@ def group_by_similarity(
 
         # Print timing summary when DEBUG
         if DEBUG:
-            print(f"Layer 3 timing:", file=sys.stderr)
+            print("Layer 3 timing:", file=sys.stderr)
             print(f"  Annotation: {annotation_time_ms:.1f}ms ({len(ungrouped_blocks)} blocks)", file=sys.stderr)
             print(f"  Grouping: {grouping_time_ms:.1f}ms", file=sys.stderr)
             timing_report = annotator.get_timing_report()
@@ -488,7 +486,7 @@ def group_by_similarity(
 
         print(f"Layer 3: Found {len(groups) - layer2_count} semantic duplicate groups", file=sys.stderr)
     else:
-        print(f"Layer 3: No ungrouped blocks remaining", file=sys.stderr)
+        print("Layer 3: No ungrouped blocks remaining", file=sys.stderr)
 
     print(f"Total: {len(groups)} duplicate groups found", file=sys.stderr)
     return groups

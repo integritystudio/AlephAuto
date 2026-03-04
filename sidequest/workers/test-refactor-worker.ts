@@ -13,7 +13,7 @@
  * - Comprehensive metrics tracking
  */
 
-import { SidequestServer, type Job as BaseJob } from '../core/server.ts';
+import { SidequestServer, type Job as BaseJob, type JobStats } from '../core/server.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import { glob } from 'glob';
 import path from 'path';
@@ -77,14 +77,6 @@ interface Metrics {
   patternsDetected: number;
   stringsExtracted: number;
   recommendationsGenerated: number;
-}
-
-interface Stats {
-  total: number;
-  queued: number;
-  active: number;
-  completed: number;
-  failed: number;
 }
 
 /**
@@ -877,7 +869,7 @@ Files generated: ${result?.generatedFiles?.join(', ') || 'None'}`
   /**
    * Get stats - inherited from SidequestServer
    */
-  getStats(): Stats {
+  getStats(): JobStats {
     return super.getStats();
   }
 }

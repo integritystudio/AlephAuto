@@ -2,17 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SidequestServer } from './server.ts';
 import { jobRepository } from './job-repository.ts';
+import type { SaveJobInput } from './job-repository.ts';
 import { JOB_STATUS } from '#api/types/job-status.ts';
 
 function stubRepositoryInit(t: test.TestContext): void {
   const originalInitialize = jobRepository.initialize.bind(jobRepository);
   const originalSaveJob = jobRepository.saveJob.bind(jobRepository);
   (jobRepository as unknown as { initialize: () => Promise<void> }).initialize = async () => {};
-  (jobRepository as unknown as { saveJob: () => void }).saveJob = () => {};
+  (jobRepository as unknown as { saveJob: (job: SaveJobInput) => void }).saveJob = (_job: SaveJobInput) => {};
 
   t.after(() => {
     (jobRepository as unknown as { initialize: () => Promise<void> }).initialize = originalInitialize;
-    (jobRepository as unknown as { saveJob: () => void }).saveJob = originalSaveJob;
+    (jobRepository as unknown as { saveJob: (job: SaveJobInput) => void }).saveJob = originalSaveJob;
   });
 }
 

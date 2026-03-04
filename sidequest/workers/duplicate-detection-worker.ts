@@ -13,7 +13,7 @@
  * - Comprehensive metrics tracking
  */
 
-import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
+import { SidequestServer, type Job } from '../core/server.ts';
 import { RepositoryConfigLoader, type RepositoryConfig } from '../pipeline-core/config/repository-config-loader.ts';
 import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.ts';
 import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.ts';

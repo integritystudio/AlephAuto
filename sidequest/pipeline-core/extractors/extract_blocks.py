@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
 import sys
 from dataclasses import dataclass
@@ -27,7 +26,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    pass
 
 # Add lib/models and lib/similarity to Python path (early for validation constants)
 sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
@@ -44,6 +43,11 @@ from constants import (
     SuggestionDefaults,
     ValidationLimits,
 )
+from similarity.config import SimilarityConfig
+from code_block import CodeBlock, SourceLocation
+from duplicate_group import DuplicateGroup
+from consolidation_suggestion import ConsolidationSuggestion, MigrationStep
+from similarity.grouping import group_by_similarity
 
 # ---------------------------------------------------------------------------
 # Input Validation Models (C2 Security Fix)
@@ -104,9 +108,6 @@ class PipelineInput(BaseModel):
         'extra': 'ignore'  # Ignore unexpected fields
     }
 
-# Import config for DEBUG flag (H1 fix: use config module)
-from similarity.config import SimilarityConfig
-
 # Debug mode from centralized config
 DEBUG = SimilarityConfig.DEBUG
 
@@ -115,13 +116,6 @@ def _debug(msg: str) -> None:
     """Print debug message if DEBUG is enabled."""
     if DEBUG:
         print(f"DEBUG {msg}", file=sys.stderr)
-
-
-from code_block import CodeBlock, SourceLocation, ASTNode
-from duplicate_group import DuplicateGroup
-from consolidation_suggestion import ConsolidationSuggestion, MigrationStep
-from scan_report import ScanReport, RepositoryInfo, ScanConfiguration, ScanMetrics
-from similarity.grouping import group_by_similarity
 
 
 # ---------------------------------------------------------------------------
@@ -655,7 +649,6 @@ def _generate_migration_steps(group: DuplicateGroup, strategy: str) -> List[Migr
 def _generate_code_example(group: DuplicateGroup, strategy: str) -> str:
     """Generate example code showing the refactoring"""
 
-    pattern = group.pattern_id
     category = group.category
 
     if strategy == 'local_util':

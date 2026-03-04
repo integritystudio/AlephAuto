@@ -7,6 +7,12 @@ interface MinimalRepoConfig {
   path: string;
 }
 
+interface PipelineStatusPayload {
+  status: string;
+  groupScans?: number;
+  individualScans?: number;
+}
+
 function waitForEvent<T>(emitter: NodeJS.EventEmitter, eventName: string): Promise<T> {
   return new Promise((resolve) => {
     emitter.once(eventName, (payload: T) => resolve(payload));
@@ -143,8 +149,8 @@ test('runNightlyScan reports only actually scheduled group scans', async () => {
     return { id: `job-${scheduled.length}` };
   };
 
-  let scheduledStatus: Record<string, unknown> | null = null;
-  worker.on('pipeline:status', (payload: Record<string, unknown>) => {
+  let scheduledStatus: PipelineStatusPayload | null = null;
+  worker.on('pipeline:status', (payload: PipelineStatusPayload) => {
     if (payload.status === 'scheduled') {
       scheduledStatus = payload;
     }
@@ -152,10 +158,12 @@ test('runNightlyScan reports only actually scheduled group scans', async () => {
 
   await worker.runNightlyScan();
 
-  assert.ok(scheduledStatus, 'scheduled status payload should be emitted');
+  if (!scheduledStatus) {
+    assert.fail('scheduled status payload should be emitted');
+  }
+  const emittedStatus: PipelineStatusPayload = scheduledStatus;
   assert.equal(scheduled.filter(s => s.scanType === 'intra-project').length, 1);
   assert.equal(scheduled.filter(s => s.scanType === 'inter-project').length, 1);
-  assert.equal(scheduledStatus?.groupScans, 1);
-  assert.equal(scheduledStatus?.individualScans, 1);
+  assert.equal(emittedStatus.groupScans, 1);
+  assert.equal(emittedStatus.individualScans, 1);
 });
-
