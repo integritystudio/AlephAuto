@@ -53,7 +53,7 @@ describe('Pipeline Execution - Integration Tests', () => {
     }
   });
 
-  it('Scenario 2: Verify all pipeline runners have execute permissions', async () => {
+  it('Scenario 2: Verify managed pipeline runners are not executable', async () => {
     for (const pipeline of pipelineRunners) {
       const pipelinePath = path.join(projectRoot, pipeline);
 
@@ -66,8 +66,8 @@ describe('Pipeline Execution - Integration Tests', () => {
 
       assert.equal(
         hasExecute,
-        true,
-        `${pipeline} should have execute permissions (current: ${mode.toString(8)})`
+        false,
+        `${pipeline} should NOT have execute permissions (current: ${mode.toString(8)})`
       );
     }
   });
@@ -79,37 +79,44 @@ describe('Pipeline Execution - Integration Tests', () => {
     const stats = await fs.stat(pipelinePath);
     const hasExecute = (stats.mode & 0o100) !== 0;
 
-    if (!hasExecute) {
-      // Make executable
-      await fs.chmod(pipelinePath, 0o755);
-    }
-
-    // Execute directly (shebang should work)
-    const { stdout: _stdout, stderr } = await execAsync(
-      `"${pipelinePath}" --version || true`,
-      {
-        cwd: projectRoot,
-        timeout: 5000,
-        env: {
-          ...process.env,
-          RUN_ON_STARTUP: 'false'
-        }
+    try {
+      if (!hasExecute) {
+        // Temporarily make executable for direct shebang execution test
+        await fs.chmod(pipelinePath, 0o755);
       }
-    ).catch(err => {
-      // Pipeline may not support --version, that's okay
-      // We just want to verify shebang execution works
-      return { stdout: '', stderr: err.message };
-    });
 
-    // Should not have shebang-related errors
-    assert(
-      !stderr.includes('bad interpreter'),
-      'Shebang should be correct'
-    );
-    assert(
-      !stderr.includes('command not found'),
-      'Node should be in PATH'
-    );
+      // Execute directly (shebang should work)
+      const { stdout: _stdout, stderr } = await execAsync(
+        `"${pipelinePath}" --version || true`,
+        {
+          cwd: projectRoot,
+          timeout: 5000,
+          env: {
+            ...process.env,
+            RUN_ON_STARTUP: 'false'
+          }
+        }
+      ).catch(err => {
+        // Pipeline may not support --version, that's okay
+        // We just want to verify shebang execution works
+        return { stdout: '', stderr: err.message };
+      });
+
+      // Should not have shebang-related errors
+      assert(
+        !stderr.includes('bad interpreter'),
+        'Shebang should be correct'
+      );
+      assert(
+        !stderr.includes('command not found'),
+        'Node should be in PATH'
+      );
+    } finally {
+      if (!hasExecute) {
+        // Restore managed policy for non-executable pipeline runner files.
+        await fs.chmod(pipelinePath, 0o644);
+      }
+    }
   });
 
   it('Scenario 6: Verify PM2 ecosystem config references correct scripts', async () => {
@@ -221,7 +228,7 @@ describe('Pipeline Execution - Integration Tests', () => {
     }
   });
 
-  it('Scenario 10: Verify pipeline runners directory structure', async () => {
+  it('Scenario 10: Verify managed pipeline runner permission policy', async () => {
     const runnersDir = path.join(projectRoot, 'sidequest/pipeline-runners');
 
     // Directory should exist
@@ -237,21 +244,34 @@ describe('Pipeline Execution - Integration Tests', () => {
       `Should have at least ${pipelineRunners.length} pipeline runners`
     );
 
-    // Only script entrypoints (files with shebangs) must be executable.
-    // Test files and helper modules in this directory may not be executable.
+    // Managed runner entrypoints are invoked via `node ...` and must not be executable.
+    // Keep this list aligned with scripts/validate-permissions.ts CRITICAL_FILES.
+    const nonExecutableEntrypoints = new Set([
+      'duplicate-detection-pipeline.ts',
+      'claude-health-pipeline.ts',
+      'git-activity-pipeline.ts',
+      'plugin-management-pipeline.ts',
+      'gitignore-pipeline.ts',
+      'repo-cleanup-pipeline.ts',
+      'schema-enhancement-pipeline.ts',
+      'bugfix-audit-pipeline.ts',
+      'dashboard-populate-pipeline.ts'
+    ]);
+
     for (const file of pipelineFiles) {
       const filePath = path.join(runnersDir, file);
       const content = await fs.readFile(filePath, 'utf-8');
       const isScriptEntrypoint = content.startsWith('#!');
       if (!isScriptEntrypoint) continue;
+      if (!nonExecutableEntrypoints.has(file)) continue;
 
       const fileStats = await fs.stat(filePath);
       const hasExecute = (fileStats.mode & 0o100) !== 0;
 
       assert.equal(
         hasExecute,
-        true,
-        `${file} should be executable`
+        false,
+        `${file} should NOT be executable`
       );
     }
   });
