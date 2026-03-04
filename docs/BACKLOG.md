@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-04 | **Last Session:** 2026-03-04 (CX7 completion + closed-item migration)
+**Last Updated:** 2026-03-04 | **Last Session:** 2026-03-04 (CS7 completion + backlog migration)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -13,6 +13,7 @@ Technical debt and planned improvements.
 No active deferred/blocked items.
 
 Closed items migrated to changelog:
+- [v2.3.4](changelog/2.3/CHANGELOG.md) (`CS7`)
 - [v2.3.3](changelog/2.3/CHANGELOG.md) (`CX7`)
 - [v2.3.2](changelog/2.3/CHANGELOG.md) (`CX6`)
 - [v2.3.1](changelog/2.3/CHANGELOG.md) (`LOG8`, `LOG9`)
@@ -50,7 +51,6 @@ Thresholds: cyclomatic ≤10, cognitive ≤15, nesting ≤4, length ≤50 lines.
 
 | ID | File | Lines | Methods | Severity | Status |
 |----|------|-------|---------|----------|--------|
-| CS7 | `api/utils/worker-registry.ts:164` | 348 | 19 | low | |
 | CS8 | `sidequest/utils/schema-mcp-tools.ts:54` | 259 | 27 | low | |
 
 Thresholds: ≤300 lines, ≤20 methods.
@@ -81,5 +81,5 @@ No issues found (SQL injection, XSS, command injection, hardcoded secrets, insec
 ### Remaining Priority
 
 1. **SV1** — Replace `console.log` with structured logger in non-test code
-2. **CS7/CS8** — Large classes (low severity, low priority)
+2. **CS8** — Large class (low severity, low priority)
 3. **DOC1-8** — Add JSDoc starting with core modules

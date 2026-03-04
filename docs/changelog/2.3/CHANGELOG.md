@@ -6,6 +6,22 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.4] - 2026-03-04
+
+### Summary
+
+Resolved backlog code-smell item `CS7` by reducing `WorkerRegistry` class size through helper extraction while preserving worker initialization and shutdown behavior.
+
+### Changed
+
+- Refactored `api/utils/worker-registry.ts`:
+  - Extracted circuit-breaker, worker initialization, stats aggregation, and shutdown coordination logic into file-level helpers.
+  - Reduced `WorkerRegistry` class body from ~348 lines to ~165 lines.
+  - Kept public API and initialization semantics unchanged.
+- Backlog `CS7` migrated and closed in `docs/BACKLOG.md`.
+
+---
+
 ## [2.3.3] - 2026-03-04
 
 ### Summary
