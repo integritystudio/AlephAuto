@@ -48,7 +48,7 @@ For a fully functional dashboard, you need to deploy the complete application:
 # http://your-server-ip:8080
 ```
 
-**See:** `docs/TRADITIONAL_SERVER_DEPLOYMENT.md`
+**See:** `docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md`
 
 ## Configuration
 
@@ -135,9 +135,9 @@ Check workflow logs in GitHub Actions tab for details.
 ## Related Documentation
 
 - General Deployment: `docs/DEPLOYMENT.md`
-- Traditional Server: `docs/TRADITIONAL_SERVER_DEPLOYMENT.md`
-- macOS Deployment: `docs/MACOS_DEPLOYMENT_CHANGES.md`
-- Dashboard README: `public/README.md`
+- Traditional Server: `docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md`
+- macOS Deployment Notes: `docs/archive/MACOS_DEPLOYMENT_CHANGES.md`
+- Frontend README: `frontend/README.md`
 
 ---
 

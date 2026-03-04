@@ -51,7 +51,7 @@ Comprehensive guide for verifying bugfix deployments using `scripts/verify-bugfi
 
 Run these **before deploying** to catch issues early:
 
-- ✅ Verify new files exist (doppler-health-monitor.js, port-manager.js, etc.)
+- ✅ Verify new files exist (doppler-health-monitor.ts, port-manager.ts, etc.)
 - ✅ Check shebangs on pipeline scripts
 - ✅ Validate PM2 configuration syntax
 - ✅ Run TypeScript type checks
@@ -70,15 +70,15 @@ Run these **before deploying** to catch issues early:
 
 ▸ Verifying New Files
 
-✓ File exists: sidequest/pipeline-core/doppler-health-monitor.js
-✓ File exists: api/utils/port-manager.js
-✓ File exists: api/activity-feed.js
-✓ File exists: api/event-broadcaster.js
+✓ File exists: sidequest/pipeline-core/doppler-health-monitor.ts
+✓ File exists: api/utils/port-manager.ts
+✓ File exists: api/activity-feed.ts
+✓ File exists: api/event-broadcaster.ts
 
 ▸ Checking Pipeline Script Shebangs
 
-✓ Shebang present: sidequest/pipeline-runners/duplicate-detection-pipeline.js
-⚠ No shebang in: sidequest/pipeline-runners/git-activity-pipeline.js (OK if using node interpreter in PM2)
+⚠ No shebang in: sidequest/pipeline-runners/duplicate-detection-pipeline.ts (OK if using node interpreter in PM2)
+⚠ No shebang in: sidequest/pipeline-runners/git-activity-pipeline.ts (OK if using node interpreter in PM2)
 ...
 ```
 
@@ -326,17 +326,17 @@ lsof -i :8080
 This indicates a regression in the Activity Feed fix. Check:
 ```bash
 # Verify error-helpers.js is up to date
-git diff api/activity-feed.js
-git diff sidequest/pipeline-core/utils/error-helpers.js
+git diff api/activity-feed.ts
+git diff sidequest/pipeline-core/utils/error-helpers.ts
 
 # Check for import errors
-node -c api/activity-feed.js
+node --strip-types --check api/activity-feed.ts
 ```
 
 ## Check Dependencies
 
 ### Required
-- Node.js (v18+)
+- Node.js (v22+)
 - npm
 - Doppler CLI
 - jq (JSON processor)

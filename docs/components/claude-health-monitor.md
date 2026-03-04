@@ -57,7 +57,7 @@ npm run claude:health:schedule
 CLAUDE_HEALTH_CRON_SCHEDULE="0 10 * * *" npm run claude:health:schedule  # Daily 10 AM
 
 # Deploy with PM2
-doppler run -- pm2 start claude-health-pipeline.js --name claude-health
+doppler run -- pm2 start sidequest/pipeline-runners/claude-health-pipeline.ts --name claude-health --interpreter node --node-args "--strip-types"
 ```
 
 ## Installation Requirements
@@ -82,14 +82,14 @@ doppler run -- node --version
 
 ```
 Claude Health Check System
-├── claude-health-worker.js           # AlephAuto worker (Node.js)
+├── sidequest/workers/claude-health-worker.ts           # AlephAuto worker (TypeScript)
 │   ├── Extends SidequestServer
 │   ├── Job queue management
 │   ├── Cron scheduling
 │   ├── Event emission
 │   └── Sentry integration
 │
-├── claude-health-pipeline.js         # Pipeline orchestrator
+├── sidequest/pipeline-runners/claude-health-pipeline.ts # Pipeline orchestrator
 │   ├── CLI interface
 │   ├── Cron scheduling
 │   ├── Output formatting
@@ -108,7 +108,7 @@ Claude Health Check System
 The `ClaudeHealthWorker` extends `SidequestServer` and follows AlephAuto patterns:
 
 ```javascript
-import { ClaudeHealthWorker } from './sidequest/claude-health-worker.js';
+import { ClaudeHealthWorker } from './sidequest/workers/claude-health-worker.ts';
 
 const worker = new ClaudeHealthWorker({
   maxConcurrent: 1,
@@ -290,7 +290,7 @@ npm run claude:health
 npm run claude:health:schedule
 
 # Monitor with PM2
-doppler run -- pm2 start claude-health-pipeline.js --name claude-health
+doppler run -- pm2 start sidequest/pipeline-runners/claude-health-pipeline.ts --name claude-health --interpreter node --node-args "--strip-types"
 pm2 logs claude-health
 pm2 monit
 ```
@@ -319,9 +319,9 @@ npm run claude:health || exit 1  # Fail on critical issues
 
 ```javascript
 // Monitor Claude health alongside other systems
-import { ClaudeHealthWorker } from './sidequest/claude-health-worker.js';
-import { PluginManagerWorker } from './sidequest/plugin-manager.js';
-import { GitActivityWorker } from './sidequest/git-activity-worker.js';
+import { ClaudeHealthWorker } from './sidequest/workers/claude-health-worker.ts';
+import { PluginManagerWorker } from './sidequest/utils/plugin-manager.ts';
+import { GitActivityWorker } from './sidequest/workers/git-activity-worker.ts';
 
 const healthWorker = new ClaudeHealthWorker();
 const pluginWorker = new PluginManagerWorker();
@@ -452,12 +452,12 @@ Potential features for future versions:
 
 ## Related Documentation
 
-- [AlephAuto Job Queue Framework](../CLAUDE.md#alephauto-job-queue-framework)
-- [Plugin Manager](./README-PLUGIN-MANAGER.md)
-- [Cron Scheduling](../CLAUDE.md#cron-scheduling)
-- [Sentry Integration](../CLAUDE.md#logging-with-sentry)
-- [PM2 Deployment](../CLAUDE.md#production-deployment)
-- [~/.claude Health Scripts](~/.claude/CLAUDE.md#commands)
+- [AlephAuto Job Queue Framework](../../CLAUDE.md)
+- [Plugin Manager](./plugin-manager.md)
+- [Cron Scheduling Reference](../architecture/pipeline-data-flow.md)
+- [Sentry Setup](../setup/SENTRY_SETUP.md)
+- [PM2 Deployment](../deployment/TRADITIONAL_SERVER_DEPLOYMENT.md)
+- `~/.claude/CLAUDE.md` (local Claude config docs)
 
 ## Examples
 
@@ -466,7 +466,7 @@ Potential features for future versions:
 ```bash
 # Deploy with PM2 for continuous monitoring
 cd ~/code/jobs
-doppler run -- pm2 start claude-health-pipeline.js --name claude-health --cron-restart="0 8 * * *"
+doppler run -- pm2 start sidequest/pipeline-runners/claude-health-pipeline.ts --name claude-health --interpreter node --node-args "--strip-types" --cron-restart="0 8 * * *"
 
 # Monitor
 pm2 logs claude-health --lines 100
@@ -499,4 +499,4 @@ npm run backup && npm run health:detailed
 
 ---
 
-**Last Updated:** 2025-11-17
+**Last Updated:** 2026-03-04

@@ -148,7 +148,8 @@ Command-line tool that runs all scanners and generates comprehensive reports.
 **Installation:**
 ```bash
 cd ~/code/jobs
-chmod +x sidequest/pipeline-core/scanners/codebase-health-scanner.ts
+# No chmod required; run via explicit Node interpreter
+node --strip-types sidequest/pipeline-core/scanners/codebase-health-scanner.ts --help
 ```
 
 **Usage:**
@@ -533,8 +534,8 @@ See `~/code/jobs/CONTRIBUTING.md` for guidelines.
 ## Related Documentation
 
 - [AST-Grep Documentation](https://ast-grep.github.io/)
-- [AlephAuto Scan Orchestrator](./scan-orchestrator.md)
-- [AnalyticsBot Session Notes](../session-notes/2025-11-18-dashboard-debugging.md)
+- [AlephAuto Pipeline Data Flow](../architecture/pipeline-data-flow.md)
+- [March 4 Review Notes](../03-04-review.md)
 
 ---
 

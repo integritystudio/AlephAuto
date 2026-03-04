@@ -16,7 +16,7 @@ This directory contains comprehensive deployment guides for the AlephAuto Dashbo
 
 ## 📚 Available Guides
 
-### [TRADITIONAL_SERVER_DEPLOYMENT.md](../TRADITIONAL_SERVER_DEPLOYMENT.md)
+### [TRADITIONAL_SERVER_DEPLOYMENT.md](./TRADITIONAL_SERVER_DEPLOYMENT.md)
 **Complete guide for deploying to VPS/dedicated servers**
 
 - **Setup Time:** 1-2 hours
@@ -46,22 +46,19 @@ sudo ./scripts/deploy-traditional-server.sh --update
 ./scripts/deploy-traditional-server.sh --status
 ```
 
-### [DEPLOYMENT.md](../DEPLOYMENT.md)
-**Deployment guide for traditional servers**
+### [CI_CD_UPDATES.md](./CI_CD_UPDATES.md)
+**CI/CD deployment updates and workflow details**
 
-- **Method:** VPS with PM2
-- **Difficulty:** Intermediate
-- **Setup Time:** 1-2 hours
-- **Best For:** Full control, custom infrastructure, production deployments
+- GitHub Actions deployment pipeline
+- Doppler + PM2 deployment patterns
+- Verification and rollback notes
 
-### [PORT_MIGRATION.md](../PORT_MIGRATION.md)
-**Documentation of API_PORT → JOBS_API_PORT migration**
+### [BUGFIX_VERIFICATION.md](./BUGFIX_VERIFICATION.md)
+**Deployment verification playbook**
 
-- Variable name change rationale
-- Port change (3000 → 8080)
-- Doppler integration
-- Migration steps for all platforms
-- Rollback procedures
+- Pre-deployment checks
+- Post-deployment and smoke verification
+- Health endpoint validation and rollback guidance
 
 ## 🛠️ Deployment Scripts
 
@@ -86,19 +83,18 @@ sudo ./scripts/deploy-traditional-server.sh --update
 
 ## 📋 Configuration Templates
 
-### `ecosystem.config.template.js`
-**PM2 ecosystem configuration template**
+### `config/ecosystem.config.cjs`
+**PM2 ecosystem configuration**
 
-Copy to `config/ecosystem.config.js` and customize:
+Use the committed config directly and customize environment via Doppler:
 
 ```bash
-cp ecosystem.config.template.js config/ecosystem.config.js
-nano config/ecosystem.config.js  # Replace YOUR_DOPPLER_TOKEN
-pm2 start config/ecosystem.config.js
+nano config/ecosystem.config.cjs
+doppler run -- pm2 start config/ecosystem.config.cjs
 ```
 
 **Features:**
-- Dashboard server (cluster mode, 2 instances)
+- Dashboard server (fork mode, 1 instance)
 - Background worker (fork mode, 1 instance)
 - Doppler integration
 - Log rotation
@@ -262,7 +258,7 @@ sudo nano /etc/nginx/sites-available/aleph-dashboard
 ```bash
 # Restart with memory limit
 pm2 delete aleph-dashboard
-pm2 start api/server.js --name aleph-dashboard --max-memory-restart 500M -i 2
+pm2 start api/server.ts --name aleph-dashboard --max-memory-restart 500M -i 2
 ```
 
 ## 📚 Additional Resources
@@ -276,7 +272,7 @@ pm2 start api/server.js --name aleph-dashboard --max-memory-restart 500M -i 2
 
 For deployment issues:
 
-1. Check the [TRADITIONAL_SERVER_DEPLOYMENT.md](../TRADITIONAL_SERVER_DEPLOYMENT.md) troubleshooting section
+1. Check the [TRADITIONAL_SERVER_DEPLOYMENT.md](./TRADITIONAL_SERVER_DEPLOYMENT.md) troubleshooting section
 2. Review logs: `pm2 logs` and `/var/log/nginx/`
 3. Create an issue on GitHub with deployment details
 

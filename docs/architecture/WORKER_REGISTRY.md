@@ -560,4 +560,4 @@ const jobs = await jobRepository.getJobsByPipeline(pipelineId, { limit, offset }
 - [Error Handling](./ERROR_HANDLING.md)
 - [Type System](./TYPE_SYSTEM.md)
 - [API Reference](../API_REFERENCE.md)
-- [Git Workflow](../CLAUDE.md#git-workflow-automation)
+- [Git Workflow](../../CLAUDE.md)

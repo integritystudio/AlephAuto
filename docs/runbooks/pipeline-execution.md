@@ -15,16 +15,13 @@ This runbook documents the current TypeScript execution model for AlephAuto pipe
 ### Correct Execution Methods
 
 ```bash
-# Method 1: Direct execution (requires shebang + executable bit)
-./sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-
-# Method 2: Explicit Node interpreter (recommended one-off pattern)
+# Method 1: Explicit Node interpreter (recommended one-off pattern)
 node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 
-# Method 3: With Doppler (recommended for production-like runs)
+# Method 2: With Doppler (recommended for production-like runs)
 doppler run -- node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 
-# Method 4: PM2 via Doppler (production deployment)
+# Method 3: PM2 via Doppler (production deployment)
 doppler run -- pm2 start config/ecosystem.config.cjs
 ```
 
@@ -42,20 +39,7 @@ node sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 
 ## Execution Methods
 
-### 1. Direct Execution
-
-Use direct execution when the file already has a valid shebang and executable permissions.
-
-```bash
-./sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-```
-
-Notes:
-- `duplicate-detection-pipeline.ts` currently uses `#!/usr/bin/env -S npx tsx`
-- Most other `*-pipeline.ts` entry points use `#!/usr/bin/env -S node --strip-types`
-- Direct execution depends on whatever interpreter is declared in the shebang
-
-### 2. Explicit Node Interpreter (Recommended)
+### 1. Explicit Node Interpreter (Recommended)
 
 Use explicit Node invocation for consistency and predictable behavior:
 
@@ -69,7 +53,7 @@ Benefits:
 - Works consistently in local shells and automation
 - Aligns with PM2 `node_args: --strip-types`
 
-### 3. Doppler + Node (Recommended for Secrets)
+### 2. Doppler + Node (Recommended for Secrets)
 
 ```bash
 # API server
@@ -82,7 +66,7 @@ doppler run -- node --strip-types sidequest/pipeline-runners/duplicate-detection
 RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 ```
 
-### 4. PM2 via Doppler (Production)
+### 3. PM2 via Doppler (Production)
 
 ```bash
 # Start all apps from ecosystem config
@@ -111,10 +95,12 @@ Why `env -S`:
 - Allows passing interpreter flags (`--strip-types`)
 - Keeps scripts portable across machines with different install paths
 
-### Required Executable Files
+### Expected File Modes
 
 - `api/server.ts`
 - `sidequest/pipeline-runners/*-pipeline.ts`
+
+Expected mode in this repo: non-executable regular files (`644`), because PM2 and scripts invoke them via explicit `node --strip-types`.
 
 ### Validate and Fix
 
@@ -122,11 +108,12 @@ Why `env -S`:
 # Validate shebangs
 head -n 1 api/server.ts sidequest/pipeline-runners/*-pipeline.ts
 
-# Validate executable bits
+# Validate file modes
 ls -la api/server.ts sidequest/pipeline-runners/*-pipeline.ts
 
-# Fix permissions if needed
-chmod +x api/server.ts sidequest/pipeline-runners/*-pipeline.ts
+# Enforce expected non-executable mode policy
+node --strip-types scripts/validate-permissions.ts --check-only
+node --strip-types scripts/validate-permissions.ts --fix
 ```
 
 ## Doppler Integration
@@ -215,11 +202,16 @@ node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 ### Error: `Permission denied` (direct `./file.ts`)
 
 Cause:
-- Missing executable permission
+- Entrypoints are intentionally non-executable in this repo (mode `644`)
+- Direct execution relies on executable bit and is not the supported default path
 
 Fix:
 ```bash
-chmod +x api/server.ts sidequest/pipeline-runners/*-pipeline.ts
+# Preferred fix: run with explicit Node interpreter
+node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
+
+# Or with Doppler
+doppler run -- node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 ```
 
 ### Error: `exec format error`
@@ -264,9 +256,9 @@ Run this before committing execution-related changes:
 # Existing test-path validation
 npm run test:validate-paths
 
-# TS entrypoint shebang + permission checks
+# TS entrypoint shebang + mode checks
 head -n 1 api/server.ts sidequest/pipeline-runners/*-pipeline.ts
-ls -la api/server.ts sidequest/pipeline-runners/*-pipeline.ts
+node --strip-types scripts/validate-permissions.ts --check-only
 
 # Smoke tests
 node --strip-types --version
@@ -284,7 +276,7 @@ Note:
 2. Use Doppler for all environments that require secrets.
 3. Run from repository root: `/Users/alyshialedlie/code/jobs`
 4. Use PM2 for long-running production services.
-5. Keep entrypoint shebangs and executable bits valid even when PM2 uses explicit interpreter settings.
+5. Keep entrypoint shebangs valid and file modes non-executable (`644`) when PM2 uses explicit interpreter settings.
 
 ## Reference
 
@@ -292,8 +284,8 @@ Note:
 
 | File | Shebang | Executable | PM2 Interpreter |
 |------|---------|------------|-----------------|
-| `api/server.ts` | ✅ Required | ✅ Required | `node` |
-| `sidequest/pipeline-runners/*-pipeline.ts` | ✅ Required | ✅ Required | `node` |
+| `api/server.ts` | ✅ Required | ❌ Not required (expected `644`) | `node` |
+| `sidequest/pipeline-runners/*-pipeline.ts` | ✅ Required | ❌ Not required (expected `644`) | `node` |
 
 ### Execution Method Comparison
 
