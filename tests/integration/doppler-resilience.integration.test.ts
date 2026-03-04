@@ -188,7 +188,7 @@ describe('Doppler Resilience - Integration Tests', () => {
     assert.equal(health.usingFallback, true);
   });
 
-  it('Scenario 4: Cache staleness detection and refresh', async (t) => {
+  it('Scenario 4: Cache staleness detection and refresh', async (_t) => {
     const doppler = new DopplerResilience({
       cacheFile: testCacheFile,
       failureThreshold: 3,
@@ -232,7 +232,7 @@ describe('Doppler Resilience - Integration Tests', () => {
     assert(new Date(secondLoadTime).getTime() > new Date(firstLoadTime).getTime(), 'Cache should be reloaded');
   });
 
-  it('Scenario 4.1: Direct getFallbackSecrets and isCacheStale check', async (t) => {
+  it('Scenario 4.1: Direct getFallbackSecrets and isCacheStale check', async (_t) => {
     const doppler = new DopplerResilience({
       cacheFile: testCacheFile,
       staleThresholdMs: 10, // Cache becomes stale after 10ms

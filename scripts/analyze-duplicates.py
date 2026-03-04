@@ -34,7 +34,9 @@ def analyze_report(report_path):
         hash_to_blocks[b["content_hash"]].append(b)
 
     # Get groups with 2+ occurrences, sorted by count
-    exact_dups = [(h, blocks) for h, blocks in hash_to_blocks.items() if len(blocks) >= 2]
+    exact_dups = [
+        (h, blocks) for h, blocks in hash_to_blocks.items() if len(blocks) >= 2
+    ]
     exact_dups.sort(key=lambda x: len(x[1]), reverse=True)
 
     print(f"Report: {report_path}")
@@ -50,7 +52,7 @@ def analyze_report(report_path):
         print(f"=== Group {i}: {len(blocks)}x in {len(files)} files ===")
         print(f"Files: {', '.join(short_files)}")
         if len(files) > 4:
-            print(f"       +{len(files)-4} more")
+            print(f"       +{len(files) - 4} more")
         print(f"Code:\n{code}\n")
 
 
