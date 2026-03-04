@@ -33,8 +33,15 @@ if [ -n "$PIPELINE_CHANGES" ]; then
         # Calculate days since last doc update
         DAYS_OLD=$(( (CURRENT_COMMIT - DOC_LAST_COMMIT) / 86400 ))
 
-        # Get the date from the documentation file
-        DOC_DATE=$(grep "^\*\*Last Updated:\*\*" "$DOC_FILE" | sed 's/.*: //' || echo "Unknown")
+        # Get the first "Last Updated" date from the documentation file
+        DOC_DATE=$(grep -m1 "^\*\*Last Updated:\*\*" "$DOC_FILE" | sed 's/.*: //' || echo "Unknown")
+        TODAY_UTC=$(date -u +"%Y-%m-%d")
+
+        # If docs were updated today and header date is current, skip warning.
+        # This avoids false positives when pipeline commits happen after a same-day doc refresh.
+        if [ "$DAYS_OLD" -eq 0 ] && [ "$DOC_DATE" = "$TODAY_UTC" ]; then
+            exit 0
+        fi
 
         echo ""
         echo "⚠️  DOCUMENTATION STALENESS WARNING"
