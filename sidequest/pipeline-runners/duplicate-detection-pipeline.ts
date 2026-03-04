@@ -26,14 +26,14 @@ const logger: Logger = createComponentLogger('DuplicateDetectionPipeline');
 // Re-export worker and types for any external consumers.
 // Types previously re-exported here (JobStatus, ScanType, JobData, ScanResult,
 // DuplicateGroup, Suggestion, PRCreationResult, JobResult, Inter/IntraProjectScanJobResult)
-// are now imported directly from '../types/duplicate-detection-types.ts'.
+// are now imported directly from '../pipeline-core/types/duplicate-detection-types.ts'.
 export { DuplicateDetectionWorker };
 export type {
   RetryInfo,
   RetryMetrics,
   WorkerScanMetrics,
   DuplicateDetectionWorkerOptions
-} from '../types/duplicate-detection-types.ts';
+} from '../pipeline-core/types/duplicate-detection-types.ts';
 
 /**
  * Main execution

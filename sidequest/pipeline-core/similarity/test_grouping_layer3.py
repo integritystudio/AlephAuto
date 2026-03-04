@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
 sys.path.insert(0, str(Path(__file__).parent.parent / 'annotators'))
 
-from grouping import (
+from similarity.grouping import (
     _calculate_jaccard_similarity,
     _calculate_semantic_similarity,
     _intents_compatible,

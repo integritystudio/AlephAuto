@@ -1,10 +1,14 @@
 <repomix><directory_structure>core/
   config.ts
   constants.ts
+  database.test.ts
   database.ts
   git-workflow-manager.ts
+  index.test.ts
   index.ts
   job-repository.ts
+  server-actions.test.ts
+  server-retention.test.ts
   server.ts
 pipeline-core/
   annotators/
@@ -67,6 +71,7 @@ pipeline-core/
     structural.pyi
     test_grouping_layer3.py
   types/
+    duplicate-detection-types.ts
     migration-types.ts
     scan-orchestrator-types.ts
   utils/
@@ -102,8 +107,6 @@ pipeline-runners/
   test_collect_git_activity.py
   test-refactor-pipeline.ts
   universal-repo-cleanup.sh
-types/
-  duplicate-detection-types.ts
 utils/
   dependency-validator.ts
   directory-scanner.ts
@@ -120,6 +123,7 @@ workers/
   bugfix-audit-worker.ts
   claude-health-worker.ts
   dashboard-populate-worker.ts
+  duplicate-detection-worker.test.ts
   duplicate-detection-worker.ts
   git-activity-worker.test.ts
   git-activity-worker.ts
@@ -136,6 +140,7 @@ repomix.config.json</directory_structure><files>This section contains the conten
 import os from &apos;os&apos;;
 import { fileURLToPath } from &apos;url&apos;;
 import { dirname } from &apos;path&apos;;
+import { GIT_ACTIVITY, JOB_RETENTION } from &apos;./constants.ts&apos;;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 function safeParseInt(value: string | undefined, defaultValue: number, min?: number, max?: number): number {
@@ -154,6 +159,31 @@ function safeParseFloat(value: string | undefined, defaultValue: number, min?: n
   if (max !== undefined) result = Math.min(max, result);
   return result;
 }
+function safeParseRetentionByType(value: string | undefined): Record&lt;string, number&gt; {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (parsed === null || typeof parsed !== &apos;object&apos; || Array.isArray(parsed)) return {};
+    const result: Record&lt;string, number&gt; = {};
+    for (const [jobType, retentionValue] of Object.entries(parsed as Record&lt;string, unknown&gt;)) {
+      if (!jobType) continue;
+      const parsedDays = typeof retentionValue === &apos;number&apos;
+        ? Math.floor(retentionValue)
+        : typeof retentionValue === &apos;string&apos;
+          ? parseInt(retentionValue, 10)
+          : Number.NaN;
+      if (
+        !Number.isFinite(parsedDays)
+        || parsedDays &lt; JOB_RETENTION.MIN_DAYS
+        || parsedDays &gt; JOB_RETENTION.MAX_DAYS
+      ) continue;
+      result[jobType] = parsedDays;
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
 export const config = {
   codeBaseDir: process.env.CODE_BASE_DIR || path.join(os.homedir(), &apos;code&apos;),
   outputBaseDir: process.env.OUTPUT_BASE_DIR
@@ -164,6 +194,13 @@ export const config = {
     : path.resolve(__dirname, &apos;logs&apos;),
   scanReportsDir: path.resolve(__dirname, &apos;..&apos;, &apos;..&apos;, &apos;output&apos;),
   maxConcurrent: safeParseInt(process.env.MAX_CONCURRENT, 5, 1, 50),
+  defaultJobRetentionDays: safeParseInt(
+    process.env.JOB_RETENTION_DAYS,
+    GIT_ACTIVITY.MONTHLY_WINDOW_DAYS,
+    JOB_RETENTION.MIN_DAYS,
+    JOB_RETENTION.MAX_DAYS
+  ),
+  jobRetentionDaysByType: safeParseRetentionByType(process.env.JOB_RETENTION_DAYS_BY_TYPE),
   sentryDsn: process.env.SENTRY_DSN,
   nodeEnv: process.env.NODE_ENV || &apos;production&apos;,
   repomixSchedule: process.env.CRON_SCHEDULE || &apos;0 2 * * *&apos;,
@@ -348,6 +385,10 @@ export const GIT_ACTIVITY = {
   DEFAULT_WEEKLY_CRON: &apos;0 20 * * 0&apos;,
   DEFAULT_MONTHLY_CRON: &apos;0 8 1 * *&apos;,
 } as const;
+export const JOB_RETENTION = {
+  MIN_DAYS: 1,
+  MAX_DAYS: 3650,
+} as const;
 export const LIMITS = {
   MAX_OUTPUT_CHARS: 1000,
   MAX_WRITE_QUEUE_SIZE: 10000,
@@ -357,7 +398,69 @@ export const TIME = {
   MINUTE,
   HOUR,
   DAY,
-} as const;</file><file path="core/database.ts">import Database from &apos;better-sqlite3&apos;;
+} as const;</file><file path="core/database.test.ts">import test from &apos;node:test&apos;;
+import assert from &apos;node:assert/strict&apos;;
+import {
+  bulkImportJobs,
+  closeDatabase,
+  getDatabase,
+  initDatabase,
+  saveJob,
+} from &apos;./database.ts&apos;;
+interface RawJobJsonColumns {
+  data: string | null;
+  result: string | null;
+  error: string | null;
+  git: string | null;
+}
+function getRawJsonColumns(jobId: string): RawJobJsonColumns | null {
+  const db = getDatabase();
+  const row = db.prepare(&apos;SELECT data, result, error, git FROM jobs WHERE id = ?&apos;).get(jobId) as RawJobJsonColumns | undefined;
+  return row ?? null;
+}
+test(&apos;saveJob preserves falsy JSON values instead of coercing to null&apos;, async (t) =&gt; {
+  closeDatabase();
+  await initDatabase(&apos;:memory:&apos;);
+  t.after(() =&gt; closeDatabase());
+  saveJob({
+    id: &apos;save-falsy-values&apos;,
+    pipelineId: &apos;unit-test&apos;,
+    status: &apos;queued&apos;,
+    data: 0,
+    result: false,
+    error: &apos;&apos;,
+    git: &apos;&apos;
+  });
+  const row = getRawJsonColumns(&apos;save-falsy-values&apos;);
+  assert.ok(row, &apos;expected row to exist&apos;);
+  assert.equal(row.data, &apos;0&apos;);
+  assert.equal(row.result, &apos;false&apos;);
+  assert.equal(row.error, &apos;&quot;&quot;&apos;);
+  assert.equal(row.git, &apos;&quot;&quot;&apos;);
+});
+test(&apos;bulkImportJobs preserves falsy non-string JSON values instead of coercing to null&apos;, async (t) =&gt; {
+  closeDatabase();
+  await initDatabase(&apos;:memory:&apos;);
+  t.after(() =&gt; closeDatabase());
+  const outcome = bulkImportJobs([{
+    id: &apos;import-falsy-values&apos;,
+    pipelineId: &apos;unit-test&apos;,
+    status: &apos;completed&apos;,
+    data: 0,
+    result: false,
+    error: 0,
+    git: false
+  }]);
+  assert.equal(outcome.imported, 1);
+  assert.equal(outcome.skipped, 0);
+  assert.deepEqual(outcome.errors, []);
+  const row = getRawJsonColumns(&apos;import-falsy-values&apos;);
+  assert.ok(row, &apos;expected imported row to exist&apos;);
+  assert.equal(row.data, &apos;0&apos;);
+  assert.equal(row.result, &apos;false&apos;);
+  assert.equal(row.error, &apos;0&apos;);
+  assert.equal(row.git, &apos;false&apos;);
+});</file><file path="core/database.ts">import Database from &apos;better-sqlite3&apos;;
 type DatabaseType = InstanceType&lt;typeof Database&gt;;
 import path from &apos;path&apos;;
 import fs from &apos;fs&apos;;
@@ -488,6 +591,11 @@ function safeJsonParse(str: string | null, fallback: unknown = null): unknown {
     return fallback;
   }
 }
+function serializeJsonForStorage(value: unknown): string | null {
+  if (value === undefined) return null;
+  const serialized = JSON.stringify(value);
+  return serialized === undefined ? null : serialized;
+}
 function rowToParsedJob(row: JobRow): ParsedJob {
   const rawError = safeJsonParse(row.error);
   return {
@@ -569,10 +677,10 @@ export function saveJob(job: SaveJobInput): void {
     job.createdAt ?? new Date().toISOString(),
     job.startedAt ?? null,
     job.completedAt ?? null,
-    job.data ? JSON.stringify(job.data) : null,
-    job.result ? JSON.stringify(job.result) : null,
-    job.error ? JSON.stringify(job.error) : null,
-    job.git ? JSON.stringify(job.git) : null
+    serializeJsonForStorage(job.data),
+    serializeJsonForStorage(job.result),
+    serializeJsonForStorage(job.error),
+    serializeJsonForStorage(job.git)
   );
   logger.debug({ jobId: job.id, status: job.status }, &apos;Job saved to database&apos;);
 }
@@ -859,10 +967,10 @@ export function bulkImportJobs(jobs: BulkImportJob[]): BulkImportResult {
           job.created_at || job.createdAt || new Date().toISOString(),
           job.started_at ?? job.startedAt ?? null,
           job.completed_at ?? job.completedAt ?? null,
-          typeof job.data === &apos;string&apos; ? job.data : (job.data ? JSON.stringify(job.data) : null),
-          typeof job.result === &apos;string&apos; ? job.result : (job.result ? JSON.stringify(job.result) : null),
-          typeof job.error === &apos;string&apos; ? job.error : (job.error ? JSON.stringify(job.error) : null),
-          typeof job.git === &apos;string&apos; ? job.git : (job.git ? JSON.stringify(job.git) : null)
+          typeof job.data === &apos;string&apos; ? job.data : serializeJsonForStorage(job.data),
+          typeof job.result === &apos;string&apos; ? job.result : serializeJsonForStorage(job.result),
+          typeof job.error === &apos;string&apos; ? job.error : serializeJsonForStorage(job.error),
+          typeof job.git === &apos;string&apos; ? job.git : serializeJsonForStorage(job.git)
         );
         imported++;
       } catch (error) {
@@ -1057,13 +1165,39 @@ export class GitWorkflowManager {
     result.prUrl = await this.createPullRequest(repositoryPath, prContext);
     return result;
   }
-}</file><file path="core/index.ts">import cron from &apos;node-cron&apos;;
+}</file><file path="core/index.test.ts">import test from &apos;node:test&apos;;
+import assert from &apos;node:assert/strict&apos;;
+import { isWorkerIdle } from &apos;./index.ts&apos;;
+import type { JobStats } from &apos;./server.ts&apos;;
+test(&apos;isWorkerIdle returns false when retry is pending&apos;, () =&gt; {
+  const stats: JobStats = {
+    total: 1,
+    queued: 0,
+    active: 0,
+    pendingRetries: 1,
+    completed: 0,
+    failed: 0
+  };
+  assert.equal(isWorkerIdle(stats), false);
+});
+test(&apos;isWorkerIdle returns true only when active, queued, and pendingRetries are zero&apos;, () =&gt; {
+  const stats: JobStats = {
+    total: 2,
+    queued: 0,
+    active: 0,
+    pendingRetries: 0,
+    completed: 1,
+    failed: 1
+  };
+  assert.equal(isWorkerIdle(stats), true);
+});</file><file path="core/index.ts">import cron from &apos;node-cron&apos;;
 import { RepomixWorker } from &apos;../workers/repomix-worker.ts&apos;;
 import { DirectoryScanner } from &apos;../utils/directory-scanner.ts&apos;;
 import { config } from &apos;./config.ts&apos;;
 import { TIMEOUTS, TIME } from &apos;./constants.ts&apos;;
 import path from &apos;path&apos;;
 import fs from &apos;fs/promises&apos;;
+import { fileURLToPath } from &apos;url&apos;;
 import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;
 import type { Job, JobStats } from &apos;./server.ts&apos;;
 const logger = createComponentLogger(&apos;RepomixCronApp&apos;);
@@ -1092,7 +1226,10 @@ interface TypedRepomixWorker {
   getStats(): JobStats;
   on(event: string, listener: (job: Job) =&gt; void): this;
 }
-class RepomixCronApp {
+export function isWorkerIdle(stats: JobStats): boolean {
+  return stats.active === 0 &amp;&amp; stats.queued === 0 &amp;&amp; stats.pendingRetries === 0;
+}
+export class RepomixCronApp {
   private worker: TypedRepomixWorker;
   private scanner: TypedDirectoryScanner;
   constructor() {
@@ -1118,7 +1255,11 @@ class RepomixCronApp {
       logger.info({ jobId: job.id, relativePath: job.data.relativePath }, &apos;Job started&apos;);
     });
     this.worker.on(&apos;job:completed&apos;, (job: Job) =&gt; {
-      const duration = new Date(job.completedAt!).getTime() - new Date(job.startedAt!).getTime();
+      const startedAtMs = job.startedAt?.getTime();
+      const completedAtMs = job.completedAt?.getTime();
+      const duration = (typeof startedAtMs === &apos;number&apos; &amp;&amp; typeof completedAtMs === &apos;number&apos;)
+        ? completedAtMs - startedAtMs
+        : null;
       logger.info({
         jobId: job.id,
         relativePath: job.data.relativePath,
@@ -1179,7 +1320,7 @@ class RepomixCronApp {
       }, maxWaitMs);
       const checkInterval = setInterval(() =&gt; {
         const stats = this.worker.getStats();
-        if (stats.active === 0 &amp;&amp; stats.queued === 0) {
+        if (isWorkerIdle(stats)) {
           clearInterval(checkInterval);
           clearTimeout(timer);
           resolve();
@@ -1222,11 +1363,19 @@ class RepomixCronApp {
     logger.info(&apos;Server running. Press Ctrl+C to exit&apos;);
   }
 }
-const app = new RepomixCronApp();
-app.start().catch((error) =&gt; {
-  logError(logger, error, &apos;Fatal error&apos;);
-  process.exit(1);
-});</file><file path="core/job-repository.ts">import {
+function isDirectExecution(): boolean {
+  const currentModulePath = fileURLToPath(import.meta.url);
+  const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : &apos;&apos;;
+  return entryPath === currentModulePath;
+}
+// Entrypoint mode: run only when invoked directly, not when imported by tests/tools.
+if (isDirectExecution()) {
+  const app = new RepomixCronApp();
+  app.start().catch((error) =&gt; {
+    logError(logger, error, &apos;Fatal error&apos;);
+    process.exit(1);
+  });
+}</file><file path="core/job-repository.ts">import {
   initDatabase,
   saveJob as dbSaveJob,
   getJobById as dbGetJobById,
@@ -1322,7 +1471,150 @@ export function createJobRepository(options: JobRepositoryOptions = {}): JobRepo
 }
 export const jobRepository = createJobRepository();
 export { JobRepository };
-export type { ParsedJob, ParsedJobError, SaveJobInput, JobQueryOptions, AllJobsQueryOptions, JobCounts, PipelineStats, BulkImportResult };</file><file path="core/server.ts">import { EventEmitter } from &apos;events&apos;;
+export type { ParsedJob, ParsedJobError, SaveJobInput, JobQueryOptions, AllJobsQueryOptions, JobCounts, PipelineStats, BulkImportResult };</file><file path="core/server-actions.test.ts">import test from &apos;node:test&apos;;
+import assert from &apos;node:assert/strict&apos;;
+import { SidequestServer } from &apos;./server.ts&apos;;
+import { jobRepository } from &apos;./job-repository.ts&apos;;
+import { JOB_STATUS } from &apos;#api/types/job-status.ts&apos;;
+function stubRepositoryInit(t: test.TestContext): void {
+  const originalInitialize = jobRepository.initialize.bind(jobRepository);
+  const originalSaveJob = jobRepository.saveJob.bind(jobRepository);
+  (jobRepository as unknown as { initialize: () =&gt; Promise&lt;void&gt; }).initialize = async () =&gt; {};
+  (jobRepository as unknown as { saveJob: () =&gt; void }).saveJob = () =&gt; {};
+  t.after(() =&gt; {
+    (jobRepository as unknown as { initialize: () =&gt; Promise&lt;void&gt; }).initialize = originalInitialize;
+    (jobRepository as unknown as { saveJob: () =&gt; void }).saveJob = originalSaveJob;
+  });
+}
+test(&apos;cancelJob rejects running jobs&apos;, (t) =&gt; {
+  stubRepositoryInit(t);
+  const server = new SidequestServer({ autoStart: false, jobType: &apos;action-guards&apos; });
+  server.stop();
+  const job = server.createJob(&apos;running-cancel-target&apos;, {});
+  job.status = JOB_STATUS.RUNNING;
+  job.startedAt = new Date();
+  const result = server.cancelJob(job.id);
+  assert.equal(result.success, false);
+  assert.equal(
+    result.message,
+    &apos;Cannot cancel a running job. Cancellation is only supported for queued or paused jobs.&apos;
+  );
+  assert.equal(job.status, JOB_STATUS.RUNNING);
+});
+test(&apos;pauseJob rejects running jobs&apos;, (t) =&gt; {
+  stubRepositoryInit(t);
+  const server = new SidequestServer({ autoStart: false, jobType: &apos;action-guards&apos; });
+  server.stop();
+  const job = server.createJob(&apos;running-pause-target&apos;, {});
+  job.status = JOB_STATUS.RUNNING;
+  job.startedAt = new Date();
+  const result = server.pauseJob(job.id);
+  assert.equal(result.success, false);
+  assert.equal(
+    result.message,
+    &apos;Cannot pause a running job. Pause is only supported for queued jobs.&apos;
+  );
+  assert.equal(job.status, JOB_STATUS.RUNNING);
+});
+test(&apos;getStats includes pendingRetries count&apos;, (t) =&gt; {
+  stubRepositoryInit(t);
+  const server = new SidequestServer({ autoStart: false, jobType: &apos;action-guards&apos; });
+  server.stop();
+  const first = server.createJob(&apos;retry-pending-1&apos;, {});
+  const second = server.createJob(&apos;retry-pending-2&apos;, {});
+  first.retryPending = true;
+  second.retryPending = false;
+  const stats = server.getStats();
+  assert.equal(stats.pendingRetries, 1);
+});</file><file path="core/server-retention.test.ts">import test from &apos;node:test&apos;;
+import assert from &apos;node:assert/strict&apos;;
+import type { Job } from &apos;./server.ts&apos;;
+import { SidequestServer } from &apos;./server.ts&apos;;
+import { config } from &apos;./config.ts&apos;;
+import { GIT_ACTIVITY, JOB_RETENTION, TIME } from &apos;./constants.ts&apos;;
+import { jobRepository } from &apos;./job-repository.ts&apos;;
+import { JOB_STATUS } from &apos;#api/types/job-status.ts&apos;;
+function makeJob(
+  id: string,
+  status: Job[&apos;status&apos;],
+  createdAt: Date,
+  completedAt: Date | null
+): Job {
+  return {
+    id,
+    status,
+    data: {},
+    createdAt,
+    startedAt: createdAt,
+    completedAt,
+    error: null,
+    result: null,
+    retryCount: 0,
+    git: {
+      branchName: null,
+      originalBranch: null,
+      commitSha: null,
+      prUrl: null,
+      changedFiles: []
+    }
+  };
+}
+function stubRepositoryInit(t: test.TestContext): void {
+  const originalInitialize = jobRepository.initialize.bind(jobRepository);
+  (jobRepository as unknown as { initialize: () =&gt; Promise&lt;void&gt; }).initialize = async () =&gt; {};
+  t.after(() =&gt; {
+    (jobRepository as unknown as { initialize: () =&gt; Promise&lt;void&gt; }).initialize = originalInitialize;
+  });
+}
+test(&apos;SidequestServer resolves retention days by job type with 30-day default&apos;, (t) =&gt; {
+  stubRepositoryInit(t);
+  const cfg = config as unknown as {
+    defaultJobRetentionDays: number;
+    jobRetentionDaysByType: Record&lt;string, number&gt;;
+  };
+  const originalDefault = cfg.defaultJobRetentionDays;
+  const originalByType = cfg.jobRetentionDaysByType;
+  cfg.defaultJobRetentionDays = GIT_ACTIVITY.MONTHLY_WINDOW_DAYS;
+  cfg.jobRetentionDaysByType = { &apos;retention-configured&apos;: GIT_ACTIVITY.WEEKLY_WINDOW_DAYS };
+  t.after(() =&gt; {
+    cfg.defaultJobRetentionDays = originalDefault;
+    cfg.jobRetentionDaysByType = originalByType;
+  });
+  const configuredServer = new SidequestServer({ autoStart: false, jobType: &apos;retention-configured&apos; });
+  const fallbackServer = new SidequestServer({ autoStart: false, jobType: &apos;retention-fallback&apos; });
+  configuredServer.stop();
+  fallbackServer.stop();
+  assert.equal(configuredServer.jobRetentionDays, GIT_ACTIVITY.WEEKLY_WINDOW_DAYS);
+  assert.equal(fallbackServer.jobRetentionDays, GIT_ACTIVITY.MONTHLY_WINDOW_DAYS);
+});
+test(&apos;prune removes expired terminal jobs from jobs map and history&apos;, (t) =&gt; {
+  stubRepositoryInit(t);
+  const server = new SidequestServer({
+    autoStart: false,
+    jobType: &apos;retention-prune&apos;,
+    jobRetentionDays: JOB_RETENTION.MIN_DAYS
+  });
+  server.stop();
+  const nowMs = Date.UTC(2026, 2, 4, 12, 0, 0);
+  const oldDate = new Date(nowMs - (2 * TIME.DAY));
+  const freshDate = new Date(nowMs - (12 * TIME.HOUR));
+  const oldCompleted = makeJob(&apos;old-completed&apos;, JOB_STATUS.COMPLETED, oldDate, oldDate);
+  const oldCancelled = makeJob(&apos;old-cancelled&apos;, JOB_STATUS.CANCELLED, oldDate, oldDate);
+  const freshCompleted = makeJob(&apos;fresh-completed&apos;, JOB_STATUS.COMPLETED, freshDate, freshDate);
+  const oldRunning = makeJob(&apos;old-running&apos;, JOB_STATUS.RUNNING, oldDate, null);
+  server.jobs.set(oldCompleted.id, oldCompleted);
+  server.jobs.set(oldCancelled.id, oldCancelled);
+  server.jobs.set(freshCompleted.id, freshCompleted);
+  server.jobs.set(oldRunning.id, oldRunning);
+  server.jobHistory.push({ ...oldCompleted }, { ...oldCancelled }, { ...freshCompleted }, { ...oldRunning });
+  (server as unknown as { _pruneExpiredJobs: (referenceTimeMs?: number) =&gt; void })._pruneExpiredJobs(nowMs);
+  assert.equal(server.jobs.has(&apos;old-completed&apos;), false);
+  assert.equal(server.jobs.has(&apos;old-cancelled&apos;), false);
+  assert.equal(server.jobs.has(&apos;fresh-completed&apos;), true);
+  assert.equal(server.jobs.has(&apos;old-running&apos;), true);
+  const remainingHistoryIds = server.jobHistory.map(job =&gt; job.id).sort();
+  assert.deepEqual(remainingHistoryIds, [&apos;fresh-completed&apos;, &apos;old-running&apos;]);
+});</file><file path="core/server.ts">import { EventEmitter } from &apos;events&apos;;
 import * as Sentry from &apos;@sentry/node&apos;;
 import { config } from &apos;./config.ts&apos;;
 import fs from &apos;fs/promises&apos;;
@@ -1331,7 +1623,7 @@ import { createComponentLogger, logError, logWarn } from &apos;../utils/logger.t
 import { safeErrorMessage } from &apos;../pipeline-core/utils/error-helpers.ts&apos;;
 import { GitWorkflowManager } from &apos;./git-workflow-manager.ts&apos;;
 import { jobRepository } from &apos;./job-repository.ts&apos;;
-import { CONCURRENCY, RETRY } from &apos;./constants.ts&apos;;
+import { CONCURRENCY, RETRY, TIME } from &apos;./constants.ts&apos;;
 import { isRetryable, classifyError } from &apos;../pipeline-core/errors/error-classifier.ts&apos;;
 import { toISOString } from &apos;../utils/time-helpers.ts&apos;;
 import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from &apos;#api/types/job-status.ts&apos;;
@@ -1364,6 +1656,7 @@ export interface JobStats {
   total: number;
   queued: number;
   active: number;
+  pendingRetries: number;
   completed: number;
   failed: number;
 }
@@ -1377,6 +1670,7 @@ export interface SidequestServerOptions {
   gitBaseBranch?: string;
   gitDryRun?: boolean;
   jobType?: string;
+  jobRetentionDays?: number;
   sentryDsn?: string;
 }
 interface JobActionResult {
@@ -1398,6 +1692,7 @@ export class SidequestServer extends EventEmitter {
   gitBaseBranch: string;
   gitDryRun: boolean;
   jobType: string;
+  jobRetentionDays: number;
   gitWorkflowManager: GitWorkflowManager | undefined;
   private _dbReady: Promise&lt;void&gt;;
   constructor(options: SidequestServerOptions = {}) {
@@ -1415,6 +1710,13 @@ export class SidequestServer extends EventEmitter {
     this.gitBaseBranch = options.gitBaseBranch || &apos;main&apos;;
     this.gitDryRun = options.gitDryRun ?? false;
     this.jobType = options.jobType || &apos;job&apos;;
+    const retentionByType = config.jobRetentionDaysByType as Record&lt;string, number&gt;;
+    const retentionFromConfig = retentionByType[this.jobType] ?? config.defaultJobRetentionDays;
+    const requestedRetention = options.jobRetentionDays ?? retentionFromConfig;
+    const defaultRetentionDays = config.defaultJobRetentionDays as number;
+    this.jobRetentionDays = Number.isFinite(requestedRetention) &amp;&amp; requestedRetention &gt; 0
+      ? Math.floor(requestedRetention)
+      : defaultRetentionDays;
     if (this.gitWorkflowEnabled) {
       this.gitWorkflowManager = new GitWorkflowManager({
         baseBranch: this.gitBaseBranch,
@@ -1598,6 +1900,7 @@ export class SidequestServer extends EventEmitter {
     }
     this.emit(&apos;job:completed&apos;, job);
     this.jobHistory.push({ ...job });
+    this._pruneExpiredJobs();
     try {
       this._persistJob(job);
     } catch (dbErr) {
@@ -1679,6 +1982,7 @@ export class SidequestServer extends EventEmitter {
     }
     this.emit(&apos;job:failed&apos;, job, error);
     this.jobHistory.push({ ...job });
+    this._pruneExpiredJobs();
     try {
       this._persistJob(job);
     } catch {
@@ -1830,9 +2134,37 @@ export class SidequestServer extends EventEmitter {
       total: this.jobs.size,
       queued: this.queue.length,
       active: this.activeJobs,
+      pendingRetries: Array.from(this.jobs.values()).filter(j =&gt; j.retryPending === true).length,
       completed: this.jobHistory.filter(j =&gt; j.status === JOB_STATUS.COMPLETED).length,
       failed: this.jobHistory.filter(j =&gt; j.status === JOB_STATUS.FAILED).length,
     };
+  }
+  private _isExpiredTerminalJob(job: Job, cutoffMs: number): boolean {
+    if (!TERMINAL_STATUSES.includes(job.status)) return false;
+    const completedAtMs = job.completedAt?.getTime();
+    if (typeof completedAtMs !== &apos;number&apos;) return false;
+    return completedAtMs &lt;= cutoffMs;
+  }
+  private _pruneExpiredJobs(referenceTimeMs: number = Date.now()): void {
+    const cutoffMs = referenceTimeMs - (this.jobRetentionDays * TIME.DAY);
+    let removedFromJobs = 0;
+    for (const [jobId, job] of this.jobs.entries()) {
+      if (this._isExpiredTerminalJob(job, cutoffMs)) {
+        this.jobs.delete(jobId);
+        removedFromJobs++;
+      }
+    }
+    const historyBefore = this.jobHistory.length;
+    this.jobHistory = this.jobHistory.filter(job =&gt; !this._isExpiredTerminalJob(job, cutoffMs));
+    const removedFromHistory = historyBefore - this.jobHistory.length;
+    if (removedFromJobs &gt; 0 || removedFromHistory &gt; 0) {
+      logger.debug({
+        jobType: this.jobType,
+        retentionDays: this.jobRetentionDays,
+        removedFromJobs,
+        removedFromHistory
+      }, &apos;Pruned expired terminal jobs from memory&apos;);
+    }
   }
   private _executeJobAction(jobId: string, config: {
     action: string;
@@ -1855,6 +2187,9 @@ export class SidequestServer extends EventEmitter {
       if (idx &gt; -1) this.queue.splice(idx, 1);
     }
     config.mutate(job);
+    if (TERMINAL_STATUSES.includes(job.status)) {
+      this._pruneExpiredJobs();
+    }
     try { this._persistJob(job); } catch {  }
     this.emit(`job:${config.action}`, job);
     Sentry.addBreadcrumb({
@@ -1870,8 +2205,10 @@ export class SidequestServer extends EventEmitter {
   cancelJob(jobId: string): JobActionResult {
     return this._executeJobAction(jobId, {
       action: &apos;cancelled&apos;,
-      statusGuard: (s) =&gt; TERMINAL_STATUSES.includes(s),
-      guardMessage: (s) =&gt; `Cannot cancel job with status &apos;${s}&apos;`,
+      statusGuard: (s) =&gt; TERMINAL_STATUSES.includes(s) || s === JOB_STATUS.RUNNING,
+      guardMessage: (s) =&gt; s === JOB_STATUS.RUNNING
+        ? &apos;Cannot cancel a running job. Cancellation is only supported for queued or paused jobs.&apos;
+        : `Cannot cancel job with status &apos;${s}&apos;`,
       mutate: (job) =&gt; {
         job.status = JOB_STATUS.CANCELLED;
         job.completedAt = new Date();
@@ -1883,8 +2220,10 @@ export class SidequestServer extends EventEmitter {
   pauseJob(jobId: string): JobActionResult {
     return this._executeJobAction(jobId, {
       action: &apos;paused&apos;,
-      statusGuard: (s) =&gt; TERMINAL_STATUSES.includes(s) || s === JOB_STATUS.PAUSED,
-      guardMessage: (s) =&gt; `Cannot pause job with status &apos;${s}&apos;`,
+      statusGuard: (s) =&gt; s !== JOB_STATUS.QUEUED,
+      guardMessage: (s) =&gt; s === JOB_STATUS.RUNNING
+        ? &apos;Cannot pause a running job. Pause is only supported for queued jobs.&apos;
+        : `Cannot pause job with status &apos;${s}&apos;`,
       mutate: (job) =&gt; {
         job.status = JOB_STATUS.PAUSED;
         job.pausedAt = new Date();
@@ -3497,10 +3836,12 @@ export class RepositoryConfigLoader {
   private configPath: string;
   private config: RepositoryScanConfig | null;
   private lastLoaded: Date | null;
+  private _saveQueue: Promise&lt;void&gt;;
   constructor(configPath: string | null = null) {
     this.configPath = configPath ?? path.join(process.cwd(), &apos;config&apos;, &apos;scan-repositories.json&apos;);
     this.config = null;
     this.lastLoaded = null;
+    this._saveQueue = Promise.resolve();
   }
   async load(): Promise&lt;RepositoryScanConfig&gt; {
     try {
@@ -3636,19 +3977,50 @@ export class RepositoryConfigLoader {
     await this.save();
     logger.info({ repoName, status: historyEntry[&apos;status&apos;] }, &apos;Added scan history entry&apos;);
   }
-  async save(): Promise&lt;void&gt; {
-    try {
-      await fs.writeFile(
-        this.configPath,
-        JSON.stringify(this.config, null, 2),
-        &apos;utf-8&apos;
-      );
-      logger.info({ configPath: this.configPath }, &apos;Configuration saved&apos;);
-    } catch (error) {
-      logError(logger, error, &apos;Failed to save configuration&apos;, { configPath: this.configPath });
-      const msg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to save configuration: ${msg}`);
+  async recordScanResult(
+    repoName: string,
+    historyEntry: Omit&lt;ScanHistoryEntry, &apos;timestamp&apos;&gt;,
+    timestamp: Date | null = null
+  ): Promise&lt;void&gt; {
+    this._ensureLoaded();
+    const repo = this.getRepository(repoName);
+    if (!repo) {
+      throw new Error(`Repository &apos;${repoName}&apos; not found`);
     }
+    const scannedAtIso = (timestamp ?? new Date()).toISOString();
+    repo.lastScannedAt = scannedAtIso;
+    if (!repo.scanHistory) {
+      repo.scanHistory = [];
+    }
+    repo.scanHistory.unshift({
+      timestamp: scannedAtIso,
+      ...historyEntry
+    });
+    repo.scanHistory = repo.scanHistory.slice(0, 10);
+    await this.save();
+    logger.info({
+      repoName,
+      timestamp: scannedAtIso,
+      status: historyEntry.status
+    }, &apos;Recorded scan result&apos;);
+  }
+  async save(): Promise&lt;void&gt; {
+    const saveTask = this._saveQueue.then(async () =&gt; {
+      try {
+        await fs.writeFile(
+          this.configPath,
+          JSON.stringify(this.config, null, 2),
+          &apos;utf-8&apos;
+        );
+        logger.info({ configPath: this.configPath }, &apos;Configuration saved&apos;);
+      } catch (error) {
+        logError(logger, error, &apos;Failed to save configuration&apos;, { configPath: this.configPath });
+        const msg = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to save configuration: ${msg}`);
+      }
+    });
+    this._saveQueue = saveTask.catch(() =&gt; {});
+    return saveTask;
   }
   validate(): true {
     this._ensureLoaded();
@@ -6023,7 +6395,18 @@ export class PRCreator {
         await runGitCommand(repositoryPath, [&apos;branch&apos;, &apos;-D&apos;, branchName]);
         return null;
       }
-      await runGitCommand(repositoryPath, [&apos;add&apos;, &apos;.&apos;]);
+      const filesToStage = Array.from(new Set(
+        filesModified
+          .map((filePath) =&gt; path.isAbsolute(filePath) ? path.relative(repositoryPath, filePath) : filePath)
+          .filter((filePath) =&gt; filePath.length &gt; 0 &amp;&amp; !filePath.startsWith(&apos;..&apos;))
+      ));
+      if (filesToStage.length === 0) {
+        logger.warn({ branchName }, &apos;No in-repository files to stage, skipping PR creation&apos;);
+        await runGitCommand(repositoryPath, [&apos;checkout&apos;, this.baseBranch]);
+        await runGitCommand(repositoryPath, [&apos;branch&apos;, &apos;-D&apos;, branchName]);
+        return null;
+      }
+      await runGitCommand(repositoryPath, [&apos;add&apos;, &apos;--&apos;, ...filesToStage]);
       const commitMessage = this._generateCommitMessage(suggestions, filesModified);
       await runGitCommand(repositoryPath, [&apos;commit&apos;, &apos;-m&apos;, commitMessage]);
       if (this.dryRun) {
@@ -9212,7 +9595,10 @@ export class ReportCoordinator {
   }
   private _generateBaseFilename(scanResult: ScanResult, isInterProject: boolean | null = null): string {
     const isInter = isInterProject ?? (scanResult.scan_type === &apos;inter-project&apos;);
-    const timestamp = new Date().toISOString().replace(/[:.]/g, &apos;-&apos;).split(&apos;T&apos;)[0];
+    const timestamp = new Date().toISOString()
+      .replace(/[:.]/g, &apos;-&apos;)
+      .replace(&apos;T&apos;, &apos;_&apos;)
+      .replace(&apos;Z&apos;, &apos;&apos;);
     if (isInter) {
       const repoCount = scanResult.scan_metadata?.repository_count ?? 0;
       return `inter-project-scan-${repoCount}repos-${timestamp}`;
@@ -12647,7 +13033,243 @@ def run_tests():
         TestSemanticGrouping,
     ])
 if __name__ == &apos;__main__&apos;:
-    sys.exit(run_tests())</file><file path="pipeline-core/types/migration-types.ts">export interface MigrationStep {
+    sys.exit(run_tests())</file><file path="pipeline-core/types/duplicate-detection-types.ts">import { z } from &apos;zod&apos;;
+import type { SidequestServerOptions } from &apos;../../core/server.ts&apos;;
+export const ScanTypeSchema = z.enum([&apos;inter-project&apos;, &apos;intra-project&apos;]);
+export type ScanType = z.infer&lt;typeof ScanTypeSchema&gt;;
+export const ScanFrequencySchema = z.enum([&apos;daily&apos;, &apos;weekly&apos;, &apos;monthly&apos;, &apos;on-demand&apos;]);
+export type ScanFrequency = z.infer&lt;typeof ScanFrequencySchema&gt;;
+export const PriorityLevelSchema = z.enum([&apos;critical&apos;, &apos;high&apos;, &apos;medium&apos;, &apos;low&apos;]);
+export type PriorityLevel = z.infer&lt;typeof PriorityLevelSchema&gt;;
+export interface RepositoryConfig {
+  name: string;
+  path: string;
+  enabled: boolean;
+  priority: PriorityLevel;
+  scanFrequency: ScanFrequency;
+  lastScanned?: string;
+  scanHistory?: ScanHistoryEntry[];
+}
+export interface ScanHistoryEntry {
+  timestamp: string;
+  status: &apos;success&apos; | &apos;failure&apos;;
+  duration: number;
+  duplicatesFound: number;
+}
+export interface RepositoryGroupConfig {
+  name: string;
+  description?: string;
+  enabled: boolean;
+  scanType: &apos;inter-project&apos;;
+  repositories: string[];
+}
+export const DuplicateDetectionJobDataSchema = z.object({
+  type: z.literal(&apos;duplicate-detection&apos;),
+  scanType: ScanTypeSchema,
+  repositories: z.array(z.object({
+    name: z.string(),
+    path: z.string(),
+    enabled: z.boolean(),
+    priority: PriorityLevelSchema,
+    scanFrequency: ScanFrequencySchema
+  })),
+  groupName: z.string().optional()
+}).strict();
+export type DuplicateDetectionJobData = z.infer&lt;typeof DuplicateDetectionJobDataSchema&gt;;
+export interface ScanMetadata {
+  scan_started: string;
+  scan_completed: string;
+  duration_seconds: number;
+  total_files_scanned: number;
+  scan_type: ScanType;
+}
+export interface ScanMetrics {
+  total_duplicate_groups?: number;
+  total_cross_repository_groups?: number;
+  total_suggestions: number;
+  high_impact_duplicates: number;
+}
+export interface DuplicateGroup {
+  group_id: string;
+  instances: Array&lt;{
+    file_path: string;
+    start_line: number;
+    end_line: number;
+    repository?: string;
+  }&gt;;
+  impact_score: number;
+  similarity_score: number;
+  suggestion?: string;
+}
+export interface IntraProjectScanResult {
+  scan_type: &apos;intra-project&apos;;
+  scan_metadata: ScanMetadata;
+  metrics: ScanMetrics;
+  duplicate_groups: DuplicateGroup[];
+  suggestions?: string[];
+}
+export interface InterProjectScanResult {
+  scan_type: &apos;inter-project&apos;;
+  scan_metadata: ScanMetadata;
+  metrics: ScanMetrics;
+  cross_repository_duplicates: DuplicateGroup[];
+  suggestions?: string[];
+}
+export type ScanResult = IntraProjectScanResult | InterProjectScanResult;
+export interface PRCreationResult {
+  prsCreated: number;
+  prUrls: string[];
+  errors: Array&lt;{
+    repository?: string;
+    error: string;
+  }&gt;;
+}
+export interface IntraProjectJobResult {
+  scanType: &apos;intra-project&apos;;
+  repository: string;
+  duplicates: number;
+  suggestions: number;
+  duration: number;
+  prResults?: {
+    prsCreated: number;
+    prUrls: string[];
+    errors: number;
+  } | null;
+}
+export interface InterProjectJobResult {
+  scanType: &apos;inter-project&apos;;
+  repositories: number;
+  crossRepoDuplicates: number;
+  suggestions: number;
+  duration: number;
+}
+export type JobResult = IntraProjectJobResult | InterProjectJobResult;
+export interface WorkerScanMetrics {
+  totalScans: number;
+  successfulScans: number;
+  failedScans: number;
+  totalDuplicatesFound: number;
+  totalSuggestionsGenerated: number;
+  highImpactDuplicates: number;
+  prsCreated: number;
+  prCreationErrors: number;
+}
+export interface RetryInfo {
+  attempts: number;
+  lastAttempt: number;
+  maxAttempts: number;
+  delay: number;
+}
+export interface RetryMetrics {
+  activeRetries: number;
+  totalRetryAttempts: number;
+  jobsBeingRetried: Array&lt;{
+    jobId: string;
+    attempts: number;
+    maxAttempts: number;
+    lastAttempt: string;
+  }&gt;;
+  retryDistribution: {
+    attempt1: number;
+    attempt2: number;
+    attempt3Plus: number;
+    nearingLimit: number;
+  };
+}
+export interface CompleteScanMetrics extends WorkerScanMetrics {
+  queueStats: {
+    queued: number;
+    active: number;
+    completed: number;
+    failed: number;
+  };
+  retryMetrics: RetryMetrics;
+}
+export interface DuplicateDetectionWorkerOptions extends SidequestServerOptions {
+  maxConcurrentScans?: number;
+  configPath?: string;
+  enablePRCreation?: boolean;
+  baseBranch?: string;
+  branchPrefix?: string;
+  dryRun?: boolean;
+  maxSuggestionsPerPR?: number;
+}
+export interface InitializedEventPayload {
+  totalRepositories: number;
+  enabledRepositories: number;
+  groups: number;
+  byPriority: Record&lt;PriorityLevel, number&gt;;
+  byFrequency: Record&lt;ScanFrequency, number&gt;;
+}
+export type PipelineStatusEventPayload =
+  | { status: &apos;initialized&apos;; stats: InitializedEventPayload }
+  | { status: &apos;scanning&apos;; jobId: string; scanType: ScanType; repositories: number }
+  | { status: &apos;failed&apos;; jobId: string; error: string }
+  | { status: &apos;completed&apos;; jobId: string; result: JobResult };
+export interface ScanCompletedEventPayload {
+  jobId: string;
+  scanType: ScanType;
+  metrics: {
+    duplicates: number;
+    suggestions: number;
+    duration: number;
+  };
+}
+export interface PRCreatedEventPayload {
+  repository: string;
+  prsCreated: number;
+  prUrls: string[];
+}
+export interface PRFailedEventPayload {
+  repository: string;
+  error: string;
+}
+export interface HighImpactDetectedEventPayload {
+  count: number;
+  threshold: number;
+  topImpactScore: number;
+}
+export interface RetryScheduledEventPayload {
+  jobId: string;
+  attempt: number;
+  delay: number;
+}
+export interface RetryWarningEventPayload {
+  jobId: string;
+  attempts: number;
+  maxAttempts: number;
+}
+export interface RetryCircuitBreakerEventPayload {
+  jobId: string;
+  attempts: number;
+  maxAbsolute: number;
+}
+export interface MetricsUpdatedEventPayload {
+  metrics: CompleteScanMetrics;
+}
+export interface ScanConfig {
+  enabled: boolean;
+  retryAttempts: number;
+  retryDelay: number;
+  maxConcurrentScans: number;
+}
+export interface NotificationSettings {
+  enabled: boolean;
+  onHighImpactDuplicates: boolean;
+  highImpactThreshold: number;
+}
+export function isIntraProjectScanResult(result: ScanResult): result is IntraProjectScanResult {
+  return result.scan_type === &apos;intra-project&apos;;
+}
+export function isInterProjectScanResult(result: ScanResult): result is InterProjectScanResult {
+  return result.scan_type === &apos;inter-project&apos;;
+}
+export function isIntraProjectJobResult(result: JobResult): result is IntraProjectJobResult {
+  return result.scanType === &apos;intra-project&apos;;
+}
+export function isInterProjectJobResult(result: JobResult): result is InterProjectJobResult {
+  return result.scanType === &apos;inter-project&apos;;
+}</file><file path="pipeline-core/types/migration-types.ts">export interface MigrationStep {
   description: string;
   step_number?: number;
   code_example?: string;
@@ -13962,6 +14584,7 @@ import { spawn, ChildProcess } from &apos;child_process&apos;;
 import * as path from &apos;path&apos;;
 import * as fs from &apos;fs/promises&apos;;
 import { existsSync } from &apos;fs&apos;;
+import { fileURLToPath } from &apos;url&apos;;
 import * as Sentry from &apos;@sentry/node&apos;;
 import { TIMEOUTS } from &apos;../core/constants.ts&apos;;
 const logger = createComponentLogger(&apos;ScanOrchestrator&apos;);
@@ -14189,7 +14812,8 @@ export class ScanOrchestrator {
       this.pythonPath = null as unknown as string;
       this._pythonValidated = false;
     }
-    this.extractorScript = options.extractorScript || path.join(process.cwd(), &apos;sidequest/pipeline-core/extractors/extract_blocks.py&apos;);
+    const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+    this.extractorScript = options.extractorScript || path.resolve(moduleDir, &apos;extractors&apos;, &apos;extract_blocks.py&apos;);
     this.reportConfig = options.reports || {};
     this.outputDir = options.outputDir || path.join(process.cwd(), &apos;output&apos;, &apos;reports&apos;);
     this.autoGenerateReports = options.autoGenerateReports !== false;
@@ -14568,7 +15192,7 @@ export abstract class BasePipeline&lt;TWorker extends SidequestServer = Sideques
       };
       const checkAndResolve = () =&gt; {
         const stats = this.worker.getStats();
-        if (stats.active === 0 &amp;&amp; stats.queued === 0) {
+        if (stats.active === 0 &amp;&amp; stats.queued === 0 &amp;&amp; stats.pendingRetries === 0) {
           cleanup();
           resolve();
         }
@@ -15883,7 +16507,7 @@ export type {
   RetryMetrics,
   WorkerScanMetrics,
   DuplicateDetectionWorkerOptions
-} from &apos;../types/duplicate-detection-types.ts&apos;;
+} from &apos;../pipeline-core/types/duplicate-detection-types.ts&apos;;
 async function main(): Promise&lt;void&gt; {
   const cronSchedule = process.env.DUPLICATE_SCAN_CRON_SCHEDULE || &apos;0 2 * * *&apos;;
   const runOnStartup = config.runOnStartup;
@@ -17888,243 +18512,7 @@ main() {
     print_success &quot;All cleanup tasks completed successfully!&quot;
 }
 # Run main function
-main &quot;$@&quot;</file><file path="types/duplicate-detection-types.ts">import { z } from &apos;zod&apos;;
-import type { SidequestServerOptions } from &apos;../core/server.ts&apos;;
-export const ScanTypeSchema = z.enum([&apos;inter-project&apos;, &apos;intra-project&apos;]);
-export type ScanType = z.infer&lt;typeof ScanTypeSchema&gt;;
-export const ScanFrequencySchema = z.enum([&apos;daily&apos;, &apos;weekly&apos;, &apos;monthly&apos;, &apos;on-demand&apos;]);
-export type ScanFrequency = z.infer&lt;typeof ScanFrequencySchema&gt;;
-export const PriorityLevelSchema = z.enum([&apos;critical&apos;, &apos;high&apos;, &apos;medium&apos;, &apos;low&apos;]);
-export type PriorityLevel = z.infer&lt;typeof PriorityLevelSchema&gt;;
-export interface RepositoryConfig {
-  name: string;
-  path: string;
-  enabled: boolean;
-  priority: PriorityLevel;
-  scanFrequency: ScanFrequency;
-  lastScanned?: string;
-  scanHistory?: ScanHistoryEntry[];
-}
-export interface ScanHistoryEntry {
-  timestamp: string;
-  status: &apos;success&apos; | &apos;failure&apos;;
-  duration: number;
-  duplicatesFound: number;
-}
-export interface RepositoryGroupConfig {
-  name: string;
-  description?: string;
-  enabled: boolean;
-  scanType: &apos;inter-project&apos;;
-  repositories: string[];
-}
-export const DuplicateDetectionJobDataSchema = z.object({
-  type: z.literal(&apos;duplicate-detection&apos;),
-  scanType: ScanTypeSchema,
-  repositories: z.array(z.object({
-    name: z.string(),
-    path: z.string(),
-    enabled: z.boolean(),
-    priority: PriorityLevelSchema,
-    scanFrequency: ScanFrequencySchema
-  })),
-  groupName: z.string().optional()
-}).strict();
-export type DuplicateDetectionJobData = z.infer&lt;typeof DuplicateDetectionJobDataSchema&gt;;
-export interface ScanMetadata {
-  scan_started: string;
-  scan_completed: string;
-  duration_seconds: number;
-  total_files_scanned: number;
-  scan_type: ScanType;
-}
-export interface ScanMetrics {
-  total_duplicate_groups?: number;
-  total_cross_repository_groups?: number;
-  total_suggestions: number;
-  high_impact_duplicates: number;
-}
-export interface DuplicateGroup {
-  group_id: string;
-  instances: Array&lt;{
-    file_path: string;
-    start_line: number;
-    end_line: number;
-    repository?: string;
-  }&gt;;
-  impact_score: number;
-  similarity_score: number;
-  suggestion?: string;
-}
-export interface IntraProjectScanResult {
-  scan_type: &apos;intra-project&apos;;
-  scan_metadata: ScanMetadata;
-  metrics: ScanMetrics;
-  duplicate_groups: DuplicateGroup[];
-  suggestions?: string[];
-}
-export interface InterProjectScanResult {
-  scan_type: &apos;inter-project&apos;;
-  scan_metadata: ScanMetadata;
-  metrics: ScanMetrics;
-  cross_repository_duplicates: DuplicateGroup[];
-  suggestions?: string[];
-}
-export type ScanResult = IntraProjectScanResult | InterProjectScanResult;
-export interface PRCreationResult {
-  prsCreated: number;
-  prUrls: string[];
-  errors: Array&lt;{
-    repository?: string;
-    error: string;
-  }&gt;;
-}
-export interface IntraProjectJobResult {
-  scanType: &apos;intra-project&apos;;
-  repository: string;
-  duplicates: number;
-  suggestions: number;
-  duration: number;
-  prResults?: {
-    prsCreated: number;
-    prUrls: string[];
-    errors: number;
-  } | null;
-}
-export interface InterProjectJobResult {
-  scanType: &apos;inter-project&apos;;
-  repositories: number;
-  crossRepoDuplicates: number;
-  suggestions: number;
-  duration: number;
-}
-export type JobResult = IntraProjectJobResult | InterProjectJobResult;
-export interface WorkerScanMetrics {
-  totalScans: number;
-  successfulScans: number;
-  failedScans: number;
-  totalDuplicatesFound: number;
-  totalSuggestionsGenerated: number;
-  highImpactDuplicates: number;
-  prsCreated: number;
-  prCreationErrors: number;
-}
-export interface RetryInfo {
-  attempts: number;
-  lastAttempt: number;
-  maxAttempts: number;
-  delay: number;
-}
-export interface RetryMetrics {
-  activeRetries: number;
-  totalRetryAttempts: number;
-  jobsBeingRetried: Array&lt;{
-    jobId: string;
-    attempts: number;
-    maxAttempts: number;
-    lastAttempt: string;
-  }&gt;;
-  retryDistribution: {
-    attempt1: number;
-    attempt2: number;
-    attempt3Plus: number;
-    nearingLimit: number;
-  };
-}
-export interface CompleteScanMetrics extends WorkerScanMetrics {
-  queueStats: {
-    queued: number;
-    active: number;
-    completed: number;
-    failed: number;
-  };
-  retryMetrics: RetryMetrics;
-}
-export interface DuplicateDetectionWorkerOptions extends SidequestServerOptions {
-  maxConcurrentScans?: number;
-  configPath?: string;
-  enablePRCreation?: boolean;
-  baseBranch?: string;
-  branchPrefix?: string;
-  dryRun?: boolean;
-  maxSuggestionsPerPR?: number;
-}
-export interface InitializedEventPayload {
-  totalRepositories: number;
-  enabledRepositories: number;
-  groups: number;
-  byPriority: Record&lt;PriorityLevel, number&gt;;
-  byFrequency: Record&lt;ScanFrequency, number&gt;;
-}
-export type PipelineStatusEventPayload =
-  | { status: &apos;initialized&apos;; stats: InitializedEventPayload }
-  | { status: &apos;scanning&apos;; jobId: string; scanType: ScanType; repositories: number }
-  | { status: &apos;failed&apos;; jobId: string; error: string }
-  | { status: &apos;completed&apos;; jobId: string; result: JobResult };
-export interface ScanCompletedEventPayload {
-  jobId: string;
-  scanType: ScanType;
-  metrics: {
-    duplicates: number;
-    suggestions: number;
-    duration: number;
-  };
-}
-export interface PRCreatedEventPayload {
-  repository: string;
-  prsCreated: number;
-  prUrls: string[];
-}
-export interface PRFailedEventPayload {
-  repository: string;
-  error: string;
-}
-export interface HighImpactDetectedEventPayload {
-  count: number;
-  threshold: number;
-  topImpactScore: number;
-}
-export interface RetryScheduledEventPayload {
-  jobId: string;
-  attempt: number;
-  delay: number;
-}
-export interface RetryWarningEventPayload {
-  jobId: string;
-  attempts: number;
-  maxAttempts: number;
-}
-export interface RetryCircuitBreakerEventPayload {
-  jobId: string;
-  attempts: number;
-  maxAbsolute: number;
-}
-export interface MetricsUpdatedEventPayload {
-  metrics: CompleteScanMetrics;
-}
-export interface ScanConfig {
-  enabled: boolean;
-  retryAttempts: number;
-  retryDelay: number;
-  maxConcurrentScans: number;
-}
-export interface NotificationSettings {
-  enabled: boolean;
-  onHighImpactDuplicates: boolean;
-  highImpactThreshold: number;
-}
-export function isIntraProjectScanResult(result: ScanResult): result is IntraProjectScanResult {
-  return result.scan_type === &apos;intra-project&apos;;
-}
-export function isInterProjectScanResult(result: ScanResult): result is InterProjectScanResult {
-  return result.scan_type === &apos;inter-project&apos;;
-}
-export function isIntraProjectJobResult(result: JobResult): result is IntraProjectJobResult {
-  return result.scanType === &apos;intra-project&apos;;
-}
-export function isInterProjectJobResult(result: JobResult): result is InterProjectJobResult {
-  return result.scanType === &apos;inter-project&apos;;
-}</file><file path="utils/dependency-validator.ts">import { execSync } from &apos;child_process&apos;;
+main &quot;$@&quot;</file><file path="utils/dependency-validator.ts">import { execSync } from &apos;child_process&apos;;
 import { createComponentLogger } from &apos;./logger.ts&apos;;
 import { TIMEOUTS } from &apos;../core/constants.ts&apos;;
 const logger = createComponentLogger(&apos;DependencyValidator&apos;);
@@ -21942,18 +22330,155 @@ export class DashboardPopulateWorker extends SidequestServer {
     }
     return timings;
   }
-}</file><file path="workers/duplicate-detection-worker.ts">import { SidequestServer, type Job, type SidequestServerOptions } from &apos;../core/server.ts&apos;;
+}</file><file path="workers/duplicate-detection-worker.test.ts">import test from &apos;node:test&apos;;
+import assert from &apos;node:assert/strict&apos;;
+import { DuplicateDetectionWorker } from &apos;./duplicate-detection-worker.ts&apos;;
+interface MinimalRepoConfig {
+  name: string;
+  path: string;
+}
+function waitForEvent&lt;T&gt;(emitter: NodeJS.EventEmitter, eventName: string): Promise&lt;T&gt; {
+  return new Promise((resolve) =&gt; {
+    emitter.once(eventName, (payload: T) =&gt; resolve(payload));
+  });
+}
+test(&apos;retry authority stays in SidequestServer (no worker-created retry jobs)&apos;, async (t) =&gt; {
+  const worker = new DuplicateDetectionWorker({ maxConcurrentScans: 1 });
+  t.after(() =&gt; worker.stop());
+  const originalSetTimeout = global.setTimeout;
+  (global as unknown as { setTimeout: typeof setTimeout }).setTimeout =
+    (((handler: (...args: unknown[]) =&gt; void, _delay?: number, ...args: unknown[]) =&gt; {
+      handler(...args);
+      return 0 as unknown as NodeJS.Timeout;
+    }) as unknown as typeof setTimeout);
+  t.after(() =&gt; {
+    (global as unknown as { setTimeout: typeof setTimeout }).setTimeout = originalSetTimeout;
+  });
+  let attempts = 0;
+  (worker as unknown as { _runIntraProjectScan: (job: unknown, repo: unknown) =&gt; Promise&lt;unknown&gt; })._runIntraProjectScan =
+    async () =&gt; {
+      attempts++;
+      if (attempts === 1) {
+        throw new Error(&apos;timeout while scanning&apos;);
+      }
+      return {
+        scanType: &apos;intra-project&apos;,
+        repository: &apos;repo-a&apos;,
+        duplicates: 0,
+        suggestions: 0,
+        duration: 0,
+        reportPaths: {},
+        prResults: null
+      };
+    };
+  const createdJobIds: string[] = [];
+  worker.on(&apos;job:created&apos;, (job) =&gt; createdJobIds.push(job.id));
+  const completed = waitForEvent(worker, &apos;job:completed&apos;);
+  const jobId = `scan-intra-project-${Date.now()}`;
+  worker.createJob(jobId, {
+    type: &apos;duplicate-detection&apos;,
+    scanType: &apos;intra-project&apos;,
+    repositories: [{ name: &apos;repo-a&apos;, path: &apos;/tmp/repo-a&apos; } satisfies MinimalRepoConfig],
+    groupName: null
+  });
+  await completed;
+  assert.equal(attempts, 2, &apos;job should retry exactly once and then succeed&apos;);
+  assert.equal(createdJobIds.length, 1, &apos;no extra jobs should be created for retries&apos;);
+  assert.equal(createdJobIds[0], jobId);
+  assert.deepEqual(
+    Array.from(worker.jobs.keys()).filter(id =&gt; id.includes(&apos;-retry&apos;)),
+    [],
+    &apos;worker should not create retry-suffixed jobs&apos;
+  );
+  const job = worker.getJob(jobId);
+  assert.equal(job?.retryCount, 1, &apos;base queue retry count should increment&apos;);
+});
+test(&apos;_updateRepositoryConfigs performs one atomic record call per non-test repository&apos;, async () =&gt; {
+  const worker = new DuplicateDetectionWorker();
+  worker.stop();
+  const calls: Array&lt;{ repoName: string; entry: Record&lt;string, unknown&gt; }&gt; = [];
+  (worker as unknown as { configLoader: { recordScanResult: (repoName: string, entry: Record&lt;string, unknown&gt;) =&gt; Promise&lt;void&gt; } }).configLoader = {
+    async recordScanResult(repoName: string, entry: Record&lt;string, unknown&gt;): Promise&lt;void&gt; {
+      calls.push({ repoName, entry });
+    }
+  };
+  await worker._updateRepositoryConfigs(
+    [
+      { name: &apos;repo-a&apos;, path: &apos;/tmp/repo-a&apos; } as unknown as never,
+      { name: &apos;alephauto-test-sandbox&apos;, path: &apos;/tmp/test-repo&apos; } as unknown as never
+    ],
+    {
+      scan_type: &apos;intra-project&apos;,
+      metrics: {
+        total_duplicate_groups: 3,
+        total_suggestions: 1
+      },
+      scan_metadata: {
+        duration_seconds: 2.5
+      }
+    } as unknown as never
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].repoName, &apos;repo-a&apos;);
+  assert.deepEqual(calls[0].entry, {
+    status: &apos;success&apos;,
+    duration: 2.5,
+    duplicatesFound: 3
+  });
+});
+test(&apos;runNightlyScan reports only actually scheduled group scans&apos;, async () =&gt; {
+  const worker = new DuplicateDetectionWorker();
+  worker.stop();
+  const repoA = { name: &apos;repo-a&apos;, path: &apos;/tmp/repo-a&apos; } as unknown as never;
+  const repoB = { name: &apos;repo-b&apos;, path: &apos;/tmp/repo-b&apos; } as unknown as never;
+  const repoC = { name: &apos;repo-c&apos;, path: &apos;/tmp/repo-c&apos; } as unknown as never;
+  (worker as unknown as {
+    configLoader: {
+      getScanConfig: () =&gt; { enabled: boolean };
+      getRepositoriesToScanTonight: () =&gt; unknown[];
+      getEnabledGroups: () =&gt; Array&lt;{ name: string }&gt;;
+      getGroupRepositories: (name: string) =&gt; unknown[];
+    }
+  }).configLoader = {
+    getScanConfig: () =&gt; ({ enabled: true }),
+    getRepositoriesToScanTonight: () =&gt; [repoA],
+    getEnabledGroups: () =&gt; [{ name: &apos;g-valid&apos; }, { name: &apos;g-too-small&apos; }, { name: &apos;g-empty&apos; }],
+    getGroupRepositories: (name: string) =&gt; {
+      if (name === &apos;g-valid&apos;) return [repoA, repoB, repoC];
+      if (name === &apos;g-too-small&apos;) return [repoA];
+      return [];
+    }
+  };
+  const scheduled: Array&lt;{ scanType: string; groupName: string | null }&gt; = [];
+  (worker as unknown as {
+    scheduleScan: (scanType: string, repositories: unknown[], groupName?: string | null) =&gt; { id: string };
+  }).scheduleScan = (scanType: string, repositories: unknown[], groupName: string | null = null) =&gt; {
+    assert.ok(repositories.length &gt; 0);
+    scheduled.push({ scanType, groupName });
+    return { id: `job-${scheduled.length}` };
+  };
+  let scheduledStatus: Record&lt;string, unknown&gt; | null = null;
+  worker.on(&apos;pipeline:status&apos;, (payload: Record&lt;string, unknown&gt;) =&gt; {
+    if (payload.status === &apos;scheduled&apos;) {
+      scheduledStatus = payload;
+    }
+  });
+  await worker.runNightlyScan();
+  assert.ok(scheduledStatus, &apos;scheduled status payload should be emitted&apos;);
+  assert.equal(scheduled.filter(s =&gt; s.scanType === &apos;intra-project&apos;).length, 1);
+  assert.equal(scheduled.filter(s =&gt; s.scanType === &apos;inter-project&apos;).length, 1);
+  assert.equal(scheduledStatus?.groupScans, 1);
+  assert.equal(scheduledStatus?.individualScans, 1);
+});</file><file path="workers/duplicate-detection-worker.ts">import { SidequestServer, type Job, type SidequestServerOptions } from &apos;../core/server.ts&apos;;
 import { RepositoryConfigLoader, type RepositoryConfig } from &apos;../pipeline-core/config/repository-config-loader.ts&apos;;
 import { InterProjectScanner } from &apos;../pipeline-core/inter-project-scanner.ts&apos;;
 import { ScanOrchestrator } from &apos;../pipeline-core/scan-orchestrator.ts&apos;;
 import { ReportCoordinator } from &apos;../pipeline-core/reports/report-coordinator.ts&apos;;
 import { PRCreator, type PRCreationResults } from &apos;../pipeline-core/git/pr-creator.ts&apos;;
-import { createComponentLogger, logError, logWarn, logStart, logRetry } from &apos;../utils/logger.ts&apos;;
-import { getErrorInfo, type ExtendedError } from &apos;../pipeline-core/errors/error-classifier.ts&apos;;
+import { createComponentLogger, logError, logWarn, logStart } from &apos;../utils/logger.ts&apos;;
 import path from &apos;path&apos;;
 import * as Sentry from &apos;@sentry/node&apos;;
-import { RETRY } from &apos;../core/constants.ts&apos;;
-import type { RetryInfo, RetryMetrics, WorkerScanMetrics as ScanMetrics, DuplicateDetectionWorkerOptions } from &apos;../types/duplicate-detection-types.ts&apos;;
+import type { RetryMetrics, WorkerScanMetrics as ScanMetrics, DuplicateDetectionWorkerOptions } from &apos;../pipeline-core/types/duplicate-detection-types.ts&apos;;
 import { config } from &apos;../core/config.ts&apos;;
 const logger = createComponentLogger(&apos;DuplicateDetectionWorker&apos;);
 interface ScanJobData {
@@ -22014,7 +22539,6 @@ export class DuplicateDetectionWorker extends SidequestServer {
   private reportCoordinator: ReportCoordinator;
   private prCreator: PRCreator;
   private scanMetrics: ScanMetrics;
-  private retryQueue: Map&lt;string, RetryInfo&gt;;
   constructor(options: DuplicateDetectionWorkerOptions = {}) {
     super({
       ...options,
@@ -22024,9 +22548,14 @@ export class DuplicateDetectionWorker extends SidequestServer {
     });
     this.configLoader = new RepositoryConfigLoader(options.configPath);
     this.interProjectScanner = new InterProjectScanner({
+      orchestrator: {
+        autoGenerateReports: false
+      },
       outputDir: path.join(process.cwd(), &apos;output&apos;, &apos;automated-scans&apos;)
     });
-    this.orchestrator = new ScanOrchestrator({});
+    this.orchestrator = new ScanOrchestrator({
+      autoGenerateReports: false
+    });
     this.reportCoordinator = new ReportCoordinator(
       path.join(process.cwd(), &apos;output&apos;, &apos;reports&apos;)
     );
@@ -22047,15 +22576,19 @@ export class DuplicateDetectionWorker extends SidequestServer {
       prCreationErrors: 0
     };
     this.enablePRCreation = options.enablePRCreation ?? config.enablePRCreation;
-    this.retryQueue = new Map();
   }
   async initialize(): Promise&lt;void&gt; {
     try {
       await this.configLoader.load();
       this.configLoader.validate();
       const stats = this.configLoader.getStats();
+      const scanConfig = this.configLoader.getScanConfig();
+      if (typeof scanConfig.retryAttempts === &apos;number&apos; &amp;&amp; scanConfig.retryAttempts &gt;= 0) {
+        this.maxRetries = scanConfig.retryAttempts;
+      }
       logger.info({
-        ...stats
+        ...stats,
+        maxRetries: this.maxRetries
       }, &apos;Duplicate detection worker initialized&apos;);
       this.emit(&apos;initialized&apos;, stats);
       this.emit(&apos;pipeline:status&apos;, {
@@ -22083,176 +22616,30 @@ export class DuplicateDetectionWorker extends SidequestServer {
       repositories: repositories?.length ?? 0
     });
     try {
+      let result: InterProjectScanResult | IntraProjectScanResult;
       if (scanType === &apos;inter-project&apos;) {
-        return await this._runInterProjectScan(job, repositories);
+        result = await this._runInterProjectScan(job, repositories);
       } else if (scanType === &apos;intra-project&apos;) {
-        return await this._runIntraProjectScan(job, repositories[0]);
+        result = await this._runIntraProjectScan(job, repositories[0]);
       } else {
         throw new Error(`Unknown scan type: ${scanType}`);
       }
+      this.scanMetrics.totalScans++;
+      this.scanMetrics.successfulScans++;
+      this.emit(&apos;metrics:updated&apos;, this.scanMetrics);
+      return result;
     } catch (error) {
-      const shouldRetry = await this._handleRetry(job, error as Error);
-      if (shouldRetry) {
-        logger.info({ jobId: job.id }, &apos;Job will be retried&apos;);
-        throw error;
-      } else {
-        logError(logger, error, &apos;Job failed after all retry attempts&apos;, { jobId: job.id });
-        this.emit(&apos;pipeline:status&apos;, {
-          status: &apos;failed&apos;,
-          jobId: job.id,
-          error: (error as Error).message
-        });
-        throw error;
-      }
-    }
-  }
-  public _getOriginalJobId(jobId: string): string {
-    return jobId.replace(/-retry\d+/g, &apos;&apos;);
-  }
-  /**
-   * Handle retry logic with exponential backoff
-   */
-  public async _handleRetry(job: Job, error: Error &amp; Partial&lt;ExtendedError&gt;): Promise&lt;boolean&gt; {
-    const scanConfig = this.configLoader.getScanConfig();
-    const maxRetries = scanConfig.retryAttempts ?? 0;
-    const baseDelay = scanConfig.retryDelay ?? RETRY.RATE_LIMIT_DELAY_MS;
-    // Get original job ID to track retries correctly
-    const originalJobId = this._getOriginalJobId(job.id);
-    // Classify error to determine if retry is appropriate
-    const errorInfo = getErrorInfo(error);
-    if (!errorInfo.retryable) {
-      logger.warn({
+      this.scanMetrics.totalScans++;
+      this.scanMetrics.failedScans++;
+      this.emit(&apos;metrics:updated&apos;, this.scanMetrics);
+      logError(logger, error, &apos;Duplicate detection job failed&apos;, { jobId: job.id });
+      this.emit(&apos;pipeline:status&apos;, {
+        status: &apos;failed&apos;,
         jobId: job.id,
-        originalJobId,
-        errorCode: errorInfo.code,
-        errorMessage: errorInfo.message,
-        classification: errorInfo.category,
-        reason: errorInfo.reason
-      }, &apos;Error is non-retryable - skipping retry&apos;);
-      this.retryQueue.delete(originalJobId);
-      return false;
+        error: (error as Error).message
+      });
+      throw error;
     }
-    if (!this.retryQueue.has(originalJobId)) {
-      this.retryQueue.set(originalJobId, {
-        attempts: 0,
-        lastAttempt: Date.now(),
-        maxAttempts: maxRetries,
-        delay: baseDelay
-      });
-    }
-    const retryInfo = this.retryQueue.get(originalJobId)!;
-    retryInfo.attempts++;
-    if (retryInfo.attempts &gt;= RETRY.MAX_ABSOLUTE_ATTEMPTS) {
-      logger.error({
-        jobId: job.id,
-        originalJobId,
-        attempts: retryInfo.attempts,
-        maxAbsolute: RETRY.MAX_ABSOLUTE_ATTEMPTS
-      }, &apos;Circuit breaker triggered: Maximum absolute retry attempts reached&apos;);
-      Sentry.captureMessage(&apos;Circuit breaker triggered: Excessive retry attempts&apos;, {
-        level: &apos;error&apos;,
-        tags: {
-          component: &apos;retry-logic&apos;,
-          jobId: originalJobId,
-          errorType: error.code ?? error.name
-        },
-        extra: {
-          jobId: job.id,
-          originalJobId,
-          attempts: retryInfo.attempts,
-          maxAbsolute: RETRY.MAX_ABSOLUTE_ATTEMPTS,
-          errorMessage: error.message,
-          errorCode: errorInfo.code,
-          errorClassification: errorInfo.category
-        }
-      });
-      this.retryQueue.delete(originalJobId);
-      this.emit(&apos;retry:circuit-breaker&apos;, {
-        jobId: originalJobId,
-        attempts: retryInfo.attempts
-      });
-      return false;
-    }
-    if (retryInfo.attempts &gt;= retryInfo.maxAttempts) {
-      logger.warn({
-        jobId: job.id,
-        originalJobId,
-        attempts: retryInfo.attempts,
-        maxConfigured: retryInfo.maxAttempts
-      }, &apos;Maximum configured retry attempts reached&apos;);
-      Sentry.captureMessage(&apos;Maximum configured retry attempts reached&apos;, {
-        level: &apos;warning&apos;,
-        tags: {
-          component: &apos;retry-logic&apos;,
-          jobId: originalJobId,
-          errorType: error.code ?? error.name
-        },
-        extra: {
-          jobId: job.id,
-          originalJobId,
-          attempts: retryInfo.attempts,
-          maxConfigured: retryInfo.maxAttempts,
-          errorMessage: error.message,
-          errorCode: errorInfo.code,
-          errorClassification: errorInfo.category
-        }
-      });
-      this.retryQueue.delete(originalJobId);
-      this.emit(&apos;retry:max-attempts&apos;, {
-        jobId: originalJobId,
-        attempts: retryInfo.attempts
-      });
-      return false;
-    }
-    if (retryInfo.attempts &gt;= 3) {
-      Sentry.captureMessage(&apos;Warning: Approaching retry limit&apos;, {
-        level: &apos;warning&apos;,
-        tags: {
-          component: &apos;retry-logic&apos;,
-          jobId: originalJobId,
-          errorType: error.code ?? error.name
-        },
-        extra: {
-          jobId: job.id,
-          originalJobId,
-          attempts: retryInfo.attempts,
-          maxAttempts: retryInfo.maxAttempts,
-          maxAbsolute: RETRY.MAX_ABSOLUTE_ATTEMPTS,
-          errorMessage: error.message,
-          errorCode: errorInfo.code,
-          errorClassification: errorInfo.category
-        }
-      });
-      this.emit(&apos;retry:warning&apos;, {
-        jobId: originalJobId,
-        attempts: retryInfo.attempts,
-        maxAttempts: retryInfo.maxAttempts
-      });
-    }
-    const baseRetryDelay = errorInfo.suggestedDelay || retryInfo.delay;
-    const delay = baseRetryDelay * Math.pow(2, retryInfo.attempts - 1);
-    logger.info({
-      jobId: job.id,
-      originalJobId,
-      attempt: retryInfo.attempts,
-      maxAttempts: retryInfo.maxAttempts,
-      maxAbsolute: RETRY.MAX_ABSOLUTE_ATTEMPTS,
-      delayMs: delay,
-      error: error.message,
-      errorClassification: errorInfo.category,
-      errorReason: errorInfo.reason,
-      suggestedDelay: errorInfo.suggestedDelay
-    }, &apos;Scheduling retry with exponential backoff&apos;);
-    this.emit(&apos;retry:scheduled&apos;, {
-      jobId: originalJobId,
-      attempt: retryInfo.attempts,
-      delay
-    });
-    setTimeout(() =&gt; {
-      logRetry(logger, &apos;failed job&apos;, retryInfo.attempts, retryInfo.maxAttempts, { jobId: job.id, originalJobId });
-      this.createJob(`${originalJobId}-retry${retryInfo.attempts}`, job.data);
-    }, delay);
-    return true;
   }
   public async _runInterProjectScan(job: Job, repositoryConfigs: RepositoryConfig[]): Promise&lt;InterProjectScanResult&gt; {
     const repoPaths = repositoryConfigs.map(r =&gt; r.path);
@@ -22260,7 +22647,9 @@ export class DuplicateDetectionWorker extends SidequestServer {
       jobId: job.id,
       repositories: repoPaths.length
     }, &apos;Running inter-project scan&apos;);
-    const result = await this.interProjectScanner.scanRepositories(repoPaths) as unknown as ScanResult;
+    const result = await this.interProjectScanner.scanRepositories(repoPaths, {
+      generateReports: false
+    }) as unknown as ScanResult;
     const reportPaths = await this.reportCoordinator.generateAllReports(result as never, {
       title: `Automated Inter-Project Scan: ${repoPaths.length} Repositories`,
       includeDetails: true,
@@ -22322,7 +22711,9 @@ export class DuplicateDetectionWorker extends SidequestServer {
       jobId: job.id,
       repository: repoPath
     }, &apos;Running intra-project scan&apos;);
-    const result = await this.orchestrator.scanRepository(repoPath) as unknown as ScanResult;
+    const result = await this.orchestrator.scanRepository(repoPath, {
+      generateReports: false
+    }) as unknown as ScanResult;
     const reportPaths = await this.reportCoordinator.generateAllReports(result as never, {
       title: `Automated Scan: ${repositoryConfig.name}`,
       includeDetails: true,
@@ -22397,7 +22788,6 @@ export class DuplicateDetectionWorker extends SidequestServer {
     };
   }
   public _updateMetrics(scanResult: ScanResult): void {
-    this.scanMetrics.totalScans++;
     if (scanResult.scan_type === &apos;inter-project&apos;) {
       this.scanMetrics.totalDuplicatesFound += scanResult.metrics.total_cross_repository_groups ?? 0;
       this.scanMetrics.totalSuggestionsGenerated += scanResult.metrics.total_suggestions ?? 0;
@@ -22411,7 +22801,6 @@ export class DuplicateDetectionWorker extends SidequestServer {
         .filter(dup =&gt; dup.impact_score &gt;= 75);
       this.scanMetrics.highImpactDuplicates += highImpactDuplicates.length;
     }
-    this.emit(&apos;metrics:updated&apos;, this.scanMetrics);
   }
   public async _updateRepositoryConfigs(repositoryConfigs: RepositoryConfig[], scanResult: ScanResult): Promise&lt;void&gt; {
     const status = scanResult.scan_metadata ? &apos;success&apos; : &apos;failure&apos;;
@@ -22425,8 +22814,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
           logger.debug({ repository: repoConfig.name }, &apos;Skipping config update for test repository&apos;);
           continue;
         }
-        await this.configLoader.updateLastScanned(repoConfig.name);
-        await this.configLoader.addScanHistory(repoConfig.name, {
+        await this.configLoader.recordScanResult(repoConfig.name, {
           status,
           duration,
           duplicatesFound
@@ -22513,25 +22901,27 @@ export class DuplicateDetectionWorker extends SidequestServer {
       this.scheduleScan(&apos;intra-project&apos;, [repo]);
     }
     const groups = this.configLoader.getEnabledGroups();
+    let scheduledGroupScans = 0;
     for (const group of groups) {
       const groupRepos = this.configLoader.getGroupRepositories(group.name);
       if (groupRepos.length &gt;= 2) {
         this.scheduleScan(&apos;inter-project&apos;, groupRepos, group.name);
+        scheduledGroupScans++;
       }
     }
     logger.info({
       individualScans: repositoriesToScan.length,
-      groupScans: groups.length
+      groupScans: scheduledGroupScans
     }, &apos;Nightly scan scheduled&apos;);
     this.emit(&apos;pipeline:status&apos;, {
       status: &apos;scheduled&apos;,
       individualScans: repositoriesToScan.length,
-      groupScans: groups.length
+      groupScans: scheduledGroupScans
     });
   }
   getRetryMetrics(): RetryMetrics {
     const retryStats: RetryMetrics = {
-      activeRetries: this.retryQueue.size,
+      activeRetries: 0,
       totalRetryAttempts: 0,
       jobsBeingRetried: [],
       retryDistribution: {
@@ -22541,22 +22931,27 @@ export class DuplicateDetectionWorker extends SidequestServer {
         nearingLimit: 0
       }
     };
-    for (const [jobId, retryInfo] of this.retryQueue.entries()) {
-      retryStats.totalRetryAttempts += retryInfo.attempts;
-      retryStats.jobsBeingRetried.push({
-        jobId,
-        attempts: retryInfo.attempts,
-        maxAttempts: retryInfo.maxAttempts,
-        lastAttempt: new Date(retryInfo.lastAttempt).toISOString()
-      });
-      if (retryInfo.attempts === 1) {
+    for (const [jobId, job] of this.jobs.entries()) {
+      const attempts = job.retryCount ?? 0;
+      if (attempts &lt;= 0) continue;
+      retryStats.totalRetryAttempts += attempts;
+      if (job.retryPending) {
+        retryStats.activeRetries++;
+        retryStats.jobsBeingRetried.push({
+          jobId,
+          attempts,
+          maxAttempts: this.maxRetries,
+          lastAttempt: job.startedAt?.toISOString() ?? job.createdAt.toISOString()
+        });
+      }
+      if (attempts === 1) {
         retryStats.retryDistribution.attempt1++;
-      } else if (retryInfo.attempts === 2) {
+      } else if (attempts === 2) {
         retryStats.retryDistribution.attempt2++;
       } else {
         retryStats.retryDistribution.attempt3Plus++;
       }
-      if (retryInfo.attempts &gt;= 3) {
+      if (attempts &gt;= 3) {
         retryStats.retryDistribution.nearingLimit++;
       }
     }
@@ -25248,7 +25643,9 @@ sidequest/
 │   ├── dashboard-populate-worker.ts      # Dashboard populate jobs
 │   └── test-refactor-worker.ts           # Test refactor jobs
 │
-├── types/              # TypeScript type definitions
+├── pipeline-core/types/ # TypeScript type definitions
+│   ├── scan-orchestrator-types.ts        # Scan orchestrator interfaces
+│   ├── migration-types.ts                # Migration definitions
 │   └── duplicate-detection-types.ts      # Zod schemas + types
 │
 ├── utils/              # Utility modules

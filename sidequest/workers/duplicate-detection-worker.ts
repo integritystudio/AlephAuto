@@ -22,7 +22,7 @@ import { PRCreator, type PRCreationResults } from '../pipeline-core/git/pr-creat
 import { createComponentLogger, logError, logWarn, logStart } from '../utils/logger.ts';
 import path from 'path';
 import * as Sentry from '@sentry/node';
-import type { RetryMetrics, WorkerScanMetrics as ScanMetrics, DuplicateDetectionWorkerOptions } from '../types/duplicate-detection-types.ts';
+import type { RetryMetrics, WorkerScanMetrics as ScanMetrics, DuplicateDetectionWorkerOptions } from '../pipeline-core/types/duplicate-detection-types.ts';
 import { config } from '../core/config.ts';
 
 const logger = createComponentLogger('DuplicateDetectionWorker');

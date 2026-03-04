@@ -4,11 +4,11 @@
  * Comprehensive TypeScript types for the duplicate detection pipeline,
  * including job data, scan results, metrics, and configuration.
  *
- * @module sidequest/types/duplicate-detection-types
+ * @module sidequest/pipeline-core/types/duplicate-detection-types
  */
 
 import { z } from 'zod';
-import type { SidequestServerOptions } from '../core/server.ts';
+import type { SidequestServerOptions } from '../../core/server.ts';
 
 // ============================================================================
 // Scan Types & Enums

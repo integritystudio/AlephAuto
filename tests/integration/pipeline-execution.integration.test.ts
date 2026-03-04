@@ -237,9 +237,14 @@ describe('Pipeline Execution - Integration Tests', () => {
       `Should have at least ${pipelineRunners.length} pipeline runners`
     );
 
-    // Each file should be executable
+    // Only script entrypoints (files with shebangs) must be executable.
+    // Test files and helper modules in this directory may not be executable.
     for (const file of pipelineFiles) {
       const filePath = path.join(runnersDir, file);
+      const content = await fs.readFile(filePath, 'utf-8');
+      const isScriptEntrypoint = content.startsWith('#!');
+      if (!isScriptEntrypoint) continue;
+
       const fileStats = await fs.stat(filePath);
       const hasExecute = (fileStats.mode & 0o100) !== 0;
 

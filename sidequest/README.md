@@ -61,7 +61,9 @@ sidequest/
 │   ├── dashboard-populate-worker.ts      # Dashboard populate jobs
 │   └── test-refactor-worker.ts           # Test refactor jobs
 │
-├── types/              # TypeScript type definitions
+├── pipeline-core/types/ # TypeScript type definitions
+│   ├── scan-orchestrator-types.ts        # Scan orchestrator interfaces
+│   ├── migration-types.ts                # Migration definitions
 │   └── duplicate-detection-types.ts      # Zod schemas + types
 │
 ├── utils/              # Utility modules
