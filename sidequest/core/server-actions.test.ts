@@ -16,6 +16,18 @@ function stubRepositoryInit(t: test.TestContext): void {
   });
 }
 
+class DelayedDispatchServer extends SidequestServer {
+  async executeJob(jobId: string): Promise<void> {
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    await super.executeJob(jobId);
+  }
+}
+
+async function flushDispatchQueue(): Promise<void> {
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  await new Promise<void>((resolve) => setImmediate(resolve));
+}
+
 test('cancelJob rejects running jobs', (t) => {
   stubRepositoryInit(t);
 
@@ -100,4 +112,56 @@ test('pauseJob clears retryPending immediately', (t) => {
   assert.equal(result.success, true);
   assert.equal(job.retryPending, false);
   assert.equal(server.getStats().pendingRetries, 0);
+});
+
+test('cancelJob blocks execution when job is cancelled during dispatch window', async (t) => {
+  stubRepositoryInit(t);
+
+  const server = new DelayedDispatchServer({ autoStart: false, jobType: 'action-guards' });
+  server.stop();
+
+  let handlerRuns = 0;
+  server.handleJob = async () => {
+    handlerRuns += 1;
+    return { ok: true };
+  };
+
+  const job = server.createJob('dispatch-window-cancel', {});
+  server.isRunning = true;
+  await server.processQueue();
+
+  const result = server.cancelJob(job.id);
+  assert.equal(result.success, true);
+
+  await flushDispatchQueue();
+
+  assert.equal(handlerRuns, 0);
+  assert.equal(job.status, JOB_STATUS.CANCELLED);
+  assert.equal(server.getStats().active, 0);
+});
+
+test('pauseJob blocks execution when job is paused during dispatch window', async (t) => {
+  stubRepositoryInit(t);
+
+  const server = new DelayedDispatchServer({ autoStart: false, jobType: 'action-guards' });
+  server.stop();
+
+  let handlerRuns = 0;
+  server.handleJob = async () => {
+    handlerRuns += 1;
+    return { ok: true };
+  };
+
+  const job = server.createJob('dispatch-window-pause', {});
+  server.isRunning = true;
+  await server.processQueue();
+
+  const result = server.pauseJob(job.id);
+  assert.equal(result.success, true);
+
+  await flushDispatchQueue();
+
+  assert.equal(handlerRuns, 0);
+  assert.equal(job.status, JOB_STATUS.PAUSED);
+  assert.equal(server.getStats().active, 0);
 });

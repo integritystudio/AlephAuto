@@ -19,6 +19,7 @@ import { config } from '../core/config.ts';
 import { TIMEOUTS } from '../core/constants.ts';
 import cron from 'node-cron';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 const logger = createComponentLogger('TestRefactorPipeline');
 
@@ -239,9 +240,17 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch(error => {
-  logger.error({ err: error }, 'Fatal error');
-  process.exit(1);
-});
+function isDirectExecution(): boolean {
+  const currentModulePath = fileURLToPath(import.meta.url);
+  const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
+  return entryPath === currentModulePath;
+}
+
+if (isDirectExecution()) {
+  main().catch(error => {
+    logger.error({ err: error }, 'Fatal error');
+    process.exit(1);
+  });
+}
 
 export { runPipeline };

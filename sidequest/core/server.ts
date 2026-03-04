@@ -260,7 +260,9 @@ export class SidequestServer extends EventEmitter {
       let branchCreated = false;
 
       try {
-        this._prepareJobForExecution(job);
+        if (!this._prepareJobForExecution(job)) {
+          return;
+        }
         branchCreated = await this._setupGitBranchIfEnabled(job);
 
         const result = await this.runJobHandler(job);
@@ -309,7 +311,15 @@ export class SidequestServer extends EventEmitter {
     }
   }
 
-  private _prepareJobForExecution(job: Job): void {
+  private _prepareJobForExecution(job: Job): boolean {
+    if (job.status !== JOB_STATUS.QUEUED) {
+      logger.debug({
+        jobId: job.id,
+        status: job.status
+      }, 'Skipping execution because job is no longer queued');
+      return false;
+    }
+
     job.status = JOB_STATUS.RUNNING;
     job.startedAt = new Date();
     job.retryPending = false;
@@ -325,6 +335,8 @@ export class SidequestServer extends EventEmitter {
       message: `Job ${job.id} started`,
       level: 'info',
     });
+
+    return true;
   }
 
   private async _setupGitBranchIfEnabled(job: Job): Promise<boolean> {
