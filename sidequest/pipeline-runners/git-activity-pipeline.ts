@@ -117,8 +117,10 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
       // Create job based on options
       let job: Job;
 
-      if (options.sinceDate && options.untilDate) {
-        job = this.worker.createCustomReportJob(options.sinceDate, options.untilDate);
+      if (options.sinceDate) {
+        job = options.untilDate
+          ? this.worker.createCustomReportJob(options.sinceDate, options.untilDate)
+          : this.worker.createReportJob(options);
       } else if (options.reportType === 'monthly' || options.days === 30) {
         job = this.worker.createMonthlyReportJob();
       } else if (options.reportType === 'weekly' || options.days === 7) {
@@ -157,7 +159,7 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
   /**
    * Schedule monthly reports
    */
-  scheduleMonthlyReports(cronSchedule: string = '0 0 1 * *') {
+  scheduleMonthlyReports(cronSchedule: string = '0 8 1 * *') {
     return this.scheduleCron(logger, 'monthly git activity report', cronSchedule, () => this.runReport({ reportType: 'monthly' }));
   }
 }
@@ -166,7 +168,8 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const pipeline = new GitActivityPipeline();
 
-  const gitCronSchedule = process.env.GIT_CRON_SCHEDULE || '0 20 * * 0'; // Sunday 8 PM
+  const weeklyCronSchedule = process.env.GIT_CRON_SCHEDULE || '0 20 * * 0'; // Sunday 8 PM
+  const monthlyCronSchedule = process.env.GIT_MONTHLY_CRON_SCHEDULE || '0 8 1 * *'; // 1st of month 8 AM
 
   // Parse command line arguments
   const args = process.argv.slice(2);
@@ -210,8 +213,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         process.exit(1);
       });
   } else {
-    logStart(logger, 'git activity pipeline in scheduled mode', { cronSchedule: gitCronSchedule });
-    pipeline.scheduleWeeklyReports(gitCronSchedule);
+    logStart(logger, 'git activity pipeline in scheduled mode', {
+      weeklyCronSchedule,
+      monthlyCronSchedule,
+    });
+    pipeline.scheduleWeeklyReports(weeklyCronSchedule);
+    pipeline.scheduleMonthlyReports(monthlyCronSchedule);
     logger.info('Git activity pipeline running. Press Ctrl+C to stop.');
   }
 }

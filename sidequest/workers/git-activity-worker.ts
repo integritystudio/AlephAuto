@@ -5,6 +5,7 @@ import { captureProcessOutput } from '@shared/process-io';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
+import { fileURLToPath } from 'url';
 import { createComponentLogger } from '../utils/logger.ts';
 import { TIMEOUTS, TIME } from '../core/constants.ts';
 
@@ -79,8 +80,9 @@ export class GitActivityWorker extends SidequestServer {
       jobType: 'git-activity',
     });
     this.codeBaseDir = options.codeBaseDir ?? path.join(os.homedir(), 'code');
+    const moduleDir = path.dirname(fileURLToPath(import.meta.url));
     this.pythonScript = options.pythonScript ?? path.join(
-      path.dirname(new URL(import.meta.url).pathname),
+      moduleDir,
       '..',
       'pipeline-runners',
       'collect_git_activity.py'
@@ -200,9 +202,11 @@ export class GitActivityWorker extends SidequestServer {
     const args: string[] = [];
 
     // Add date range arguments
-    if (sinceDate && untilDate) {
+    if (sinceDate) {
       args.push('--start-date', sinceDate);
-      args.push('--end-date', untilDate);
+      if (untilDate) {
+        args.push('--end-date', untilDate);
+      }
     } else if (reportType === 'weekly' || days === 7) {
       args.push('--weekly');
     } else if (reportType === 'monthly' || days === 30) {
