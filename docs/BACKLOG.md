@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-04 | **Last Session:** 2026-03-04 (CX11 refactor + backlog migration)
+**Last Updated:** 2026-03-04 | **Last Session:** 2026-03-04 (SV1 migration completed and closed)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -13,6 +13,7 @@ Technical debt and planned improvements.
 No active deferred/blocked items.
 
 Closed items migrated to changelog:
+- [v2.3.10](changelog/2.3/CHANGELOG.md) (`SV1`)
 - [v2.3.9](changelog/2.3/CHANGELOG.md) (`CX11`)
 - [v2.3.8](changelog/2.3/CHANGELOG.md) (`CX12`, `CX13`)
 - [v2.3.7](changelog/2.3/CHANGELOG.md) (`DOC1-DOC7`)
@@ -56,9 +57,7 @@ Thresholds: ≤300 lines, ≤20 methods.
 
 ### Standards Violations
 
-| ID | Rule | Count | Severity | Details |
-|----|------|-------|----------|---------|
-| SV1 | `no-console-log` | 500+ | warning | Hit 500 cap; worst: `claude-health-pipeline.ts` (61), `test-automated-pipeline.ts` (50) |
+No active standards backlog items.
 
 ### Documentation Coverage
 
@@ -70,4 +69,4 @@ No issues found (SQL injection, XSS, command injection, hardcoded secrets, insec
 
 ### Remaining Priority
 
-1. **SV1** — Replace `console.log` with structured logger in non-test code
+No active backlog items.

@@ -6,6 +6,33 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.10] - 2026-03-04
+
+### Summary
+
+Resolved standards backlog item `SV1` by migrating remaining non-test `console.log` usage to structured logging/output helpers and closing the standards backlog.
+
+### Changed
+
+- Migrated remaining `console.log` usage in:
+  - `sidequest/pipeline-runners/duplicate-detection-pipeline.ts`
+  - `sidequest/pipeline-runners/claude-health-pipeline.ts`
+  - `sidequest/pipeline-runners/plugin-management-pipeline.ts`
+  - `sidequest/utils/refactor-test-suite.ts`
+  - `api/server.ts`
+  - `api/preload.ts`
+  - `sidequest/pipeline-core/scanners/codebase-health-scanner.ts`
+  - `sidequest/pipeline-core/reports/html-report-generator.ts`
+- Replaced CLI usage `console.error` in `codebase-health-scanner.ts` with stderr writer helper (`printUsage`).
+- Backlog `SV1` migrated and closed in `docs/BACKLOG.md`.
+
+### Validation
+
+- Production-scope `console.log` baseline (excluding tests/docs/scripts/frontend/etc.): `0`
+- `npm run test:validate-backlog` (pass)
+
+---
+
 ## [2.3.9] - 2026-03-04
 
 ### Summary
