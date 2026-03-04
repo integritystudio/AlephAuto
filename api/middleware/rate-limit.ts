@@ -8,6 +8,7 @@ import type { Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import { createComponentLogger } from '#sidequest/utils/logger.ts';
 import { RATE_LIMIT } from '#sidequest/core/constants.ts';
+import { HttpStatus } from '../constants/http-status.ts';
 
 const logger = createComponentLogger('RateLimiter');
 
@@ -42,7 +43,7 @@ export const rateLimiter = rateLimit({
       limit: 500
     }, 'Rate limit exceeded');
 
-    res.status(429).json({
+    res.status(HttpStatus.TOO_MANY_REQUESTS).json({
       error: 'Too Many Requests',
       message: 'Rate limit exceeded. Please try again in 15 minutes.',
       retryAfter: 900, // seconds
@@ -75,7 +76,7 @@ export const strictRateLimiter = rateLimit({
       mode: isDevelopment ? 'development' : 'production'
     }, 'Strict rate limit exceeded');
 
-    res.status(429).json({
+    res.status(HttpStatus.TOO_MANY_REQUESTS).json({
       error: 'Too Many Requests',
       message: `Rate limit exceeded for scan operations. Please try again in 1 hour.${isDevelopment ? ' (Development mode: 100/hour)' : ''}`,
       retryAfter: 3600,
@@ -104,7 +105,7 @@ export const bulkImportRateLimiter = rateLimit({
       mode: isDevelopment ? 'development' : 'production'
     }, 'Bulk import rate limit exceeded');
 
-    res.status(429).json({
+    res.status(HttpStatus.TOO_MANY_REQUESTS).json({
       error: 'Too Many Requests',
       message: `Rate limit exceeded for bulk import operations. Please try again in 1 hour.`,
       retryAfter: 3600,

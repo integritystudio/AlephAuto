@@ -1,3 +1,15 @@
+b150b8a 2026-03-04 chore: refresh docs, repomix artifacts, and test coverage
+  sidequest/docs/gitlog-sidequest.txt
+  sidequest/repomix-output.xml
+
+bd0fe6c 2026-03-04 fix remaining pipeline entry guards and cleanup script empty-set handling
+  sidequest/pipeline-runners/direct-execution-path-guard.test.ts
+  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
+  sidequest/pipeline-runners/gitignore-pipeline.ts
+  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
+  sidequest/pipeline-runners/universal-repo-cleanup.sh
+  sidequest/workers/repo-cleanup-worker.test.ts
+
 d0a31e3 2026-03-04 fix(pipeline-tests): revert runner execute bits and align permission expectations
   sidequest/pipeline-runners/bugfix-audit-pipeline.ts
   sidequest/pipeline-runners/claude-health-pipeline.ts
@@ -1228,11 +1240,4 @@ c97012e 2026-01-29 fix: address critical and high-priority code review issues
   sidequest/core/constants.js
   sidequest/core/database.js
   sidequest/core/job-repository.js
-  sidequest/core/server.js
-
-bba2a57 2026-01-29 refactor: implement remaining code review fixes
-  sidequest/core/database.js
-  sidequest/core/server.js
-
-b537128 2026-01-29 refactor(server): consolidate job persistence into _persistJob helper
   sidequest/core/server.js

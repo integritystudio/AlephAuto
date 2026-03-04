@@ -22,6 +22,7 @@ import { JOB_STATUS } from '../types/job-status.ts';
 import { PAGINATION } from '#sidequest/core/constants.ts';
 import { type RepositoryConfig } from '#sidequest/pipeline-core/config/repository-config-loader.ts';
 import path from 'path';
+import { HttpStatus } from '../constants/http-status.ts';
 
 const router = express.Router();
 const logger = createComponentLogger('ScanRoutes');
@@ -67,7 +68,7 @@ router.post(
         timestamp: new Date().toISOString()
       };
 
-      res.status(201).json(response);
+      res.status(HttpStatus.CREATED).json(response);
     } catch (error) {
       next(error);
     }
@@ -83,7 +84,7 @@ router.post('/start-multi', strictRateLimiter, async (req, res, next) => {
     const { repositoryPaths, groupName } = req.body;
 
     if (!repositoryPaths || !Array.isArray(repositoryPaths) || repositoryPaths.length < 2) {
-      return res.status(400).json({
+      return res.status(HttpStatus.BAD_REQUEST).json({
         error: 'Bad Request',
         message: 'repositoryPaths must be an array with at least 2 repositories',
         timestamp: new Date().toISOString()
@@ -100,7 +101,7 @@ router.post('/start-multi', strictRateLimiter, async (req, res, next) => {
 
     const job = worker.scheduleScan('inter-project', repositories as RepositoryConfig[]);
 
-    res.status(201).json({
+    res.status(HttpStatus.CREATED).json({
       success: true,
       job_id: job.id, // Use the actual job ID from scheduleScan
       group_name: groupName || 'unnamed-group',
@@ -177,7 +178,7 @@ router.get('/:scanId/results', async (req, res, next) => {
 
     // Return 404 if scan not found
     if (!job) {
-      return res.status(404).json({
+      return res.status(HttpStatus.NOT_FOUND).json({
         error: 'Not Found',
         message: `Scan with ID '${scanId}' not found`,
         timestamp: new Date().toISOString()

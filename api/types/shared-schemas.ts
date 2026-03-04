@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { HttpStatus, type HttpStatusCode } from '../constants/http-status.ts';
 
 export const ErrorResponseSchema = z.object({
   error: z.string(),
@@ -33,7 +34,7 @@ export type ValidationErrorResponse = z.infer<typeof ValidationErrorResponseSche
 export function createErrorResponse(
   error: string,
   message: string,
-  status: number = 500
+  status: HttpStatusCode = HttpStatus.INTERNAL_SERVER_ERROR
 ): ErrorResponse {
   return {
     error,
@@ -51,7 +52,7 @@ export function createValidationErrorResponse(
     error: 'Bad Request',
     message,
     timestamp: new Date().toISOString(),
-    status: 400,
+    status: HttpStatus.BAD_REQUEST,
     errors
   };
 }
@@ -65,7 +66,7 @@ export function createValidationError(
     error: 'Bad Request',
     message: `Validation failed: ${message}`,
     timestamp: new Date().toISOString(),
-    status: 400,
+    status: HttpStatus.BAD_REQUEST,
     errors: [{ field, message, code }]
   };
 }

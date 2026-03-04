@@ -1,3 +1,12 @@
+b150b8a 2026-03-04 chore: refresh docs, repomix artifacts, and test coverage
+  docs/architecture/similarity-algorithm.md
+  docs/dashboard_ui/DATAFLOW_DIAGRAMS.md
+  docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md
+  docs/repomix/repo-compressed.xml
+  docs/repomix/repomix.xml
+  sidequest/docs/gitlog-sidequest.txt
+  sidequest/repomix-output.xml
+
 38f9444 2026-03-04 docs(architecture): refresh pipeline data-flow maintenance notes
   docs/architecture/pipeline-data-flow.md
 

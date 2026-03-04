@@ -22,6 +22,7 @@ import { createComponentLogger } from '#sidequest/utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import { jobRepository } from '#sidequest/core/job-repository.ts';
 import { workerRegistry } from '../utils/worker-registry.ts';
+import { HttpStatus } from '../constants/http-status.ts';
 
 const router = express.Router();
 const logger = createComponentLogger('PipelineRoutes');
@@ -147,7 +148,7 @@ router.post(
         jobId
       }, 'Successfully triggered pipeline job');
 
-      res.status(201).json(response);
+      res.status(HttpStatus.CREATED).json(response);
     } catch (error) {
       logger.error({
         error,

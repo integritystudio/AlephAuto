@@ -16,22 +16,33 @@ OUT_DIR="$ROOT/$OUTPUT_PATH"
 TOKEN_TREE_FILE="$OUT_DIR/$TREE_FILE.txt"
 COMPRESSED_REPO_FILE="$OUT_DIR/$COMPRESSED_FILE.xml"
 LOSSLESS_REPO_FILE="$OUT_DIR/$LOSSLESS_FILE.xml"
+GITLOG_TOP_FILE="$OUT_DIR/gitlog-top20.txt"
+GITLOG_SIDEQUEST_FILE="$ROOT/sidequest/docs/gitlog-sidequest.txt"
 TREE_FILE_NAME="$OUTPUT_PATH/$TREE_FILE.txt"
 COMPRESSED_FILE_NAME="$OUTPUT_PATH/$COMPRESSED_FILE.xml"
 LOSSLESS_FILE_NAME="$OUTPUT_PATH/$LOSSLESS_FILE.xml"
+GITLOG_TOP_FILE_NAME="$OUTPUT_PATH/gitlog-top20.txt"
+GITLOG_SIDEQUEST_FILE_NAME="sidequest/docs/gitlog-sidequest.txt"
 
 # input file paths
 INPUT_DIR="$ROOT/scripts/generate-"
 TOKEN_TREE_SCRIPT="$INPUT_DIR$TREE_FILE.sh"
 COMPRESS_SCRIPT="$INPUT_DIR$COMPRESSED_FILE.sh"
 LOSSLESS_SCRIPT="$INPUT_DIR$LOSSLESS_FILE.sh"
+GITLOG_TOP_SCRIPT="$ROOT/scripts/generate-diff-summary.sh"
+GITLOG_SIDEQUEST_SCRIPT="$ROOT/scripts/generate-sidequest-gitlog.sh"
 
 echo "File set up..."
 # make output dir if not exists
 mkdir -p "$OUT_DIR"
 
 # delete only the artifacts this wrapper regenerates
-rm -f "$TOKEN_TREE_FILE" "$COMPRESSED_REPO_FILE" "$LOSSLESS_REPO_FILE"
+rm -f \
+  "$TOKEN_TREE_FILE" \
+  "$COMPRESSED_REPO_FILE" \
+  "$LOSSLESS_REPO_FILE" \
+  "$GITLOG_TOP_FILE" \
+  "$GITLOG_SIDEQUEST_FILE"
 
 # project-level logging
 PROJECT_DIR="$(basename "$ROOT")"
@@ -50,6 +61,20 @@ echo "Generating repomix file for $PROJECT_DIR at $LOSSLESS_FILE_NAME"
 bash "$LOSSLESS_SCRIPT" "$ROOT" "$LOSSLESS_REPO_FILE"
 echo "Success!"
 echo
+
+echo "Generating top-file git history at $GITLOG_TOP_FILE_NAME"
+(
+  cd "$ROOT"
+  bash "$GITLOG_TOP_SCRIPT"
+)
+echo "Success!"
+echo
+
+echo "Generating sidequest git history at $GITLOG_SIDEQUEST_FILE_NAME"
+bash "$GITLOG_SIDEQUEST_SCRIPT"
+echo "Success!"
+echo
+
 echo "Artifacts:"
 
 print_artifact() {
@@ -68,3 +93,5 @@ print_artifact() {
 print_artifact "$TOKEN_TREE_FILE" "$TREE_FILE_NAME"
 print_artifact "$COMPRESSED_REPO_FILE" "$COMPRESSED_FILE_NAME"
 print_artifact "$LOSSLESS_REPO_FILE" "$LOSSLESS_FILE_NAME"
+print_artifact "$GITLOG_TOP_FILE" "$GITLOG_TOP_FILE_NAME"
+print_artifact "$GITLOG_SIDEQUEST_FILE" "$GITLOG_SIDEQUEST_FILE_NAME"

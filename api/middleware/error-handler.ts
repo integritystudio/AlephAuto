@@ -8,6 +8,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { createComponentLogger } from '#sidequest/utils/logger.ts';
 import { config } from '#sidequest/core/config.ts';
 import * as Sentry from '@sentry/node';
+import { HttpStatus } from '../constants/http-status.ts';
 
 const logger = createComponentLogger('ErrorHandler');
 
@@ -70,7 +71,7 @@ export function errorHandler(err: ApiError, req: Request, res: Response, _next: 
   });
 
   // Determine status code
-  const statusCode = err.statusCode || err.status || 500;
+  const statusCode = err.statusCode || err.status || HttpStatus.INTERNAL_SERVER_ERROR;
 
   // Prepare standardized error response
   const errorResponse: {
@@ -80,7 +81,7 @@ export function errorHandler(err: ApiError, req: Request, res: Response, _next: 
   } = {
     success: false,
     error: {
-      code: err.code || (statusCode >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST'),
+      code: err.code || (statusCode >= HttpStatus.INTERNAL_SERVER_ERROR ? 'INTERNAL_ERROR' : 'BAD_REQUEST'),
       message: err.message || 'An unexpected error occurred'
     },
     timestamp: new Date().toISOString()

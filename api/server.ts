@@ -28,6 +28,7 @@ import repositoryRoutes from './routes/repositories.ts';
 import reportRoutes from './routes/reports.ts';
 import pipelineRoutes from './routes/pipelines.ts';
 import jobsRoutes from './routes/jobs.ts';
+import { HttpStatus } from './constants/http-status.ts';
 import * as Sentry from '@sentry/node';
 import { createServer } from 'http';
 import { createWebSocketServer } from './websocket.ts';
@@ -133,7 +134,7 @@ app.get('/api/health/doppler', async (req: Request, res: Response) => {
     });
   } catch (error) {
     logError(logger, error, 'Failed to check Doppler health');
-    res.status(500).json({
+    res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       success: false,
       error: {
         code: 'INTERNAL_ERROR',
@@ -229,7 +230,7 @@ app.get('/api/status', (req: Request, res: Response) => {
     Sentry.captureException(error, {
       tags: { component: 'APIServer', endpoint: '/api/status' }
     });
-    res.status(500).json({
+    res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       success: false,
       error: {
         code: 'INTERNAL_ERROR',
@@ -278,7 +279,7 @@ app.get('/api/pipeline-data-flow', async (req: Request, res: Response) => {
     Sentry.captureException(error, {
       tags: { component: 'APIServer', endpoint: '/api/pipeline-data-flow' }
     });
-    res.status(500).json({
+    res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       success: false,
       error: {
         code: 'INTERNAL_ERROR',
@@ -308,7 +309,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 // 404 handler
 app.use((req: Request, res: Response) => {
-  res.status(404).json({
+  res.status(HttpStatus.NOT_FOUND).json({
     success: false,
     error: {
       code: 'NOT_FOUND',

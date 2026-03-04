@@ -8,6 +8,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { createComponentLogger } from '#sidequest/utils/logger.ts';
 import { config } from '#sidequest/core/config.ts';
 import crypto from 'crypto';
+import { HttpStatus } from '../constants/http-status.ts';
 
 const logger = createComponentLogger('AuthMiddleware');
 
@@ -75,7 +76,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
 
   if (!apiKey) {
     logger.warn({ path: req.path, ip: req.ip }, 'API request without API key');
-    res.status(401).json({
+    res.status(HttpStatus.UNAUTHORIZED).json({
       error: 'Unauthorized',
       message: 'API key required. Provide via X-API-Key header or Authorization: Bearer token',
       timestamp: new Date().toISOString()
@@ -91,7 +92,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
       apiKeyPrefix: apiKey.substring(0, 8) + '...'
     }, 'Invalid API key');
 
-    res.status(403).json({
+    res.status(HttpStatus.FORBIDDEN).json({
       error: 'Forbidden',
       message: 'Invalid API key',
       timestamp: new Date().toISOString()

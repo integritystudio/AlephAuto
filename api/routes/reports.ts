@@ -10,6 +10,7 @@ import { validateQuery } from '../middleware/validation.ts';
 import { ReportQuerySchema } from '../types/report-requests.ts';
 import fs from 'fs/promises';
 import path from 'path';
+import { HttpStatus } from '../constants/http-status.ts';
 
 const router = express.Router();
 const logger = createComponentLogger('ReportRoutes');
@@ -96,7 +97,7 @@ router.get('/:filename', async (req, res, next) => {
 
     // Security: prevent directory traversal
     if (filename.includes('..') || filename.includes('/')) {
-      return res.status(400).json({
+      return res.status(HttpStatus.BAD_REQUEST).json({
         success: false,
         error: {
           code: 'INVALID_REQUEST',
@@ -138,7 +139,7 @@ router.get('/:filename', async (req, res, next) => {
             }, 'Resolved report via pattern matching');
           } else {
             logger.warn({ filename, jobType, ext }, 'No matching reports found');
-            return res.status(404).json({
+            return res.status(HttpStatus.NOT_FOUND).json({
               success: false,
               error: {
                 code: 'NOT_FOUND',
@@ -153,7 +154,7 @@ router.get('/:filename', async (req, res, next) => {
         }
       } else {
         logger.warn({ filename }, 'Invalid filename pattern');
-        return res.status(404).json({
+        return res.status(HttpStatus.NOT_FOUND).json({
           success: false,
           error: {
             code: 'NOT_FOUND',
@@ -193,7 +194,7 @@ router.delete('/:filename', async (req, res, next) => {
 
     // Security: prevent directory traversal
     if (filename.includes('..') || filename.includes('/')) {
-      return res.status(400).json({
+      return res.status(HttpStatus.BAD_REQUEST).json({
         success: false,
         error: {
           code: 'INVALID_REQUEST',
@@ -209,7 +210,7 @@ router.delete('/:filename', async (req, res, next) => {
     try {
       await fs.access(reportPath);
     } catch {
-      return res.status(404).json({
+      return res.status(HttpStatus.NOT_FOUND).json({
         success: false,
         error: {
           code: 'NOT_FOUND',
@@ -248,7 +249,7 @@ router.get('/:scanId/summary', async (req, res, next) => {
     );
 
     if (!summaryFile) {
-      return res.status(404).json({
+      return res.status(HttpStatus.NOT_FOUND).json({
         success: false,
         error: {
           code: 'NOT_FOUND',
