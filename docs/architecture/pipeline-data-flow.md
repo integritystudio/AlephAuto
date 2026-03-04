@@ -44,12 +44,12 @@ The AlephAuto automation system consists of 11 specialized pipelines built on a 
 
 | Category | Pipelines | Language Stack |
 |----------|-----------|----------------|
-| **Code Analysis** | Duplicate Detection, Test Refactor | JavaScript + Python + TypeScript |
-| **Code Quality** | Bugfix Audit | JavaScript + Shell |
-| **Documentation** | Schema Enhancement | JavaScript |
-| **Operations** | Repomix, Gitignore, Repository Cleanup | JavaScript + Shell |
+| **Code Analysis** | Duplicate Detection, Test Refactor | TypeScript + Python |
+| **Code Quality** | Bugfix Audit | TypeScript + Shell |
+| **Documentation** | Schema Enhancement | TypeScript |
+| **Operations** | Repomix, Gitignore, Repository Cleanup | TypeScript + Shell |
 | **Observability** | Dashboard Populate | TypeScript (external) |
-| **Reporting** | Git Activity, Plugin Manager, Claude Health | JavaScript + Python + Shell |
+| **Reporting** | Git Activity, Plugin Manager, Claude Health | TypeScript + Python + Shell |
 
 ---
 
@@ -199,16 +199,16 @@ graph LR
 
 | # | Pipeline | Job Type | Runner File | Worker File | Base Class | Git Workflow | Languages |
 |---|----------|----------|-------------|-------------|------------|--------------|-----------|
-| 1 | Duplicate Detection | `duplicate-detection` | `duplicate-detection-pipeline.ts` | `workers/duplicate-detection-worker.ts` (API/registry) · inline class in pipeline file (CLI runner) | functional | ⚠️ Custom | JS + Python |
-| 2 | Schema Enhancement | `schema-enhancement` | `schema-enhancement-pipeline.ts` | `schema-enhancement-worker.ts` | BasePipeline | ✅ Yes | JavaScript |
-| 3 | Git Activity | `git-activity` | `git-activity-pipeline.ts` | `git-activity-worker.ts` | BasePipeline | ❌ No | JS + Python |
-| 4 | Gitignore Manager | `gitignore-manager` | `gitignore-pipeline.ts` | `gitignore-worker.ts` | functional | ⚠️ Batch N/A | JavaScript |
-| 5 | Repomix | `repomix` | N/A (cron server) | `repomix-worker.ts` | — | ❌ No | JavaScript |
-| 6 | Plugin Manager | `plugin-manager` | `plugin-management-pipeline.ts` | (embedded in utils) | BasePipeline | ❌ No | JavaScript |
-| 7 | Claude Health | `claude-health` | `claude-health-pipeline.ts` | `claude-health-worker.ts` | BasePipeline | ❌ No | JS + Shell |
+| 1 | Duplicate Detection | `duplicate-detection` | `duplicate-detection-pipeline.ts` | `workers/duplicate-detection-worker.ts` (API/registry) · inline class in pipeline file (CLI runner) | functional | ⚠️ Custom | TS + Python |
+| 2 | Schema Enhancement | `schema-enhancement` | `schema-enhancement-pipeline.ts` | `schema-enhancement-worker.ts` | BasePipeline | ✅ Yes | TypeScript |
+| 3 | Git Activity | `git-activity` | `git-activity-pipeline.ts` | `git-activity-worker.ts` | BasePipeline | ❌ No | TS + Python |
+| 4 | Gitignore Manager | `gitignore-manager` | `gitignore-pipeline.ts` | `gitignore-worker.ts` | functional | ⚠️ Batch N/A | TypeScript |
+| 5 | Repomix | `repomix` | N/A (cron server) | `repomix-worker.ts` | — | ❌ No | TypeScript |
+| 6 | Plugin Manager | `plugin-manager` | `plugin-management-pipeline.ts` | (embedded in utils) | BasePipeline | ❌ No | TypeScript |
+| 7 | Claude Health | `claude-health` | `claude-health-pipeline.ts` | `claude-health-worker.ts` | BasePipeline | ❌ No | TS + Shell |
 | 8 | Test Refactor | `test-refactor` | `test-refactor-pipeline.ts` | `test-refactor-worker.ts` | functional | ✅ Optional | TypeScript |
-| 9 | Repository Cleanup | `repo-cleanup` | `repo-cleanup-pipeline.ts` | `repo-cleanup-worker.ts` | functional | ❌ No | JS + Shell |
-| 10 | Bugfix Audit | `bugfix-audit` | `bugfix-audit-pipeline.ts` | `bugfix-audit-worker.ts` | BasePipeline | ✅ Multi-commit | JS + Shell |
+| 9 | Repository Cleanup | `repo-cleanup` | `repo-cleanup-pipeline.ts` | `repo-cleanup-worker.ts` | functional | ❌ No | TS + Shell |
+| 10 | Bugfix Audit | `bugfix-audit` | `bugfix-audit-pipeline.ts` | `bugfix-audit-worker.ts` | BasePipeline | ✅ Multi-commit | TS + Shell |
 | 11 | Dashboard Populate | `dashboard-populate` | `dashboard-populate-pipeline.ts` | `dashboard-populate-worker.ts` | functional | ❌ No | TypeScript |
 
 ---
@@ -2053,7 +2053,7 @@ export async function setupServerWithPortFallback(httpServer, options) {
 
 **Cleanup on process termination:**
 ```javascript
-// api/server.js
+// api/server.ts
 const signals = ['SIGTERM', 'SIGINT', 'SIGHUP'];
 
 signals.forEach((signal) => {
