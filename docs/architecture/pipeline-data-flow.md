@@ -31,6 +31,12 @@
 
 The AlephAuto automation system consists of 11 specialized pipelines built on a unified job queue framework. Each pipeline follows event-driven architecture with automatic retry logic, Sentry error tracking, and real-time dashboard updates via WebSocket.
 
+### Maintenance Notes (2026-03-04)
+
+- Retry orchestration is owned by `SidequestServer` (`sidequest/core/server.ts`), including retry scheduling and `pendingRetries` accounting. Individual workers should not create ad-hoc retry jobs.
+- `GitActivityPipeline` default report-type selection is constrained to valid defaults (`weekly` / `monthly`) before fallback to configured default; this is a type-safety hardening and does not change pipeline data flow.
+- `collect_git_activity.py` and related tests were formatting-only updates; input/output contract remains unchanged.
+
 ### System Characteristics
 
 - **Framework:** AlephAuto (SidequestServer base class)
