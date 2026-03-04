@@ -31,6 +31,8 @@ import { ClaudeHealthWorker } from '../workers/claude-health-worker.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const logger = createComponentLogger('ClaudeHealthPipeline');
 
@@ -394,47 +396,45 @@ function formatBytes(bytes: number): string {
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
-// Initialize pipeline
-const pipeline = new ClaudeHealthPipeline();
+function isDirectExecution(): boolean {
+  const currentModulePath = fileURLToPath(import.meta.url);
+  const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
+  return entryPath === currentModulePath;
+}
 
-// Configuration
-const CRON_SCHEDULE = process.env.CLAUDE_HEALTH_CRON_SCHEDULE || '0 8 * * *';
-const RUN_ON_STARTUP = config.runOnStartup;
-const CRON_ENABLED = process.argv.includes('--cron');
+async function runCli(): Promise<void> {
+  const pipeline = new ClaudeHealthPipeline();
 
-logger.info({
-  cronEnabled: CRON_ENABLED,
-  cronSchedule: CRON_SCHEDULE,
-  runOnStartup: RUN_ON_STARTUP
-}, 'Claude Health Pipeline initialized');
+  const cronSchedule = process.env.CLAUDE_HEALTH_CRON_SCHEDULE || '0 8 * * *';
+  const runOnStartup = config.runOnStartup;
+  const cronEnabled = process.argv.includes('--cron');
 
-// Main execution
-(async () => {
+  logger.info({
+    cronEnabled,
+    cronSchedule,
+    runOnStartup
+  }, 'Claude Health Pipeline initialized');
+
   try {
-    // Run immediately if requested
-    if (RUN_ON_STARTUP) {
+    if (runOnStartup) {
       logger.info('Running health check on startup');
       await pipeline.runHealthCheck();
 
-      if (!CRON_ENABLED) {
+      if (!cronEnabled) {
         const stats = pipeline.getStats();
         const hasFailures = stats.failed > 0;
         process.exit(hasFailures ? 1 : 0);
       }
     }
 
-    // Setup cron if enabled
-    if (CRON_ENABLED) {
-      logger.info({ schedule: CRON_SCHEDULE }, 'Setting up cron schedule');
-      pipeline.scheduleHealthChecks(CRON_SCHEDULE);
+    if (cronEnabled) {
+      logger.info({ schedule: cronSchedule }, 'Setting up cron schedule');
+      pipeline.scheduleHealthChecks(cronSchedule);
 
-      logger.info({ cronSchedule: CRON_SCHEDULE }, 'Claude Health Check scheduled');
+      logger.info({ cronSchedule }, 'Claude Health Check scheduled');
       logger.info('Press Ctrl+C to stop');
-
-      // Keep process alive
       process.stdin.resume();
-    } else if (!RUN_ON_STARTUP) {
-      // Run once immediately if not cron mode and not startup
+    } else if (!runOnStartup) {
       await pipeline.runHealthCheck();
       const stats = pipeline.getStats();
       const hasFailures = stats.failed > 0;
@@ -444,15 +444,21 @@ logger.info({
     logError(logger, error, 'Pipeline execution failed');
     process.exit(1);
   }
-})();
 
-// Handle graceful shutdown
-process.on('SIGINT', () => {
-  logger.info('Received SIGINT, shutting down gracefully');
-  process.exit(0);
-});
+  process.on('SIGINT', () => {
+    logger.info('Received SIGINT, shutting down gracefully');
+    process.exit(0);
+  });
 
-process.on('SIGTERM', () => {
-  logger.info('Received SIGTERM, shutting down gracefully');
-  process.exit(0);
-});
+  process.on('SIGTERM', () => {
+    logger.info('Received SIGTERM, shutting down gracefully');
+    process.exit(0);
+  });
+}
+
+if (isDirectExecution()) {
+  runCli().catch((error) => {
+    logError(logger, error, 'Pipeline execution failed');
+    process.exit(1);
+  });
+}

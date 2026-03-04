@@ -18,6 +18,8 @@ import { TIMEOUTS } from '../core/constants.ts';
 // @ts-ignore - no declaration file for node-cron
 import cron from 'node-cron';
 import * as Sentry from '@sentry/node';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import type { Logger } from 'pino';
 
@@ -117,12 +119,13 @@ async function main(): Promise<void> {
   }
 }
 
-// Run the pipeline
-// Check if running directly (not imported as module)
-// Also check for PM2 execution (pm_id is set by PM2)
-const isDirectExecution = import.meta.url === `file://${process.argv[1]}` || process.env.pm_id !== undefined;
+function isDirectExecution(): boolean {
+  const currentModulePath = fileURLToPath(import.meta.url);
+  const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
+  return entryPath === currentModulePath;
+}
 
-if (isDirectExecution) {
+if (isDirectExecution()) {
   main().catch((error) => {
     logger.error({ error }, 'Fatal error in duplicate detection pipeline');
     process.exit(1);
