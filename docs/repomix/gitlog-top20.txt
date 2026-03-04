@@ -1,3 +1,14 @@
+fcfec59 2026-03-04 refactor: centralize session-introduced magic literals
+  sidequest/pipeline-core/similarity/grouping.py
+  sidequest/pipeline-runners/collect_git_activity.py
+  sidequest/utils/refactor-test-suite.ts
+
+484deb1 2026-03-04 chore: regenerate repomix and git history artifacts
+  docs/repomix/gitlog-sidequest.txt
+  docs/repomix/repo-compressed.xml
+  docs/repomix/repomix.xml
+  sidequest/docs/gitlog-sidequest.txt
+
 3bc4e22 2026-03-04 docs: update pipeline data flow for startup-once and test gating
   docs/architecture/pipeline-data-flow.md
 
@@ -17,7 +28,6 @@ d89062e 2026-03-04 test: gate env-sensitive suites and update repomix wrappers
 b150b8a 2026-03-04 chore: refresh docs, repomix artifacts, and test coverage
   docs/architecture/similarity-algorithm.md
   docs/dashboard_ui/DATAFLOW_DIAGRAMS.md
-  docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md
   docs/repomix/repo-compressed.xml
   docs/repomix/repomix.xml
   sidequest/docs/gitlog-sidequest.txt
@@ -28,10 +38,12 @@ b150b8a 2026-03-04 chore: refresh docs, repomix artifacts, and test coverage
 
 b0ca84a 2026-03-04 style(sidequest): apply ruff formatting
   sidequest/pipeline-core/extractors/extract_blocks.py
+  sidequest/pipeline-core/similarity/grouping.py
   sidequest/pipeline-runners/collect_git_activity.py
 
 b488c1d 2026-03-04 fix(sidequest): resolve lint, ruff, and typecheck failures
   sidequest/pipeline-core/extractors/extract_blocks.py
+  sidequest/pipeline-core/similarity/grouping.py
 
 ab0c7f9 2026-03-04 refactor(sidequest): relocate duplicate detection types and align tests
   sidequest/repomix-output.xml
@@ -102,16 +114,21 @@ a27b26b 2026-03-03 more robust repomix files
   docs/repomix/repo-compressed.xml
   docs/repomix/repomix.xml
   sidequest/pipeline-core/extractors/extract_blocks.py
+  sidequest/pipeline-core/similarity/grouping.py
 
 1c5972c 2026-03-03 (chore) update docs
   docs/repomix/repo-compressed.xml
   docs/repomix/repomix.xml
+
+4690b4d 2026-03-01 refactor(pipeline): replace numbered docstring list with bullets in grouping.py
+  sidequest/pipeline-core/similarity/grouping.py
 
 1a9ce69 2026-03-01 refactor(pipeline): extract inline CSS colors to ChartColors constants
   sidequest/pipeline-runners/collect_git_activity.py
 
 ce97a5f 2026-03-01 refactor(pipeline): eliminate remaining magic numbers (126 → 31)
   sidequest/pipeline-core/extractors/extract_blocks.py
+  sidequest/pipeline-core/similarity/grouping.py
   sidequest/pipeline-runners/collect_git_activity.py
 
 ffb9601 2026-03-01 refactor(pipeline): replace remaining magic numbers with named constants
@@ -119,13 +136,16 @@ ffb9601 2026-03-01 refactor(pipeline): replace remaining magic numbers with name
 
 99f96d5 2026-03-01 refactor(pipeline): centralize magic numbers into constants.py
   sidequest/pipeline-core/extractors/extract_blocks.py
+  sidequest/pipeline-core/similarity/grouping.py
   sidequest/pipeline-runners/collect_git_activity.py
 
 d71098e 2026-03-01 refactor(pipeline): extract remaining magic numbers to constants.py
   sidequest/pipeline-core/extractors/extract_blocks.py
+  sidequest/pipeline-core/similarity/grouping.py
 
 56d2c5a 2026-03-01 refactor(pipeline): centralize magic numbers into constants.py
   sidequest/pipeline-core/extractors/extract_blocks.py
+  sidequest/pipeline-core/similarity/grouping.py
   sidequest/pipeline-runners/collect_git_activity.py
 
 a9e0a56 2026-02-26 refactor: extract helpers to reduce complexity in test/script files (CX2-CX10)
@@ -184,9 +204,6 @@ ed9bcdb 2026-02-17 Phase 2 and 3 Typescript migration
 35a5c6d 2026-02-16 docs: mark PROD-H3, PROD-M1, PROD-L1 as done in backlog
   sidequest/repomix-output.xml
 
-9d8742e 2026-02-15 docs: add pm2-logrotate install step to deployment runbook
-  docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md
-
 1742be6 2026-02-14 add new pipeline documentation
   sidequest/repomix-output.xml
 
@@ -195,9 +212,6 @@ ed9bcdb 2026-02-17 Phase 2 and 3 Typescript migration
 
 b86c93b 2026-02-09 fix(frontend): move platform-specific deps to optionalDependencies
   frontend/package-lock.json
-
-14568e9 2026-02-09 docs: update for React frontend and pnpm deploy changes
-  docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md
 
 2f0411f 2026-02-09 feat(frontend): track React dashboard source and fix ActivityType enum
   frontend/package-lock.json
@@ -216,6 +230,9 @@ ddb7da0 2026-02-08 update pnpm subdependencies
 91297a7 2026-02-03 fix(git-activity): update Jekyll frontmatter and remove duplicate title
   sidequest/pipeline-runners/collect_git_activity.py
 
+587d80c 2026-02-03 refactor(similarity): centralize threshold config and tune MIN_UNIQUE_TOKENS
+  sidequest/pipeline-core/similarity/grouping.py
+
 812a8d7 2026-02-03 feat(pipeline): add semantic categories for process_io, timing, tracing
   sidequest/pipeline-core/extractors/extract_blocks.py
 
@@ -231,6 +248,12 @@ cc5cbd1 2026-02-02 feat(git-activity): expand repo scanning to dotfiles and addi
 150fcda 2026-02-02 refactor logging into packages
   pnpm-lock.yaml
 
+f6b83f6 2026-02-02 feat(pipeline-core): add type stubs and Layer 3 timing metrics
+  sidequest/pipeline-core/similarity/grouping.py
+
+413d1a7 2026-02-02 refactor(annotator): rename annotate() to extract_annotation()
+  sidequest/pipeline-core/similarity/grouping.py
+
 aff0104 2026-02-01 refactor(logging): remove redundant DEBUG checks before _debug calls
   sidequest/pipeline-core/extractors/extract_blocks.py
 
@@ -240,11 +263,19 @@ aff0104 2026-02-01 refactor(logging): remove redundant DEBUG checks before _debu
 f78c7f5 2026-02-01 feat(metrics): add semantic annotation coverage metrics
   sidequest/pipeline-core/extractors/extract_blocks.py
 
+c0df1c1 2026-02-01 fix(grouping): address code review feedback on docstrings
+  sidequest/pipeline-core/similarity/grouping.py
+
+da41cb3 2026-02-01 docs(grouping): add comprehensive docstrings to helper functions
+  sidequest/pipeline-core/similarity/grouping.py
+
 e6a9044 2026-02-01 fix(security): address critical and high priority code review issues
   sidequest/pipeline-core/extractors/extract_blocks.py
+  sidequest/pipeline-core/similarity/grouping.py
 
 c07f736 2026-02-01 feat(pipeline): implement Layer 3 semantic similarity detection
   sidequest/pipeline-core/extractors/extract_blocks.py
+  sidequest/pipeline-core/similarity/grouping.py
 
 ec8a3be 2026-02-01 docs: complete L6-L8 documentation backlog items
   docs/architecture/similarity-algorithm.md
@@ -276,8 +307,14 @@ e3ae29d 2026-01-16 fix(security): resolve high-severity vulnerabilities in depen
 5def1bd 2026-01-16 chore: update pnpm-lock.yaml for c8 dependency
   pnpm-lock.yaml
 
+921ecd7 2026-01-16 refactor(grouping): extract _try_accept_group helper for duplicate logic
+  sidequest/pipeline-core/similarity/grouping.py
+
 84064fe 2026-01-16 refactor(collect_git_activity): reduce main() complexity 17→4
   sidequest/pipeline-runners/collect_git_activity.py
+
+03f618f 2026-01-16 refactor(grouping): add semantic check registry pattern
+  sidequest/pipeline-core/similarity/grouping.py
 
 eff351d 2026-01-16 refactor(extractors): reduce complexity in extract_blocks.py
   sidequest/pipeline-core/extractors/extract_blocks.py
@@ -288,7 +325,6 @@ d6432d8 2025-12-24 chore: remove frontend folder from version control
 ce78343 2025-12-24 docs: sync date stamps with git commit history
   docs/architecture/SYSTEM-DATA-FLOW.md
   docs/archive/DASHBOARD_IMPLEMENTATION_GUIDE.md
-  docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md
 
 6bb434e 2025-12-24 chore(build): update repomix output and configurations
   sidequest/repomix-output.xml
@@ -315,9 +351,6 @@ d95d551 2025-12-02 fix(deps): update repomix to 1.9.2 to fix high severity vulne
 f1cdb81 2025-12-02 feat: add Render deployment configuration for backend API
   pnpm-lock.yaml
 
-b456b94 2025-11-30 update job modal rendering
-  docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md
-
 13c959e 2025-11-26 docs(test): add comprehensive test infrastructure improvement guide
   docs/testing/TEST_INFRASTRUCTURE_IMPROVEMENTS.md
 
@@ -341,6 +374,7 @@ b7e6e76 2025-11-24 doc updates
 
 1bbda9f 2025-11-23 fix: update Python pipeline imports after lib reorganization
   sidequest/pipeline-core/extractors/extract_blocks.py
+  sidequest/pipeline-core/similarity/grouping.py
 
 fccefe2 2025-11-23 fix: update extractorScript path and pipeline jobs endpoint
   sidequest/repomix-output.xml
@@ -350,10 +384,10 @@ fccefe2 2025-11-23 fix: update extractorScript path and pipeline jobs endpoint
 
 bcb1bb1 2025-11-23 refactor: move lib to sidequest/pipeline-core and migrate to TypeScript
   sidequest/pipeline-core/extractors/extract_blocks.py
+  sidequest/pipeline-core/similarity/grouping.py
 
 291a13c 2025-11-23 organize pipelines
   docs/architecture/ERROR_HANDLING.md
-  docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md
   sidequest/utils/refactor-test-suite.ts
 
 555662f 2025-11-23 chore: add pnpm lockfile
@@ -361,7 +395,6 @@ bcb1bb1 2025-11-23 refactor: move lib to sidequest/pipeline-core and migrate to 
 
 6c0b531 2025-11-23 docs: reorganize documentation into categorical directories
   docs/architecture/ERROR_HANDLING.md
-  docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md
 
 2fdbdb2 2025-11-23 docs: update paths to reflect condense directory move to sidequest/output
   docs/dashboard_ui/DATAFLOW_DIAGRAMS.md

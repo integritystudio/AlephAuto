@@ -1,3 +1,32 @@
+fcfec59 2026-03-04 refactor: centralize session-introduced magic literals
+  sidequest/core/config.ts
+  sidequest/core/constants.ts
+  sidequest/core/index.ts
+  sidequest/core/server.ts
+  sidequest/pipeline-core/config/repository-config-loader.ts
+  sidequest/pipeline-core/constants.py
+  sidequest/pipeline-core/models/scan_report.py
+  sidequest/pipeline-core/similarity/grouping.py
+  sidequest/pipeline-runners/base-pipeline.ts
+  sidequest/pipeline-runners/bugfix-audit-pipeline.ts
+  sidequest/pipeline-runners/claude-health-pipeline.ts
+  sidequest/pipeline-runners/collect_git_activity.py
+  sidequest/pipeline-runners/dashboard-populate-pipeline.ts
+  sidequest/pipeline-runners/git-activity-pipeline.ts
+  sidequest/pipeline-runners/gitignore-pipeline.ts
+  sidequest/pipeline-runners/plugin-management-pipeline.ts
+  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
+  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
+  sidequest/pipeline-runners/test-refactor-pipeline.ts
+  sidequest/utils/refactor-test-suite.ts
+  sidequest/workers/dashboard-populate-worker.ts
+  sidequest/workers/duplicate-detection-worker.ts
+  sidequest/workers/git-activity-worker.ts
+  sidequest/workers/repo-cleanup-worker.ts
+
+484deb1 2026-03-04 chore: regenerate repomix and git history artifacts
+  sidequest/docs/gitlog-sidequest.txt
+
 d89062e 2026-03-04 test: gate env-sensitive suites and update repomix wrappers
   sidequest/docs/gitlog-sidequest.txt
   sidequest/pipeline-runners/startup-once-mode.test.ts
@@ -1219,13 +1248,5 @@ bdd88d3 2026-02-01 feat(jobs): implement automatic retry for retryable errors
 
 b7693e9 2026-01-29 fix: address 6 medium-priority code review issues
   sidequest/core/constants.js
-  sidequest/core/database.js
-  sidequest/core/server.js
-
-68cc8bd 2026-01-29 fix: address 4 high-priority code review issues
-  sidequest/core/database.js
-
-ee9d230 2026-01-29 fix(security): address 5 critical issues from enterprise code review
-  sidequest/core/config.js
   sidequest/core/database.js
   sidequest/core/server.js

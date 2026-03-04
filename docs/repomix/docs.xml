@@ -176,6 +176,8 @@ sidequest/
     server-actions.test.ts
     server-retention.test.ts
     server.ts
+  docs/
+    gitlog-sidequest.txt
   pipeline-core/
     annotators/
       __init__.py
