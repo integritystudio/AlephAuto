@@ -19,10 +19,16 @@ const checks = [];
 let passed = 0;
 let failed = 0;
 
+/**
+ * check.
+ */
 function check(name, fn) {
   checks.push({ name, fn });
 }
 
+/**
+ * runCheck.
+ */
 function runCheck(checkItem) {
   try {
     checkItem.fn();

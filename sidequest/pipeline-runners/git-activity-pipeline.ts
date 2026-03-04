@@ -41,6 +41,9 @@ interface JobResult {
 class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
   private reportType: string;
 
+  /**
+   * constructor.
+   */
   constructor(options: Record<string, unknown> = {}) {
     super(new GitActivityWorker({
       maxConcurrent: config.maxConcurrent ?? 2,

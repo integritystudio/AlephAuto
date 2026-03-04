@@ -24,6 +24,9 @@ describe('Port Manager', () => {
   let listenerSnapshot: Map<string, ((...args: unknown[]) => void)[]>;
 
   // Helper to create and track servers for cleanup
+  /**
+   * createTestServer.
+   */
   const createTestServer = () => {
     const server = createServer();
     servers.push(server);
@@ -31,6 +34,9 @@ describe('Port Manager', () => {
   };
 
   // Helper to start server on specific port
+  /**
+   * startServerOnPort.
+   */
   const startServerOnPort = (port, host = '0.0.0.0') => {
     return new Promise((resolve, reject) => {
       const server = createTestServer();

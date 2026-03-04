@@ -47,6 +47,9 @@ const args = process.argv.slice(2);
 const FIX_MODE = args.includes('--fix');
 const CHECK_ONLY = args.includes('--check-only');
 
+/**
+ * checkFilePermissions.
+ */
 async function checkFilePermissions(filePath) {
   const fullPath = path.join(ROOT, filePath);
 
@@ -77,6 +80,9 @@ async function checkFilePermissions(filePath) {
   }
 }
 
+/**
+ * fixFilePermissions.
+ */
 async function fixFilePermissions(filePath) {
   const fullPath = path.join(ROOT, filePath);
 
@@ -89,6 +95,9 @@ async function fixFilePermissions(filePath) {
   }
 }
 
+/**
+ * reportInvalidFiles.
+ */
 function reportInvalidFiles(invalid: Awaited<ReturnType<typeof checkFilePermissions>>[]) {
   console.log(`⚠️  Found ${invalid.length} files with incorrect permissions:\n`);
   for (const result of invalid) {
@@ -103,6 +112,9 @@ function reportInvalidFiles(invalid: Awaited<ReturnType<typeof checkFilePermissi
   }
 }
 
+/**
+ * applyPermissionFixes.
+ */
 async function applyPermissionFixes(executable: Awaited<ReturnType<typeof checkFilePermissions>>[]) {
   console.log('🔧 Fixing permissions...\n');
 
@@ -127,6 +139,9 @@ async function applyPermissionFixes(executable: Awaited<ReturnType<typeof checkF
   process.exit(0);
 }
 
+/**
+ * main.
+ */
 async function main() {
   console.log('🔍 Validating file permissions...\n');
 

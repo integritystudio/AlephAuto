@@ -69,7 +69,9 @@ export class GitActivityWorker extends SidequestServer {
   outputDir: string;
 
   /**
-   * constructor.
+   * Initialize a git activity worker with project and output paths.
+   *
+   * @param options Optional worker configuration.
    */
   constructor(options: GitActivityWorkerOptions = {}) {
     super({

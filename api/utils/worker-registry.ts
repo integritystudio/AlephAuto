@@ -169,6 +169,9 @@ interface WorkerInitContext {
   activityFeed: ActivityFeedManager | null;
 }
 
+/**
+ * enforceInitCircuitBreaker.
+ */
 function enforceInitCircuitBreaker(pipelineId: string): void {
   const failureInfo = initFailures.get(pipelineId);
   if (!failureInfo || failureInfo.count < WORKER_INIT_FAILURE_THRESHOLD) {
@@ -198,6 +201,9 @@ function enforceInitCircuitBreaker(pipelineId: string): void {
   });
 }
 
+/**
+ * getPipelineConfigOrThrow.
+ */
 function getPipelineConfigOrThrow(pipelineId: string): PipelineConfig {
   const pipelineConfig = PIPELINE_CONFIGS[pipelineId];
   if (!pipelineConfig) {
@@ -206,6 +212,9 @@ function getPipelineConfigOrThrow(pipelineId: string): PipelineConfig {
   return pipelineConfig;
 }
 
+/**
+ * ensurePipelineEnabled.
+ */
 function ensurePipelineEnabled(pipelineId: string, pipelineConfig: PipelineConfig): void {
   if (pipelineConfig.disabled) {
     throw new Error(`${pipelineId} pipeline is temporarily disabled (${pipelineConfig.disabledReason})`);
@@ -227,6 +236,9 @@ async function shutdownWorkerSafely(
   });
 }
 
+/**
+ * doWorkerInit.
+ */
 async function doWorkerInit(pipelineId: string, pipelineConfig: PipelineConfig): Promise<SidequestServer> {
   let worker: SidequestServer;
   try {
@@ -255,6 +267,9 @@ async function doWorkerInit(pipelineId: string, pipelineConfig: PipelineConfig):
   return worker;
 }
 
+/**
+ * initializeWorkerWithTimeout.
+ */
 async function initializeWorkerWithTimeout(pipelineId: string): Promise<SidequestServer> {
   logger.info({ pipelineId, timeoutMs: WORKER_INIT_TIMEOUT_MS }, 'Initializing worker');
 
@@ -280,6 +295,9 @@ async function initializeWorkerWithTimeout(pipelineId: string): Promise<Sideques
   }
 }
 
+/**
+ * recordInitFailure.
+ */
 function recordInitFailure(pipelineId: string, error: unknown): void {
   const normalizedError = error instanceof Error ? error : new Error(String(error));
   const existing = initFailures.get(pipelineId) || { count: 0, lastAttempt: 0 };
@@ -327,6 +345,9 @@ async function performWorkerInitialization({
   }
 }
 
+/**
+ * getWorkerStatsIfAvailable.
+ */
 function getWorkerStatsIfAvailable(worker: SidequestServer | undefined): WorkerStatsRecord | null {
   if (!worker || typeof worker.getStats !== 'function') {
     return null;
@@ -335,6 +356,9 @@ function getWorkerStatsIfAvailable(worker: SidequestServer | undefined): WorkerS
   return worker.getStats() as unknown as WorkerStatsRecord;
 }
 
+/**
+ * aggregateWorkerStats.
+ */
 function aggregateWorkerStats(workers: Map<string, SidequestServer>): WorkerStats {
   const stats: WorkerStats = {
     total: 0,
@@ -362,6 +386,9 @@ function aggregateWorkerStats(workers: Map<string, SidequestServer>): WorkerStat
   return stats;
 }
 
+/**
+ * getScanMetricsIfAvailable.
+ */
 function getScanMetricsIfAvailable(worker: SidequestServer | undefined): Record<string, unknown> | null {
   const workerWithMetrics = worker as WorkerWithScanMetrics | undefined;
   if (workerWithMetrics && typeof workerWithMetrics.getScanMetrics === 'function') {

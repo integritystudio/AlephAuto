@@ -49,6 +49,9 @@ if (process.env.DASHBOARD_SEED === 'false') {
   cliOptions.seed = false;
 }
 
+/**
+ * main.
+ */
 async function main(): Promise<void> {
   logger.info({
     cronSchedule: CRON_SCHEDULE,

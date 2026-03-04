@@ -17,6 +17,9 @@ interface TestContext {
   broadcastCalls: Array<{ message: unknown; channel: string }>;
 }
 
+/**
+ * makeActivityFeedCtx.
+ */
 function makeActivityFeedCtx(maxActivities = 50): TestContext {
   const broadcastCalls: Array<{ message: unknown; channel: string }> = [];
   const broadcaster = {

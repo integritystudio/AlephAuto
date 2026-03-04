@@ -107,6 +107,9 @@ async function scanFile(filePath) {
 async function scanAllTests(dir = TESTS_DIR) {
   const issues = [];
 
+  /**
+   * scanDir.
+   */
   async function scanDir(currentDir) {
     const entries = await fs.readdir(currentDir, { withFileTypes: true });
 

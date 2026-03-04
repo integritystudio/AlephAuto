@@ -177,6 +177,9 @@ class ClaudeHealthWorker extends SidequestServer {
   healthScriptPath: string;
   thresholds: Thresholds;
 
+  /**
+   * constructor.
+   */
   constructor(options: ClaudeHealthWorkerOptions = {}) {
     super({
       ...options,

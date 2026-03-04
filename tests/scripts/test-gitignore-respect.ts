@@ -10,6 +10,9 @@ import path from 'path';
 import { createTempRepository } from '../fixtures/test-helpers.ts';
 import os from 'os';
 
+/**
+ * testGitignoreRespect.
+ */
 async function testGitignoreRespect() {
   console.log('🔍 Testing .gitignore Respect...\n');
 

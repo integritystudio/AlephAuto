@@ -15,6 +15,9 @@ import path from 'path';
 
 const logger = createComponentLogger('TestReports');
 
+/**
+ * main.
+ */
 async function main() {
   const args = process.argv.slice(2);
 

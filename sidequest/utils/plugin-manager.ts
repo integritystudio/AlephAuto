@@ -69,6 +69,9 @@ class PluginManagerWorker extends SidequestServer {
   configPath: string;
   thresholds: { maxPlugins: number; warnPlugins: number };
 
+  /**
+   * constructor.
+   */
   constructor(options: PluginManagerOptions = {}) {
     super({
       maxConcurrent: options.maxConcurrent ?? 1,

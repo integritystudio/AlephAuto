@@ -51,6 +51,9 @@ const FUNCTION_NAME_PATTERNS = [
   /export\s+function\s+(\w+)/,      // export function name
 ];
 
+/**
+ * extractNameFromTags.
+ */
 function extractNameFromTags(block) {
   const tags = block.tags || block.semantic_tags || [];
   const functionTag = tags.find(tag => tag.startsWith(FUNCTION_TAG_PREFIX));
@@ -59,6 +62,9 @@ function extractNameFromTags(block) {
   return functionTag.substring(FUNCTION_TAG_PREFIX.length) || null;
 }
 
+/**
+ * extractNameFromSourceCode.
+ */
 function extractNameFromSourceCode(block) {
   const sourceCode = block.source_code || '';
   for (const pattern of FUNCTION_NAME_PATTERNS) {
@@ -69,6 +75,9 @@ function extractNameFromSourceCode(block) {
   return null;
 }
 
+/**
+ * extractNameFromLocation.
+ */
 function extractNameFromLocation(block) {
   const filePath = block.relative_path || block.location?.file_path || '';
   const lineStart = block.location?.line_start;
@@ -77,6 +86,9 @@ function extractNameFromLocation(block) {
   return `${filePath.split('/').pop()}:${lineStart}`;
 }
 
+/**
+ * extractFunctionName.
+ */
 function extractFunctionName(block) {
   return (
     extractNameFromTags(block) ??
@@ -283,6 +295,9 @@ function printTargetComparison(targets) {
   console.log('='.repeat(70));
   console.log();
 
+  /**
+   * formatTarget.
+   */
   const formatTarget = (name, target, _prefix = '') => {
     const icon = target.met ? '✅' : '❌';
     const sign = target.delta > 0 ? '+' : '';

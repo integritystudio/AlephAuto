@@ -276,6 +276,9 @@ describe('Port Manager - Integration Tests', () => {
     await new Promise(resolve => server.listen(startPort, resolve));
 
     let _customShutdownCalled = false;
+    /**
+     * customHandler.
+     */
     const customHandler = async (signal) => {
       _customShutdownCalled = true;
       assert(signal, 'Signal should be provided to handler');

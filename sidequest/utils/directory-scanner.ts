@@ -61,6 +61,9 @@ export class DirectoryScanner {
   excludeDirs: Set<string>;
   maxDepth: number;
 
+  /**
+   * constructor.
+   */
   constructor(options: DirectoryScannerOptions = {}) {
     this.baseDir = options.baseDir ?? path.join(os.homedir(), 'code');
     this.outputDir = options.outputDir ?? './directory-scan-reports';

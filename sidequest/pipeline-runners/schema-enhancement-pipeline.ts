@@ -53,6 +53,9 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
   private baseDir: string;
   private options: SchemaEnhancementOptions;
 
+  /**
+   * constructor.
+   */
   constructor(options: SchemaEnhancementOptions = {}) {
     super(new SchemaEnhancementWorker({
       ...options,

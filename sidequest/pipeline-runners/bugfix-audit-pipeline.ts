@@ -45,6 +45,9 @@ interface RunResult {
  * Scans ~/dev/active for markdown files and orchestrates automated bug detection and fixing.
  */
 class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
+  /**
+   * constructor.
+   */
   constructor(options: BugfixAuditOptions = {}) {
     super(new BugfixAuditWorker({
       ...options,

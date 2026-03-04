@@ -10,6 +10,9 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
+/**
+ * testSentryConnection.
+ */
 async function testSentryConnection() {
   console.log('🧪 Testing Sentry Connection...\n');
 

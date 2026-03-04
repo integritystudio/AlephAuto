@@ -179,12 +179,18 @@ function waitForCompletion(worker: TestRefactorWorker): Promise<void> {
       reject(new Error(`waitForCompletion timed out after ${TIMEOUTS.ONE_HOUR_MS}ms`));
     }, TIMEOUTS.ONE_HOUR_MS);
 
+    /**
+     * cleanup.
+     */
     const cleanup = () => {
       worker.off('job:completed', checkAndResolve);
       worker.off('job:failed', checkAndResolve);
       worker.off('retry:created', checkAndResolve);
     };
 
+    /**
+     * checkAndResolve.
+     */
     const checkAndResolve = () => {
       const stats = worker.getStats();
       if (stats.active === 0 && stats.queued === 0) {
@@ -202,6 +208,9 @@ function waitForCompletion(worker: TestRefactorWorker): Promise<void> {
 }
 
 // Main execution
+/**
+ * main.
+ */
 async function main(): Promise<void> {
   const targetPath = process.argv[2];
 

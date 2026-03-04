@@ -101,6 +101,9 @@ export class TestRefactorWorker extends SidequestServer {
   metrics: Metrics;
   declare queue: string[];
 
+  /**
+   * constructor.
+   */
   constructor(options: TestRefactorWorkerOptions = {}) {
     super({
       maxConcurrent: options.maxConcurrent || 3,
@@ -444,6 +447,9 @@ export class TestRefactorWorker extends SidequestServer {
 
 ${importStatement}
 
+/**
+ * expectExternalLink.
+ */
 export function expectExternalLink(element: HTMLElement, href: string) {
   const link = element.closest('a');
   expect(link).toHaveAttribute('href', href);
@@ -451,20 +457,32 @@ export function expectExternalLink(element: HTMLElement, href: string) {
   expect(link).toHaveAttribute('rel', 'noopener noreferrer');
 }
 
+/**
+ * expectInternalLink.
+ */
 export function expectInternalLink(element: HTMLElement, href: string) {
   const link = element.closest('a');
   expect(link).toHaveAttribute('href', href);
 }
 
+/**
+ * expectMailtoLink.
+ */
 export function expectMailtoLink(element: HTMLElement, email: string) {
   const link = element.closest('a');
   expect(link).toHaveAttribute('href', \`mailto:\${email}\`);
 }
 
+/**
+ * expectSectionLink.
+ */
 export function expectSectionLink(element: HTMLElement, sectionId: string) {
   expectInternalLink(element, \`#\${sectionId}\`);
 }
 
+/**
+ * expectAriaLabel.
+ */
 export function expectAriaLabel(element: HTMLElement, label: string) {
   expect(element).toHaveAttribute('aria-label', label);
 }
@@ -487,42 +505,63 @@ export function expectAriaLabel(element: HTMLElement, label: string) {
 import { screen } from '@testing-library/react';
 ${importStatement}
 
+/**
+ * expectSectionWithId.
+ */
 export function expectSectionWithId(id: string) {
   const section = document.querySelector(\`section#\${id}\`);
   expect(section).toBeInTheDocument();
   return section;
 }
 
+/**
+ * expectHeadingLevel.
+ */
 export function expectHeadingLevel(level: 1 | 2 | 3 | 4 | 5 | 6, name: string) {
   const heading = screen.getByRole('heading', { level, name });
   expect(heading).toBeInTheDocument();
   return heading;
 }
 
+/**
+ * expectArticleCount.
+ */
 export function expectArticleCount(count: number) {
   const articles = screen.getAllByRole('article');
   expect(articles).toHaveLength(count);
   return articles;
 }
 
+/**
+ * expectContentInfo.
+ */
 export function expectContentInfo() {
   const footer = screen.getByRole('contentinfo');
   expect(footer).toBeInTheDocument();
   return footer;
 }
 
+/**
+ * expectHeadingCount.
+ */
 export function expectHeadingCount(level: 1 | 2 | 3 | 4 | 5 | 6, count: number) {
   const headings = screen.getAllByRole('heading', { level });
   expect(headings).toHaveLength(count);
   return headings;
 }
 
+/**
+ * expectListCount.
+ */
 export function expectListCount(minCount: number) {
   const lists = screen.getAllByRole('list');
   expect(lists.length).toBeGreaterThanOrEqual(minCount);
   return lists;
 }
 
+/**
+ * expectImageWithAlt.
+ */
 export function expectImageWithAlt(altText: string) {
   const img = screen.getByAltText(altText);
   expect(img).toBeInTheDocument();
@@ -544,14 +583,23 @@ import { screen, within, waitFor } from '@testing-library/react';
 import { expect } from 'vitest';
 import type { UserEvent } from '@testing-library/user-event';
 
+/**
+ * getForm.
+ */
 export function getForm() {
   return screen.getByRole('form');
 }
 
+/**
+ * getFormInputs.
+ */
 export function getFormInputs(form: HTMLElement) {
   return within(form).getAllByRole('textbox');
 }
 
+/**
+ * getSubmitButton.
+ */
 export function getSubmitButton(form: HTMLElement) {
   return within(form).getByRole('button', { name: /send|submit/i });
 }
@@ -573,11 +621,17 @@ export async function fillContactForm(
   return { form, inputs };
 }
 
+/**
+ * expectFormAccessibility.
+ */
 export function expectFormAccessibility(form: HTMLElement) {
   expect(form).toHaveAttribute('noValidate');
   expect(form).toHaveAttribute('aria-describedby');
 }
 
+/**
+ * waitForForm.
+ */
 export async function waitForForm() {
   await waitFor(() => {
     expect(screen.getByRole('form')).toBeInTheDocument();
@@ -718,42 +772,69 @@ ${exports}
 
 import { Page, expect } from '@playwright/test';
 
+/**
+ * navigateToSection.
+ */
 export async function navigateToSection(page: Page, section: string) {
   await page.click(\`text=\${section}\`);
   await expect(page.url()).toContain(\`#\${section.toLowerCase()}\`);
 }
 
+/**
+ * goToHomepage.
+ */
 export async function goToHomepage(page: Page) {
   await page.goto('/');
 }
 
+/**
+ * setMobileViewport.
+ */
 export async function setMobileViewport(page: Page) {
   await page.setViewportSize({ width: 375, height: 667 });
 }
 
+/**
+ * setTabletViewport.
+ */
 export async function setTabletViewport(page: Page) {
   await page.setViewportSize({ width: 768, height: 1024 });
 }
 
+/**
+ * setDesktopViewport.
+ */
 export async function setDesktopViewport(page: Page) {
   await page.setViewportSize({ width: 1280, height: 720 });
 }
 
+/**
+ * openMobileMenu.
+ */
 export async function openMobileMenu(page: Page) {
   await page.click('[aria-label="Open menu"]');
   await expect(page.locator('[aria-label="Close menu"]')).toBeVisible();
 }
 
+/**
+ * expectTextVisible.
+ */
 export async function expectTextVisible(page: Page, text: string) {
   await expect(page.locator(\`text=\${text}\`)).toBeVisible();
 }
 
+/**
+ * expectAllTextVisible.
+ */
 export async function expectAllTextVisible(page: Page, texts: string[]) {
   for (const text of texts) {
     await expect(page.locator(\`text=\${text}\`)).toBeVisible();
   }
 }
 
+/**
+ * clickExternalLink.
+ */
 export async function clickExternalLink(page: Page, linkText: string) {
   const [popup] = await Promise.all([
     page.waitForEvent('popup'),
@@ -767,7 +848,7 @@ export async function clickExternalLink(page: Page, linkText: string) {
   /**
    * Override commit message generation
    */
-  async _generateCommitMessage(job: BaseJob): Promise<{ title: string; body: string }> {
+  public async _generateCommitMessage(job: BaseJob): Promise<{ title: string; body: string }> {
     const result = job.result as JobResult | undefined;
     return {
       title: `refactor(tests): add modular test utilities`,

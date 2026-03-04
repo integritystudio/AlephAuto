@@ -59,6 +59,9 @@ const SOFTWARE_APP_TYPE = 'SoftwareApplication';
 const SOFTWARE_SOURCE_TYPE = 'SoftwareSourceCode';
 const TECH_ARTICLE_TYPE = 'TechArticle';
 
+/**
+ * inferSchemaType.
+ */
 function inferSchemaType(readmePath: string, content: string, context: SchemaContext): string {
   const pathLower = readmePath.toLowerCase();
   const contentLower = content.toLowerCase();
@@ -86,6 +89,9 @@ function inferSchemaType(readmePath: string, content: string, context: SchemaCon
   return TECH_ARTICLE_TYPE;
 }
 
+/**
+ * getSchemaName.
+ */
 function getSchemaName(readmePath: string, content: string): string {
   const titleMatch = content.match(/^#\s+(.+)$/m);
   if (titleMatch) {
@@ -96,6 +102,9 @@ function getSchemaName(readmePath: string, content: string): string {
   return dirName || DEFAULT_SCHEMA_NAME;
 }
 
+/**
+ * isDescriptionLineSkippable.
+ */
 function isDescriptionLineSkippable(trimmedLine: string, hasDescription: boolean): boolean {
   if (!trimmedLine || trimmedLine.startsWith('```') || trimmedLine.startsWith('<')) {
     return true;
@@ -108,6 +117,9 @@ function isDescriptionLineSkippable(trimmedLine: string, hasDescription: boolean
   return false;
 }
 
+/**
+ * truncateDescription.
+ */
 function truncateDescription(description: string): string {
   if (description.length <= DESCRIPTION_MAX_LENGTH) {
     return description;
@@ -116,6 +128,9 @@ function truncateDescription(description: string): string {
   return description.substring(0, DESCRIPTION_TRUNCATED_LENGTH) + '...';
 }
 
+/**
+ * extractDescriptionFromContent.
+ */
 function extractDescriptionFromContent(content: string): string {
   const lines = content.split('\n');
   let foundTitle = false;
@@ -145,6 +160,9 @@ function extractDescriptionFromContent(content: string): string {
   return description ? truncateDescription(description) : DEFAULT_DESCRIPTION;
 }
 
+/**
+ * addSoftwareSchemaFields.
+ */
 function addSoftwareSchemaFields(schema: SchemaObject, schemaType: string, context: SchemaContext): void {
   if (schemaType !== SOFTWARE_APP_TYPE && schemaType !== SOFTWARE_SOURCE_TYPE) {
     return;
@@ -167,6 +185,9 @@ function addSoftwareSchemaFields(schema: SchemaObject, schemaType: string, conte
   }
 }
 
+/**
+ * addArticleSchemaFields.
+ */
 function addArticleSchemaFields(schema: SchemaObject, schemaType: string): void {
   if (schemaType !== TECH_ARTICLE_TYPE && schemaType !== HOWTO_TYPE) {
     return;
@@ -176,6 +197,9 @@ function addArticleSchemaFields(schema: SchemaObject, schemaType: string): void 
   schema.inLanguage = 'en-US';
 }
 
+/**
+ * addApiReferenceFields.
+ */
 function addApiReferenceFields(schema: SchemaObject, schemaType: string, context: SchemaContext): void {
   if (schemaType !== API_REFERENCE_TYPE) {
     return;
@@ -187,6 +211,9 @@ function addApiReferenceFields(schema: SchemaObject, schemaType: string, context
   }
 }
 
+/**
+ * buildSchemaObject.
+ */
 function buildSchemaObject(readmePath: string, content: string, context: SchemaContext, schemaType: string): SchemaObject {
   const schema: SchemaObject = {
     '@context': SCHEMA_CONTEXT_URL,
@@ -202,6 +229,9 @@ function buildSchemaObject(readmePath: string, content: string, context: SchemaC
   return schema;
 }
 
+/**
+ * validateSchemaObject.
+ */
 function validateSchemaObject(schema: SchemaObject): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -235,6 +265,9 @@ function validateSchemaObject(schema: SchemaObject): ValidationResult {
   };
 }
 
+/**
+ * collectSeoImprovements.
+ */
 function collectSeoImprovements(schema: SchemaObject): string[] {
   const improvements: string[] = [];
 
@@ -254,6 +287,9 @@ function collectSeoImprovements(schema: SchemaObject): string[] {
   return improvements;
 }
 
+/**
+ * collectRichResultsEligibility.
+ */
 function collectRichResultsEligibility(schemaType: string): string[] {
   const richResults: string[] = [];
 
@@ -270,6 +306,9 @@ function collectRichResultsEligibility(schemaType: string): string[] {
   return richResults;
 }
 
+/**
+ * computeImpactScore.
+ */
 function computeImpactScore(impact: SchemaImpact, schema: SchemaObject): number {
   let score = 0;
   score += impact.seoImprovements.length * 15;
@@ -279,6 +318,9 @@ function computeImpactScore(impact: SchemaImpact, schema: SchemaObject): number 
   return Math.min(100, score);
 }
 
+/**
+ * getRatingForScore.
+ */
 function getRatingForScore(score: number): string {
   if (score >= 80) {
     return 'Excellent';
@@ -292,6 +334,9 @@ function getRatingForScore(score: number): string {
   return 'Needs Improvement';
 }
 
+/**
+ * analyzeSchemaImpactData.
+ */
 function analyzeSchemaImpactData(originalContent: string, enhancedContent: string, schema: SchemaObject): SchemaImpact {
   const schemaType = schema['@type'];
   const impact: SchemaImpact = {
@@ -317,11 +362,17 @@ function analyzeSchemaImpactData(originalContent: string, enhancedContent: strin
   return impact;
 }
 
+/**
+ * createJsonLdScriptTag.
+ */
 function createJsonLdScriptTag(schema: SchemaObject): string {
   const jsonString = JSON.stringify(schema, null, 2);
   return `<script type="application/ld+json">\n${jsonString}\n</script>`;
 }
 
+/**
+ * findSchemaInsertIndex.
+ */
 function findSchemaInsertIndex(lines: string[]): number {
   let insertIndex = 0;
   for (let index = 0; index < lines.length; index++) {
@@ -334,6 +385,9 @@ function findSchemaInsertIndex(lines: string[]): number {
   return insertIndex;
 }
 
+/**
+ * injectSchemaIntoContent.
+ */
 function injectSchemaIntoContent(content: string, schema: SchemaObject): string {
   const jsonLdScript = createJsonLdScriptTag(schema);
   const lines = content.split('\n');
@@ -351,6 +405,9 @@ export class SchemaMCPTools {
   mcpServerUrl: string;
   useRealMCP: boolean;
 
+  /**
+   * constructor.
+   */
   constructor(options: { mcpServerUrl?: string; useRealMCP?: boolean } = {}) {
     this.mcpServerUrl = options.mcpServerUrl ?? config.schemaMcpUrl ?? '';
     this.useRealMCP = options.useRealMCP ?? false;

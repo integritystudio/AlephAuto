@@ -91,6 +91,9 @@ export class RepoCleanupWorker extends SidequestServer {
   baseDir: string;
   scriptPath: string;
 
+  /**
+   * constructor.
+   */
   constructor(options: RepoCleanupWorkerOptions = {}) {
     super({
       ...options,

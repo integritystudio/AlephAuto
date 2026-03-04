@@ -19,42 +19,66 @@ const logger = createComponentLogger('TestCacheLayer');
 
 // Redis MCP client - mock for testing without Redis
 const mockRedisClient = {
+  /**
+   * hset.
+   */
   async hset({ name, key, value: _value, expire_seconds: _expire_seconds }) {
     logger.debug({ name, key }, 'Mock Redis: HSET');
     return true;
   },
 
+  /**
+   * hget.
+   */
   async hget({ name, key }) {
     logger.debug({ name, key }, 'Mock Redis: HGET');
     return null; // Simulate cache miss
   },
 
+  /**
+   * hexists.
+   */
   async hexists({ name, key }) {
     logger.debug({ name, key }, 'Mock Redis: HEXISTS');
     return false; // Simulate cache miss
   },
 
+  /**
+   * delete.
+   */
   async delete({ key }) {
     logger.debug({ key }, 'Mock Redis: DELETE');
     return true;
   },
 
+  /**
+   * scan_all_keys.
+   */
   async scan_all_keys({ pattern }) {
     logger.debug({ pattern }, 'Mock Redis: SCAN');
     return [];
   },
 
+  /**
+   * lpush.
+   */
   async lpush({ name, value: _value, expire: _expire }) {
     logger.debug({ name }, 'Mock Redis: LPUSH');
     return true;
   },
 
+  /**
+   * lrange.
+   */
   async lrange({ name, start, stop }) {
     logger.debug({ name, start, stop }, 'Mock Redis: LRANGE');
     return [];
   }
 };
 
+/**
+ * testGitTracker.
+ */
 async function testGitTracker() {
   console.log('\n╔══════════════════════════════════════════════════════════╗');
   console.log('║              TEST 1: GIT COMMIT TRACKER                  ║');
@@ -106,6 +130,9 @@ async function testGitTracker() {
   }
 }
 
+/**
+ * testScanCache.
+ */
 async function testScanCache() {
   console.log('\n╔══════════════════════════════════════════════════════════╗');
   console.log('║               TEST 2: SCAN RESULT CACHE                  ║');
@@ -168,6 +195,9 @@ async function testScanCache() {
   }
 }
 
+/**
+ * testCachedScanner.
+ */
 async function testCachedScanner() {
   console.log('\n╔══════════════════════════════════════════════════════════╗');
   console.log('║                TEST 3: CACHED SCANNER                    ║');
@@ -220,6 +250,9 @@ async function testCachedScanner() {
   }
 }
 
+/**
+ * main.
+ */
 async function main() {
   console.log('╔══════════════════════════════════════════════════════════╗');
   console.log('║            CACHE LAYER INTEGRATION TEST                 ║');

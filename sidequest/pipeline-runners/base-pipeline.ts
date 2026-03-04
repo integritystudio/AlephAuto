@@ -13,6 +13,9 @@ export type { Job, JobStats };
 export abstract class BasePipeline<TWorker extends SidequestServer = SidequestServer> {
   protected worker: TWorker;
 
+  /**
+   * constructor.
+   */
   constructor(worker: TWorker) {
     this.worker = worker;
   }
@@ -25,12 +28,18 @@ export abstract class BasePipeline<TWorker extends SidequestServer = SidequestSe
    */
   waitForCompletion(): Promise<void> {
     return new Promise<void>((resolve) => {
+      /**
+       * cleanup.
+       */
       const cleanup = () => {
         this.worker.off('job:completed', checkAndResolve);
         this.worker.off('job:failed', checkAndResolve);
         this.worker.off('retry:created', checkAndResolve);
       };
 
+      /**
+       * checkAndResolve.
+       */
       const checkAndResolve = () => {
         const stats = this.worker.getStats();
         if (stats.active === 0 && stats.queued === 0) {
@@ -77,6 +86,9 @@ export abstract class BasePipeline<TWorker extends SidequestServer = SidequestSe
     return task;
   }
 
+  /**
+   * getStats.
+   */
   getStats(): JobStats {
     return this.worker.getStats();
   }

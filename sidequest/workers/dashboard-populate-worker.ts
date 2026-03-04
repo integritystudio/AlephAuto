@@ -53,6 +53,9 @@ export class DashboardPopulateWorker extends SidequestServer {
   dashboardDir: string;
   toolkitDir: string;
 
+  /**
+   * constructor.
+   */
   constructor(options: PopulateWorkerOptions = {}) {
     super({
       ...options,

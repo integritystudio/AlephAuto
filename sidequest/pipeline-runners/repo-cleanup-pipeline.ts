@@ -65,6 +65,9 @@ const args = process.argv.slice(2);
 // || is correct here: CLI flags must also trigger when config.runOnStartup is false (boolean OR, not nullish coalescing)
 const RUN_ON_STARTUP = config.runOnStartup || args.includes('--run-now') || args.includes('--run');
 
+/**
+ * main.
+ */
 async function main(): Promise<void> {
   logger.info({
     cronSchedule: CRON_SCHEDULE,

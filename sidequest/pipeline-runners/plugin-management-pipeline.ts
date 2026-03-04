@@ -34,6 +34,9 @@ interface AuditResult {
  * Automatically audits Claude Code plugins on a schedule
  */
 class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
+  /**
+   * constructor.
+   */
   constructor(options: Record<string, unknown> = {}) {
     super(new PluginManagerWorker({
       maxConcurrent: 1,

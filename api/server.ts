@@ -353,7 +353,7 @@ app.get('/ws/status', (req: Request, res: Response) => {
  * Cleans up partially initialized resources to prevent resource leaks
  * @private
  */
-async function _emergencyShutdown() {
+async function emergencyShutdown() {
   logStart(logger, 'emergency shutdown');
 
   try {
@@ -456,7 +456,7 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
     });
 
     // Emergency shutdown: cleanup partially initialized resources
-    await _emergencyShutdown();
+    await emergencyShutdown();
 
     process.exit(1);
   }

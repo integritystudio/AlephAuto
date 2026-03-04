@@ -7,6 +7,9 @@
 import { RepoCleanupWorker } from '../../sidequest/workers/repo-cleanup-worker.ts';
 import path from 'path';
 
+/**
+ * main.
+ */
 async function main() {
   console.log('Testing RepoCleanupWorker...\n');
 

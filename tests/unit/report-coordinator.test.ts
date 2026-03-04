@@ -15,6 +15,9 @@ describe('ReportCoordinator', () => {
   let tempDir;
   let coordinator;
 
+  /**
+   * createMockScanResult.
+   */
   const createMockScanResult = (type = 'intra-project') => ({
     scan_type: type,
     scan_metadata: {

@@ -19,8 +19,14 @@ import type { GeneratorOptions, GeneratorResult } from '@babel/generator';
 import type { MigrationStep } from '../types/migration-types.ts';
 
 // ESM/CJS interop: Babel packages nest the callable under .default at runtime
+/**
+ * traverse.
+ */
 const traverse = ((_traverse as unknown as { default: (node: t.Node, opts?: TraverseOptions) => void }).default
   ?? _traverse) as (node: t.Node, opts?: TraverseOptions) => void;
+/**
+ * generate.
+ */
 const generate = ((_generate as unknown as { default: (ast: t.Node, opts?: GeneratorOptions) => GeneratorResult }).default
   ?? _generate) as (ast: t.Node, opts?: GeneratorOptions) => GeneratorResult;
 import * as t from '@babel/types';

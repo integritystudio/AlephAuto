@@ -146,10 +146,16 @@ legacyWrite(data);
 
       const testFile = path.join(tempDir, 'test-remove.js');
       await fs.writeFile(testFile, `
+/**
+ * writeJsonFile.
+ */
 function writeJsonFile(path, data) {
   console.log('Old implementation');
 }
 
+/**
+ * otherFunction.
+ */
 function otherFunction() {
   return true;
 }
@@ -223,6 +229,9 @@ const result2 = oldFunc(3, 4);
       await fs.writeFile(testFile, `
 import { helper } from './old-utils.js';
 
+/**
+ * legacyHelper.
+ */
 function legacyHelper(a, b) {
   return a + b;
 }

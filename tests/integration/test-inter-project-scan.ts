@@ -20,6 +20,9 @@ import path from 'path';
 
 const logger = createComponentLogger('TestInterProject');
 
+/**
+ * resolveRepositoryPaths.
+ */
 function resolveRepositoryPaths(args: string[]) {
   return args.length > 0
     ? args.map(arg => (path.isAbsolute(arg) ? arg : path.resolve(process.cwd(), arg)))
@@ -29,6 +32,9 @@ function resolveRepositoryPaths(args: string[]) {
       ];
 }
 
+/**
+ * printHeader.
+ */
 function printHeader(repoPaths: string[]) {
   console.log('╔══════════════════════════════════════════════════════════╗');
   console.log('║     INTER-PROJECT DUPLICATE DETECTION TEST              ║');
@@ -41,6 +47,9 @@ function printHeader(repoPaths: string[]) {
   console.log('');
 }
 
+/**
+ * createInterProjectScanner.
+ */
 function createInterProjectScanner() {
   return new InterProjectScanner({
     orchestrator: {
@@ -58,6 +67,9 @@ function createInterProjectScanner() {
   });
 }
 
+/**
+ * runScan.
+ */
 async function runScan(scanner: InterProjectScanner, repoPaths: string[]) {
   console.log('🔍 Starting inter-project scan...\n');
   const startTime = Date.now();
@@ -72,6 +84,9 @@ async function runScan(scanner: InterProjectScanner, repoPaths: string[]) {
   return { result, duration };
 }
 
+/**
+ * generateReports.
+ */
 async function generateReports(result: Record<string, unknown>, repositoryCount: number) {
   console.log('📝 Generating reports...\n');
   const reportCoordinator = new ReportCoordinator();
@@ -84,6 +99,9 @@ async function generateReports(result: Record<string, unknown>, repositoryCount:
   });
 }
 
+/**
+ * printReportLocations.
+ */
 function printReportLocations(reportPaths: Record<string, string>) {
   console.log('✅ Reports generated successfully:\n');
   console.log(`   📄 HTML:     ${reportPaths.html}`);
@@ -92,6 +110,9 @@ function printReportLocations(reportPaths: Record<string, string>) {
   console.log(`   📋 Summary:  ${reportPaths.summary}\n`);
 }
 
+/**
+ * printTopCrossRepositoryDuplicates.
+ */
 function printTopCrossRepositoryDuplicates(result: Record<string, unknown>) {
   const duplicates = result.cross_repository_duplicates as Array<Record<string, unknown>> | undefined;
   if (!duplicates || duplicates.length === 0) {
@@ -114,6 +135,9 @@ function printTopCrossRepositoryDuplicates(result: Record<string, unknown>) {
   });
 }
 
+/**
+ * printTopSuggestions.
+ */
 function printTopSuggestions(result: Record<string, unknown>) {
   const suggestions = result.cross_repository_suggestions as Array<Record<string, unknown>> | undefined;
   if (!suggestions || suggestions.length === 0) {
@@ -138,6 +162,9 @@ function printTopSuggestions(result: Record<string, unknown>) {
   });
 }
 
+/**
+ * printDetailedResults.
+ */
 function printDetailedResults(result: Record<string, unknown>) {
   const scannedRepositories = (result.scanned_repositories as Array<Record<string, unknown>>) || [];
   const metrics = (result.metrics as Record<string, unknown>) || {};
@@ -168,12 +195,18 @@ function printDetailedResults(result: Record<string, unknown>) {
   printTopSuggestions(result);
 }
 
+/**
+ * printCompletionBanner.
+ */
 function printCompletionBanner() {
   console.log('╔══════════════════════════════════════════════════════════╗');
   console.log('║                   TEST COMPLETED                         ║');
   console.log('╚══════════════════════════════════════════════════════════╝\n');
 }
 
+/**
+ * main.
+ */
 async function main() {
   const args = process.argv.slice(2);
   const repoPaths = resolveRepositoryPaths(args);

@@ -14,6 +14,9 @@ import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 
 const logger = createComponentLogger('TestAutomatedPipeline');
 
+/**
+ * main.
+ */
 async function main() {
   console.log('╔══════════════════════════════════════════════════════════╗');
   console.log('║     AUTOMATED PIPELINE TEST                              ║');

@@ -868,6 +868,9 @@ export * from './test-constants';
 `;
 }
 
+/**
+ * printAnalysisResults.
+ */
 function printAnalysisResults(analysis: Awaited<ReturnType<typeof analyzeTestFiles>>) {
   console.log('Analysis Results:');
   console.log('─────────────────');
@@ -887,6 +890,9 @@ function printAnalysisResults(analysis: Awaited<ReturnType<typeof analyzeTestFil
   }
 }
 
+/**
+ * generateUtilityFiles.
+ */
 function generateUtilityFiles(config: RefactorConfig, analysis: Awaited<ReturnType<typeof analyzeTestFiles>>, utilsPath: string) {
   if (!fs.existsSync(utilsPath)) {
     fs.mkdirSync(utilsPath, { recursive: true });
@@ -919,6 +925,9 @@ function generateUtilityFiles(config: RefactorConfig, analysis: Awaited<ReturnTy
   console.log(`  ✓ Created ${config.utilsDir}/render-helpers.ts (add to test-utils.tsx)`);
 }
 
+/**
+ * generateE2EFixturesIfNeeded.
+ */
 function generateE2EFixturesIfNeeded(config: RefactorConfig, projectPath: string) {
   const e2ePath = path.join(projectPath, config.e2eDir);
   if (!fs.existsSync(e2ePath)) return;

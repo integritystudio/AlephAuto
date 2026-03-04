@@ -13,6 +13,9 @@ import fs from 'fs/promises';
 
 const logger = createComponentLogger('TestPipeline');
 
+/**
+ * printScanMetrics.
+ */
 function printScanMetrics(metrics: Record<string, number>) {
   console.log('\nMetrics:');
   console.log(`  Code Blocks Detected: ${metrics.total_code_blocks}`);
@@ -24,6 +27,9 @@ function printScanMetrics(metrics: Record<string, number>) {
   console.log(`  Quick Wins: ${metrics.quick_wins}`);
 }
 
+/**
+ * printTopGroups.
+ */
 function printTopGroups(groups: any[]) {
   if (!groups?.length) return;
   console.log('\nTop Duplicate Groups:');
@@ -38,6 +44,9 @@ function printTopGroups(groups: any[]) {
   }
 }
 
+/**
+ * printTopSuggestions.
+ */
 function printTopSuggestions(suggestions: any[]) {
   if (!suggestions?.length) return;
   console.log('\nTop Suggestions:');
@@ -53,6 +62,9 @@ function printTopSuggestions(suggestions: any[]) {
   }
 }
 
+/**
+ * main.
+ */
 async function main() {
   const args = process.argv.slice(2);
   const repoPath = args[0] || path.join(process.cwd(), 'sidequest');

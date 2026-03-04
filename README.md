@@ -4,7 +4,7 @@ Job queue framework with real-time dashboard for automation pipelines.
 
 ```mermaid
 graph TD
-    root["AlephAuto<br/><i>v2.1.0 &bull; Node + Python</i>"]
+    root["AlephAuto<br/><i>v2.3.x &bull; Node + Python</i>"]
 
     root --> api["api/<br/><i>REST API + WebSocket</i>"]
     root --> frontend["frontend/<br/><i>React Dashboard (Vite + TS)</i>"]
@@ -55,7 +55,7 @@ graph TD
 | 2 | **Schema Enhancement** | JS | 3 AM daily | Modified READMEs + JSON |
 | 3 | **Git Activity Reporter** | JS | Sunday 8 PM | Jekyll MD + SVG |
 | 4 | **Repository Cleanup** | JS | Sunday 3 AM | Cleanup logs |
-| 5 | **Repomix** | JS | 2 AM daily | `condense/*.txt` |
+| 5 | **Repomix** | JS | 2 AM daily | `docs/repomix/{repo-compressed.xml,repomix.xml}` |
 | 6 | **Codebase Health** | JS + Python | 8 AM daily | MD/JSON reports |
 | 7 | **Dashboard Populate** | JS | 6 AM/6 PM | Cloudflare KV + reports |
 | 8 | **Bugfix Audit** | JS | Recurring | Audit reports |
@@ -106,7 +106,7 @@ Multi-Language Pipeline (Duplicate Detection)
 ├── frontend/              # React dashboard (Vite + TypeScript)
 │   └── src/               # Components, services, store, types
 ├── sidequest/             # AlephAuto job queue framework
-│   ├── core/              # server.js, job-repository, git-workflow, constants
+│   ├── core/              # server.ts, job-repository, git-workflow, constants
 │   ├── pipeline-core/     # Scan orchestrator, similarity (Python)
 │   ├── pipeline-runners/  # 11 pipeline entry points
 │   └── workers/           # Worker implementations
@@ -131,7 +131,7 @@ npm run dashboard                          # Dashboard UI
 npm run build:frontend                     # Build React app
 
 # Pipelines
-doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js --run-now
+doppler run -- node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts --run-now
 npm run docs:enhance                       # Schema.org injection
 npm run git:weekly                         # Git activity report
 npm run claude:health                      # Codebase health check
@@ -156,14 +156,14 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 | Purpose | File |
 |---------|------|
 | Pipeline coordinator | `sidequest/pipeline-core/scan-orchestrator.ts` |
-| Base job queue | `sidequest/core/server.js` |
-| Job repository | `sidequest/core/job-repository.js` |
-| Git workflow manager | `sidequest/core/git-workflow-manager.js` |
-| Constants | `sidequest/core/constants.js` |
+| Base job queue | `sidequest/core/server.ts` |
+| Job repository | `sidequest/core/job-repository.ts` |
+| Git workflow manager | `sidequest/core/git-workflow-manager.ts` |
+| Constants | `sidequest/core/constants.ts` |
 | Job status types | `api/types/job-status.ts` |
-| API error utilities | `api/utils/api-error.js` |
-| Port manager | `api/utils/port-manager.js` |
-| Worker registry | `api/utils/worker-registry.js` |
+| API error utilities | `api/utils/api-error.ts` |
+| Port manager | `api/utils/port-manager.ts` |
+| Worker registry | `api/utils/worker-registry.ts` |
 
 ## Docs
 
@@ -177,8 +177,8 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 - [Adding Pipelines](docs/ADDING_PIPELINES.md) - Pipeline creation guide
 - [Deployment](docs/DEPLOYMENT.md) - Production deployment
 - [Installation](docs/INSTALL.md) - Setup instructions
-- [Changelog](docs/CHANGELOG.md) - Version history (1.x)
-- [Changelog v2.1](docs/2.1/CHANGELOG.md) - v2.1 release
+- [Changelog](docs/CHANGELOG.md) - Legacy/cross-project history
+- [Release Changelogs](docs/changelog/README.md) - v2.x release history
 
 ## License
 

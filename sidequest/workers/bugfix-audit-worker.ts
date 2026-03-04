@@ -58,6 +58,9 @@ export class BugfixAuditWorker extends SidequestServer {
   outputBaseDir: string;
   declare gitWorkflowManager: GitWorkflowManager;
 
+  /**
+   * constructor.
+   */
   constructor(options: BugfixAuditWorkerOptions = {}) {
     super({
       ...options,
@@ -89,6 +92,9 @@ export class BugfixAuditWorker extends SidequestServer {
 
     const markdownFiles: string[] = [];
 
+    /**
+     * scanDirectory.
+     */
     async function scanDirectory(dir: string): Promise<void> {
       const entries = await fs.readdir(dir, { withFileTypes: true });
       for (const entry of entries) {

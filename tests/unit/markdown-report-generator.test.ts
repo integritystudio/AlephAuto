@@ -14,6 +14,9 @@ import os from 'os';
 import { MarkdownReportGenerator } from '../../sidequest/pipeline-core/reports/markdown-report-generator.ts';
 
 // Test fixtures
+/**
+ * createIntraProjectScanResult.
+ */
 const createIntraProjectScanResult = () => ({
   scan_type: 'intra-project',
   repository_info: {
@@ -99,6 +102,9 @@ const createIntraProjectScanResult = () => ({
   }
 });
 
+/**
+ * createInterProjectScanResult.
+ */
 const createInterProjectScanResult = () => ({
   scan_type: 'inter-project',
   metrics: {

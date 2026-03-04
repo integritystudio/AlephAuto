@@ -3,6 +3,9 @@ require('dotenv').config();
 
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_SENTRY_WEBHOOK;
 
+/**
+ * sendDiscordMessage.
+ */
 function sendDiscordMessage(embed) {
   return new Promise((resolve, reject) => {
     if (!DISCORD_WEBHOOK_URL) {
@@ -51,6 +54,9 @@ function sendDiscordMessage(embed) {
   });
 }
 
+/**
+ * testDiscordIntegration.
+ */
 async function testDiscordIntegration() {
   console.log('🧪 Testing Discord Integration...\n');
 

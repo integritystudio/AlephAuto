@@ -77,6 +77,9 @@ export class GitignoreWorker extends SidequestServer {
   maxDepth: number;
   gitignoreEntry: string;
 
+  /**
+   * constructor.
+   */
   constructor(options: GitignoreWorkerOptions = {}) {
     super({
       ...options,

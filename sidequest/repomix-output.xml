@@ -98,6 +98,7 @@ pipeline-runners/
   plugin-management-pipeline.ts
   repo-cleanup-pipeline.ts
   schema-enhancement-pipeline.ts
+  test_collect_git_activity.py
   test-refactor-pipeline.ts
   universal-repo-cleanup.sh
 types/
@@ -16916,7 +16917,203 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     logger.info(&apos;Schema enhancement pipeline running. Press Ctrl+C to stop.&apos;);
   }
 }
-export { SchemaEnhancementPipeline };</file><file path="pipeline-runners/test-refactor-pipeline.ts">#!/usr/bin/env -S node --strip-types
+export { SchemaEnhancementPipeline };</file><file path="pipeline-runners/test_collect_git_activity.py">from __future__ import annotations
+from datetime import datetime
+from pathlib import Path
+from types import SimpleNamespace
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
+import collect_git_activity as cga
+class FrozenDateTime(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return cls(2026, 3, 4, 12, 0, 0, tzinfo=tz)
+def _result(stdout: str) -&gt; SimpleNamespace:
+    return SimpleNamespace(stdout=stdout)
+def test_find_git_repos_uses_argv_and_filters_excludes(monkeypatch, tmp_path):
+    code_dir = tmp_path / &quot;code root&quot;
+    reports_dir = tmp_path / &quot;reports&quot;
+    extra_repo = tmp_path / &quot;extra-repo&quot;
+    code_dir.mkdir(parents=True)
+    reports_dir.mkdir(parents=True)
+    (extra_repo / &quot;.git&quot;).mkdir(parents=True)
+    calls: list[list[str]] = []
+    def fake_run(cmd, capture_output, text):
+        calls.append(cmd)
+        if cmd[1] == str(code_dir):
+            return _result(
+                f&quot;{code_dir / &apos;repo-a&apos; / &apos;.git&apos;}\n&quot;
+                f&quot;{code_dir / &apos;node_modules&apos; / &apos;ignored&apos; / &apos;.git&apos;}\n&quot;
+            )
+        if cmd[1] == str(reports_dir):
+            return _result(f&quot;{reports_dir / &apos;repo-b&apos; / &apos;.git&apos;}\n&quot;)
+        raise AssertionError(f&quot;Unexpected command: {cmd}&quot;)
+    monkeypatch.setattr(cga, &quot;CODE_DIR&quot;, code_dir)
+    monkeypatch.setattr(cga, &quot;REPORTS_DIR&quot;, reports_dir)
+    monkeypatch.setattr(cga, &quot;ADDITIONAL_REPOS&quot;, [extra_repo])
+    monkeypatch.setattr(cga, &quot;EXCLUDE_PATTERNS&quot;, [&quot;node_modules&quot;])
+    monkeypatch.setattr(cga.subprocess, &quot;run&quot;, fake_run)
+    repos = cga.find_git_repos(max_depth=2, include_dotfiles=False)
+    assert calls[0] == [&quot;find&quot;, str(code_dir), &quot;-maxdepth&quot;, &quot;2&quot;, &quot;-name&quot;, &quot;.git&quot;, &quot;-type&quot;, &quot;d&quot;]
+    assert calls[1] == [&quot;find&quot;, str(reports_dir), &quot;-maxdepth&quot;, &quot;2&quot;, &quot;-name&quot;, &quot;.git&quot;, &quot;-type&quot;, &quot;d&quot;]
+    assert repos == sorted([code_dir / &quot;repo-a&quot;, reports_dir / &quot;repo-b&quot;, extra_repo])
+def test_get_repo_stats_uses_cwd_and_parses_outputs(monkeypatch, tmp_path):
+    repo_root = tmp_path / &quot;group&quot;
+    repo_path = repo_root / &quot;repo-one&quot;
+    repo_path.mkdir(parents=True)
+    outputs = [
+        _result(&quot;a1\nb2\n&quot;),
+        _result(&quot;2026-01\n2026-01\n2026-02\n&quot;),
+        _result(&quot;src/a.py\nsrc/b.ts\n&quot;),
+        _result(&quot;5\t2\tsrc/a.py\n-\t-\tbinary.bin\n3\t1\tsrc/b.ts\n&quot;),
+    ]
+    calls: list[tuple[list[str], Path]] = []
+    def fake_run(cmd, capture_output, text, cwd):
+        calls.append((cmd, cwd))
+        return outputs.pop(0)
+    monkeypatch.setattr(cga.subprocess, &quot;run&quot;, fake_run)
+    monkeypatch.setattr(cga, &quot;CODE_DIR&quot;, repo_root)
+    monkeypatch.setattr(cga, &quot;REPORTS_DIR&quot;, tmp_path / &quot;reports&quot;)
+    stats = cga.get_repo_stats(repo_path, &quot;2026-01-01&quot;, &quot;2026-02-01&quot;)
+    assert stats is not None
+    assert stats[&quot;commits&quot;] == 2
+    assert stats[&quot;monthly_commits&quot;] == {&quot;2026-01&quot;: 2, &quot;2026-02&quot;: 1}
+    assert stats[&quot;files&quot;] == [&quot;src/a.py&quot;, &quot;src/b.ts&quot;]
+    assert stats[&quot;additions&quot;] == 8
+    assert stats[&quot;deletions&quot;] == 3
+    assert stats[&quot;parent&quot;] is None
+    assert len(calls) == 4
+    for cmd, cwd in calls:
+        assert cmd[:3] == [&quot;git&quot;, &quot;log&quot;, &quot;--since=2026-01-01&quot;]
+        assert &quot;--until=2026-02-01&quot; in cmd
+        assert cwd == repo_path
+    assert &quot;--oneline&quot; in calls[0][0]
+    assert &quot;--date=format:%Y-%m&quot; in calls[1][0]
+    assert &quot;--name-only&quot; in calls[2][0]
+    assert &quot;--numstat&quot; in calls[3][0]
+def test_get_repo_stats_returns_none_on_subprocess_error(monkeypatch, tmp_path):
+    repo_path = tmp_path / &quot;repo&quot;
+    repo_path.mkdir()
+    def fake_run(*args, **kwargs):
+        raise RuntimeError(&quot;boom&quot;)
+    monkeypatch.setattr(cga.subprocess, &quot;run&quot;, fake_run)
+    assert cga.get_repo_stats(repo_path, &quot;2026-01-01&quot;, &quot;2026-02-01&quot;) is None
+def test_calculate_date_range_weekly_uses_fixed_now(monkeypatch):
+    monkeypatch.setattr(cga, &quot;datetime&quot;, FrozenDateTime)
+    args = SimpleNamespace(weekly=True, monthly=False, days=None, start_date=None, end_date=None)
+    assert cga._calculate_date_range(args) == (&quot;2026-02-25&quot;, &quot;2026-03-04&quot;)
+def test_calculate_date_range_prefers_explicit_start_end(monkeypatch):
+    monkeypatch.setattr(cga, &quot;datetime&quot;, FrozenDateTime)
+    args = SimpleNamespace(
+        weekly=False,
+        monthly=False,
+        days=None,
+        start_date=&quot;2026-01-10&quot;,
+        end_date=&quot;2026-01-20&quot;,
+    )
+    assert cga._calculate_date_range(args) == (&quot;2026-01-10&quot;, &quot;2026-01-20&quot;)
+def test_resolve_output_dir_relative_template(monkeypatch, tmp_path):
+    monkeypatch.setattr(cga, &quot;datetime&quot;, FrozenDateTime)
+    monkeypatch.setattr(cga, &quot;PERSONALSITE_DIR&quot;, tmp_path / &quot;site&quot;)
+    monkeypatch.setattr(cga, &quot;VISUALIZATION_DIR_TEMPLATE&quot;, &quot;assets/images/git-activity-{year}&quot;)
+    args = SimpleNamespace(output_dir=None)
+    assert cga._resolve_output_dir(args) == tmp_path / &quot;site&quot; / &quot;assets/images/git-activity-2026&quot;
+def test_resolve_output_dir_absolute_template(monkeypatch, tmp_path):
+    monkeypatch.setattr(cga, &quot;datetime&quot;, FrozenDateTime)
+    absolute_template = str(tmp_path / &quot;exports&quot; / &quot;git-{year}&quot;)
+    monkeypatch.setattr(cga, &quot;VISUALIZATION_DIR_TEMPLATE&quot;, absolute_template)
+    args = SimpleNamespace(output_dir=None)
+    assert cga._resolve_output_dir(args) == tmp_path / &quot;exports&quot; / &quot;git-2026&quot;
+def test_compile_activity_data_aggregates_monthly_and_totals(monkeypatch):
+    repos = [
+        {
+            &quot;name&quot;: &quot;repo-a&quot;,
+            &quot;commits&quot;: 3,
+            &quot;files&quot;: [&quot;a.py&quot;, &quot;b.py&quot;],
+            &quot;additions&quot;: 10,
+            &quot;deletions&quot;: 2,
+            &quot;monthly_commits&quot;: {&quot;2026-01&quot;: 2, &quot;2026-02&quot;: 1},
+        },
+        {
+            &quot;name&quot;: &quot;repo-b&quot;,
+            &quot;commits&quot;: 2,
+            &quot;files&quot;: [&quot;c.ts&quot;],
+            &quot;additions&quot;: 4,
+            &quot;deletions&quot;: 1,
+            &quot;monthly_commits&quot;: {&quot;2026-01&quot;: 1, &quot;2026-03&quot;: 1},
+        },
+    ]
+    all_files = [&quot;a.py&quot;, &quot;b.py&quot;, &quot;c.ts&quot;]
+    monkeypatch.setattr(cga, &quot;analyze_languages&quot;, lambda files: {&quot;Python&quot;: 2, &quot;TypeScript&quot;: 1})
+    monkeypatch.setattr(cga, &quot;find_project_websites&quot;, lambda repositories: {&quot;repo-a&quot;: &quot;https://a.example&quot;})
+    monkeypatch.setattr(cga, &quot;categorize_repositories&quot;, lambda repositories: {&quot;Client Work&quot;: repositories, &quot;Legacy&quot;: []})
+    data = cga._compile_activity_data(repos, all_files, &quot;2026-01-01&quot;, &quot;2026-03-01&quot;)
+    assert data[&quot;total_commits&quot;] == 5
+    assert data[&quot;total_additions&quot;] == 14
+    assert data[&quot;total_deletions&quot;] == 3
+    assert data[&quot;total_repositories&quot;] == 2
+    assert data[&quot;total_files&quot;] == 3
+    assert data[&quot;monthly&quot;] == {&quot;2026-01&quot;: 3, &quot;2026-02&quot;: 1, &quot;2026-03&quot;: 1}
+    assert data[&quot;categories&quot;][&quot;Client Work&quot;] == [{&quot;name&quot;: &quot;repo-a&quot;, &quot;commits&quot;: 3}, {&quot;name&quot;: &quot;repo-b&quot;, &quot;commits&quot;: 2}]
+    assert data[&quot;categories&quot;][&quot;Legacy&quot;] == []
+def test_collect_repository_stats_filters_zero_commit_repos(monkeypatch, tmp_path):
+    repo_a = tmp_path / &quot;repo-a&quot;
+    repo_b = tmp_path / &quot;repo-b&quot;
+    repo_c = tmp_path / &quot;repo-c&quot;
+    repo_a.mkdir()
+    repo_b.mkdir()
+    repo_c.mkdir()
+    def fake_stats(repo, since, until):
+        if repo.name == &quot;repo-a&quot;:
+            return {&quot;name&quot;: &quot;repo-a&quot;, &quot;commits&quot;: 0, &quot;files&quot;: [&quot;a.py&quot;]}
+        if repo.name == &quot;repo-b&quot;:
+            return {&quot;name&quot;: &quot;repo-b&quot;, &quot;commits&quot;: 2, &quot;files&quot;: [&quot;b.py&quot;, &quot;c.ts&quot;]}
+        return None
+    monkeypatch.setattr(cga, &quot;get_repo_stats&quot;, fake_stats)
+    repositories, all_files = cga._collect_repository_stats([repo_a, repo_b, repo_c], &quot;2026-01-01&quot;, &quot;2026-02-01&quot;)
+    assert repositories == [{&quot;name&quot;: &quot;repo-b&quot;, &quot;commits&quot;: 2, &quot;files&quot;: [&quot;b.py&quot;, &quot;c.ts&quot;]}]
+    assert all_files == [&quot;b.py&quot;, &quot;c.ts&quot;]
+def test_generate_jekyll_report_writes_expected_content(monkeypatch, tmp_path):
+    monkeypatch.setattr(cga, &quot;datetime&quot;, FrozenDateTime)
+    output_file = tmp_path / &quot;report.md&quot;
+    data = {
+        &quot;date_range&quot;: {&quot;start&quot;: &quot;2026-02-25&quot;, &quot;end&quot;: &quot;2026-03-04&quot;},
+        &quot;total_commits&quot;: 5,
+        &quot;total_repositories&quot;: 1,
+        &quot;total_files&quot;: 3,
+        &quot;repositories&quot;: [
+            {&quot;name&quot;: &quot;repo-a&quot;, &quot;parent&quot;: &quot;group&quot;, &quot;path&quot;: &quot;/tmp/repo-a&quot;, &quot;commits&quot;: 5, &quot;files&quot;: [&quot;a.py&quot;, &quot;b.py&quot;, &quot;c.ts&quot;]},
+        ],
+        &quot;languages&quot;: {&quot;Python&quot;: 2, &quot;TypeScript&quot;: 1},
+        &quot;categories&quot;: {&quot;Client Work&quot;: [{&quot;name&quot;: &quot;repo-a&quot;, &quot;commits&quot;: 5}]},
+        &quot;websites&quot;: {&quot;repo-a&quot;: &quot;https://repo-a.example&quot;},
+    }
+    cga.generate_jekyll_report(data, output_file)
+    content = output_file.read_text()
+    assert &apos;title: &quot;Weekly Git Activity Report: 2026-02-25 to 2026-03-04&quot;&apos; in content
+    assert &quot;| Total Commits | 5 |&quot; in content
+    assert &quot;### group/repo-a&quot; in content
+    assert &quot;- [repo-a](https://repo-a.example)&quot; in content
+def test_generate_visualizations_dispatches_expected_charts(monkeypatch, tmp_path):
+    calls: list[tuple[str, Path]] = []
+    def fake_pie(data, title, output_file, width=800, height=600):
+        calls.append((&quot;pie&quot;, output_file))
+    def fake_bar(data, title, output_file, width=800, height=600):
+        calls.append((&quot;bar&quot;, output_file))
+    monkeypatch.setattr(cga, &quot;create_pie_chart_svg&quot;, fake_pie)
+    monkeypatch.setattr(cga, &quot;create_bar_chart_svg&quot;, fake_bar)
+    data = {
+        &quot;monthly&quot;: {&quot;2026-01&quot;: 2},
+        &quot;total_commits&quot;: 2,
+        &quot;repositories&quot;: [{&quot;name&quot;: &quot;repo-a&quot;, &quot;parent&quot;: None, &quot;commits&quot;: 2}],
+        &quot;categories&quot;: {&quot;Client Work&quot;: [{&quot;name&quot;: &quot;repo-a&quot;, &quot;commits&quot;: 2}]},
+        &quot;languages&quot;: {&quot;Python&quot;: 1},
+    }
+    cga.generate_visualizations(data, tmp_path)
+    assert (&quot;pie&quot;, tmp_path / &quot;monthly-commits.svg&quot;) in calls
+    assert (&quot;bar&quot;, tmp_path / &quot;top-10-repos.svg&quot;) in calls
+    assert (&quot;pie&quot;, tmp_path / &quot;project-categories.svg&quot;) in calls
+    assert (&quot;pie&quot;, tmp_path / &quot;language-distribution.svg&quot;) in calls</file><file path="pipeline-runners/test-refactor-pipeline.ts">#!/usr/bin/env -S node --strip-types
 import { TestRefactorWorker } from &apos;../workers/test-refactor-worker.ts&apos;;
 import type { Job as BaseJob } from &apos;../core/server.ts&apos;;
 import { DirectoryScanner } from &apos;../utils/directory-scanner.ts&apos;;

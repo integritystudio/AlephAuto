@@ -22,6 +22,9 @@ interface ScanDirectory {
 interface TypedDirectoryScanner {
   baseDir: string;
   scanDirectories(): Promise<ScanDirectory[]>;
+  /**
+   * generateAndSaveScanResults.
+   */
   generateAndSaveScanResults(dirs: ScanDirectory[]): Promise<{
     reportPath: string;
     treePath: string;
@@ -48,6 +51,9 @@ class RepomixCronApp {
   private worker: TypedRepomixWorker;
   private scanner: TypedDirectoryScanner;
 
+  /**
+   * constructor.
+   */
   constructor() {
     this.worker = new RepomixWorker({
       maxConcurrent: cfg.maxConcurrent as number,
@@ -93,6 +99,9 @@ class RepomixCronApp {
     });
   }
 
+  /**
+   * runRepomixOnAllDirectories.
+   */
   async runRepomixOnAllDirectories(): Promise<void> {
     logStart(logger, 'repomix run', { baseDir: this.scanner.baseDir });
 
@@ -186,6 +195,9 @@ class RepomixCronApp {
     logger.info('Cron job scheduled successfully');
   }
 
+  /**
+   * start.
+   */
   async start(): Promise<void> {
     logger.info({
       codeDirectory: this.scanner.baseDir,

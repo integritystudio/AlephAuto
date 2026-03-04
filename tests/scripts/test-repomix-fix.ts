@@ -6,6 +6,9 @@
  */
 
 import { RepomixWorker } from '../../sidequest/workers/repomix-worker.ts';
+/**
+ * testRepomixFix.
+ */
 async function testRepomixFix() {
   console.log('🔍 Testing Repomix Fix...\n');
 

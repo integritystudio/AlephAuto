@@ -120,6 +120,9 @@ async function compressFile(inputPath, outputPath) {
 async function scanErrorLogs(baseDir) {
   const errorLogs = [];
 
+  /**
+   * scanDir.
+   */
   async function scanDir(dir) {
     const entries = await fs.readdir(dir, { withFileTypes: true });
 
@@ -281,6 +284,9 @@ async function deleteOldArchives(archivedLogs, retentionDays, dryRun, verbose) {
   return { deleted: deletedCount, totalSize };
 }
 
+/**
+ * printCleanupSummary.
+ */
 function printCleanupSummary(archiveResult: { archived: number; totalSize: number }, deleteResult: { deleted: number; totalSize: number }, dryRun: boolean) {
   console.log('\n' + '='.repeat(50));
   console.log('📊 Summary');

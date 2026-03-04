@@ -42,6 +42,9 @@ export class ApiError extends Error {
   status: number;
   details: object | null;
 
+  /**
+   * constructor.
+   */
   constructor(code: string, message: string, status = 400, details: object | null = null) {
     super(message);
     this.code = code;
@@ -50,6 +53,9 @@ export class ApiError extends Error {
     this.name = 'ApiError';
   }
 
+  /**
+   * toJSON.
+   */
   toJSON() {
     const response: { success: false; error: { code: string; message: string; details?: object }; timestamp: string } = {
       success: false,

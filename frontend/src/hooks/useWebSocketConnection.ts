@@ -27,6 +27,9 @@ const PIPELINE_TYPE_MAP: Record<string, PipelineType> = {
   'test-refactor': PipelineType.TEST_REFACTOR,
 };
 
+/**
+ * fetchStatus.
+ */
 async function fetchStatus() {
   const response = await fetch('/api/status');
   if (!response.ok) {
@@ -35,6 +38,9 @@ async function fetchStatus() {
   return response.json();
 }
 
+/**
+ * mapActiveJob.
+ */
 function mapActiveJob(j: any) {
   return {
     '@type': 'https://schema.org/Action' as const,
@@ -49,6 +55,9 @@ function mapActiveJob(j: any) {
   };
 }
 
+/**
+ * mapQueuedJob.
+ */
 function mapQueuedJob(j: any) {
   return {
     '@type': 'https://schema.org/Action' as const,
@@ -60,6 +69,9 @@ function mapQueuedJob(j: any) {
   };
 }
 
+/**
+ * mapPipeline.
+ */
 function mapPipeline(p: any): Pipeline {
   return {
     '@type': 'https://schema.org/SoftwareApplication' as const,
@@ -81,6 +93,9 @@ function mapPipeline(p: any): Pipeline {
   };
 }
 
+/**
+ * applyJobsToStore.
+ */
 function applyJobsToStore(store: ReturnType<typeof useDashboardStore.getState>, statusData: any) {
   if (statusData.activeJobs !== undefined) {
     store.setActiveJobs(statusData.activeJobs.map(mapActiveJob));
@@ -90,6 +105,9 @@ function applyJobsToStore(store: ReturnType<typeof useDashboardStore.getState>, 
   }
 }
 
+/**
+ * loadInitialData.
+ */
 async function loadInitialData() {
   const store = useDashboardStore.getState();
   store.setLoading(true);
@@ -141,6 +159,9 @@ async function loadInitialData() {
   }
 }
 
+/**
+ * pollForUpdates.
+ */
 async function pollForUpdates() {
   const systemStatus = useDashboardStore.getState().systemStatus;
   if (systemStatus.websocketConnected) return;
@@ -206,6 +227,9 @@ export const useWebSocketConnection = () => {
   }, []);
 };
 
+/**
+ * getPipelineIcon.
+ */
 function getPipelineIcon(pipelineId: string): string {
   const icons: Record<string, string> = {
     'duplicate-detection': '🔍',
@@ -221,6 +245,9 @@ function getPipelineIcon(pipelineId: string): string {
   return icons[pipelineId] || '⚙️';
 }
 
+/**
+ * getPipelineColor.
+ */
 function getPipelineColor(pipelineId: string): 'purple' | 'cyan' | 'pink' | 'teal' | 'blue' | 'green' | 'amber' {
   const colors: Record<string, 'purple' | 'cyan' | 'pink' | 'teal' | 'blue' | 'green' | 'amber'> = {
     'duplicate-detection': 'purple',

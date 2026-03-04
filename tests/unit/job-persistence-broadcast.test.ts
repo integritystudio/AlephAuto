@@ -27,6 +27,9 @@ import {
 
 // Test implementation of SidequestServer
 class TestServer extends SidequestServer {
+  /**
+   * constructor.
+   */
   constructor(options = {}) {
     super({
       jobType: options.jobType || 'test-persistence',
@@ -34,6 +37,9 @@ class TestServer extends SidequestServer {
     });
   }
 
+  /**
+   * runJobHandler.
+   */
   async runJobHandler(job) {
     // Simulate job execution with configurable delay
     const delay = job.data?.delay || 10;

@@ -249,6 +249,9 @@ function interpretHigherIsBetter(score: number): string {
   return 'Poor';
 }
 
+/**
+ * interpretLowerIsBetter.
+ */
 function interpretLowerIsBetter(score: number): string {
   if (score <= 0.1) return 'Excellent';
   if (score <= 0.2) return 'Good';
@@ -256,6 +259,9 @@ function interpretLowerIsBetter(score: number): string {
   return 'Poor';
 }
 
+/**
+ * scoreEntry.
+ */
 function scoreEntry(score: number, higherIsBetter = true) {
   return {
     score,

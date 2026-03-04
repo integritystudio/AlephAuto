@@ -24,20 +24,6 @@ const TESTS_TO_RUN = {
 };
 
 /**
- * Wait for a condition to be true
- */
-async function _waitFor(conditionFn, timeout = 30000, interval = 500) {
-  const startTime = Date.now();
-  while (Date.now() - startTime < timeout) {
-    if (await conditionFn()) {
-      return true;
-    }
-    await new Promise(resolve => setTimeout(resolve, interval));
-  }
-  throw new Error(`Timeout waiting for condition after ${timeout}ms`);
-}
-
-/**
  * Get system status including activity feed
  */
 async function getSystemStatus() {
@@ -300,6 +286,9 @@ async function testActivityFeed() {
   };
 }
 
+/**
+ * logTestResult.
+ */
 function logTestResult(result: any, index: number) {
   const status = result.passed ? '✓ PASS' : '✗ FAIL';
   logger.info(`${index + 1}. ${result.test}: ${status}`);

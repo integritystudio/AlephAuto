@@ -120,6 +120,9 @@ export async function generateReport(options: ReportOptions): Promise<ReportPath
   }
 }
 
+/**
+ * generateHTMLReport.
+ */
 function generateHTMLReport(data: ReportData): string {
   const {
     jobId,
@@ -159,6 +162,9 @@ function generateHTMLReport(data: ReportData): string {
 </html>`;
 }
 
+/**
+ * generateJSONReport.
+ */
 function generateJSONReport(data: ReportData): object {
   const {
     jobId,
@@ -189,6 +195,9 @@ function generateJSONReport(data: ReportData): object {
   };
 }
 
+/**
+ * generateHTMLHeader.
+ */
 function generateHTMLHeader(title: string, jobId: string, status: string, statusClass: string, timestamp: string, duration: string): string {
   return `
     <header>
@@ -210,6 +219,9 @@ function generateHTMLHeader(title: string, jobId: string, status: string, status
     </header>`;
 }
 
+/**
+ * generateHTMLParameters.
+ */
 function generateHTMLParameters(parameters: Record<string, unknown>): string {
   if (!parameters || Object.keys(parameters).length === 0) {
     return '';
@@ -233,6 +245,9 @@ function generateHTMLParameters(parameters: Record<string, unknown>): string {
     </section>`;
 }
 
+/**
+ * generateHTMLMetadata.
+ */
 function generateHTMLMetadata(metadata: Record<string, unknown>): string {
   if (!metadata || Object.keys(metadata).length === 0) {
     return '';
@@ -256,6 +271,9 @@ function generateHTMLMetadata(metadata: Record<string, unknown>): string {
     </section>`;
 }
 
+/**
+ * generateHTMLResults.
+ */
 function generateHTMLResults(result: unknown): string {
   if (!result) {
     return `
@@ -277,6 +295,9 @@ function generateHTMLResults(result: unknown): string {
     </section>`;
 }
 
+/**
+ * generateMetricsSection.
+ */
 function generateMetricsSection(metrics: Record<string, unknown>): string {
   const metricCards = Object.entries(metrics)
     .map(([key, value]) => {
@@ -299,6 +320,9 @@ function generateMetricsSection(metrics: Record<string, unknown>): string {
     </div>`;
 }
 
+/**
+ * generateDetailsSection.
+ */
 function generateDetailsSection(details: Record<string, unknown>): string {
   return `
     <div class="details-section">
@@ -307,6 +331,9 @@ function generateDetailsSection(details: Record<string, unknown>): string {
     </div>`;
 }
 
+/**
+ * generateHTMLFooter.
+ */
 function generateHTMLFooter(timestamp: string): string {
   return `
     <footer>
@@ -314,6 +341,9 @@ function generateHTMLFooter(timestamp: string): string {
     </footer>`;
 }
 
+/**
+ * extractMetrics.
+ */
 function extractMetrics(result: Record<string, unknown>): Record<string, unknown> | null {
   const metricKeys = [
     'metrics', 'stats', 'statistics', 'summary',
@@ -338,6 +368,9 @@ function extractMetrics(result: Record<string, unknown>): Record<string, unknown
   return Object.keys(metrics).length > 0 ? metrics : null;
 }
 
+/**
+ * extractDetails.
+ */
 function extractDetails(result: Record<string, unknown>): Record<string, unknown> | null {
   const metricKeys = [
     'metrics', 'stats', 'statistics', 'summary',
@@ -358,6 +391,9 @@ function extractDetails(result: Record<string, unknown>): Record<string, unknown
   return Object.keys(details).length > 0 ? details : null;
 }
 
+/**
+ * getJobTypeTitle.
+ */
 function getJobTypeTitle(jobType: string): string {
   const titles: Record<string, string> = {
     'claude-health': 'Claude Health Check Report',
@@ -373,6 +409,9 @@ function getJobTypeTitle(jobType: string): string {
   return titles[jobType] ?? `${jobType} Report`;
 }
 
+/**
+ * formatValue.
+ */
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) {
     return 'N/A';
@@ -424,6 +463,9 @@ export async function pruneOldReports(outputDir: string = DEFAULT_OUTPUT_DIR, ma
   }
 }
 
+/**
+ * escapeHtml.
+ */
 function escapeHtml(text: string): string {
   if (!text) return '';
   return String(text)
@@ -434,6 +476,9 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;');
 }
 
+/**
+ * getHTMLStyles.
+ */
 function getHTMLStyles(): string {
   return `
     * { margin: 0; padding: 0; box-sizing: border-box; }

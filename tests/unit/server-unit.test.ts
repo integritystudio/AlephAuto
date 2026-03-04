@@ -17,6 +17,9 @@ import os from 'os';
 
 // Test subclass that implements the required handler
 class TestSidequestServer extends SidequestServer {
+  /**
+   * constructor.
+   */
   constructor(options = {}) {
     super({
       ...options,
@@ -27,6 +30,9 @@ class TestSidequestServer extends SidequestServer {
     this.handlerResult = { success: true };
   }
 
+  /**
+   * runJobHandler.
+   */
   async runJobHandler(job) {
     this.handlerCalls.push(job);
     if (this.shouldFailHandler) {

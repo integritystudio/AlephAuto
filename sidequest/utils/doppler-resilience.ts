@@ -83,6 +83,9 @@ export class DopplerResilience {
   staleThresholdMs: number; // Add this line
   metrics: ResilienceMetrics;
 
+  /**
+   * constructor.
+   */
   constructor(options: DopplerResilienceOptions = {}) {
     this.failureThreshold = options.failureThreshold ?? 3;
     this.successThreshold = options.successThreshold ?? 2;

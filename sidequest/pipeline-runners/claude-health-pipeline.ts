@@ -123,6 +123,9 @@ interface HealthCheckResult {
 class ClaudeHealthPipeline extends BasePipeline<ClaudeHealthWorker> {
   private options: PipelineOptions;
 
+  /**
+   * constructor.
+   */
   constructor(options: Record<string, unknown> = {}) {
     super(new ClaudeHealthWorker({
       maxConcurrent: 1,
@@ -235,6 +238,9 @@ class ClaudeHealthPipeline extends BasePipeline<ClaudeHealthWorker> {
 }
 
 // Print functions
+/**
+ * printSummary.
+ */
 function printSummary(result: HealthCheckResult): void {
   console.log('\n╔════════════════════════════════════════════════════════════════╗');
   console.log('║          Claude Code Health Check Summary                     ║');
@@ -279,6 +285,9 @@ function printSummary(result: HealthCheckResult): void {
   console.log(`  Duration:        ${result.duration}ms\n`);
 }
 
+/**
+ * printRecommendations.
+ */
 function printRecommendations(recommendations: Recommendation[]): void {
   console.log('╔════════════════════════════════════════════════════════════════╗');
   console.log('║          Recommendations                                       ║');
@@ -307,6 +316,9 @@ function printRecommendations(recommendations: Recommendation[]): void {
   }
 }
 
+/**
+ * printDetailedChecks.
+ */
 function printDetailedChecks(checks: HealthCheckResult['checks']): void {
   console.log('╔════════════════════════════════════════════════════════════════╗');
   console.log('║          Detailed Check Results                                ║');
@@ -362,12 +374,18 @@ function printDetailedChecks(checks: HealthCheckResult['checks']): void {
   }
 }
 
+/**
+ * getScoreColor.
+ */
 function getScoreColor(score: number): string {
   if (score >= 90) return '\x1b[32m'; // Green
   if (score >= 70) return '\x1b[33m'; // Yellow
   return '\x1b[31m'; // Red
 }
 
+/**
+ * formatBytes.
+ */
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
