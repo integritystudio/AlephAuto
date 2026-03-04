@@ -6,6 +6,27 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.5] - 2026-03-04
+
+### Summary
+
+Resolved backlog code-smell item `CS8` by reducing `SchemaMCPTools` class complexity and method density through helper extraction with no public API changes.
+
+### Changed
+
+- Refactored `sidequest/utils/schema-mcp-tools.ts`:
+  - Extracted schema type inference, schema assembly, description parsing, validation, impact scoring, and JSON-LD injection logic into file-level helpers.
+  - Reduced class body to lightweight wrapper methods over pure helper functions.
+  - Preserved existing method signatures and behavior used by schema-enhancement worker and unit tests.
+- Backlog `CS8` migrated and closed in `docs/BACKLOG.md`.
+
+### Validation
+
+- `node --strip-types --test tests/unit/schema-mcp-tools.test.ts` (22 passed)
+- `npm run typecheck -- --pretty false` (pass)
+
+---
+
 ## [2.3.4] - 2026-03-04
 
 ### Summary

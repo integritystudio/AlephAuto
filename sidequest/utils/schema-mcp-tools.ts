@@ -47,6 +47,302 @@ interface SchemaImpact {
   rating?: string;
 }
 
+const SCHEMA_CONTEXT_URL = 'https://schema.org';
+const DEFAULT_SCHEMA_NAME = 'Documentation';
+const DEFAULT_DESCRIPTION = 'Technical documentation and guides';
+const DESCRIPTION_MAX_LENGTH = 200;
+const DESCRIPTION_TRUNCATED_LENGTH = 197;
+const DESCRIPTION_MIN_TEXT_LENGTH = 10;
+const HOWTO_TYPE = 'HowTo';
+const API_REFERENCE_TYPE = 'APIReference';
+const SOFTWARE_APP_TYPE = 'SoftwareApplication';
+const SOFTWARE_SOURCE_TYPE = 'SoftwareSourceCode';
+const TECH_ARTICLE_TYPE = 'TechArticle';
+
+function inferSchemaType(readmePath: string, content: string, context: SchemaContext): string {
+  const pathLower = readmePath.toLowerCase();
+  const contentLower = content.toLowerCase();
+
+  if (pathLower.includes('test') || contentLower.includes('testing guide')) {
+    return HOWTO_TYPE;
+  }
+
+  if (pathLower.includes('api') || contentLower.includes('api reference') || contentLower.includes('endpoints')) {
+    return API_REFERENCE_TYPE;
+  }
+
+  if (context.hasPackageJson || context.hasPyproject) {
+    return SOFTWARE_APP_TYPE;
+  }
+
+  if (contentLower.includes('tutorial') || contentLower.includes('getting started') || contentLower.includes('guide')) {
+    return HOWTO_TYPE;
+  }
+
+  if (context.gitRemote) {
+    return SOFTWARE_SOURCE_TYPE;
+  }
+
+  return TECH_ARTICLE_TYPE;
+}
+
+function getSchemaName(readmePath: string, content: string): string {
+  const titleMatch = content.match(/^#\s+(.+)$/m);
+  if (titleMatch) {
+    return titleMatch[1].trim();
+  }
+
+  const dirName = readmePath.split('/').slice(-2, -1)[0];
+  return dirName || DEFAULT_SCHEMA_NAME;
+}
+
+function isDescriptionLineSkippable(trimmedLine: string, hasDescription: boolean): boolean {
+  if (!trimmedLine || trimmedLine.startsWith('```') || trimmedLine.startsWith('<')) {
+    return true;
+  }
+
+  if (hasDescription) {
+    return true;
+  }
+
+  return false;
+}
+
+function truncateDescription(description: string): string {
+  if (description.length <= DESCRIPTION_MAX_LENGTH) {
+    return description;
+  }
+
+  return description.substring(0, DESCRIPTION_TRUNCATED_LENGTH) + '...';
+}
+
+function extractDescriptionFromContent(content: string): string {
+  const lines = content.split('\n');
+  let foundTitle = false;
+  let description = '';
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('#')) {
+      foundTitle = true;
+      continue;
+    }
+
+    if (isDescriptionLineSkippable(trimmed, Boolean(description))) {
+      if (description) {
+        break;
+      }
+      continue;
+    }
+
+    if (foundTitle && trimmed.length > DESCRIPTION_MIN_TEXT_LENGTH) {
+      description = trimmed;
+      break;
+    }
+  }
+
+  return description ? truncateDescription(description) : DEFAULT_DESCRIPTION;
+}
+
+function addSoftwareSchemaFields(schema: SchemaObject, schemaType: string, context: SchemaContext): void {
+  if (schemaType !== SOFTWARE_APP_TYPE && schemaType !== SOFTWARE_SOURCE_TYPE) {
+    return;
+  }
+
+  if (context.gitRemote) {
+    schema.codeRepository = context.gitRemote;
+  }
+
+  if (context.languages && context.languages.length > 0) {
+    schema.programmingLanguage = context.languages.map(language => ({
+      '@type': 'ComputerLanguage',
+      name: language
+    }));
+  }
+
+  if (schemaType === SOFTWARE_APP_TYPE) {
+    schema.applicationCategory = 'DeveloperApplication';
+    schema.operatingSystem = 'Cross-platform';
+  }
+}
+
+function addArticleSchemaFields(schema: SchemaObject, schemaType: string): void {
+  if (schemaType !== TECH_ARTICLE_TYPE && schemaType !== HOWTO_TYPE) {
+    return;
+  }
+
+  schema.dateModified = new Date().toISOString();
+  schema.inLanguage = 'en-US';
+}
+
+function addApiReferenceFields(schema: SchemaObject, schemaType: string, context: SchemaContext): void {
+  if (schemaType !== API_REFERENCE_TYPE) {
+    return;
+  }
+
+  schema.additionalType = 'https://schema.org/TechArticle';
+  if (context.gitRemote) {
+    schema.url = context.gitRemote;
+  }
+}
+
+function buildSchemaObject(readmePath: string, content: string, context: SchemaContext, schemaType: string): SchemaObject {
+  const schema: SchemaObject = {
+    '@context': SCHEMA_CONTEXT_URL,
+    '@type': schemaType,
+    name: getSchemaName(readmePath, content),
+    description: extractDescriptionFromContent(content)
+  };
+
+  addSoftwareSchemaFields(schema, schemaType, context);
+  addArticleSchemaFields(schema, schemaType);
+  addApiReferenceFields(schema, schemaType, context);
+
+  return schema;
+}
+
+function validateSchemaObject(schema: SchemaObject): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  if (!schema['@context']) {
+    errors.push('Missing @context');
+  }
+
+  if (!schema['@type']) {
+    errors.push('Missing @type');
+  }
+
+  if (!schema.name) {
+    warnings.push('Missing name property');
+  }
+
+  if (!schema.description) {
+    warnings.push('Missing description property');
+  }
+
+  try {
+    JSON.stringify(schema);
+  } catch (error) {
+    errors.push(`Invalid JSON: ${(error as Error).message}`);
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings
+  };
+}
+
+function collectSeoImprovements(schema: SchemaObject): string[] {
+  const improvements: string[] = [];
+
+  if (schema.name) {
+    improvements.push('Added structured name/title');
+  }
+  if (schema.description) {
+    improvements.push('Added structured description');
+  }
+  if (schema.codeRepository) {
+    improvements.push('Linked to code repository');
+  }
+  if (schema.programmingLanguage) {
+    improvements.push('Specified programming languages');
+  }
+
+  return improvements;
+}
+
+function collectRichResultsEligibility(schemaType: string): string[] {
+  const richResults: string[] = [];
+
+  if (schemaType === HOWTO_TYPE) {
+    richResults.push('How-to rich results');
+  }
+  if (schemaType === SOFTWARE_APP_TYPE) {
+    richResults.push('Software app rich results');
+  }
+  if (schemaType === TECH_ARTICLE_TYPE) {
+    richResults.push('Article rich results');
+  }
+
+  return richResults;
+}
+
+function computeImpactScore(impact: SchemaImpact, schema: SchemaObject): number {
+  let score = 0;
+  score += impact.seoImprovements.length * 15;
+  score += impact.richResultsEligibility.length * 20;
+  score += schema.description ? 20 : 0;
+  score += schema.codeRepository ? 15 : 0;
+  return Math.min(100, score);
+}
+
+function getRatingForScore(score: number): string {
+  if (score >= 80) {
+    return 'Excellent';
+  }
+  if (score >= 60) {
+    return 'Good';
+  }
+  if (score >= 40) {
+    return 'Fair';
+  }
+  return 'Needs Improvement';
+}
+
+function analyzeSchemaImpactData(originalContent: string, enhancedContent: string, schema: SchemaObject): SchemaImpact {
+  const schemaType = schema['@type'];
+  const impact: SchemaImpact = {
+    timestamp: new Date().toISOString(),
+    schemaType,
+    metrics: {
+      contentSize: {
+        original: originalContent.length,
+        enhanced: enhancedContent.length,
+        increase: enhancedContent.length - originalContent.length
+      },
+      schemaProperties: Object.keys(schema).length,
+      structuredDataAdded: true
+    },
+    seoImprovements: collectSeoImprovements(schema),
+    richResultsEligibility: collectRichResultsEligibility(schemaType)
+  };
+
+  const impactScore = computeImpactScore(impact, schema);
+  impact.impactScore = impactScore;
+  impact.rating = getRatingForScore(impactScore);
+
+  return impact;
+}
+
+function createJsonLdScriptTag(schema: SchemaObject): string {
+  const jsonString = JSON.stringify(schema, null, 2);
+  return `<script type="application/ld+json">\n${jsonString}\n</script>`;
+}
+
+function findSchemaInsertIndex(lines: string[]): number {
+  let insertIndex = 0;
+  for (let index = 0; index < lines.length; index++) {
+    if (lines[index].trim().startsWith('#')) {
+      insertIndex = index + 1;
+      break;
+    }
+  }
+
+  return insertIndex;
+}
+
+function injectSchemaIntoContent(content: string, schema: SchemaObject): string {
+  const jsonLdScript = createJsonLdScriptTag(schema);
+  const lines = content.split('\n');
+  const insertIndex = findSchemaInsertIndex(lines);
+
+  lines.splice(insertIndex, 0, '', jsonLdScript, '');
+  return lines.join('\n');
+}
+
 /**
  * Schema.org MCP Tools Integration
  * Provides wrapper methods for Schema.org MCP server tools
@@ -64,249 +360,55 @@ export class SchemaMCPTools {
    * Get appropriate schema type for content
    */
   async getSchemaType(readmePath: string, content: string, context: SchemaContext): Promise<string> {
-    const pathLower = readmePath.toLowerCase();
-    const contentLower = content.toLowerCase();
-
-    if (pathLower.includes('test') || contentLower.includes('testing guide')) {
-      return 'HowTo';
-    }
-
-    if (pathLower.includes('api') ||
-        contentLower.includes('api reference') ||
-        contentLower.includes('endpoints')) {
-      return 'APIReference';
-    }
-
-    if (context.hasPackageJson || context.hasPyproject) {
-      return 'SoftwareApplication';
-    }
-
-    if (contentLower.includes('tutorial') ||
-        contentLower.includes('getting started') ||
-        contentLower.includes('guide')) {
-      return 'HowTo';
-    }
-
-    if (context.gitRemote) {
-      return 'SoftwareSourceCode';
-    }
-
-    return 'TechArticle';
+    return inferSchemaType(readmePath, content, context);
   }
 
   /**
    * Generate JSON-LD schema markup
    */
   async generateSchema(readmePath: string, content: string, context: SchemaContext, schemaType: string): Promise<SchemaObject> {
-    const schema: SchemaObject = {
-      '@context': 'https://schema.org',
-      '@type': schemaType,
-    };
-
-    const titleMatch = content.match(/^#\s+(.+)$/m);
-    if (titleMatch) {
-      schema.name = titleMatch[1].trim();
-    } else {
-      const dirName = readmePath.split('/').slice(-2, -1)[0];
-      schema.name = dirName || 'Documentation';
-    }
-
-    const description = this.extractDescription(content);
-    if (description) {
-      schema.description = description;
-    }
-
-    if (schemaType === 'SoftwareApplication' || schemaType === 'SoftwareSourceCode') {
-      if (context.gitRemote) {
-        schema.codeRepository = context.gitRemote;
-      }
-
-      if (context.languages && context.languages.length > 0) {
-        schema.programmingLanguage = context.languages.map(lang => ({
-          '@type': 'ComputerLanguage',
-          name: lang,
-        }));
-      }
-
-      if (schemaType === 'SoftwareApplication') {
-        schema.applicationCategory = 'DeveloperApplication';
-        schema.operatingSystem = 'Cross-platform';
-      }
-    }
-
-    if (schemaType === 'TechArticle' || schemaType === 'HowTo') {
-      schema.dateModified = new Date().toISOString();
-      schema.inLanguage = 'en-US';
-    }
-
-    if (schemaType === 'APIReference') {
-      schema.additionalType = 'https://schema.org/TechArticle';
-      if (context.gitRemote) {
-        schema.url = context.gitRemote;
-      }
-    }
-
-    return schema;
+    return buildSchemaObject(readmePath, content, context, schemaType);
   }
 
   /**
    * Extract description from README content
    */
   extractDescription(content: string): string {
-    const lines = content.split('\n');
-    let foundTitle = false;
-    let description = '';
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-
-      if (trimmed.startsWith('#')) {
-        foundTitle = true;
-        continue;
-      }
-
-      if (!trimmed || trimmed.startsWith('```') || trimmed.startsWith('<')) {
-        if (description) break;
-        continue;
-      }
-
-      if (foundTitle && trimmed.length > 10) {
-        description = trimmed;
-        break;
-      }
-    }
-
-    if (description.length > 200) {
-      description = description.substring(0, 197) + '...';
-    }
-
-    return description || 'Technical documentation and guides';
+    return extractDescriptionFromContent(content);
   }
 
   /**
    * Validate schema markup
    */
   async validateSchema(schema: SchemaObject): Promise<ValidationResult> {
-    const errors: string[] = [];
-    const warnings: string[] = [];
-
-    if (!schema['@context']) {
-      errors.push('Missing @context');
-    }
-    if (!schema['@type']) {
-      errors.push('Missing @type');
-    }
-    if (!schema.name) {
-      warnings.push('Missing name property');
-    }
-    if (!schema.description) {
-      warnings.push('Missing description property');
-    }
-
-    try {
-      JSON.stringify(schema);
-    } catch (e) {
-      errors.push(`Invalid JSON: ${(e as Error).message}`);
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors,
-      warnings,
-    };
+    return validateSchemaObject(schema);
   }
 
   /**
    * Analyze schema impact on SEO/performance
    */
   async analyzeSchemaImpact(originalContent: string, enhancedContent: string, schema: SchemaObject): Promise<SchemaImpact> {
-    const impact: SchemaImpact = {
-      timestamp: new Date().toISOString(),
-      schemaType: schema['@type'],
-      metrics: {
-        contentSize: {
-          original: originalContent.length,
-          enhanced: enhancedContent.length,
-          increase: enhancedContent.length - originalContent.length,
-        },
-        schemaProperties: Object.keys(schema).length,
-        structuredDataAdded: true,
-      },
-      seoImprovements: [],
-      richResultsEligibility: [],
-    };
-
-    if (schema.name) {
-      impact.seoImprovements.push('Added structured name/title');
-    }
-    if (schema.description) {
-      impact.seoImprovements.push('Added structured description');
-    }
-    if (schema.codeRepository) {
-      impact.seoImprovements.push('Linked to code repository');
-    }
-    if (schema.programmingLanguage) {
-      impact.seoImprovements.push('Specified programming languages');
-    }
-
-    const schemaType = schema['@type'];
-    if (schemaType === 'HowTo') {
-      impact.richResultsEligibility.push('How-to rich results');
-    }
-    if (schemaType === 'SoftwareApplication') {
-      impact.richResultsEligibility.push('Software app rich results');
-    }
-    if (schemaType === 'TechArticle') {
-      impact.richResultsEligibility.push('Article rich results');
-    }
-
-    let score = 0;
-    score += impact.seoImprovements.length * 15;
-    score += impact.richResultsEligibility.length * 20;
-    score += schema.description ? 20 : 0;
-    score += schema.codeRepository ? 15 : 0;
-
-    impact.impactScore = Math.min(100, score);
-    impact.rating = this.getRating(impact.impactScore);
-
-    return impact;
+    return analyzeSchemaImpactData(originalContent, enhancedContent, schema);
   }
 
   /**
    * Get rating based on impact score
    */
   getRating(score: number): string {
-    if (score >= 80) return 'Excellent';
-    if (score >= 60) return 'Good';
-    if (score >= 40) return 'Fair';
-    return 'Needs Improvement';
+    return getRatingForScore(score);
   }
 
   /**
    * Create JSON-LD script tag
    */
   createJSONLDScript(schema: SchemaObject): string {
-    const jsonStr = JSON.stringify(schema, null, 2);
-    return `<script type="application/ld+json">\n${jsonStr}\n</script>`;
+    return createJsonLdScriptTag(schema);
   }
 
   /**
    * Inject schema into README content
    */
   injectSchema(content: string, schema: SchemaObject): string {
-    const jsonldScript = this.createJSONLDScript(schema);
-    const lines = content.split('\n');
-
-    let insertIndex = 0;
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].trim().startsWith('#')) {
-        insertIndex = i + 1;
-        break;
-      }
-    }
-
-    lines.splice(insertIndex, 0, '', jsonldScript, '');
-
-    return lines.join('\n');
+    return injectSchemaIntoContent(content, schema);
   }
 }
