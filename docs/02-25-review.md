@@ -1,6 +1,7 @@
 # Code Review Report: ~/code/jobs
 
 **Date:** 2026-02-25
+**Last Updated:** 2026-03-03 (synced with `CHANGELOG.md` through v1.9.0 / 2026-02-25)
 **Tools:** ast-grep-mcp (complexity, code smells, security, standards, orphans, deduplication)
 **Session:** `52ae960a-23f6-4dff-a5ee-622b62dacb38`
 
@@ -16,6 +17,29 @@
 | Standards | 203 violations | Address `prefer-const` and `==` usage |
 | Orphans | 151 files / 147 functions | Audit `sidequest/pipeline-core/` for dead code |
 | Deduplication | 3 groups (low priority) | Defer -- test helpers, intentional |
+
+---
+
+## Changelog Update (through v1.9.0)
+
+### Quantified Progress from `CHANGELOG.md`
+
+| Metric | Updated Data |
+|--------|--------------|
+| Net line reduction from cleanup work | **-3,413 lines** (`-2,170` in v1.8.6 + `-1,243` in v1.9.0) |
+| Analyzer backlog progress | **8/12 items cleared** (v1.8.6) |
+| Deferred TS migration review findings | **15/15 resolved** (v1.8.8) |
+| Import path migration | **41 imports** moved to Node `#imports` aliases (v1.8.9) |
+| Cross-repo test cleanup | Zero-value tests removed; flaky/e2e correctness fixes landed (v1.9.0) |
+
+### Impact on This Review
+
+| Area | Changelog Evidence | Status |
+|------|--------------------|--------|
+| Complexity hotspot (`useWebSocketConnection.ts`) | No explicit refactor entry in changelog | Still open; needs targeted follow-up |
+| Standards (`prefer-const`, `==`) | Logging/noise cleanup landed; comparison cleanup noted (`in` -> `.includes()`) | Partially addressed; rerun required for exact remaining count |
+| Orphans/dead code | `sidequest/utils/doppler-resilience.example.js` removed/moved (v1.8.9), several scripts archived (v1.8.6) | Partially addressed; orphan scan baseline is stale |
+| Test duplication/flakiness | Broad test cleanup and reliability fixes across AlephAuto and tcad-scraper (v1.9.0) | Significant progress |
 
 ---
 
@@ -410,6 +434,8 @@ Status: All marked "uncertain" because grep verification timed out. Test files a
 | `sidequest/utils/time-helpers.ts` | 55 | typescript |
 | `eslint.config.js` | 56 | javascript |
 
+Update from changelog v1.8.9: `sidequest/utils/doppler-resilience.example.js` was removed and moved to `docs/quickstart/doppler-circuit-breaker.md`, resolving that orphan-file entry.
+
 #### Test Files (90 total)
 
 All test files (`.test.ts`, `test-*.ts`, `validate-*.ts`) are listed in the full orphan scan but omitted here for brevity. These are invoked by test runners, not explicit imports.
@@ -436,8 +462,8 @@ All test files (`.test.ts`, `test-*.ts`, `validate-*.ts`) are listed in the full
 
 ## Priority Actions
 
-1. **P0** -- Refactor `frontend/src/hooks/useWebSocketConnection.ts` (CC 38, cognitive 38, 174 lines)
-2. **P1** -- Audit `sidequest/pipeline-core/` for dead code (147 likely orphan functions, 47K lines)
-3. **P2** -- Fix 3 `==` comparisons (re-run to locate)
-4. **P2** -- Address `prefer-const` violations in scripts
-5. **P3** -- Investigate 33 large class warnings in source (excluding node_modules)
+1. **P0** -- Re-run the full analyzer suite to establish a post-changelog baseline (after v1.8.6-v1.9.0 cleanup work)
+2. **P0** -- Refactor `frontend/src/hooks/useWebSocketConnection.ts` if still the top complexity hotspot after re-scan
+3. **P1** -- Complete remaining analyzer backlog items (4 of 12 still open per changelog progress)
+4. **P1** -- Re-run orphan detection and remove now-resolved stale entries (including `doppler-resilience.example.js`)
+5. **P2** -- Run focused standards scans (`no-double-equals`, `prefer-const`) and close remaining violations

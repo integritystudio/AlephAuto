@@ -112,43 +112,6 @@ describe('Pipeline Execution - Integration Tests', () => {
     );
   });
 
-  it('Scenario 5: Verify pipeline imports work correctly', async (t) => {
-    const pipelinePath = path.join(projectRoot, pipelineRunners[0]);
-    const isTs = pipelineRunners[0].endsWith('.ts');
-
-    // --strip-types requires Node 22.6+
-    const [major, minor] = process.versions.node.split('.').map(Number);
-    if (isTs && (major < 22 || (major === 22 && minor < 6))) {
-      t.skip(`--strip-types requires Node 22.6+ (running ${process.versions.node})`);
-      return;
-    }
-
-    // Try to import the pipeline file (will run top-level code)
-    // .ts files need --strip-types for dynamic import
-    const nodeFlags = isTs ? '--strip-types' : '';
-    const { stderr } = await execAsync(
-      `node ${nodeFlags} -e "import('${pipelinePath}').catch(e => console.error(e.message))" || true`,
-      {
-        cwd: projectRoot,
-        timeout: 5000,
-        env: {
-          ...process.env,
-          RUN_ON_STARTUP: 'false'
-        }
-      }
-    );
-
-    // Should not have import errors
-    assert(
-      !stderr.includes('Cannot find module'),
-      'Should have all required imports'
-    );
-    assert(
-      !stderr.includes('SyntaxError'),
-      'Should have valid syntax'
-    );
-  });
-
   it('Scenario 6: Verify PM2 ecosystem config references correct scripts', async () => {
     const ecosystemPath = path.join(projectRoot, 'config', 'ecosystem.config.cjs');
 

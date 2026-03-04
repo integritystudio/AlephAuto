@@ -20,17 +20,16 @@ import path from 'path';
 
 const logger = createComponentLogger('TestInterProject');
 
-async function main() {
-  const args = process.argv.slice(2);
-
-  // Default: scan sidequest and lib directories
-  const repoPaths = args.length > 0
-    ? args.map(arg => path.isAbsolute(arg) ? arg : path.resolve(process.cwd(), arg))
+function resolveRepositoryPaths(args: string[]) {
+  return args.length > 0
+    ? args.map(arg => (path.isAbsolute(arg) ? arg : path.resolve(process.cwd(), arg)))
     : [
         path.join(process.cwd(), 'sidequest'),
         path.join(process.cwd(), 'lib')
       ];
+}
 
+function printHeader(repoPaths: string[]) {
   console.log('╔══════════════════════════════════════════════════════════╗');
   console.log('║     INTER-PROJECT DUPLICATE DETECTION TEST              ║');
   console.log('╚══════════════════════════════════════════════════════════╝\n');
@@ -40,126 +39,159 @@ async function main() {
     console.log(`   ${index + 1}. ${repoPath}`);
   });
   console.log('');
+}
+
+function createInterProjectScanner() {
+  return new InterProjectScanner({
+    orchestrator: {
+      scanner: {
+        outputBaseDir: path.join(process.cwd(), 'output', 'scan-tests')
+      },
+      detector: {
+        rulesDirectory: path.join(process.cwd(), '.ast-grep', 'rules'),
+        configPath: path.join(process.cwd(), '.ast-grep', 'sgconfig.yml')
+      },
+      // Let ScanOrchestrator auto-detect Python path
+      extractorScript: path.join(process.cwd(), 'sidequest', 'pipeline-core', 'extractors', 'extract_blocks.py')
+    },
+    outputDir: path.join(process.cwd(), 'output', 'inter-project-scans')
+  });
+}
+
+async function runScan(scanner: InterProjectScanner, repoPaths: string[]) {
+  console.log('🔍 Starting inter-project scan...\n');
+  const startTime = Date.now();
+  const result = await scanner.scanRepositories(repoPaths, {
+    pattern_config: {
+      languages: ['javascript', 'typescript']
+    }
+  });
+
+  const duration = (Date.now() - startTime) / 1000;
+  console.log(`✅ Scan completed in ${duration.toFixed(2)}s\n`);
+  return { result, duration };
+}
+
+async function generateReports(result: Record<string, unknown>, repositoryCount: number) {
+  console.log('📝 Generating reports...\n');
+  const reportCoordinator = new ReportCoordinator();
+
+  return reportCoordinator.generateAllReports(result, {
+    title: `Inter-Project Scan: ${repositoryCount} Repositories`,
+    includeDetails: true,
+    includeSourceCode: true,
+    includeCodeBlocks: true
+  });
+}
+
+function printReportLocations(reportPaths: Record<string, string>) {
+  console.log('✅ Reports generated successfully:\n');
+  console.log(`   📄 HTML:     ${reportPaths.html}`);
+  console.log(`   📝 Markdown: ${reportPaths.markdown}`);
+  console.log(`   📊 JSON:     ${reportPaths.json}`);
+  console.log(`   📋 Summary:  ${reportPaths.summary}\n`);
+}
+
+function printTopCrossRepositoryDuplicates(result: Record<string, unknown>) {
+  const duplicates = result.cross_repository_duplicates as Array<Record<string, unknown>> | undefined;
+  if (!duplicates || duplicates.length === 0) {
+    return;
+  }
+
+  console.log('🔗 Top Cross-Repository Duplicates:\n');
+  const topGroups = duplicates
+    .sort((a, b) => (b.impact_score as number) - (a.impact_score as number))
+    .slice(0, 5);
+
+  topGroups.forEach((group, index) => {
+    console.log(`   ${index + 1}. ${group.group_id}`);
+    console.log(`      Pattern: ${group.pattern_id}`);
+    console.log(`      Repositories: ${group.repository_count} (${(group.affected_repositories as string[]).join(', ')})`);
+    console.log(`      Occurrences: ${group.occurrence_count}`);
+    console.log(`      Impact Score: ${(group.impact_score as number).toFixed(1)}/100`);
+    console.log(`      Files: ${(group.affected_files as string[]).slice(0, 3).join(', ')}${(group.affected_files as string[]).length > 3 ? '...' : ''}`);
+    console.log('');
+  });
+}
+
+function printTopSuggestions(result: Record<string, unknown>) {
+  const suggestions = result.cross_repository_suggestions as Array<Record<string, unknown>> | undefined;
+  if (!suggestions || suggestions.length === 0) {
+    return;
+  }
+
+  console.log('💡 Top Consolidation Suggestions:\n');
+  const topSuggestions = suggestions
+    .sort((a, b) => (b.roi_score as number) - (a.roi_score as number))
+    .slice(0, 5);
+
+  topSuggestions.forEach((suggestion, index) => {
+    console.log(`   ${index + 1}. ${suggestion.suggestion_id}`);
+    console.log(`      Strategy: ${suggestion.strategy}`);
+    console.log(`      Target: ${suggestion.target_location}`);
+    console.log(`      ROI Score: ${(suggestion.roi_score as number).toFixed(1)}/100`);
+    console.log(`      Complexity: ${suggestion.complexity}`);
+    console.log(`      Risk: ${suggestion.migration_risk}`);
+    console.log(`      Effort: ${suggestion.estimated_effort_hours}h`);
+    console.log(`      Repos: ${(suggestion.affected_repositories as string[]).join(', ')}`);
+    console.log('');
+  });
+}
+
+function printDetailedResults(result: Record<string, unknown>) {
+  const scannedRepositories = (result.scanned_repositories as Array<Record<string, unknown>>) || [];
+  const metrics = (result.metrics as Record<string, unknown>) || {};
+
+  console.log('╔══════════════════════════════════════════════════════════╗');
+  console.log('║               DETAILED SCAN RESULTS                      ║');
+  console.log('╚══════════════════════════════════════════════════════════╝\n');
+
+  console.log('\nScanned Repositories:');
+  for (const repo of scannedRepositories) {
+    const status = repo.error ? `ERROR: ${repo.error}` : `✓ ${repo.code_blocks} blocks`;
+    console.log(`  ${repo.name}: ${status}`);
+  }
+
+  console.log('\nMetrics:');
+  console.log(`  Total Repositories: ${metrics.total_repositories_scanned}`);
+  console.log(`  Total Code Blocks: ${metrics.total_code_blocks}`);
+  console.log(`  Intra-Project Groups: ${metrics.total_intra_project_groups}`);
+  console.log(`  Cross-Repository Groups: ${metrics.total_cross_repository_groups}`);
+  console.log(`  Cross-Repo Occurrences: ${metrics.cross_repository_occurrences}`);
+  console.log(`  Cross-Repo Duplicated Lines: ${metrics.cross_repository_duplicated_lines}`);
+  console.log(`  Suggestions: ${metrics.total_suggestions}`);
+  console.log(`  Shared Package Candidates: ${metrics.shared_package_candidates}`);
+  console.log(`  MCP Server Candidates: ${metrics.mcp_server_candidates}`);
+  console.log(`  Avg Repos per Duplicate: ${metrics.average_repositories_per_duplicate}`);
+
+  printTopCrossRepositoryDuplicates(result);
+  printTopSuggestions(result);
+}
+
+function printCompletionBanner() {
+  console.log('╔══════════════════════════════════════════════════════════╗');
+  console.log('║                   TEST COMPLETED                         ║');
+  console.log('╚══════════════════════════════════════════════════════════╝\n');
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  const repoPaths = resolveRepositoryPaths(args);
+  printHeader(repoPaths);
 
   logger.info({ repositories: repoPaths }, 'Starting inter-project test scan');
 
   try {
-    // Create scanner
-    const scanner = new InterProjectScanner({
-      orchestrator: {
-        scanner: {
-          outputBaseDir: path.join(process.cwd(), 'output', 'scan-tests')
-        },
-        detector: {
-          rulesDirectory: path.join(process.cwd(), '.ast-grep', 'rules'),
-          configPath: path.join(process.cwd(), '.ast-grep', 'sgconfig.yml')
-        },
-        // Let ScanOrchestrator auto-detect Python path
-        extractorScript: path.join(process.cwd(), 'sidequest', 'pipeline-core', 'extractors', 'extract_blocks.py')
-      },
-      outputDir: path.join(process.cwd(), 'output', 'inter-project-scans')
-    });
+    const scanner = createInterProjectScanner();
+    const { result, duration } = await runScan(scanner, repoPaths);
 
-    // Run inter-project scan
-    console.log('🔍 Starting inter-project scan...\n');
-    const startTime = Date.now();
-
-    const result = await scanner.scanRepositories(repoPaths, {
-      pattern_config: {
-        languages: ['javascript', 'typescript']
-      }
-    });
-
-    const duration = (Date.now() - startTime) / 1000;
-    console.log(`✅ Scan completed in ${duration.toFixed(2)}s\n`);
-
-    // Display quick summary
     ReportCoordinator.printQuickSummary(result);
-
-    // Generate all report formats
-    console.log('📝 Generating reports...\n');
-
-    const reportCoordinator = new ReportCoordinator();
-    const reportPaths = await reportCoordinator.generateAllReports(result, {
-      title: `Inter-Project Scan: ${repoPaths.length} Repositories`,
-      includeDetails: true,
-      includeSourceCode: true,
-      includeCodeBlocks: true
-    });
-
-    // Display report locations
-    console.log('✅ Reports generated successfully:\n');
-    console.log(`   📄 HTML:     ${reportPaths.html}`);
-    console.log(`   📝 Markdown: ${reportPaths.markdown}`);
-    console.log(`   📊 JSON:     ${reportPaths.json}`);
-    console.log(`   📋 Summary:  ${reportPaths.summary}\n`);
-
-    // Display detailed results
-    console.log('╔══════════════════════════════════════════════════════════╗');
-    console.log('║               DETAILED SCAN RESULTS                      ║');
-    console.log('╚══════════════════════════════════════════════════════════╝\n');
-
-    console.log('\nScanned Repositories:');
-    for (const repo of result.scanned_repositories) {
-      const status = repo.error ? `ERROR: ${repo.error}` : `✓ ${repo.code_blocks} blocks`;
-      console.log(`  ${repo.name}: ${status}`);
-    }
-
-    console.log('\nMetrics:');
-    console.log(`  Total Repositories: ${result.metrics.total_repositories_scanned}`);
-    console.log(`  Total Code Blocks: ${result.metrics.total_code_blocks}`);
-    console.log(`  Intra-Project Groups: ${result.metrics.total_intra_project_groups}`);
-    console.log(`  Cross-Repository Groups: ${result.metrics.total_cross_repository_groups}`);
-    console.log(`  Cross-Repo Occurrences: ${result.metrics.cross_repository_occurrences}`);
-    console.log(`  Cross-Repo Duplicated Lines: ${result.metrics.cross_repository_duplicated_lines}`);
-    console.log(`  Suggestions: ${result.metrics.total_suggestions}`);
-    console.log(`  Shared Package Candidates: ${result.metrics.shared_package_candidates}`);
-    console.log(`  MCP Server Candidates: ${result.metrics.mcp_server_candidates}`);
-    console.log(`  Avg Repos per Duplicate: ${result.metrics.average_repositories_per_duplicate}`);
-
-    if (result.cross_repository_duplicates && result.cross_repository_duplicates.length > 0) {
-      console.log('🔗 Top Cross-Repository Duplicates:\n');
-      const topGroups = result.cross_repository_duplicates
-        .sort((a, b) => b.impact_score - a.impact_score)
-        .slice(0, 5);
-
-      topGroups.forEach((group, index) => {
-        console.log(`   ${index + 1}. ${group.group_id}`);
-        console.log(`      Pattern: ${group.pattern_id}`);
-        console.log(`      Repositories: ${group.repository_count} (${group.affected_repositories.join(', ')})`);
-        console.log(`      Occurrences: ${group.occurrence_count}`);
-        console.log(`      Impact Score: ${group.impact_score.toFixed(1)}/100`);
-        console.log(`      Files: ${group.affected_files.slice(0, 3).join(', ')}${group.affected_files.length > 3 ? '...' : ''}`);
-        console.log('');
-      });
-    }
-
-    if (result.cross_repository_suggestions && result.cross_repository_suggestions.length > 0) {
-      console.log('💡 Top Consolidation Suggestions:\n');
-      const topSuggestions = result.cross_repository_suggestions
-        .sort((a, b) => b.roi_score - a.roi_score)
-        .slice(0, 5);
-
-      topSuggestions.forEach((suggestion, index) => {
-        console.log(`   ${index + 1}. ${suggestion.suggestion_id}`);
-        console.log(`      Strategy: ${suggestion.strategy}`);
-        console.log(`      Target: ${suggestion.target_location}`);
-        console.log(`      ROI Score: ${suggestion.roi_score.toFixed(1)}/100`);
-        console.log(`      Complexity: ${suggestion.complexity}`);
-        console.log(`      Risk: ${suggestion.migration_risk}`);
-        console.log(`      Effort: ${suggestion.estimated_effort_hours}h`);
-        console.log(`      Repos: ${suggestion.affected_repositories.join(', ')}`);
-        console.log('');
-      });
-    }
-
-    // Save full results to JSON
+    const reportPaths = await generateReports(result, repoPaths.length);
+    printReportLocations(reportPaths);
+    printDetailedResults(result);
     const fullResultsPath = await scanner.saveResults(result);
     console.log(`💾 Full results saved to: ${fullResultsPath}\n`);
-
-    console.log('╔══════════════════════════════════════════════════════════╗');
-    console.log('║                   TEST COMPLETED                         ║');
-    console.log('╚══════════════════════════════════════════════════════════╝\n');
+    printCompletionBanner();
 
     logger.info({
       repositoryCount: repoPaths.length,

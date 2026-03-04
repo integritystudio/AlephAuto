@@ -445,7 +445,7 @@ def group_duplicates(blocks: List[CodeBlock]) -> List[DuplicateGroup]:
     Uses the enhanced grouping algorithm that combines:
     - Exact matching layer (hash-based)
     - Structural similarity layer (AST-based)
-    - Semantic equivalence layer (TODO)
+    - Semantic equivalence layer (category + tags)
     """
     # Use the multi-layer grouping algorithm
     groups = group_by_similarity(blocks, similarity_threshold=SuggestionDefaults.GROUPING_SIMILARITY_THRESHOLD)

@@ -16,7 +16,6 @@ import { ScanEventBroadcaster } from '../../api/event-broadcaster.ts';
  * 3. Added connectAndSubscribe helper to handle welcome message + subscription
  *    handshake before testing channel-filtered broadcasts.
  *
- * Related: mcp-server.test.js (still skipped — mcp-servers/ binary not present)
  */
 describe('WebSocket Server', () => {
   let httpServer;

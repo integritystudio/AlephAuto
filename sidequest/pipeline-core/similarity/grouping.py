@@ -6,7 +6,7 @@ Priority 2: Implement multi-layer grouping algorithm from Phase 1 design.
 Combines:
 - Layer one: Exact matching (hash-based)
 - Layer two: Structural similarity (AST-based)
-- Layer three: Semantic equivalence (category + tags) [TODO]
+- Layer three: Semantic equivalence (category + tags)
 """
 
 from __future__ import annotations

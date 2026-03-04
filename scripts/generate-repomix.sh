@@ -3,6 +3,8 @@
 set -euo pipefail
 
 # filepaths
+PARENT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
 ROOT="${1}"
 OUTPUT_FILE="${2}"
 

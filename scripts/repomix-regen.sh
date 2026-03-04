@@ -4,7 +4,6 @@ set -euo pipefail
 
 # Optional input directory (defaults to repo root)
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-INPUT_DIR="${1:-$ROOT}"
 
 # repomix compression variant names
 TREE_FILE="token-tree"
@@ -29,15 +28,16 @@ LOSSLESS_SCRIPT="$INPUT_DIR$LOSSLESS_FILE.sh"
 
 echo "File set up..."
 # make output dir if not exists
-mkdir -p "$HOME/$OUT_DIR"
-#delete existing files
-rm -f "$OUT_DIR/*"
+mkdir -p "$OUT_DIR"
 
+# delete existing files
+rm -f "$OUT_DIR"/*
 
-#project-level logging
+# project-level logging
 PROJECT_DIR="$(basename "$(cd "$(dirname "$0")/.." && pwd)")"
 
 echo "Generating token count tree for $PROJECT_DIR at $TREE_FILE_NAME"
+echo "Running $TOKEN_TREE_SCRIPT on $ROOT to $TOKEN_TREE_FILE"
 bash "$TOKEN_TREE_SCRIPT" "$ROOT" "$TOKEN_TREE_FILE"
 echo "Success!"
 echo
