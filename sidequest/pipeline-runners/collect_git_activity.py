@@ -303,7 +303,7 @@ def create_pie_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, he
     # Write to file
     output_file.parent.mkdir(parents=True, exist_ok=True)
     output_file.write_text('\n'.join(svg_parts))
-    print(f"Created: {output_file.name}")
+    print(f"Created: {output_file}")
 
 
 def create_bar_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, height=ChartDefaults.HEIGHT):
@@ -340,7 +340,7 @@ def create_bar_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, he
     # Write to file
     output_file.parent.mkdir(parents=True, exist_ok=True)
     output_file.write_text('\n'.join(svg_parts))
-    print(f"Created: {output_file.name}")
+    print(f"Created: {output_file}")
 
 
 # ---------------------------------------------------------------------------

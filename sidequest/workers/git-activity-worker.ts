@@ -209,8 +209,8 @@ export class GitActivityWorker extends SidequestServer {
       args.push('--weekly');
     }
 
-    // Add output format
-    if (outputFormat && outputFormat !== 'json') {
+    // Always pass output format explicitly so Python defaults cannot drift.
+    if (outputFormat) {
       args.push('--output-format', outputFormat);
     }
 
@@ -269,21 +269,45 @@ export class GitActivityWorker extends SidequestServer {
    * Extract output file paths from script output
    */
   #extractOutputFiles(stdout: string): string[] {
-    const files: string[] = [];
+    const files = new Set<string>();
+    const pendingSvgBasenames: string[] = [];
 
-    // Look for JSON output file
-    const jsonMatch = stdout.match(/(?:Saving|Saved) (?:to|data to):\s*(.+\.json)/i);
-    if (jsonMatch) {
-      files.push(jsonMatch[1].trim());
+    // JSON output lines emitted by the Python script.
+    const jsonPatterns = [
+      /JSON data saved to:\s*(.+\.json)/gi,
+      /(?:Saving|Saved)\s+(?:to|data to):\s*(.+\.json)/gi,
+    ];
+    for (const pattern of jsonPatterns) {
+      for (const match of stdout.matchAll(pattern)) {
+        files.add(match[1].trim());
+      }
     }
 
-    // Look for visualization files
-    const svgMatches = stdout.matchAll(/(?:Generating|Generated|Saving).*?:\s*(.+\.svg)/gi);
-    for (const match of svgMatches) {
-      files.push(match[1].trim());
+    // Markdown output line emitted by the Python script.
+    for (const match of stdout.matchAll(/Jekyll report saved to:\s*(.+\.md)/gi)) {
+      files.add(match[1].trim());
     }
 
-    return files;
+    // SVG output lines (supports "Created:", "Saving:", "Generated:", etc).
+    for (const match of stdout.matchAll(/(?:Generating|Generated|Saving|Created).*?:\s*(.+\.svg)/gi)) {
+      const rawPath = match[1].trim();
+      if (path.isAbsolute(rawPath) || rawPath.includes('/')) {
+        files.add(rawPath);
+      } else {
+        pendingSvgBasenames.push(rawPath);
+      }
+    }
+
+    // When Python logs only SVG basenames, recover full paths from summary output.
+    const visualizationDirMatch = stdout.match(/Visualizations saved to:\s*(.+)/i);
+    if (visualizationDirMatch) {
+      const visualizationDir = visualizationDirMatch[1].trim();
+      for (const svgName of pendingSvgBasenames) {
+        files.add(path.join(visualizationDir, svgName));
+      }
+    }
+
+    return Array.from(files);
   }
 
   /**
@@ -351,21 +375,25 @@ export class GitActivityWorker extends SidequestServer {
    */
   async #verifyOutputFiles(files: string[]): Promise<VerifiedFile[]> {
     const verified: VerifiedFile[] = [];
+    const scriptDir = path.dirname(this.pythonScript);
 
     for (const file of files) {
+      const resolvedPath = path.isAbsolute(file)
+        ? file
+        : path.resolve(scriptDir, file);
       try {
-        await fs.access(file);
-        const stats = await fs.stat(file);
+        await fs.access(resolvedPath);
+        const stats = await fs.stat(resolvedPath);
         verified.push({
-          path: file,
+          path: resolvedPath,
           size: stats.size,
           exists: true,
         });
       } catch (error) {
         const err = error as Error;
-        logger.warn({ file, error: err.message }, 'Output file not found');
+        logger.warn({ file: resolvedPath, error: err.message }, 'Output file not found');
         verified.push({
-          path: file,
+          path: resolvedPath,
           exists: false,
         });
       }
