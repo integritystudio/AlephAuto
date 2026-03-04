@@ -30,12 +30,8 @@ echo "File set up..."
 # make output dir if not exists
 mkdir -p "$OUT_DIR"
 
-# delete existing generated artifacts, but keep hand-authored inputs
-# (repomix-instruction.md is required by repomix config)
-find "$OUT_DIR" -maxdepth 1 -type f \
-  ! -name 'repomix-instruction.md' \
-  ! -name '.gitkeep' \
-  -exec rm -f {} +
+# delete only the artifacts this wrapper regenerates
+rm -f "$TOKEN_TREE_FILE" "$COMPRESSED_REPO_FILE" "$LOSSLESS_REPO_FILE"
 
 # project-level logging
 PROJECT_DIR="$(basename "$ROOT")"

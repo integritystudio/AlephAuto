@@ -5,8 +5,9 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 COMMITS="${1:-200}"
 OUT="${2:-"$REPO_ROOT"/sidequest/docs/gitlog-sidequest.txt}"
+mkdir -p "$(dirname "$OUT")"
 
-git log -n "$COMMITS" \
+git -C "$REPO_ROOT" log -n "$COMMITS" \
   --date=short \
   --pretty='format:%h %ad %s' \
   --name-only \
