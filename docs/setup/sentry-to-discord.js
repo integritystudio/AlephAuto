@@ -19,6 +19,11 @@ require('dotenv').config();
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_SENTRY_WEBHOOK;
 const PORT = process.env.WEBHOOK_PORT || 3000;
 const HOST = process.env.WEBHOOK_HOST || 'localhost';
+const DISCORD_LIMITS = {
+  TITLE_LENGTH: 256,
+  DESCRIPTION_LENGTH: 4096,
+  FIELD_COUNT: 25
+};
 
 // Color mapping for different Sentry levels
 const COLORS = {
@@ -41,26 +46,37 @@ const EMOJIS = {
 /**
  * Format Sentry webhook payload as Discord embed
  */
-function formatSentryToDiscord(sentryPayload) {
-  const event = sentryPayload.event || sentryPayload.data?.event || sentryPayload;
-  const action = sentryPayload.action || 'created';
-  const issue = sentryPayload.issue || sentryPayload.data?.issue || {};
+function resolveEvent(sentryPayload) {
+  return sentryPayload.event || sentryPayload.data?.event || sentryPayload;
+}
 
-  const level = event.level || 'error';
+function resolveIssue(sentryPayload) {
+  return sentryPayload.issue || sentryPayload.data?.issue || {};
+}
+
+function resolveAction(sentryPayload) {
+  return sentryPayload.action || 'created';
+}
+
+function resolveLevel(event) {
+  return event.level || 'error';
+}
+
+function buildEmbedTitle(level, event, issue) {
   const emoji = EMOJIS[level] || '🔔';
-  const color = COLORS[level] || COLORS.error;
+  const title = event.title || event.message || issue.title || 'Sentry Alert';
+  return `${emoji} ${title}`;
+}
 
-  // Build title
-  const title = `${emoji} ${event.title || event.message || issue.title || 'Sentry Alert'}`;
-
-  // Build description
-  let description = event.culprit || event.location || '';
-  if (event.exception && event.exception.values && event.exception.values[0]) {
-    const exc = event.exception.values[0];
-    description = `${exc.type}: ${exc.value}`;
+function buildEmbedDescription(event) {
+  const exception = event.exception?.values?.[0];
+  if (exception) {
+    return `${exception.type}: ${exception.value}`;
   }
+  return event.culprit || event.location || '';
+}
 
-  // Build fields
+function buildEmbedFields(sentryPayload, event, issue, level) {
   const fields = [
     {
       name: '📊 Level',
@@ -74,7 +90,6 @@ function formatSentryToDiscord(sentryPayload) {
     }
   ];
 
-  // Add component if available
   if (event.tags?.component) {
     fields.push({
       name: '🏷️ Component',
@@ -83,16 +98,15 @@ function formatSentryToDiscord(sentryPayload) {
     });
   }
 
-  // Add location if available
-  if (event.location || event.culprit) {
+  const location = event.location || event.culprit;
+  if (location) {
     fields.push({
       name: '📍 Location',
-      value: event.location || event.culprit,
+      value: location,
       inline: true
     });
   }
 
-  // Add link to Sentry
   const sentryUrl = sentryPayload.url || issue.permalink || issue.url;
   if (sentryUrl) {
     fields.push({
@@ -102,7 +116,6 @@ function formatSentryToDiscord(sentryPayload) {
     });
   }
 
-  // Add event count if this is an issue alert
   if (issue.count) {
     fields.push({
       name: '📈 Event Count',
@@ -111,14 +124,27 @@ function formatSentryToDiscord(sentryPayload) {
     });
   }
 
+  return fields.slice(0, DISCORD_LIMITS.FIELD_COUNT);
+}
+
+function formatSentryToDiscord(sentryPayload) {
+  const event = resolveEvent(sentryPayload);
+  const issue = resolveIssue(sentryPayload);
+  const action = resolveAction(sentryPayload);
+  const level = resolveLevel(event);
+  const title = buildEmbedTitle(level, event, issue);
+  const description = buildEmbedDescription(event);
+  const color = COLORS[level] || COLORS.error;
+  const fields = buildEmbedFields(sentryPayload, event, issue, level);
+
   return {
     username: 'Sentry Alerts',
     avatar_url: 'https://sentry-brand.storage.googleapis.com/sentry-logo-black.png',
     embeds: [{
-      title: title.substring(0, 256), // Discord limit
-      description: description.substring(0, 4096), // Discord limit
+      title: title.substring(0, DISCORD_LIMITS.TITLE_LENGTH),
+      description: description.substring(0, DISCORD_LIMITS.DESCRIPTION_LENGTH),
       color: color,
-      fields: fields.slice(0, 25), // Discord limit: max 25 fields
+      fields: fields,
       timestamp: event.timestamp || new Date().toISOString(),
       footer: {
         text: `Sentry Alert • ${action}`
@@ -146,7 +172,7 @@ function sendToDiscord(message) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Content-Length': data.length
+        'Content-Length': Buffer.byteLength(data)
       }
     };
 
@@ -169,56 +195,116 @@ function sendToDiscord(message) {
 }
 
 /**
- * Create HTTP server to receive Sentry webhooks
+ * Respond with JSON body.
  */
-const server = http.createServer(async (req, res) => {
-  // Health check endpoint
-  if (req.method === 'GET' && req.url === '/health') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      status: 'healthy',
-      service: 'sentry-discord-bridge',
-      timestamp: new Date().toISOString()
-    }));
-    return;
-  }
+function writeJson(res, statusCode, payload) {
+  res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(payload));
+}
 
-  // Sentry webhook endpoint
-  if (req.method === 'POST' && req.url === '/sentry-webhook') {
+/**
+ * Respond with plain text body.
+ */
+function writeText(res, statusCode, text) {
+  res.writeHead(statusCode, { 'Content-Type': 'text/plain' });
+  res.end(text);
+}
+
+/**
+ * Read incoming request body.
+ */
+function collectRequestBody(req) {
+  return new Promise((resolve, reject) => {
     let body = '';
-
     req.on('data', chunk => {
       body += chunk.toString();
     });
+    req.on('end', () => resolve(body));
+    req.on('error', reject);
+  });
+}
 
-    req.on('end', async () => {
-      try {
-        const sentryPayload = JSON.parse(body);
+/**
+ * Handle health check endpoint.
+ */
+function handleHealthCheck(req, res) {
+  if (req.method !== 'GET' || req.url !== '/health') {
+    return false;
+  }
 
-        console.log(`[${new Date().toISOString()}] Received Sentry webhook`);
-        console.log(`  Action: ${sentryPayload.action || 'N/A'}`);
-        console.log(`  Event: ${sentryPayload.event?.title || sentryPayload.data?.event?.title || 'N/A'}`);
+  writeJson(res, 200, {
+    status: 'healthy',
+    service: 'sentry-discord-bridge',
+    timestamp: new Date().toISOString()
+  });
 
-        const discordMessage = formatSentryToDiscord(sentryPayload);
-        await sendToDiscord(discordMessage);
+  return true;
+}
 
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true }));
+/**
+ * Determine if request is for sentry webhook endpoint.
+ */
+function isSentryWebhookRequest(req) {
+  return req.method === 'POST' && req.url === '/sentry-webhook';
+}
 
-        console.log(`  ✅ Forwarded to Discord`);
-      } catch (error) {
-        console.error(`  ❌ Error processing webhook:`, error.message);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: error.message }));
-      }
-    });
+/**
+ * Log high-level webhook metadata.
+ */
+function logSentryWebhook(sentryPayload) {
+  console.log(`[${new Date().toISOString()}] Received Sentry webhook`);
+  console.log(`  Action: ${sentryPayload.action || 'N/A'}`);
+  console.log(`  Event: ${sentryPayload.event?.title || sentryPayload.data?.event?.title || 'N/A'}`);
+}
 
+/**
+ * Handle webhook delivery and forwarding.
+ */
+async function handleSentryWebhook(req, res) {
+  try {
+    const body = await collectRequestBody(req);
+    const sentryPayload = JSON.parse(body);
+    logSentryWebhook(sentryPayload);
+
+    const discordMessage = formatSentryToDiscord(sentryPayload);
+    await sendToDiscord(discordMessage);
+
+    writeJson(res, 200, { success: true });
+    console.log('  ✅ Forwarded to Discord');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('  ❌ Error processing webhook:', message);
+    writeJson(res, 500, { error: message });
+  }
+}
+
+/**
+ * Route incoming HTTP request.
+ */
+async function routeRequest(req, res) {
+  if (handleHealthCheck(req, res)) {
     return;
   }
 
-  // 404 for all other routes
-  res.writeHead(404, { 'Content-Type': 'text/plain' });
-  res.end('Not found');
+  if (isSentryWebhookRequest(req)) {
+    await handleSentryWebhook(req, res);
+    return;
+  }
+
+  writeText(res, 404, 'Not found');
+}
+
+/**
+ * Create HTTP server to receive Sentry webhooks.
+ */
+const server = http.createServer((req, res) => {
+  routeRequest(req, res).catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('  ❌ Unexpected request handler error:', message);
+    if (!res.headersSent) {
+      writeJson(res, 500, { error: 'Internal server error' });
+    }
+  });
 });
 
 // Start server

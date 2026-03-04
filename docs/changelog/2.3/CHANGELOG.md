@@ -6,6 +6,28 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.9] - 2026-03-04
+
+### Summary
+
+Resolved complexity backlog item `CX11` by refactoring `docs/setup/sentry-to-discord.js` into smaller formatting and dispatch helpers while preserving webhook behavior.
+
+### Changed
+
+- Refactored `docs/setup/sentry-to-discord.js`:
+  - Split formatting flow into helper functions (`resolve*`, `buildEmbed*`) to reduce branch density in `formatSentryToDiscord`.
+  - Split HTTP request handling into route/endpoint helpers (`handleHealthCheck`, `handleSentryWebhook`, `routeRequest`).
+  - Centralized response writing helpers (`writeJson`, `writeText`) and request body collection.
+  - Updated Discord payload size handling with `Buffer.byteLength(data)` for `Content-Length`.
+- Backlog `CX11` migrated and closed in `docs/BACKLOG.md`.
+
+### Validation
+
+- `node --check docs/setup/sentry-to-discord.js` (pass)
+- `npm run test:validate-backlog` (pass)
+
+---
+
 ## [2.3.8] - 2026-03-04
 
 ### Summary

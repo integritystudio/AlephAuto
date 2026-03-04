@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-04 | **Last Session:** 2026-03-04 (CX11 reclassification + CX12-CX13 retirement)
+**Last Updated:** 2026-03-04 | **Last Session:** 2026-03-04 (CX11 refactor + backlog migration)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -13,6 +13,7 @@ Technical debt and planned improvements.
 No active deferred/blocked items.
 
 Closed items migrated to changelog:
+- [v2.3.9](changelog/2.3/CHANGELOG.md) (`CX11`)
 - [v2.3.8](changelog/2.3/CHANGELOG.md) (`CX12`, `CX13`)
 - [v2.3.7](changelog/2.3/CHANGELOG.md) (`DOC1-DOC7`)
 - [v2.3.6](changelog/2.3/CHANGELOG.md) (`DOC8`)
@@ -41,13 +42,11 @@ Closed items migrated to changelog:
 
 ### Critical Complexity (Cyclomatic/Cognitive/Length)
 
-| ID | File | Lines | Cyclomatic | Cognitive | Length | Exceeds | Status |
-|----|------|-------|-----------|-----------|--------|---------|--------|
-| CX11 | `docs/setup/sentry-to-discord.js` | 44-128 | **31** | 19 | 85 | cyclomatic, cognitive, length | Active setup script (manual ops) |
+No active critical-complexity backlog items.
 
 Thresholds: cyclomatic ≤10, cognitive ≤15, nesting ≤4, length ≤50 lines.
 
-> CX12-CX13 retired in v2.3.8 (archived scripts removed). CX11 remains as low-priority setup-script complexity.
+> CX11 completed in v2.3.9. CX12-CX13 retired in v2.3.8 (archived scripts removed).
 
 ### Large Classes (Code Smells)
 
@@ -72,4 +71,3 @@ No issues found (SQL injection, XSS, command injection, hardcoded secrets, insec
 ### Remaining Priority
 
 1. **SV1** — Replace `console.log` with structured logger in non-test code
-2. **CX11** — Refactor `docs/setup/sentry-to-discord.js` formatting/dispatch path if this setup script remains in active operational use
