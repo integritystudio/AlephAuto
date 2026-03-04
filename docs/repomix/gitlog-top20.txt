@@ -1,3 +1,12 @@
+3bc4e22 2026-03-04 docs: update pipeline data flow for startup-once and test gating
+  docs/architecture/pipeline-data-flow.md
+
+d89062e 2026-03-04 test: gate env-sensitive suites and update repomix wrappers
+  docs/repomix/gitlog-sidequest.txt
+  docs/repomix/repo-compressed.xml
+  docs/repomix/repomix.xml
+  sidequest/docs/gitlog-sidequest.txt
+
 64f16f5 2026-03-04 chore: mirror sidequest gitlog into docs repomix output
   docs/repomix/gitlog-sidequest.txt
   sidequest/docs/gitlog-sidequest.txt
