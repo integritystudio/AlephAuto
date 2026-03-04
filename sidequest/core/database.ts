@@ -176,6 +176,16 @@ function safeJsonParse(str: string | null, fallback: unknown = null): unknown {
   }
 }
 
+/**
+ * Serialize a value for JSON TEXT storage.
+ * Preserves falsy primitives (`0`, `false`, `''`) and only maps `undefined` to SQL NULL.
+ */
+function serializeJsonForStorage(value: unknown): string | null {
+  if (value === undefined) return null;
+  const serialized = JSON.stringify(value);
+  return serialized === undefined ? null : serialized;
+}
+
 /** Convert a JobRow to a ParsedJob */
 function rowToParsedJob(row: JobRow): ParsedJob {
   const rawError = safeJsonParse(row.error);
@@ -301,10 +311,10 @@ export function saveJob(job: SaveJobInput): void {
     job.createdAt ?? new Date().toISOString(),
     job.startedAt ?? null,
     job.completedAt ?? null,
-    job.data ? JSON.stringify(job.data) : null,
-    job.result ? JSON.stringify(job.result) : null,
-    job.error ? JSON.stringify(job.error) : null,
-    job.git ? JSON.stringify(job.git) : null
+    serializeJsonForStorage(job.data),
+    serializeJsonForStorage(job.result),
+    serializeJsonForStorage(job.error),
+    serializeJsonForStorage(job.git)
   );
 
   logger.debug({ jobId: job.id, status: job.status }, 'Job saved to database');
@@ -745,10 +755,10 @@ export function bulkImportJobs(jobs: BulkImportJob[]): BulkImportResult {
           job.created_at || job.createdAt || new Date().toISOString(),
           job.started_at ?? job.startedAt ?? null,
           job.completed_at ?? job.completedAt ?? null,
-          typeof job.data === 'string' ? job.data : (job.data ? JSON.stringify(job.data) : null),
-          typeof job.result === 'string' ? job.result : (job.result ? JSON.stringify(job.result) : null),
-          typeof job.error === 'string' ? job.error : (job.error ? JSON.stringify(job.error) : null),
-          typeof job.git === 'string' ? job.git : (job.git ? JSON.stringify(job.git) : null)
+          typeof job.data === 'string' ? job.data : serializeJsonForStorage(job.data),
+          typeof job.result === 'string' ? job.result : serializeJsonForStorage(job.result),
+          typeof job.error === 'string' ? job.error : serializeJsonForStorage(job.error),
+          typeof job.git === 'string' ? job.git : serializeJsonForStorage(job.git)
         );
         imported++;
       } catch (error) {
