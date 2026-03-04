@@ -54,6 +54,17 @@ def _get_path(value, fallback: Path) -> Path:
     return fallback
 
 
+def _run_command(cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+    """Run a subprocess and fail fast on non-zero exit."""
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
+    if result.returncode != 0:
+        stderr = result.stderr.strip()
+        stdout = result.stdout.strip()
+        details = stderr or stdout or "no output"
+        raise RuntimeError(f"Command failed ({' '.join(cmd)}): {details}")
+    return result
+
+
 # Configuration (defaults)
 HOME_DIR = Path.home()
 DEFAULT_CODE_DIR = HOME_DIR / 'code'
@@ -137,7 +148,7 @@ def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=INCLUDE_DOTFILE
     # Scan main code directory
     print(f"Scanning for repositories in {CODE_DIR} (depth: {max_depth})...")
     cmd = ["find", str(CODE_DIR), "-maxdepth", str(max_depth), "-name", ".git", "-type", "d"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = _run_command(cmd)
 
     for line in result.stdout.strip().split('\n'):
         if line:
@@ -150,7 +161,7 @@ def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=INCLUDE_DOTFILE
     if REPORTS_DIR.exists():
         print(f"Scanning for repositories in {REPORTS_DIR} (depth: {max_depth})...")
         cmd = ["find", str(REPORTS_DIR), "-maxdepth", str(max_depth), "-name", ".git", "-type", "d"]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = _run_command(cmd)
 
         for line in result.stdout.strip().split('\n'):
             if line:
@@ -190,82 +201,70 @@ def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=INCLUDE_DOTFILE
 
 def get_repo_stats(repo_path, since_date, until_date=None):
     """Get commit statistics for a repository"""
-    try:
-        base_git_cmd = ["git", "log", f"--since={since_date}", "--all"]
-        if until_date:
-            base_git_cmd.append(f"--until={until_date}")
+    base_git_cmd = ["git", "log", f"--since={since_date}", "--all"]
+    if until_date:
+        base_git_cmd.append(f"--until={until_date}")
 
-        result = subprocess.run(
-            [*base_git_cmd, "--oneline"],
-            capture_output=True,
-            text=True,
-            cwd=repo_path,
-        )
-        commits = len(result.stdout.strip().split('\n')) if result.stdout.strip() else 0
+    result = _run_command(
+        [*base_git_cmd, "--oneline"],
+        cwd=repo_path,
+    )
+    commits = len(result.stdout.strip().split('\n')) if result.stdout.strip() else 0
 
-        # Get monthly commit distribution for visualization
-        result = subprocess.run(
-            [*base_git_cmd, "--date=format:%Y-%m", "--pretty=format:%ad"],
-            capture_output=True,
-            text=True,
-            cwd=repo_path,
-        )
-        monthly_commits = defaultdict(int)
-        for line in result.stdout.strip().split('\n'):
-            month = line.strip()
-            if month:
-                monthly_commits[month] += 1
+    # Get monthly commit distribution for visualization
+    result = _run_command(
+        [*base_git_cmd, "--date=format:%Y-%m", "--pretty=format:%ad"],
+        cwd=repo_path,
+    )
+    monthly_commits = defaultdict(int)
+    for line in result.stdout.strip().split('\n'):
+        month = line.strip()
+        if month:
+            monthly_commits[month] += 1
 
-        # Get file changes for language analysis
-        result = subprocess.run(
-            [*base_git_cmd, "--name-only", "--pretty=format:"],
-            capture_output=True,
-            text=True,
-            cwd=repo_path,
-        )
-        files = [f for f in result.stdout.strip().split('\n') if f]
+    # Get file changes for language analysis
+    result = _run_command(
+        [*base_git_cmd, "--name-only", "--pretty=format:"],
+        cwd=repo_path,
+    )
+    files = [f for f in result.stdout.strip().split('\n') if f]
 
-        # Get line-level additions/deletions
-        result = subprocess.run(
-            [*base_git_cmd, "--numstat", "--pretty=format:"],
-            capture_output=True,
-            text=True,
-            cwd=repo_path,
-        )
-        additions = 0
-        deletions = 0
-        for line in result.stdout.strip().split('\n'):
-            parts = line.split('\t')
-            if len(parts) < 2:
-                continue
-            if parts[0].isdigit():
-                additions += int(parts[0])
-            if parts[1].isdigit():
-                deletions += int(parts[1])
+    # Get line-level additions/deletions
+    result = _run_command(
+        [*base_git_cmd, "--numstat", "--pretty=format:"],
+        cwd=repo_path,
+    )
+    additions = 0
+    deletions = 0
+    for line in result.stdout.strip().split('\n'):
+        parts = line.split('\t')
+        if len(parts) < 2:
+            continue
+        if parts[0].isdigit():
+            additions += int(parts[0])
+        if parts[1].isdigit():
+            deletions += int(parts[1])
 
-        # Get parent directory (for organization/grouping)
-        if repo_path.parent == CODE_DIR or repo_path.parent == REPORTS_DIR:
-            parent = None
-        elif repo_path.parent == HOME_DIR:
-            parent = '~'  # Dotfile at home root
-        elif str(repo_path.parent).startswith(str(HOME_DIR)) and repo_path.parent.parent == HOME_DIR:
-            parent = repo_path.parent.name  # Inside a dotfile directory
-        else:
-            parent = repo_path.parent.name
+    # Get parent directory (for organization/grouping)
+    if repo_path.parent == CODE_DIR or repo_path.parent == REPORTS_DIR:
+        parent = None
+    elif repo_path.parent == HOME_DIR:
+        parent = '~'  # Dotfile at home root
+    elif str(repo_path.parent).startswith(str(HOME_DIR)) and repo_path.parent.parent == HOME_DIR:
+        parent = repo_path.parent.name  # Inside a dotfile directory
+    else:
+        parent = repo_path.parent.name
 
-        return {
-            'path': str(repo_path),
-            'name': repo_path.name,
-            'parent': parent,
-            'commits': commits,
-            'monthly_commits': dict(monthly_commits),
-            'files': files,
-            'additions': additions,
-            'deletions': deletions
-        }
-    except Exception as e:
-        print(f"Error processing {repo_path}: {e}")
-        return None
+    return {
+        'path': str(repo_path),
+        'name': repo_path.name,
+        'parent': parent,
+        'commits': commits,
+        'monthly_commits': dict(monthly_commits),
+        'files': files,
+        'additions': additions,
+        'deletions': deletions
+    }
 
 
 def analyze_languages(all_files):
@@ -767,45 +766,49 @@ def main():
     print(f"Scan depth: {args.max_depth} directories")
     print(f"{'=' * GitActivityDefaults.SEPARATOR_LENGTH}\n")
 
-    # Find and process repositories
-    repos = find_git_repos(args.max_depth)
-    repositories, all_files = _collect_repository_stats(repos, since_date, until_date)
+    try:
+        # Find and process repositories
+        repos = find_git_repos(args.max_depth)
+        repositories, all_files = _collect_repository_stats(repos, since_date, until_date)
 
-    # Compile all data
-    data = _compile_activity_data(repositories, all_files, since_date, until_date)
+        # Compile all data
+        data = _compile_activity_data(repositories, all_files, since_date, until_date)
 
-    # Resolve output locations
-    default_report_dir = PERSONALSITE_DIR / WORK_COLLECTION
-    default_report_dir.mkdir(parents=True, exist_ok=True)
-    report_date = datetime.now().strftime('%Y-%m-%d')
-    report_file = default_report_dir / f'{report_date}-git-activity-report.md'
-    default_json_file = default_report_dir / f'{report_date}-git-activity-report.json'
+        # Resolve output locations
+        default_report_dir = PERSONALSITE_DIR / WORK_COLLECTION
+        default_report_dir.mkdir(parents=True, exist_ok=True)
+        report_date = datetime.now().strftime('%Y-%m-%d')
+        report_file = default_report_dir / f'{report_date}-git-activity-report.md'
+        default_json_file = default_report_dir / f'{report_date}-git-activity-report.json'
 
-    wants_markdown = args.output_format in ('markdown', 'both')
-    wants_json = args.output_format in ('json', 'both') or bool(args.json_output)
+        wants_markdown = args.output_format in ('markdown', 'both')
+        wants_json = args.output_format in ('json', 'both') or bool(args.json_output)
 
-    # Save Jekyll markdown report when requested.
-    if wants_markdown:
-        generate_jekyll_report(data, report_file)
+        # Save Jekyll markdown report when requested.
+        if wants_markdown:
+            generate_jekyll_report(data, report_file)
 
-    # Save JSON data when requested by output format or explicit path.
-    if wants_json:
-        json_path = Path(args.json_output) if args.json_output else default_json_file
-        json_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(json_path, 'w') as f:
-            json.dump(data, f, indent=2)
-        print(f"✅ JSON data saved to: {json_path}")
+        # Save JSON data when requested by output format or explicit path.
+        if wants_json:
+            json_path = Path(args.json_output) if args.json_output else default_json_file
+            json_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(json_path, 'w') as f:
+                json.dump(data, f, indent=2)
+            print(f"✅ JSON data saved to: {json_path}")
 
-    # Generate visualizations unless explicitly disabled.
-    output_dir = _resolve_output_dir(args)
-    if args.no_visualizations:
-        print("\nSkipping visualizations (--no-visualizations).")
-        _print_summary(data, None)
-    else:
-        generate_visualizations(data, output_dir)
-        _print_summary(data, output_dir)
+        # Generate visualizations unless explicitly disabled.
+        output_dir = _resolve_output_dir(args)
+        if args.no_visualizations:
+            print("\nSkipping visualizations (--no-visualizations).")
+            _print_summary(data, None)
+        else:
+            generate_visualizations(data, output_dir)
+            _print_summary(data, output_dir)
 
-    return 0
+        return 0
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == '__main__':

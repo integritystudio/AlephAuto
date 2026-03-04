@@ -14,6 +14,8 @@ interface ReportOptions {
   days?: number;
 }
 
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 interface OutputFile {
   path: string;
   size: number;
@@ -174,6 +176,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // Parse command line arguments
   const args = process.argv.slice(2);
   const options: ReportOptions = {};
+  const cliErrors: string[] = [];
   let runNow = config.runOnStartup;
 
   for (let i = 0; i < args.length; i++) {
@@ -183,16 +186,41 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       options.reportType = 'weekly';
     } else if (args[i] === '--monthly') {
       options.reportType = 'monthly';
-    } else if (args[i] === '--since' && args[i + 1]) {
+    } else if ((args[i] === '--start-date' || args[i] === '--since') && args[i + 1]) {
       options.sinceDate = args[i + 1];
       i++;
-    } else if (args[i] === '--until' && args[i + 1]) {
+    } else if (args[i] === '--start-date' || args[i] === '--since') {
+      cliErrors.push(`${args[i]} requires a YYYY-MM-DD value`);
+    } else if ((args[i] === '--end-date' || args[i] === '--until') && args[i + 1]) {
       options.untilDate = args[i + 1];
       i++;
+    } else if (args[i] === '--end-date' || args[i] === '--until') {
+      cliErrors.push(`${args[i]} requires a YYYY-MM-DD value`);
     } else if (args[i] === '--days' && args[i + 1]) {
-      options.days = parseInt(args[i + 1], 10);
+      const parsedDays = parseInt(args[i + 1], 10);
+      if (Number.isNaN(parsedDays) || parsedDays <= 0) {
+        cliErrors.push(`--days must be a positive integer (received: ${args[i + 1]})`);
+      } else {
+        options.days = parsedDays;
+      }
       i++;
+    } else if (args[i] === '--days') {
+      cliErrors.push('--days requires a positive integer value');
     }
+  }
+
+  if (options.untilDate && !options.sinceDate) {
+    cliErrors.push('--end-date requires --start-date');
+  }
+  if (options.sinceDate && !ISO_DATE_PATTERN.test(options.sinceDate)) {
+    cliErrors.push(`--start-date must match YYYY-MM-DD (received: ${options.sinceDate})`);
+  }
+  if (options.untilDate && !ISO_DATE_PATTERN.test(options.untilDate)) {
+    cliErrors.push(`--end-date must match YYYY-MM-DD (received: ${options.untilDate})`);
+  }
+  if (cliErrors.length > 0) {
+    logger.error({ args, errors: cliErrors }, 'Invalid CLI options');
+    process.exit(1);
   }
 
   if (runNow) {

@@ -515,6 +515,13 @@ export class MigrationTransformer {
   private _removeDeclaration(ast: ParseResult<BabelFile>, name: string): boolean {
     let modified = false;
 
+    const stripComments = (node: t.Node | null | undefined): void => {
+      if (!node) return;
+      node.leadingComments = [];
+      node.innerComments = [];
+      node.trailingComments = [];
+    };
+
     traverse(ast, {
             /**
        * Function declaration.
@@ -523,6 +530,7 @@ export class MigrationTransformer {
        */
       FunctionDeclaration(path: NodePath<t.FunctionDeclaration>) {
         if (path.node.id && path.node.id.name === name) {
+          stripComments(path.node);
           path.remove();
           modified = true;
           logger.debug({ name, type: 'function' }, 'Removed declaration');
@@ -536,6 +544,7 @@ export class MigrationTransformer {
        */
       ClassDeclaration(path: NodePath<t.ClassDeclaration>) {
         if (path.node.id && path.node.id.name === name) {
+          stripComments(path.node);
           path.remove();
           modified = true;
           logger.debug({ name, type: 'class' }, 'Removed declaration');
@@ -551,8 +560,10 @@ export class MigrationTransformer {
         if (t.isIdentifier(path.node.id, { name })) {
           const parent = path.parentPath;
           if (parent && t.isVariableDeclaration(parent.node) && parent.node.declarations.length === 1) {
+            stripComments(parent.node);
             parent.remove();
           } else {
+            stripComments(path.node);
             path.remove();
           }
           modified = true;

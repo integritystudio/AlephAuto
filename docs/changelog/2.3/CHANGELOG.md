@@ -6,6 +6,34 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.11] - 2026-03-04
+
+### Summary
+
+Migrated completed code-review items from `docs/03-04-review.md` into changelog tracking.
+
+### Changed
+
+- Consolidated completed complexity review items in changelog tracking:
+  - Completed: `CX1-CX11`
+  - Retired: `CX12-CX13`
+- Consolidated completed standards review items in changelog tracking:
+  - Completed: `SV1-SV3`
+- Consolidated completed code-smell review items in changelog tracking:
+  - Completed: `CS5`, `CS7`, `CS8`
+- Consolidated completed documentation review items in changelog tracking:
+  - Completed: `DOC1-DOC8`
+- Recorded the review-state completion snapshot from `docs/03-04-review.md`:
+  - Active deferred/blocked items: `0`
+  - Remaining active backlog from analyzer streams: `None`
+  - Documentation sync baseline: `100.0%` (`913/913`, `0` undocumented, `0` stale)
+
+### Documentation
+
+- Updated `docs/03-04-review.md` changelog section reference to include this migration entry.
+
+---
+
 ## [2.3.10] - 2026-03-04
 
 ### Summary

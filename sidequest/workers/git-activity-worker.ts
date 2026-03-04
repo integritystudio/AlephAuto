@@ -143,7 +143,7 @@ export class GitActivityWorker extends SidequestServer {
       }
 
       // Parse JSON output to get statistics
-      const stats = this.#parseStats(stdout);
+      const stats = await this.#parseStats(stdout, outputFiles);
 
       // Verify output files exist
       const verifiedFiles = await this.#verifyOutputFiles(outputFiles);
@@ -322,7 +322,55 @@ export class GitActivityWorker extends SidequestServer {
   /**
    * Parse statistics from script output
    */
-  #parseStats(stdout: string): GitActivityStats {
+  #toNumber(value: unknown): number {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+    return 0;
+  }
+
+  #buildStatsFromData(data: Record<string, unknown>): GitActivityStats {
+    return {
+      totalCommits: this.#toNumber(data.total_commits),
+      totalRepositories: Array.isArray(data.repositories)
+        ? data.repositories.length
+        : this.#toNumber(data.total_repositories),
+      linesAdded: this.#toNumber(data.total_additions),
+      linesDeleted: this.#toNumber(data.total_deletions),
+      filesChanged: this.#toNumber(data.total_files),
+    };
+  }
+
+  async #parseStatsFromJsonFiles(outputFiles: string[]): Promise<GitActivityStats | null> {
+    const scriptDir = path.dirname(this.pythonScript);
+    const jsonFiles = outputFiles.filter((file) => file.toLowerCase().endsWith('.json'));
+
+    for (const file of jsonFiles) {
+      const resolvedPath = path.isAbsolute(file)
+        ? file
+        : path.resolve(scriptDir, file);
+      try {
+        const content = await fs.readFile(resolvedPath, 'utf-8');
+        const data = JSON.parse(content) as Record<string, unknown>;
+        if (Object.prototype.hasOwnProperty.call(data, 'total_commits')) {
+          return this.#buildStatsFromData(data);
+        }
+      } catch (error) {
+        const err = error as Error;
+        logger.debug({ file: resolvedPath, error: err.message }, 'Could not parse JSON stats file');
+      }
+    }
+
+    return null;
+  }
+
+  async #parseStats(stdout: string, outputFiles: string[]): Promise<GitActivityStats> {
     const stats: GitActivityStats = {
       totalCommits: 0,
       totalRepositories: 0,
@@ -330,20 +378,9 @@ export class GitActivityWorker extends SidequestServer {
       linesDeleted: 0,
     };
 
-    // Try to parse from JSON output in stdout
-    try {
-      const jsonMatch = stdout.match(/\{[\s\S]*"total_commits"[\s\S]*\}/);
-      if (jsonMatch) {
-        const data = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
-        stats.totalCommits = (data.total_commits as number) ?? 0;
-        stats.totalRepositories = (Array.isArray(data.repositories) ? data.repositories.length : 0);
-        stats.linesAdded = (data.total_additions as number) ?? 0;
-        stats.linesDeleted = (data.total_deletions as number) ?? 0;
-        return stats;
-      }
-    } catch (error) {
-      const err = error as Error;
-      logger.debug({ error: err.message }, 'Could not parse JSON stats, trying text format');
+    const jsonStats = await this.#parseStatsFromJsonFiles(outputFiles);
+    if (jsonStats) {
+      return jsonStats;
     }
 
     // Fallback: parse from text summary output

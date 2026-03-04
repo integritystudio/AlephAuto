@@ -106,7 +106,6 @@ types/
 utils/
   dependency-validator.ts
   directory-scanner.ts
-  doppler-resilience.example.js
   doppler-resilience.ts
   gitignore-repomix-updater.ts
   logger.ts
@@ -8341,7 +8340,6 @@ export class HTMLReportGenerator {
    */
   private static _getScripts(): string {
     return `
-        console.log(&apos;Duplicate Detection Report loaded&apos;);
     `;
   }
   private static _getImpactClass(score: number): string {
@@ -9483,6 +9481,21 @@ interface HealthScanOptions {
   scanTimeout?: boolean;
   scanRoot?: boolean;
 }
+function printUsage(): void {
+  const lines = [
+    &apos;Usage: node codebase-health-scanner.ts &lt;repo-path&gt; [options]&apos;,
+    &apos;&apos;,
+    &apos;Options:&apos;,
+    &apos;  --scan &lt;type&gt;       Scan type: timeout, root, all (default: all)&apos;,
+    &apos;  --output &lt;file&gt;     Output file path (markdown report)&apos;,
+    &apos;  --json              Output JSON instead of markdown&apos;,
+    &apos;&apos;,
+    &apos;Examples:&apos;,
+    &apos;  node codebase-health-scanner.ts ~/code/myproject --scan timeout&apos;,
+    &apos;  node codebase-health-scanner.ts ~/code/myproject --scan all --output report.md&apos;,
+  ];
+  process.stderr.write(`${lines.join(&apos;\n&apos;)}\n`);
+}
 async function main(): Promise&lt;void&gt; {
   const args = process.argv.slice(2);
   const repoPath = args[0];
@@ -9494,16 +9507,7 @@ async function main(): Promise&lt;void&gt; {
     : null;
   const jsonOutput = args.includes(&apos;--json&apos;);
   if (!repoPath) {
-    console.error(&apos;Usage: node codebase-health-scanner.ts &lt;repo-path&gt; [options]&apos;);
-    console.error(&apos;&apos;);
-    console.error(&apos;Options:&apos;);
-    console.error(&apos;  --scan &lt;type&gt;       Scan type: timeout, root, all (default: all)&apos;);
-    console.error(&apos;  --output &lt;file&gt;     Output file path (markdown report)&apos;);
-    console.error(&apos;  --json              Output JSON instead of markdown&apos;);
-    console.error(&apos;&apos;);
-    console.error(&apos;Examples:&apos;);
-    console.error(&apos;  node codebase-health-scanner.ts ~/code/myproject --scan timeout&apos;);
-    console.error(&apos;  node codebase-health-scanner.ts ~/code/myproject --scan all --output report.md&apos;);
+    printUsage();
     process.exit(1);
   }
   const resolvedPath = path.resolve(repoPath);
@@ -9539,7 +9543,7 @@ async function main(): Promise&lt;void&gt; {
         await fs.writeFile(outputFile, output);
         logger.info(`JSON report saved to: ${outputFile}`);
       } else {
-        console.log(output);
+        process.stdout.write(`${output}\n`);
       }
     } else {
       const report = generateMarkdownReport(results);
@@ -9547,7 +9551,7 @@ async function main(): Promise&lt;void&gt; {
         await fs.writeFile(outputFile, report);
         logger.info(`Markdown report saved to: ${outputFile}`);
       } else {
-        console.log(&apos;\n&apos; + report);
+        process.stdout.write(`\n${report}\n`);
       }
     }
     logger.info(&apos;Scan complete!&apos;);
@@ -14931,119 +14935,119 @@ class ClaudeHealthPipeline extends BasePipeline&lt;ClaudeHealthWorker&gt; {
   }
 }
 function printSummary(result: HealthCheckResult): void {
-  console.log(&apos;\n╔════════════════════════════════════════════════════════════════╗&apos;);
-  console.log(&apos;║          Claude Code Health Check Summary                     ║&apos;);
-  console.log(&apos;╚════════════════════════════════════════════════════════════════╝\n&apos;);
-  console.log(`Health Score: ${getScoreColor(result.summary.healthScore)}${result.summary.healthScore}/100\x1b[0m`);
-  console.log(`Status:       ${result.summary.message}\n`);
+  logger.info(&apos;\n╔════════════════════════════════════════════════════════════════╗&apos;);
+  logger.info(&apos;║          Claude Code Health Check Summary                     ║&apos;);
+  logger.info(&apos;╚════════════════════════════════════════════════════════════════╝\n&apos;);
+  logger.info(`Health Score: ${getScoreColor(result.summary.healthScore)}${result.summary.healthScore}/100\x1b[0m`);
+  logger.info(`Status:       ${result.summary.message}\n`);
   if (result.checks.components) {
-    console.log(&apos;Component Inventory:&apos;);
-    console.log(`  Skills:        ${result.checks.components.skills}`);
-    console.log(`  Agents:        ${result.checks.components.agents}`);
-    console.log(`  Commands:      ${result.checks.components.commands}`);
-    console.log(`  Hooks:         ${result.checks.hooks?.executableHooks ?? 0}/${result.checks.hooks?.totalHooks ?? 0} executable`);
-    console.log(`  Registered:    ${result.checks.hooks?.registeredHooks ?? 0} hook types`);
+    logger.info(&apos;Component Inventory:&apos;);
+    logger.info(`  Skills:        ${result.checks.components.skills}`);
+    logger.info(`  Agents:        ${result.checks.components.agents}`);
+    logger.info(`  Commands:      ${result.checks.components.commands}`);
+    logger.info(`  Hooks:         ${result.checks.hooks?.executableHooks ?? 0}/${result.checks.hooks?.totalHooks ?? 0} executable`);
+    logger.info(`  Registered:    ${result.checks.hooks?.registeredHooks ?? 0} hook types`);
     if (result.checks.plugins) {
-      console.log(`  Plugins:       ${result.checks.plugins.totalPlugins}`);
+      logger.info(`  Plugins:       ${result.checks.plugins.totalPlugins}`);
     }
-    console.log(`  Active Tasks:  ${result.checks.components.activeTasks}`);
-    console.log(`  Archived:      ${result.checks.components.archivedTasks}`);
-    console.log(&apos;&apos;);
+    logger.info(`  Active Tasks:  ${result.checks.components.activeTasks}`);
+    logger.info(`  Archived:      ${result.checks.components.archivedTasks}`);
+    logger.info(&apos;&apos;);
   }
   // Environment
   if (result.checks.environment) {
     const env = result.checks.environment;
-    console.log(&apos;Environment:&apos;);
-    console.log(`  Node.js:       ${env.nodeVersion ?? &apos;not found&apos;}`);
-    console.log(`  npm:           ${env.npmVersion ?? &apos;not found&apos;}`);
-    console.log(`  direnv:        ${env.direnv ? &apos;✓ installed&apos; : &apos;✗ not installed&apos;}`);
+    logger.info(&apos;Environment:&apos;);
+    logger.info(`  Node.js:       ${env.nodeVersion ?? &apos;not found&apos;}`);
+    logger.info(`  npm:           ${env.npmVersion ?? &apos;not found&apos;}`);
+    logger.info(`  direnv:        ${env.direnv ? &apos;✓ installed&apos; : &apos;✗ not installed&apos;}`);
     if (env.direnv &amp;&amp; !env.direnvAllowed) {
-      console.log(`  \x1b[33m⚠  Environment variables not loaded\x1b[0m`);
+      logger.info(`  \x1b[33m⚠  Environment variables not loaded\x1b[0m`);
     }
-    console.log(&apos;&apos;);
+    logger.info(&apos;&apos;);
   }
   // Summary statistics
-  console.log(&apos;Summary:&apos;);
-  console.log(`  Critical Issues: ${result.summary.criticalIssues}`);
-  console.log(`  Warnings:        ${result.summary.warnings}`);
-  console.log(`  Duration:        ${result.duration}ms\n`);
+  logger.info(&apos;Summary:&apos;);
+  logger.info(`  Critical Issues: ${result.summary.criticalIssues}`);
+  logger.info(`  Warnings:        ${result.summary.warnings}`);
+  logger.info(`  Duration:        ${result.duration}ms\n`);
 }
 /**
  * printRecommendations.
  */
 function printRecommendations(recommendations: Recommendation[]): void {
-  console.log(&apos;╔════════════════════════════════════════════════════════════════╗&apos;);
-  console.log(&apos;║          Recommendations                                       ║&apos;);
-  console.log(&apos;╚════════════════════════════════════════════════════════════════╝\n&apos;);
+  logger.info(&apos;╔════════════════════════════════════════════════════════════════╗&apos;);
+  logger.info(&apos;║          Recommendations                                       ║&apos;);
+  logger.info(&apos;╚════════════════════════════════════════════════════════════════╝\n&apos;);
   for (const rec of recommendations) {
     const icon = rec.priority === &apos;high&apos; ? &apos;🔴&apos; : rec.priority === &apos;medium&apos; ? &apos;🟡&apos; : &apos;✅&apos;;
     const priority = rec.priority.toUpperCase();
-    console.log(`${icon} [${priority}] ${rec.type}`);
-    console.log(`   ${rec.message}`);
-    console.log(`   Action: ${rec.action}`);
+    logger.info(`${icon} [${priority}] ${rec.type}`);
+    logger.info(`   ${rec.message}`);
+    logger.info(`   Action: ${rec.action}`);
     if (rec.details) {
-      console.log(&apos;   Details:&apos;);
+      logger.info(&apos;   Details:&apos;);
       for (const detail of rec.details) {
         if (detail.category &amp;&amp; detail.plugins) {
-          console.log(`     • ${detail.category}: ${detail.plugins.join(&apos;, &apos;)}`);
+          logger.info(`     • ${detail.category}: ${detail.plugins.join(&apos;, &apos;)}`);
           if (detail.suggestion) {
-            console.log(`       → ${detail.suggestion}`);
+            logger.info(`       → ${detail.suggestion}`);
           }
         }
       }
     }
-    console.log(&apos;&apos;);
+    logger.info(&apos;&apos;);
   }
 }
 /**
  * printDetailedChecks.
  */
 function printDetailedChecks(checks: HealthCheckResult[&apos;checks&apos;]): void {
-  console.log(&apos;╔════════════════════════════════════════════════════════════════╗&apos;);
-  console.log(&apos;║          Detailed Check Results                                ║&apos;);
-  console.log(&apos;╚════════════════════════════════════════════════════════════════╝\n&apos;);
+  logger.info(&apos;╔════════════════════════════════════════════════════════════════╗&apos;);
+  logger.info(&apos;║          Detailed Check Results                                ║&apos;);
+  logger.info(&apos;╚════════════════════════════════════════════════════════════════╝\n&apos;);
   if (checks.configuration) {
-    console.log(&apos;Configuration Files:&apos;);
-    console.log(`  settings.json:     ${checks.configuration.settingsJson.valid ? &apos;✓&apos; : &apos;✗&apos;} valid`);
-    console.log(`  skill-rules.json:  ${checks.configuration.skillRulesJson.valid ? &apos;✓&apos; : &apos;✗&apos;} valid`);
-    console.log(`  package.json:      ${checks.configuration.packageJson.valid ? &apos;✓&apos; : &apos;✗&apos;} valid`);
-    console.log(`  .envrc:            ${checks.configuration.envrc.exists ? &apos;✓&apos; : &apos;✗&apos;} exists`);
-    console.log(&apos;&apos;);
+    logger.info(&apos;Configuration Files:&apos;);
+    logger.info(`  settings.json:     ${checks.configuration.settingsJson.valid ? &apos;✓&apos; : &apos;✗&apos;} valid`);
+    logger.info(`  skill-rules.json:  ${checks.configuration.skillRulesJson.valid ? &apos;✓&apos; : &apos;✗&apos;} valid`);
+    logger.info(`  package.json:      ${checks.configuration.packageJson.valid ? &apos;✓&apos; : &apos;✗&apos;} valid`);
+    logger.info(`  .envrc:            ${checks.configuration.envrc.exists ? &apos;✓&apos; : &apos;✗&apos;} exists`);
+    logger.info(&apos;&apos;);
   }
   // Hooks
   if (checks.hooks?.hooks) {
-    console.log(&apos;Hook Details:&apos;);
+    logger.info(&apos;Hook Details:&apos;);
     for (const hook of checks.hooks.hooks) {
       const status = hook.executable ? &apos;✓&apos; : &apos;✗&apos;;
-      console.log(`  ${status} ${hook.name}`);
+      logger.info(`  ${status} ${hook.name}`);
     }
-    console.log(&apos;&apos;);
+    logger.info(&apos;&apos;);
   }
   // Plugins
   if (checks.plugins?.duplicateCategories &amp;&amp; checks.plugins.duplicateCategories.length &gt; 0) {
-    console.log(&apos;Duplicate Plugin Categories:&apos;);
+    logger.info(&apos;Duplicate Plugin Categories:&apos;);
     for (const cat of checks.plugins.duplicateCategories) {
-      console.log(`  ${cat.category} (${cat.count} plugins):`);
+      logger.info(`  ${cat.category} (${cat.count} plugins):`);
       for (const plugin of cat.plugins) {
-        console.log(`    • ${plugin}`);
+        logger.info(`    • ${plugin}`);
       }
     }
-    console.log(&apos;&apos;);
+    logger.info(&apos;&apos;);
   }
   // Performance
   if (checks.performance?.logExists) {
-    console.log(&apos;Performance:&apos;);
-    console.log(`  Log size:       ${formatBytes(checks.performance.logSize)}`);
-    console.log(`  Total entries:  ${checks.performance.totalEntries}`);
-    console.log(`  Slow hooks:     ${checks.performance.slowHooks}`);
-    console.log(`  Failures:       ${checks.performance.failures}`);
+    logger.info(&apos;Performance:&apos;);
+    logger.info(`  Log size:       ${formatBytes(checks.performance.logSize)}`);
+    logger.info(`  Total entries:  ${checks.performance.totalEntries}`);
+    logger.info(`  Slow hooks:     ${checks.performance.slowHooks}`);
+    logger.info(`  Failures:       ${checks.performance.failures}`);
     if (checks.performance.slowHookDetails &amp;&amp; checks.performance.slowHookDetails.length &gt; 0) {
-      console.log(&apos;\n  Slowest hooks:&apos;);
+      logger.info(&apos;\n  Slowest hooks:&apos;);
       for (const hook of checks.performance.slowHookDetails) {
-        console.log(`    • ${hook.hook}: ${hook.duration}ms`);
+        logger.info(`    • ${hook.hook}: ${hook.duration}ms`);
       }
     }
-    console.log(&apos;&apos;);
+    logger.info(&apos;&apos;);
   }
 }
 /**
@@ -15084,8 +15088,8 @@ logger.info({
     if (CRON_ENABLED) {
       logger.info({ schedule: CRON_SCHEDULE }, &apos;Setting up cron schedule&apos;);
       pipeline.scheduleHealthChecks(CRON_SCHEDULE);
-      console.log(`\n✓ Claude Health Check scheduled: ${CRON_SCHEDULE}`);
-      console.log(&apos;  Press Ctrl+C to stop\n&apos;);
+      logger.info({ cronSchedule: CRON_SCHEDULE }, &apos;Claude Health Check scheduled&apos;);
+      logger.info(&apos;Press Ctrl+C to stop&apos;);
       process.stdin.resume();
     } else if (!RUN_ON_STARTUP) {
       await pipeline.runHealthCheck();
@@ -15863,22 +15867,21 @@ export type {
 async function main(): Promise&lt;void&gt; {
   const cronSchedule = process.env.DUPLICATE_SCAN_CRON_SCHEDULE || &apos;0 2 * * *&apos;;
   const runOnStartup = config.runOnStartup;
-  console.log(&apos;╔══════════════════════════════════════════════════════════╗&apos;);
-  console.log(&apos;║     DUPLICATE DETECTION AUTOMATED PIPELINE              ║&apos;);
-  console.log(&apos;╚══════════════════════════════════════════════════════════╝\n&apos;);
+  logger.info({ cronSchedule, runOnStartup }, &apos;Starting duplicate detection pipeline&apos;);
   try {
     const worker = new DuplicateDetectionWorker({
       maxConcurrentScans: 3
     });
     await worker.initialize();
-    console.log(&apos;✅ Duplicate detection pipeline initialized\n&apos;);
+    logger.info(&apos;Duplicate detection pipeline initialized&apos;);
     const stats = worker.configLoader.getStats();
-    console.log(&apos;📊 Configuration:&apos;);
-    console.log(`   Total repositories: ${stats.totalRepositories}`);
-    console.log(`   Enabled repositories: ${stats.enabledRepositories}`);
-    console.log(`   Repository groups: ${stats.groups}\n`);
+    logger.info({
+      totalRepositories: stats.totalRepositories,
+      enabledRepositories: stats.enabledRepositories,
+      repositoryGroups: stats.groups
+    }, &apos;Loaded duplicate-detection configuration&apos;);
     if (!runOnStartup) {
-      console.log(`⏰ Scheduling nightly scans: ${cronSchedule}\n`);
+      logger.info({ cronSchedule }, &apos;Scheduling nightly duplicate scans&apos;);
       cron.schedule(cronSchedule, async () =&gt; {
         logger.info(&apos;Cron job triggered&apos;);
         try {
@@ -15888,7 +15891,7 @@ async function main(): Promise&lt;void&gt; {
           Sentry.captureException(error);
         }
       });
-      console.log(&apos;🚀 Pipeline is running. Press Ctrl+C to stop.\n&apos;);
+      logger.info(&apos;Duplicate detection scheduler is running&apos;);
       if (process.send) {
         process.send(&apos;ready&apos;);
         logger.info(&apos;Sent ready signal to PM2&apos;);
@@ -15897,26 +15900,25 @@ async function main(): Promise&lt;void&gt; {
         logger.debug(&apos;Worker keep-alive heartbeat&apos;);
       }, TIMEOUTS.FIVE_MINUTES_MS);
     } else {
-      console.log(&apos;▶️  Running scan immediately (RUN_ON_STARTUP=true)\n&apos;);
+      logger.info(&apos;Running scan immediately (runOnStartup=true)&apos;);
       await worker.runNightlyScan();
-      console.log(&apos;\n✅ Startup scan completed&apos;);
       const metrics = worker.getScanMetrics();
-      console.log(&apos;\n📊 Scan Metrics:&apos;);
-      console.log(`   Total scans: ${metrics.totalScans}`);
-      console.log(`   Duplicates found: ${metrics.totalDuplicatesFound}`);
-      console.log(`   Suggestions generated: ${metrics.totalSuggestionsGenerated}`);
-      console.log(`   High-impact duplicates: ${metrics.highImpactDuplicates}`);
+      logger.info({
+        totalScans: metrics.totalScans,
+        duplicatesFound: metrics.totalDuplicatesFound,
+        suggestionsGenerated: metrics.totalSuggestionsGenerated,
+        highImpactDuplicates: metrics.highImpactDuplicates
+      }, &apos;Startup scan completed&apos;);
       if (worker.enablePRCreation) {
-        console.log(&apos;\n🔀 PR Creation:&apos;);
-        console.log(`   PRs created: ${metrics.prsCreated}`);
-        console.log(`   PR creation errors: ${metrics.prCreationErrors}`);
+        logger.info({
+          prsCreated: metrics.prsCreated,
+          prCreationErrors: metrics.prCreationErrors
+        }, &apos;PR creation metrics&apos;);
       }
-      console.log(&apos;&apos;);
       process.exit(0);
     }
   } catch (error) {
-    console.error(&apos;\n❌ Error:&apos;, (error as Error).message);
-    logger.error({ error }, &apos;Pipeline initialization failed&apos;);
+    logger.error({ error, message: (error as Error).message }, &apos;Pipeline initialization failed&apos;);
     Sentry.captureException(error);
     process.exit(1);
   }
@@ -15924,7 +15926,7 @@ async function main(): Promise&lt;void&gt; {
 const isDirectExecution = import.meta.url === `file://${process.argv[1]}` || process.env.pm_id !== undefined;
 if (isDirectExecution) {
   main().catch((error) =&gt; {
-    console.error(&apos;Fatal error:&apos;, error);
+    logger.error({ error }, &apos;Fatal error in duplicate detection pipeline&apos;);
     process.exit(1);
   });
 }</file><file path="pipeline-runners/git-activity-pipeline.ts">#!/usr/bin/env -S node --strip-types
@@ -16013,8 +16015,10 @@ class GitActivityPipeline extends BasePipeline&lt;GitActivityWorker&gt; {
     const startTime = Date.now();
     try {
       let job: Job;
-      if (options.sinceDate &amp;&amp; options.untilDate) {
-        job = this.worker.createCustomReportJob(options.sinceDate, options.untilDate);
+      if (options.sinceDate) {
+        job = options.untilDate
+          ? this.worker.createCustomReportJob(options.sinceDate, options.untilDate)
+          : this.worker.createReportJob(options);
       } else if (options.reportType === &apos;monthly&apos; || options.days === 30) {
         job = this.worker.createMonthlyReportJob();
       } else if (options.reportType === &apos;weekly&apos; || options.days === 7) {
@@ -16039,13 +16043,14 @@ class GitActivityPipeline extends BasePipeline&lt;GitActivityWorker&gt; {
   scheduleWeeklyReports(cronSchedule: string = &apos;0 20 * * 0&apos;) {
     return this.scheduleCron(logger, &apos;weekly git activity report&apos;, cronSchedule, () =&gt; this.runReport({ reportType: &apos;weekly&apos; }));
   }
-  scheduleMonthlyReports(cronSchedule: string = &apos;0 0 1 * *&apos;) {
+  scheduleMonthlyReports(cronSchedule: string = &apos;0 8 1 * *&apos;) {
     return this.scheduleCron(logger, &apos;monthly git activity report&apos;, cronSchedule, () =&gt; this.runReport({ reportType: &apos;monthly&apos; }));
   }
 }
 if (import.meta.url === `file://${process.argv[1]}`) {
   const pipeline = new GitActivityPipeline();
-  const gitCronSchedule = process.env.GIT_CRON_SCHEDULE || &apos;0 20 * * 0&apos;;
+  const weeklyCronSchedule = process.env.GIT_CRON_SCHEDULE || &apos;0 20 * * 0&apos;;
+  const monthlyCronSchedule = process.env.GIT_MONTHLY_CRON_SCHEDULE || &apos;0 8 1 * *&apos;;
   const args = process.argv.slice(2);
   const options: ReportOptions = {};
   let runNow = config.runOnStartup;
@@ -16082,8 +16087,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         process.exit(1);
       });
   } else {
-    logStart(logger, &apos;git activity pipeline in scheduled mode&apos;, { cronSchedule: gitCronSchedule });
-    pipeline.scheduleWeeklyReports(gitCronSchedule);
+    logStart(logger, &apos;git activity pipeline in scheduled mode&apos;, {
+      weeklyCronSchedule,
+      monthlyCronSchedule,
+    });
+    pipeline.scheduleWeeklyReports(weeklyCronSchedule);
+    pipeline.scheduleMonthlyReports(monthlyCronSchedule);
     logger.info(&apos;Git activity pipeline running. Press Ctrl+C to stop.&apos;);
   }
 }
@@ -16452,9 +16461,9 @@ class PluginManagementPipeline extends BasePipeline&lt;PluginManagerWorker&gt; {
     if (!result.recommendations || result.recommendations.length === 0) {
       return;
     }
-    console.log(&apos;\n╔════════════════════════════════════════════════════════════════╗&apos;);
-    console.log(&apos;║          Plugin Audit Recommendations                          ║&apos;);
-    console.log(&apos;╚════════════════════════════════════════════════════════════════╝\n&apos;);
+    logger.info(&apos;\n╔════════════════════════════════════════════════════════════════╗&apos;);
+    logger.info(&apos;║          Plugin Audit Recommendations                          ║&apos;);
+    logger.info(&apos;╚════════════════════════════════════════════════════════════════╝\n&apos;);
     result.recommendations.forEach((rec) =&gt; {
       const priorityIcon: Record&lt;string, string&gt; = {
         high: &apos;🔴&apos;,
@@ -16462,17 +16471,17 @@ class PluginManagementPipeline extends BasePipeline&lt;PluginManagerWorker&gt; {
         info: &apos;✅&apos;
       };
       const icon = priorityIcon[rec.priority] || &apos;📌&apos;;
-      console.log(`${icon} [${rec.priority.toUpperCase()}] ${rec.type}`);
-      console.log(`   ${rec.message}`);
-      console.log(`   Action: ${rec.action}`);
+      logger.info(`${icon} [${rec.priority.toUpperCase()}] ${rec.type}`);
+      logger.info(`   ${rec.message}`);
+      logger.info(`   Action: ${rec.action}`);
       if (rec.details) {
-        console.log(&apos;   Details:&apos;);
+        logger.info(&apos;   Details:&apos;);
         rec.details.forEach((detail) =&gt; {
-          console.log(`     • ${detail.category}: ${detail.plugins.join(&apos;, &apos;)}`);
-          console.log(`       → ${detail.suggestion}`);
+          logger.info(`     • ${detail.category}: ${detail.plugins.join(&apos;, &apos;)}`);
+          logger.info(`       → ${detail.suggestion}`);
         });
       }
-      console.log(&apos;&apos;);
+      logger.info(&apos;&apos;);
     });
   }
   /**
@@ -18251,195 +18260,7 @@ export class DirectoryScanner {
       summaryPath,
     };
   }
-}</file><file path="utils/doppler-resilience.example.js">import { DopplerResilience } from &apos;./doppler-resilience.ts&apos;;
-import { config } from &apos;../core/config.ts&apos;;
-import { createComponentLogger } from &apos;./logger.ts&apos;;
-const logger = createComponentLogger(&apos;DopplerExample&apos;);
-class DopplerConfigManager extends DopplerResilience {
-  constructor(options = {}) {
-    super({
-      ...config.doppler,
-      ...options
-    });
-  }
-  async fetchFromDoppler() {
-    if (!process.env.NODE_ENV) {
-      throw new Error(&apos;Doppler secrets not available - NODE_ENV missing&apos;);
-    }
-    return process.env;
-  }
-  async getSecret(key, defaultValue = null) {
-    try {
-      const secrets = await this.getSecrets();
-      return secrets[key] ?? defaultValue;
-    } catch (error) {
-      logger.error({ key, error }, &apos;Failed to get secret&apos;);
-      return defaultValue;
-    }
-  }
-}
-async function exampleUsage() {
-  const dopplerConfig = new DopplerConfigManager();
-  try {
-    const apiKey = await dopplerConfig.getSecret(&apos;API_KEY&apos;, &apos;fallback-key&apos;);
-    const dbPassword = await dopplerConfig.getSecret(&apos;DB_PASSWORD&apos;);
-    logger.info({ apiKey: &apos;***&apos;, dbPassword: &apos;***&apos; }, &apos;Secrets loaded&apos;);
-  } catch (error) {
-    logger.error({ error }, &apos;Failed to load secrets&apos;);
-  }
-  const health = dopplerConfig.getHealth();
-  logger.info({ health }, &apos;Circuit breaker health&apos;);
-  if (health.circuitState === &apos;OPEN&apos;) {
-    logger.warn({
-      waitTimeMs: health.waitTimeMs,
-      failureCount: health.failureCount
-    }, &apos;Circuit breaker is OPEN - using cached secrets&apos;);
-  }
-}
-export function createDopplerHealthMiddleware(dopplerConfig) {
-  return async (req, res) =&gt; {
-    const health = dopplerConfig.getHealth();
-    const statusCode = health.healthy ? 200 : 503;
-    const status = health.circuitState === &apos;CLOSED&apos; ? &apos;healthy&apos; : &apos;degraded&apos;;
-    res.status(statusCode).json({
-      status,
-      circuitState: health.circuitState,
-      healthy: health.healthy,
-      usingFallback: health.usingFallback,
-      metrics: {
-        successRate: health.metrics.successRate,
-        totalRequests: health.metrics.totalRequests,
-        totalFailures: health.metrics.totalFailures
-      },
-      recovery: health.circuitState === &apos;OPEN&apos; ? {
-        waitTimeMs: health.waitTimeMs,
-        nextAttemptTime: health.nextAttemptTime
-      } : null,
-      lastError: health.metrics.lastError
-    });
-  };
-}
-export class IntegratedDopplerMonitor {
-  constructor(options = {}) {
-    this.resilience = new DopplerConfigManager(options);
-  }
-  async getComprehensiveHealth() {
-    const circuitHealth = this.resilience.getHealth();
-    let cacheAge = null;
-    if (circuitHealth.cacheLoadedAt) {
-      cacheAge = Date.now() - new Date(circuitHealth.cacheLoadedAt).getTime();
-    }
-    return {
-      circuit: {
-        state: circuitHealth.circuitState,
-        healthy: circuitHealth.healthy,
-        failureCount: circuitHealth.failureCount,
-        successRate: circuitHealth.metrics.successRate
-      },
-      cache: {
-        usingFallback: circuitHealth.usingFallback,
-        loadedAt: circuitHealth.cacheLoadedAt,
-        ageMs: cacheAge,
-        ageHours: cacheAge ? Math.floor(cacheAge / (60 * 60 * 1000)) : null
-      },
-      recovery: circuitHealth.circuitState === &apos;OPEN&apos; ? {
-        waitTimeMs: circuitHealth.waitTimeMs,
-        nextAttemptTime: circuitHealth.nextAttemptTime,
-        currentBackoffMs: circuitHealth.currentBackoffMs
-      } : null,
-      recommendations: this.generateRecommendations(circuitHealth, cacheAge)
-    };
-  }
-  generateRecommendations(health, cacheAge) {
-    const recommendations = [];
-    if (health.circuitState === &apos;OPEN&apos;) {
-      recommendations.push({
-        severity: &apos;critical&apos;,
-        message: `Circuit breaker is OPEN due to ${health.failureCount} consecutive failures`,
-        action: &apos;Check Doppler API status at https://status.doppler.com&apos;
-      });
-      recommendations.push({
-        severity: &apos;info&apos;,
-        message: `Circuit will attempt recovery in ${health.waitTimeMs}ms`,
-        action: &apos;Wait for automatic recovery or manually reset if API is restored&apos;
-      });
-    }
-    if (health.usingFallback) {
-      recommendations.push({
-        severity: &apos;warning&apos;,
-        message: &apos;Using cached secrets - secrets may be stale&apos;,
-        action: &apos;Verify no critical secrets have been rotated&apos;
-      });
-    }
-    if (cacheAge &amp;&amp; cacheAge &gt; 24 * 60 * 60 * 1000) {
-      recommendations.push({
-        severity: &apos;critical&apos;,
-        message: `Cache is ${Math.floor(cacheAge / (60 * 60 * 1000))} hours old`,
-        action: &apos;Restart application with `doppler run` to refresh secrets&apos;
-      });
-    }
-    if (health.metrics.successRate &amp;&amp; parseFloat(health.metrics.successRate) &lt; 50) {
-      recommendations.push({
-        severity: &apos;warning&apos;,
-        message: `Low success rate: ${health.metrics.successRate}`,
-        action: &apos;Investigate Doppler connectivity issues or increase failure threshold&apos;
-      });
-    }
-    return recommendations;
-  }
-  async triggerRecovery() {
-    logger.info(&apos;Manually triggering circuit breaker recovery&apos;);
-    this.resilience.reset();
-    try {
-      await this.resilience.getSecrets();
-      logger.info(&apos;Circuit breaker recovered successfully&apos;);
-      return { success: true, message: &apos;Circuit breaker reset and secrets refreshed&apos; };
-    } catch (error) {
-      logger.error({ error }, &apos;Failed to recover circuit breaker&apos;);
-      return { success: false, message: error.message };
-    }
-  }
-}
-export class DopplerHealthService {
-  constructor(options = {}) {
-    this.monitor = new IntegratedDopplerMonitor(options);
-    this.checkIntervalMs = options.checkIntervalMs || 60000;
-    this.intervalId = null;
-  }
-  start() {
-    if (this.intervalId) {
-      logger.warn(&apos;Health monitoring already started&apos;);
-      return;
-    }
-    logger.info({ checkIntervalMs: this.checkIntervalMs }, &apos;Starting Doppler health monitoring&apos;);
-    this.intervalId = setInterval(async () =&gt; {
-      const health = await this.monitor.getComprehensiveHealth();
-      if (!health.circuit.healthy) {
-        logger.warn({ health }, &apos;Doppler health check - circuit degraded&apos;);
-      } else {
-        logger.debug({ health }, &apos;Doppler health check - healthy&apos;);
-      }
-      const critical = health.recommendations.filter(r =&gt; r.severity === &apos;critical&apos;);
-      if (critical.length &gt; 0) {
-        logger.error({ recommendations: critical }, &apos;Critical Doppler issues detected&apos;);
-      }
-    }, this.checkIntervalMs);
-  }
-  stop() {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
-      logger.info(&apos;Stopped Doppler health monitoring&apos;);
-    }
-  }
-  async getHealth() {
-    return await this.monitor.getComprehensiveHealth();
-  }
-}
-export {
-  DopplerConfigManager,
-  exampleUsage
-};</file><file path="utils/doppler-resilience.ts">import { createComponentLogger, logError } from &apos;./logger.ts&apos;;
+}</file><file path="utils/doppler-resilience.ts">import { createComponentLogger, logError } from &apos;./logger.ts&apos;;
 import { TIMEOUTS, RETRY, CACHE } from &apos;../core/constants.ts&apos;;
 import Sentry from &apos;@sentry/node&apos;;
 import fs from &apos;fs/promises&apos;;
@@ -19256,6 +19077,8 @@ export { PluginManagerWorker };</file><file path="utils/refactor-test-suite.ts">
 import * as fs from &apos;fs&apos;;
 import * as path from &apos;path&apos;;
 import { glob } from &apos;glob&apos;;
+import { createComponentLogger } from &apos;./logger.ts&apos;;
+const logger = createComponentLogger(&apos;RefactorTestSuite&apos;);
 interface RefactorConfig {
   projectPath: string;
   testsDir: string;
@@ -19880,26 +19703,29 @@ export * from &apos;./test-constants&apos;;
 `;
 }
 function printAnalysisResults(analysis: Awaited&lt;ReturnType&lt;typeof analyzeTestFiles&gt;&gt;) {
-  console.log(&apos;Analysis Results:&apos;);
-  console.log(&apos;─────────────────&apos;);
-  console.log(`  render + waitFor patterns: ${analysis.patterns.renderWaitFor}`);
-  console.log(`  Link validation patterns: ${analysis.patterns.linkValidation}`);
-  console.log(`  Semantic checks: ${analysis.patterns.semanticChecks}`);
-  console.log(`  Form interactions: ${analysis.patterns.formInteractions}`);
-  console.log(`  Hardcoded strings (3+ occurrences): ${analysis.patterns.hardcodedStrings.length}`);
-  console.log(`  Duplicate assertions: ${analysis.patterns.duplicateAssertions.length}`);
-  console.log();
+  logger.info(&apos;Analysis Results:&apos;);
+  logger.info(&apos;─────────────────&apos;);
+  logger.info(`  render + waitFor patterns: ${analysis.patterns.renderWaitFor}`);
+  logger.info(`  Link validation patterns: ${analysis.patterns.linkValidation}`);
+  logger.info(`  Semantic checks: ${analysis.patterns.semanticChecks}`);
+  logger.info(`  Form interactions: ${analysis.patterns.formInteractions}`);
+  logger.info(`  Hardcoded strings (3+ occurrences): ${analysis.patterns.hardcodedStrings.length}`);
+  logger.info(`  Duplicate assertions: ${analysis.patterns.duplicateAssertions.length}`);
+  logger.info(&apos;&apos;);
   if (analysis.recommendations.length &gt; 0) {
-    console.log(&apos;Recommendations:&apos;);
-    console.log(&apos;────────────────&apos;);
-    analysis.recommendations.forEach((rec, i) =&gt; console.log(`  ${i + 1}. ${rec}`));
-    console.log();
+    logger.info(&apos;Recommendations:&apos;);
+    logger.info(&apos;────────────────&apos;);
+    analysis.recommendations.forEach((rec, i) =&gt; logger.info(`  ${i + 1}. ${rec}`));
+    logger.info(&apos;&apos;);
   }
 }
+/**
+ * generateUtilityFiles.
+ */
 function generateUtilityFiles(config: RefactorConfig, analysis: Awaited&lt;ReturnType&lt;typeof analyzeTestFiles&gt;&gt;, utilsPath: string) {
   if (!fs.existsSync(utilsPath)) {
     fs.mkdirSync(utilsPath, { recursive: true });
-    console.log(`Created directory: ${config.utilsDir}`);
+    logger.info(`Created directory: ${config.utilsDir}`);
   }
   const filesToGenerate = [
     { name: &apos;assertions.ts&apos;, content: generateAssertionsFile(config.framework) },
@@ -19908,20 +19734,20 @@ function generateUtilityFiles(config: RefactorConfig, analysis: Awaited&lt;Retur
     { name: &apos;test-constants.ts&apos;, content: generateConstantsTemplate(analysis.patterns.hardcodedStrings) },
     { name: &apos;index.ts&apos;, content: generateIndexFile() },
   ];
-  console.log(&apos;\nGenerating utility files:&apos;);
-  console.log(&apos;─────────────────────────&apos;);
+  logger.info(&apos;\nGenerating utility files:&apos;);
+  logger.info(&apos;─────────────────────────&apos;);
   for (const file of filesToGenerate) {
     const filePath = path.join(utilsPath, file.name);
     if (!fs.existsSync(filePath)) {
       fs.writeFileSync(filePath, file.content);
-      console.log(`  ✓ Created ${config.utilsDir}/${file.name}`);
+      logger.info(`  ✓ Created ${config.utilsDir}/${file.name}`);
     } else {
-      console.log(`  ⊘ Skipped ${config.utilsDir}/${file.name} (already exists)`);
+      logger.info(`  ⊘ Skipped ${config.utilsDir}/${file.name} (already exists)`);
     }
   }
   const renderHelpersPath = path.join(utilsPath, &apos;render-helpers.ts&apos;);
   fs.writeFileSync(renderHelpersPath, generateRenderHelpers());
-  console.log(`  ✓ Created ${config.utilsDir}/render-helpers.ts (add to test-utils.tsx)`);
+  logger.info(`  ✓ Created ${config.utilsDir}/render-helpers.ts (add to test-utils.tsx)`);
 }
 function generateE2EFixturesIfNeeded(config: RefactorConfig, projectPath: string) {
   const e2ePath = path.join(projectPath, config.e2eDir);
@@ -19933,40 +19759,42 @@ function generateE2EFixturesIfNeeded(config: RefactorConfig, projectPath: string
   const navFixturesPath = path.join(fixturesPath, &apos;navigation.ts&apos;);
   if (!fs.existsSync(navFixturesPath)) {
     fs.writeFileSync(navFixturesPath, generateE2EFixtures());
-    console.log(`  ✓ Created ${config.e2eDir}/fixtures/navigation.ts`);
+    logger.info(`  ✓ Created ${config.e2eDir}/fixtures/navigation.ts`);
   }
 }
 async function main() {
   const projectPath = process.argv[2] || process.cwd();
-  console.log(&apos;🔍 Test Suite Refactoring Script&apos;);
-  console.log(&apos;================================\n&apos;);
-  console.log(`Project: ${projectPath}\n`);
+  logger.info(&apos;🔍 Test Suite Refactoring Script&apos;);
+  logger.info(&apos;================================\n&apos;);
+  logger.info(`Project: ${projectPath}\n`);
   const config: RefactorConfig = {
     ...defaultConfig as RefactorConfig,
     projectPath,
     framework: detectFramework(projectPath)
   };
-  console.log(`Detected framework: ${config.framework}`);
+  logger.info(`Detected framework: ${config.framework}`);
   const testFiles = await findTestFiles(config);
-  console.log(`Found ${testFiles.length} test files\n`);
+  logger.info(`Found ${testFiles.length} test files\n`);
   if (testFiles.length === 0) {
-    console.log(&apos;No test files found. Please check your project structure.&apos;);
+    logger.info(&apos;No test files found. Please check your project structure.&apos;);
     process.exit(1);
   }
-  console.log(&apos;Analyzing test files for patterns...\n&apos;);
+  logger.info(&apos;Analyzing test files for patterns...\n&apos;);
   const analysis = await analyzeTestFiles(config, testFiles);
   printAnalysisResults(analysis);
   const utilsPath = path.join(projectPath, config.utilsDir);
   generateUtilityFiles(config, analysis, utilsPath);
   generateE2EFixturesIfNeeded(config, projectPath);
-  console.log(&apos;\n✅ Refactoring complete!&apos;);
-  console.log(&apos;\nNext steps:&apos;);
-  console.log(&apos;  1. Review generated files and customize for your project&apos;);
-  console.log(&apos;  2. Add render helpers to your existing test-utils.tsx&apos;);
-  console.log(&apos;  3. Update your test files to import from the new utilities&apos;);
-  console.log(&apos;  4. Run your test suite to verify everything works&apos;);
+  logger.info(&apos;\n✅ Refactoring complete!&apos;);
+  logger.info(&apos;\nNext steps:&apos;);
+  logger.info(&apos;  1. Review generated files and customize for your project&apos;);
+  logger.info(&apos;  2. Add render helpers to your existing test-utils.tsx&apos;);
+  logger.info(&apos;  3. Update your test files to import from the new utilities&apos;);
+  logger.info(&apos;  4. Run your test suite to verify everything works&apos;);
 }
-main().catch(console.error);</file><file path="utils/report-generator.ts">import fs from &apos;fs/promises&apos;;
+main().catch((error) =&gt; {
+  logger.error({ error }, &apos;Unhandled error in test suite refactor script&apos;);
+});</file><file path="utils/report-generator.ts">import fs from &apos;fs/promises&apos;;
 import path from &apos;path&apos;;
 import * as Sentry from &apos;@sentry/node&apos;;
 import { createComponentLogger, logError } from &apos;./logger.ts&apos;;
@@ -22553,6 +22381,7 @@ import { captureProcessOutput } from &apos;@shared/process-io&apos;;
 import fs from &apos;fs/promises&apos;;
 import path from &apos;path&apos;;
 import os from &apos;os&apos;;
+import { fileURLToPath } from &apos;url&apos;;
 import { createComponentLogger } from &apos;../utils/logger.ts&apos;;
 import { TIMEOUTS, TIME } from &apos;../core/constants.ts&apos;;
 const logger = createComponentLogger(&apos;GitActivityWorker&apos;);
@@ -22607,8 +22436,9 @@ export class GitActivityWorker extends SidequestServer {
       jobType: &apos;git-activity&apos;,
     });
     this.codeBaseDir = options.codeBaseDir ?? path.join(os.homedir(), &apos;code&apos;);
+    const moduleDir = path.dirname(fileURLToPath(import.meta.url));
     this.pythonScript = options.pythonScript ?? path.join(
-      path.dirname(new URL(import.meta.url).pathname),
+      moduleDir,
       &apos;..&apos;,
       &apos;pipeline-runners&apos;,
       &apos;collect_git_activity.py&apos;
@@ -22702,9 +22532,11 @@ export class GitActivityWorker extends SidequestServer {
   }
   #buildPythonArgs({ reportType, days, sinceDate, untilDate, outputFormat, generateVisualizations }: PythonArgs): string[] {
     const args: string[] = [];
-    if (sinceDate &amp;&amp; untilDate) {
+    if (sinceDate) {
       args.push(&apos;--start-date&apos;, sinceDate);
-      args.push(&apos;--end-date&apos;, untilDate);
+      if (untilDate) {
+        args.push(&apos;--end-date&apos;, untilDate);
+      }
     } else if (reportType === &apos;weekly&apos; || days === 7) {
       args.push(&apos;--weekly&apos;);
     } else if (reportType === &apos;monthly&apos; || days === 30) {
@@ -23964,11 +23796,12 @@ export class SchemaEnhancementWorker extends SidequestServer {
     await fs.writeFile(summaryPath, JSON.stringify(summary, null, 2));
     return summary;
   }
-}</file><file path="workers/test-refactor-worker.ts">import { SidequestServer, Job as BaseJob } from &apos;../core/server.ts&apos;;
+}</file><file path="workers/test-refactor-worker.ts">import { SidequestServer, type Job as BaseJob } from &apos;../core/server.ts&apos;;
 import { createComponentLogger } from &apos;../utils/logger.ts&apos;;
 import { glob } from &apos;glob&apos;;
 import path from &apos;path&apos;;
 import fs from &apos;fs/promises&apos;;
+import { readFileSync } from &apos;fs&apos;;
 const logger = createComponentLogger(&apos;TestRefactorWorker&apos;);
 interface TestRefactorWorkerOptions {
   maxConcurrent?: number;
@@ -24076,7 +23909,7 @@ export class TestRefactorWorker extends SidequestServer {
   detectFramework(projectPath: string): string {
     try {
       const packageJsonPath = path.join(projectPath, &apos;package.json&apos;);
-      const packageJson = JSON.parse(require(&apos;fs&apos;).readFileSync(packageJsonPath, &apos;utf-8&apos;));
+      const packageJson = JSON.parse(readFileSync(packageJsonPath, &apos;utf-8&apos;));
       const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
       if (deps[&apos;vitest&apos;]) return &apos;vitest&apos;;
       if (deps[&apos;@playwright/test&apos;]) return &apos;playwright&apos;;
