@@ -103,6 +103,9 @@
 
       "**/__snapshots__/**",
       "**/*.snap",
+      "tests/**",
+      "**/*.test.*",
+      "**/*.spec.*",
 
       "**/fixtures/**",
       "**/test-files/**",

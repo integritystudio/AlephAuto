@@ -61,13 +61,26 @@
       "**/.vite/**",
       "**/dist/**",
       "**/build/**",
+      "**/out/**",
       "**/coverage/**",
 
       "**/.ast-grep-backups/**",
 
+      "**/fixtures/**",
+      "**/test-files/**",
+      "**/__snapshots__/**",
+      "**/*.snap",
+      "tests/**",
+      "**/*.test.*",
+      "**/*.spec.*",
+
       "**/*.log",
       "**/*.tmp",
+      "**/*.temp",
       "**/*.cache",
+      "**/*.swp",
+      "**/*.swo",
+      "**/*.tsbuildinfo",
       "**/*.map",
       "**/*.min.js",
       "**/*.min.css",
@@ -96,7 +109,8 @@
       "**/*.pem",
       "**/*.key",
       "**/*.p12",
-      "**/*.pfx"
+      "**/*.pfx",
+      "**/*secret*"
     ]
   },
 
