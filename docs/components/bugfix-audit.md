@@ -59,7 +59,7 @@ Bugfix Audit System
 The `BugfixAuditWorker` extends `SidequestServer` with `gitWorkflowEnabled: false` and manages git operations directly:
 
 ```javascript
-import { BugfixAuditWorker } from './sidequest/workers/bugfix-audit-worker.js';
+import { BugfixAuditWorker } from './sidequest/workers/bugfix-audit-worker.ts';
 
 const worker = new BugfixAuditWorker({
   maxConcurrent: 3,
@@ -289,9 +289,9 @@ Set `GIT_DRY_RUN=true` in Doppler (or pass `gitDryRun: true`) to run the full wo
 
 | Component | Path |
 |-----------|------|
-| Worker | `sidequest/workers/bugfix-audit-worker.js` |
-| Pipeline runner | `sidequest/pipeline-runners/bugfix-audit-pipeline.js` |
-| Registry entry | `api/utils/worker-registry.js` |
+| Worker | `sidequest/workers/bugfix-audit-worker.ts` |
+| Pipeline runner | `sidequest/pipeline-runners/bugfix-audit-pipeline.ts` |
+| Registry entry | `api/utils/worker-registry.ts` |
 | Output | `sidequest/bug-fixes/output/` |
 | Logs | `sidequest/bug-fixes/logs/` |
 

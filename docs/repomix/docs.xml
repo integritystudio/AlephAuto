@@ -164,10 +164,14 @@ sidequest/
   core/
     config.ts
     constants.ts
+    database.test.ts
     database.ts
     git-workflow-manager.ts
+    index.test.ts
     index.ts
     job-repository.ts
+    server-actions.test.ts
+    server-retention.test.ts
     server.ts
   docs/
     gitlog-sidequest.txt
@@ -232,6 +236,7 @@ sidequest/
       structural.pyi
       test_grouping_layer3.py
     types/
+      duplicate-detection-types.ts
       migration-types.ts
       scan-orchestrator-types.ts
     utils/
@@ -258,26 +263,30 @@ sidequest/
     claude-health-pipeline.ts
     collect_git_activity.py
     dashboard-populate-pipeline.ts
+    direct-execution-path-guard.test.ts
     duplicate-detection-pipeline.ts
     git-activity-pipeline.test.ts
     git-activity-pipeline.ts
     gitignore-pipeline.ts
+    pipeline-import-safety.test.ts
     plugin-management-audit.sh
     plugin-management-pipeline.ts
     repo-cleanup-pipeline.ts
     schema-enhancement-pipeline.ts
+    startup-once-mode.test.ts
     test_collect_git_activity.py
+    test-refactor-pipeline.test.ts
     test-refactor-pipeline.ts
     universal-repo-cleanup.sh
-  types/
-    duplicate-detection-types.ts
   utils/
     dependency-validator.ts
+    directory-scanner.test.ts
     directory-scanner.ts
     doppler-resilience.ts
     gitignore-repomix-updater.ts
     logger.ts
     pipeline-names.ts
+    plugin-manager.test.ts
     plugin-manager.ts
     refactor-test-suite.ts
     report-generator.ts
@@ -292,6 +301,7 @@ sidequest/
     git-activity-worker.test.ts
     git-activity-worker.ts
     gitignore-worker.ts
+    repo-cleanup-worker.test.ts
     repo-cleanup-worker.ts
     repomix-worker.ts
     schema-enhancement-worker.ts

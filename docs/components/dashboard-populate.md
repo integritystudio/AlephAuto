@@ -29,8 +29,8 @@ npm run dashboard:populate:schedule    # Start cron scheduler
 
 | Component | Path |
 |-----------|------|
-| Worker | `sidequest/workers/dashboard-populate-worker.js` |
-| Pipeline Runner | `sidequest/pipeline-runners/dashboard-populate-pipeline.js` |
+| Worker | `sidequest/workers/dashboard-populate-worker.ts` |
+| Pipeline Runner | `sidequest/pipeline-runners/dashboard-populate-pipeline.ts` |
 | External Scripts | `~/.claude/mcp-servers/observability-toolkit/dashboard/scripts/` |
 
 ## Environment Variables

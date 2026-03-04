@@ -83,7 +83,7 @@ const count = jobRepository.getJobCount({ status });  // Efficient COUNT(*) quer
 ### 8. Constants: No Magic Numbers
 ```typescript
 import { TIMEOUTS, RETRY, CONCURRENCY, TIME, CACHE } from './sidequest/core/constants.ts';
-const timeout = TIMEOUTS.PYTHON_PIPELINE_MS;     // Correct
+const timeout = TIMEOUTS.PYTHON_PIPELINE_BASE_MS; // Correct
 const oneDay = TIME.DAY;                          // Correct
 ```
 
@@ -200,4 +200,4 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 
 ---
 
-**Version:** 2.3.4 | **Updated:** 2026-03-04 | **Status:** Production Ready
+**Version:** 2.3.12 | **Updated:** 2026-03-04 | **Status:** Production Ready

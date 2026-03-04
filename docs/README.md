@@ -13,6 +13,8 @@
 
 This directory contains all project documentation organized by category.
 
+**Docs Version:** 2.3.12
+
 ## Directory Structure
 
 ```
@@ -119,4 +121,4 @@ The main project documentation remains in the root-level files:
 
 ---
 
-**Last Updated:** February 2026
+**Last Updated:** March 4, 2026

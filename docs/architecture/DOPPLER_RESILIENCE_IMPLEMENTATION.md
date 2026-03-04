@@ -82,7 +82,7 @@ Implemented a comprehensive circuit breaker pattern to handle Doppler API HTTP 5
 
 ### New Files
 
-1. **`/Users/alyshialedlie/code/jobs/sidequest/utils/doppler-resilience.js`** (434 lines)
+1. **`/Users/alyshialedlie/code/jobs/sidequest/utils/doppler-resilience.ts`** (434 lines)
    - Core circuit breaker implementation
    - State management (CLOSED/OPEN/HALF_OPEN)
    - Exponential backoff calculation
@@ -90,7 +90,7 @@ Implemented a comprehensive circuit breaker pattern to handle Doppler API HTTP 5
    - Health status reporting
    - Sentry integration
 
-2. **`/Users/alyshialedlie/code/jobs/tests/unit/doppler-resilience.test.js`** (506 lines)
+2. **`/Users/alyshialedlie/code/jobs/tests/unit/doppler-resilience.test.ts`** (506 lines)
    - Comprehensive test suite (21 tests)
    - Circuit breaker state transition tests
    - Exponential backoff validation
@@ -98,12 +98,10 @@ Implemented a comprehensive circuit breaker pattern to handle Doppler API HTTP 5
    - Health status tests
    - Edge case coverage
 
-3. **`/Users/alyshialedlie/code/jobs/sidequest/utils/doppler-resilience.example.js`** (290 lines)
-   - Usage examples
-   - Integration patterns
-   - Express middleware
-   - Health monitoring service
-   - Operational recommendations
+3. **`/Users/alyshialedlie/code/jobs/sidequest/utils/doppler-resilience.example.js.bak`** (historical backup)
+   - Historical usage examples snapshot
+   - Preserved for reference only (not used by runtime)
+   - Active examples moved to docs
 
 4. **`/Users/alyshialedlie/code/jobs/docs/runbooks/DOPPLER_CIRCUIT_BREAKER.md`** (500+ lines)
    - Complete operational runbook
@@ -119,7 +117,7 @@ Implemented a comprehensive circuit breaker pattern to handle Doppler API HTTP 5
 
 ### Modified Files
 
-1. **`/Users/alyshialedlie/code/jobs/sidequest/core/config.js`**
+1. **`/Users/alyshialedlie/code/jobs/sidequest/core/config.ts`**
    - Added `doppler` configuration section
    - Environment variable mapping
    - Configuration validation
@@ -166,8 +164,8 @@ All variables are optional with sensible defaults:
 ### Usage Example
 
 ```javascript
-import { DopplerResilience } from './sidequest/utils/doppler-resilience.js';
-import { config } from './sidequest/core/config.js';
+import { DopplerResilience } from './sidequest/utils/doppler-resilience.ts';
+import { config } from './sidequest/core/config.ts';
 
 const doppler = new DopplerResilience(config.doppler);
 
@@ -230,7 +228,7 @@ console.log(`Circuit: ${health.circuitState}, Success Rate: ${health.metrics.suc
 ### Test Execution
 
 ```bash
-$ node --test tests/unit/doppler-resilience.test.js
+$ node --strip-types --test tests/unit/doppler-resilience.test.ts
 
 ✔ DopplerResilience (484.257416ms)
 ℹ tests 21
@@ -251,15 +249,15 @@ $ node --test tests/unit/doppler-resilience.test.js
 
 The circuit breaker is ready to be integrated at these points:
 
-1. **API Server** (`api/server.js`)
+1. **API Server** (`api/server.ts`)
    - Add circuit breaker to Doppler health endpoint
    - Track Doppler API calls
 
-2. **Configuration System** (`sidequest/core/config.js`)
+2. **Configuration System** (`sidequest/core/config.ts`)
    - ✅ Configuration already integrated
    - ✅ Validation already implemented
 
-3. **Workers** (`sidequest/workers/*.js`)
+3. **Workers** (`sidequest/workers/*.ts`)
    - Wrap secret access with circuit breaker
    - Monitor circuit state in worker initialization
 
@@ -274,8 +272,8 @@ const health = await dopplerMonitor.checkCacheHealth();
 **Enhanced endpoint** (recommended):
 ```javascript
 // Combine DopplerHealthMonitor + DopplerResilience
-import { DopplerResilience } from '../sidequest/utils/doppler-resilience.js';
-import { DopplerHealthMonitor } from '../sidequest/pipeline-core/doppler-health-monitor.js';
+import { DopplerResilience } from '../sidequest/utils/doppler-resilience.ts';
+import { DopplerHealthMonitor } from '../sidequest/pipeline-core/doppler-health-monitor.ts';
 
 const doppler = new DopplerResilience(config.doppler);
 const monitor = new DopplerHealthMonitor();
@@ -410,7 +408,7 @@ git revert <commit-hash>
 
 1. `/docs/runbooks/DOPPLER_CIRCUIT_BREAKER.md` - Operational runbook (500+ lines)
 2. `/docs/architecture/DOPPLER_RESILIENCE_IMPLEMENTATION.md` - This summary
-3. `/sidequest/utils/doppler-resilience.example.js` - Usage examples (290 lines)
+3. `/docs/quickstart/doppler-circuit-breaker.md` - Current usage examples
 
 **Key Sections:**
 
@@ -461,6 +459,6 @@ The system is production-ready and can be integrated incrementally without risk 
 
 - **Runbook**: `/docs/runbooks/DOPPLER_CIRCUIT_BREAKER.md`
 - **Outage Response**: `/docs/runbooks/DOPPLER_OUTAGE.md`
-- **Examples**: `/sidequest/utils/doppler-resilience.example.js`
-- **Tests**: `/tests/unit/doppler-resilience.test.js`
-- **Configuration**: `/sidequest/core/config.js`
+- **Examples**: `/docs/quickstart/doppler-circuit-breaker.md`
+- **Tests**: `/tests/unit/doppler-resilience.test.ts`
+- **Configuration**: `/sidequest/core/config.ts`

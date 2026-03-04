@@ -32,8 +32,8 @@ Updated the CI workflow to explicitly install dev dependencies:
 
 **Additional Improvements:**
 1. Added `@types/node` to package.json devDependencies as explicit dependency
-2. Created `scripts/fix-types.js` utility for local type fix automation
-3. Enhanced `scripts/verify-setup.js` to check for @types/node availability
+2. Created `scripts/fix-types.ts` utility for local type fix automation
+3. Enhanced `scripts/verify-setup.ts` to check for @types/node availability
 4. Added `npm run fix:types` script for quick fixes
 
 **Related Documentation:**
@@ -69,7 +69,7 @@ doppler run -- npm install --production --omit=optional
 if pm2 describe aleph-dashboard > /dev/null 2>&1; then
   doppler run -- pm2 restart aleph-dashboard
 else
-  doppler run -- pm2 start api/server.js --name aleph-dashboard
+  doppler run -- pm2 start api/server.ts --name aleph-dashboard
 fi
 
 # Restart or start duplicate detection worker

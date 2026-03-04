@@ -1,3 +1,161 @@
+d0a31e3 2026-03-04 fix(pipeline-tests): revert runner execute bits and align permission expectations
+  sidequest/pipeline-runners/bugfix-audit-pipeline.ts
+  sidequest/pipeline-runners/claude-health-pipeline.ts
+  sidequest/pipeline-runners/dashboard-populate-pipeline.ts
+  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
+  sidequest/pipeline-runners/git-activity-pipeline.ts
+  sidequest/pipeline-runners/gitignore-pipeline.ts
+  sidequest/pipeline-runners/plugin-management-pipeline.ts
+  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
+  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
+
+b0d0821 2026-03-04 chore: remove ast-grep backups and fix pipeline runner execute bits
+  sidequest/pipeline-core/similarity/.ast-grep-backups/backup-20260301-031555-140/backup-metadata.json
+  sidequest/pipeline-core/similarity/.ast-grep-backups/backup-20260301-031555-140/structural.py
+  sidequest/pipeline-runners/bugfix-audit-pipeline.ts
+  sidequest/pipeline-runners/claude-health-pipeline.ts
+  sidequest/pipeline-runners/dashboard-populate-pipeline.ts
+  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
+  sidequest/pipeline-runners/git-activity-pipeline.ts
+  sidequest/pipeline-runners/gitignore-pipeline.ts
+  sidequest/pipeline-runners/plugin-management-pipeline.ts
+  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
+  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
+
+3cdea7e 2026-03-04 harden pipeline entrypoint guards and secure repo cleanup invocation
+  sidequest/pipeline-runners/bugfix-audit-pipeline.ts
+  sidequest/pipeline-runners/direct-execution-path-guard.test.ts
+  sidequest/pipeline-runners/git-activity-pipeline.ts
+  sidequest/pipeline-runners/plugin-management-pipeline.ts
+  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
+  sidequest/workers/repo-cleanup-worker.test.ts
+  sidequest/workers/repo-cleanup-worker.ts
+
+14ee30d 2026-03-04 fix job id collisions, plugin script resolution, and empty-scan depth
+  sidequest/core/server-actions.test.ts
+  sidequest/core/server.ts
+  sidequest/utils/directory-scanner.test.ts
+  sidequest/utils/directory-scanner.ts
+  sidequest/utils/plugin-manager.test.ts
+  sidequest/utils/plugin-manager.ts
+
+9270bd4 2026-03-04 harden pipeline import safety for claude and duplicate detection
+  sidequest/pipeline-runners/claude-health-pipeline.ts
+  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
+  sidequest/pipeline-runners/pipeline-import-safety.test.ts
+
+b0ca84a 2026-03-04 style(sidequest): apply ruff formatting
+  sidequest/pipeline-core/annotators/__init__.py
+  sidequest/pipeline-core/annotators/semantic_annotator.py
+  sidequest/pipeline-core/annotators/semantic_annotator.pyi
+  sidequest/pipeline-core/annotators/test_semantic_annotator.py
+  sidequest/pipeline-core/constants.py
+  sidequest/pipeline-core/extractors/extract_blocks.py
+  sidequest/pipeline-core/extractors/test_extract_blocks.py
+  sidequest/pipeline-core/models/__init__.py
+  sidequest/pipeline-core/models/code_block.py
+  sidequest/pipeline-core/models/code_block.pyi
+  sidequest/pipeline-core/models/consolidation_suggestion.py
+  sidequest/pipeline-core/models/consolidation_suggestion.pyi
+  sidequest/pipeline-core/models/duplicate_group.py
+  sidequest/pipeline-core/models/duplicate_group.pyi
+  sidequest/pipeline-core/models/scan_report.py
+  sidequest/pipeline-core/models/scan_report.pyi
+  sidequest/pipeline-core/models/test_models.py
+  sidequest/pipeline-core/scanners/timeout_detector.py
+  sidequest/pipeline-core/similarity/.ast-grep-backups/backup-20260301-031555-140/structural.py
+  sidequest/pipeline-core/similarity/__init__.py
+  sidequest/pipeline-core/similarity/__init__.pyi
+  sidequest/pipeline-core/similarity/config.py
+  sidequest/pipeline-core/similarity/config.pyi
+  sidequest/pipeline-core/similarity/grouping.py
+  sidequest/pipeline-core/similarity/grouping.pyi
+  sidequest/pipeline-core/similarity/semantic.py
+  sidequest/pipeline-core/similarity/semantic.pyi
+  sidequest/pipeline-core/similarity/structural.py
+  sidequest/pipeline-core/similarity/structural.pyi
+  sidequest/pipeline-core/similarity/test_grouping_layer3.py
+  sidequest/pipeline-core/utils/__init__.py
+  sidequest/pipeline-core/utils/test_runner.py
+  sidequest/pipeline-core/utils/timing.py
+  sidequest/pipeline-core/utils/timing.pyi
+  sidequest/pipeline-runners/collect_git_activity.py
+  sidequest/pipeline-runners/test_collect_git_activity.py
+
+e1d3019 2026-03-04 fix duplicate scan id collisions and pipeline import side effects
+  sidequest/pipeline-runners/dashboard-populate-pipeline.ts
+  sidequest/pipeline-runners/gitignore-pipeline.ts
+  sidequest/pipeline-runners/pipeline-import-safety.test.ts
+  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
+  sidequest/workers/duplicate-detection-worker.test.ts
+  sidequest/workers/duplicate-detection-worker.ts
+
+b488c1d 2026-03-04 fix(sidequest): resolve lint, ruff, and typecheck failures
+  sidequest/core/server-actions.test.ts
+  sidequest/pipeline-core/extractors/extract_blocks.py
+  sidequest/pipeline-core/similarity/grouping.py
+  sidequest/workers/duplicate-detection-worker.test.ts
+  sidequest/workers/duplicate-detection-worker.ts
+  sidequest/workers/test-refactor-worker.ts
+
+37d2159 2026-03-04 fix: resolve remaining stale runtime paths and permission checks
+  sidequest/git-report-config.json
+  sidequest/pipeline-runners/bugfix-audit-pipeline.ts
+  sidequest/pipeline-runners/claude-health-pipeline.ts
+  sidequest/pipeline-runners/dashboard-populate-pipeline.ts
+  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
+  sidequest/pipeline-runners/git-activity-pipeline.ts
+  sidequest/pipeline-runners/gitignore-pipeline.ts
+  sidequest/pipeline-runners/plugin-management-pipeline.ts
+  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
+  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
+
+f1addd8 2026-03-04 fix one-shot pipeline startup flow and add tests
+  sidequest/pipeline-runners/dashboard-populate-pipeline.ts
+  sidequest/pipeline-runners/gitignore-pipeline.ts
+  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
+  sidequest/pipeline-runners/startup-once-mode.test.ts
+
+d91d60c 2026-03-04 fix queue dispatch race and pipeline import side effects
+  sidequest/core/server-actions.test.ts
+  sidequest/core/server.ts
+  sidequest/pipeline-runners/test-refactor-pipeline.test.ts
+  sidequest/pipeline-runners/test-refactor-pipeline.ts
+
+ab0c7f9 2026-03-04 refactor(sidequest): relocate duplicate detection types and align tests
+  sidequest/README.md
+  sidequest/pipeline-core/similarity/test_grouping_layer3.py
+  sidequest/pipeline-core/types/duplicate-detection-types.ts
+  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
+  sidequest/repomix-output.xml
+  sidequest/workers/duplicate-detection-worker.ts
+
+10bacd8 2026-03-04 fix(retry): clear pending retries on action and wait for them in test-refactor pipeline
+  sidequest/core/server-actions.test.ts
+  sidequest/core/server.ts
+  sidequest/pipeline-runners/test-refactor-pipeline.ts
+
+8934932 2026-03-04 fix(queue): prevent running pause/cancel and wait for pending retries
+  sidequest/core/index.test.ts
+  sidequest/core/index.ts
+  sidequest/core/server-actions.test.ts
+  sidequest/core/server.ts
+  sidequest/pipeline-runners/base-pipeline.ts
+
+813900b 2026-03-04 fix(core): add retention pruning and safe cron entrypoint
+  sidequest/core/config.ts
+  sidequest/core/constants.ts
+  sidequest/core/index.ts
+  sidequest/core/server-retention.test.ts
+  sidequest/core/server.ts
+
+5fb93e4 2026-03-04 fix(database): preserve falsy JSON values in persistence
+  sidequest/core/database.test.ts
+  sidequest/core/database.ts
+
+912f9ee 2026-03-04 docs(repomix): regenerate repomix and gitlog artifacts
+  sidequest/docs/gitlog-sidequest.txt
+
 22951f1 2026-03-04 Fix duplicate-detection reliability issues and add focused tests
   sidequest/pipeline-core/config/repository-config-loader.ts
   sidequest/pipeline-core/git/pr-creator.ts
@@ -1078,74 +1236,3 @@ bba2a57 2026-01-29 refactor: implement remaining code review fixes
 
 b537128 2026-01-29 refactor(server): consolidate job persistence into _persistJob helper
   sidequest/core/server.js
-
-9b7533d 2026-01-29 fix(types): resolve TypeScript errors from refactoring
-  sidequest/core/git-workflow-manager.js
-  sidequest/core/job-repository.js
-
-858e576 2026-01-29 refactor(core): break executeJob into helper methods
-  sidequest/core/server.js
-
-891e9b0 2026-01-29 refactor(core): extract GitWorkflowManager from SidequestServer
-  sidequest/core/git-workflow-manager.js
-  sidequest/core/server.js
-
-88518fe 2026-01-29 refactor: migrate core files to use JobRepository
-  sidequest/core/server.js
-
-9976810 2026-01-29 feat(core): add JobRepository abstraction layer
-  sidequest/core/job-repository.js
-
-178583d 2026-01-29 refactor: extract magic numbers to constants module
-  sidequest/core/constants.js
-  sidequest/core/database.js
-  sidequest/core/server.js
-  sidequest/pipeline-core/scan-orchestrator.ts
-  sidequest/workers/duplicate-detection-worker.js
-
-d0c5cab 2026-01-29 chore: update scan history and regenerate repomix output
-  sidequest/repomix-output.xml
-
-07d1981 2026-01-18 fix(api): add repomix parameter mapping in trigger endpoint
-  sidequest/README.md
-  sidequest/bug-fixes/README.md
-  sidequest/pipeline-core/scanners/README.md
-
-a878a96 2026-01-18 fix: persist jobs to database on creation and start
-  sidequest/core/server.js
-
-73bb128 2026-01-18 feat: add database migration support for render deployment
-  sidequest/core/config.js
-  sidequest/core/database.js
-
-ece67cc 2026-01-18 feat(git-activity): output Jekyll-formatted markdown reports
-  sidequest/pipeline-runners/collect_git_activity.py
-
-742834b 2026-01-18 docs: consolidate pipeline documentation and redirect git reports to persistent directory
-  sidequest/pipeline-runners/collect_git_activity.py
-  sidequest/workers/git-activity-worker.js
-
-46d5bd8 2026-01-18 chore: optimize repomix config and update Sentry MCP documentation
-  sidequest/repomix-output.xml
-
-fc79aff 2026-01-18 chore: optimize repomix config for smaller output
-  sidequest/repomix.config.json
-
-ef4cfc7 2026-01-18 chore: update config, add documentation, remove tracked database files
-  sidequest/bug-fixes/README_ENHANCED.md
-  sidequest/core/README_ENHANCED.md
-  sidequest/pipeline-core/README_ENHANCED.md
-  sidequest/pipeline-core/errors/README_ENHANCED.md
-  sidequest/pipeline-core/extractors/README_ENHANCED.md
-  sidequest/pipeline-core/git/README_ENHANCED.md
-  sidequest/pipeline-core/scanners/README_ENHANCED.md
-  sidequest/pipeline-core/similarity/README_ENHANCED.md
-  sidequest/pipeline-runners/README_ENHANCED.md
-  sidequest/utils/README_ENHANCED.md
-  sidequest/workers/README_ENHANCED.md
-
-c1746a0 2026-01-16 fix(dashboard): include reportPaths in duplicate-detection job results
-  sidequest/workers/duplicate-detection-worker.js
-
-27a8142 2026-01-16 fix(mcp): redirect logger to stderr for MCP protocol compatibility
-  sidequest/utils/logger.js

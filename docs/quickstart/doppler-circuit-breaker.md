@@ -2,7 +2,7 @@
 
 Reference implementation for resilient Doppler secret management with circuit breaker protection.
 
-**Source:** `sidequest/utils/doppler-resilience.example.js`
+**Source:** `sidequest/utils/doppler-resilience.ts`
 
 ---
 
@@ -81,7 +81,7 @@ export function createDopplerHealthMiddleware(dopplerConfig) {
 
 ## Health Monitoring
 
-The `IntegratedDopplerMonitor` provides comprehensive health with actionable recommendations:
+Use `DopplerResilience#getHealth()` for monitoring and alerts:
 
 | Condition | Severity | Action |
 |-----------|----------|--------|
@@ -93,11 +93,13 @@ The `IntegratedDopplerMonitor` provides comprehensive health with actionable rec
 ## Periodic Monitoring
 
 ```javascript
-import { DopplerHealthService } from './sidequest/utils/doppler-resilience.example.js';
+const dopplerConfig = new DopplerConfigManager();
 
-const healthService = new DopplerHealthService({ checkIntervalMs: 60000 });
-healthService.start();  // Logs warnings on degraded state
-healthService.stop();   // Cleanup
+setInterval(() => {
+  const health = dopplerConfig.getHealth();
+  console.log('Doppler circuit state:', health.circuitState);
+  console.log('Using fallback:', health.usingFallback);
+}, 60000);
 ```
 
 ## Circuit States
@@ -112,7 +114,9 @@ CLOSED ──[failures > threshold]──> OPEN ──[cooldown expires]──> 
 ## Manual Recovery
 
 ```javascript
-const monitor = new IntegratedDopplerMonitor();
-const result = await monitor.triggerRecovery();
-// { success: true, message: 'Circuit breaker reset and secrets refreshed' }
+const health = dopplerConfig.getHealth();
+if (!health.healthy) {
+  // Trigger your app-specific recovery flow here
+  console.warn('Doppler degraded, running fallback mode');
+}
 ```

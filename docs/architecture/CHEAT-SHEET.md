@@ -106,7 +106,7 @@ this.maxConcurrent = options.maxConcurrent ?? 5;
 // ❌ WRONG: Treats 0 as falsy
 this.maxConcurrent = options.maxConcurrent || 5;
 ```
-**Location**: `sidequest/server.js:18`
+**Location**: `sidequest/core/server.ts:18`
 
 ---
 
@@ -128,8 +128,8 @@ this.maxConcurrent = options.maxConcurrent || 5;
 | Component | Purpose | Location |
 |-----------|---------|----------|
 | **Scan Orchestrator** | Pipeline coordinator | `sidequest/pipeline-core/scan-orchestrator.ts` |
-| **Repository Scanner** | Git validation, repomix | `sidequest/pipeline-core/scanners/repository-scanner.js` |
-| **AST-Grep Detector** | Pattern detection (18 rules) | `sidequest/pipeline-core/scanners/ast-grep-detector.js` |
+| **Repository Scanner** | Git validation, repomix | `sidequest/pipeline-core/scanners/repository-scanner.ts` |
+| **AST-Grep Detector** | Pattern detection (18 rules) | `sidequest/pipeline-core/scanners/ast-grep-detector.ts` |
 | **Block Extractor** | Python stages 3-7 | `sidequest/pipeline-core/extractors/extract_blocks.py` |
 | **Similarity Engine** | Multi-layer algorithm | `sidequest/pipeline-core/similarity/structural.py` |
 | **AST-Grep Rules** | Detection patterns | `.ast-grep/rules/` |
@@ -140,16 +140,16 @@ this.maxConcurrent = options.maxConcurrent || 5;
 
 ```bash
 # Run duplicate detection
-doppler run -- node sidequest/pipeline-core/scan-orchestrator.ts /path/to/repo
+doppler run -- node --strip-types sidequest/pipeline-core/scan-orchestrator.ts /path/to/repo
 
 # Test immediately (bypass cron)
-doppler run -- RUN_ON_STARTUP=true node duplicate-detection-pipeline.js
+doppler run -- RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 
-# Accuracy testing
-node test/accuracy/accuracy-test.js --verbose --save-results
+# Similarity grouping regression test
+PYTHONNOUSERSITE=1 python -m pytest -q sidequest/pipeline-core/similarity/test_grouping_layer3.py
 
 # Start API server
-doppler run -- node duplicate-detection-pipeline.js
+doppler run -- node --strip-types api/server.ts
 
 # Run tests
 npm test                                    # All tests (132)
@@ -231,7 +231,7 @@ npm run typecheck
 - `sidequest/pipeline-core/extractors/extract_blocks.py:80-98` - Function name search
 - `sidequest/pipeline-core/extractors/extract_blocks.py:108-163` - Deduplication logic
 - `sidequest/pipeline-core/extractors/extract_blocks.py:231` - CodeBlock creation (use `tags`)
-- `sidequest/server.js:18` - Nullish coalescing pattern
+- `sidequest/core/server.ts:18` - Nullish coalescing pattern
 
 **Documentation**:
 - `docs/architecture/README.md` - Start here
@@ -255,7 +255,7 @@ npm run typecheck
 
 ```javascript
 // ✅ CORRECT: Use centralized config
-import { config } from './sidequest/config.js';
+import { config } from './sidequest/core/config.ts';
 const dsn = config.sentryDsn;
 
 // ❌ WRONG: Never use process.env directly

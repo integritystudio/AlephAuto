@@ -13,7 +13,7 @@ Browser (Client)
         |
         | WebSocket + REST API
         v
-Express Server (api/server.js)
+Express Server (api/server.ts)
   WebSocket Server (ws) - Event broadcasting, auto-reconnect
   REST API - /health, /api/status, /api/jobs, /api/pipelines, /api/scans
   Static File Serving - public/
@@ -46,7 +46,7 @@ AlephAuto Framework (sidequest/)
 ```bash
 npm run dashboard                        # Dashboard UI -> http://localhost:8080
 # Or manually:
-doppler run -- node api/server.js
+doppler run -- node --strip-types api/server.ts
 ```
 
 ### Production
@@ -236,7 +236,7 @@ After=network.target
 Type=simple
 User=your-user
 WorkingDirectory=/path/to/jobs
-ExecStart=/usr/bin/doppler run -- node api/server.js
+ExecStart=/usr/bin/doppler run -- node --strip-types api/server.ts
 Restart=always
 Environment=NODE_ENV=production
 

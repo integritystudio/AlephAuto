@@ -4,6 +4,8 @@ import request from 'supertest';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { HttpStatus } from '../../api/constants/http-status.ts';
+import { ApiRoutesTestConstants } from '../constants/api-routes-test-constants.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -12,7 +14,7 @@ let scanRoutes, worker, repositoryRoutes, reportRoutes;
 let closeDatabase, initDatabase;
 let createTempRepository, createMultipleTempRepositories, cleanupRepositories;
 
-describe('API Routes', () => {
+describe('API Routes', { concurrency: ApiRoutesTestConstants.SUITE_CONCURRENCY }, () => {
   let app;
   let testRepo;
   let multiRepos;
@@ -92,7 +94,7 @@ describe('API Routes', () => {
           .post('/api/scans/start')
           .send({});
 
-        assert.strictEqual(response.status, 400);
+        assert.strictEqual(response.status, HttpStatus.BAD_REQUEST);
         assert.strictEqual(response.body.error.code, 'INVALID_REQUEST');
         assert.ok(
           response.body.error.details?.errors?.some(e => e.field === 'repositoryPath'),
@@ -108,7 +110,7 @@ describe('API Routes', () => {
             options: {}
           });
 
-        assert.strictEqual(response.status, 201);
+        assert.strictEqual(response.status, HttpStatus.CREATED);
         assert.ok(response.body.scanId);
         assert.strictEqual(response.body.repositoryPath, testRepo.path);
         assert.strictEqual(response.body.status, 'queued');
@@ -131,7 +133,7 @@ describe('API Routes', () => {
           .post('/api/scans/start-multi')
           .send({});
 
-        assert.strictEqual(response.status, 400);
+        assert.strictEqual(response.status, HttpStatus.BAD_REQUEST);
         assert.ok(response.body.message.includes('repositoryPaths'));
       });
 
@@ -142,7 +144,7 @@ describe('API Routes', () => {
             repositoryPaths: [multiRepos[0].path]
           });
 
-        assert.strictEqual(response.status, 400);
+        assert.strictEqual(response.status, HttpStatus.BAD_REQUEST);
         assert.ok(response.body.message.includes('at least 2 repositories'));
       });
 
@@ -154,7 +156,7 @@ describe('API Routes', () => {
             groupName: 'test-group'
           });
 
-        assert.strictEqual(response.status, 201);
+        assert.strictEqual(response.status, HttpStatus.CREATED);
         assert.ok(response.body.success);
         assert.strictEqual(response.body.repository_count, 2);
         assert.ok(response.body.job_id);
@@ -166,7 +168,7 @@ describe('API Routes', () => {
         const response = await request(app)
           .get('/api/scans/test-job-123/status');
 
-        assert.strictEqual(response.status, 200);
+        assert.strictEqual(response.status, HttpStatus.OK);
         assert.ok(response.body.scan_id);
         assert.ok(['running', 'idle'].includes(response.body.status));
         assert.ok(typeof response.body.active_jobs === 'number');
@@ -180,7 +182,7 @@ describe('API Routes', () => {
         const response = await request(app)
           .get('/api/scans/non-existent-scan-123/results');
 
-        assert.strictEqual(response.status, 404);
+        assert.strictEqual(response.status, HttpStatus.NOT_FOUND);
         assert.strictEqual(response.body.error, 'Not Found');
         assert.ok(response.body.message.includes('not found'));
       });
@@ -202,7 +204,7 @@ describe('API Routes', () => {
         .post('/api/scans/start')
         .send({});
 
-      assert.strictEqual(response.status, 400);
+      assert.strictEqual(response.status, HttpStatus.BAD_REQUEST);
       assert.ok(response.body.error);
       assert.ok(response.body.error.message);
       assert.ok(response.body.timestamp);
@@ -216,13 +218,13 @@ describe('API Routes', () => {
           .get('/api/reports');
 
         // 200 if reports dir exists, 500 if it doesn't (CI environment)
-        if (response.status === 200) {
+        if (response.status === HttpStatus.OK) {
           assert.ok(Array.isArray(response.body.reports));
           assert.ok(typeof response.body.total === 'number');
           assert.ok(response.body.timestamp);
         } else {
           // In CI, the reports directory may not exist
-          assert.strictEqual(response.status, 500);
+          assert.strictEqual(response.status, HttpStatus.INTERNAL_SERVER_ERROR);
         }
       });
 
@@ -231,10 +233,10 @@ describe('API Routes', () => {
           .get('/api/reports?limit=5');
 
         // 200 if reports dir exists, 500 if it doesn't
-        if (response.status === 200) {
+        if (response.status === HttpStatus.OK) {
           assert.ok(response.body.reports.length <= 5);
         } else {
-          assert.strictEqual(response.status, 500);
+          assert.strictEqual(response.status, HttpStatus.INTERNAL_SERVER_ERROR);
         }
       });
 
@@ -242,13 +244,13 @@ describe('API Routes', () => {
         const response = await request(app)
           .get('/api/reports?format=html');
 
-        if (response.status === 200) {
+        if (response.status === HttpStatus.OK) {
           // If there are reports, they should all be html
           for (const report of response.body.reports) {
             assert.strictEqual(report.format, 'html');
           }
         } else {
-          assert.strictEqual(response.status, 500);
+          assert.strictEqual(response.status, HttpStatus.INTERNAL_SERVER_ERROR);
         }
       });
 
@@ -256,12 +258,12 @@ describe('API Routes', () => {
         const response = await request(app)
           .get('/api/reports?format=json');
 
-        if (response.status === 200) {
+        if (response.status === HttpStatus.OK) {
           for (const report of response.body.reports) {
             assert.strictEqual(report.format, 'json');
           }
         } else {
-          assert.strictEqual(response.status, 500);
+          assert.strictEqual(response.status, HttpStatus.INTERNAL_SERVER_ERROR);
         }
       });
 
@@ -269,12 +271,12 @@ describe('API Routes', () => {
         const response = await request(app)
           .get('/api/reports?format=markdown');
 
-        if (response.status === 200) {
+        if (response.status === HttpStatus.OK) {
           for (const report of response.body.reports) {
             assert.strictEqual(report.format, 'markdown');
           }
         } else {
-          assert.strictEqual(response.status, 500);
+          assert.strictEqual(response.status, HttpStatus.INTERNAL_SERVER_ERROR);
         }
       });
 
@@ -282,12 +284,12 @@ describe('API Routes', () => {
         const response = await request(app)
           .get('/api/reports?type=summary');
 
-        if (response.status === 200) {
+        if (response.status === HttpStatus.OK) {
           for (const report of response.body.reports) {
             assert.strictEqual(report.type, 'summary');
           }
         } else {
-          assert.strictEqual(response.status, 500);
+          assert.strictEqual(response.status, HttpStatus.INTERNAL_SERVER_ERROR);
         }
       });
 
@@ -295,12 +297,12 @@ describe('API Routes', () => {
         const response = await request(app)
           .get('/api/reports?type=full');
 
-        if (response.status === 200) {
+        if (response.status === HttpStatus.OK) {
           for (const report of response.body.reports) {
             assert.strictEqual(report.type, 'full');
           }
         } else {
-          assert.strictEqual(response.status, 500);
+          assert.strictEqual(response.status, HttpStatus.INTERNAL_SERVER_ERROR);
         }
       });
     });
@@ -313,7 +315,7 @@ describe('API Routes', () => {
           .get('/api/reports/..%2F..%2Fetc%2Fpasswd');
 
         // Either 400 (caught by security check) or 404 (normalized path)
-        assert.ok([400, 404].includes(response.status));
+        assert.ok([HttpStatus.BAD_REQUEST, HttpStatus.NOT_FOUND].includes(response.status));
       });
 
       test('should handle encoded path traversal attempts', async () => {
@@ -321,7 +323,7 @@ describe('API Routes', () => {
           .get('/api/reports/test%2F..%2Ftest.html');
 
         // Security check or file not found
-        assert.ok([400, 404].includes(response.status));
+        assert.ok([HttpStatus.BAD_REQUEST, HttpStatus.NOT_FOUND].includes(response.status));
       });
 
       test('should return 404 for non-existent report', async () => {
@@ -329,10 +331,10 @@ describe('API Routes', () => {
           .get('/api/reports/non-existent-report-xyz.html');
 
         // 404 if reports dir exists but file doesn't, 500 if dir doesn't exist (CI)
-        if (response.status === 404) {
+        if (response.status === HttpStatus.NOT_FOUND) {
           assert.strictEqual(response.body.error.code, 'NOT_FOUND');
         } else {
-          assert.strictEqual(response.status, 500);
+          assert.strictEqual(response.status, HttpStatus.INTERNAL_SERVER_ERROR);
         }
       });
 
@@ -342,14 +344,14 @@ describe('API Routes', () => {
           .get('/api/reports?limit=1&format=html');
 
         // Skip if reports directory doesn't exist (CI environment)
-        if (listResponse.status === 500) return;
+        if (listResponse.status === HttpStatus.INTERNAL_SERVER_ERROR) return;
 
         if (listResponse.body.reports && listResponse.body.reports.length > 0) {
           const reportName = listResponse.body.reports[0].name;
           const response = await request(app)
             .get(`/api/reports/${reportName}`);
 
-          assert.strictEqual(response.status, 200);
+          assert.strictEqual(response.status, HttpStatus.OK);
           assert.ok(response.type.includes('html'));
         }
       });
@@ -359,14 +361,14 @@ describe('API Routes', () => {
           .get('/api/reports?limit=1&format=json');
 
         // Skip if reports directory doesn't exist (CI environment)
-        if (listResponse.status === 500) return;
+        if (listResponse.status === HttpStatus.INTERNAL_SERVER_ERROR) return;
 
         if (listResponse.body.reports && listResponse.body.reports.length > 0) {
           const reportName = listResponse.body.reports[0].name;
           const response = await request(app)
             .get(`/api/reports/${reportName}`);
 
-          assert.strictEqual(response.status, 200);
+          assert.strictEqual(response.status, HttpStatus.OK);
           assert.ok(response.type.includes('json'));
         }
       });
@@ -379,14 +381,14 @@ describe('API Routes', () => {
           .delete('/api/reports/..%2F..%2Fetc%2Fpasswd');
 
         // Either 400 (caught by security check) or 404 (normalized/not found)
-        assert.ok([400, 404].includes(response.status));
+        assert.ok([HttpStatus.BAD_REQUEST, HttpStatus.NOT_FOUND].includes(response.status));
       });
 
       test('should return 404 for non-existent report', async () => {
         const response = await request(app)
           .delete('/api/reports/non-existent-report-xyz.html');
 
-        assert.strictEqual(response.status, 404);
+        assert.strictEqual(response.status, HttpStatus.NOT_FOUND);
         assert.strictEqual(response.body.error.code, 'NOT_FOUND');
       });
     });
@@ -397,11 +399,11 @@ describe('API Routes', () => {
           .get('/api/reports/non-existent-scan-xyz/summary');
 
         // 404 if reports dir exists but summary not found, 500 if dir doesn't exist
-        if (response.status === 404) {
+        if (response.status === HttpStatus.NOT_FOUND) {
           assert.strictEqual(response.body.error.code, 'NOT_FOUND');
           assert.ok(response.body.error.message.includes('Summary not found'));
         } else {
-          assert.strictEqual(response.status, 500);
+          assert.strictEqual(response.status, HttpStatus.INTERNAL_SERVER_ERROR);
         }
       });
     });
@@ -413,7 +415,7 @@ describe('API Routes', () => {
         const response = await request(app)
           .get('/api/repositories');
 
-        assert.strictEqual(response.status, 200);
+        assert.strictEqual(response.status, HttpStatus.OK);
         assert.ok(Array.isArray(response.body.repositories));
         assert.ok(typeof response.body.total === 'number');
         assert.ok(response.body.timestamp);
@@ -423,7 +425,7 @@ describe('API Routes', () => {
         const response = await request(app)
           .get('/api/repositories?enabled=true');
 
-        assert.strictEqual(response.status, 200);
+        assert.strictEqual(response.status, HttpStatus.OK);
         assert.ok(Array.isArray(response.body.repositories));
         // All returned repos should be enabled
         for (const repo of response.body.repositories) {
@@ -435,7 +437,7 @@ describe('API Routes', () => {
         const response = await request(app)
           .get('/api/repositories?priority=high');
 
-        assert.strictEqual(response.status, 200);
+        assert.strictEqual(response.status, HttpStatus.OK);
         for (const repo of response.body.repositories) {
           assert.strictEqual(repo.priority, 'high');
         }
@@ -445,7 +447,7 @@ describe('API Routes', () => {
         const response = await request(app)
           .get('/api/repositories?tag=production');
 
-        assert.strictEqual(response.status, 200);
+        assert.strictEqual(response.status, HttpStatus.OK);
         for (const repo of response.body.repositories) {
           assert.ok(repo.tags.includes('production'));
         }
@@ -457,25 +459,19 @@ describe('API Routes', () => {
         const response = await request(app)
           .get('/api/repositories/non-existent-repo-xyz');
 
-        assert.strictEqual(response.status, 404);
+        assert.strictEqual(response.status, HttpStatus.NOT_FOUND);
         assert.strictEqual(response.body.error.code, 'NOT_FOUND');
         assert.ok(response.body.error.message.includes('not found'));
       });
 
       test('should return repository details when found', async () => {
-        // First get list of repos to find an existing one
-        const listResponse = await request(app)
-          .get('/api/repositories');
+        const response = await request(app)
+          .get(`/api/repositories/${ApiRoutesTestConstants.KNOWN_REPOSITORY_NAME}`);
 
-        if (listResponse.body.repositories.length > 0) {
-          const repoName = listResponse.body.repositories[0].name;
-          const response = await request(app)
-            .get(`/api/repositories/${repoName}`);
-
-          assert.strictEqual(response.status, 200);
-          assert.ok(response.body.name || response.body.path);
-          assert.ok(response.body.timestamp);
-        }
+        assert.strictEqual(response.status, HttpStatus.OK);
+        assert.strictEqual(response.body.name, ApiRoutesTestConstants.KNOWN_REPOSITORY_NAME);
+        assert.ok(response.body.path);
+        assert.ok(response.body.timestamp);
       });
     });
 
@@ -485,26 +481,19 @@ describe('API Routes', () => {
           .post('/api/repositories/non-existent-repo-xyz/scan')
           .send({});
 
-        assert.strictEqual(response.status, 404);
+        assert.strictEqual(response.status, HttpStatus.NOT_FOUND);
         assert.strictEqual(response.body.error.code, 'NOT_FOUND');
       });
 
       test('should trigger scan for existing repository', async () => {
-        // First get list of repos to find an existing one
-        const listResponse = await request(app)
-          .get('/api/repositories');
+        const response = await request(app)
+          .post(`/api/repositories/${ApiRoutesTestConstants.KNOWN_REPOSITORY_NAME}/scan`)
+          .send({ forceRefresh: true });
 
-        if (listResponse.body.repositories.length > 0) {
-          const repoName = listResponse.body.repositories[0].name;
-          const response = await request(app)
-            .post(`/api/repositories/${repoName}/scan`)
-            .send({ forceRefresh: true });
-
-          assert.strictEqual(response.status, 200);
-          assert.ok(response.body.success);
-          assert.ok(response.body.job_id);
-          assert.ok(response.body.status_url);
-        }
+        assert.strictEqual(response.status, HttpStatus.OK);
+        assert.ok(response.body.success);
+        assert.ok(response.body.job_id);
+        assert.ok(response.body.status_url);
       });
     });
 
@@ -513,23 +502,17 @@ describe('API Routes', () => {
         const response = await request(app)
           .get('/api/repositories/non-existent-repo-xyz/cache');
 
-        assert.strictEqual(response.status, 404);
+        assert.strictEqual(response.status, HttpStatus.NOT_FOUND);
         assert.strictEqual(response.body.error.code, 'NOT_FOUND');
       });
 
       test('should return cache status for existing repository', async () => {
-        const listResponse = await request(app)
-          .get('/api/repositories');
+        const response = await request(app)
+          .get(`/api/repositories/${ApiRoutesTestConstants.KNOWN_REPOSITORY_NAME}/cache`);
 
-        if (listResponse.body.repositories.length > 0) {
-          const repoName = listResponse.body.repositories[0].name;
-          const response = await request(app)
-            .get(`/api/repositories/${repoName}/cache`);
-
-          assert.strictEqual(response.status, 200);
-          assert.ok(response.body.repository);
-          assert.ok(response.body.cache_status !== undefined);
-        }
+        assert.strictEqual(response.status, HttpStatus.OK);
+        assert.strictEqual(response.body.repository, ApiRoutesTestConstants.KNOWN_REPOSITORY_NAME);
+        assert.ok(response.body.cache_status !== undefined);
       });
     });
 
@@ -538,23 +521,17 @@ describe('API Routes', () => {
         const response = await request(app)
           .delete('/api/repositories/non-existent-repo-xyz/cache');
 
-        assert.strictEqual(response.status, 404);
+        assert.strictEqual(response.status, HttpStatus.NOT_FOUND);
         assert.strictEqual(response.body.error.code, 'NOT_FOUND');
       });
 
       test('should invalidate cache for existing repository', async () => {
-        const listResponse = await request(app)
-          .get('/api/repositories');
+        const response = await request(app)
+          .delete(`/api/repositories/${ApiRoutesTestConstants.KNOWN_REPOSITORY_NAME}/cache`);
 
-        if (listResponse.body.repositories.length > 0) {
-          const repoName = listResponse.body.repositories[0].name;
-          const response = await request(app)
-            .delete(`/api/repositories/${repoName}/cache`);
-
-          assert.strictEqual(response.status, 200);
-          assert.ok(response.body.success);
-          assert.ok(typeof response.body.cache_entries_deleted === 'number');
-        }
+        assert.strictEqual(response.status, HttpStatus.OK);
+        assert.ok(response.body.success);
+        assert.ok(typeof response.body.cache_entries_deleted === 'number');
       });
     });
 
@@ -563,7 +540,7 @@ describe('API Routes', () => {
         const response = await request(app)
           .get('/api/repositories/groups/list');
 
-        assert.strictEqual(response.status, 200);
+        assert.strictEqual(response.status, HttpStatus.OK);
         assert.ok(Array.isArray(response.body.groups));
         assert.ok(typeof response.body.total === 'number');
         assert.ok(response.body.timestamp);
@@ -573,7 +550,7 @@ describe('API Routes', () => {
         const response = await request(app)
           .get('/api/repositories/groups/list?enabled=true');
 
-        assert.strictEqual(response.status, 200);
+        assert.strictEqual(response.status, HttpStatus.OK);
         for (const group of response.body.groups) {
           assert.strictEqual(group.enabled, true);
         }
@@ -585,24 +562,18 @@ describe('API Routes', () => {
         const response = await request(app)
           .get('/api/repositories/groups/non-existent-group-xyz');
 
-        assert.strictEqual(response.status, 404);
+        assert.strictEqual(response.status, HttpStatus.NOT_FOUND);
         assert.strictEqual(response.body.error.code, 'NOT_FOUND');
         assert.ok(response.body.error.message.includes('not found'));
       });
 
       test('should return group details when found', async () => {
-        const listResponse = await request(app)
-          .get('/api/repositories/groups/list');
+        const response = await request(app)
+          .get(`/api/repositories/groups/${ApiRoutesTestConstants.KNOWN_GROUP_NAME}`);
 
-        if (listResponse.body.groups.length > 0) {
-          const groupName = listResponse.body.groups[0].name;
-          const response = await request(app)
-            .get(`/api/repositories/groups/${groupName}`);
-
-          assert.strictEqual(response.status, 200);
-          assert.ok(response.body.name);
-          assert.ok(response.body.timestamp);
-        }
+        assert.strictEqual(response.status, HttpStatus.OK);
+        assert.strictEqual(response.body.name, ApiRoutesTestConstants.KNOWN_GROUP_NAME);
+        assert.ok(response.body.timestamp);
       });
     });
   });

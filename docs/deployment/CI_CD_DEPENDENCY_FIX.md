@@ -32,7 +32,7 @@
 ### 3. Verification Script Enhancement
 **Status**: ✅ COMPLETED
 
-**File Modified**: `/Users/alyshialedlie/code/jobs/scripts/verify-setup.js`
+**File Modified**: `/Users/alyshialedlie/code/jobs/scripts/verify-setup.ts`
 
 **Changes Made**:
 - Replaced simple `execSync('ast-grep --version')` with a loop that checks multiple possible paths
@@ -71,7 +71,7 @@ python -c "import pydantic; print(f'Pydantic version: {pydantic.__version__}')"
 ast-grep --version
 
 # Run duplicate detection pipeline (example)
-doppler run -- RUN_ON_STARTUP=true node sidequest/pipeline-runners/duplicate-detection-pipeline.js
+doppler run -- RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 ```
 
 ## Success Criteria Met

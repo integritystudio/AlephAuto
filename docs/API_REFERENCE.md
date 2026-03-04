@@ -9,6 +9,7 @@
 - [Error Response Format](#error-response-format)
 - [Health & Status](#health--status)
 - [Scans](#scans)
+- [Jobs](#jobs)
 - [Repositories](#repositories)
 - [Reports](#reports)
 - [Pipelines](#pipelines)
@@ -176,12 +177,9 @@ Start a new duplicate detection scan for a single repository.
 **Response (201):**
 ```json
 {
-  "success": true,
-  "job_id": "api-scan-1705312200000",
+  "scanId": "duplicate-detection-1705312200000",
   "repositoryPath": "/path/to/repository",
   "status": "queued",
-  "status_url": "/api/scans/api-scan-1705312200000/status",
-  "results_url": "/api/scans/api-scan-1705312200000/results",
   "timestamp": "2024-01-15T10:30:00.000Z"
 }
 ```
@@ -234,7 +232,7 @@ Get scan status by ID.
 **Response:**
 ```json
 {
-  "scan_id": "api-scan-1705312200000",
+  "scan_id": "duplicate-detection-1705312200000",
   "status": "running",
   "active_jobs": 1,
   "queued_jobs": 2,
@@ -257,12 +255,14 @@ Get scan results by ID.
 **Response (Summary):**
 ```json
 {
-  "scan_id": "api-scan-1705312200000",
+  "scanId": "duplicate-detection-1705312200000",
   "status": "completed",
-  "summary": {
-    "duplicateCount": 5,
-    "filesScanned": 120,
-    "duplicateGroups": 3
+  "startTime": "2024-01-15T10:00:00.000Z",
+  "endTime": "2024-01-15T10:00:45.000Z",
+  "results": {
+    "scanType": "intra-project",
+    "totalDuplicates": 5,
+    "reportPath": "output/reports/scan-report-1705312200000.html"
   },
   "timestamp": "2024-01-15T10:30:00.000Z"
 }
@@ -271,11 +271,18 @@ Get scan results by ID.
 **Response (Full):**
 ```json
 {
-  "scan_id": "api-scan-1705312200000",
+  "scanId": "duplicate-detection-1705312200000",
   "status": "completed",
+  "startTime": "2024-01-15T10:00:00.000Z",
+  "endTime": "2024-01-15T10:00:45.000Z",
   "results": {
-    "duplicates": [],
-    "statistics": {}
+    "scanType": "intra-project",
+    "totalDuplicates": 5,
+    "duplicates": 5,
+    "totalBlocks": 220,
+    "scanDuration": 45000,
+    "suggestions": 3,
+    "reportPath": "output/reports/scan-report-1705312200000.html"
   },
   "timestamp": "2024-01-15T10:30:00.000Z"
 }
@@ -283,52 +290,62 @@ Get scan results by ID.
 
 ---
 
-### GET /api/scans/recent
+## Jobs
 
-List recent scans with optional limit.
+### GET /api/jobs
 
-**Query Parameters:**
-- `limit` (optional): Maximum number of scans to return (default: 10)
+List jobs across pipelines (with optional status filter).
 
 **Response:**
 ```json
 {
-  "scans": [
-    {
-      "job_id": "api-scan-1705312200000",
-      "repositoryPath": "/path/to/repository",
-      "status": "completed",
-      "timestamp": "2024-01-15T10:30:00.000Z"
-    }
-  ],
-  "count": 1,
+  "success": true,
+  "data": {
+    "jobs": [
+      {
+        "id": "duplicate-detection-1705312200000",
+        "pipelineId": "duplicate-detection",
+        "status": "completed"
+      }
+    ],
+    "total": 1,
+    "page": 0,
+    "limit": 50,
+    "hasMore": false
+  },
   "timestamp": "2024-01-15T10:30:00.000Z"
 }
 ```
 
 ---
 
-### GET /api/scans/stats
+### GET /api/jobs/:jobId
 
-Get scanning statistics and metrics.
+Get details for a single job.
 
 **Response:**
 ```json
 {
-  "totalScans": 150,
-  "completedScans": 142,
-  "failedScans": 5,
-  "runningScans": 3,
-  "averageDuration": 45000,
+  "success": true,
+  "data": {
+    "id": "duplicate-detection-1705312200000",
+    "pipelineId": "duplicate-detection",
+    "status": "completed",
+    "createdAt": "2024-01-15T10:00:00.000Z",
+    "startedAt": "2024-01-15T10:00:01.000Z",
+    "completedAt": "2024-01-15T10:00:45.000Z"
+  },
   "timestamp": "2024-01-15T10:30:00.000Z"
 }
 ```
 
 ---
 
-### DELETE /api/scans/:jobId
+### POST /api/jobs/:jobId/cancel
 
-Cancel a running scan job.
+Cancel a queued or paused job.
+
+Running jobs are not cancellable.
 
 **Parameters:**
 - `jobId` (path): Job identifier
@@ -337,8 +354,26 @@ Cancel a running scan job.
 ```json
 {
   "success": true,
-  "job_id": "api-scan-1705312200000",
-  "message": "Scan job cancelled successfully",
+  "message": "Job duplicate-detection-1705312200000 cancelled successfully",
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+---
+
+### POST /api/jobs/:jobId/retry
+
+Retry a failed job by creating a new retry job.
+
+**Parameters:**
+- `jobId` (path): Failed job identifier
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Job retried successfully",
+  "newJobId": "duplicate-detection-retry-1705312200000",
   "timestamp": "2024-01-15T10:30:00.000Z"
 }
 ```

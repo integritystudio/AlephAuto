@@ -134,7 +134,7 @@ npm run build:frontend                     # Build React app
 doppler run -- node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts --run-now
 npm run docs:enhance                       # Schema.org injection
 npm run git:weekly                         # Git activity report
-npm run claude:health                      # Codebase health check
+npm run claude:health                      # Claude health check
 npm run dashboard:populate                 # Quality metrics (seed)
 npm run dashboard:populate:full            # Quality metrics (LLM judge)
 npm run bugfix:once                        # Bugfix audit (one-shot)
@@ -167,7 +167,7 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 
 ## Docs
 
-- [API Reference](docs/API_REFERENCE.md) - 22 REST endpoints
+- [API Reference](docs/API_REFERENCE.md) - REST API endpoints
 - [System Data Flow](docs/architecture/SYSTEM-DATA-FLOW.md) - Architecture diagrams
 - [Error Handling](docs/architecture/ERROR_HANDLING.md) - Retry logic, circuit breaker
 - [Type System](docs/architecture/TYPE_SYSTEM.md) - Zod + TypeScript patterns
@@ -178,7 +178,7 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 - [Deployment](docs/DEPLOYMENT.md) - Production deployment
 - [Installation](docs/INSTALL.md) - Setup instructions
 - [Changelog](docs/CHANGELOG.md) - Legacy/cross-project history
-- [Release Changelogs](docs/changelog/README.md) - v2.x release history
+- [Release Changelogs](docs/changelog/README.md) - v2.x release history (latest: v2.3.12)
 
 ## License
 

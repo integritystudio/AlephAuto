@@ -76,7 +76,7 @@ DOPPLER_CACHE_FILE=~/.doppler/.fallback.json
 The system validates configuration on startup:
 
 ```javascript
-import { config } from './sidequest/core/config.js';
+import { config } from './sidequest/core/config.ts';
 
 // Access Doppler circuit breaker configuration
 const {
@@ -97,8 +97,8 @@ const {
 ### Basic Integration
 
 ```javascript
-import { DopplerResilience } from './sidequest/utils/doppler-resilience.js';
-import { config } from './sidequest/core/config.js';
+import { DopplerResilience } from './sidequest/utils/doppler-resilience.ts';
+import { config } from './sidequest/core/config.ts';
 
 // Create instance with configuration
 const doppler = new DopplerResilience(config.doppler);
@@ -143,7 +143,7 @@ if (health.circuitState === 'OPEN') {
 
 ```javascript
 import express from 'express';
-import { DopplerResilience } from './sidequest/utils/doppler-resilience.js';
+import { DopplerResilience } from './sidequest/utils/doppler-resilience.ts';
 
 const app = express();
 const doppler = new DopplerResilience(config.doppler);
@@ -315,7 +315,7 @@ pm2 restart aleph-worker
 ### Unit Tests
 
 ```bash
-npm test tests/unit/doppler-resilience.test.js
+npm test tests/unit/doppler-resilience.test.ts
 ```
 
 **Test coverage:**
@@ -332,7 +332,7 @@ npm test tests/unit/doppler-resilience.test.js
 
 ```javascript
 // Simulate Doppler API failure
-import { DopplerResilience } from './sidequest/utils/doppler-resilience.js';
+import { DopplerResilience } from './sidequest/utils/doppler-resilience.ts';
 
 const doppler = new DopplerResilience({
   failureThreshold: 3,
@@ -510,7 +510,7 @@ const dbPassword = process.env.DB_PASSWORD;
 
 **After:**
 ```javascript
-import { DopplerResilience } from './sidequest/utils/doppler-resilience.js';
+import { DopplerResilience } from './sidequest/utils/doppler-resilience.ts';
 
 const doppler = new DopplerResilience(config.doppler);
 doppler.fetchFromDoppler = async () => process.env;
@@ -533,10 +533,10 @@ Use both together for comprehensive monitoring.
 
 ## References
 
-- **Implementation**: `/Users/alyshialedlie/code/jobs/sidequest/utils/doppler-resilience.js`
-- **Tests**: `/Users/alyshialedlie/code/jobs/tests/unit/doppler-resilience.test.js`
-- **Configuration**: `/Users/alyshialedlie/code/jobs/sidequest/core/config.js`
-- **Examples**: `/Users/alyshialedlie/code/jobs/sidequest/utils/doppler-resilience.example.js`
+- **Implementation**: `/Users/alyshialedlie/code/jobs/sidequest/utils/doppler-resilience.ts`
+- **Tests**: `/Users/alyshialedlie/code/jobs/tests/unit/doppler-resilience.test.ts`
+- **Configuration**: `/Users/alyshialedlie/code/jobs/sidequest/core/config.ts`
+- **Examples**: `/Users/alyshialedlie/code/jobs/docs/quickstart/doppler-circuit-breaker.md`
 - **Outage Runbook**: `/Users/alyshialedlie/code/jobs/docs/runbooks/DOPPLER_OUTAGE.md`
 
 ---
@@ -550,4 +550,4 @@ Use both together for comprehensive monitoring.
 ---
 
 **Maintained By**: AlephAuto Operations Team
-**Questions?** Review examples in `doppler-resilience.example.js` or consult the test suite for detailed usage patterns.
+**Questions?** Review examples in `docs/quickstart/doppler-circuit-breaker.md` or consult the test suite for detailed usage patterns.

@@ -97,7 +97,7 @@ sudo ufw status
 
 ## Install Dependencies
 
-### 1. Install Node.js 20.x
+### 1. Install Node.js 22.x
 
 Using NodeSource repository (recommended method from environment-setup-analyzer):
 
@@ -326,7 +326,7 @@ pnpm install --frozen-lockfile
 npm run build:frontend
 
 # Verify critical files exist
-ls -la frontend/dist/index.html api/server.js
+ls -la frontend/dist/index.html api/server.ts
 ```
 
 ### 3. Install Python Dependencies
@@ -372,16 +372,16 @@ chmod +x scripts/*.sh 2>/dev/null || true
 
 ### 1. Create PM2 Ecosystem File
 
-Create `config/ecosystem.config.js` in the project root:
+Create `config/ecosystem.config.cjs` in the project root:
 
 ```bash
 cd /var/www/aleph-dashboard
-cat > config/ecosystem.config.js << 'EOF'
+cat > config/ecosystem.config.cjs << 'EOF'
 module.exports = {
   apps: [
     {
       name: 'aleph-dashboard',
-      script: 'api/server.js',
+      script: 'api/server.ts',
       cwd: '/var/www/aleph-dashboard',
       instances: 2,
       exec_mode: 'cluster',
@@ -401,7 +401,7 @@ module.exports = {
     },
     {
       name: 'aleph-worker',
-      script: 'sidequest/pipeline-runners/duplicate-detection-pipeline.js',
+      script: 'sidequest/pipeline-runners/duplicate-detection-pipeline.ts',
       cwd: '/var/www/aleph-dashboard',
       instances: 1,
       exec_mode: 'fork',
@@ -431,12 +431,12 @@ EOF
 If you prefer not to store the token in the file:
 
 ```bash
-cat > config/ecosystem.config.js << 'EOF'
+cat > config/ecosystem.config.cjs << 'EOF'
 module.exports = {
   apps: [
     {
       name: 'aleph-dashboard',
-      script: 'api/server.js',
+      script: 'api/server.ts',
       cwd: '/var/www/aleph-dashboard',
       instances: 2,
       exec_mode: 'cluster',
@@ -453,7 +453,7 @@ module.exports = {
 EOF
 
 # Then start with doppler run
-doppler run -- pm2 start config/ecosystem.config.js
+doppler run -- pm2 start config/ecosystem.config.cjs
 ```
 
 ### 3. Create Logs Directory
@@ -468,10 +468,10 @@ mkdir -p /var/www/aleph-dashboard/logs
 cd /var/www/aleph-dashboard
 
 # Start using ecosystem file
-pm2 start config/ecosystem.config.js
+pm2 start config/ecosystem.config.cjs
 
 # Or start dashboard only
-doppler run -- pm2 start api/server.js --name aleph-dashboard -i 2
+doppler run -- pm2 start api/server.ts --name aleph-dashboard -i 2
 
 # View status
 pm2 status
@@ -1034,7 +1034,7 @@ pm2 restart aleph-dashboard
 
 # If still failing, delete and recreate
 pm2 delete aleph-dashboard
-doppler run -- pm2 start api/server.js --name aleph-dashboard -i 2
+doppler run -- pm2 start api/server.ts --name aleph-dashboard -i 2
 pm2 save
 ```
 
@@ -1135,7 +1135,7 @@ pm2 restart all
 
 # Set memory limit for PM2 processes
 pm2 delete aleph-dashboard
-pm2 start api/server.js --name aleph-dashboard --max-memory-restart 500M -i 2
+pm2 start api/server.ts --name aleph-dashboard --max-memory-restart 500M -i 2
 pm2 save
 ```
 
@@ -1192,11 +1192,11 @@ wscat -c ws://your-domain.com/ws
 ```bash
 # Run in cluster mode (utilizes all CPU cores)
 pm2 delete aleph-dashboard
-pm2 start api/server.js --name aleph-dashboard -i max
+pm2 start api/server.ts --name aleph-dashboard -i max
 pm2 save
 
 # Or specify number of instances
-pm2 start api/server.js --name aleph-dashboard -i 4
+pm2 start api/server.ts --name aleph-dashboard -i 4
 ```
 
 ### 2. Nginx Optimization

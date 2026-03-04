@@ -6,6 +6,79 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.13] - 2026-03-04
+
+### Summary
+
+Re-aligned pipeline runner file-permission policy with the post-`37d2159` model (managed runners are non-executable), updated integration test expectations, and refreshed repomix/git-history artifacts.
+
+### Changed
+
+- Reverted unintended execute-bit flips introduced by `b0d0821` for managed pipeline runners:
+  - `sidequest/pipeline-runners/{bugfix-audit,claude-health,dashboard-populate,duplicate-detection,git-activity,gitignore,plugin-management,repo-cleanup,schema-enhancement}-pipeline.ts`
+  - Mode restored to `100644` for policy consistency with `scripts/validate-permissions.ts`.
+- Updated `tests/integration/pipeline-execution.integration.test.ts`:
+  - Scenario 2 now asserts managed runners are **not executable**.
+  - Scenario 10 now validates only managed entrypoints against non-executable policy.
+  - Scenario 4 now restores original file mode after temporary shebang execution test to avoid cross-test side effects.
+
+### Documentation
+
+- Regenerated repository analysis artifacts:
+  - `docs/repomix/token-tree.txt`
+  - `docs/repomix/repo-compressed.xml`
+  - `docs/repomix/repomix.xml`
+  - `docs/repomix/gitlog-top20.txt`
+  - `sidequest/docs/gitlog-sidequest.txt`
+
+### Validation
+
+- `node --strip-types --test tests/integration/pipeline-execution.integration.test.ts` (pass)
+- `node --strip-types --test sidequest/pipeline-runners/direct-execution-path-guard.test.ts` (pass)
+
+---
+
+## [2.3.12] - 2026-03-04
+
+### Summary
+
+Documentation sync release to align runbooks, deployment guides, API reference, and architecture/component docs with current TypeScript runtime paths, Node 22 execution model, and queue/job API behavior.
+
+### Changed
+
+- Updated execution/deployment docs to current runtime conventions:
+  - TypeScript entrypoints (`*.ts`) with `node --strip-types`
+  - PM2 config path `config/ecosystem.config.cjs`
+  - Node requirement alignment to v22+
+- Updated API docs to match current routes and behavior:
+  - Removed stale scan endpoints (`/api/scans/recent`, `/api/scans/stats`, `DELETE /api/scans/:jobId`)
+  - Added/updated jobs endpoints (`GET /api/jobs`, `GET /api/jobs/:jobId`, `POST /api/jobs/:jobId/cancel`, `POST /api/jobs/:jobId/retry`)
+  - Clarified cancel semantics (queued/paused jobs only; running jobs not cancellable)
+- Updated stale file/path references caused by JS→TS migrations and file moves:
+  - `api/server.ts`, `api/*/*.ts`, `sidequest/workers/*.ts`, `sidequest/pipeline-runners/*.ts`
+  - `sidequest/pipeline-core/types/duplicate-detection-types.ts` path adoption
+- Updated Doppler resilience docs to remove deleted example-file references and point to active docs/source.
+- Updated architecture/component documentation references and command snippets for current file layout.
+
+### Documentation
+
+- Refreshed docs across:
+  - `docs/API_REFERENCE.md`
+  - `docs/runbooks/PIPELINE_EXECUTION_FIX_SUMMARY.md`
+  - `docs/deployment/*.md` (verification, CI/CD, traditional deployment, README, summary)
+  - `docs/architecture/*` (including `README.md`, `CHEAT-SHEET.md`, `CACHE_TESTING.md`, `similarity-algorithm.md`, `DOPPLER_RESILIENCE_IMPLEMENTATION.md`)
+  - `docs/components/*` (plugin manager, claude health, bugfix audit, dashboard populate)
+  - `docs/quickstart/doppler-circuit-breaker.md`
+  - `docs/runbooks/DOPPLER_CIRCUIT_BREAKER.md`, `docs/runbooks/doppler-monitoring-setup.md`, `docs/runbooks/fix-missing-types.md`
+  - `docs/MCP_SERVERS.md`, `docs/MERMAID.md`, `docs/dashboard_ui/*`, `docs/INSTALL.md`
+
+### Validation
+
+- Performed targeted stale-reference scans across active docs and resolved all high-confidence non-historical findings.
+- Remaining hits are limited to intentional historical/changelog context (e.g., legacy references in top-level `docs/CHANGELOG.md`).
+
+---
+
 ## [2.3.11] - 2026-03-04
 
 ### Summary

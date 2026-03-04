@@ -437,7 +437,7 @@ Status: All marked "uncertain" because grep verification timed out. Test files a
 | `scripts/cleanup-error-logs.ts` | 380 | typescript |
 | `sidequest/pipeline-core/scanners/codebase-health-scanner.ts` | 249 | typescript |
 | `frontend/src/services/websocket.ts` | 418 | typescript |
-| `sidequest/types/duplicate-detection-types.ts` | 437 | typescript |
+| `sidequest/pipeline-core/types/duplicate-detection-types.ts` | 437 | typescript |
 | `scripts/validate-permissions.ts` | 165 | typescript |
 | `frontend/src/store/dashboard.ts` | 147 | typescript |
 | `sidequest/pipeline-core/scanners/timeout-pattern-detector.ts` | 526 | typescript |
@@ -451,7 +451,7 @@ Status: All marked "uncertain" because grep verification timed out. Test files a
 | `api/preload.ts` | 10 | typescript |
 | `scripts/archive/migrate-db-to-render.js` | 262 | javascript |
 | `api/routes/pipelines.ts` | 305 | typescript |
-| `sidequest/utils/doppler-resilience.example.js` | 290 | javascript |
+| `sidequest/utils/doppler-resilience.ts` | 290 | javascript |
 | `scripts/verify-setup.ts` | 246 | typescript |
 | `docs/setup/configure-discord-alerts.js` | 214 | javascript |
 | `scripts/analyze-duplicates.py` | 80 | python |
@@ -487,7 +487,7 @@ Status: All marked "uncertain" because grep verification timed out. Test files a
 | `sidequest/utils/time-helpers.ts` | 55 | typescript |
 | `eslint.config.js` | 56 | javascript |
 
-Fresh bounded orphan check and follow-up action (2026-03-04): `sidequest/utils/doppler-resilience.example.js` was removed and backed up as `sidequest/utils/doppler-resilience.example.js.bak`.
+Fresh bounded orphan check and follow-up action (2026-03-04): `sidequest/utils/doppler-resilience.ts` was removed and backed up as `sidequest/utils/doppler-resilience.ts.bak`.
 Prior orphan evidence before removal: `docs/output/astgrep/astgrep-orphans-clean-2026-03-04.json` (`status: likely`) and `docs/output/astgrep/orphan-triage-2026-03-04.json` (`likely_valid_orphan`).
 
 #### Test Files (90 total)
