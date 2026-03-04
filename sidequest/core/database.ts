@@ -196,6 +196,9 @@ function rowToParsedJob(row: JobRow): ParsedJob {
 /**
  * Initialize better-sqlite3 database with WAL mode
  * Must be called before any database operations
+ *
+ * @param dbPath Optional database path override.
+ * @returns Initialized database instance.
  */
 export async function initDatabase(dbPath?: string): Promise<DatabaseType> {
   if (db) return db;
@@ -256,6 +259,8 @@ export async function initDatabase(dbPath?: string): Promise<DatabaseType> {
 /**
  * Get database instance (initializes if needed)
  * Note: This is synchronous but requires initDatabase() to be called first
+ *
+ * @returns Initialized database instance.
  */
 export function getDatabase(): DatabaseType {
   if (!db) {
@@ -266,6 +271,8 @@ export function getDatabase(): DatabaseType {
 
 /**
  * Check if database is initialized
+ *
+ * @returns `true` when a database instance is ready.
  */
 export function isDatabaseReady(): boolean {
   return db !== null;
@@ -273,6 +280,8 @@ export function isDatabaseReady(): boolean {
 
 /**
  * Save a job to the database
+ *
+ * @param job Job payload to persist.
  */
 export function saveJob(job: SaveJobInput): void {
   if (!isValidJobId(job.id)) {
@@ -319,6 +328,10 @@ function queryOne<T = Record<string, unknown>>(sql: string, params: (string | nu
 
 /**
  * Get jobs for a pipeline with filtering and pagination
+ *
+ * @param pipelineId Pipeline identifier.
+ * @param options Query options.
+ * @returns Job array or `{ jobs, total }` when `includeTotal` is enabled.
  */
 export function getJobs(pipelineId: string, options: JobQueryOptions = {}): ParsedJob[] | { jobs: ParsedJob[]; total: number } {
   const { status, limit = 10, offset = 0, tab, includeTotal = false } = options;
@@ -374,6 +387,9 @@ export function getJobs(pipelineId: string, options: JobQueryOptions = {}): Pars
 
 /**
  * Get a single job by ID
+ *
+ * @param id Job identifier.
+ * @returns Parsed job or `null` when not found.
  */
 export function getJobById(id: string): ParsedJob | null {
   const row = queryOne<JobRow>('SELECT * FROM jobs WHERE id = ?', [id]);
@@ -383,6 +399,9 @@ export function getJobById(id: string): ParsedJob | null {
 
 /**
  * Get total job count with optional status filter
+ *
+ * @param options Optional status filter.
+ * @returns Count of matching jobs.
  */
 export function getJobCount(options: { status?: string } = {}): number {
   const { status } = options;
@@ -401,6 +420,9 @@ export function getJobCount(options: { status?: string } = {}): number {
 
 /**
  * Get all jobs across all pipelines
+ *
+ * @param options Query options.
+ * @returns Matching parsed jobs.
  */
 export function getAllJobs(options: AllJobsQueryOptions = {}): ParsedJob[] {
   const { status, limit = 100, offset = 0 } = options;
@@ -422,6 +444,9 @@ export function getAllJobs(options: AllJobsQueryOptions = {}): ParsedJob[] {
 
 /**
  * Get job counts for a pipeline
+ *
+ * @param pipelineId Pipeline identifier.
+ * @returns Aggregate counts or `null` when no rows exist.
  */
 export function getJobCounts(pipelineId: string): JobCounts | null {
   return queryOne<JobCounts>(`
@@ -438,6 +463,9 @@ export function getJobCounts(pipelineId: string): JobCounts | null {
 
 /**
  * Get the most recent job for a pipeline
+ *
+ * @param pipelineId Pipeline identifier.
+ * @returns Most recent parsed job or `null`.
  */
 export function getLastJob(pipelineId: string): ParsedJob | null {
   const row = queryOne<JobRow>(`
@@ -453,6 +481,8 @@ export function getLastJob(pipelineId: string): ParsedJob | null {
 
 /**
  * Get all pipelines with job statistics
+ *
+ * @returns Pipeline-level aggregate stats.
  */
 export function getAllPipelineStats(): PipelineStats[] {
   const database = getDatabase();
@@ -473,6 +503,9 @@ export function getAllPipelineStats(): PipelineStats[] {
 
 /**
  * Import existing reports into the database
+ *
+ * @param reportsDir Directory containing summary report JSON files.
+ * @returns Number of imported report jobs.
  */
 export async function importReportsToDatabase(reportsDir: string): Promise<number> {
   if (!fs.existsSync(reportsDir)) {
@@ -534,6 +567,9 @@ export async function importReportsToDatabase(reportsDir: string): Promise<numbe
 
 /**
  * Import job logs from sidequest/logs directory
+ *
+ * @param logsDir Directory containing log JSON files.
+ * @returns Number of imported log jobs.
  */
 export async function importLogsToDatabase(logsDir: string): Promise<number> {
   if (!fs.existsSync(logsDir)) {
@@ -607,6 +643,8 @@ export async function importLogsToDatabase(logsDir: string): Promise<number> {
 
 /**
  * Get database health status with comprehensive metrics
+ *
+ * @returns Current database health snapshot.
  */
 export function getHealthStatus(): HealthStatus {
   let dbSizeBytes = 0;
@@ -638,6 +676,8 @@ export function getHealthStatus(): HealthStatus {
 
 /**
  * Close the database connection
+ *
+ * Safely closes the active SQLite connection and resets internal state.
  */
 export function closeDatabase(): void {
   if (db) {
@@ -659,6 +699,9 @@ function isValidJobId(id: string): boolean {
 /**
  * Bulk import jobs (for database migration)
  * Skips jobs that already exist (by ID)
+ *
+ * @param jobs Jobs to import.
+ * @returns Import summary including skipped records and validation errors.
  */
 export function bulkImportJobs(jobs: BulkImportJob[]): BulkImportResult {
   const database = getDatabase();

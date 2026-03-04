@@ -10,27 +10,26 @@ import type { ExtendedWebSocketServer, WsClientInfo } from './websocket.ts';
 
 const logger = createComponentLogger('EventBroadcaster');
 
+/**
+ * Publishes scan and system events over WebSocket channels.
+ */
 export class ScanEventBroadcaster {
   wss: ExtendedWebSocketServer | null;
 
   /**
-   * Constructor.
+   * Creates a broadcaster instance.
    *
-   * @param {ExtendedWebSocketServer | null} wss - The wss
+   * @param wss Extended WebSocket server instance or `null` when disabled.
    */
   constructor(wss: ExtendedWebSocketServer | null) {
     this.wss = wss;
   }
 
   /**
-   * Broadcast scan started event
-   */
-  /**
-   * Broadcast scan started.
+   * Broadcasts a scan-started event.
    *
-   * @param {string} scanId - The scanId
-   * @param {Record<string} details - The details
-   * @param {*} unknown> - The unknown>
+   * @param scanId Unique scan id.
+   * @param details Scan metadata payload.
    */
   broadcastScanStarted(scanId: string, details: Record<string, unknown>): void {
     this.broadcast({
@@ -43,14 +42,10 @@ export class ScanEventBroadcaster {
   }
 
   /**
-   * Broadcast scan progress event
-   */
-  /**
-   * Broadcast progress.
+   * Broadcasts scan progress updates.
    *
-   * @param {string} scanId - The scanId
-   * @param {Record<string} progress - The progress
-   * @param {*} unknown> - The unknown>
+   * @param scanId Unique scan id.
+   * @param progress Progress payload.
    */
   broadcastProgress(scanId: string, progress: Record<string, unknown>): void {
     this.broadcast({
@@ -67,14 +62,10 @@ export class ScanEventBroadcaster {
   }
 
   /**
-   * Broadcast duplicate found event
-   */
-  /**
-   * Broadcast duplicate found.
+   * Broadcasts a duplicate-detected event.
    *
-   * @param {string} scanId - The scanId
-   * @param {Record<string} duplicate - The duplicate
-   * @param {*} unknown> - The unknown>
+   * @param scanId Unique scan id.
+   * @param duplicate Duplicate details payload.
    */
   broadcastDuplicateFound(scanId: string, duplicate: Record<string, unknown>): void {
     this.broadcast({
@@ -93,14 +84,10 @@ export class ScanEventBroadcaster {
   }
 
   /**
-   * Broadcast scan completed event
-   */
-  /**
-   * Broadcast scan completed.
+   * Broadcasts a scan-completed event.
    *
-   * @param {string} scanId - The scanId
-   * @param {Record<string} results - The results
-   * @param {*} unknown> - The unknown>
+   * @param scanId Unique scan id.
+   * @param results Final scan results payload.
    */
   broadcastScanCompleted(scanId: string, results: Record<string, unknown>): void {
     const metrics = results.metrics as Record<string, unknown> | undefined;
@@ -119,13 +106,10 @@ export class ScanEventBroadcaster {
   }
 
   /**
-   * Broadcast scan failed event
-   */
-  /**
-   * Broadcast scan failed.
+   * Broadcasts a scan-failed event.
    *
-   * @param {string} scanId - The scanId
-   * @param {Error} error - The error
+   * @param scanId Unique scan id.
+   * @param error Failure error.
    */
   broadcastScanFailed(scanId: string, error: Error): void {
     const extError = error as ExtendedError;
@@ -141,14 +125,10 @@ export class ScanEventBroadcaster {
   }
 
   /**
-   * Broadcast high-impact duplicate alert
-   */
-  /**
-   * Broadcast high impact alert.
+   * Broadcasts a high-impact duplicate alert.
    *
-   * @param {string} scanId - The scanId
-   * @param {Record<string} duplicate - The duplicate
-   * @param {*} unknown> - The unknown>
+   * @param scanId Unique scan id.
+   * @param duplicate High-impact duplicate payload.
    */
   broadcastHighImpactAlert(scanId: string, duplicate: Record<string, unknown>): void {
     this.broadcast({
@@ -166,14 +146,10 @@ export class ScanEventBroadcaster {
   }
 
   /**
-   * Broadcast cache event
-   */
-  /**
-   * Broadcast cache event.
+   * Broadcasts a cache-related event.
    *
-   * @param {string} eventType - The eventType
-   * @param {Record<string} details - The details
-   * @param {*} unknown> - The unknown>
+   * @param eventType Cache event subtype.
+   * @param details Cache event details payload.
    */
   broadcastCacheEvent(eventType: string, details: Record<string, unknown>): void {
     this.broadcast({
@@ -186,13 +162,9 @@ export class ScanEventBroadcaster {
   }
 
   /**
-   * Broadcast system stats update
-   */
-  /**
-   * Broadcast stats update.
+   * Broadcasts system stats updates.
    *
-   * @param {Record<string} stats - The stats
-   * @param {*} unknown> - The unknown>
+   * @param stats Stats payload.
    */
   broadcastStatsUpdate(stats: Record<string, unknown>): void {
     this.broadcast({
@@ -209,14 +181,10 @@ export class ScanEventBroadcaster {
   }
 
   /**
-   * Broadcast message to subscribed clients
-   */
-  /**
-   * Broadcast.
+   * Broadcasts a message to all clients or a subscribed channel.
    *
-   * @param {Record<string} message - The message
-   * @param {*} unknown> - The unknown>
-   * @param {string | null} [channel=null] - The channel
+   * @param message Message payload.
+   * @param channel Optional channel filter.
    */
   broadcast(message: Record<string, unknown>, channel: string | null = null): void {
     if (!this.wss) {
@@ -238,16 +206,11 @@ export class ScanEventBroadcaster {
   }
 
   /**
-   * Send message to specific client
-   */
-  /**
-   * Send to client.
+   * Sends a message to a specific client.
    *
-   * @param {string} clientId - The clientId
-   * @param {Record<string} message - The message
-   * @param {*} unknown> - The unknown>
-   *
-   * @returns {boolean} True if successful, False otherwise
+   * @param clientId Client id.
+   * @param message Message payload.
+   * @returns `true` when sent successfully.
    */
   sendToClient(clientId: string, message: Record<string, unknown>): boolean {
     if (!this.wss) {
@@ -259,12 +222,9 @@ export class ScanEventBroadcaster {
   }
 
   /**
-   * Get connected clients info
-   */
-  /**
-   * Get the client info.
+   * Returns connected client metadata.
    *
-   * @returns {{ total_clients: number; clients: WsClientInfo[] }} The client info
+   * @returns Client info payload.
    */
   getClientInfo(): { total_clients: number; clients: WsClientInfo[] } {
     if (!this.wss) {

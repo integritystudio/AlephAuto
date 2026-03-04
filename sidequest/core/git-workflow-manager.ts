@@ -43,7 +43,7 @@ export interface WorkflowResult {
 }
 
 /**
- * GitWorkflowManager - manages git operations for automated workflows
+ * Coordinates git automation for job execution workflows.
  */
 export class GitWorkflowManager {
   readonly baseBranch: string;
@@ -51,6 +51,11 @@ export class GitWorkflowManager {
   readonly dryRun: boolean;
   readonly branchManager: BranchManager;
 
+  /**
+   * Creates a workflow manager backed by `BranchManager`.
+   *
+   * @param options Branch and git execution options.
+   */
   constructor(options: BranchManagerOptions = {}) {
     this.baseBranch = options.baseBranch || 'main';
     this.branchPrefix = options.branchPrefix || 'automated';
@@ -69,6 +74,13 @@ export class GitWorkflowManager {
     }, 'GitWorkflowManager initialized');
   }
 
+  /**
+   * Creates an isolated branch for a job.
+   *
+   * @param repositoryPath Local repository path.
+   * @param jobInfo Job metadata used for branch naming/context.
+   * @returns Branch metadata when creation succeeds; otherwise `null`.
+   */
   async createJobBranch(repositoryPath: string, jobInfo: JobBranchContext): Promise<BranchResult | null> {
     try {
       const branchInfo = await this.branchManager.createJobBranch(
@@ -97,14 +109,33 @@ export class GitWorkflowManager {
     }
   }
 
+  /**
+   * Checks whether the repository has uncommitted changes.
+   *
+   * @param repositoryPath Local repository path.
+   * @returns `true` when changes are present.
+   */
   async hasChanges(repositoryPath: string): Promise<boolean> {
     return this.branchManager.hasChanges(repositoryPath);
   }
 
+  /**
+   * Lists changed files in the repository.
+   *
+   * @param repositoryPath Local repository path.
+   * @returns Relative file paths with changes.
+   */
   async getChangedFiles(repositoryPath: string): Promise<string[]> {
     return this.branchManager.getChangedFiles(repositoryPath);
   }
 
+  /**
+   * Commits staged changes using provided context.
+   *
+   * @param repositoryPath Local repository path.
+   * @param commitContext Commit message context.
+   * @returns Commit SHA when commit succeeds; otherwise `null`.
+   */
   async commitChanges(repositoryPath: string, commitContext: CommitContext): Promise<string | null> {
     try {
       const normalizedContext = {
@@ -129,6 +160,13 @@ export class GitWorkflowManager {
     }
   }
 
+  /**
+   * Pushes a branch to the remote.
+   *
+   * @param repositoryPath Local repository path.
+   * @param branchName Branch name to push.
+   * @returns `true` when push succeeds.
+   */
   async pushBranch(repositoryPath: string, branchName: string): Promise<boolean> {
     try {
       const pushed = await this.branchManager.pushBranch(repositoryPath, branchName);
@@ -146,6 +184,13 @@ export class GitWorkflowManager {
     }
   }
 
+  /**
+   * Creates a pull request for a branch.
+   *
+   * @param repositoryPath Local repository path.
+   * @param prContext Pull request context payload.
+   * @returns Pull request URL when created; otherwise `null`.
+   */
   async createPullRequest(repositoryPath: string, prContext: PRContext): Promise<string | null> {
     try {
       const prUrl = await this.branchManager.createPullRequest(repositoryPath, prContext);
@@ -167,6 +212,13 @@ export class GitWorkflowManager {
     }
   }
 
+  /**
+   * Cleans up branch state after workflow completion/failure.
+   *
+   * @param repositoryPath Local repository path.
+   * @param branchName Working branch to clean up.
+   * @param originalBranch Branch to restore.
+   */
   async cleanupBranch(repositoryPath: string, branchName: string, originalBranch: string): Promise<void> {
     try {
       await this.branchManager.cleanupBranch(repositoryPath, branchName, originalBranch);
@@ -176,6 +228,14 @@ export class GitWorkflowManager {
     }
   }
 
+  /**
+   * Runs the full git workflow for a job.
+   *
+   * @param repositoryPath Local repository path.
+   * @param gitInfo Branch context for the job.
+   * @param messageGenerator Commit/PR message generator.
+   * @returns Workflow result summary.
+   */
   async executeWorkflow(repositoryPath: string, gitInfo: GitInfo, messageGenerator: MessageGenerator): Promise<WorkflowResult> {
     const result: WorkflowResult = {
       changedFiles: [],

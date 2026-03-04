@@ -27,14 +27,10 @@ const PUBLIC_PATHS = [
 ];
 
 /**
- * Validate API key
- */
-/**
- * Validate api key.
+ * Validates an API key using constant-time comparison.
  *
- * @param {string} apiKey - The apiKey
- *
- * @returns {boolean} True if successful, False otherwise
+ * @param apiKey API key from request headers.
+ * @returns `true` when the key is valid or auth is intentionally disabled.
  */
 function validateApiKey(apiKey: string): boolean {
   if (!apiKey) {
@@ -61,14 +57,11 @@ function validateApiKey(apiKey: string): boolean {
 }
 
 /**
- * Authentication middleware
- */
-/**
- * Auth middleware.
+ * Enforces API key authentication for protected routes.
  *
- * @param {Request} req - The request
- * @param {Response} res - The response
- * @param {NextFunction} next - The next
+ * @param req Express request.
+ * @param res Express response.
+ * @param next Express next callback.
  */
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   // Skip authentication for public paths (prefix match)

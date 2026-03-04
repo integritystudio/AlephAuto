@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-04 | **Last Session:** 2026-03-04 (CS8 completion + backlog migration)
+**Last Updated:** 2026-03-04 | **Last Session:** 2026-03-04 (DOC1-DOC7 completion + backlog migration)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -13,6 +13,8 @@ Technical debt and planned improvements.
 No active deferred/blocked items.
 
 Closed items migrated to changelog:
+- [v2.3.7](changelog/2.3/CHANGELOG.md) (`DOC1-DOC7`)
+- [v2.3.6](changelog/2.3/CHANGELOG.md) (`DOC8`)
 - [v2.3.5](changelog/2.3/CHANGELOG.md) (`CS8`)
 - [v2.3.4](changelog/2.3/CHANGELOG.md) (`CS7`)
 - [v2.3.3](changelog/2.3/CHANGELOG.md) (`CX7`)
@@ -62,16 +64,7 @@ Thresholds: ≤300 lines, ≤20 methods.
 
 ### Documentation Coverage
 
-| ID | Description | Metric |
-|----|-------------|--------|
-| DOC1 | Overall documentation coverage | **0%** (0/889 functions documented) |
-| DOC2 | `api/activity-feed.ts` | 6 public methods undocumented |
-| DOC3 | `api/event-broadcaster.ts` | 10 public methods undocumented |
-| DOC4 | `api/middleware/*.ts` (auth, validation, error-handler) | All functions undocumented |
-| DOC5 | `sidequest/core/database.ts` | 15+ exported functions undocumented |
-| DOC6 | `sidequest/core/server.ts` | Core job queue base class undocumented |
-| DOC7 | `sidequest/core/git-workflow-manager.ts` | All public methods undocumented |
-| DOC8 | `sidequest/core/job-repository.ts` | All public methods undocumented |
+No active documentation backlog items.
 
 ### Security
 
@@ -80,4 +73,3 @@ No issues found (SQL injection, XSS, command injection, hardcoded secrets, insec
 ### Remaining Priority
 
 1. **SV1** — Replace `console.log` with structured logger in non-test code
-2. **DOC1-8** — Add JSDoc starting with core modules

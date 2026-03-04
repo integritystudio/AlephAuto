@@ -12,7 +12,7 @@ import { sendValidationError } from '../utils/api-error.ts';
 const logger = createComponentLogger('ValidationMiddleware');
 
 /**
- * Validation error detail
+ * Structured validation error detail.
  */
 interface ValidationErrorDetail {
   field: string;
@@ -21,7 +21,10 @@ interface ValidationErrorDetail {
 }
 
 /**
- * Format Zod validation errors into user-friendly messages
+ * Formats Zod errors into API-friendly detail entries.
+ *
+ * @param error Zod validation error.
+ * @returns List of normalized validation errors.
  */
 function formatZodErrors(error: ZodError): ValidationErrorDetail[] {
   return error.errors.map(err => ({
@@ -32,7 +35,10 @@ function formatZodErrors(error: ZodError): ValidationErrorDetail[] {
 }
 
 /**
- * Create validation middleware for a Zod schema
+ * Creates middleware that validates `req.body` against a schema.
+ *
+ * @param schema Zod schema for request body.
+ * @returns Express middleware function.
  */
 export function validateRequest(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -66,8 +72,10 @@ export function validateRequest(schema: ZodSchema) {
 }
 
 /**
- * Validate query parameters
- * Stores validated data in req.validatedQuery to avoid read-only req.query
+ * Creates middleware that validates query parameters.
+ *
+ * @param schema Zod schema for query params.
+ * @returns Express middleware function.
  */
 export function validateQuery(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -95,7 +103,10 @@ export function validateQuery(schema: ZodSchema) {
 }
 
 /**
- * Validate path parameters
+ * Creates middleware that validates route params.
+ *
+ * @param schema Zod schema for route params.
+ * @returns Express middleware function.
  */
 export function validateParams(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction) => {

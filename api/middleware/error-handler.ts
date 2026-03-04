@@ -19,6 +19,12 @@ interface ApiError extends Error {
 
 const SENSITIVE_KEYS = new Set(['password', 'token', 'secret', 'apiKey', 'api_key', 'authorization', 'key', 'credential', 'credentials']);
 
+/**
+ * Redacts sensitive keys from request bodies before logging.
+ *
+ * @param body Request body.
+ * @returns Sanitized body with sensitive fields masked.
+ */
 function sanitizeBody(body: unknown): unknown {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return body;
   return Object.fromEntries(
@@ -29,7 +35,12 @@ function sanitizeBody(body: unknown): unknown {
 }
 
 /**
- * Error handler middleware
+ * Handles API errors and sends a standardized JSON response.
+ *
+ * @param err Error object raised by route handlers.
+ * @param req Express request.
+ * @param res Express response.
+ * @param _next Express next callback (unused).
  */
 export function errorHandler(err: ApiError, req: Request, res: Response, _next: NextFunction): void {
   // Log error

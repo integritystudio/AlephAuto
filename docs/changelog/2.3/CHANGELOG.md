@@ -6,6 +6,52 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.7] - 2026-03-04
+
+### Summary
+
+Resolved documentation backlog items `DOC1-DOC7` by adding and normalizing JSDoc across API activity/event modules, middleware, and Sidequest core workflow/database/server modules.
+
+### Changed
+
+- Updated JSDoc coverage in API modules:
+  - `api/activity-feed.ts` (public `ActivityFeedManager` API)
+  - `api/event-broadcaster.ts` (all broadcaster public methods; removed malformed duplicate blocks)
+  - `api/middleware/auth.ts`, `api/middleware/validation.ts`, `api/middleware/error-handler.ts`
+- Updated JSDoc coverage in Sidequest core modules:
+  - `sidequest/core/database.ts` (exported function params/returns)
+  - `sidequest/core/server.ts` (base class + public lifecycle/queue/job methods)
+  - `sidequest/core/git-workflow-manager.ts` (public workflow methods)
+- Backlog `DOC1-DOC7` migrated and closed in `docs/BACKLOG.md`.
+
+### Validation
+
+- `node --strip-types --test tests/unit/activity-feed.test.ts tests/unit/event-broadcaster.test.ts tests/unit/database.test.ts tests/unit/sidequest-server.test.ts` (pass)
+- `node --strip-types --test tests/unit/input-validation.test.ts tests/unit/validation.test.ts` (pass)
+- `npm run test:validate-backlog` (pass)
+
+---
+
+## [2.3.6] - 2026-03-04
+
+### Summary
+
+Resolved documentation backlog item `DOC8` by adding JSDoc coverage for the `JobRepository` public API.
+
+### Changed
+
+- Updated `sidequest/core/job-repository.ts`:
+  - Added method-level JSDoc for constructor and all public methods.
+  - Documented repository lifecycle methods (`initialize`, `close`, `reset`) and query/import methods with params and return behavior.
+  - Added JSDoc to `createJobRepository` factory function.
+- Backlog `DOC8` migrated and closed in `docs/BACKLOG.md`.
+
+### Validation
+
+- `node --strip-types --test tests/unit/job-repository-factory.test.ts` (pass)
+
+---
+
 ## [2.3.5] - 2026-03-04
 
 ### Summary

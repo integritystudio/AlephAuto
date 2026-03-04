@@ -80,7 +80,7 @@ interface JobActionResult {
 }
 
 /**
- * SidequestServer - Manages job execution with Sentry logging and optional Git workflow
+ * Base job-queue server with retry, persistence, and optional git workflow support.
  */
 export class SidequestServer extends EventEmitter {
   jobs: Map<string, Job>;
@@ -99,6 +99,11 @@ export class SidequestServer extends EventEmitter {
   gitWorkflowManager: GitWorkflowManager | undefined;
   private _dbReady: Promise<void>;
 
+  /**
+   * Creates a Sidequest worker instance.
+   *
+   * @param options Runtime configuration for queueing, retries, logging, and git integration.
+   */
   constructor(options: SidequestServerOptions = {}) {
     super();
     this.jobs = new Map();
@@ -155,6 +160,13 @@ export class SidequestServer extends EventEmitter {
     }
   }
 
+  /**
+   * Enqueues and returns a new job.
+   *
+   * @param jobId Job identifier.
+   * @param jobData Arbitrary job payload.
+   * @returns Created in-memory job object.
+   */
   createJob(jobId: string, jobData: Record<string, unknown>): Job {
     const job: Job = {
       id: jobId,
@@ -198,6 +210,9 @@ export class SidequestServer extends EventEmitter {
     return job;
   }
 
+  /**
+   * Drains queued jobs up to configured concurrency.
+   */
   async processQueue(): Promise<void> {
     if (this.isRunning === false) {
       return;
@@ -217,6 +232,11 @@ export class SidequestServer extends EventEmitter {
     }
   }
 
+  /**
+   * Executes a job lifecycle with tracing, retry handling, and persistence.
+   *
+   * @param jobId Job identifier.
+   */
   async executeJob(jobId: string): Promise<void> {
     const job = this.jobs.get(jobId);
     if (!job) {
@@ -540,6 +560,9 @@ export class SidequestServer extends EventEmitter {
   /**
    * Generate commit message for job
    * Override this method to customize commit messages
+   *
+   * @param job Completed job context.
+   * @returns Commit title/body payload.
    */
   async _generateCommitMessage(job: Job): Promise<{ title: string; body: string }> {
     return {
@@ -551,6 +574,10 @@ export class SidequestServer extends EventEmitter {
   /**
    * Generate PR context for job
    * Override this method to customize PR details
+   *
+   * @param job Completed job context.
+   * @param commitMessage Optional pre-generated commit message.
+   * @returns Pull request context payload.
    */
   async _generatePRContext(job: Job, commitMessage?: { title: string; body: string }): Promise<{ branchName: string; title: string; body: string; labels: string[] }> {
     const msg = commitMessage ?? await this._generateCommitMessage(job);
@@ -581,21 +608,35 @@ export class SidequestServer extends EventEmitter {
 
   /**
    * Override this method to define job execution logic
+   *
+   * @param _job Job to execute.
+   * @returns Job result payload.
    */
   async runJobHandler(_job: Job): Promise<unknown> {
     throw new Error('runJobHandler must be implemented by subclass');
   }
 
+  /**
+   * Starts queue processing after database initialization completes.
+   */
   async start(): Promise<void> {
     await this._dbReady;
     this.isRunning = true;
     this.processQueue();
   }
 
+  /**
+   * Stops queue processing for new jobs.
+   */
   stop(): void {
     this.isRunning = false;
   }
 
+  /**
+   * Convenience setter to override `runJobHandler`.
+   *
+   * @param handler Async job execution handler.
+   */
   set handleJob(handler: (job: Job) => Promise<unknown>) {
     this.runJobHandler = handler;
   }
@@ -611,24 +652,51 @@ export class SidequestServer extends EventEmitter {
     }
   }
 
+  /**
+   * Writes a success log file for a job.
+   *
+   * @param job Job to log.
+   */
   async logJobCompletion(job: Job): Promise<void> {
     await this._writeJobLog(job, '.json');
   }
 
+  /**
+   * Writes a failure log file for a job.
+   *
+   * @param job Failed job.
+   * @param error Failure error details.
+   */
   async logJobFailure(job: Job, error: Error): Promise<void> {
     await this._writeJobLog(job, '.error.json', {
       error: { message: error.message, stack: error.stack }
     });
   }
 
+  /**
+   * Returns a job by id.
+   *
+   * @param jobId Job identifier.
+   * @returns Job when found.
+   */
   getJob(jobId: string): Job | undefined {
     return this.jobs.get(jobId);
   }
 
+  /**
+   * Returns all currently tracked jobs.
+   *
+   * @returns List of in-memory jobs.
+   */
   getAllJobs(): Job[] {
     return Array.from(this.jobs.values());
   }
 
+  /**
+   * Returns queue and outcome statistics.
+   *
+   * @returns Aggregated job stats.
+   */
   getStats(): JobStats {
     return {
       total: this.jobs.size,
@@ -681,6 +749,12 @@ export class SidequestServer extends EventEmitter {
     return { success: true, message: `Job ${jobId} ${config.action} successfully`, job };
   }
 
+  /**
+   * Cancels a non-terminal job.
+   *
+   * @param jobId Job identifier.
+   * @returns Action result summary.
+   */
   cancelJob(jobId: string): JobActionResult {
     return this._executeJobAction(jobId, {
       action: 'cancelled',
@@ -695,6 +769,12 @@ export class SidequestServer extends EventEmitter {
     });
   }
 
+  /**
+   * Pauses a runnable job.
+   *
+   * @param jobId Job identifier.
+   * @returns Action result summary.
+   */
   pauseJob(jobId: string): JobActionResult {
     return this._executeJobAction(jobId, {
       action: 'paused',
@@ -707,6 +787,12 @@ export class SidequestServer extends EventEmitter {
     });
   }
 
+  /**
+   * Resumes a paused job and re-enqueues it.
+   *
+   * @param jobId Job identifier.
+   * @returns Action result summary.
+   */
   resumeJob(jobId: string): JobActionResult {
     return this._executeJobAction(jobId, {
       action: 'resumed',
