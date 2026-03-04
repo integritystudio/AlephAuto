@@ -19,6 +19,12 @@ npm run build:frontend                     # Build React dashboard
 # Testing
 npm test                                   # Unit tests
 npm run test:integration                   # Integration tests
+npm run test:all:core                      # Core Node suites (SKIP_ENV_SENSITIVE_TESTS=1)
+npm run test:all:env-safe                  # Env-sensitive suites that are sandbox-safe
+npm run test:all:env-host-required         # Env-sensitive suites requiring host capabilities
+npm run test:all:env                       # Env aggregate (safe + host-required)
+npm run test:all                           # Core Node + Python suites
+npm run test:all:full                      # Core + env-sensitive + Python suites
 npm run typecheck                          # TypeScript checks
 
 # Production
@@ -31,7 +37,7 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 - Cyclomatic Complexity: ≤10 | Cognitive Complexity: ≤15 | Function Length: ≤50 lines | Nesting Depth: ≤4
 - **NEVER** use `eval()` or `new Function()` with dynamic input
 - Use `createTempRepository()` from test fixtures (never hardcode `/tmp/` paths)
-- Run `npm test && npm run test:integration && npm run typecheck` before PRs
+- Run `npm run test:all && npm run typecheck` before PRs; on host-capable environments, also run `npm run test:all:env-host-required` (or `npm run test:all:full`)
 
 ## Critical Patterns
 
