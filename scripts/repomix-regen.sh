@@ -36,6 +36,7 @@ LOSSLESS_SCRIPT="$INPUT_DIR$LOSSLESS_FILE.sh"
 DOCS_ONLY_SCRIPT="$INPUT_DIR$DOCS_ONLY_FILE.sh"
 GIT_RANKED_SCRIPT="$INPUT_DIR$GIT_RANKED_FILE.sh"
 GITLOG_TOP_SCRIPT="$ROOT/scripts/generate-diff-summary.sh"
+GIT_RANKED_INCLUDE_LOGS_COUNT="${REPOMIX_GIT_RANKED_INCLUDE_LOGS_COUNT:-200}"
 
 echo "File set up..."
 # make output dir if not exists
@@ -74,7 +75,7 @@ echo "Success!"
 echo
 
 echo "Generating git-ranked repomix file for $PROJECT_DIR at $GIT_RANKED_FILE_NAME"
-bash "$GIT_RANKED_SCRIPT" "$ROOT" "$GIT_RANKED_REPO_FILE"
+bash "$GIT_RANKED_SCRIPT" "$ROOT" "$GIT_RANKED_REPO_FILE" "$GIT_RANKED_INCLUDE_LOGS_COUNT"
 echo "Success!"
 echo
 

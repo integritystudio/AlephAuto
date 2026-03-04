@@ -2,7 +2,7 @@
   "$schema": "https://repomix.com/schemas/latest/schema.json",
 
   "output": {
-    "filePath": "docs/repomix/docs.xml",
+    "filePath": "docs/repomix/repomix.xml",
     "style": "xml",
     "parsableStyle": true,
 
@@ -54,6 +54,10 @@
       "docs/archive/**",
       "docs/backlog/**",
       "docs/repomix/**",
+      "**/repomix-output.*",
+      "**/repo-compressed.*",
+      "**/repomix.xml",
+      "**/repo-compressed.xml",
 
       "**/node_modules/**",
       "**/.next/**",

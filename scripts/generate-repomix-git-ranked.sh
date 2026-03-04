@@ -39,11 +39,44 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Generated bundle patterns sourced from base repomix config.
+BUNDLE_IGNORE_PATTERNS_FILE="$ROOT/repomix.config.json"
+BUNDLE_IGNORE_PATTERNS_JSON="$(
+  jq -c '
+    [
+      .ignore.customPatterns[]?
+      | select(
+          . == "docs/repomix/**"
+          or . == "**/repomix-output.*"
+          or . == "**/repo-compressed.*"
+          or . == "**/repomix.xml"
+          or . == "**/repo-compressed.xml"
+        )
+    ] | unique
+  ' "$BUNDLE_IGNORE_PATTERNS_FILE" 2>/dev/null || echo '[]'
+)"
+
+# Generated artifacts that should never be re-ingested into ranked bundles.
+is_generated_bundle_artifact() {
+  local rel_path="$1"
+  case "$rel_path" in
+    sidequest/docs/gitlog-sidequest.txt)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 # Build include list from files touched in the selected commit window.
 declare -A seen=()
 include_files=()
 while IFS= read -r -d '' rel_path; do
   [[ -z "$rel_path" ]] && continue
+  if is_generated_bundle_artifact "$rel_path"; then
+    continue
+  fi
   [[ -n "${seen[$rel_path]:-}" ]] && continue
   # Keep only files that still exist on disk so repomix can resolve them.
   if [[ -f "$ROOT/$rel_path" ]]; then
@@ -61,6 +94,7 @@ include_files_json="$(printf '%s\0' "${include_files[@]}" | jq -Rs 'split("\u000
 
 jq -n \
   --argjson includeFiles "$include_files_json" \
+  --argjson bundleIgnorePatterns "$BUNDLE_IGNORE_PATTERNS_JSON" \
   --argjson includeLogsCount "$INCLUDE_LOGS_COUNT" \
   --argjson sortByChangesMaxCommits "$SORT_BY_CHANGES_MAX_COMMITS" \
   --arg includeDiffs "$INCLUDE_DIFFS" \
@@ -83,6 +117,12 @@ jq -n \
       "includeLogs": ($includeLogs == "true"),
       "includeLogsCount": $includeLogsCount
     }
+  },
+  "ignore": {
+    "useGitignore": true,
+    "useDotIgnore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": $bundleIgnorePatterns
   },
   "include": $includeFiles
 }' > "$TMP_CONFIG"
