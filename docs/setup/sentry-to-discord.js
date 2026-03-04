@@ -12,9 +12,13 @@
  *   pm2 start sentry-to-discord.js --name sentry-discord-bridge
  */
 
-const https = require('https');
-const http = require('http');
-require('dotenv').config();
+import https from 'node:https';
+import http from 'node:http';
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_SENTRY_WEBHOOK;
 const PORT = process.env.WEBHOOK_PORT || 3000;
@@ -127,7 +131,7 @@ function buildEmbedFields(sentryPayload, event, issue, level) {
   return fields.slice(0, DISCORD_LIMITS.FIELD_COUNT);
 }
 
-function formatSentryToDiscord(sentryPayload) {
+export function formatSentryToDiscord(sentryPayload) {
   const event = resolveEvent(sentryPayload);
   const issue = resolveIssue(sentryPayload);
   const action = resolveAction(sentryPayload);
@@ -156,14 +160,16 @@ function formatSentryToDiscord(sentryPayload) {
 /**
  * Send formatted message to Discord
  */
-function sendToDiscord(message) {
+export function sendToDiscord(message) {
   return new Promise((resolve, reject) => {
-    if (!DISCORD_WEBHOOK_URL) {
+    const webhookUrl = process.env.DISCORD_SENTRY_WEBHOOK || DISCORD_WEBHOOK_URL;
+
+    if (!webhookUrl) {
       reject(new Error('DISCORD_SENTRY_WEBHOOK not configured'));
       return;
     }
 
-    const url = new URL(DISCORD_WEBHOOK_URL);
+    const url = new URL(webhookUrl);
     const data = JSON.stringify(message);
 
     const options = {
@@ -176,7 +182,8 @@ function sendToDiscord(message) {
       }
     };
 
-    const req = https.request(options, (res) => {
+    const transport = url.protocol === 'http:' ? http : https;
+    const req = transport.request(options, (res) => {
       let body = '';
       res.on('data', (chunk) => body += chunk);
       res.on('end', () => {
@@ -197,7 +204,7 @@ function sendToDiscord(message) {
 /**
  * Respond with JSON body.
  */
-function writeJson(res, statusCode, payload) {
+export function writeJson(res, statusCode, payload) {
   res.writeHead(statusCode, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(payload));
 }
@@ -205,7 +212,7 @@ function writeJson(res, statusCode, payload) {
 /**
  * Respond with plain text body.
  */
-function writeText(res, statusCode, text) {
+export function writeText(res, statusCode, text) {
   res.writeHead(statusCode, { 'Content-Type': 'text/plain' });
   res.end(text);
 }
@@ -213,7 +220,7 @@ function writeText(res, statusCode, text) {
 /**
  * Read incoming request body.
  */
-function collectRequestBody(req) {
+export function collectRequestBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
     req.on('data', chunk => {
@@ -227,7 +234,7 @@ function collectRequestBody(req) {
 /**
  * Handle health check endpoint.
  */
-function handleHealthCheck(req, res) {
+export function handleHealthCheck(req, res) {
   if (req.method !== 'GET' || req.url !== '/health') {
     return false;
   }
@@ -244,14 +251,14 @@ function handleHealthCheck(req, res) {
 /**
  * Determine if request is for sentry webhook endpoint.
  */
-function isSentryWebhookRequest(req) {
+export function isSentryWebhookRequest(req) {
   return req.method === 'POST' && req.url === '/sentry-webhook';
 }
 
 /**
  * Log high-level webhook metadata.
  */
-function logSentryWebhook(sentryPayload) {
+export function logSentryWebhook(sentryPayload) {
   console.log(`[${new Date().toISOString()}] Received Sentry webhook`);
   console.log(`  Action: ${sentryPayload.action || 'N/A'}`);
   console.log(`  Event: ${sentryPayload.event?.title || sentryPayload.data?.event?.title || 'N/A'}`);
@@ -260,14 +267,14 @@ function logSentryWebhook(sentryPayload) {
 /**
  * Handle webhook delivery and forwarding.
  */
-async function handleSentryWebhook(req, res) {
+export async function handleSentryWebhook(req, res, dispatchToDiscord = sendToDiscord) {
   try {
     const body = await collectRequestBody(req);
     const sentryPayload = JSON.parse(body);
     logSentryWebhook(sentryPayload);
 
     const discordMessage = formatSentryToDiscord(sentryPayload);
-    await sendToDiscord(discordMessage);
+    await dispatchToDiscord(discordMessage);
 
     writeJson(res, 200, { success: true });
     console.log('  ✅ Forwarded to Discord');
@@ -281,13 +288,13 @@ async function handleSentryWebhook(req, res) {
 /**
  * Route incoming HTTP request.
  */
-async function routeRequest(req, res) {
+export async function routeRequest(req, res, dispatchToDiscord = sendToDiscord) {
   if (handleHealthCheck(req, res)) {
     return;
   }
 
   if (isSentryWebhookRequest(req)) {
-    await handleSentryWebhook(req, res);
+    await handleSentryWebhook(req, res, dispatchToDiscord);
     return;
   }
 
@@ -297,41 +304,59 @@ async function routeRequest(req, res) {
 /**
  * Create HTTP server to receive Sentry webhooks.
  */
-const server = http.createServer((req, res) => {
-  routeRequest(req, res).catch((error) => {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error('  ❌ Unexpected request handler error:', message);
-    if (!res.headersSent) {
-      writeJson(res, 500, { error: 'Internal server error' });
-    }
-  });
-});
+export function createWebhookServer(options = {}) {
+  const { dispatchToDiscord = sendToDiscord } = options;
 
-// Start server
-server.listen(PORT, HOST, () => {
-  console.log('╔════════════════════════════════════════════════════════════════╗');
-  console.log('║        Sentry → Discord Webhook Bridge Started! 🎣            ║');
-  console.log('╚════════════════════════════════════════════════════════════════╝\n');
-  console.log(`📡 Listening on: http://${HOST}:${PORT}`);
-  console.log(`🎯 Webhook endpoint: http://${HOST}:${PORT}/sentry-webhook`);
-  console.log(`❤️  Health check: http://${HOST}:${PORT}/health\n`);
-  console.log(`🔗 Discord webhook: ${DISCORD_WEBHOOK_URL ? '✅ Configured' : '❌ Not set'}\n`);
-  console.log('Ready to receive Sentry webhooks!\n');
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('Received SIGTERM, shutting down gracefully...');
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
+  return http.createServer((req, res) => {
+    routeRequest(req, res, dispatchToDiscord).catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('  ❌ Unexpected request handler error:', message);
+      if (!res.headersSent) {
+        writeJson(res, 500, { error: 'Internal server error' });
+      }
+    });
   });
-});
+}
 
-process.on('SIGINT', () => {
-  console.log('\nReceived SIGINT, shutting down gracefully...');
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
+function setupSignalHandlers(server) {
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('Received SIGTERM, shutting down gracefully...');
+    server.close(() => {
+      console.log('Server closed');
+      process.exit(0);
+    });
   });
-});
+
+  process.on('SIGINT', () => {
+    console.log('\nReceived SIGINT, shutting down gracefully...');
+    server.close(() => {
+      console.log('Server closed');
+      process.exit(0);
+    });
+  });
+}
+
+export function startServer() {
+  const server = createWebhookServer();
+  const webhookConfigured = Boolean(process.env.DISCORD_SENTRY_WEBHOOK || DISCORD_WEBHOOK_URL);
+
+  server.listen(PORT, HOST, () => {
+    console.log('╔════════════════════════════════════════════════════════════════╗');
+    console.log('║        Sentry → Discord Webhook Bridge Started! 🎣            ║');
+    console.log('╚════════════════════════════════════════════════════════════════╝\n');
+    console.log(`📡 Listening on: http://${HOST}:${PORT}`);
+    console.log(`🎯 Webhook endpoint: http://${HOST}:${PORT}/sentry-webhook`);
+    console.log(`❤️  Health check: http://${HOST}:${PORT}/health\n`);
+    console.log(`🔗 Discord webhook: ${webhookConfigured ? '✅ Configured' : '❌ Not set'}\n`);
+    console.log('Ready to receive Sentry webhooks!\n');
+  });
+
+  setupSignalHandlers(server);
+  return server;
+}
+
+const isDirectRun = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+if (isDirectRun) {
+  startServer();
+}
