@@ -36,6 +36,8 @@ The AlephAuto automation system consists of 11 specialized pipelines built on a 
 - Retry orchestration is owned by `SidequestServer` (`sidequest/core/server.ts`), including retry scheduling and `pendingRetries` accounting. Individual workers should not create ad-hoc retry jobs.
 - `GitActivityPipeline` default report-type selection is constrained to valid defaults (`weekly` / `monthly`) before fallback to configured default; this is a type-safety hardening and does not change pipeline data flow.
 - `collect_git_activity.py` and related tests were formatting-only updates; input/output contract remains unchanged.
+- Startup-once runner behavior is verified for `repo-cleanup`, `gitignore`, and `dashboard-populate`: `--run-now`/`--run` creates one startup job, waits for terminal status, and exits when `--cron` is not set.
+- Aggregate test execution is split into `test:all:core` (default, env-sensitive suites skipped via `SKIP_ENV_SENSITIVE_TESTS=1`) and `test:all:full` (includes env-sensitive suites requiring socket bind and writable report/database paths).
 
 ### System Characteristics
 
@@ -714,6 +716,18 @@ async addToGitignore(repoPath) {
   gitignoreEntry: "repomix-output.xml"
 }
 ```
+
+#### Scheduling & Startup Modes
+
+**Cron Schedule (Doppler):**
+```bash
+GITIGNORE_CRON_SCHEDULE="0 4 * * *"  # Daily at 4 AM
+```
+
+**Startup-once behavior:**
+
+- `--run-now` / `--run` and no `--cron`: create startup job, wait for terminal status, then exit.
+- `--run-now` / `--run` with `--cron`: run startup job first, then continue as a scheduler process.
 
 ---
 
@@ -1458,6 +1472,11 @@ find $TARGET_DIR -maxdepth 2 -type d \( \
 CLEANUP_CRON_SCHEDULE="0 3 * * 0"  # Weekly, Sunday 3 AM
 ```
 
+**Startup-once behavior:**
+
+- `--run-now` / `--run` and no `--cron`: create startup job, wait for terminal status, then exit.
+- `--run-now` / `--run` with `--cron`: run startup job first, then continue as a scheduler process.
+
 **Manual Execution:**
 ```bash
 npm run cleanup:once      # Run now
@@ -1692,6 +1711,8 @@ npm run dashboard:populate:dry    # Dry run preview
 npm run dashboard:populate:schedule  # Start cron scheduler
 ```
 
+**Startup-once behavior:** when invoked with `--run-now` / `--run` and without `--cron`, the runner waits for the startup job to finish and exits.
+
 #### File Locations
 
 | Component | Path |
@@ -1897,14 +1918,14 @@ this.worker.on('job:failed', (job: Job) => {
 
 ### 3. Configuration via Doppler
 
-**All pipelines use centralized config (`sidequest/core/config.ts`):**
+**Pipelines use centralized config (`sidequest/core/config.ts`) plus runner-local env/CLI overrides where needed:**
 ```typescript
 import { config } from './sidequest/core/config.ts';
 const port = config.jobsApiPort;    // Correct — typed access
-// NEVER use process.env directly (see CLAUDE.md)
-// Exception: test-refactor-pipeline and dashboard-populate-pipeline read
-// RUN_ON_STARTUP directly — intentional opt-out/opt-in defaults that differ
-// from config.runOnStartup (documented inline with comments in those files)
+// Preferred: typed config values from config.ts.
+// Runner-local scheduling/operation settings may read process.env directly
+// (for example, *_CRON_SCHEDULE, *_DRY_RUN, *_BASE_DIR/TARGET_DIR) and parse
+// CLI flags (--run-now/--run/--cron) to control one-shot vs scheduler mode.
 ```
 
 ### 4. Retry Logic with Error Classification
