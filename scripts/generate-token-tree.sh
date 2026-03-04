@@ -16,13 +16,9 @@ tree_lines_filtered="$(
   printf '%s\n' "$tree_lines" | awk '
     BEGIN { keep=0 }
     /^📈 Top 5 Files by Token Count:/ { keep=1 }
+    /^🔎 Security Check:/ { keep=0 }
     keep { print }
   '
 )"
 
-# If the header wasn’t found, still write something useful
-if [[ -z "$tree_lines_filtered" ]]; then
-  tree_lines_filtered="$tree_lines"
-fi
-
-printf '%s\n' "$tree_lines_filtered" > "$OUTPUT_FILE"
+printf '%s\n' "$tree_lines_filtered" > "$OUTPUT_FILE" 2>&1

@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
-# Runs repomix --compressand writes docs/repomix/repo-compressed.xml
 set -euo pipefail
 
-# filepaths
-PARENT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="${1:?Usage: $0 <root_dir> <output_file>}"
+OUTPUT_FILE="${2:?Usage: $0 <root_dir> <output_file>}"
 
-ROOT="${1}"
-OUTPUT_FILE="${2}"
-
-raw=$(NO_COLOR=1 timeout 60 npx repomix $ROOT -o "$OUTPUT_FILE")
+FORCE_COLOR=0 NO_COLOR=1 timeout 60 \
+npx repomix "$ROOT" -o "$OUTPUT_FILE" >/dev/null 2>&1

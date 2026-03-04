@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-04 | **Last Session:** 2026-03-04 (CX6 completion + closed-item migration)
+**Last Updated:** 2026-03-04 | **Last Session:** 2026-03-04 (CX7 completion + closed-item migration)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -13,6 +13,7 @@ Technical debt and planned improvements.
 No active deferred/blocked items.
 
 Closed items migrated to changelog:
+- [v2.3.3](changelog/2.3/CHANGELOG.md) (`CX7`)
 - [v2.3.2](changelog/2.3/CHANGELOG.md) (`CX6`)
 - [v2.3.1](changelog/2.3/CHANGELOG.md) (`LOG8`, `LOG9`)
 - [v2.2.0](changelog/2.2/CHANGELOG.md) (`CX1-CX5`, `CX8-CX10`, `CS5`, `SV2`, `SV3`)
@@ -37,14 +38,12 @@ Closed items migrated to changelog:
 
 | ID | File | Lines | Cyclomatic | Cognitive | Length | Exceeds | Status |
 |----|------|-------|-----------|-----------|--------|---------|--------|
-| CX7 | `tests/accuracy/accuracy-test.ts` | 42-81 | 15 | 14 | 40 | cyclomatic | |
 | CX11 | `docs/setup/sentry-to-discord.js` | 44-128 | **31** | 19 | 85 | cyclomatic, cognitive, length | Archive file |
 | CX12 | `scripts/archive/migrate-db-to-render.js` | 184-259 | 13 | 18 | 76 | cyclomatic, cognitive, length | Archive file |
 | CX13 | `scripts/archive/generate-retroactive-reports.js` | 76-176 | 11 | 14 | 101 | cyclomatic, length | Archive file |
 
 Thresholds: cyclomatic ≤10, cognitive ≤15, nesting ≤4, length ≤50 lines.
 
-> CX7: `extractFunctionName` — inherent fallback chain; hard to reduce without obscuring logic.
 > CX11-CX13: archive/docs files — low priority.
 
 ### Large Classes (Code Smells)

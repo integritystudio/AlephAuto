@@ -104,6 +104,10 @@ pipeline-core/
     timeout_detector.py
     timeout-pattern-detector.ts
   similarity/
+    .ast-grep-backups/
+      backup-20260301-031555-140/
+        backup-metadata.json
+        structural.py
     __init__.py
     __init__.pyi
     config.py
@@ -129,6 +133,7 @@ pipeline-core/
     timing-helpers.ts
     timing.py
     timing.pyi
+  constants.py
   doppler-health-monitor.ts
   inter-project-scanner.ts
   py.typed
@@ -1380,7 +1385,11 @@ export function classifyError(error: Error | null | undefined): ErrorClassificat
 // Priority 4: Default classification
 ⋮----
 /**
- * Type guard: check if an error is an HTTPError.
+ * Check if http error.
+ *
+ * @param {Error} error - The error
+ *
+ * @returns {error is HTTPError} True if http error, False otherwise
  */
 export function isHTTPError(error: Error): error is HTTPError
 export function isClassifiedError(error: Error): error is ClassifiedError
@@ -1405,14 +1414,14 @@ export function createScanError(message: string, cause: Error): Error
 <file path="pipeline-core/extractors/extract_blocks.py">
 class PatternMatchInput(BaseModel)
 ⋮----
-file_path: str = Field(..., max_length=500, description="Relative file path")
-rule_id: str = Field(..., max_length=100, description="ast-grep rule ID")
-matched_text: str = Field(..., max_length=100_000, description="Matched source code")
-line_start: int = Field(..., ge=1, le=1_000_000, description="Start line number")
-line_end: int = Field(..., ge=1, le=1_000_000, description="End line number")
-column_start: Optional[int] = Field(None, ge=0, le=10_000)
-column_end: Optional[int] = Field(None, ge=0, le=10_000)
-severity: Optional[str] = Field(None, max_length=20)
+file_path: str = Field(..., max_length=ValidationLimits.FILE_PATH_MAX, description="Relative file path")
+rule_id: str = Field(..., max_length=ValidationLimits.RULE_ID_MAX, description="ast-grep rule ID")
+matched_text: str = Field(..., max_length=ValidationLimits.MATCHED_TEXT_MAX, description="Matched source code")
+line_start: int = Field(..., ge=1, le=ValidationLimits.LINE_NUMBER_MAX, description="Start line number")
+line_end: int = Field(..., ge=1, le=ValidationLimits.LINE_NUMBER_MAX, description="End line number")
+column_start: Optional[int] = Field(None, ge=0, le=ValidationLimits.COLUMN_MAX)
+column_end: Optional[int] = Field(None, ge=0, le=ValidationLimits.COLUMN_MAX)
+severity: Optional[str] = Field(None, max_length=ValidationLimits.SEVERITY_MAX)
 confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
 ⋮----
 @field_validator('file_path')
@@ -1427,11 +1436,11 @@ line_start = info.data.get('line_start')
 ⋮----
 class RepositoryInfoInput(BaseModel)
 ⋮----
-path: str = Field(..., max_length=1000, description="Repository path")
-name: Optional[str] = Field(None, max_length=200)
-git_remote: Optional[str] = Field(None, max_length=500)
-git_branch: Optional[str] = Field(None, max_length=200)
-git_commit: Optional[str] = Field(None, max_length=50)
+path: str = Field(..., max_length=ValidationLimits.REPO_PATH_MAX, description="Repository path")
+name: Optional[str] = Field(None, max_length=ValidationLimits.REPO_NAME_MAX)
+git_remote: Optional[str] = Field(None, max_length=ValidationLimits.GIT_REMOTE_MAX)
+git_branch: Optional[str] = Field(None, max_length=ValidationLimits.GIT_BRANCH_MAX)
+git_commit: Optional[str] = Field(None, max_length=ValidationLimits.GIT_COMMIT_MAX)
 class PipelineInput(BaseModel)
 ⋮----
 repository_info: RepositoryInfoInput
@@ -1492,8 +1501,8 @@ full_path = Path(repo_path) / file_path
 ⋮----
 lines = full_path.read_text(encoding='utf-8').splitlines()
 ⋮----
-# Search backwards from match line (up to 10 lines before)
-search_start = max(0, line_start - 11)
+# Search backwards from match line (up to SEARCH_WINDOW lines before)
+search_start = max(0, line_start - ExtractionDefaults.SEARCH_WINDOW - 1)
 ⋮----
 func_name = _match_function_pattern(lines[i])
 ⋮----
@@ -1513,8 +1522,6 @@ def _get_function_name_from_tags(tags: list[str]) -> str | None
 ⋮----
 """Extract function name from block tags."""
 ⋮----
-return tag[9:]  # Remove 'function:' prefix
-⋮----
 """Try to add block using function-based deduplication.
     Returns True if block was processed (added or skipped as duplicate).
     """
@@ -1529,7 +1536,7 @@ location_key = f"{block.location.file_path}:{block.location.line_start}"
 def deduplicate_blocks(blocks: list[CodeBlock]) -> list[CodeBlock]
 ⋮----
 """Remove duplicate code blocks from the same location and function.
-    Priority 4: Deduplicate Pattern Matches
+    Deduplicate Pattern Matches (priority four)
     ast-grep patterns can match the same code multiple times within a function.
     This removes duplicates based on file:function_name, keeping only the earliest match.
     """
@@ -1546,7 +1553,7 @@ def _create_code_block(match: Dict, repository_info: Dict) -> CodeBlock
 """Create a CodeBlock from a pattern match (H4 fix: extracted helper)."""
 # Generate unique block ID
 block_key = f"{match['file_path']}:{match['line_start']}"
-block_hash = hashlib.sha256(block_key.encode()).hexdigest()[:12]
+block_hash = hashlib.sha256(block_key.encode()).hexdigest()[:BlockExtraction.BLOCK_HASH_LENGTH]
 block_id = f"cb_{block_hash}"
 # Map pattern_id to category
 category = PATTERN_CATEGORY_MAP.get(match['rule_id'], 'utility')
@@ -1568,12 +1575,12 @@ def group_duplicates(blocks: List[CodeBlock]) -> List[DuplicateGroup]
     Group similar code blocks using multi-layer similarity algorithm.
     Priority 2: Structural Similarity
     Uses the enhanced grouping algorithm that combines:
-    - Layer 1: Exact matching (hash-based)
-    - Layer 2: Structural similarity (AST-based)
-    - Layer 3: Semantic equivalence (TODO)
+    - Exact matching layer (hash-based)
+    - Structural similarity layer (AST-based)
+    - Semantic equivalence layer (category + tags)
     """
 # Use the multi-layer grouping algorithm
-groups = group_by_similarity(blocks, similarity_threshold=0.85)
+groups = group_by_similarity(blocks, similarity_threshold=SuggestionDefaults.GROUPING_SIMILARITY_THRESHOLD)
 ⋮----
 def generate_suggestions(groups: List[DuplicateGroup]) -> List[ConsolidationSuggestion]
 ⋮----
@@ -1653,7 +1660,7 @@ def _estimate_effort(group: DuplicateGroup, complexity: str) -> float
 ⋮----
 """Estimate effort in hours"""
 base_hours = {
-hours = base_hours.get(complexity, 2.0)
+hours = base_hours.get(complexity, EffortHours.DEFAULT)
 # Add time per affected file (more files = more refactoring)
 ⋮----
 # Add time for testing
@@ -1875,6 +1882,14 @@ constructor(options: BranchManagerOptions =
 async hasChanges(repositoryPath: string): Promise<boolean>
 async getChangedFiles(repositoryPath: string): Promise<string[]>
 async getCurrentBranch(repositoryPath: string): Promise<string>
+/**
+   * Check if git repository.
+   *
+   * @param {string} repositoryPath - The repositoryPath
+   *
+   * @returns {Promise<boolean>} True if git repository, False otherwise
+   * @async
+   */
 async isGitRepository(repositoryPath: string): Promise<boolean>
 async createJobBranch(repositoryPath: string, jobContext: JobBranchContext): Promise<BranchResult>
 async commitChanges(repositoryPath: string, commitContext: CommitContext): Promise<string>
@@ -2322,9 +2337,9 @@ model_config = {
     def roi_score(self) -> float
 ⋮----
 complexity_hours = {
-effort = self.estimated_effort_hours or complexity_hours.get(self.complexity, 10)
+effort = self.estimated_effort_hours or complexity_hours.get(self.complexity, SuggestionDefaults.DEFAULT_EFFORT_FALLBACK)
 ⋮----
-roi = (self.impact_score / effort) * 10
+roi = (self.impact_score / effort) * SuggestionDefaults.ROI_NORMALIZER
 ⋮----
 @computed_field
 @property
@@ -2480,9 +2495,9 @@ avg_lines_per_instance = self.total_lines / self.occurrence_count
 @property
     def impact_score(self) -> float
 ⋮----
-occurrence_factor = min(self.occurrence_count / 20.0, 1.0)
+occurrence_factor = min(self.occurrence_count / ImpactWeights.OCCURRENCE_CAP, 1.0)
 similarity_factor = self.similarity_score
-loc_factor = min(self.total_lines / 100.0, 1.0)
+loc_factor = min(self.total_lines / ImpactWeights.LOC_CAP, 1.0)
 score = (
 ⋮----
 @computed_field
@@ -2567,8 +2582,8 @@ class ScanConfiguration(BaseModel)
 ⋮----
 rules_used: List[str] = Field(default_factory=list, description="ast-grep rules applied")
 excluded_paths: List[str] = Field(default_factory=list, description="Paths excluded from scan")
-min_similarity_threshold: float = Field(0.8, ge=0.0, le=1.0, description="Minimum similarity for grouping")
-min_duplicate_size: int = Field(3, ge=1, description="Minimum lines for duplicate detection")
+min_similarity_threshold: float = Field(ScanDefaults.MIN_SIMILARITY_THRESHOLD, ge=0.0, le=1.0, description="Minimum similarity for grouping")
+min_duplicate_size: int = Field(ScanDefaults.MIN_DUPLICATE_SIZE, ge=1, description="Minimum lines for duplicate detection")
 class ScanMetrics(BaseModel)
 ⋮----
 total_code_blocks: int = Field(..., ge=0, description="Total code blocks detected")
@@ -2580,7 +2595,7 @@ structural_duplicates: int = Field(..., ge=0, description="Groups with structura
 semantic_duplicates: int = Field(..., ge=0, description="Groups with semantic similarity")
 total_duplicated_lines: int = Field(..., ge=0, description="Total lines in duplicate groups")
 potential_loc_reduction: int = Field(..., ge=0, description="Potential lines that could be removed")
-duplication_percentage: float = Field(..., ge=0.0, le=100.0, description="Percentage of code that's duplicated")
+duplication_percentage: float = Field(..., ge=0.0, le=ScanDefaults.PERCENTAGE_MAX, description="Percentage of code that's duplicated")
 total_suggestions: int = Field(..., ge=0, description="Total consolidation suggestions")
 quick_wins: int = Field(..., ge=0, description="Number of quick win suggestions")
 high_priority_suggestions: int = Field(..., ge=0, description="High priority suggestions")
@@ -2629,8 +2644,8 @@ dup_pct = self.metrics.duplication_percentage
 @property
     def consolidation_opportunity_score(self) -> float
 ⋮----
-dup_factor = min(self.metrics.duplication_percentage / 40 * 100, 100)
-quick_win_factor = min(self.metrics.quick_wins / 10 * 100, 100)
+dup_factor = min(self.metrics.duplication_percentage / DuplicationThresholds.HIGH_PCT * 100, 100)
+quick_win_factor = min(self.metrics.quick_wins / DuplicationThresholds.QUICK_WIN_CAP * 100, 100)
 ⋮----
 loc_reduction_factor = (
 ⋮----
@@ -3406,8 +3421,8 @@ def has_text_in_range(self, text: str, start_line: int, num_lines: int) -> bool
 ⋮----
 end = min(start_line + num_lines, len(self.lines))
 ⋮----
-has_try = ctx.has_pattern_in_range(r'\btry\b', line_num, 50)
-has_catch = ctx.has_pattern_in_range(r'\bcatch\b', line_num, 50)
+has_try = ctx.has_pattern_in_range(r'\btry\b', line_num, TimeoutDetectorDefaults.TRY_CATCH_LOOKAHEAD)
+has_catch = ctx.has_pattern_in_range(r'\bcatch\b', line_num, TimeoutDetectorDefaults.TRY_CATCH_LOOKAHEAD)
 ⋮----
 PATTERN_DETECTORS: list[Callable[[FileContext, int, str], Finding | None]] = [
 EXCLUDED_DIRS = frozenset({'node_modules', '.git', 'dist', 'build'})
@@ -3456,7 +3471,7 @@ severity_emoji = {'high': '🔴', 'medium': '🟡', 'low': '🟢'}
 ⋮----
 emoji = severity_emoji.get(severity, '⚪')
 ⋮----
-def _add_findings_by_severity(self, lines: list[str], max_per_severity: int = 10) -> None
+def _add_findings_by_severity(self, lines: list[str], max_per_severity: int = TimeoutDetectorDefaults.MAX_FINDINGS_PER_SEVERITY) -> None
 ⋮----
 """Add findings grouped by severity to report lines."""
 ⋮----
@@ -3541,16 +3556,117 @@ async findSetLoadingWithoutReset(repoPath: string): Promise<TimeoutFinding[]>
 async searchPattern(repoPath: string, pattern: string, options: SearchOptions =
 async readFile(filePath: string): Promise<string>
 /**
-   * Group matches by file
+   * Group by file.
+   *
+   * @param {PatternMatch[]} matches - The matches
+   *
+   * @returns {Record<string, PatternMatch[]>} The resulting string
    */
 groupByFile(matches: PatternMatch[]): Record<string, PatternMatch[]>
 /**
-   * Calculate severity breakdown
+   * Calculate severity breakdown.
+   *
+   * @param {Omit<TimeoutFindings, 'statistics'>} findings - The findings
+   *
+   * @returns {SeverityBreakdown} The calculated severity breakdown
    */
 calculateSeverityBreakdown(findings: Omit<TimeoutFindings, 'statistics'>): SeverityBreakdown
 generateReport(findings: TimeoutFindings): string
 ⋮----
 export function createTimeoutPatternDetector(options?: TimeoutPatternDetectorOptions): TimeoutPatternDetector
+</file>
+
+<file path="pipeline-core/similarity/.ast-grep-backups/backup-20260301-031555-140/backup-metadata.json">
+{
+  "backup_id": "backup-20260301-031555-140",
+  "timestamp": "2026-03-01T03:15:55.140252",
+  "files": [
+    {
+      "original": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-core/similarity/structural.py",
+      "relative": "structural.py",
+      "backup": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-core/similarity/.ast-grep-backups/backup-20260301-031555-140/structural.py"
+    }
+  ],
+  "project_folder": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-core/similarity"
+}
+</file>
+
+<file path="pipeline-core/similarity/.ast-grep-backups/backup-20260301-031555-140/structural.py">
+@dataclass
+class SemanticFeatures
+⋮----
+http_status_codes: Set[int] = field(default_factory=set)
+logical_operators: Set[str] = field(default_factory=set)
+semantic_methods: Set[str] = field(default_factory=set)
+def extract_semantic_features(source_code: str) -> SemanticFeatures
+⋮----
+features = SemanticFeatures()
+⋮----
+status_pattern = r'\.status\((\d{3})\)'
+⋮----
+status_code = int(match.group(1))
+⋮----
+# Extract logical operators (===, !==, ==, !=, !, &&, ||)
+# Order matters: match longer operators first to avoid partial matches
+operator_patterns = [
+⋮----
+(r'!==', '!=='),   # Strict inequality
+(r'===', '==='),   # Strict equality
+(r'!=', '!='),     # Loose inequality
+(r'==', '=='),     # Loose equality
+(r'!\s*[^=]', '!'), # Logical NOT (followed by non-=)
+(r'&&', '&&'),     # Logical AND
+(r'\|\|', '||'),   # Logical OR
+⋮----
+# Extract semantic methods (Math.max, Math.min, console.log, etc.)
+semantic_patterns = {
+⋮----
+def normalize_code(source_code: str) -> str
+⋮----
+"""
+    Normalize code by removing variable-specific information.
+    This allows structural comparison by focusing on code structure
+    rather than specific names or values.
+    """
+⋮----
+# Remove comments
+normalized = re.sub(r'//.*?$', '', source_code, flags=re.MULTILINE)  # Single-line comments
+normalized = re.sub(r'/\*.*?\*/', '', normalized, flags=re.DOTALL)   # Multi-line comments
+# Normalize whitespace (collapse to single spaces)
+normalized = re.sub(r'\s+', ' ', normalized)
+# Normalize string literals (replace with placeholder)
+normalized = re.sub(r"'[^']*'", "'STR'", normalized)
+normalized = re.sub(r'"[^"]*"', '"STR"', normalized)
+normalized = re.sub(r'`[^`]*`', '`STR`', normalized)
+# Normalize numbers (replace with placeholder)
+normalized = re.sub(r'\b\d+\b', 'NUM', normalized)
+SEMANTIC_METHODS = {
+SEMANTIC_OBJECTS = {
+⋮----
+normalized = re.sub(rf'\b{obj}\b', f'__PRESERVE_OBJ_{obj.upper()}__', normalized)
+⋮----
+normalized = re.sub(rf'\b{method}\b', f'__PRESERVE_{method.upper()}__', normalized)
+normalized = re.sub(r'\b[a-z][a-zA-Z0-9_]*\b', 'var', normalized)
+normalized = re.sub(r'\b[A-Z][A-Z0-9_]*\b', 'CONST', normalized)
+⋮----
+normalized = normalized.replace(f'__PRESERVE_OBJ_{obj.upper()}__', obj)
+⋮----
+normalized = normalized.replace(f'__PRESERVE_{method.upper()}__', method)
+normalized = re.sub(r'\s*([(){}[\];,.])\s*', r'\1', normalized)
+normalized = re.sub(r'\s*(=>|===?|!==?|[+\-*/%<>=&|])\s*', r' \1 ', normalized)
+# Collapse multiple spaces
+⋮----
+# Trim
+normalized = normalized.strip()
+⋮----
+def calculate_ast_hash(source_code: str) -> str
+⋮----
+Penalties are multiplicative - each mismatch reduces similarity:
+- Logical operators: 0.80x (20% penalty)
+- Semantic methods: 0.75x (25% penalty)
+Args:
+features2: Semantic features from second code block
+Returns:
 </file>
 
 <file path="pipeline-core/similarity/__init__.py">
@@ -3599,9 +3715,6 @@ SEMANTIC_MIXED = 0.3
 ⋮----
 @classmethod
     def to_dict(cls) -> dict
-⋮----
-@classmethod
-    def print_config(cls)
 config = SimilarityConfig()
 </file>
 
@@ -3656,8 +3769,6 @@ class SimilarityConfig:
 
     @classmethod
     def to_dict(cls) -> dict: ...
-    @classmethod
-    def print_config(cls) -> None: ...
 
 
 config: SimilarityConfig
@@ -3761,12 +3872,12 @@ group = _create_duplicate_group(group_blocks, similarity_score, similarity_metho
 ⋮----
 """
     Group code blocks using multi-layer similarity algorithm with complexity filtering.
-    Implements Layer 0 (complexity), Layer 1 (exact), Layer 2 (structural), and Layer 3 (semantic).
+    Implements complexity filtering, exact matching, structural matching, and semantic matching.
     Algorithm:
-    0. Layer 0: Filter trivial blocks (below complexity threshold)
-    1. Layer 1: Group by exact content hash (O(n))
-    2. Layer 2: Group remaining by structural similarity (O(n*k))
-    3. Layer 3: Semantic validation (pattern, category, tags)
+    - Complexity layer: Filter trivial blocks (below complexity threshold)
+    - Exact-match layer: Group by exact content hash (O(n))
+    - Structural layer: Group remaining by structural similarity (O(n*k))
+    - Semantic layer: Semantic validation (pattern, category, tags)
     Returns:
         List of DuplicateGroup objects with similarity scores
     """
@@ -3841,16 +3952,10 @@ avg_similarity = sum(similarities) / len(similarities) if similarities else 1.0
 # Group failed semantic validation
 ⋮----
 # ---------------------------------------------------------------------------
-# Layer 3: Semantic Similarity
+# Semantic Similarity (third layer)
 ⋮----
 # Weights for semantic similarity calculation
 SEMANTIC_WEIGHTS = {
-⋮----
-'operations': 0.40,  # What the code does
-'domains': 0.25,     # What domain it operates on
-'patterns': 0.20,    # What patterns it uses
-'data_types': 0.15,  # What data types it processes
-⋮----
 # Threshold for semantic similarity matching (from config)
 SEMANTIC_SIMILARITY_THRESHOLD = SimilarityConfig.SEMANTIC_SIMILARITY_THRESHOLD
 def _calculate_jaccard_similarity(set1: set[str], set2: set[str]) -> float
@@ -3863,18 +3968,18 @@ def _calculate_jaccard_similarity(set1: set[str], set2: set[str]) -> float
         Jaccard similarity coefficient (0.0 - 1.0)
     """
 ⋮----
-return 1.0  # Both empty = compatible
+return SemanticWeights.BOTH_EMPTY_SIMILARITY  # Both empty = compatible
 ⋮----
-return 0.5  # One empty = partial match
+return SemanticWeights.EMPTY_SET_SIMILARITY  # One empty = partial match
 intersection = len(set1 & set2)
 union = len(set1 | set2)
 ⋮----
 """Calculate weighted semantic similarity between two annotations.
     Uses Jaccard similarity on each tag category with predefined weights:
-    - Operations: 40%
-    - Domains: 25%
-    - Patterns: 20%
-    - Data types: 15%
+    - Operations: OPERATIONS weight
+    - Domains: DOMAINS weight
+    - Patterns: PATTERNS weight
+    - Data types: DATA_TYPES weight
     Args:
         ann1: First semantic annotation
         ann2: Second semantic annotation
@@ -4038,8 +4143,8 @@ normalized = normalized.strip()
 def calculate_ast_hash(source_code: str) -> str
 ⋮----
 Penalties are multiplicative - each mismatch reduces similarity:
-- Logical operators: 0.80x (20% penalty)
-- Semantic methods: 0.75x (25% penalty)
+- Logical operators: LOGIC_OPERATOR_PENALTY multiplier
+- Semantic methods: SEMANTIC_METHOD_PENALTY multiplier
 Args:
 features2: Semantic features from second code block
 Returns:
@@ -4356,6 +4461,195 @@ class Timer:
     def elapsed_ms(self) -> float: ...
     def __enter__(self) -> Timer: ...
     def __exit__(self, *args) -> None: ...
+</file>
+
+<file path="pipeline-core/constants.py">
+class HTTPCodes(IntEnum)
+⋮----
+OK = 200
+CREATED = 201
+MOVED_PERMANENTLY = 301
+FOUND = 302
+BAD_REQUEST = 400
+UNAUTHORIZED = 401
+FORBIDDEN = 403
+NOT_FOUND = 404
+INTERNAL_SERVER_ERROR = 500
+BAD_GATEWAY = 502
+SERVICE_UNAVAILABLE = 503
+class ScanDefaults
+⋮----
+MIN_SIMILARITY_THRESHOLD = 0.8
+MIN_DUPLICATE_SIZE = 3
+CONTENT_HASH_LENGTH = 16
+QUICK_WINS_RECOMMEND_THRESHOLD = 5
+HIGH_DUPLICATION_PCT = 10
+DEBUG_HASH_DISPLAY_LIMIT = 20
+PERCENTAGE_MAX = 100.0
+class ChartDefaults
+⋮----
+WIDTH = 800
+HEIGHT = 600
+BAR_HEIGHT = 30
+BAR_SPACING = 10
+MARGIN_TOP = 50
+MARGIN_LEFT = 250
+MARGIN_RIGHT = 100
+MARGIN_BOTTOM = 50
+LEGEND_OFFSET_X = 200
+LEGEND_SPACING_Y = 25
+LEGEND_ICON_SIZE = 15
+LEGEND_TEXT_OFFSET_X = 20
+LEGEND_TEXT_OFFSET_Y = 12
+LEGEND_FONT_SIZE = 12
+TITLE_FONT_SIZE = 20
+TITLE_Y = 30
+LABEL_FONT_SIZE = 14
+LABEL_GAP = 10
+VALUE_GAP = 5
+TEXT_VERTICAL_OFFSET = 5
+STROKE_WIDTH_PATH = 2
+STROKE_WIDTH_BAR = 1
+RADIUS_DIVISOR = 3
+SVG_ANGLE_OFFSET = 90
+LARGE_ARC_THRESHOLD = 180
+FULL_CIRCLE_DEGREES = 360
+class ChartColors
+⋮----
+BAR_FILL = "#0066cc"
+BAR_STROKE = "#333"
+PIE_STROKE = "white"
+PALETTE = (
+class ScoringThresholds
+⋮----
+CRITICAL = 75
+HIGH = 50
+MEDIUM = 25
+class ImpactWeights
+⋮----
+OCCURRENCE = 40
+SIMILARITY = 35
+SIZE = 25
+OCCURRENCE_CAP = 20.0
+LOC_CAP = 100.0
+class DuplicationThresholds
+⋮----
+MINIMAL_PCT = 5
+LOW_PCT = 10
+MODERATE_PCT = 20
+HIGH_PCT = 40
+QUICK_WIN_CAP = 10
+class ExtractionDefaults
+⋮----
+SEARCH_WINDOW = 10
+MIN_GROUP_SIZE = 2
+QUICK_WIN_MAX_OCCURRENCES = 3
+HIGH_IMPACT_MIN_LINES = 20
+HIGH_IMPACT_MIN_OCCURRENCES = 5
+HIGH_PRIORITY_SCORE = 75
+METHOD_CHAIN_MAX_GAP = 100
+class EffortEstimates
+⋮----
+TRIVIAL = 0.5
+SIMPLE = 2.5
+MODERATE = 12
+COMPLEX = 40
+VERY_COMPLEX = 80
+class StructuralDefaults
+⋮----
+CHAIN_MISSING_SIMILARITY = 0.5
+STATUS_CODE_PENALTY = 0.70
+LOGIC_OPERATOR_PENALTY = 0.80
+SEMANTIC_METHOD_PENALTY = 0.75
+NORMALIZED_IDENTICAL = 0.95
+CHAIN_LEVENSHTEIN_WEIGHT = 0.7
+CHAIN_STRUCTURE_WEIGHT = 0.3
+DEFAULT_SIMILARITY_THRESHOLD = 0.90
+class SemanticWeights
+⋮----
+OPERATIONS = 0.40
+DOMAINS = 0.25
+PATTERNS = 0.20
+DATA_TYPES = 0.15
+EMPTY_SET_SIMILARITY = 0.5
+BOTH_EMPTY_SIMILARITY = 1.0
+LINE_RATIO_THRESHOLD = 0.5
+PARTIAL_TAG_OVERLAP = 0.5
+class OpportunityWeights
+⋮----
+DUPLICATION = 0.35
+QUICK_WIN = 0.40
+LOC_REDUCTION = 0.25
+class ConfidenceThresholds
+⋮----
+HIGH_SIMILARITY = 0.95
+HIGH_CONFIDENCE = 0.9
+LOW_CONFIDENCE = 0.7
+class ROIMultipliers
+⋮----
+COMPLEXITY_TRIVIAL = 1.3
+COMPLEXITY_SIMPLE = 1.1
+COMPLEXITY_MODERATE = 0.9
+COMPLEXITY_COMPLEX = 0.7
+RISK_MINIMAL = 1.2
+RISK_LOW = 1.1
+RISK_MEDIUM = 0.9
+RISK_HIGH = 0.7
+MAX_SCORE = 100.0
+class EffortHours
+⋮----
+SIMPLE = 1.0
+MODERATE = 3.0
+COMPLEX = 8.0
+DEFAULT = 2.0
+PER_FILE_INCREMENT = 0.25
+TESTING_OVERHEAD = 0.5
+class SuggestionDefaults
+⋮----
+GROUPING_SIMILARITY_THRESHOLD = 0.85
+DEFAULT_EFFORT_FALLBACK = 10
+ROI_NORMALIZER = 10
+QUICK_WIN_MIN_IMPACT = 60
+class GitActivityDefaults
+⋮----
+LEGACY_COMMIT_THRESHOLD = 5
+TOP_N_DISPLAY = 5
+WEEKLY_MAX_DAYS = 7
+MONTHLY_MAX_DAYS = 31
+SEPARATOR_LENGTH = 60
+class ValidationLimits
+⋮----
+FILE_PATH_MAX = 500
+MATCHED_TEXT_MAX = 100_000
+LINE_NUMBER_MAX = 1_000_000
+COLUMN_MAX = 10_000
+SEVERITY_MAX = 20
+REPO_PATH_MAX = 1000
+REPO_NAME_MAX = 200
+GIT_REMOTE_MAX = 500
+GIT_BRANCH_MAX = 200
+GIT_COMMIT_MAX = 50
+RULE_ID_MAX = 100
+PATTERN_MATCHES_MAX = 50_000
+class TimeoutDetectorDefaults
+⋮----
+FINALLY_LOOKAHEAD = 20
+TRY_CATCH_LOOKAHEAD = 50
+MAX_FINDINGS_PER_SEVERITY = 10
+class StrategyThresholds
+⋮----
+LOGGER_LOCAL_MAX = 5
+API_LOCAL_MAX = 3
+API_SHARED_MAX = 10
+DEFAULT_LOCAL_MAX = 3
+DEFAULT_SHARED_MAX = 8
+DB_LOCAL_MAX = 3
+class BlockExtraction
+⋮----
+FUNCTION_TAG_PREFIX = "function:"
+BLOCK_HASH_LENGTH = 12
+DEBUG_LOG_DEDUP_LIMIT = 10
+DEBUG_LOG_BLOCK_LIMIT = 3
 </file>
 
 <file path="pipeline-core/doppler-health-monitor.ts">
@@ -5064,54 +5358,54 @@ name = repo['name'].lower()
 commits = repo['commits']
 # Categorization logic (customize based on your projects)
 ⋮----
-def create_pie_chart_svg(data, title, output_file, width=800, height=600)
+def create_pie_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, height=ChartDefaults.HEIGHT)
 ⋮----
 """Create SVG pie chart without matplotlib dependency"""
 ⋮----
-radius = min(width, height) / 3
-colors = [
+radius = min(width, height) / ChartDefaults.RADIUS_DIVISOR
+colors = list(ChartColors.PALETTE)
 total = sum(data.values())
 ⋮----
 svg_parts = [
 start_angle = 0
-legend_y = 50
+legend_y = ChartDefaults.MARGIN_TOP
 ⋮----
 percent = (value / total) * 100
-angle = (value / total) * 360
+angle = (value / total) * ChartDefaults.FULL_CIRCLE_DEGREES
 end_angle = start_angle + angle
 # Convert to radians
-start_rad = math.radians(start_angle - 90)
-end_rad = math.radians(end_angle - 90)
+start_rad = math.radians(start_angle - ChartDefaults.SVG_ANGLE_OFFSET)
+end_rad = math.radians(end_angle - ChartDefaults.SVG_ANGLE_OFFSET)
 # Calculate arc path
 x1 = cx + radius * math.cos(start_rad)
 y1 = cy + radius * math.sin(start_rad)
 x2 = cx + radius * math.cos(end_rad)
 y2 = cy + radius * math.sin(end_rad)
-large_arc = 1 if angle > 180 else 0
+large_arc = 1 if angle > ChartDefaults.LARGE_ARC_THRESHOLD else 0
 # Create pie slice
 path = f'M {cx},{cy} L {x1},{y1} A {radius},{radius} 0 {large_arc},1 {x2},{y2} Z'
 color = colors[i % len(colors)]
 ⋮----
 # Add legend
-legend_x = width - 200
+legend_x = width - ChartDefaults.LEGEND_OFFSET_X
 ⋮----
 start_angle = end_angle
 ⋮----
 # Write to file
 ⋮----
-def create_bar_chart_svg(data, title, output_file, width=800, height=600)
+def create_bar_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, height=ChartDefaults.HEIGHT)
 ⋮----
 """Create SVG horizontal bar chart"""
 max_value = max(data.values()) if data else 1
-bar_height = 30
-spacing = 10
+bar_height = ChartDefaults.BAR_HEIGHT
+spacing = ChartDefaults.BAR_SPACING
 chart_height = len(data) * (bar_height + spacing)
-margin_left = 250
-margin_top = 50
-actual_height = chart_height + margin_top + 50
+margin_left = ChartDefaults.MARGIN_LEFT
+margin_top = ChartDefaults.MARGIN_TOP
+actual_height = chart_height + margin_top + ChartDefaults.MARGIN_BOTTOM
 ⋮----
 y = margin_top + i * (bar_height + spacing)
-bar_width = ((width - margin_left - 100) * value / max_value)
+bar_width = ((width - margin_left - ChartDefaults.MARGIN_RIGHT) * value / max_value)
 # Bar
 ⋮----
 # Label
@@ -5247,120 +5541,13 @@ async function main(): Promise<void>
 </file>
 
 <file path="pipeline-runners/duplicate-detection-pipeline.ts">
-import { SidequestServer } from '../core/server.ts';
-import type { Job } from '../core/server.ts';
-import { RepositoryConfigLoader, type RepositoryConfig } from '../pipeline-core/config/repository-config-loader.ts';
-import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.ts';
-import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.ts';
-import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.ts';
-import type { ScanResult as ReportScanResult } from '../pipeline-core/reports/json-report-generator.ts';
-import { PRCreator, type PRCreationResults } from '../pipeline-core/git/pr-creator.ts';
-import { createComponentLogger, logStart, logRetry } from '../utils/logger.ts';
+import { DuplicateDetectionWorker } from '../workers/duplicate-detection-worker.ts';
+import { createComponentLogger } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
-import { TIMEOUTS, RETRY } from '../core/constants.ts';
-import { getErrorInfo } from '../pipeline-core/errors/error-classifier.ts';
+import { TIMEOUTS } from '../core/constants.ts';
 import cron from 'node-cron';
 ⋮----
 import type { Logger } from 'pino';
-import type { RetryInfo, RetryMetrics, WorkerScanMetrics as ScanMetrics, DuplicateDetectionWorkerOptions } from '../types/duplicate-detection-types.ts';
-⋮----
-export type JobStatus = typeof JobStatus[keyof typeof JobStatus];
-⋮----
-export type ScanType = typeof ScanType[keyof typeof ScanType];
-export interface JobData {
-  scanType: ScanType | string;
-  repositories?: RepositoryConfig[];
-  groupName?: string | null;
-  type?: string;
-}
-⋮----
-export interface ScanResult {
-  scan_type: 'single-project' | 'inter-project' | 'intra-project';
-  scan_metadata?: {
-    duration_seconds: number;
-    [key: string]: unknown;
-  };
-  metrics: {
-    total_duplicate_groups?: number;
-    total_cross_repository_groups?: number;
-    total_suggestions?: number;
-    [key: string]: unknown;
-  };
-  duplicate_groups?: DuplicateGroup[];
-  cross_repository_duplicates?: DuplicateGroup[];
-  suggestions?: Suggestion[];
-  [key: string]: unknown;
-}
-export interface DuplicateGroup {
-  id: string;
-  impact_score: number;
-  files: Array<{
-    path: string;
-    repository?: string;
-  }>;
-  [key: string]: unknown;
-}
-export interface Suggestion {
-  id: string;
-  type: string;
-  impact: number;
-  files: string[];
-  [key: string]: unknown;
-}
-export interface PRCreationResult {
-  prsCreated: number;
-  prUrls: string[];
-  errors: Array<{
-    message: string;
-    [key: string]: unknown;
-  }>;
-}
-⋮----
-export interface InterProjectScanJobResult {
-  scanType: 'inter-project';
-  repositories: number;
-  crossRepoDuplicates: number;
-  suggestions: number;
-  duration: number;
-}
-export interface IntraProjectScanJobResult {
-  scanType: 'intra-project';
-  repository: string;
-  duplicates: number;
-  suggestions: number;
-  duration: number;
-  prResults: {
-    prsCreated: number;
-    prUrls: string[];
-    errors: number;
-  } | null;
-}
-export type JobResult = InterProjectScanJobResult | IntraProjectScanJobResult;
-⋮----
-class DuplicateDetectionWorker extends SidequestServer
-⋮----
-constructor(options: DuplicateDetectionWorkerOptions =
-async initialize(): Promise<void>
-async runJobHandler(job: Job): Promise<unknown>
-private _getOriginalJobId(jobId: string): string
-/**
-   * Handle retry logic with exponential backoff
-   */
-private async _handleRetry(job: Job, error: Error): Promise<boolean>
-⋮----
-// Get original job ID to track retries correctly
-⋮----
-// Classify error to determine if retry is appropriate
-⋮----
-private async _runInterProjectScan(job: Job, repositoryConfigs: RepositoryConfig[]): Promise<InterProjectScanJobResult>
-private async _runIntraProjectScan(job: Job, repositoryConfig: RepositoryConfig): Promise<IntraProjectScanJobResult>
-private _updateMetrics(scanResult: ScanResult): void
-private async _updateRepositoryConfigs(repositoryConfigs: RepositoryConfig[], scanResult: ScanResult): Promise<void>
-private async _checkForHighImpactDuplicates(scanResult: ScanResult): Promise<void>
-public scheduleScan(scanType: ScanType | string, repositories: RepositoryConfig[], groupName: string | null = null): Job
-public async runNightlyScan(): Promise<void>
-public getRetryMetrics(): RetryMetrics
-public getScanMetrics(): ScanMetrics &
 ⋮----
 async function main(): Promise<void>
 </file>
@@ -5703,7 +5890,7 @@ constructor(options: SchemaEnhancementOptions =
 private setupEventListeners(): void
 async scanForReadmes(dir: string, baseDir: string = dir, results: ReadmeFile[] = []): Promise<ReadmeFile[]>
 async scanDirectory(directory: string): Promise<ReadmeFile[]>
-async createEnhancementJobs(readmeFiles: ReadmeFile[]): Promise<unknown[]>
+async createEnhancementJobs(readmeFiles: ReadmeFile[]): Promise<void>
 async runEnhancement(directory: string = this.baseDir): Promise<EnhancementResult>
 scheduleEnhancements(cronSchedule: string = '0 3 * * 0')
 </file>
@@ -5742,7 +5929,8 @@ async function runPipeline(targetPath: string | null = null): Promise<PipelineRe
 async function hasTestDirectory(dirPath: string): Promise<boolean>
 function waitForCompletion(worker: TestRefactorWorker): Promise<void>
 ⋮----
-const checkCompletion = () =>
+const cleanup = () =>
+const checkAndResolve = () =>
 ⋮----
 async function main(): Promise<void>
 </file>
@@ -6494,6 +6682,7 @@ interface DopplerResilienceOptions {
   baseDelayMs?: number;
   backoffMultiplier?: number;
   cacheFile?: string;
+  staleThresholdMs?: number;
 }
 interface ResilienceMetrics {
   totalRequests: number;
@@ -6746,6 +6935,9 @@ function generateConstantsTemplate(hardcodedStrings: string[]): string
 function generateRenderHelpers(): string
 function generateE2EFixtures(): string
 function generateIndexFile(): string
+function printAnalysisResults(analysis: Awaited<ReturnType<typeof analyzeTestFiles>>)
+function generateUtilityFiles(config: RefactorConfig, analysis: Awaited<ReturnType<typeof analyzeTestFiles>>, utilsPath: string)
+function generateE2EFixturesIfNeeded(config: RefactorConfig, projectPath: string)
 async function main()
 </file>
 
@@ -7688,10 +7880,6 @@ OUTPUT_BASE_DIR=./output/condense
 # Directory for application logs
 # Default: ./logs
 LOG_DIR=./logs
-
-# Directory for directory scan reports
-# Default: ./output/directory-scan-reports
-SCAN_REPORTS_DIR=./output/directory-scan-reports
 
 # ============================================
 # Job Processing

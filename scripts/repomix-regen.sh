@@ -30,14 +30,17 @@ echo "File set up..."
 # make output dir if not exists
 mkdir -p "$OUT_DIR"
 
-# delete existing files
-rm -f "$OUT_DIR"/*
+# delete existing generated artifacts, but keep hand-authored inputs
+# (repomix-instruction.md is required by repomix config)
+find "$OUT_DIR" -maxdepth 1 -type f \
+  ! -name 'repomix-instruction.md' \
+  ! -name '.gitkeep' \
+  -exec rm -f {} +
 
 # project-level logging
-PROJECT_DIR="$(basename "$(cd "$(dirname "$0")/.." && pwd)")"
+PROJECT_DIR="$(basename "$ROOT")"
 
 echo "Generating token count tree for $PROJECT_DIR at $TREE_FILE_NAME"
-echo "Running $TOKEN_TREE_SCRIPT on $ROOT to $TOKEN_TREE_FILE"
 bash "$TOKEN_TREE_SCRIPT" "$ROOT" "$TOKEN_TREE_FILE"
 echo "Success!"
 echo
@@ -51,8 +54,21 @@ echo "Generating repomix file for $PROJECT_DIR at $LOSSLESS_FILE_NAME"
 bash "$LOSSLESS_SCRIPT" "$ROOT" "$LOSSLESS_REPO_FILE"
 echo "Success!"
 echo
-
 echo "Artifacts:"
-echo " - $TREE_FILE_NAME"
-echo " - $COMPRESSED_FILE_NAME"
-echo " - $LOSSLESS_FILE_NAME"
+
+print_artifact() {
+  local file_path="$1"
+  local display_name="$2"
+
+  if [[ -f "$file_path" ]]; then
+    chars=$(wc -c < "$file_path" | tr -d ' ')
+    tokens=$((chars / 4))
+    echo " - $display_name (~$tokens tokens, $chars chars)"
+  else
+    echo " - $display_name (missing)"
+  fi
+}
+
+print_artifact "$TOKEN_TREE_FILE" "$TREE_FILE_NAME"
+print_artifact "$COMPRESSED_REPO_FILE" "$COMPRESSED_FILE_NAME"
+print_artifact "$LOSSLESS_REPO_FILE" "$LOSSLESS_FILE_NAME"

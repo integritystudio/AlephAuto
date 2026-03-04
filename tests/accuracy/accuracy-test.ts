@@ -39,45 +39,51 @@ async function loadExpectedResults() {
  * Extract function name from code block
  * Looks at semantic_tags first, then source code
  */
-function extractFunctionName(block) {
-  // Priority 1: Check tags for function name (added by Python extraction)
+const FUNCTION_TAG_PREFIX = 'function:';
+const FUNCTION_NAME_PATTERNS = [
+  /function\s+(\w+)\s*\(/,          // function name(
+  /const\s+(\w+)\s*=/,              // const name =
+  /let\s+(\w+)\s*=/,                // let name =
+  /var\s+(\w+)\s*=/,                // var name =
+  /async\s+function\s+(\w+)\s*\(/,  // async function name(
+  /(\w+)\s*:\s*function/,           // name: function
+  /(\w+)\s*:\s*async\s+function/,   // name: async function
+  /export\s+function\s+(\w+)/,      // export function name
+];
+
+function extractNameFromTags(block) {
   const tags = block.tags || block.semantic_tags || [];
-  for (const tag of tags) {
-    if (tag.startsWith('function:')) {
-      const funcName = tag.substring('function:'.length);
-      if (funcName) return funcName;
-    }
-  }
+  const functionTag = tags.find(tag => tag.startsWith(FUNCTION_TAG_PREFIX));
+  if (!functionTag) return null;
 
-  // Fallback: Extract from source code
+  return functionTag.substring(FUNCTION_TAG_PREFIX.length) || null;
+}
+
+function extractNameFromSourceCode(block) {
   const sourceCode = block.source_code || '';
-
-  // Try various patterns to extract function name
-  const patterns = [
-    /function\s+(\w+)\s*\(/,          // function name(
-    /const\s+(\w+)\s*=/,              // const name =
-    /let\s+(\w+)\s*=/,                // let name =
-    /var\s+(\w+)\s*=/,                // var name =
-    /async\s+function\s+(\w+)\s*\(/,  // async function name(
-    /(\w+)\s*:\s*function/,           // name: function
-    /(\w+)\s*:\s*async\s+function/,   // name: async function
-    /export\s+function\s+(\w+)/,      // export function name
-  ];
-
-  for (const pattern of patterns) {
+  for (const pattern of FUNCTION_NAME_PATTERNS) {
     const match = sourceCode.match(pattern);
-    if (match && match[1]) return match[1];
+    if (match?.[1]) return match[1];
   }
 
-  // Last resort: file:line notation
+  return null;
+}
+
+function extractNameFromLocation(block) {
   const filePath = block.relative_path || block.location?.file_path || '';
   const lineStart = block.location?.line_start;
+  if (!filePath || !lineStart) return null;
 
-  if (filePath && lineStart) {
-    return `${filePath.split('/').pop()}:${lineStart}`;
-  }
+  return `${filePath.split('/').pop()}:${lineStart}`;
+}
 
-  return 'unknown';
+function extractFunctionName(block) {
+  return (
+    extractNameFromTags(block) ??
+    extractNameFromSourceCode(block) ??
+    extractNameFromLocation(block) ??
+    'unknown'
+  );
 }
 
 /**

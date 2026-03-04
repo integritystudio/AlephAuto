@@ -6,6 +6,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.3] - 2026-03-04
+
+### Summary
+
+Resolved complexity backlog item `CX7` by simplifying function-name extraction fallback logic in the accuracy test suite.
+
+### Changed
+
+- Refactored `tests/accuracy/accuracy-test.ts`:
+  - Extracted `extractNameFromTags`, `extractNameFromSourceCode`, and `extractNameFromLocation` helpers.
+  - Reduced `extractFunctionName` to a single fallback chain while preserving extraction order and output behavior.
+- Backlog `CX7` migrated and closed in `docs/BACKLOG.md`.
+
+---
+
 ## [2.3.2] - 2026-03-04
 
 ### Summary
