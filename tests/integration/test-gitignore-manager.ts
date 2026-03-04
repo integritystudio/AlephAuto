@@ -22,7 +22,7 @@ const logger = createComponentLogger('GitignoreManagerTest');
  * Create isolated test directory for repos
  * @returns {Promise<{path: string, cleanup: Function}>}
  */
-async function createTestDirectory() {
+async function createTestDirectory(): Promise<{ path: string; cleanup: () => Promise<void> }> {
   const testDir = path.join(os.tmpdir(), `gitignore-test-${Date.now()}`);
   await fs.mkdir(testDir, { recursive: true });
 

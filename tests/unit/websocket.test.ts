@@ -56,7 +56,7 @@ describe('WebSocket Server', () => {
    * @param {string} url - Base ws:// URL (without path)
    * @returns {Promise<WebSocket>}
    */
-  function connectClient(url) {
+  function connectClient(url): Promise<WebSocket> {
     return new Promise((resolve, reject) => {
       const ws = new WebSocket(`${url}/ws`);
       ws.once('error', reject);
@@ -78,7 +78,7 @@ describe('WebSocket Server', () => {
    * @param {string[]} channels - Channels to subscribe to
    * @returns {Promise<WebSocket>}
    */
-  async function connectAndSubscribe(url, channels = ['scans']) {
+  async function connectAndSubscribe(url, channels = ['scans']): Promise<WebSocket> {
     const ws = await connectClient(url);
     await new Promise((resolve, reject) => {
       ws.once('error', reject);

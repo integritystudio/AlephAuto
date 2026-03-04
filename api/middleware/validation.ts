@@ -40,7 +40,7 @@ function formatZodErrors(error: ZodError): ValidationErrorDetail[] {
  * @param schema Zod schema for request body.
  * @returns Express middleware function.
  */
-export function validateRequest(schema: ZodSchema) {
+export function validateRequest(schema: ZodSchema): (req: Request, res: Response, next: NextFunction) => void {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       // Validate request body against schema
@@ -77,7 +77,7 @@ export function validateRequest(schema: ZodSchema) {
  * @param schema Zod schema for query params.
  * @returns Express middleware function.
  */
-export function validateQuery(schema: ZodSchema) {
+export function validateQuery(schema: ZodSchema): (req: Request, res: Response, next: NextFunction) => void {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const validated = schema.parse(req.query);
@@ -108,7 +108,7 @@ export function validateQuery(schema: ZodSchema) {
  * @param schema Zod schema for route params.
  * @returns Express middleware function.
  */
-export function validateParams(schema: ZodSchema) {
+export function validateParams(schema: ZodSchema): (req: Request, res: Response, next: NextFunction) => void {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const validated = schema.parse(req.params);

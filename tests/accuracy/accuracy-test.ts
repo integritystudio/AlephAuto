@@ -143,7 +143,7 @@ function filterExcludedFiles(groups) {
  * Prepare accuracy test data by loading expected results (ground truth)
  * @returns {Promise<{expected: Object}>} Ground truth data
  */
-async function prepareAccuracyTestData() {
+async function prepareAccuracyTestData(): Promise<{ expected: any }> {
   logger.info('Loading expected results (ground truth)...');
   const expected = await loadExpectedResults();
 
@@ -163,7 +163,7 @@ async function prepareAccuracyTestData() {
  * @param {string} testRepoPath - Path to the test repository
  * @returns {Promise<{scanResult: Object, duration: string}>} Scan results and duration
  */
-async function executeDuplicateScan(testRepoPath) {
+async function executeDuplicateScan(testRepoPath): Promise<{ scanResult: any; duration: string }> {
   logger.info({ testRepoPath }, 'Setting up scan orchestrator');
 
   const orchestrator = new ScanOrchestrator({
@@ -207,7 +207,7 @@ async function executeDuplicateScan(testRepoPath) {
  * @param {Object} scanResult - Raw scan results
  * @returns {Array} Processed and filtered duplicate groups
  */
-function processDetectedGroups(scanResult) {
+function processDetectedGroups(scanResult): any[] {
   let detectedGroups = enhanceDetectedGroups(scanResult);
   detectedGroups = filterExcludedFiles(detectedGroups);
 
@@ -231,7 +231,7 @@ function processDetectedGroups(scanResult) {
  * @param {Object} expected - Ground truth data
  * @returns {Object} Comparison results, metrics, and report
  */
-function calculateAccuracyMetrics(detectedGroups, expected) {
+function calculateAccuracyMetrics(detectedGroups, expected): { comparison: any; metrics: any; report: any } {
   console.log('Comparing results against ground truth...');
   console.log('-'.repeat(70));
 
@@ -350,7 +350,7 @@ function printDetailedResults(comparison) {
  * @param {Object} comparison - Comparison results for details
  * @returns {Promise<boolean>} Whether all targets were met
  */
-async function printOverallAssessmentAndSave(report, comparison) {
+async function printOverallAssessmentAndSave(report, comparison): Promise<boolean> {
   console.log('OVERALL ASSESSMENT');
   console.log('='.repeat(70));
   console.log();

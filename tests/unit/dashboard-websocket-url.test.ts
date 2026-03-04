@@ -22,7 +22,7 @@ import assert from 'node:assert/strict';
  * @param {string} apiBaseUrl - The API base URL (e.g., 'https://alephauto.onrender.com')
  * @returns {string} The WebSocket URL (e.g., 'wss://alephauto.onrender.com/ws')
  */
-function deriveWebSocketUrl(apiBaseUrl) {
+function deriveWebSocketUrl(apiBaseUrl): string {
   const apiUrl = new URL(apiBaseUrl);
   const wsProtocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${wsProtocol}//${apiUrl.host}/ws`;
