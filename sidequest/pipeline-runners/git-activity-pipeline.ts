@@ -7,7 +7,7 @@ import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 const logger = createComponentLogger('GitActivityPipeline');
 
 
-interface ReportOptions {
+export interface ReportOptions {
   reportType?: string;
   sinceDate?: string;
   untilDate?: string;
@@ -15,6 +15,12 @@ interface ReportOptions {
 }
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+interface ParsedCliArgs {
+  options: ReportOptions;
+  runNow: boolean;
+  errors: string[];
+}
 
 interface OutputFile {
   path: string;
@@ -166,18 +172,10 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
   }
 }
 
-// Run if executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const pipeline = new GitActivityPipeline();
-
-  const weeklyCronSchedule = process.env.GIT_CRON_SCHEDULE || '0 20 * * 0'; // Sunday 8 PM
-  const monthlyCronSchedule = process.env.GIT_MONTHLY_CRON_SCHEDULE || '0 8 1 * *'; // 1st of month 8 AM
-
-  // Parse command line arguments
-  const args = process.argv.slice(2);
+export function parseGitActivityCliArgs(args: string[], runOnStartup: boolean): ParsedCliArgs {
   const options: ReportOptions = {};
-  const cliErrors: string[] = [];
-  let runNow = config.runOnStartup;
+  const errors: string[] = [];
+  let runNow = runOnStartup;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--run-now' || args[i] === '--run') {
@@ -190,36 +188,49 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       options.sinceDate = args[i + 1];
       i++;
     } else if (args[i] === '--start-date' || args[i] === '--since') {
-      cliErrors.push(`${args[i]} requires a YYYY-MM-DD value`);
+      errors.push(`${args[i]} requires a YYYY-MM-DD value`);
     } else if ((args[i] === '--end-date' || args[i] === '--until') && args[i + 1]) {
       options.untilDate = args[i + 1];
       i++;
     } else if (args[i] === '--end-date' || args[i] === '--until') {
-      cliErrors.push(`${args[i]} requires a YYYY-MM-DD value`);
+      errors.push(`${args[i]} requires a YYYY-MM-DD value`);
     } else if (args[i] === '--days' && args[i + 1]) {
       const parsedDays = parseInt(args[i + 1], 10);
       if (Number.isNaN(parsedDays) || parsedDays <= 0) {
-        cliErrors.push(`--days must be a positive integer (received: ${args[i + 1]})`);
+        errors.push(`--days must be a positive integer (received: ${args[i + 1]})`);
       } else {
         options.days = parsedDays;
       }
       i++;
     } else if (args[i] === '--days') {
-      cliErrors.push('--days requires a positive integer value');
+      errors.push('--days requires a positive integer value');
     }
   }
 
   if (options.untilDate && !options.sinceDate) {
-    cliErrors.push('--end-date requires --start-date');
+    errors.push('--end-date requires --start-date');
   }
   if (options.sinceDate && !ISO_DATE_PATTERN.test(options.sinceDate)) {
-    cliErrors.push(`--start-date must match YYYY-MM-DD (received: ${options.sinceDate})`);
+    errors.push(`--start-date must match YYYY-MM-DD (received: ${options.sinceDate})`);
   }
   if (options.untilDate && !ISO_DATE_PATTERN.test(options.untilDate)) {
-    cliErrors.push(`--end-date must match YYYY-MM-DD (received: ${options.untilDate})`);
+    errors.push(`--end-date must match YYYY-MM-DD (received: ${options.untilDate})`);
   }
-  if (cliErrors.length > 0) {
-    logger.error({ args, errors: cliErrors }, 'Invalid CLI options');
+
+  return { options, runNow, errors };
+}
+
+// Run if executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const pipeline = new GitActivityPipeline();
+
+  const weeklyCronSchedule = process.env.GIT_CRON_SCHEDULE || '0 20 * * 0'; // Sunday 8 PM
+  const monthlyCronSchedule = process.env.GIT_MONTHLY_CRON_SCHEDULE || '0 8 1 * *'; // 1st of month 8 AM
+
+  const args = process.argv.slice(2);
+  const { options, runNow, errors } = parseGitActivityCliArgs(args, config.runOnStartup);
+  if (errors.length > 0) {
+    logger.error({ args, errors }, 'Invalid CLI options');
     process.exit(1);
   }
 

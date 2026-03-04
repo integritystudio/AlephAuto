@@ -33,7 +33,7 @@ interface PythonScriptResult {
   outputFiles: string[];
 }
 
-interface GitActivityStats {
+export interface GitActivityStats {
   totalCommits: number;
   totalRepositories: number;
   linesAdded: number;
@@ -55,6 +55,92 @@ interface ReportJobOptions {
   untilDate?: string;
   outputFormat?: string;
   generateVisualizations?: boolean;
+}
+
+function toFiniteNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return 0;
+}
+
+export function buildGitActivityStatsFromData(data: Record<string, unknown>): GitActivityStats {
+  return {
+    totalCommits: toFiniteNumber(data.total_commits),
+    totalRepositories: Array.isArray(data.repositories)
+      ? data.repositories.length
+      : toFiniteNumber(data.total_repositories),
+    linesAdded: toFiniteNumber(data.total_additions),
+    linesDeleted: toFiniteNumber(data.total_deletions),
+    filesChanged: toFiniteNumber(data.total_files),
+  };
+}
+
+export async function parseGitActivityStatsFromJsonFiles(
+  outputFiles: string[],
+  scriptDir: string,
+  readFile: (path: string, encoding: BufferEncoding) => Promise<string> = fs.readFile
+): Promise<GitActivityStats | null> {
+  const jsonFiles = outputFiles.filter((file) => file.toLowerCase().endsWith('.json'));
+
+  for (const file of jsonFiles) {
+    const resolvedPath = path.isAbsolute(file)
+      ? file
+      : path.resolve(scriptDir, file);
+    try {
+      const content = await readFile(resolvedPath, 'utf-8');
+      const data = JSON.parse(content) as Record<string, unknown>;
+      if (Object.prototype.hasOwnProperty.call(data, 'total_commits')) {
+        return buildGitActivityStatsFromData(data);
+      }
+    } catch {
+      // Continue to next JSON output file.
+    }
+  }
+
+  return null;
+}
+
+export function parseGitActivityStatsFromText(stdout: string): GitActivityStats {
+  const stats: GitActivityStats = {
+    totalCommits: 0,
+    totalRepositories: 0,
+    linesAdded: 0,
+    linesDeleted: 0,
+  };
+
+  const commitsMatch = stdout.match(/Total commits:\s*(\d+)/i);
+  if (commitsMatch) {
+    stats.totalCommits = parseInt(commitsMatch[1], 10);
+  }
+
+  const additionsMatch = stdout.match(/Lines added:\s*(\d+)/i);
+  if (additionsMatch) {
+    stats.linesAdded = parseInt(additionsMatch[1], 10);
+  }
+
+  const deletionsMatch = stdout.match(/Lines deleted:\s*(\d+)/i);
+  if (deletionsMatch) {
+    stats.linesDeleted = parseInt(deletionsMatch[1], 10);
+  }
+
+  const reposMatch = stdout.match(/Active repositories:\s*(\d+)/i);
+  if (reposMatch) {
+    stats.totalRepositories = parseInt(reposMatch[1], 10);
+  }
+
+  const filesMatch = stdout.match(/File changes:\s*(\d+)/i);
+  if (filesMatch) {
+    stats.filesChanged = parseInt(filesMatch[1], 10);
+  }
+
+  return stats;
 }
 
 /**
@@ -319,97 +405,13 @@ export class GitActivityWorker extends SidequestServer {
     return Array.from(files);
   }
 
-  /**
-   * Parse statistics from script output
-   */
-  #toNumber(value: unknown): number {
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return value;
-    }
-    if (typeof value === 'string') {
-      const parsed = Number(value);
-      if (Number.isFinite(parsed)) {
-        return parsed;
-      }
-    }
-    return 0;
-  }
-
-  #buildStatsFromData(data: Record<string, unknown>): GitActivityStats {
-    return {
-      totalCommits: this.#toNumber(data.total_commits),
-      totalRepositories: Array.isArray(data.repositories)
-        ? data.repositories.length
-        : this.#toNumber(data.total_repositories),
-      linesAdded: this.#toNumber(data.total_additions),
-      linesDeleted: this.#toNumber(data.total_deletions),
-      filesChanged: this.#toNumber(data.total_files),
-    };
-  }
-
-  async #parseStatsFromJsonFiles(outputFiles: string[]): Promise<GitActivityStats | null> {
-    const scriptDir = path.dirname(this.pythonScript);
-    const jsonFiles = outputFiles.filter((file) => file.toLowerCase().endsWith('.json'));
-
-    for (const file of jsonFiles) {
-      const resolvedPath = path.isAbsolute(file)
-        ? file
-        : path.resolve(scriptDir, file);
-      try {
-        const content = await fs.readFile(resolvedPath, 'utf-8');
-        const data = JSON.parse(content) as Record<string, unknown>;
-        if (Object.prototype.hasOwnProperty.call(data, 'total_commits')) {
-          return this.#buildStatsFromData(data);
-        }
-      } catch (error) {
-        const err = error as Error;
-        logger.debug({ file: resolvedPath, error: err.message }, 'Could not parse JSON stats file');
-      }
-    }
-
-    return null;
-  }
-
   async #parseStats(stdout: string, outputFiles: string[]): Promise<GitActivityStats> {
-    const stats: GitActivityStats = {
-      totalCommits: 0,
-      totalRepositories: 0,
-      linesAdded: 0,
-      linesDeleted: 0,
-    };
-
-    const jsonStats = await this.#parseStatsFromJsonFiles(outputFiles);
+    const scriptDir = path.dirname(this.pythonScript);
+    const jsonStats = await parseGitActivityStatsFromJsonFiles(outputFiles, scriptDir);
     if (jsonStats) {
       return jsonStats;
     }
-
-    // Fallback: parse from text summary output
-    const commitsMatch = stdout.match(/Total commits:\s*(\d+)/i);
-    if (commitsMatch) {
-      stats.totalCommits = parseInt(commitsMatch[1], 10);
-    }
-
-    const additionsMatch = stdout.match(/Lines added:\s*(\d+)/i);
-    if (additionsMatch) {
-      stats.linesAdded = parseInt(additionsMatch[1], 10);
-    }
-
-    const deletionsMatch = stdout.match(/Lines deleted:\s*(\d+)/i);
-    if (deletionsMatch) {
-      stats.linesDeleted = parseInt(deletionsMatch[1], 10);
-    }
-
-    const reposMatch = stdout.match(/Active repositories:\s*(\d+)/i);
-    if (reposMatch) {
-      stats.totalRepositories = parseInt(reposMatch[1], 10);
-    }
-
-    const filesMatch = stdout.match(/File changes:\s*(\d+)/i);
-    if (filesMatch) {
-      stats.filesChanged = parseInt(filesMatch[1], 10);
-    }
-
-    return stats;
+    return parseGitActivityStatsFromText(stdout);
   }
 
   /**

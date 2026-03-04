@@ -5,6 +5,8 @@ from pathlib import Path
 from types import SimpleNamespace
 import sys
 
+import pytest
+
 
 sys.path.insert(0, str(Path(__file__).parent))
 import collect_git_activity as cga
@@ -16,8 +18,8 @@ class FrozenDateTime(datetime):
         return cls(2026, 3, 4, 12, 0, 0, tzinfo=tz)
 
 
-def _result(stdout: str) -> SimpleNamespace:
-    return SimpleNamespace(stdout=stdout)
+def _result(stdout: str, stderr: str = "", returncode: int = 0) -> SimpleNamespace:
+    return SimpleNamespace(stdout=stdout, stderr=stderr, returncode=returncode)
 
 
 def test_find_git_repos_uses_argv_and_filters_excludes(monkeypatch, tmp_path):
@@ -30,7 +32,7 @@ def test_find_git_repos_uses_argv_and_filters_excludes(monkeypatch, tmp_path):
 
     calls: list[list[str]] = []
 
-    def fake_run(cmd, capture_output, text):
+    def fake_run(cmd, capture_output, text, cwd=None):
         calls.append(cmd)
         if cmd[1] == str(code_dir):
             return _result(
@@ -97,7 +99,7 @@ def test_get_repo_stats_uses_cwd_and_parses_outputs(monkeypatch, tmp_path):
     assert "--numstat" in calls[3][0]
 
 
-def test_get_repo_stats_returns_none_on_subprocess_error(monkeypatch, tmp_path):
+def test_get_repo_stats_raises_on_subprocess_error(monkeypatch, tmp_path):
     repo_path = tmp_path / "repo"
     repo_path.mkdir()
 
@@ -105,7 +107,8 @@ def test_get_repo_stats_returns_none_on_subprocess_error(monkeypatch, tmp_path):
         raise RuntimeError("boom")
 
     monkeypatch.setattr(cga.subprocess, "run", fake_run)
-    assert cga.get_repo_stats(repo_path, "2026-01-01", "2026-02-01") is None
+    with pytest.raises(RuntimeError, match="boom"):
+        cga.get_repo_stats(repo_path, "2026-01-01", "2026-02-01")
 
 
 def test_calculate_date_range_weekly_uses_fixed_now(monkeypatch):
