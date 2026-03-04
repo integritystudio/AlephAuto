@@ -14,10 +14,10 @@
 
 | Tool | Status | Action Items |
 |------|--------|-------------|
-| Complexity | 33 violations (snapshot) | `CX1`, `CX6`, `CX7` completed; remaining active complexity debt is `CX11-CX13` (archive/docs files) per `docs/BACKLOG.md` |
+| Complexity | 33 violations (snapshot) | `CX1`, `CX6`, `CX7`, `CX11` completed; `CX12-CX13` retired in v2.3.8. No active complexity backlog items in `docs/BACKLOG.md`. |
 | Code Smells | 33 large classes (snapshot) | `CS7` and `CS8` completed in v2.3.4-v2.3.5; no active large-class backlog items |
 | Security | 0 issues | None |
-| Standards | 203 violations (snapshot) | `SV3` completed in v2.2.0; `SV1` (`no-console-log`) remains active |
+| Standards | 203 violations (snapshot) | `SV1`, `SV2`, and `SV3` completed. No active standards backlog items in `docs/BACKLOG.md`. |
 | Orphans | 151 files / 147 functions (snapshot) | Rerun completed (fast mode): 458 orphan files / 5,674 orphan functions; strict verification pass still recommended |
 | Deduplication | 3 groups (low priority) | Defer -- test helpers, intentional |
 
@@ -69,26 +69,28 @@ Fix commit: `4738e17` (`docs: resolve stale docstrings with explicit return type
 
 ---
 
-## Changelog Update (through v2.3.7)
+## Changelog Update (through v2.3.11)
+
+> Completed items in this review were migrated to `docs/changelog/2.3/CHANGELOG.md` in **v2.3.11** on 2026-03-04. This section remains as historical rollup context.
 
 ### Quantified Progress from `docs/changelog/*` + `docs/BACKLOG.md`
 
 | Metric | Updated Data |
 |--------|--------------|
 | Active deferred/blocked items | **0** (none listed in `docs/BACKLOG.md` as of 2026-03-04) |
-| Complexity backlog closed since this review | **CX1-CX5, CX6-CX10** completed across v2.2.0-v2.3.3 |
-| Standards backlog closed since this review | **SV2, SV3** completed in v2.2.0 |
+| Complexity backlog closed since this review | **CX1-CX11** completed across v2.2.0-v2.3.9; `CX12-CX13` retired in v2.3.8 |
+| Standards backlog closed since this review | **SV1, SV2, SV3** completed across v2.2.0-v2.3.10 |
 | Code smell backlog closed since this review | **CS5, CS7, CS8** completed in v2.2.0-v2.3.5 |
 | Documentation backlog closed since this review | **DOC1-DOC8** completed in v2.3.6-v2.3.7 |
 | Latest documentation baseline (`sync_documentation`) | **100.0%** (913/913 documented, 0 undocumented, 0 stale) |
-| Remaining active backlog from analyzer streams | `CX11-CX13`, `SV1` |
+| Remaining active backlog from analyzer streams | **None** |
 
 ### Impact on This Review
 
 | Area | Changelog Evidence | Status |
 |------|--------------------|--------|
 | Complexity hotspot (`useWebSocketConnection.ts`) | `CX1` explicitly completed in v2.2.0 (`4e3eb88`, `5963112`) | Resolved in backlog/changelog; this report's original metric is historical |
-| Standards (`prefer-const`, `==`) | `SV3` completed in v2.2.0; latest rerun shows `no-double-equals` at 0 and `prefer-const`/`no-console-log` still active | Partially resolved; uncapped standards rerun recommended |
+| Standards (`prefer-const`, `==`) | `SV1` completed in v2.3.10 and `SV3` completed in v2.2.0; latest historical rerun (2026-03-03) still showed pre-fix counts | Backlog resolved; rerun recommended only for fresh post-fix metrics |
 | Orphans/dead code | Fresh orphan pass executed (2026-03-03, `verify_with_grep=false`) | Directional update available; strict verification rerun still recommended |
 | Test duplication/flakiness | v1.9.0 and later changelog entries show continued test cleanup | Significant progress; low-priority duplication remains deferred |
 
@@ -485,7 +487,8 @@ Status: All marked "uncertain" because grep verification timed out. Test files a
 | `sidequest/utils/time-helpers.ts` | 55 | typescript |
 | `eslint.config.js` | 56 | javascript |
 
-Current tree check (2026-03-04): both `sidequest/utils/doppler-resilience.example.js` and `docs/quickstart/doppler-circuit-breaker.md` exist. Treat orphan status for this file as unresolved until a fresh scan is run.
+Fresh bounded orphan check and follow-up action (2026-03-04): `sidequest/utils/doppler-resilience.example.js` was removed and backed up as `sidequest/utils/doppler-resilience.example.js.bak`.
+Prior orphan evidence before removal: `docs/output/astgrep/astgrep-orphans-clean-2026-03-04.json` (`status: likely`) and `docs/output/astgrep/orphan-triage-2026-03-04.json` (`likely_valid_orphan`).
 
 #### Test Files (90 total)
 
@@ -514,7 +517,6 @@ All test files (`.test.ts`, `test-*.ts`, `validate-*.ts`) are listed in the full
 ## Priority Actions
 
 1. **P0** -- Normalize analyzer scope/config (include/exclude patterns and orphan verification mode) and run a strict apples-to-apples baseline pass
-2. **P0** -- Prioritize active backlog items from `docs/BACKLOG.md`: `CX11-CX13` (archive/docs) and `SV1`
-3. **P1** -- Run focused standards scans with uncapped output to produce complete violation inventories per rule
-4. **P1** -- Re-run orphan detection with `verify_with_grep=true` in a bounded target scope to reduce false positives
-5. **P2** -- Track documentation drift from the latest `sync_documentation` baseline (**100.0%**: 913/913 documented, 0 undocumented, 0 stale docstrings) with periodic reruns
+2. **P1** -- Run focused standards scans with uncapped output to produce complete post-fix inventories per rule (metrics refresh only; no active standards backlog)
+3. **P1** -- Re-run orphan detection with `verify_with_grep=true` in a bounded target scope to reduce false positives
+4. **P2** -- Track documentation drift from the latest `sync_documentation` baseline (**100.0%**: 913/913 documented, 0 undocumented, 0 stale docstrings) with periodic reruns
