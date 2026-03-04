@@ -25,7 +25,7 @@ Built on a robust job queue architecture with Sentry error tracking, event-drive
 
 ## Prerequisites
 
-- **Node.js** >= 18.0.0
+- **Node.js** >= 22.0.0
 - **repomix** CLI tool - [Installation guide](https://github.com/yamadashy/repomix)
 - **Sentry account** (optional) - For error tracking
 
@@ -81,13 +81,13 @@ Scans all repositories in your code directory and generates condensed versions u
 
 ```bash
 # Run once immediately
-node index.js
+node --strip-types sidequest/core/index.ts
 
 # Run on schedule (configured via CRON_SCHEDULE)
-RUN_ON_STARTUP=false node index.js
+RUN_ON_STARTUP=false node --strip-types sidequest/core/index.ts
 
 # Run with custom configuration
-CODE_BASE_DIR=/custom/path MAX_CONCURRENT=3 node index.js
+CODE_BASE_DIR=/custom/path MAX_CONCURRENT=3 node --strip-types sidequest/core/index.ts
 ```
 
 **Scheduled execution**: By default, runs at 2 AM daily. Configure via `CRON_SCHEDULE` environment variable.
@@ -100,10 +100,10 @@ Scans README files and adds Schema.org JSON-LD markup for better SEO.
 
 ```bash
 # Run the documentation enhancement pipeline
-node data-discovery-report-pipeline.js
+node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts
 
 # Run with custom target directory
-CODE_BASE_DIR=/path/to/repos node data-discovery-report-pipeline.js
+CODE_BASE_DIR=/path/to/repos node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts
 ```
 
 **Scheduled execution**: By default, runs at 3 AM daily. Configure via `DOC_CRON_SCHEDULE`.
@@ -119,13 +119,13 @@ Batch update `.gitignore` files across all git repositories.
 
 ```bash
 # Preview changes (dry-run mode)
-node gitignore-repomix-updater.js ~/code --dry-run
+node --strip-types sidequest/utils/gitignore-repomix-updater.ts ~/code --dry-run
 
 # Apply changes
-node gitignore-repomix-updater.js ~/code
+node --strip-types sidequest/utils/gitignore-repomix-updater.ts ~/code
 
 # Custom path
-node gitignore-repomix-updater.js /path/to/repos
+node --strip-types sidequest/utils/gitignore-repomix-updater.ts /path/to/repos
 ```
 
 **What it does**:
@@ -144,13 +144,13 @@ Analyzes test suites for duplication patterns and generates modular utility file
 
 ```bash
 # Refactor all test suites in your code directory
-node sidequest/pipeline-runners/test-refactor-pipeline.js
+node --strip-types sidequest/pipeline-runners/test-refactor-pipeline.ts
 
 # Refactor a single project
-node sidequest/pipeline-runners/test-refactor-pipeline.js /path/to/project
+node --strip-types sidequest/pipeline-runners/test-refactor-pipeline.ts /path/to/project
 
 # Analysis only (dry-run mode)
-DRY_RUN=true node sidequest/pipeline-runners/test-refactor-pipeline.js
+DRY_RUN=true node --strip-types sidequest/pipeline-runners/test-refactor-pipeline.ts
 ```
 
 **Scheduled execution**: By default, runs at 4 AM every Sunday. Configure via `TEST_REFACTOR_CRON`.
@@ -191,38 +191,38 @@ DRY_RUN=true node sidequest/pipeline-runners/test-refactor-pipeline.js
 
 ### Component Overview
 
-**`server.js`** - Base job execution engine
+**`sidequest/core/server.ts`** - Base job execution engine
 - Event-driven job lifecycle: `created` → `queued` → `running` → `completed/failed`
 - Configurable concurrency limits
 - Sentry error tracking and performance monitoring
 - JSON logging to `./logs/` directory
 
-**`repomix-worker.js`** - Repomix job executor
+**`sidequest/workers/repomix-worker.ts`** - Repomix job executor
 - Executes repomix CLI securely (command injection protected)
 - Manages output directory structure
 - 10-minute timeout, 50MB buffer for large outputs
 
-**`directory-scanner.js`** - Directory traversal
+**`sidequest/utils/directory-scanner.ts`** - Directory traversal
 - Recursive scanning with depth limits
 - Configurable exclusion patterns
 - Statistical reporting
 
-**`index.js`** - Main repomix pipeline application
+**`sidequest/core/index.ts`** - Main repomix pipeline application
 - Cron scheduling for automated execution
 - Scans and processes all repositories
 - Event-driven console logging
 
-**`data-discovery-report-pipeline.js`** - Documentation enhancement
+**`sidequest/pipeline-runners/schema-enhancement-pipeline.ts`** - Documentation enhancement
 - README file discovery
 - Schema.org markup generation
 - MCP tools integration
 
-**`gitignore-repomix-updater.js`** - Batch gitignore management
+**`sidequest/utils/gitignore-repomix-updater.ts`** - Batch gitignore management
 - Git repository detection
 - Safe file modification
 - Detailed reporting
 
-**`test-refactor-worker.js`** - Test suite refactoring
+**`sidequest/workers/test-refactor-worker.ts`** - Test suite refactoring
 - Pattern detection for duplication
 - Utility file generation
 - Framework auto-detection (Vitest/Jest/Playwright)
@@ -236,8 +236,8 @@ DRY_RUN=true node sidequest/pipeline-runners/test-refactor-pipeline.js
 # Run all tests
 npm test
 
-# Run with UI
-npm run test:ui
+# Run integration tests
+npm run test:integration
 
 # Generate coverage report
 npm run test:coverage
@@ -257,7 +257,7 @@ npm run lint:fix
 
 ```bash
 # Run TypeScript type checking
-npm run type-check
+npm run typecheck
 ```
 
 ### Logging
@@ -268,10 +268,10 @@ AlephAuto uses structured logging with Pino. Logs are JSON-formatted and written
 
 ```bash
 # Enable debug logging
-LOG_LEVEL=debug node index.js
+LOG_LEVEL=debug node --strip-types sidequest/core/index.ts
 
 # Log to custom location
-LOG_DIR=/var/log/alephauto node index.js
+LOG_DIR=/var/log/alephauto node --strip-types sidequest/core/index.ts
 ```
 
 ## Monitoring
@@ -295,7 +295,7 @@ Set up Sentry for error tracking:
 Listen to job events programmatically:
 
 ```javascript
-import { RepomixWorker } from './repomix-worker.js';
+import { RepomixWorker } from './sidequest/workers/repomix-worker.ts';
 
 const worker = new RepomixWorker();
 

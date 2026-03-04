@@ -2,7 +2,7 @@
 
 **Base URL:** `http://localhost:8080`
 **WebSocket:** `ws://localhost:8080/ws`
-**Version:** 1.8.1
+**Version:** 1.8.2
 
 ## Table of Contents
 
@@ -798,7 +798,7 @@ All endpoints return errors in this format:
 
 ## Authentication
 
-Currently, the API uses basic authentication middleware. Check `api/middleware/auth.js` for implementation details.
+Currently, the API uses basic authentication middleware. Check `api/middleware/auth.ts` for implementation details.
 
 ## Rate Limiting
 
@@ -808,7 +808,7 @@ Strict rate limiting is applied to mutation endpoints:
 - `POST /api/repositories/:name/scan`
 - `POST /api/pipelines/:pipelineId/trigger`
 
-Check `api/middleware/rate-limit.js` for configuration.
+Check `api/middleware/rate-limit.ts` for configuration.
 
 ---
 
@@ -843,5 +843,5 @@ curl -X POST http://localhost:8080/api/pipelines/duplicate-detection/trigger \
 
 ---
 
-**Last Updated:** 2025-11-26
-**Version:** 1.6.1
+**Last Updated:** 2026-03-04
+**Version:** 1.8.2

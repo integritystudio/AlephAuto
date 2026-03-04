@@ -22,7 +22,7 @@ The scanners capture these patterns and can detect similar issues in any codebas
 
 ### 1. Timeout Pattern Detector
 
-**File:** `lib/scanners/timeout-pattern-detector.js`
+**File:** `sidequest/pipeline-core/scanners/timeout-pattern-detector.ts`
 
 Detects patterns that can cause infinite loading:
 
@@ -52,7 +52,7 @@ const { data } = await withTimeout(
 
 **Usage:**
 ```javascript
-import { TimeoutPatternDetector } from './lib/scanners/timeout-pattern-detector.js';
+import { TimeoutPatternDetector } from './sidequest/pipeline-core/scanners/timeout-pattern-detector.ts';
 
 const detector = new TimeoutPatternDetector({ logger: console });
 const findings = await detector.scan('/path/to/repo');
@@ -85,7 +85,7 @@ console.log(detector.generateReport(findings));
 
 ### 2. Root Directory Analyzer
 
-**File:** `lib/scanners/root-directory-analyzer.js`
+**File:** `sidequest/pipeline-core/scanners/root-directory-analyzer.ts`
 
 Analyzes project root directories for organization issues.
 
@@ -119,7 +119,7 @@ Analyzes project root directories for organization issues.
 
 **Usage:**
 ```javascript
-import { RootDirectoryAnalyzer } from './lib/scanners/root-directory-analyzer.js';
+import { RootDirectoryAnalyzer } from './sidequest/pipeline-core/scanners/root-directory-analyzer.ts';
 
 const analyzer = new RootDirectoryAnalyzer({ logger: console });
 const analysis = await analyzer.analyze('/path/to/repo');
@@ -141,29 +141,29 @@ console.log(analyzer.generateReport(analysis));
 
 ### 3. Codebase Health Scanner (CLI)
 
-**File:** `lib/scanners/codebase-health-scanner.js`
+**File:** `sidequest/pipeline-core/scanners/codebase-health-scanner.ts`
 
 Command-line tool that runs all scanners and generates comprehensive reports.
 
 **Installation:**
 ```bash
 cd ~/code/jobs
-chmod +x lib/scanners/codebase-health-scanner.js
+chmod +x sidequest/pipeline-core/scanners/codebase-health-scanner.ts
 ```
 
 **Usage:**
 ```bash
 # Run all scans
-node lib/scanners/codebase-health-scanner.js ~/code/myproject --scan all
+node --strip-types sidequest/pipeline-core/scanners/codebase-health-scanner.ts ~/code/myproject --scan all
 
 # Run specific scan
-node lib/scanners/codebase-health-scanner.js ~/code/myproject --scan timeout
+node --strip-types sidequest/pipeline-core/scanners/codebase-health-scanner.ts ~/code/myproject --scan timeout
 
 # Save to file
-node lib/scanners/codebase-health-scanner.js ~/code/myproject --output report.md
+node --strip-types sidequest/pipeline-core/scanners/codebase-health-scanner.ts ~/code/myproject --output report.md
 
 # JSON output
-node lib/scanners/codebase-health-scanner.js ~/code/myproject --json
+node --strip-types sidequest/pipeline-core/scanners/codebase-health-scanner.ts ~/code/myproject --json
 ```
 
 **Options:**
@@ -214,10 +214,10 @@ node lib/scanners/codebase-health-scanner.js ~/code/myproject --json
 ### Option 1: Add to Scan Orchestrator
 
 ```javascript
-// In lib/scan-orchestrator.ts or lib/scan-orchestrator.js
+// In sidequest/pipeline-core/scan-orchestrator.ts
 
-import { TimeoutPatternDetector } from './scanners/timeout-pattern-detector.js';
-import { RootDirectoryAnalyzer } from './scanners/root-directory-analyzer.js';
+import { TimeoutPatternDetector } from './scanners/timeout-pattern-detector.ts';
+import { RootDirectoryAnalyzer } from './scanners/root-directory-analyzer.ts';
 
 export class ScanOrchestrator {
   async runHealthScans(repoPath) {
@@ -238,10 +238,10 @@ export class ScanOrchestrator {
 
 ### Option 2: Standalone Script
 
-Create `scripts/run-health-scan.js`:
+Create `scripts/run-health-scan.ts`:
 ```javascript
 #!/usr/bin/env node
-import { runHealthScan } from '../lib/scanners/codebase-health-scanner.js';
+import { runHealthScan } from '../sidequest/pipeline-core/scanners/codebase-health-scanner.ts';
 
 const repoPath = process.argv[2] || process.cwd();
 
@@ -263,7 +263,7 @@ module.exports = {
     // ... existing apps ...
     {
       name: 'health-scanner',
-      script: './lib/scanners/codebase-health-scanner.js',
+      script: './sidequest/pipeline-core/scanners/codebase-health-scanner.ts',
       args: '~/code/myproject --scan all --output ~/code/jobs/output/health-report.md',
       cron_restart: '0 0 * * *', // Daily at midnight
       autorestart: false
@@ -285,7 +285,7 @@ module.exports = {
   ```
 
 **Optional:**
-- Node.js 18+ (for ESM support)
+- Node.js 22+ (project requirement)
 - Git (for `git mv` commands)
 
 ### Verify Installation
@@ -295,10 +295,10 @@ module.exports = {
 sg --version
 
 # Test timeout detector
-node -e "import('./lib/scanners/timeout-pattern-detector.js').then(m => console.log('✓ Loaded'))"
+node --strip-types -e "import('./sidequest/pipeline-core/scanners/timeout-pattern-detector.ts').then(m => console.log('✓ Loaded'))"
 
 # Test root analyzer
-node -e "import('./lib/scanners/root-directory-analyzer.js').then(m => console.log('✓ Loaded'))"
+node --strip-types -e "import('./sidequest/pipeline-core/scanners/root-directory-analyzer.ts').then(m => console.log('✓ Loaded'))"
 ```
 
 ---
@@ -403,7 +403,7 @@ const analyzer = new RootDirectoryAnalyzer({
 
 ### Add New Timeout Pattern
 
-Edit `timeout-pattern-detector.js`:
+Edit `timeout-pattern-detector.ts`:
 ```javascript
 async findCustomPattern(repoPath) {
   const pattern = 'YOUR_PATTERN_HERE';
@@ -427,7 +427,7 @@ findings.customPattern = customIssues;
 
 ### Add New Root Directory Category
 
-Edit `root-directory-analyzer.js`:
+Edit `root-directory-analyzer.ts`:
 ```javascript
 generateRecommendations(categorized, dependencies) {
   const recommendations = [];
@@ -467,15 +467,15 @@ sg --version
 
 ### "Cannot find module"
 
-Ensure you're using Node.js 18+ with ESM support:
+Ensure you're using Node.js 22+ with `--strip-types` support:
 ```bash
-node --version  # Should be v18.0.0 or higher
+node --version  # Should be v22.0.0 or higher
 ```
 
-Use `.js` extensions in imports:
+Use `.ts` extensions in imports:
 ```javascript
 // ✅ Good
-import { TimeoutPatternDetector } from './timeout-pattern-detector.js';
+import { TimeoutPatternDetector } from './timeout-pattern-detector.ts';
 
 // ❌ Bad
 import { TimeoutPatternDetector } from './timeout-pattern-detector';

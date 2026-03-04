@@ -6,7 +6,7 @@
   "@type": "HowTo",
   "name": "Testing Documentation Index",
   "description": "This directory contains comprehensive documentation for the AlephAuto job queue testing infrastructure.",
-  "dateModified": "2026-01-19T02:09:57.630Z",
+  "dateModified": "2026-03-04T00:00:00.000Z",
   "inLanguage": "en-US"
 }
 </script>
@@ -93,14 +93,14 @@ This directory contains comprehensive documentation for the AlephAuto job queue 
 
 ### In /tests/
 - [tests/README.md](../../tests/README.md) - Original test infrastructure guide
-- [tests/fixtures/test-helpers.js](../../tests/fixtures/test-helpers.js) - Test repository fixtures
+- [tests/fixtures/test-helpers.ts](../../tests/fixtures/test-helpers.ts) - Test repository fixtures
 
 ### In /sidequest/core/
-- [sidequest/core/server.js](../../sidequest/core/server.js) - SidequestServer implementation
-- [sidequest/core/config.js](../../sidequest/core/config.js) - Configuration
+- [sidequest/core/server.ts](../../sidequest/core/server.ts) - SidequestServer implementation
+- [sidequest/core/config.ts](../../sidequest/core/config.ts) - Configuration
 
 ### In /api/
-- [api/activity-feed.js](../../api/activity-feed.js) - ActivityFeedManager implementation
+- [api/activity-feed.ts](../../api/activity-feed.ts) - ActivityFeedManager implementation
 
 ---
 
@@ -130,7 +130,7 @@ This directory contains comprehensive documentation for the AlephAuto job queue 
 
 ## Current Test Suite Status
 
-**Last Updated:** 2025-11-26
+**Last Updated:** 2026-03-04
 
 ### Test Coverage
 - **Total Tests:** 240+
@@ -179,7 +179,7 @@ None! All unit tests are now passing ✅
 - [x] Error Helpers Mocha → Node.js test runner conversion
 - [x] Sidequest Server import path corrections
 - [x] Test infrastructure import path audit
-- [x] **Test utilities module creation (tests/utils/test-utilities.js) - 31/31 tests passing** ✨
+- [x] **Test utilities module creation (tests/utils/test-utilities.ts) - 31/31 tests passing** ✨
 
 ### In Progress ⏳
 - [ ] Activity Feed test fixes
@@ -204,7 +204,7 @@ npm test
 npm run test:integration
 
 # Run specific test file
-doppler run -- node --test tests/integration/activity-feed.integration.test.js
+doppler run -- node --strip-types --test tests/integration/activity-feed.integration.test.ts
 
 # Validate test paths
 npm run test:validate-paths
@@ -214,14 +214,14 @@ npm run test:validate-paths
 ```
 tests/
 ├── fixtures/
-│   └── test-helpers.js           # Temp repository helpers
+│   └── test-helpers.ts           # Temp repository helpers
 ├── utils/
-│   └── test-utilities.js         # ✅ Test utilities (CREATED - 31/31 tests passing)
+│   └── test-utilities.ts         # ✅ Test utilities (CREATED - 31/31 tests passing)
 ├── unit/
-│   └── test-utilities.test.js    # Test utilities validation tests
+│   └── test-utilities.test.ts    # Test utilities validation tests
 ├── integration/
-│   ├── activity-feed.integration.test.js  # 9 failures (TO FIX)
-│   └── test-pipeline-trigger.js           # 1 failure (TO FIX)
+│   ├── activity-feed.integration.test.ts  # 9 failures (TO FIX)
+│   └── test-pipeline-trigger.ts           # 1 failure (TO FIX)
 └── README.md                     # Original test guide
 
 docs/testing/
@@ -242,7 +242,7 @@ docs/testing/
 
 When adding new tests:
 1. Follow patterns in TEST_INFRASTRUCTURE_IMPROVEMENTS.md
-2. Use test utilities from `tests/fixtures/test-utilities.js` (once created)
+2. Use test utilities from `tests/utils/test-utilities.ts`
 3. Write event-driven assertions (no setTimeout)
 4. Extend TestWorker for custom test logic
 5. Run `npm run test:validate-paths` before committing
@@ -282,7 +282,7 @@ When adding new tests:
 ## Recent Improvements (2025-11-26)
 
 ### Null-Safety Pattern
-Fixed Sentry span optional chaining issue in `sidequest/pipeline-core/git/branch-manager.js`:
+Fixed Sentry span optional chaining issue in `sidequest/pipeline-core/git/branch-manager.ts`:
 
 ```javascript
 // ❌ Before (caused test failures)
@@ -295,7 +295,7 @@ span?.setStatus('ok');
 Applied to all 5 methods: `createJobBranch()`, `commitChanges()`, `pushBranch()`, `createPullRequest()`
 
 ### Test Runner Migration
-Converted `tests/unit/error-helpers.test.js` from Mocha to Node.js built-in test runner:
+Converted `tests/unit/error-helpers.test.ts` from Mocha to Node.js built-in test runner:
 
 ```javascript
 // ❌ Before (Mocha syntax)
@@ -312,12 +312,12 @@ describe('Test Suite', () => {
 
 ### Import Path Corrections
 Fixed import paths after codebase reorganization:
-- `sidequest/logger.js` → `sidequest/utils/logger.js`
-- `sidequest/server.js` → `sidequest/core/server.js`
-- `sidequest/repomix-worker.js` → `sidequest/workers/repomix-worker.js`
+- `sidequest/logger.js` → `sidequest/utils/logger.ts`
+- `sidequest/server.js` → `sidequest/core/server.ts`
+- `sidequest/repomix-worker.js` → `sidequest/workers/repomix-worker.ts`
 
 ### MCP Server Test Fixes
-Fixed 4 failing tests in `tests/unit/mcp-server.test.js`:
+Fixed 4 failing MCP server tests:
 
 ```javascript
 // ❌ Before (case-sensitive match)
@@ -363,9 +363,9 @@ setTimeout(() => { serverProcess.stdin.end(); }, 500);
 
 ---
 
-**Last Updated:** 2025-11-26
+**Last Updated:** 2026-03-04
 **Status:** 🎉 All Unit Tests Passing - 100% Pass Rate 🎉
 **Next Steps:**
-1. Create test utilities module in `tests/fixtures/test-utilities.js`
-2. Fix Activity Feed integration tests (9 failures documented)
-3. Fix remaining integration tests (pipeline trigger, generic)
+1. Fix Activity Feed integration tests (9 failures documented)
+2. Fix remaining integration tests (pipeline trigger, generic)
+3. Keep test path references aligned with `.ts` source files
