@@ -85,6 +85,23 @@ test('getStats includes pendingRetries count', (t) => {
   assert.equal(stats.pendingRetries, 1);
 });
 
+test('createJob resolves duplicate IDs without overwriting existing job', (t) => {
+  stubRepositoryInit(t);
+
+  const server = new SidequestServer({ autoStart: false, jobType: 'action-guards' });
+  server.stop();
+
+  const first = server.createJob('duplicate-id', { order: 'first' });
+  const second = server.createJob('duplicate-id', { order: 'second' });
+
+  assert.equal(first.id, 'duplicate-id');
+  assert.equal(second.id, 'duplicate-id-1');
+  assert.equal(server.jobs.size, 2);
+  assert.deepEqual(server.queue, ['duplicate-id', 'duplicate-id-1']);
+  assert.equal(server.getJob('duplicate-id')?.data.order, 'first');
+  assert.equal(server.getJob('duplicate-id-1')?.data.order, 'second');
+});
+
 test('cancelJob clears retryPending immediately', (t) => {
   stubRepositoryInit(t);
 

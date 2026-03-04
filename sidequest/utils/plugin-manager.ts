@@ -7,14 +7,21 @@
 
 import { SidequestServer } from '../core/server.ts';
 import { createComponentLogger, logStart, logError, logWarn } from './logger.ts';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
+import os from 'os';
+import { fileURLToPath } from 'url';
 import type { Job } from '../core/server.ts';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 const logger = createComponentLogger('PluginManager');
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+
+export function resolvePluginAuditScriptPath(): string {
+  return path.resolve(moduleDir, '../pipeline-runners/plugin-management-audit.sh');
+}
 
 interface PluginManagerOptions {
   maxConcurrent?: number;
@@ -78,11 +85,8 @@ class PluginManagerWorker extends SidequestServer {
       ...options
     });
 
-    this.auditScriptPath = path.join(
-      process.env.HOME!,
-      'code/jobs/sidequest/plugin-management-audit.sh'
-    );
-    this.configPath = path.join(process.env.HOME!, '.claude/settings.json');
+    this.auditScriptPath = resolvePluginAuditScriptPath();
+    this.configPath = path.join(process.env.HOME ?? os.homedir(), '.claude', 'settings.json');
     this.thresholds = {
       maxPlugins: 30,
       warnPlugins: 20
@@ -138,9 +142,7 @@ class PluginManagerWorker extends SidequestServer {
       const args = ['--json'];
       if (detailed) args.push('--detailed');
 
-      const cmd = `bash ${this.auditScriptPath} ${args.join(' ')}`;
-
-      const { stdout, stderr } = await execAsync(cmd);
+      const { stdout, stderr } = await execFileAsync('bash', [this.auditScriptPath, ...args]);
 
       if (stderr) {
         logWarn(logger, null, 'Audit script warnings', { stderr });

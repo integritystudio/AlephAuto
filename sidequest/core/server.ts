@@ -178,8 +178,9 @@ export class SidequestServer extends EventEmitter {
    * @returns Created in-memory job object.
    */
   createJob(jobId: string, jobData: Record<string, unknown>): Job {
+    const resolvedJobId = this._resolveUniqueJobId(jobId);
     const job: Job = {
-      id: jobId,
+      id: resolvedJobId,
       status: JOB_STATUS.QUEUED,
       data: jobData,
       createdAt: new Date(),
@@ -197,8 +198,8 @@ export class SidequestServer extends EventEmitter {
       }
     };
 
-    this.jobs.set(jobId, job);
-    this.queue.push(jobId);
+    this.jobs.set(resolvedJobId, job);
+    this.queue.push(resolvedJobId);
 
     // Persist to SQLite immediately so job is visible in dashboard
     try {
@@ -209,15 +210,35 @@ export class SidequestServer extends EventEmitter {
 
     Sentry.addBreadcrumb({
       category: 'job',
-      message: `Job ${jobId} created`,
+      message: `Job ${resolvedJobId} created`,
       level: 'info',
-      data: { jobId, jobData },
+      data: { jobId: resolvedJobId, jobData },
     });
 
     this.emit('job:created', job);
     this.processQueue();
 
     return job;
+  }
+
+  private _resolveUniqueJobId(requestedJobId: string): string {
+    if (!this.jobs.has(requestedJobId)) {
+      return requestedJobId;
+    }
+
+    let suffix = 1;
+    let candidateId = `${requestedJobId}-${suffix}`;
+    while (this.jobs.has(candidateId)) {
+      suffix += 1;
+      candidateId = `${requestedJobId}-${suffix}`;
+    }
+
+    logger.warn({
+      requestedJobId,
+      resolvedJobId: candidateId
+    }, 'Duplicate job ID detected; assigned unique ID');
+
+    return candidateId;
   }
 
   /**

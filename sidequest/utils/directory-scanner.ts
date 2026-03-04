@@ -294,7 +294,7 @@ export class DirectoryScanner {
       timestamp: new Date().toISOString(),
       baseDir: this.baseDir,
       totalDirectories: directories.length,
-      maxDepth: Math.max(...directories.map(d => d.depth)),
+      maxDepth: directories.length > 0 ? Math.max(...directories.map(d => d.depth)) : 0,
       reportPath,
       treePath,
       stats,
