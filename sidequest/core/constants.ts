@@ -228,6 +228,17 @@ export const GIT_ACTIVITY = {
 } as const;
 
 /**
+ * Job retention configuration
+ */
+export const JOB_RETENTION = {
+  /** Minimum retention period in days */
+  MIN_DAYS: 1,
+
+  /** Maximum retention period in days (10 years) */
+  MAX_DAYS: 3650,
+} as const;
+
+/**
  * Size limits
  */
 export const LIMITS = {

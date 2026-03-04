@@ -2,6 +2,7 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { GIT_ACTIVITY, JOB_RETENTION } from './constants.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -32,6 +33,41 @@ function safeParseFloat(value: string | undefined, defaultValue: number, min?: n
 }
 
 /**
+ * Parse per-job-type retention days from JSON object env var.
+ * Example: {"repomix":14,"duplicate-detection":60}
+ */
+function safeParseRetentionByType(value: string | undefined): Record<string, number> {
+  if (!value) return {};
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+
+    const result: Record<string, number> = {};
+    for (const [jobType, retentionValue] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!jobType) continue;
+
+      const parsedDays = typeof retentionValue === 'number'
+        ? Math.floor(retentionValue)
+        : typeof retentionValue === 'string'
+          ? parseInt(retentionValue, 10)
+          : Number.NaN;
+
+      if (
+        !Number.isFinite(parsedDays)
+        || parsedDays < JOB_RETENTION.MIN_DAYS
+        || parsedDays > JOB_RETENTION.MAX_DAYS
+      ) continue;
+      result[jobType] = parsedDays;
+    }
+
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Centralized configuration for AlephAuto
  * All paths are resolved to absolute paths for consistency
  */
@@ -52,6 +88,13 @@ export const config = {
 
   // Job processing
   maxConcurrent: safeParseInt(process.env.MAX_CONCURRENT, 5, 1, 50),
+  defaultJobRetentionDays: safeParseInt(
+    process.env.JOB_RETENTION_DAYS,
+    GIT_ACTIVITY.MONTHLY_WINDOW_DAYS,
+    JOB_RETENTION.MIN_DAYS,
+    JOB_RETENTION.MAX_DAYS
+  ),
+  jobRetentionDaysByType: safeParseRetentionByType(process.env.JOB_RETENTION_DAYS_BY_TYPE),
 
   // Sentry monitoring
   sentryDsn: process.env.SENTRY_DSN,

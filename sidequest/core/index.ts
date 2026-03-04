@@ -5,6 +5,7 @@ import { config } from './config.ts';
 import { TIMEOUTS, TIME } from './constants.ts';
 import path from 'path';
 import fs from 'fs/promises';
+import { fileURLToPath } from 'url';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import type { Job, JobStats } from './server.ts';
 
@@ -47,7 +48,7 @@ interface TypedRepomixWorker {
 /**
  * Main application entry point
  */
-class RepomixCronApp {
+export class RepomixCronApp {
   private worker: TypedRepomixWorker;
   private scanner: TypedDirectoryScanner;
 
@@ -82,7 +83,11 @@ class RepomixCronApp {
     });
 
     this.worker.on('job:completed', (job: Job) => {
-      const duration = new Date(job.completedAt!).getTime() - new Date(job.startedAt!).getTime();
+      const startedAtMs = job.startedAt?.getTime();
+      const completedAtMs = job.completedAt?.getTime();
+      const duration = (typeof startedAtMs === 'number' && typeof completedAtMs === 'number')
+        ? completedAtMs - startedAtMs
+        : null;
       logger.info({
         jobId: job.id,
         relativePath: job.data.relativePath,
@@ -216,10 +221,17 @@ class RepomixCronApp {
   }
 }
 
-// Auto-executing entry point: importing this module starts the application.
-// This file lives in core/ for historical reasons but functions as a pipeline runner.
-const app = new RepomixCronApp();
-app.start().catch((error) => {
-  logError(logger, error, 'Fatal error');
-  process.exit(1);
-});
+function isDirectExecution(): boolean {
+  const currentModulePath = fileURLToPath(import.meta.url);
+  const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
+  return entryPath === currentModulePath;
+}
+
+// Entrypoint mode: run only when invoked directly, not when imported by tests/tools.
+if (isDirectExecution()) {
+  const app = new RepomixCronApp();
+  app.start().catch((error) => {
+    logError(logger, error, 'Fatal error');
+    process.exit(1);
+  });
+}

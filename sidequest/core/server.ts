@@ -7,7 +7,7 @@ import { createComponentLogger, logError, logWarn } from '../utils/logger.ts';
 import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.ts';
 import { GitWorkflowManager } from './git-workflow-manager.ts';
 import { jobRepository } from './job-repository.ts';
-import { CONCURRENCY, RETRY } from './constants.ts';
+import { CONCURRENCY, RETRY, TIME } from './constants.ts';
 import { isRetryable, classifyError } from '../pipeline-core/errors/error-classifier.ts';
 import { toISOString } from '../utils/time-helpers.ts';
 import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '#api/types/job-status.ts';
@@ -70,6 +70,7 @@ export interface SidequestServerOptions {
   gitBaseBranch?: string;
   gitDryRun?: boolean;
   jobType?: string;
+  jobRetentionDays?: number;
   sentryDsn?: string;
 }
 
@@ -96,6 +97,7 @@ export class SidequestServer extends EventEmitter {
   gitBaseBranch: string;
   gitDryRun: boolean;
   jobType: string;
+  jobRetentionDays: number;
   gitWorkflowManager: GitWorkflowManager | undefined;
   private _dbReady: Promise<void>;
 
@@ -125,6 +127,13 @@ export class SidequestServer extends EventEmitter {
     this.gitBaseBranch = options.gitBaseBranch || 'main';
     this.gitDryRun = options.gitDryRun ?? false;
     this.jobType = options.jobType || 'job';
+    const retentionByType = config.jobRetentionDaysByType as Record<string, number>;
+    const retentionFromConfig = retentionByType[this.jobType] ?? config.defaultJobRetentionDays;
+    const requestedRetention = options.jobRetentionDays ?? retentionFromConfig;
+    const defaultRetentionDays = config.defaultJobRetentionDays as number;
+    this.jobRetentionDays = Number.isFinite(requestedRetention) && requestedRetention > 0
+      ? Math.floor(requestedRetention)
+      : defaultRetentionDays;
 
     // Initialize GitWorkflowManager if git workflow is enabled
     if (this.gitWorkflowEnabled) {
@@ -362,6 +371,7 @@ export class SidequestServer extends EventEmitter {
 
     this.emit('job:completed', job);
     this.jobHistory.push({ ...job });
+    this._pruneExpiredJobs();
     try {
       this._persistJob(job);
     } catch (dbErr) {
@@ -462,6 +472,7 @@ export class SidequestServer extends EventEmitter {
 
     this.emit('job:failed', job, error);
     this.jobHistory.push({ ...job });
+    this._pruneExpiredJobs();
     try {
       this._persistJob(job);
     } catch {
@@ -707,6 +718,38 @@ export class SidequestServer extends EventEmitter {
     };
   }
 
+  private _isExpiredTerminalJob(job: Job, cutoffMs: number): boolean {
+    if (!TERMINAL_STATUSES.includes(job.status)) return false;
+    const completedAtMs = job.completedAt?.getTime();
+    if (typeof completedAtMs !== 'number') return false;
+    return completedAtMs <= cutoffMs;
+  }
+
+  private _pruneExpiredJobs(referenceTimeMs: number = Date.now()): void {
+    const cutoffMs = referenceTimeMs - (this.jobRetentionDays * TIME.DAY);
+    let removedFromJobs = 0;
+
+    for (const [jobId, job] of this.jobs.entries()) {
+      if (this._isExpiredTerminalJob(job, cutoffMs)) {
+        this.jobs.delete(jobId);
+        removedFromJobs++;
+      }
+    }
+
+    const historyBefore = this.jobHistory.length;
+    this.jobHistory = this.jobHistory.filter(job => !this._isExpiredTerminalJob(job, cutoffMs));
+    const removedFromHistory = historyBefore - this.jobHistory.length;
+
+    if (removedFromJobs > 0 || removedFromHistory > 0) {
+      logger.debug({
+        jobType: this.jobType,
+        retentionDays: this.jobRetentionDays,
+        removedFromJobs,
+        removedFromHistory
+      }, 'Pruned expired terminal jobs from memory');
+    }
+  }
+
   private _executeJobAction(jobId: string, config: {
     action: string;
     statusGuard: (status: JobStatus) => boolean;
@@ -731,6 +774,9 @@ export class SidequestServer extends EventEmitter {
     }
 
     config.mutate(job);
+    if (TERMINAL_STATUSES.includes(job.status)) {
+      this._pruneExpiredJobs();
+    }
 
     try { this._persistJob(job); } catch { /* Non-critical */ }
 
