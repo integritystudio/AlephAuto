@@ -1,8 +1,46 @@
+17c5667 2026-03-04 fix: apply session updates and migration transformer declaration cleanup
+  sidequest/pipeline-runners/collect_git_activity.py
+  sidequest/repomix-output.xml
+
+fa5bd57 2026-03-04 docs(architecture): align git activity flow with current scheduling and date args
+  docs/architecture/pipeline-data-flow.md
+
+8c9eafd 2026-03-04 refactor(logging): migrate remaining SV1 console.log usage
+  sidequest/utils/refactor-test-suite.ts
+
+6bde636 2026-03-04 docs(architecture): refresh pipeline data flow staleness fixes
+  docs/architecture/pipeline-data-flow.md
+
+1e2581f 2026-03-04 chore: commit pending workspace updates
+  sidequest/docs/gitlog-sidequest.txt
+  sidequest/repomix-output.xml
+  sidequest/utils/refactor-test-suite.ts
+  tests/unit/activity-feed.test.ts
+
+4287dd6 2026-03-04 fix(git-activity): harden subprocess argv/cwd and refresh repomix
+  sidequest/pipeline-runners/collect_git_activity.py
+  sidequest/repomix-output.xml
+
+9361c74 2026-03-04 fix(git-activity): load collector config and emit monthly data
+  sidequest/pipeline-runners/collect_git_activity.py
+
+fc3ae89 2026-03-04 fix(git-activity): emit line metrics and default to both outputs
+  sidequest/pipeline-runners/collect_git_activity.py
+
+fba6ae6 2026-03-03 fix(git-activity): stabilize output format and file detection
+  sidequest/pipeline-runners/collect_git_activity.py
+
+b008d7a 2026-03-03 docs(architecture): update git-activity pipeline data flow
+  docs/architecture/pipeline-data-flow.md
+
+1a232a9 2026-03-03 fix(git-activity): align worker/python CLI flags
+  sidequest/pipeline-runners/collect_git_activity.py
+
 37e2043 2026-03-03 chore: refresh repomix artifacts and token tree script
   docs/repomix/repo-compressed.xml
   docs/repomix/repomix.xml
 
-d2631cc 2026-03-03 chore: repomix update
+d2631cc 2026-03-03 repomix & CS7 fix
   docs/repomix/repo-compressed.xml
   docs/repomix/repomix.xml
   sidequest/repomix-output.xml
@@ -17,19 +55,24 @@ a27b26b 2026-03-03 more robust repomix files
   docs/repomix/repo-compressed.xml
   docs/repomix/repomix.xml
 
-f69a95c 2026-03-03 new scripts
-  .ast-grep-backups/backup-20260301-035050-868/sidequest/pipeline-core/scan-orchestrator.ts
-
 4690b4d 2026-03-01 refactor(pipeline): replace numbered docstring list with bullets in grouping.py
   sidequest/pipeline-core/similarity/grouping.py
+
+1a9ce69 2026-03-01 refactor(pipeline): extract inline CSS colors to ChartColors constants
+  sidequest/pipeline-runners/collect_git_activity.py
 
 ce97a5f 2026-03-01 refactor(pipeline): eliminate remaining magic numbers (126 → 31)
   sidequest/pipeline-core/extractors/extract_blocks.py
   sidequest/pipeline-core/similarity/grouping.py
+  sidequest/pipeline-runners/collect_git_activity.py
+
+ffb9601 2026-03-01 refactor(pipeline): replace remaining magic numbers with named constants
+  sidequest/pipeline-runners/collect_git_activity.py
 
 99f96d5 2026-03-01 refactor(pipeline): centralize magic numbers into constants.py
   sidequest/pipeline-core/extractors/extract_blocks.py
   sidequest/pipeline-core/similarity/grouping.py
+  sidequest/pipeline-runners/collect_git_activity.py
 
 d71098e 2026-03-01 refactor(pipeline): extract remaining magic numbers to constants.py
   sidequest/pipeline-core/extractors/extract_blocks.py
@@ -38,12 +81,10 @@ d71098e 2026-03-01 refactor(pipeline): extract remaining magic numbers to consta
 56d2c5a 2026-03-01 refactor(pipeline): centralize magic numbers into constants.py
   sidequest/pipeline-core/extractors/extract_blocks.py
   sidequest/pipeline-core/similarity/grouping.py
+  sidequest/pipeline-runners/collect_git_activity.py
 
 a9e0a56 2026-02-26 refactor: extract helpers to reduce complexity in test/script files (CX2-CX10)
   sidequest/utils/refactor-test-suite.ts
-
-751f10a 2026-02-26 docs(pipeline-core): add JSDoc to all 161 functions, fix 269 mismatches
-  sidequest/pipeline-core/scan-orchestrator.ts
 
 1ab61a0 2026-02-26 docs(architecture): annotate PluginManagerWorker non-standard location in diagram
   docs/architecture/pipeline-data-flow.md
@@ -64,12 +105,6 @@ a78f41d 2026-02-25 docs(architecture): update pipeline-data-flow for BasePipelin
 e1fc1eb 2026-02-25 chore: remove completed migration audit doc and update repomix output
   sidequest/repomix-output.xml
 
-b2e09be 2026-02-25 fix(lint): resolve all 217 ESLint warnings across source and test files
-  sidequest/pipeline-core/scan-orchestrator.ts
-
-fc293e2 2026-02-25 fix(lint): resolve all 22 ESLint errors across source and test files
-  sidequest/pipeline-core/scan-orchestrator.ts
-
 8ddeb49 2026-02-25 chore(lint): add ESLint config with TypeScript support
   pnpm-lock.yaml
 
@@ -86,37 +121,17 @@ fc293e2 2026-02-25 fix(lint): resolve all 22 ESLint errors across source and tes
 23caae1 2026-02-24 feat(ts-migration): migrate Phase 9 API layer to TypeScript
   pnpm-lock.yaml
 
-e78b8c8 2026-02-23 feat(ts-migration): migrate Phase 7 utils, dashboard worker/runner to TypeScript
-  sidequest/pipeline-core/scan-orchestrator.ts
-
 ce05e8e 2026-02-23 fix(tests): unskip websocket tests, fix API mismatches and cleanup
   sidequest/repomix-output.xml
-
-e0fe16d 2026-02-22 feat(ts-migration): migrate report-coordinator to TypeScript (Phase 7)
-  sidequest/pipeline-core/scan-orchestrator.ts
-
-b9539d4 2026-02-22 feat(ts-migration): migrate ast-grep-detector to TypeScript (Phase 7)
-  sidequest/pipeline-core/scan-orchestrator.ts
-
-83a007e 2026-02-22 feat(ts-migration): migrate markdown-report-generator to TypeScript (Phase 7)
-  sidequest/pipeline-core/scan-orchestrator.ts
-
-527bc13 2026-02-22 feat(ts-migration): migrate html-report-generator to TypeScript (Phase 7)
-  sidequest/pipeline-core/scan-orchestrator.ts
-
-1979a3c 2026-02-22 feat(ts-migration): migrate repository-scanner to TypeScript (Phase 7)
-  sidequest/pipeline-core/scan-orchestrator.ts
 
 71366dd 2026-02-18 fix(ts-migration): replace @ts-ignore with proper type declarations
   pnpm-lock.yaml
 
 ed9bcdb 2026-02-17 Phase 2 and 3 Typescript migration
-  sidequest/pipeline-core/scan-orchestrator.ts
   sidequest/repomix-output.xml
 
 62e57c6 2026-02-17 fix(ts-migration): resolve strict-mode TS errors in migrated .ts files
   pnpm-lock.yaml
-  sidequest/pipeline-core/scan-orchestrator.ts
 
 085b462 2026-02-16 feat(database): replace sql.js with better-sqlite3 for multi-process DB access
   pnpm-lock.yaml
@@ -145,9 +160,16 @@ b86c93b 2026-02-09 fix(frontend): move platform-specific deps to optionalDepende
 ef6cb86 2026-02-09 docs(bugfix-audit): add component doc and update pipeline data flow
   docs/architecture/pipeline-data-flow.md
 
+a10ae4e 2026-02-08 Merge branch 'main' of github.com:aledlie/AlephAuto
 ddb7da0 2026-02-08 update pnpm subdependencies
   pnpm-lock.yaml
   sidequest/repomix-output.xml
+
+11eb23b 2026-02-08 chore(git-activity): increase default repo search depth to 3
+  sidequest/pipeline-runners/collect_git_activity.py
+
+91297a7 2026-02-03 fix(git-activity): update Jekyll frontmatter and remove duplicate title
+  sidequest/pipeline-runners/collect_git_activity.py
 
 587d80c 2026-02-03 refactor(similarity): centralize threshold config and tune MIN_UNIQUE_TOKENS
   sidequest/pipeline-core/similarity/grouping.py
@@ -155,17 +177,14 @@ ddb7da0 2026-02-08 update pnpm subdependencies
 812a8d7 2026-02-03 feat(pipeline): add semantic categories for process_io, timing, tracing
   sidequest/pipeline-core/extractors/extract_blocks.py
 
-cb3c532 2026-02-03 refactor(logging): adopt logStage utility for pipeline stages
-  sidequest/pipeline-core/scan-orchestrator.ts
-
-cbb99c3 2026-02-03 refactor(logging): adopt logStart utility across 18 files
-  sidequest/pipeline-core/scan-orchestrator.ts
-
 9377ce4 2026-02-03 refactor(shared): extract process I/O utilities to @shared/process-io package
   pnpm-lock.yaml
 
 aa669e9 2026-02-02 chore: update scan history and regenerate repomix output
   sidequest/repomix-output.xml
+
+cc5cbd1 2026-02-02 feat(git-activity): expand repo scanning to dotfiles and additional paths
+  sidequest/pipeline-runners/collect_git_activity.py
 
 150fcda 2026-02-02 refactor logging into packages
   pnpm-lock.yaml
@@ -208,17 +227,17 @@ ec8a3be 2026-02-01 docs: complete L6-L8 documentation backlog items
 c4c9e02 2026-01-29 docs: update documentation for v1.8.1 code review fixes
   docs/architecture/ERROR_HANDLING.md
 
-cfcd591 2026-01-29 refactor: address 28 code review issues for modularity and maintainability
-  sidequest/pipeline-core/scan-orchestrator.ts
-
 fa824de 2026-01-29 docs: update system data flow documentation to v1.1
   docs/architecture/SYSTEM-DATA-FLOW.md
 
-178583d 2026-01-29 refactor: extract magic numbers to constants module
-  sidequest/pipeline-core/scan-orchestrator.ts
-
 d0c5cab 2026-01-29 chore: update scan history and regenerate repomix output
   sidequest/repomix-output.xml
+
+ece67cc 2026-01-18 feat(git-activity): output Jekyll-formatted markdown reports
+  sidequest/pipeline-runners/collect_git_activity.py
+
+742834b 2026-01-18 docs: consolidate pipeline documentation and redirect git reports to persistent directory
+  sidequest/pipeline-runners/collect_git_activity.py
 
 46d5bd8 2026-01-18 chore: optimize repomix config and update Sentry MCP documentation
   sidequest/repomix-output.xml
@@ -229,14 +248,11 @@ e3ae29d 2026-01-16 fix(security): resolve high-severity vulnerabilities in depen
 5def1bd 2026-01-16 chore: update pnpm-lock.yaml for c8 dependency
   pnpm-lock.yaml
 
-95adaa7 2026-01-16 fix(types): resolve pre-existing TypeScript errors
-  sidequest/pipeline-core/scan-orchestrator.ts
-
-a10d963 2026-01-16 fix: resolve 5 production errors and improve error handling
-  sidequest/pipeline-core/scan-orchestrator.ts
-
 921ecd7 2026-01-16 refactor(grouping): extract _try_accept_group helper for duplicate logic
   sidequest/pipeline-core/similarity/grouping.py
+
+84064fe 2026-01-16 refactor(collect_git_activity): reduce main() complexity 17→4
+  sidequest/pipeline-runners/collect_git_activity.py
 
 03f618f 2026-01-16 refactor(grouping): add semantic check registry pattern
   sidequest/pipeline-core/similarity/grouping.py
@@ -254,10 +270,6 @@ ce78343 2025-12-24 docs: sync date stamps with git commit history
 
 6bb434e 2025-12-24 chore(build): update repomix output and configurations
   sidequest/repomix-output.xml
-
-a5be19b 2025-12-08 Merge branch 'interactive' into main
-845737d 2025-12-08 feat(orchestrator): integrate dependency validation
-  sidequest/pipeline-core/scan-orchestrator.ts
 
 40be02a 2025-12-08 Merge remote-tracking branch 'origin/main'
 2098df8 2025-12-08 manual check
@@ -290,23 +302,17 @@ b456b94 2025-11-30 update job modal rendering
 2b82411 2025-11-25 fix(ci): resolve 7 critical test failures identified by auto-error-resolver
   sidequest/pipeline-core/extractors/extract_blocks.py
 
-355cf1b 2025-11-25 fix(ci): defer Python validation until first scan (lazy initialization)
-  sidequest/pipeline-core/scan-orchestrator.ts
-
-3758a77 2025-11-25 fix(ci): add intelligent Python path detection for CI environment
-  sidequest/pipeline-core/scan-orchestrator.ts
-
 aae167a 2025-11-25 fix: improve cross-platform dependency verification for CI/CD
   sidequest/repomix-output.xml
-
-ffd5ad6 2025-11-25 feat: resolve all TODO comments with parallel implementation
-  sidequest/pipeline-core/scan-orchestrator.ts
 
 71428a1 2025-11-24 docs: expand pipeline data flow to cover all 9 workflows
   docs/architecture/pipeline-data-flow.md
 
 77e5b1e 2025-11-24 fix: resolve 4 critical production errors with comprehensive error handling
   docs/architecture/ERROR_HANDLING.md
+
+db267f2 2025-11-24 api route debuggin
+  sidequest/pipeline-runners/collect_git_activity.py
 
 b7e6e76 2025-11-24 doc updates
   sidequest/repomix-output.xml
@@ -316,7 +322,6 @@ b7e6e76 2025-11-24 doc updates
   sidequest/pipeline-core/similarity/grouping.py
 
 fccefe2 2025-11-23 fix: update extractorScript path and pipeline jobs endpoint
-  sidequest/pipeline-core/scan-orchestrator.ts
   sidequest/repomix-output.xml
 
 198fef3 2025-11-23 chore: add nginx config and lock package-lock
@@ -324,7 +329,6 @@ fccefe2 2025-11-23 fix: update extractorScript path and pipeline jobs endpoint
 
 bcb1bb1 2025-11-23 refactor: move lib to sidequest/pipeline-core and migrate to TypeScript
   sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/scan-orchestrator.ts
   sidequest/pipeline-core/similarity/grouping.py
 
 291a13c 2025-11-23 organize pipelines

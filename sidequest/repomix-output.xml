@@ -92,6 +92,7 @@ pipeline-runners/
   collect_git_activity.py
   dashboard-populate-pipeline.ts
   duplicate-detection-pipeline.ts
+  git-activity-pipeline.test.ts
   git-activity-pipeline.ts
   gitignore-pipeline.ts
   plugin-management-audit.sh
@@ -120,6 +121,7 @@ workers/
   claude-health-worker.ts
   dashboard-populate-worker.ts
   duplicate-detection-worker.ts
+  git-activity-worker.test.ts
   git-activity-worker.ts
   gitignore-worker.ts
   repo-cleanup-worker.ts
@@ -335,6 +337,16 @@ export const WORKER_COOLDOWN = {
 export const RATE_LIMIT = {
   STANDARD_WINDOW_MS: 15 * MINUTE,
   STRICT_WINDOW_MS: HOUR,
+} as const;
+export const GIT_ACTIVITY = {
+  DEFAULT_REPORT_TYPE: &apos;weekly&apos;,
+  WEEKLY_REPORT_TYPE: &apos;weekly&apos;,
+  MONTHLY_REPORT_TYPE: &apos;monthly&apos;,
+  CUSTOM_REPORT_TYPE: &apos;custom&apos;,
+  WEEKLY_WINDOW_DAYS: 7,
+  MONTHLY_WINDOW_DAYS: 30,
+  DEFAULT_WEEKLY_CRON: &apos;0 20 * * 0&apos;,
+  DEFAULT_MONTHLY_CRON: &apos;0 8 1 * *&apos;,
 } as const;
 export const LIMITS = {
   MAX_OUTPUT_CHARS: 1000,
@@ -5644,9 +5656,16 @@ export class MigrationTransformer {
   }
   private _removeDeclaration(ast: ParseResult&lt;BabelFile&gt;, name: string): boolean {
     let modified = false;
+    const stripComments = (node: t.Node | null | undefined): void =&gt; {
+      if (!node) return;
+      node.leadingComments = [];
+      node.innerComments = [];
+      node.trailingComments = [];
+    };
     traverse(ast, {
       FunctionDeclaration(path: NodePath&lt;t.FunctionDeclaration&gt;) {
         if (path.node.id &amp;&amp; path.node.id.name === name) {
+          stripComments(path.node);
           path.remove();
           modified = true;
           logger.debug({ name, type: &apos;function&apos; }, &apos;Removed declaration&apos;);
@@ -5654,6 +5673,7 @@ export class MigrationTransformer {
       },
       ClassDeclaration(path: NodePath&lt;t.ClassDeclaration&gt;) {
         if (path.node.id &amp;&amp; path.node.id.name === name) {
+          stripComments(path.node);
           path.remove();
           modified = true;
           logger.debug({ name, type: &apos;class&apos; }, &apos;Removed declaration&apos;);
@@ -5663,8 +5683,10 @@ export class MigrationTransformer {
         if (t.isIdentifier(path.node.id, { name })) {
           const parent = path.parentPath;
           if (parent &amp;&amp; t.isVariableDeclaration(parent.node) &amp;&amp; parent.node.declarations.length === 1) {
+            stripComments(parent.node);
             parent.remove();
           } else {
+            stripComments(path.node);
             path.remove();
           }
           modified = true;
@@ -15140,6 +15162,15 @@ def _get_path(value, fallback: Path) -&gt; Path:
     if isinstance(value, str) and value.strip():
         return Path(value).expanduser()
     return fallback
+def _run_command(cmd: list[str], cwd: Path | None = None) -&gt; subprocess.CompletedProcess[str]:
+    &quot;&quot;&quot;Run a subprocess and fail fast on non-zero exit.&quot;&quot;&quot;
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
+    if result.returncode != 0:
+        stderr = result.stderr.strip()
+        stdout = result.stdout.strip()
+        details = stderr or stdout or &quot;no output&quot;
+        raise RuntimeError(f&quot;Command failed ({&apos; &apos;.join(cmd)}): {details}&quot;)
+    return result
 # Configuration (defaults)
 HOME_DIR = Path.home()
 DEFAULT_CODE_DIR = HOME_DIR / &apos;code&apos;
@@ -15215,7 +15246,7 @@ def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=INCLUDE_DOTFILE
     # Scan main code directory
     print(f&quot;Scanning for repositories in {CODE_DIR} (depth: {max_depth})...&quot;)
     cmd = [&quot;find&quot;, str(CODE_DIR), &quot;-maxdepth&quot;, str(max_depth), &quot;-name&quot;, &quot;.git&quot;, &quot;-type&quot;, &quot;d&quot;]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = _run_command(cmd)
     for line in result.stdout.strip().split(&apos;\n&apos;):
         if line:
             repo_path = Path(line).parent
@@ -15224,7 +15255,7 @@ def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=INCLUDE_DOTFILE
     if REPORTS_DIR.exists():
         print(f&quot;Scanning for repositories in {REPORTS_DIR} (depth: {max_depth})...&quot;)
         cmd = [&quot;find&quot;, str(REPORTS_DIR), &quot;-maxdepth&quot;, str(max_depth), &quot;-name&quot;, &quot;.git&quot;, &quot;-type&quot;, &quot;d&quot;]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = _run_command(cmd)
         for line in result.stdout.strip().split(&apos;\n&apos;):
             if line:
                 repo_path = Path(line).parent
@@ -15256,79 +15287,65 @@ def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=INCLUDE_DOTFILE
     print(f&quot;Found {len(repos)} repositories&quot;)
     return sorted(repos)
 def get_repo_stats(repo_path, since_date, until_date=None):
-    try:
-        base_git_cmd = [&quot;git&quot;, &quot;log&quot;, f&quot;--since={since_date}&quot;, &quot;--all&quot;]
-        if until_date:
-            base_git_cmd.append(f&quot;--until={until_date}&quot;)
-        result = subprocess.run(
-            [*base_git_cmd, &quot;--oneline&quot;],
-            capture_output=True,
-            text=True,
-            cwd=repo_path,
-        )
-        commits = len(result.stdout.strip().split(&apos;\n&apos;)) if result.stdout.strip() else 0
-        result = subprocess.run(
-            [*base_git_cmd, &quot;--date=format:%Y-%m&quot;, &quot;--pretty=format:%ad&quot;],
-            capture_output=True,
-            text=True,
-            cwd=repo_path,
-        )
-        monthly_commits = defaultdict(int)
-        for line in result.stdout.strip().split(&apos;\n&apos;):
-            month = line.strip()
-            if month:
-                monthly_commits[month] += 1
-        result = subprocess.run(
-            [*base_git_cmd, &quot;--name-only&quot;, &quot;--pretty=format:&quot;],
-            capture_output=True,
-            text=True,
-            cwd=repo_path,
-        )
-        files = [f for f in result.stdout.strip().split(&apos;\n&apos;) if f]
-        result = subprocess.run(
-            [*base_git_cmd, &quot;--numstat&quot;, &quot;--pretty=format:&quot;],
-            capture_output=True,
-            text=True,
-            cwd=repo_path,
-        )
-        additions = 0
-        deletions = 0
-        for line in result.stdout.strip().split(&apos;\n&apos;):
-            parts = line.split(&apos;\t&apos;)
-            if len(parts) &lt; 2:
-                continue
-            if parts[0].isdigit():
-                additions += int(parts[0])
-            if parts[1].isdigit():
-                deletions += int(parts[1])
-        if repo_path.parent == CODE_DIR or repo_path.parent == REPORTS_DIR:
-            parent = None
-        elif repo_path.parent == HOME_DIR:
-            parent = &apos;~&apos;
-        elif str(repo_path.parent).startswith(str(HOME_DIR)) and repo_path.parent.parent == HOME_DIR:
-            parent = repo_path.parent.name
-        else:
-            parent = repo_path.parent.name
-        return {
-            &apos;path&apos;: str(repo_path),
-            &apos;name&apos;: repo_path.name,
-            &apos;parent&apos;: parent,
-            &apos;commits&apos;: commits,
-            &apos;monthly_commits&apos;: dict(monthly_commits),
-            &apos;files&apos;: files,
-            &apos;additions&apos;: additions,
-            &apos;deletions&apos;: deletions
-        }
-    except Exception as e:
-        print(f&quot;Error processing {repo_path}: {e}&quot;)
-        return None
+    base_git_cmd = [&quot;git&quot;, &quot;log&quot;, f&quot;--since={since_date}&quot;, &quot;--all&quot;]
+    if until_date:
+        base_git_cmd.append(f&quot;--until={until_date}&quot;)
+    result = _run_command(
+        [*base_git_cmd, &quot;--oneline&quot;],
+        cwd=repo_path,
+    )
+    commits = len(result.stdout.strip().split(&apos;\n&apos;)) if result.stdout.strip() else 0
+    result = _run_command(
+        [*base_git_cmd, &quot;--date=format:%Y-%m&quot;, &quot;--pretty=format:%ad&quot;],
+        cwd=repo_path,
+    )
+    monthly_commits = defaultdict(int)
+    for line in result.stdout.strip().split(&apos;\n&apos;):
+        month = line.strip()
+        if month:
+            monthly_commits[month] += 1
+    result = _run_command(
+        [*base_git_cmd, &quot;--name-only&quot;, &quot;--pretty=format:&quot;],
+        cwd=repo_path,
+    )
+    files = [f for f in result.stdout.strip().split(&apos;\n&apos;) if f]
+    result = _run_command(
+        [*base_git_cmd, &quot;--numstat&quot;, &quot;--pretty=format:&quot;],
+        cwd=repo_path,
+    )
+    additions = 0
+    deletions = 0
+    for line in result.stdout.strip().split(&apos;\n&apos;):
+        parts = line.split(&apos;\t&apos;)
+        if len(parts) &lt; 2:
+            continue
+        if parts[0].isdigit():
+            additions += int(parts[0])
+        if parts[1].isdigit():
+            deletions += int(parts[1])
+    if repo_path.parent == CODE_DIR or repo_path.parent == REPORTS_DIR:
+        parent = None
+    elif repo_path.parent == HOME_DIR:
+        parent = &apos;~&apos;
+    elif str(repo_path.parent).startswith(str(HOME_DIR)) and repo_path.parent.parent == HOME_DIR:
+        parent = repo_path.parent.name
+    else:
+        parent = repo_path.parent.name
+    return {
+        &apos;path&apos;: str(repo_path),
+        &apos;name&apos;: repo_path.name,
+        &apos;parent&apos;: parent,
+        &apos;commits&apos;: commits,
+        &apos;monthly_commits&apos;: dict(monthly_commits),
+        &apos;files&apos;: files,
+        &apos;additions&apos;: additions,
+        &apos;deletions&apos;: deletions
+    }
 def analyze_languages(all_files):
-    &quot;&quot;&quot;Analyze file changes by programming language&quot;&quot;&quot;
     language_stats = defaultdict(int)
     for file_path in all_files:
         file_ext = Path(file_path).suffix.lower()
         file_name = Path(file_path).name
-        # Map to language
         found = False
         for language, extensions in LANGUAGE_EXTENSIONS.items():
             if file_ext in extensions or file_name in extensions:
@@ -15339,7 +15356,6 @@ def analyze_languages(all_files):
             language_stats[&apos;Other&apos;] += 1
     return dict(language_stats)
 def find_project_websites(repositories):
-    &quot;&quot;&quot;Scan for CNAME files to discover GitHub Pages websites&quot;&quot;&quot;
     websites = {}
     for repo in repositories:
         repo_path = Path(repo[&apos;path&apos;])
@@ -15347,7 +15363,7 @@ def find_project_websites(repositories):
         if cname_file.exists():
             try:
                 website = cname_file.read_text().strip()
-                if website and &apos;.&apos; in website:  # Basic validation
+                if website and &apos;.&apos; in website:
                     websites[repo[&apos;name&apos;]] = f&quot;https://{website}&quot;
             except Exception:
                 pass
@@ -15709,33 +15725,37 @@ def main():
     print(f&quot;Date range: {since_date} to {until_date or &apos;now&apos;}&quot;)
     print(f&quot;Scan depth: {args.max_depth} directories&quot;)
     print(f&quot;{&apos;=&apos; * GitActivityDefaults.SEPARATOR_LENGTH}\n&quot;)
-    repos = find_git_repos(args.max_depth)
-    repositories, all_files = _collect_repository_stats(repos, since_date, until_date)
-    data = _compile_activity_data(repositories, all_files, since_date, until_date)
-    default_report_dir = PERSONALSITE_DIR / WORK_COLLECTION
-    default_report_dir.mkdir(parents=True, exist_ok=True)
-    report_date = datetime.now().strftime(&apos;%Y-%m-%d&apos;)
-    report_file = default_report_dir / f&apos;{report_date}-git-activity-report.md&apos;
-    default_json_file = default_report_dir / f&apos;{report_date}-git-activity-report.json&apos;
-    wants_markdown = args.output_format in (&apos;markdown&apos;, &apos;both&apos;)
-    wants_json = args.output_format in (&apos;json&apos;, &apos;both&apos;) or bool(args.json_output)
-    if wants_markdown:
-        generate_jekyll_report(data, report_file)
-    if wants_json:
-        json_path = Path(args.json_output) if args.json_output else default_json_file
-        json_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(json_path, &apos;w&apos;) as f:
-            json.dump(data, f, indent=2)
-        print(f&quot;✅ JSON data saved to: {json_path}&quot;)
-    # Generate visualizations unless explicitly disabled.
-    output_dir = _resolve_output_dir(args)
-    if args.no_visualizations:
-        print(&quot;\nSkipping visualizations (--no-visualizations).&quot;)
-        _print_summary(data, None)
-    else:
-        generate_visualizations(data, output_dir)
-        _print_summary(data, output_dir)
-    return 0
+    try:
+        repos = find_git_repos(args.max_depth)
+        repositories, all_files = _collect_repository_stats(repos, since_date, until_date)
+        data = _compile_activity_data(repositories, all_files, since_date, until_date)
+        default_report_dir = PERSONALSITE_DIR / WORK_COLLECTION
+        default_report_dir.mkdir(parents=True, exist_ok=True)
+        report_date = datetime.now().strftime(&apos;%Y-%m-%d&apos;)
+        report_file = default_report_dir / f&apos;{report_date}-git-activity-report.md&apos;
+        default_json_file = default_report_dir / f&apos;{report_date}-git-activity-report.json&apos;
+        wants_markdown = args.output_format in (&apos;markdown&apos;, &apos;both&apos;)
+        wants_json = args.output_format in (&apos;json&apos;, &apos;both&apos;) or bool(args.json_output)
+        if wants_markdown:
+            generate_jekyll_report(data, report_file)
+        if wants_json:
+            json_path = Path(args.json_output) if args.json_output else default_json_file
+            json_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(json_path, &apos;w&apos;) as f:
+                json.dump(data, f, indent=2)
+            print(f&quot;✅ JSON data saved to: {json_path}&quot;)
+        # Generate visualizations unless explicitly disabled.
+        output_dir = _resolve_output_dir(args)
+        if args.no_visualizations:
+            print(&quot;\nSkipping visualizations (--no-visualizations).&quot;)
+            _print_summary(data, None)
+        else:
+            generate_visualizations(data, output_dir)
+            _print_summary(data, output_dir)
+        return 0
+    except Exception as e:
+        print(f&quot;Error: {e}&quot;, file=sys.stderr)
+        return 1
 if __name__ == &apos;__main__&apos;:
     exit(main())</file><file path="pipeline-runners/dashboard-populate-pipeline.ts">#!/usr/bin/env -S node --strip-types
 import { DashboardPopulateWorker } from &apos;../workers/dashboard-populate-worker.ts&apos;;
@@ -15929,17 +15949,111 @@ if (isDirectExecution) {
     logger.error({ error }, &apos;Fatal error in duplicate detection pipeline&apos;);
     process.exit(1);
   });
-}</file><file path="pipeline-runners/git-activity-pipeline.ts">#!/usr/bin/env -S node --strip-types
+}</file><file path="pipeline-runners/git-activity-pipeline.test.ts">import test from &apos;node:test&apos;;
+import assert from &apos;node:assert/strict&apos;;
+import { GIT_ACTIVITY } from &apos;../core/constants.ts&apos;;
+import { parseGitActivityCliArgs, selectGitActivityJob } from &apos;./git-activity-pipeline.ts&apos;;
+test(&apos;parseGitActivityCliArgs parses explicit start/end date and run flag&apos;, () =&gt; {
+  const parsed = parseGitActivityCliArgs(
+    [&apos;--run&apos;, &apos;--start-date&apos;, &apos;2026-03-01&apos;, &apos;--end-date&apos;, &apos;2026-03-04&apos;],
+    false
+  );
+  assert.equal(parsed.runNow, true);
+  assert.deepEqual(parsed.options, {
+    sinceDate: &apos;2026-03-01&apos;,
+    untilDate: &apos;2026-03-04&apos;,
+  });
+  assert.deepEqual(parsed.errors, []);
+});
+test(&apos;parseGitActivityCliArgs accepts legacy --since/--until aliases&apos;, () =&gt; {
+  const parsed = parseGitActivityCliArgs(
+    [&apos;--since&apos;, &apos;2026-02-01&apos;, &apos;--until&apos;, &apos;2026-02-10&apos;],
+    false
+  );
+  assert.equal(parsed.runNow, false);
+  assert.deepEqual(parsed.options, {
+    sinceDate: &apos;2026-02-01&apos;,
+    untilDate: &apos;2026-02-10&apos;,
+  });
+  assert.deepEqual(parsed.errors, []);
+});
+test(&apos;parseGitActivityCliArgs rejects --end-date without --start-date&apos;, () =&gt; {
+  const parsed = parseGitActivityCliArgs([&apos;--end-date&apos;, &apos;2026-03-04&apos;], false);
+  assert.ok(parsed.errors.includes(&apos;--end-date requires --start-date&apos;));
+});
+test(&apos;parseGitActivityCliArgs rejects invalid --days values&apos;, () =&gt; {
+  const parsed = parseGitActivityCliArgs([&apos;--days&apos;, &apos;abc&apos;], false);
+  assert.equal(parsed.options.days, undefined);
+  assert.ok(parsed.errors.some((msg) =&gt; msg.includes(&apos;--days must be a positive integer&apos;)));
+});
+test(&apos;parseGitActivityCliArgs rejects invalid date format&apos;, () =&gt; {
+  const parsed = parseGitActivityCliArgs([&apos;--start-date&apos;, &apos;03/01/2026&apos;], false);
+  assert.ok(parsed.errors.includes(&apos;--start-date must match YYYY-MM-DD (received: 03/01/2026)&apos;));
+});
+test(&apos;parseGitActivityCliArgs rejects unknown flags&apos;, () =&gt; {
+  const parsed = parseGitActivityCliArgs([&apos;--weekly&apos;, &apos;--mothly&apos;], false);
+  assert.equal(parsed.options.reportType, GIT_ACTIVITY.WEEKLY_REPORT_TYPE);
+  assert.ok(parsed.errors.includes(&apos;Unknown flag: --mothly&apos;));
+});
+test(&apos;parseGitActivityCliArgs rejects positional arguments&apos;, () =&gt; {
+  const parsed = parseGitActivityCliArgs([&apos;--weekly&apos;, &apos;extra-arg&apos;], false);
+  assert.ok(parsed.errors.includes(&apos;Unexpected positional argument: extra-arg&apos;));
+});
+test(&apos;parseGitActivityCliArgs rejects missing value when next token is another flag&apos;, () =&gt; {
+  const parsed = parseGitActivityCliArgs([&apos;--start-date&apos;, &apos;--end-date&apos;, &apos;2026-03-04&apos;], false);
+  assert.ok(parsed.errors.includes(&apos;--start-date requires a YYYY-MM-DD value&apos;));
+});
+test(&apos;selectGitActivityJob chooses weekly strategy from default report type&apos;, () =&gt; {
+  const selection = selectGitActivityJob({}, GIT_ACTIVITY.WEEKLY_REPORT_TYPE);
+  assert.equal(selection.strategy, &apos;weekly&apos;);
+  assert.equal(selection.options.reportType, GIT_ACTIVITY.WEEKLY_REPORT_TYPE);
+});
+test(&apos;selectGitActivityJob chooses monthly strategy by days shortcut&apos;, () =&gt; {
+  const selection = selectGitActivityJob(
+    { days: GIT_ACTIVITY.MONTHLY_WINDOW_DAYS },
+    GIT_ACTIVITY.WEEKLY_REPORT_TYPE
+  );
+  assert.equal(selection.strategy, &apos;monthly&apos;);
+});
+test(&apos;selectGitActivityJob chooses custom strategy when start and end date exist&apos;, () =&gt; {
+  const selection = selectGitActivityJob(
+    { sinceDate: &apos;2026-03-01&apos;, untilDate: &apos;2026-03-04&apos; },
+    GIT_ACTIVITY.WEEKLY_REPORT_TYPE
+  );
+  assert.equal(selection.strategy, &apos;custom&apos;);
+});
+test(&apos;selectGitActivityJob chooses generic strategy when only start date exists&apos;, () =&gt; {
+  const selection = selectGitActivityJob(
+    { sinceDate: &apos;2026-03-01&apos; },
+    GIT_ACTIVITY.WEEKLY_REPORT_TYPE
+  );
+  assert.equal(selection.strategy, &apos;generic&apos;);
+});</file><file path="pipeline-runners/git-activity-pipeline.ts">#!/usr/bin/env -S node --strip-types
 import { GitActivityWorker } from &apos;../workers/git-activity-worker.ts&apos;;
 import { config } from &apos;../core/config.ts&apos;;
+import { GIT_ACTIVITY } from &apos;../core/constants.ts&apos;;
 import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;
 import { BasePipeline, type Job, type JobStats } from &apos;./base-pipeline.ts&apos;;
 const logger = createComponentLogger(&apos;GitActivityPipeline&apos;);
-interface ReportOptions {
+export interface ReportOptions {
   reportType?: string;
   sinceDate?: string;
   untilDate?: string;
   days?: number;
+}
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const VALID_DEFAULT_REPORT_TYPES = new Set([
+  GIT_ACTIVITY.WEEKLY_REPORT_TYPE,
+  GIT_ACTIVITY.MONTHLY_REPORT_TYPE,
+]);
+interface ParsedCliArgs {
+  options: ReportOptions;
+  runNow: boolean;
+  errors: string[];
+}
+interface JobSelection {
+  strategy: &apos;custom&apos; | &apos;monthly&apos; | &apos;weekly&apos; | &apos;generic&apos;;
+  options: ReportOptions;
 }
 interface OutputFile {
   path: string;
@@ -15968,7 +16082,10 @@ class GitActivityPipeline extends BasePipeline&lt;GitActivityWorker&gt; {
       codeBaseDir: config.codeBaseDir,
       ...options
     }));
-    this.reportType = (options.reportType as string) || &apos;weekly&apos;;
+    const configuredReportType = options.reportType as string | undefined;
+    this.reportType = configuredReportType &amp;&amp; VALID_DEFAULT_REPORT_TYPES.has(configuredReportType)
+      ? configuredReportType
+      : GIT_ACTIVITY.DEFAULT_REPORT_TYPE;
     this.setupEventListeners();
   }
   private setupEventListeners(): void {
@@ -16015,16 +16132,15 @@ class GitActivityPipeline extends BasePipeline&lt;GitActivityWorker&gt; {
     const startTime = Date.now();
     try {
       let job: Job;
-      if (options.sinceDate) {
-        job = options.untilDate
-          ? this.worker.createCustomReportJob(options.sinceDate, options.untilDate)
-          : this.worker.createReportJob(options);
-      } else if (options.reportType === &apos;monthly&apos; || options.days === 30) {
+      const selection = selectGitActivityJob(options, this.reportType);
+      if (selection.strategy === &apos;custom&apos;) {
+        job = this.worker.createCustomReportJob(selection.options.sinceDate!, selection.options.untilDate!);
+      } else if (selection.strategy === &apos;monthly&apos;) {
         job = this.worker.createMonthlyReportJob();
-      } else if (options.reportType === &apos;weekly&apos; || options.days === 7) {
+      } else if (selection.strategy === &apos;weekly&apos;) {
         job = this.worker.createWeeklyReportJob();
       } else {
-        job = this.worker.createReportJob(options);
+        job = this.worker.createReportJob(selection.options);
       }
       logger.info({ jobId: job.id }, &apos;Report job created&apos;);
       await this.waitForCompletion();
@@ -16040,42 +16156,119 @@ class GitActivityPipeline extends BasePipeline&lt;GitActivityWorker&gt; {
       throw error;
     }
   }
-  scheduleWeeklyReports(cronSchedule: string = &apos;0 20 * * 0&apos;) {
-    return this.scheduleCron(logger, &apos;weekly git activity report&apos;, cronSchedule, () =&gt; this.runReport({ reportType: &apos;weekly&apos; }));
+  scheduleWeeklyReports(cronSchedule: string = GIT_ACTIVITY.DEFAULT_WEEKLY_CRON) {
+    return this.scheduleCron(
+      logger,
+      &apos;weekly git activity report&apos;,
+      cronSchedule,
+      () =&gt; this.runReport({ reportType: GIT_ACTIVITY.WEEKLY_REPORT_TYPE })
+    );
   }
-  scheduleMonthlyReports(cronSchedule: string = &apos;0 8 1 * *&apos;) {
-    return this.scheduleCron(logger, &apos;monthly git activity report&apos;, cronSchedule, () =&gt; this.runReport({ reportType: &apos;monthly&apos; }));
+  scheduleMonthlyReports(cronSchedule: string = GIT_ACTIVITY.DEFAULT_MONTHLY_CRON) {
+    return this.scheduleCron(
+      logger,
+      &apos;monthly git activity report&apos;,
+      cronSchedule,
+      () =&gt; this.runReport({ reportType: GIT_ACTIVITY.MONTHLY_REPORT_TYPE })
+    );
   }
+}
+export function selectGitActivityJob(
+  options: ReportOptions,
+  defaultReportType: string = GIT_ACTIVITY.DEFAULT_REPORT_TYPE
+): JobSelection {
+  const normalizedOptions: ReportOptions = {
+    ...options,
+    reportType: options.reportType ?? defaultReportType,
+  };
+  if (normalizedOptions.sinceDate) {
+    return normalizedOptions.untilDate
+      ? { strategy: &apos;custom&apos;, options: normalizedOptions }
+      : { strategy: &apos;generic&apos;, options: normalizedOptions };
+  }
+  if (
+    normalizedOptions.reportType === GIT_ACTIVITY.MONTHLY_REPORT_TYPE
+    || normalizedOptions.days === GIT_ACTIVITY.MONTHLY_WINDOW_DAYS
+  ) {
+    return { strategy: &apos;monthly&apos;, options: normalizedOptions };
+  }
+  if (
+    normalizedOptions.reportType === GIT_ACTIVITY.WEEKLY_REPORT_TYPE
+    || normalizedOptions.days === GIT_ACTIVITY.WEEKLY_WINDOW_DAYS
+  ) {
+    return { strategy: &apos;weekly&apos;, options: normalizedOptions };
+  }
+  return { strategy: &apos;generic&apos;, options: normalizedOptions };
+}
+export function parseGitActivityCliArgs(args: string[], runOnStartup: boolean): ParsedCliArgs {
+  const options: ReportOptions = {};
+  const errors: string[] = [];
+  let runNow = runOnStartup;
+  for (let i = 0; i &lt; args.length; i++) {
+    const arg = args[i];
+    if (arg === &apos;--run-now&apos; || arg === &apos;--run&apos;) {
+      runNow = true;
+    } else if (arg === &apos;--weekly&apos;) {
+      options.reportType = GIT_ACTIVITY.WEEKLY_REPORT_TYPE;
+    } else if (arg === &apos;--monthly&apos;) {
+      options.reportType = GIT_ACTIVITY.MONTHLY_REPORT_TYPE;
+    } else if (arg === &apos;--start-date&apos; || arg === &apos;--since&apos;) {
+      if (!args[i + 1] || args[i + 1].startsWith(&apos;--&apos;)) {
+        errors.push(`${arg} requires a YYYY-MM-DD value`);
+        continue;
+      }
+      options.sinceDate = args[i + 1];
+      i++;
+    } else if (arg === &apos;--end-date&apos; || arg === &apos;--until&apos;) {
+      if (!args[i + 1] || args[i + 1].startsWith(&apos;--&apos;)) {
+        errors.push(`${arg} requires a YYYY-MM-DD value`);
+        continue;
+      }
+      options.untilDate = args[i + 1];
+      i++;
+    } else if (arg === &apos;--days&apos;) {
+      if (!args[i + 1] || args[i + 1].startsWith(&apos;--&apos;)) {
+        errors.push(&apos;--days requires a positive integer value&apos;);
+        continue;
+      }
+      const parsedDays = parseInt(args[i + 1], 10);
+      if (Number.isNaN(parsedDays) || parsedDays &lt;= 0) {
+        errors.push(`--days must be a positive integer (received: ${args[i + 1]})`);
+      } else {
+        options.days = parsedDays;
+      }
+      i++;
+    } else if (arg.startsWith(&apos;--&apos;)) {
+      errors.push(`Unknown flag: ${arg}`);
+    } else {
+      errors.push(`Unexpected positional argument: ${arg}`);
+    }
+  }
+  if (options.untilDate &amp;&amp; !options.sinceDate) {
+    errors.push(&apos;--end-date requires --start-date&apos;);
+  }
+  if (options.sinceDate &amp;&amp; !ISO_DATE_PATTERN.test(options.sinceDate)) {
+    errors.push(`--start-date must match YYYY-MM-DD (received: ${options.sinceDate})`);
+  }
+  if (options.untilDate &amp;&amp; !ISO_DATE_PATTERN.test(options.untilDate)) {
+    errors.push(`--end-date must match YYYY-MM-DD (received: ${options.untilDate})`);
+  }
+  return { options, runNow, errors };
 }
 if (import.meta.url === `file://${process.argv[1]}`) {
   const pipeline = new GitActivityPipeline();
-  const weeklyCronSchedule = process.env.GIT_CRON_SCHEDULE || &apos;0 20 * * 0&apos;;
-  const monthlyCronSchedule = process.env.GIT_MONTHLY_CRON_SCHEDULE || &apos;0 8 1 * *&apos;;
+  const weeklyCronSchedule = process.env.GIT_CRON_SCHEDULE || GIT_ACTIVITY.DEFAULT_WEEKLY_CRON;
+  const monthlyCronSchedule = process.env.GIT_MONTHLY_CRON_SCHEDULE || GIT_ACTIVITY.DEFAULT_MONTHLY_CRON;
   const args = process.argv.slice(2);
-  const options: ReportOptions = {};
-  let runNow = config.runOnStartup;
-  for (let i = 0; i &lt; args.length; i++) {
-    if (args[i] === &apos;--run-now&apos; || args[i] === &apos;--run&apos;) {
-      runNow = true;
-    } else if (args[i] === &apos;--weekly&apos;) {
-      options.reportType = &apos;weekly&apos;;
-    } else if (args[i] === &apos;--monthly&apos;) {
-      options.reportType = &apos;monthly&apos;;
-    } else if (args[i] === &apos;--since&apos; &amp;&amp; args[i + 1]) {
-      options.sinceDate = args[i + 1];
-      i++;
-    } else if (args[i] === &apos;--until&apos; &amp;&amp; args[i + 1]) {
-      options.untilDate = args[i + 1];
-      i++;
-    } else if (args[i] === &apos;--days&apos; &amp;&amp; args[i + 1]) {
-      options.days = parseInt(args[i + 1], 10);
-      i++;
-    }
+  const { options, runNow, errors } = parseGitActivityCliArgs(args, config.runOnStartup);
+  if (errors.length &gt; 0) {
+    logger.error({ args, errors }, &apos;Invalid CLI options&apos;);
+    process.exit(1);
   }
   if (runNow) {
     logger.info(&apos;Running git activity report immediately&apos;);
     if (!options.reportType &amp;&amp; !options.sinceDate &amp;&amp; !options.days) {
-      options.reportType = &apos;weekly&apos;;
+      options.reportType = GIT_ACTIVITY.DEFAULT_REPORT_TYPE;
     }
     pipeline.runReport(options)
       .then(() =&gt; {
@@ -16931,14 +17124,15 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 import sys
+import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 import collect_git_activity as cga
 class FrozenDateTime(datetime):
     @classmethod
     def now(cls, tz=None):
         return cls(2026, 3, 4, 12, 0, 0, tzinfo=tz)
-def _result(stdout: str) -&gt; SimpleNamespace:
-    return SimpleNamespace(stdout=stdout)
+def _result(stdout: str, stderr: str = &quot;&quot;, returncode: int = 0) -&gt; SimpleNamespace:
+    return SimpleNamespace(stdout=stdout, stderr=stderr, returncode=returncode)
 def test_find_git_repos_uses_argv_and_filters_excludes(monkeypatch, tmp_path):
     code_dir = tmp_path / &quot;code root&quot;
     reports_dir = tmp_path / &quot;reports&quot;
@@ -16947,7 +17141,7 @@ def test_find_git_repos_uses_argv_and_filters_excludes(monkeypatch, tmp_path):
     reports_dir.mkdir(parents=True)
     (extra_repo / &quot;.git&quot;).mkdir(parents=True)
     calls: list[list[str]] = []
-    def fake_run(cmd, capture_output, text):
+    def fake_run(cmd, capture_output, text, cwd=None):
         calls.append(cmd)
         if cmd[1] == str(code_dir):
             return _result(
@@ -17000,13 +17194,14 @@ def test_get_repo_stats_uses_cwd_and_parses_outputs(monkeypatch, tmp_path):
     assert &quot;--date=format:%Y-%m&quot; in calls[1][0]
     assert &quot;--name-only&quot; in calls[2][0]
     assert &quot;--numstat&quot; in calls[3][0]
-def test_get_repo_stats_returns_none_on_subprocess_error(monkeypatch, tmp_path):
+def test_get_repo_stats_raises_on_subprocess_error(monkeypatch, tmp_path):
     repo_path = tmp_path / &quot;repo&quot;
     repo_path.mkdir()
     def fake_run(*args, **kwargs):
         raise RuntimeError(&quot;boom&quot;)
     monkeypatch.setattr(cga.subprocess, &quot;run&quot;, fake_run)
-    assert cga.get_repo_stats(repo_path, &quot;2026-01-01&quot;, &quot;2026-02-01&quot;) is None
+    with pytest.raises(RuntimeError, match=&quot;boom&quot;):
+        cga.get_repo_stats(repo_path, &quot;2026-01-01&quot;, &quot;2026-02-01&quot;)
 def test_calculate_date_range_weekly_uses_fixed_now(monkeypatch):
     monkeypatch.setattr(cga, &quot;datetime&quot;, FrozenDateTime)
     args = SimpleNamespace(weekly=True, monthly=False, days=None, start_date=None, end_date=None)
@@ -22374,7 +22569,110 @@ export class DuplicateDetectionWorker extends SidequestServer {
       retryMetrics: this.getRetryMetrics()
     };
   }
-}</file><file path="workers/git-activity-worker.ts">import { SidequestServer, type Job, type SidequestServerOptions } from &apos;../core/server.ts&apos;;
+}</file><file path="workers/git-activity-worker.test.ts">import test from &apos;node:test&apos;;
+import assert from &apos;node:assert/strict&apos;;
+import fs from &apos;fs/promises&apos;;
+import os from &apos;os&apos;;
+import path from &apos;path&apos;;
+import {
+  buildGitActivityStatsFromData,
+  parseGitActivityStatsFromJsonFiles,
+  parseGitActivityStatsFromText,
+} from &apos;./git-activity-worker.ts&apos;;
+test(&apos;buildGitActivityStatsFromData coerces numeric values safely&apos;, () =&gt; {
+  const stats = buildGitActivityStatsFromData({
+    total_commits: &apos;12&apos;,
+    total_repositories: &apos;3&apos;,
+    total_additions: 44,
+    total_deletions: &apos;9&apos;,
+    total_files: &apos;18&apos;,
+  });
+  assert.deepEqual(stats, {
+    totalCommits: 12,
+    totalRepositories: 3,
+    linesAdded: 44,
+    linesDeleted: 9,
+    filesChanged: 18,
+  });
+});
+test(&apos;parseGitActivityStatsFromJsonFiles parses valid JSON output files&apos;, async (t) =&gt; {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), &apos;git-activity-worker-test-&apos;));
+  t.after(async () =&gt; {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+  const jsonPath = path.join(tmpDir, &apos;report.json&apos;);
+  await fs.writeFile(jsonPath, JSON.stringify({
+    total_commits: 8,
+    repositories: [{ name: &apos;a&apos; }, { name: &apos;b&apos; }],
+    total_additions: 100,
+    total_deletions: 20,
+    total_files: 14,
+  }));
+  const stats = await parseGitActivityStatsFromJsonFiles([&apos;report.json&apos;], tmpDir);
+  assert.deepEqual(stats, {
+    totalCommits: 8,
+    totalRepositories: 2,
+    linesAdded: 100,
+    linesDeleted: 20,
+    filesChanged: 14,
+  });
+});
+test(&apos;parseGitActivityStatsFromJsonFiles skips invalid JSON and returns null when none parse&apos;, async (t) =&gt; {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), &apos;git-activity-worker-test-&apos;));
+  t.after(async () =&gt; {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+  await fs.writeFile(path.join(tmpDir, &apos;bad.json&apos;), &apos;{not json&apos;);
+  const stats = await parseGitActivityStatsFromJsonFiles([&apos;bad.json&apos;], tmpDir);
+  assert.equal(stats, null);
+});
+test(&apos;parseGitActivityStatsFromJsonFiles skips JSON without total_commits and uses next file&apos;, async (t) =&gt; {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), &apos;git-activity-worker-test-&apos;));
+  t.after(async () =&gt; {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+  await fs.writeFile(path.join(tmpDir, &apos;partial.json&apos;), JSON.stringify({ total_files: 9 }));
+  await fs.writeFile(path.join(tmpDir, &apos;good.json&apos;), JSON.stringify({
+    total_commits: 4,
+    total_repositories: 2,
+    total_additions: 11,
+    total_deletions: 3,
+    total_files: 9,
+  }));
+  const stats = await parseGitActivityStatsFromJsonFiles([&apos;partial.json&apos;, &apos;good.json&apos;], tmpDir);
+  assert.deepEqual(stats, {
+    totalCommits: 4,
+    totalRepositories: 2,
+    linesAdded: 11,
+    linesDeleted: 3,
+    filesChanged: 9,
+  });
+});
+test(&apos;parseGitActivityStatsFromText parses text summary fallback&apos;, () =&gt; {
+  const stats = parseGitActivityStatsFromText(`
+Total commits: 17
+Lines added: 222
+Lines deleted: 101
+Active repositories: 6
+File changes: 45
+`);
+  assert.deepEqual(stats, {
+    totalCommits: 17,
+    totalRepositories: 6,
+    linesAdded: 222,
+    linesDeleted: 101,
+    filesChanged: 45,
+  });
+});
+test(&apos;parseGitActivityStatsFromText defaults missing fields to zero&apos;, () =&gt; {
+  const stats = parseGitActivityStatsFromText(&apos;Total commits: 3&apos;);
+  assert.deepEqual(stats, {
+    totalCommits: 3,
+    totalRepositories: 0,
+    linesAdded: 0,
+    linesDeleted: 0,
+  });
+});</file><file path="workers/git-activity-worker.ts">import { SidequestServer, type Job, type SidequestServerOptions } from &apos;../core/server.ts&apos;;
 import { generateReport } from &apos;../utils/report-generator.ts&apos;;
 import { spawn } from &apos;child_process&apos;;
 import { captureProcessOutput } from &apos;@shared/process-io&apos;;
@@ -22382,8 +22680,9 @@ import fs from &apos;fs/promises&apos;;
 import path from &apos;path&apos;;
 import os from &apos;os&apos;;
 import { fileURLToPath } from &apos;url&apos;;
+import * as Sentry from &apos;@sentry/node&apos;;
 import { createComponentLogger } from &apos;../utils/logger.ts&apos;;
-import { TIMEOUTS, TIME } from &apos;../core/constants.ts&apos;;
+import { TIMEOUTS, TIME, GIT_ACTIVITY } from &apos;../core/constants.ts&apos;;
 const logger = createComponentLogger(&apos;GitActivityWorker&apos;);
 interface GitActivityWorkerOptions extends SidequestServerOptions {
   codeBaseDir?: string;
@@ -22404,7 +22703,7 @@ interface PythonScriptResult {
   stderr: string;
   outputFiles: string[];
 }
-interface GitActivityStats {
+export interface GitActivityStats {
   totalCommits: number;
   totalRepositories: number;
   linesAdded: number;
@@ -22424,6 +22723,90 @@ interface ReportJobOptions {
   untilDate?: string;
   outputFormat?: string;
   generateVisualizations?: boolean;
+}
+function toFiniteNumber(value: unknown): number {
+  if (typeof value === &apos;number&apos; &amp;&amp; Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === &apos;string&apos;) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return 0;
+}
+export function buildGitActivityStatsFromData(data: Record&lt;string, unknown&gt;): GitActivityStats {
+  return {
+    totalCommits: toFiniteNumber(data.total_commits),
+    totalRepositories: Array.isArray(data.repositories)
+      ? data.repositories.length
+      : toFiniteNumber(data.total_repositories),
+    linesAdded: toFiniteNumber(data.total_additions),
+    linesDeleted: toFiniteNumber(data.total_deletions),
+    filesChanged: toFiniteNumber(data.total_files),
+  };
+}
+export async function parseGitActivityStatsFromJsonFiles(
+  outputFiles: string[],
+  scriptDir: string,
+  readFile: (path: string, encoding: BufferEncoding) =&gt; Promise&lt;string&gt; = fs.readFile
+): Promise&lt;GitActivityStats | null&gt; {
+  const jsonFiles = outputFiles.filter((file) =&gt; file.toLowerCase().endsWith(&apos;.json&apos;));
+  for (const file of jsonFiles) {
+    const resolvedPath = path.isAbsolute(file)
+      ? file
+      : path.resolve(scriptDir, file);
+    try {
+      const content = await readFile(resolvedPath, &apos;utf-8&apos;);
+      const data = JSON.parse(content) as Record&lt;string, unknown&gt;;
+      if (Object.prototype.hasOwnProperty.call(data, &apos;total_commits&apos;)) {
+        return buildGitActivityStatsFromData(data);
+      }
+    } catch (error) {
+      const err = error as Error;
+      logger.warn({ file: resolvedPath, error: err.message }, &apos;Failed to parse git activity stats JSON file&apos;);
+      Sentry.captureException(err, {
+        tags: {
+          component: &apos;git-activity-worker&apos;,
+          operation: &apos;parse-stats-json&apos;,
+        },
+        extra: {
+          file: resolvedPath,
+        },
+      });
+    }
+  }
+  return null;
+}
+export function parseGitActivityStatsFromText(stdout: string): GitActivityStats {
+  const stats: GitActivityStats = {
+    totalCommits: 0,
+    totalRepositories: 0,
+    linesAdded: 0,
+    linesDeleted: 0,
+  };
+  const commitsMatch = stdout.match(/Total commits:\s*(\d+)/i);
+  if (commitsMatch) {
+    stats.totalCommits = parseInt(commitsMatch[1], 10);
+  }
+  const additionsMatch = stdout.match(/Lines added:\s*(\d+)/i);
+  if (additionsMatch) {
+    stats.linesAdded = parseInt(additionsMatch[1], 10);
+  }
+  const deletionsMatch = stdout.match(/Lines deleted:\s*(\d+)/i);
+  if (deletionsMatch) {
+    stats.linesDeleted = parseInt(deletionsMatch[1], 10);
+  }
+  const reposMatch = stdout.match(/Active repositories:\s*(\d+)/i);
+  if (reposMatch) {
+    stats.totalRepositories = parseInt(reposMatch[1], 10);
+  }
+  const filesMatch = stdout.match(/File changes:\s*(\d+)/i);
+  if (filesMatch) {
+    stats.filesChanged = parseInt(filesMatch[1], 10);
+  }
+  return stats;
 }
 export class GitActivityWorker extends SidequestServer {
   codeBaseDir: string;
@@ -22487,7 +22870,7 @@ export class GitActivityWorker extends SidequestServer {
       if (stderr) {
         logger.warn({ jobId: job.id, stderr }, &apos;Git activity warnings&apos;);
       }
-      const stats = this.#parseStats(stdout);
+      const stats = await this.#parseStats(stdout, outputFiles);
       const verifiedFiles = await this.#verifyOutputFiles(outputFiles);
       logger.info({
         jobId: job.id,
@@ -22537,9 +22920,9 @@ export class GitActivityWorker extends SidequestServer {
       if (untilDate) {
         args.push(&apos;--end-date&apos;, untilDate);
       }
-    } else if (reportType === &apos;weekly&apos; || days === 7) {
+    } else if (reportType === GIT_ACTIVITY.WEEKLY_REPORT_TYPE || days === GIT_ACTIVITY.WEEKLY_WINDOW_DAYS) {
       args.push(&apos;--weekly&apos;);
-    } else if (reportType === &apos;monthly&apos; || days === 30) {
+    } else if (reportType === GIT_ACTIVITY.MONTHLY_REPORT_TYPE || days === GIT_ACTIVITY.MONTHLY_WINDOW_DAYS) {
       args.push(&apos;--monthly&apos;);
     } else if (days) {
       args.push(&apos;--days&apos;, String(days));
@@ -22620,48 +23003,13 @@ export class GitActivityWorker extends SidequestServer {
     }
     return Array.from(files);
   }
-  #parseStats(stdout: string): GitActivityStats {
-    const stats: GitActivityStats = {
-      totalCommits: 0,
-      totalRepositories: 0,
-      linesAdded: 0,
-      linesDeleted: 0,
-    };
-    try {
-      const jsonMatch = stdout.match(/\{[\s\S]*&quot;total_commits&quot;[\s\S]*\}/);
-      if (jsonMatch) {
-        const data = JSON.parse(jsonMatch[0]) as Record&lt;string, unknown&gt;;
-        stats.totalCommits = (data.total_commits as number) ?? 0;
-        stats.totalRepositories = (Array.isArray(data.repositories) ? data.repositories.length : 0);
-        stats.linesAdded = (data.total_additions as number) ?? 0;
-        stats.linesDeleted = (data.total_deletions as number) ?? 0;
-        return stats;
-      }
-    } catch (error) {
-      const err = error as Error;
-      logger.debug({ error: err.message }, &apos;Could not parse JSON stats, trying text format&apos;);
+  async #parseStats(stdout: string, outputFiles: string[]): Promise&lt;GitActivityStats&gt; {
+    const scriptDir = path.dirname(this.pythonScript);
+    const jsonStats = await parseGitActivityStatsFromJsonFiles(outputFiles, scriptDir);
+    if (jsonStats) {
+      return jsonStats;
     }
-    const commitsMatch = stdout.match(/Total commits:\s*(\d+)/i);
-    if (commitsMatch) {
-      stats.totalCommits = parseInt(commitsMatch[1], 10);
-    }
-    const additionsMatch = stdout.match(/Lines added:\s*(\d+)/i);
-    if (additionsMatch) {
-      stats.linesAdded = parseInt(additionsMatch[1], 10);
-    }
-    const deletionsMatch = stdout.match(/Lines deleted:\s*(\d+)/i);
-    if (deletionsMatch) {
-      stats.linesDeleted = parseInt(deletionsMatch[1], 10);
-    }
-    const reposMatch = stdout.match(/Active repositories:\s*(\d+)/i);
-    if (reposMatch) {
-      stats.totalRepositories = parseInt(reposMatch[1], 10);
-    }
-    const filesMatch = stdout.match(/File changes:\s*(\d+)/i);
-    if (filesMatch) {
-      stats.filesChanged = parseInt(filesMatch[1], 10);
-    }
-    return stats;
+    return parseGitActivityStatsFromText(stdout);
   }
   #calculateDays(sinceDate?: string, untilDate?: string): number | null {
     if (!sinceDate || !untilDate) return null;
@@ -22700,8 +23048,8 @@ export class GitActivityWorker extends SidequestServer {
   createWeeklyReportJob(): Job {
     const jobId = `git-activity-weekly-${Date.now()}`;
     return this.createJob(jobId, {
-      reportType: &apos;weekly&apos;,
-      days: 7,
+      reportType: GIT_ACTIVITY.WEEKLY_REPORT_TYPE,
+      days: GIT_ACTIVITY.WEEKLY_WINDOW_DAYS,
       outputFormat: &apos;both&apos;,
       type: &apos;git-activity-report&apos;,
     });
@@ -22709,8 +23057,8 @@ export class GitActivityWorker extends SidequestServer {
   createMonthlyReportJob(): Job {
     const jobId = `git-activity-monthly-${Date.now()}`;
     return this.createJob(jobId, {
-      reportType: &apos;monthly&apos;,
-      days: 30,
+      reportType: GIT_ACTIVITY.MONTHLY_REPORT_TYPE,
+      days: GIT_ACTIVITY.MONTHLY_WINDOW_DAYS,
       outputFormat: &apos;both&apos;,
       type: &apos;git-activity-report&apos;,
     });
@@ -22718,7 +23066,7 @@ export class GitActivityWorker extends SidequestServer {
   createCustomReportJob(sinceDate: string, untilDate: string): Job {
     const jobId = `git-activity-custom-${Date.now()}`;
     return this.createJob(jobId, {
-      reportType: &apos;custom&apos;,
+      reportType: GIT_ACTIVITY.CUSTOM_REPORT_TYPE,
       sinceDate,
       untilDate,
       type: &apos;git-activity-report&apos;,
@@ -22727,7 +23075,7 @@ export class GitActivityWorker extends SidequestServer {
   createReportJob(options: ReportJobOptions = {}): Job {
     const jobId = options.jobId ?? `git-activity-${Date.now()}`;
     return this.createJob(jobId, {
-      reportType: options.reportType ?? &apos;weekly&apos;,
+      reportType: options.reportType ?? GIT_ACTIVITY.DEFAULT_REPORT_TYPE,
       days: options.days,
       sinceDate: options.sinceDate,
       untilDate: options.untilDate,

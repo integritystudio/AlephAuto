@@ -4,8 +4,8 @@ Quick setup guide for the automated git activity reporting system with **AlephAu
 
 ## Prerequisites
 
-- Node.js >= 18.0.0
-- Python 3.7+
+- Node.js >= 22.0.0
+- Python 3.8+
 - Git installed and configured
 - npm (comes with Node.js)
 - Jekyll site at `~/code/PersonalSite` (or customize paths in config)
@@ -29,8 +29,8 @@ ls -la ~/code/jobs/sidequest/
 ```
 
 Expected files:
-- `git-activity-pipeline.js` (project root)
-- `sidequest/git-activity-worker.js`
+- `sidequest/pipeline-runners/git-activity-pipeline.ts`
+- `sidequest/workers/git-activity-worker.ts`
 - `sidequest/pipeline-runners/collect_git_activity.py` (Python backend)
 - `sidequest/git-report-config.json`
 
@@ -48,13 +48,13 @@ Test the AlephAuto integration:
 cd ~/code/jobs
 
 # Test weekly report
-npm run git:weekly
+node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --run --weekly
 
 # Test with immediate execution
-RUN_ON_STARTUP=true npm run git:weekly
+RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --weekly
 
 # Test custom date range
-node git-activity-pipeline.js --since 2025-11-10 --until 2025-11-17
+node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --run --start-date 2026-02-01 --end-date 2026-02-28
 ```
 
 Test the Python script directly (optional):
@@ -79,19 +79,22 @@ GIT_CRON_SCHEDULE="0 20 * * 0"  # Sunday 8 PM (default)
 
 ### 6. Set Up Scheduled Mode (Optional)
 
-#### Option A: Using npm (Simple)
+#### Option A: Using Node (Simple)
 
 Run in scheduled mode:
 ```bash
 cd ~/code/jobs
-npm run git:schedule
+node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts
 ```
 
 #### Option B: Using PM2 (Production)
 
 ```bash
 cd ~/code/jobs
-pm2 start git-activity-pipeline.js --name git-activity
+doppler run -- pm2 start sidequest/pipeline-runners/git-activity-pipeline.ts \
+  --name git-activity \
+  --interpreter node \
+  --node-args="--strip-types"
 pm2 save
 pm2 startup
 ```
@@ -114,10 +117,11 @@ After=network.target
 Type=simple
 User=your-user
 WorkingDirectory=/Users/alyshialedlie/code/jobs
-ExecStart=/usr/bin/node git-activity-pipeline.js
+ExecStart=/usr/bin/node --strip-types /Users/alyshialedlie/code/jobs/sidequest/pipeline-runners/git-activity-pipeline.ts
 Restart=always
 Environment=NODE_ENV=production
 Environment=GIT_CRON_SCHEDULE="0 20 * * 0"
+Environment=GIT_MONTHLY_CRON_SCHEDULE="0 8 1 * *"
 
 [Install]
 WantedBy=multi-user.target
@@ -135,7 +139,7 @@ sudo systemctl status git-activity
 After setup, verify:
 
 1. **Dependencies installed**: `npm list` (from project root)
-2. **AlephAuto pipeline runs**: `npm run git:weekly`
+2. **AlephAuto pipeline runs**: `node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --run --weekly`
 3. **Logs directory exists**: `ls ~/code/jobs/logs/`
 4. **Visualizations generate**: `ls ~/code/PersonalSite/assets/images/git-activity-2025/`
 5. **JSON data creates**: `ls /tmp/git_activity_*.json`
@@ -149,27 +153,27 @@ cat logs/*.json | grep "git-activity"
 
 ### Weekly Report
 ```bash
-npm run git:weekly
+node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --run --weekly
 ```
 
 ### Monthly Report
 ```bash
-npm run git:monthly
+node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --run --monthly
 ```
 
 ### Custom Date Range
 ```bash
-node git-activity-pipeline.js --since 2025-07-07 --until 2025-11-16
+node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --run --start-date 2026-02-01 --end-date 2026-02-28
 ```
 
 ### Scheduled Mode
 ```bash
-npm run git:schedule
+node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts
 ```
 
 ### Run Immediately
 ```bash
-RUN_ON_STARTUP=true npm run git:weekly
+RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --weekly
 ```
 
 ### With Claude Code
@@ -182,10 +186,12 @@ Just ask:
 
 ## Troubleshooting
 
-### npm scripts not found
+### TypeScript entrypoint fails to start
 ```bash
 cd ~/code/jobs
 npm install  # Ensure dependencies are installed
+node --version
+node --strip-types --version
 ```
 
 ### Python script won't execute
@@ -216,7 +222,8 @@ pm2 logs git-activity
 ### Scheduled mode not working
 ```bash
 # Verify cron schedule syntax
-GIT_CRON_SCHEDULE="0 20 * * 0" npm run git:schedule
+GIT_CRON_SCHEDULE="0 20 * * 0" GIT_MONTHLY_CRON_SCHEDULE="0 8 1 * *" \
+node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts
 
 # Check if process is running
 ps aux | grep git-activity-pipeline
@@ -227,11 +234,11 @@ pm2 status
 
 ## Next Steps
 
-1. Run a test report: `npm run git:weekly`
+1. Run a test report: `node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --run --weekly`
 2. Review JSON output: `cat /tmp/git_activity_*.json | jq .`
 3. Check visualizations: Open SVG files in browser
 4. Ask Claude to create markdown report from data
-5. Set up scheduled mode: `npm run git:schedule` or use PM2
+5. Set up scheduled mode: `node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts` or use PM2
 6. Customize project categories in `git-report-config.json`
 7. Monitor with Sentry dashboard
 
@@ -239,9 +246,9 @@ pm2 status
 
 For help, check:
 - README.md for detailed documentation
-- Logs in `~/code/jobs/sidequest/logs/`
+- Logs in `~/code/jobs/logs/`
 - Ask Claude: "Help me debug the git activity reporter"
 
 ---
 
-Installation complete! 🎉
+Installation complete.

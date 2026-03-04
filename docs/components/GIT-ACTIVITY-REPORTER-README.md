@@ -6,34 +6,34 @@ Automated weekly/monthly git activity reporting with visualizations, **fully int
 
 ```bash
 # Weekly report (last 7 days) - from project root
-npm run git:weekly
+node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --run --weekly
 
 # Monthly report (last 30 days)
-npm run git:monthly
+node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --run --monthly
 
 # Custom date range
-node git-activity-pipeline.js --since 2025-07-07 --until 2025-11-16
+node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --run --start-date 2026-02-01 --end-date 2026-02-28
 
 # Run immediately
-RUN_ON_STARTUP=true npm run git:weekly
+RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --weekly
 
-# Start scheduled mode (Sunday 8 PM)
-npm run git:schedule
+# Start scheduled mode (weekly + monthly cron jobs)
+node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts
 ```
 
 ## Files
 
-- `../git-activity-pipeline.js` - AlephAuto pipeline orchestrator (project root)
-- `git-activity-worker.js` - AlephAuto job worker
-- `collect_git_activity.py` - Python data collection script (backend)
-- `git-report-config.json` - Configuration file
+- `sidequest/pipeline-runners/git-activity-pipeline.ts` - Pipeline orchestrator
+- `sidequest/workers/git-activity-worker.ts` - Job worker
+- `sidequest/pipeline-runners/collect_git_activity.py` - Python data collector
+- `sidequest/git-report-config.json` - Collector configuration
 - `GIT-ACTIVITY-REPORTER-README.md` - This file
-- `INSTALL.md` - Installation guide
-- `logs/` - Log directory
+- `docs/INSTALL.md` - Installation guide
+- `logs/` - Job/event logs directory
 
 ## Installation
 
-See [INSTALL.md](INSTALL.md) for complete setup instructions.
+See [INSTALL.md](../INSTALL.md) for complete setup instructions.
 
 Quick install:
 ```bash
@@ -41,28 +41,33 @@ Quick install:
 npm install
 
 # Make Python script executable
-chmod +x sidequest/collect_git_activity.py
+chmod +x sidequest/pipeline-runners/collect_git_activity.py
 
 # Test the integration
-npm run git:weekly
+node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --run --weekly
 ```
 
 ## Scheduled Mode
 
-### Using npm (Recommended)
+### Using Node (Recommended)
 
-Run in scheduled mode (Sunday 8 PM by default):
+Run in scheduled mode (weekly + monthly):
 ```bash
-npm run git:schedule
+node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts
 
-# Custom schedule
-GIT_CRON_SCHEDULE="0 20 * * 0" npm run git:schedule
+# Custom schedules
+GIT_CRON_SCHEDULE="0 20 * * 0" \
+GIT_MONTHLY_CRON_SCHEDULE="0 8 1 * *" \
+node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts
 ```
 
 ### Using PM2 (Production)
 
 ```bash
-pm2 start git-activity-pipeline.js --name git-activity
+doppler run -- pm2 start sidequest/pipeline-runners/git-activity-pipeline.ts \
+  --name git-activity \
+  --interpreter node \
+  --node-args="--strip-types"
 pm2 save
 pm2 startup
 ```
@@ -71,7 +76,7 @@ pm2 startup
 
 - **Visualizations**: `~/code/PersonalSite/assets/images/git-activity-{year}/*.svg`
 - **JSON Data**: `/tmp/git_activity_weekly_*.json`
-- **Logs**: `~/code/jobs/sidequest/logs/git-report-*.log`
+- **Logs**: `~/code/jobs/logs/*.json`
 
 ## Claude Code Integration
 
@@ -86,8 +91,8 @@ Just ask Claude:
 
 ## Support
 
-- Full documentation: See INSTALL.md
-- Logs: `~/code/jobs/sidequest/logs/`
+- Full documentation: See `docs/INSTALL.md`
+- Logs: `~/code/jobs/logs/`
 - Ask Claude: "Help me debug the git activity reporter"
 
 ---

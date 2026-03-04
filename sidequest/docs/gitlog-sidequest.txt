@@ -1,3 +1,116 @@
+fa3ad97 2026-03-04 refactor(git-activity): centralize constants and job selection
+  sidequest/core/constants.ts
+  sidequest/pipeline-runners/git-activity-pipeline.test.ts
+  sidequest/pipeline-runners/git-activity-pipeline.ts
+  sidequest/workers/git-activity-worker.test.ts
+  sidequest/workers/git-activity-worker.ts
+
+8f64b98 2026-03-04 test(git-activity): add CLI and stats parsing coverage
+  sidequest/pipeline-runners/git-activity-pipeline.test.ts
+  sidequest/pipeline-runners/git-activity-pipeline.ts
+  sidequest/pipeline-runners/test_collect_git_activity.py
+  sidequest/workers/git-activity-worker.test.ts
+  sidequest/workers/git-activity-worker.ts
+
+17c5667 2026-03-04 fix: apply session updates and migration transformer declaration cleanup
+  sidequest/pipeline-core/git/migration-transformer.ts
+  sidequest/pipeline-runners/collect_git_activity.py
+  sidequest/pipeline-runners/git-activity-pipeline.ts
+  sidequest/repomix-output.xml
+  sidequest/workers/git-activity-worker.ts
+
+9552434 2026-03-04 chore: remove doppler resilience example file
+  sidequest/utils/doppler-resilience.example.js
+
+b0df920 2026-03-04 fix(test-refactor): resolve ESM Job import/runtime fs usage
+  sidequest/workers/test-refactor-worker.ts
+
+c82b55b 2026-03-04 docs(backlog): close SV1 and finish scanner console cleanup
+  sidequest/pipeline-core/scanners/codebase-health-scanner.ts
+
+8c9eafd 2026-03-04 refactor(logging): migrate remaining SV1 console.log usage
+  sidequest/pipeline-core/reports/html-report-generator.ts
+  sidequest/pipeline-core/scanners/codebase-health-scanner.ts
+  sidequest/pipeline-runners/claude-health-pipeline.ts
+  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
+  sidequest/pipeline-runners/plugin-management-pipeline.ts
+  sidequest/utils/refactor-test-suite.ts
+
+a79d2b8 2026-03-04 fix(git-activity): honor partial date range and harden module path resolution
+  sidequest/pipeline-runners/git-activity-pipeline.ts
+  sidequest/workers/git-activity-worker.ts
+
+1e2581f 2026-03-04 chore: commit pending workspace updates
+  sidequest/README.md
+  sidequest/core/index.ts
+  sidequest/core/job-repository.ts
+  sidequest/core/server.ts
+  sidequest/docs/gitlog-sidequest.txt
+  sidequest/pipeline-core/git/migration-transformer.ts
+  sidequest/pipeline-runners/base-pipeline.ts
+  sidequest/pipeline-runners/bugfix-audit-pipeline.ts
+  sidequest/pipeline-runners/claude-health-pipeline.ts
+  sidequest/pipeline-runners/dashboard-populate-pipeline.ts
+  sidequest/pipeline-runners/git-activity-pipeline.ts
+  sidequest/pipeline-runners/gitignore-pipeline.ts
+  sidequest/pipeline-runners/plugin-management-pipeline.ts
+  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
+  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
+  sidequest/pipeline-runners/test-refactor-pipeline.ts
+  sidequest/repomix-output.xml
+  sidequest/repomix.config.json
+  sidequest/utils/dependency-validator.ts
+  sidequest/utils/directory-scanner.ts
+  sidequest/utils/doppler-resilience.ts
+  sidequest/utils/gitignore-repomix-updater.ts
+  sidequest/utils/plugin-manager.ts
+  sidequest/utils/refactor-test-suite.ts
+  sidequest/utils/report-generator.ts
+  sidequest/utils/schema-mcp-tools.ts
+  sidequest/workers/bugfix-audit-worker.ts
+  sidequest/workers/claude-health-worker.ts
+  sidequest/workers/dashboard-populate-worker.ts
+  sidequest/workers/duplicate-detection-worker.ts
+  sidequest/workers/git-activity-worker.ts
+  sidequest/workers/gitignore-worker.ts
+  sidequest/workers/repo-cleanup-worker.ts
+  sidequest/workers/repomix-worker.ts
+  sidequest/workers/schema-enhancement-worker.ts
+  sidequest/workers/test-refactor-worker.ts
+
+9481717 2026-03-04 test(git-activity): add collector coverage
+  sidequest/pipeline-runners/test_collect_git_activity.py
+
+4287dd6 2026-03-04 fix(git-activity): harden subprocess argv/cwd and refresh repomix
+  sidequest/pipeline-runners/collect_git_activity.py
+  sidequest/repomix-output.xml
+
+9361c74 2026-03-04 fix(git-activity): load collector config and emit monthly data
+  sidequest/pipeline-runners/collect_git_activity.py
+
+fc3ae89 2026-03-04 fix(git-activity): emit line metrics and default to both outputs
+  sidequest/pipeline-runners/collect_git_activity.py
+  sidequest/workers/git-activity-worker.ts
+
+fba6ae6 2026-03-03 fix(git-activity): stabilize output format and file detection
+  sidequest/pipeline-runners/collect_git_activity.py
+  sidequest/workers/git-activity-worker.ts
+
+349a28e 2026-03-03 docs: resolve DOC1-DOC7 documentation backlog
+  sidequest/core/database.ts
+  sidequest/core/git-workflow-manager.ts
+  sidequest/core/server.ts
+
+1a232a9 2026-03-03 fix(git-activity): align worker/python CLI flags
+  sidequest/pipeline-runners/collect_git_activity.py
+  sidequest/workers/git-activity-worker.ts
+
+36eb7fb 2026-03-03 test(similarity): deduplicate semantic weight impact cases
+  sidequest/pipeline-core/similarity/test_grouping_layer3.py
+
+a1bc2a4 2026-03-03 refactor(schema-mcp-tools): resolve CS8 and migrate backlog entry
+  sidequest/utils/schema-mcp-tools.ts
+
 d2631cc 2026-03-03 repomix & CS7 fix
   sidequest/repomix-output.xml
 
@@ -1032,66 +1145,3 @@ c1746a0 2026-01-16 fix(dashboard): include reportPaths in duplicate-detection jo
 
 23f61d4 2026-01-16 fix(types): add SidequestServer type definitions and fix JobStats naming
   sidequest/core/server.d.ts
-
-a10d963 2026-01-16 fix: resolve 5 production errors and improve error handling
-  sidequest/pipeline-core/scan-orchestrator.js
-  sidequest/pipeline-core/scan-orchestrator.ts
-  sidequest/workers/repomix-worker.js
-
-921ecd7 2026-01-16 refactor(grouping): extract _try_accept_group helper for duplicate logic
-  sidequest/pipeline-core/similarity/grouping.py
-
-84064fe 2026-01-16 refactor(collect_git_activity): reduce main() complexity 17→4
-  sidequest/pipeline-runners/collect_git_activity.py
-
-03f618f 2026-01-16 refactor(grouping): add semantic check registry pattern
-  sidequest/pipeline-core/similarity/grouping.py
-
-eff351d 2026-01-16 refactor(extractors): reduce complexity in extract_blocks.py
-  sidequest/pipeline-core/extractors/extract_blocks.py
-
-50d4f93 2026-01-16 refactor(scanners): extract pattern detectors in timeout_detector.py
-  sidequest/pipeline-core/scanners/timeout_detector.py
-
-044a62c 2025-12-26 chore(docs): remove remaining README_ENHANCED.md files
-  sidequest/bug-fixes/README_ENHANCED.md
-  sidequest/pipeline-core/cache/README_ENHANCED.md
-  sidequest/pipeline-core/config/README_ENHANCED.md
-  sidequest/pipeline-core/errors/README_ENHANCED.md
-  sidequest/pipeline-core/extractors/README_ENHANCED.md
-  sidequest/pipeline-core/git/README_ENHANCED.md
-  sidequest/pipeline-core/models/README_ENHANCED.md
-  sidequest/pipeline-core/reports/README_ENHANCED.md
-  sidequest/pipeline-core/scanners/README_ENHANCED.md
-  sidequest/pipeline-core/similarity/README_ENHANCED.md
-  sidequest/pipeline-core/utils/README_ENHANCED.md
-  sidequest/types/README_ENHANCED.md
-
-b5b7a3e 2025-12-24 docs: archive obsolete documentation files
-  sidequest/TEST-RESULTS.md
-
-ce78343 2025-12-24 docs: sync date stamps with git commit history
-  sidequest/pipeline-runners/docs/UNIVERSAL-CLEANUP-README.md
-
-6bb434e 2025-12-24 chore(build): update repomix output and configurations
-  sidequest/repomix-output.xml
-
-a5be19b 2025-12-08 Merge branch 'interactive' into main
-2b38700 2025-12-08 fix(types): correct handler type annotation in server.js
-  sidequest/core/server.js
-
-866b206 2025-12-08 fix(ast-grep): enhance error logging and add exit code 127 hint
-  sidequest/pipeline-core/scanners/ast-grep-detector.js
-
-dc0006b 2025-12-08 fix(repomix): enhance error logging with output context
-  sidequest/workers/repomix-worker.js
-
-845737d 2025-12-08 feat(orchestrator): integrate dependency validation
-  sidequest/pipeline-core/scan-orchestrator.ts
-
-ab1c765 2025-12-08 feat(dependencies): add centralized dependency validator
-  sidequest/utils/dependency-validator.js
-
-40be02a 2025-12-08 Merge remote-tracking branch 'origin/main'
-2098df8 2025-12-08 manual check
-  sidequest/repomix-output.xml
