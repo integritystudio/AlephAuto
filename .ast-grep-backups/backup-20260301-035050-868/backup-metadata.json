@@ -1,0 +1,97 @@
+{
+  "backup_id": "backup-20260301-035050-868",
+  "timestamp": "2026-03-01T03:50:50.868415",
+  "files": [
+    {
+      "original": "/Users/alyshialedlie/code/jobs/scripts/validate-permissions.ts",
+      "relative": "scripts/validate-permissions.ts",
+      "backup": "/Users/alyshialedlie/code/jobs/.ast-grep-backups/backup-20260301-035050-868/scripts/validate-permissions.ts"
+    },
+    {
+      "original": "/Users/alyshialedlie/code/jobs/scripts/verify-setup.ts",
+      "relative": "scripts/verify-setup.ts",
+      "backup": "/Users/alyshialedlie/code/jobs/.ast-grep-backups/backup-20260301-035050-868/scripts/verify-setup.ts"
+    },
+    {
+      "original": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-core/reports/report-coordinator.ts",
+      "relative": "sidequest/pipeline-core/reports/report-coordinator.ts",
+      "backup": "/Users/alyshialedlie/code/jobs/.ast-grep-backups/backup-20260301-035050-868/sidequest/pipeline-core/reports/report-coordinator.ts"
+    },
+    {
+      "original": "/Users/alyshialedlie/code/jobs/scripts/fix-types.ts",
+      "relative": "scripts/fix-types.ts",
+      "backup": "/Users/alyshialedlie/code/jobs/.ast-grep-backups/backup-20260301-035050-868/scripts/fix-types.ts"
+    },
+    {
+      "original": "/Users/alyshialedlie/code/jobs/packages/shared-process-io/src/index.ts",
+      "relative": "packages/shared-process-io/src/index.ts",
+      "backup": "/Users/alyshialedlie/code/jobs/.ast-grep-backups/backup-20260301-035050-868/packages/shared-process-io/src/index.ts"
+    },
+    {
+      "original": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-runners/schema-enhancement-pipeline.ts",
+      "relative": "sidequest/pipeline-runners/schema-enhancement-pipeline.ts",
+      "backup": "/Users/alyshialedlie/code/jobs/.ast-grep-backups/backup-20260301-035050-868/sidequest/pipeline-runners/schema-enhancement-pipeline.ts"
+    },
+    {
+      "original": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-core/git/pr-creator.ts",
+      "relative": "sidequest/pipeline-core/git/pr-creator.ts",
+      "backup": "/Users/alyshialedlie/code/jobs/.ast-grep-backups/backup-20260301-035050-868/sidequest/pipeline-core/git/pr-creator.ts"
+    },
+    {
+      "original": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-runners/git-activity-pipeline.ts",
+      "relative": "sidequest/pipeline-runners/git-activity-pipeline.ts",
+      "backup": "/Users/alyshialedlie/code/jobs/.ast-grep-backups/backup-20260301-035050-868/sidequest/pipeline-runners/git-activity-pipeline.ts"
+    },
+    {
+      "original": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-core/scan-orchestrator.ts",
+      "relative": "sidequest/pipeline-core/scan-orchestrator.ts",
+      "backup": "/Users/alyshialedlie/code/jobs/.ast-grep-backups/backup-20260301-035050-868/sidequest/pipeline-core/scan-orchestrator.ts"
+    },
+    {
+      "original": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-runners/duplicate-detection-pipeline.ts",
+      "relative": "sidequest/pipeline-runners/duplicate-detection-pipeline.ts",
+      "backup": "/Users/alyshialedlie/code/jobs/.ast-grep-backups/backup-20260301-035050-868/sidequest/pipeline-runners/duplicate-detection-pipeline.ts"
+    },
+    {
+      "original": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-core/reports/markdown-report-generator.ts",
+      "relative": "sidequest/pipeline-core/reports/markdown-report-generator.ts",
+      "backup": "/Users/alyshialedlie/code/jobs/.ast-grep-backups/backup-20260301-035050-868/sidequest/pipeline-core/reports/markdown-report-generator.ts"
+    },
+    {
+      "original": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-core/reports/json-report-generator.ts",
+      "relative": "sidequest/pipeline-core/reports/json-report-generator.ts",
+      "backup": "/Users/alyshialedlie/code/jobs/.ast-grep-backups/backup-20260301-035050-868/sidequest/pipeline-core/reports/json-report-generator.ts"
+    },
+    {
+      "original": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-core/git/migration-transformer.ts",
+      "relative": "sidequest/pipeline-core/git/migration-transformer.ts",
+      "backup": "/Users/alyshialedlie/code/jobs/.ast-grep-backups/backup-20260301-035050-868/sidequest/pipeline-core/git/migration-transformer.ts"
+    },
+    {
+      "original": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-core/doppler-health-monitor.ts",
+      "relative": "sidequest/pipeline-core/doppler-health-monitor.ts",
+      "backup": "/Users/alyshialedlie/code/jobs/.ast-grep-backups/backup-20260301-035050-868/sidequest/pipeline-core/doppler-health-monitor.ts"
+    },
+    {
+      "original": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-core/inter-project-scanner.ts",
+      "relative": "sidequest/pipeline-core/inter-project-scanner.ts",
+      "backup": "/Users/alyshialedlie/code/jobs/.ast-grep-backups/backup-20260301-035050-868/sidequest/pipeline-core/inter-project-scanner.ts"
+    },
+    {
+      "original": "/Users/alyshialedlie/code/jobs/sidequest/core/server.ts",
+      "relative": "sidequest/core/server.ts",
+      "backup": "/Users/alyshialedlie/code/jobs/.ast-grep-backups/backup-20260301-035050-868/sidequest/core/server.ts"
+    },
+    {
+      "original": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-runners/plugin-management-pipeline.ts",
+      "relative": "sidequest/pipeline-runners/plugin-management-pipeline.ts",
+      "backup": "/Users/alyshialedlie/code/jobs/.ast-grep-backups/backup-20260301-035050-868/sidequest/pipeline-runners/plugin-management-pipeline.ts"
+    },
+    {
+      "original": "/Users/alyshialedlie/code/jobs/cloudflare-workers/n0ai-proxy/src/index.ts",
+      "relative": "cloudflare-workers/n0ai-proxy/src/index.ts",
+      "backup": "/Users/alyshialedlie/code/jobs/.ast-grep-backups/backup-20260301-035050-868/cloudflare-workers/n0ai-proxy/src/index.ts"
+    }
+  ],
+  "project_folder": "/Users/alyshialedlie/code/jobs/"
+}
