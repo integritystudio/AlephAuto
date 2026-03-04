@@ -27,17 +27,78 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'pipeline-core'))
 from constants import ChartColors, ChartDefaults, GitActivityDefaults
 
 
-# Configuration
-CODE_DIR = Path.home() / 'code'
-REPORTS_DIR = Path.home() / 'reports'
+def _load_git_report_config() -> dict:
+    """Load collector configuration from git-report-config.json with fallback defaults."""
+    config_path = Path(__file__).parent.parent / 'git-report-config.json'
+    try:
+        with config_path.open('r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+    except json.JSONDecodeError as e:
+        print(f"Warning: Invalid JSON in {config_path}: {e}", file=sys.stderr)
+        return {}
+
+
+def _get_int(value, default: int) -> int:
+    """Parse int value with fallback."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _get_path(value, fallback: Path) -> Path:
+    """Resolve a path from config with fallback."""
+    if isinstance(value, str) and value.strip():
+        return Path(value).expanduser()
+    return fallback
+
+
+# Configuration (defaults)
 HOME_DIR = Path.home()
-ADDITIONAL_REPOS = [
-    Path.home() / 'schema-org-file-system',
-    Path.home() / 'claude-tool-use',
-    Path.home() / 'dotfiles',
+DEFAULT_CODE_DIR = HOME_DIR / 'code'
+DEFAULT_REPORTS_DIR = HOME_DIR / 'reports'
+DEFAULT_ADDITIONAL_REPOS = [
+    HOME_DIR / 'schema-org-file-system',
+    HOME_DIR / 'claude-tool-use',
+    HOME_DIR / 'dotfiles',
 ]
-EXCLUDE_PATTERNS = ['vim/bundle', 'node_modules', '.git', 'venv', '.venv']
+DEFAULT_EXCLUDE_PATTERNS = ['vim/bundle', 'node_modules', '.git', 'venv', '.venv']
 DEFAULT_MAX_DEPTH = 3
+DEFAULT_INCLUDE_DOTFILES = True
+DEFAULT_PERSONALSITE_DIR = HOME_DIR / 'code' / 'PersonalSite'
+DEFAULT_WORK_COLLECTION = '_reports'
+DEFAULT_VISUALIZATION_DIR_TEMPLATE = 'assets/images/git-activity-{year}'
+
+
+# Load user/project config overrides
+CONFIG = _load_git_report_config()
+SCANNING_CONFIG = CONFIG.get('scanning', {})
+OUTPUT_CONFIG = CONFIG.get('output', {})
+
+CODE_DIR = _get_path(SCANNING_CONFIG.get('code_directory'), DEFAULT_CODE_DIR)
+REPORTS_DIR = _get_path(SCANNING_CONFIG.get('reports_directory'), DEFAULT_REPORTS_DIR)
+ADDITIONAL_REPOS = [
+    _get_path(repo, DEFAULT_CODE_DIR)
+    for repo in SCANNING_CONFIG.get(
+        'additional_repositories',
+        [str(p) for p in DEFAULT_ADDITIONAL_REPOS]
+    )
+    if isinstance(repo, str) and repo.strip()
+]
+EXCLUDE_PATTERNS = SCANNING_CONFIG.get('exclude_patterns', DEFAULT_EXCLUDE_PATTERNS)
+if not isinstance(EXCLUDE_PATTERNS, list):
+    EXCLUDE_PATTERNS = DEFAULT_EXCLUDE_PATTERNS
+INCLUDE_DOTFILES = bool(SCANNING_CONFIG.get('include_dotfiles', DEFAULT_INCLUDE_DOTFILES))
+DEFAULT_MAX_DEPTH = _get_int(SCANNING_CONFIG.get('max_depth'), DEFAULT_MAX_DEPTH)
+PERSONALSITE_DIR = _get_path(OUTPUT_CONFIG.get('personalsite_dir'), DEFAULT_PERSONALSITE_DIR)
+WORK_COLLECTION = OUTPUT_CONFIG.get('work_collection', DEFAULT_WORK_COLLECTION)
+if not isinstance(WORK_COLLECTION, str) or not WORK_COLLECTION.strip():
+    WORK_COLLECTION = DEFAULT_WORK_COLLECTION
+VISUALIZATION_DIR_TEMPLATE = OUTPUT_CONFIG.get('visualization_dir', DEFAULT_VISUALIZATION_DIR_TEMPLATE)
+if not isinstance(VISUALIZATION_DIR_TEMPLATE, str) or not VISUALIZATION_DIR_TEMPLATE.strip():
+    VISUALIZATION_DIR_TEMPLATE = DEFAULT_VISUALIZATION_DIR_TEMPLATE
 
 # Language/File Type Mapping
 LANGUAGE_EXTENSIONS = {
@@ -65,7 +126,7 @@ LANGUAGE_EXTENSIONS = {
 }
 
 
-def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=True):
+def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=INCLUDE_DOTFILES):
     """Find all git repositories, excluding specified patterns.
 
     Args:
@@ -141,6 +202,18 @@ def get_repo_stats(repo_path, since_date, until_date=None):
         result = subprocess.run(git_cmd.split(), capture_output=True, text=True)
         commits = len(result.stdout.strip().split('\n')) if result.stdout.strip() else 0
 
+        # Get monthly commit distribution for visualization
+        git_cmd = f"git log --since={since_date} --all --date=format:%Y-%m --pretty=format:%ad"
+        if until_date:
+            git_cmd += f" --until={until_date}"
+
+        result = subprocess.run(git_cmd.split(), capture_output=True, text=True)
+        monthly_commits = defaultdict(int)
+        for line in result.stdout.strip().split('\n'):
+            month = line.strip()
+            if month:
+                monthly_commits[month] += 1
+
         # Get file changes for language analysis
         git_cmd = f"git log --since={since_date} --all --name-only --pretty=format:"
         if until_date:
@@ -181,6 +254,7 @@ def get_repo_stats(repo_path, since_date, until_date=None):
             'name': repo_path.name,
             'parent': parent,
             'commits': commits,
+            'monthly_commits': dict(monthly_commits),
             'files': files,
             'additions': additions,
             'deletions': deletions
@@ -395,7 +469,11 @@ def _resolve_output_dir(args) -> Path:
         return Path(args.output_dir)
 
     year = datetime.now().year
-    return Path.home() / 'code' / 'PersonalSite' / 'assets' / 'images' / f'git-activity-{year}'
+    rel_or_abs = VISUALIZATION_DIR_TEMPLATE.format(year=year)
+    configured_path = Path(rel_or_abs).expanduser()
+    if configured_path.is_absolute():
+        return configured_path
+    return PERSONALSITE_DIR / configured_path
 
 
 def _collect_repository_stats(repos: list[Path], since_date: str, until_date: str | None) -> tuple[list, list]:
@@ -434,6 +512,11 @@ def _compile_activity_data(
     print("\nCategorizing projects...")
     categories = categorize_repositories(repositories)
 
+    monthly_totals = defaultdict(int)
+    for repo in repositories:
+        for month, count in repo.get('monthly_commits', {}).items():
+            monthly_totals[month] += count
+
     return {
         'date_range': {
             'start': since_date,
@@ -447,6 +530,7 @@ def _compile_activity_data(
         'repositories': repositories,
         'languages': language_stats,
         'websites': websites,
+        'monthly': dict(sorted(monthly_totals.items())),
         'categories': {
             cat: [{'name': r['name'], 'commits': r['commits']} for r in repos]
             for cat, repos in categories.items()
@@ -687,7 +771,7 @@ def main():
     data = _compile_activity_data(repositories, all_files, since_date, until_date)
 
     # Resolve output locations
-    default_report_dir = Path.home() / 'code' / 'PersonalSite' / '_reports'
+    default_report_dir = PERSONALSITE_DIR / WORK_COLLECTION
     default_report_dir.mkdir(parents=True, exist_ok=True)
     report_date = datetime.now().strftime('%Y-%m-%d')
     report_file = default_report_dir / f'{report_date}-git-activity-report.md'
