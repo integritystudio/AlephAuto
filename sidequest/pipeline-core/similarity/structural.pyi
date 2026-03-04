@@ -3,14 +3,13 @@
 from dataclasses import dataclass
 from typing import Set, Tuple
 
-
 @dataclass
 class SemanticFeatures:
     """Semantic features extracted from original code before normalization."""
+
     http_status_codes: Set[int]
     logical_operators: Set[str]
     semantic_methods: Set[str]
-
 
 def extract_semantic_features(source_code: str) -> SemanticFeatures: ...
 def normalize_code(source_code: str) -> str: ...

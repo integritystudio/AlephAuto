@@ -18,10 +18,11 @@ from constants import ImpactWeights, ScoringThresholds
 
 class SimilarityMethod(str, Enum):
     """Method used to determine similarity"""
+
     EXACT_MATCH = "exact_match"  # Identical code
-    STRUCTURAL = "structural"    # Same AST structure
-    SEMANTIC = "semantic"        # Similar logic/behavior
-    HYBRID = "hybrid"            # Combination of methods
+    STRUCTURAL = "structural"  # Same AST structure
+    SEMANTIC = "semantic"  # Similar logic/behavior
+    HYBRID = "hybrid"  # Combination of methods
 
 
 class DuplicateGroup(BaseModel):
@@ -35,13 +36,13 @@ class DuplicateGroup(BaseModel):
 
     # Core identification
     group_id: str = Field(..., description="Unique identifier for this duplicate group")
-    pattern_id: str = Field(..., description="ast-grep pattern that matched these blocks")
+    pattern_id: str = Field(
+        ..., description="ast-grep pattern that matched these blocks"
+    )
 
     # Member blocks (references to CodeBlock IDs)
     member_block_ids: List[str] = Field(
-        ...,
-        min_length=2,
-        description="IDs of CodeBlocks in this group"
+        ..., min_length=2, description="IDs of CodeBlocks in this group"
     )
 
     # Similarity metrics
@@ -49,17 +50,15 @@ class DuplicateGroup(BaseModel):
         ...,
         ge=0.0,
         le=1.0,
-        description="Similarity score (0.0 = completely different, 1.0 = identical)"
+        description="Similarity score (0.0 = completely different, 1.0 = identical)",
     )
     similarity_method: SimilarityMethod = Field(
-        ...,
-        description="Method used to calculate similarity"
+        ..., description="Method used to calculate similarity"
     )
 
     # Consolidation target
     canonical_block_id: Optional[str] = Field(
-        None,
-        description="ID of the 'best' representative block for this group"
+        None, description="ID of the 'best' representative block for this group"
     )
 
     # Analysis metadata
@@ -70,73 +69,66 @@ class DuplicateGroup(BaseModel):
     occurrence_count: int = Field(..., ge=2, description="Number of occurrences")
     total_lines: int = Field(..., ge=1, description="Total lines of duplicated code")
     affected_files: List[str] = Field(
-        default_factory=list,
-        description="List of files containing duplicates"
+        default_factory=list, description="List of files containing duplicates"
     )
     affected_repositories: List[str] = Field(
-        default_factory=list,
-        description="List of repositories containing duplicates"
+        default_factory=list, description="List of repositories containing duplicates"
     )
 
     # Consolidation analysis
     consolidation_complexity: Optional[str] = Field(
-        None,
-        description="Estimated complexity: 'trivial', 'moderate', 'complex'"
+        None, description="Estimated complexity: 'trivial', 'moderate', 'complex'"
     )
     breaking_changes_risk: Optional[str] = Field(
-        None,
-        description="Risk level: 'low', 'medium', 'high'"
+        None, description="Risk level: 'low', 'medium', 'high'"
     )
 
     # Timestamps
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="When this group was created"
+        default_factory=datetime.utcnow, description="When this group was created"
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="Last update timestamp"
+        default_factory=datetime.utcnow, description="Last update timestamp"
     )
 
     # Additional context
     notes: Optional[str] = Field(None, description="Analysis notes")
     metadata: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional metadata"
+        default_factory=dict, description="Additional metadata"
     )
 
     model_config = {
-        'json_schema_extra': {
-            'example': {
-                'group_id': 'dg_001',
-                'pattern_id': 'object-manipulation',
-                'member_block_ids': ['cb_12345', 'cb_12346', 'cb_12347'],
-                'similarity_score': 0.95,
-                'similarity_method': 'structural',
-                'category': 'utility',
-                'language': 'javascript',
-                'occurrence_count': 3,
-                'total_lines': 9,
-                'affected_files': ['src/utils.js', 'src/helpers.js'],
+        "json_schema_extra": {
+            "example": {
+                "group_id": "dg_001",
+                "pattern_id": "object-manipulation",
+                "member_block_ids": ["cb_12345", "cb_12346", "cb_12347"],
+                "similarity_score": 0.95,
+                "similarity_method": "structural",
+                "category": "utility",
+                "language": "javascript",
+                "occurrence_count": 3,
+                "total_lines": 9,
+                "affected_files": ["src/utils.js", "src/helpers.js"],
             }
         }
     }
 
-    @field_validator('member_block_ids')
+    @field_validator("member_block_ids")
     @classmethod
     def validate_min_members(cls, v):
         """Ensure at least 2 members (a duplicate must have multiple instances)"""
         if len(v) < 2:
-            raise ValueError('A duplicate group must have at least 2 members')
+            raise ValueError("A duplicate group must have at least 2 members")
         return v
 
-    @field_validator('canonical_block_id')
+    @field_validator("canonical_block_id")
     @classmethod
     def validate_canonical_in_members(cls, v, info):
         """Ensure canonical block ID is one of the members"""
-        if v is not None and 'member_block_ids' in info.data:
-            if v not in info.data['member_block_ids']:
-                raise ValueError('canonical_block_id must be one of member_block_ids')
+        if v is not None and "member_block_ids" in info.data:
+            if v not in info.data["member_block_ids"]:
+                raise ValueError("canonical_block_id must be one of member_block_ids")
         return v
 
     @computed_field
@@ -165,7 +157,9 @@ class DuplicateGroup(BaseModel):
         - Lines of code affected
         """
         # Normalize occurrence count (cap at OCCURRENCE_CAP for scoring)
-        occurrence_factor = min(self.occurrence_count / ImpactWeights.OCCURRENCE_CAP, 1.0)
+        occurrence_factor = min(
+            self.occurrence_count / ImpactWeights.OCCURRENCE_CAP, 1.0
+        )
 
         # Similarity weight
         similarity_factor = self.similarity_score
@@ -175,9 +169,9 @@ class DuplicateGroup(BaseModel):
 
         # Weighted average
         score = (
-            occurrence_factor * ImpactWeights.OCCURRENCE +
-            similarity_factor * ImpactWeights.SIMILARITY +
-            loc_factor * ImpactWeights.SIZE
+            occurrence_factor * ImpactWeights.OCCURRENCE
+            + similarity_factor * ImpactWeights.SIMILARITY
+            + loc_factor * ImpactWeights.SIZE
         )
 
         return round(score, 2)
@@ -197,13 +191,13 @@ class DuplicateGroup(BaseModel):
         Returns: 'critical', 'high', 'medium', 'low'
         """
         if self.impact_score >= ScoringThresholds.CRITICAL:
-            return 'critical'
+            return "critical"
         elif self.impact_score >= ScoringThresholds.HIGH:
-            return 'high'
+            return "high"
         elif self.impact_score >= ScoringThresholds.MEDIUM:
-            return 'medium'
+            return "medium"
         else:
-            return 'low'
+            return "low"
 
     def add_member(self, block_id: str) -> None:
         """Add a new member to this group"""

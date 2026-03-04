@@ -7,19 +7,18 @@ Tests basic functionality of all models without requiring
 the actual pydantic package (design validation).
 """
 
+
 def test_model_structure():
     """Test that model files have correct structure"""
-    import importlib.util
-    import sys
     from pathlib import Path
 
     models_dir = Path(__file__).parent
 
     models = [
-        'code_block',
-        'duplicate_group',
-        'consolidation_suggestion',
-        'scan_report',
+        "code_block",
+        "duplicate_group",
+        "consolidation_suggestion",
+        "scan_report",
     ]
 
     print("Testing model file structure...")
@@ -34,16 +33,16 @@ def test_model_structure():
 
         # Check file can be read
         try:
-            with open(model_path, 'r') as f:
+            with open(model_path, "r") as f:
                 content = f.read()
 
             # Basic validation checks
             checks = {
-                'Has docstring': '"""' in content,
-                'Imports BaseModel': 'from pydantic import BaseModel' in content,
-                'Imports Field': 'Field' in content,
-                'Defines class': 'class ' in content and '(BaseModel)' in content,
-                'Has model_config': 'model_config' in content,
+                "Has docstring": '"""' in content,
+                "Imports BaseModel": "from pydantic import BaseModel" in content,
+                "Imports Field": "Field" in content,
+                "Defines class": "class " in content and "(BaseModel)" in content,
+                "Has model_config": "model_config" in content,
             }
 
             all_passed = all(checks.values())
@@ -68,87 +67,89 @@ def test_sample_data():
 
     # Sample CodeBlock data
     code_block_data = {
-        'block_id': 'cb_test_001',
-        'pattern_id': 'object-manipulation',
-        'location': {
-            'file_path': '/test/file.js',
-            'line_start': 10,
-            'line_end': 12,
+        "block_id": "cb_test_001",
+        "pattern_id": "object-manipulation",
+        "location": {
+            "file_path": "/test/file.js",
+            "line_start": 10,
+            "line_end": 12,
         },
-        'relative_path': 'src/test/file.js',
-        'source_code': 'JSON.stringify(data, null, 2)',
-        'language': 'javascript',
-        'category': 'utility',
-        'repository_path': '/test',
-        'line_count': 3,
+        "relative_path": "src/test/file.js",
+        "source_code": "JSON.stringify(data, null, 2)",
+        "language": "javascript",
+        "category": "utility",
+        "repository_path": "/test",
+        "line_count": 3,
     }
 
     # Sample DuplicateGroup data
     duplicate_group_data = {
-        'group_id': 'dg_test_001',
-        'pattern_id': 'object-manipulation',
-        'member_block_ids': ['cb_test_001', 'cb_test_002', 'cb_test_003'],
-        'similarity_score': 0.95,
-        'similarity_method': 'structural',
-        'category': 'utility',
-        'language': 'javascript',
-        'occurrence_count': 3,
-        'total_lines': 9,
-        'affected_files': ['file1.js', 'file2.js'],
-        'affected_repositories': ['/test'],
+        "group_id": "dg_test_001",
+        "pattern_id": "object-manipulation",
+        "member_block_ids": ["cb_test_001", "cb_test_002", "cb_test_003"],
+        "similarity_score": 0.95,
+        "similarity_method": "structural",
+        "category": "utility",
+        "language": "javascript",
+        "occurrence_count": 3,
+        "total_lines": 9,
+        "affected_files": ["file1.js", "file2.js"],
+        "affected_repositories": ["/test"],
     }
 
     # Sample ConsolidationSuggestion data
     consolidation_data = {
-        'suggestion_id': 'cs_test_001',
-        'duplicate_group_id': 'dg_test_001',
-        'strategy': 'local_util',
-        'strategy_rationale': 'Simple utility function used within single project',
-        'impact_score': 75.0,
-        'complexity': 'trivial',
-        'migration_risk': 'low',
-        'breaking_changes': False,
-        'affected_files_count': 3,
-        'affected_repositories_count': 1,
-        'confidence': 0.9,
+        "suggestion_id": "cs_test_001",
+        "duplicate_group_id": "dg_test_001",
+        "strategy": "local_util",
+        "strategy_rationale": "Simple utility function used within single project",
+        "impact_score": 75.0,
+        "complexity": "trivial",
+        "migration_risk": "low",
+        "breaking_changes": False,
+        "affected_files_count": 3,
+        "affected_repositories_count": 1,
+        "confidence": 0.9,
     }
 
     # Sample ScanReport data
     scan_report_data = {
-        'report_id': 'scan_test_001',
-        'scan_name': 'Test Scan',
-        'configuration': {
-            'rules_used': ['object-manipulation', 'array-operations'],
-            'min_similarity_threshold': 0.8,
-            'min_duplicate_size': 3,
+        "report_id": "scan_test_001",
+        "scan_name": "Test Scan",
+        "configuration": {
+            "rules_used": ["object-manipulation", "array-operations"],
+            "min_similarity_threshold": 0.8,
+            "min_duplicate_size": 3,
         },
-        'repositories': [{
-            'repository_path': '/test',
-            'repository_name': 'test-repo',
-            'total_files': 10,
-            'total_lines': 1000,
-        }],
-        'metrics': {
-            'total_code_blocks': 50,
-            'total_duplicate_groups': 5,
-            'exact_duplicates': 2,
-            'structural_duplicates': 3,
-            'semantic_duplicates': 0,
-            'total_duplicated_lines': 100,
-            'potential_loc_reduction': 75,
-            'duplication_percentage': 10.0,
-            'total_suggestions': 5,
-            'quick_wins': 2,
-            'high_priority_suggestions': 3,
+        "repositories": [
+            {
+                "repository_path": "/test",
+                "repository_name": "test-repo",
+                "total_files": 10,
+                "total_lines": 1000,
+            }
+        ],
+        "metrics": {
+            "total_code_blocks": 50,
+            "total_duplicate_groups": 5,
+            "exact_duplicates": 2,
+            "structural_duplicates": 3,
+            "semantic_duplicates": 0,
+            "total_duplicated_lines": 100,
+            "potential_loc_reduction": 75,
+            "duplication_percentage": 10.0,
+            "total_suggestions": 5,
+            "quick_wins": 2,
+            "high_priority_suggestions": 3,
         },
-        'output_directory': '/test/output',
+        "output_directory": "/test/output",
     }
 
     samples = [
-        ('CodeBlock', code_block_data),
-        ('DuplicateGroup', duplicate_group_data),
-        ('ConsolidationSuggestion', consolidation_data),
-        ('ScanReport', scan_report_data),
+        ("CodeBlock", code_block_data),
+        ("DuplicateGroup", duplicate_group_data),
+        ("ConsolidationSuggestion", consolidation_data),
+        ("ScanReport", scan_report_data),
     ]
 
     for name, data in samples:
@@ -169,11 +170,7 @@ def test_computed_fields_logic():
         occurrence_factor = min(occurrence_count / 20.0, 1.0)
         similarity_factor = similarity_score
         loc_factor = min(total_lines / 100.0, 1.0)
-        score = (
-            occurrence_factor * 40 +
-            similarity_factor * 35 +
-            loc_factor * 25
-        )
+        score = occurrence_factor * 40 + similarity_factor * 35 + loc_factor * 25
         return round(score, 2)
 
     test_cases = [
@@ -231,5 +228,5 @@ def main():
     print("=" * 60 + "\n")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

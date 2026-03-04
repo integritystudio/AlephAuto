@@ -51,8 +51,26 @@ def test_find_git_repos_uses_argv_and_filters_excludes(monkeypatch, tmp_path):
 
     repos = cga.find_git_repos(max_depth=2, include_dotfiles=False)
 
-    assert calls[0] == ["find", str(code_dir), "-maxdepth", "2", "-name", ".git", "-type", "d"]
-    assert calls[1] == ["find", str(reports_dir), "-maxdepth", "2", "-name", ".git", "-type", "d"]
+    assert calls[0] == [
+        "find",
+        str(code_dir),
+        "-maxdepth",
+        "2",
+        "-name",
+        ".git",
+        "-type",
+        "d",
+    ]
+    assert calls[1] == [
+        "find",
+        str(reports_dir),
+        "-maxdepth",
+        "2",
+        "-name",
+        ".git",
+        "-type",
+        "d",
+    ]
     assert repos == sorted([code_dir / "repo-a", reports_dir / "repo-b", extra_repo])
 
 
@@ -113,7 +131,9 @@ def test_get_repo_stats_raises_on_subprocess_error(monkeypatch, tmp_path):
 
 def test_calculate_date_range_weekly_uses_fixed_now(monkeypatch):
     monkeypatch.setattr(cga, "datetime", FrozenDateTime)
-    args = SimpleNamespace(weekly=True, monthly=False, days=None, start_date=None, end_date=None)
+    args = SimpleNamespace(
+        weekly=True, monthly=False, days=None, start_date=None, end_date=None
+    )
 
     assert cga._calculate_date_range(args) == ("2026-02-25", "2026-03-04")
 
@@ -134,10 +154,15 @@ def test_calculate_date_range_prefers_explicit_start_end(monkeypatch):
 def test_resolve_output_dir_relative_template(monkeypatch, tmp_path):
     monkeypatch.setattr(cga, "datetime", FrozenDateTime)
     monkeypatch.setattr(cga, "PERSONALSITE_DIR", tmp_path / "site")
-    monkeypatch.setattr(cga, "VISUALIZATION_DIR_TEMPLATE", "assets/images/git-activity-{year}")
+    monkeypatch.setattr(
+        cga, "VISUALIZATION_DIR_TEMPLATE", "assets/images/git-activity-{year}"
+    )
 
     args = SimpleNamespace(output_dir=None)
-    assert cga._resolve_output_dir(args) == tmp_path / "site" / "assets/images/git-activity-2026"
+    assert (
+        cga._resolve_output_dir(args)
+        == tmp_path / "site" / "assets/images/git-activity-2026"
+    )
 
 
 def test_resolve_output_dir_absolute_template(monkeypatch, tmp_path):
@@ -170,9 +195,19 @@ def test_compile_activity_data_aggregates_monthly_and_totals(monkeypatch):
     ]
     all_files = ["a.py", "b.py", "c.ts"]
 
-    monkeypatch.setattr(cga, "analyze_languages", lambda files: {"Python": 2, "TypeScript": 1})
-    monkeypatch.setattr(cga, "find_project_websites", lambda repositories: {"repo-a": "https://a.example"})
-    monkeypatch.setattr(cga, "categorize_repositories", lambda repositories: {"Client Work": repositories, "Legacy": []})
+    monkeypatch.setattr(
+        cga, "analyze_languages", lambda files: {"Python": 2, "TypeScript": 1}
+    )
+    monkeypatch.setattr(
+        cga,
+        "find_project_websites",
+        lambda repositories: {"repo-a": "https://a.example"},
+    )
+    monkeypatch.setattr(
+        cga,
+        "categorize_repositories",
+        lambda repositories: {"Client Work": repositories, "Legacy": []},
+    )
 
     data = cga._compile_activity_data(repos, all_files, "2026-01-01", "2026-03-01")
 
@@ -182,7 +217,10 @@ def test_compile_activity_data_aggregates_monthly_and_totals(monkeypatch):
     assert data["total_repositories"] == 2
     assert data["total_files"] == 3
     assert data["monthly"] == {"2026-01": 3, "2026-02": 1, "2026-03": 1}
-    assert data["categories"]["Client Work"] == [{"name": "repo-a", "commits": 3}, {"name": "repo-b", "commits": 2}]
+    assert data["categories"]["Client Work"] == [
+        {"name": "repo-a", "commits": 3},
+        {"name": "repo-b", "commits": 2},
+    ]
     assert data["categories"]["Legacy"] == []
 
 
@@ -202,7 +240,9 @@ def test_collect_repository_stats_filters_zero_commit_repos(monkeypatch, tmp_pat
         return None
 
     monkeypatch.setattr(cga, "get_repo_stats", fake_stats)
-    repositories, all_files = cga._collect_repository_stats([repo_a, repo_b, repo_c], "2026-01-01", "2026-02-01")
+    repositories, all_files = cga._collect_repository_stats(
+        [repo_a, repo_b, repo_c], "2026-01-01", "2026-02-01"
+    )
 
     assert repositories == [{"name": "repo-b", "commits": 2, "files": ["b.py", "c.ts"]}]
     assert all_files == ["b.py", "c.ts"]
@@ -217,7 +257,13 @@ def test_generate_jekyll_report_writes_expected_content(monkeypatch, tmp_path):
         "total_repositories": 1,
         "total_files": 3,
         "repositories": [
-            {"name": "repo-a", "parent": "group", "path": "/tmp/repo-a", "commits": 5, "files": ["a.py", "b.py", "c.ts"]},
+            {
+                "name": "repo-a",
+                "parent": "group",
+                "path": "/tmp/repo-a",
+                "commits": 5,
+                "files": ["a.py", "b.py", "c.ts"],
+            },
         ],
         "languages": {"Python": 2, "TypeScript": 1},
         "categories": {"Client Work": [{"name": "repo-a", "commits": 5}]},

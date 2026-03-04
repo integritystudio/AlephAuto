@@ -13,7 +13,7 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, computed_field
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from constants import DuplicationThresholds, OpportunityWeights, ScanDefaults, ScoringThresholds
+from constants import DuplicationThresholds, OpportunityWeights, ScanDefaults
 
 # Import our other models
 # Note: In actual implementation, these would be proper imports
@@ -24,6 +24,7 @@ from constants import DuplicationThresholds, OpportunityWeights, ScanDefaults, S
 
 class RepositoryInfo(BaseModel):
     """Information about a scanned repository"""
+
     repository_path: str = Field(..., description="Absolute path to repository")
     repository_name: str = Field(..., description="Repository name/identifier")
     git_remote: Optional[str] = Field(None, description="Git remote URL")
@@ -36,10 +37,24 @@ class RepositoryInfo(BaseModel):
 
 class ScanConfiguration(BaseModel):
     """Configuration used for the scan"""
-    rules_used: List[str] = Field(default_factory=list, description="ast-grep rules applied")
-    excluded_paths: List[str] = Field(default_factory=list, description="Paths excluded from scan")
-    min_similarity_threshold: float = Field(ScanDefaults.MIN_SIMILARITY_THRESHOLD, ge=0.0, le=1.0, description="Minimum similarity for grouping")
-    min_duplicate_size: int = Field(ScanDefaults.MIN_DUPLICATE_SIZE, ge=1, description="Minimum lines for duplicate detection")
+
+    rules_used: List[str] = Field(
+        default_factory=list, description="ast-grep rules applied"
+    )
+    excluded_paths: List[str] = Field(
+        default_factory=list, description="Paths excluded from scan"
+    )
+    min_similarity_threshold: float = Field(
+        ScanDefaults.MIN_SIMILARITY_THRESHOLD,
+        ge=0.0,
+        le=1.0,
+        description="Minimum similarity for grouping",
+    )
+    min_duplicate_size: int = Field(
+        ScanDefaults.MIN_DUPLICATE_SIZE,
+        ge=1,
+        description="Minimum lines for duplicate detection",
+    )
 
 
 class ScanMetrics(BaseModel):
@@ -48,32 +63,51 @@ class ScanMetrics(BaseModel):
     # Code blocks
     total_code_blocks: int = Field(..., ge=0, description="Total code blocks detected")
     code_blocks_by_category: Dict[str, int] = Field(
-        default_factory=dict,
-        description="Count of blocks by semantic category"
+        default_factory=dict, description="Count of blocks by semantic category"
     )
     code_blocks_by_language: Dict[str, int] = Field(
-        default_factory=dict,
-        description="Count of blocks by programming language"
+        default_factory=dict, description="Count of blocks by programming language"
     )
 
     # Duplicate groups
-    total_duplicate_groups: int = Field(..., ge=0, description="Total duplicate groups found")
+    total_duplicate_groups: int = Field(
+        ..., ge=0, description="Total duplicate groups found"
+    )
     exact_duplicates: int = Field(..., ge=0, description="Groups with 100% similarity")
-    structural_duplicates: int = Field(..., ge=0, description="Groups with structural similarity")
-    semantic_duplicates: int = Field(..., ge=0, description="Groups with semantic similarity")
+    structural_duplicates: int = Field(
+        ..., ge=0, description="Groups with structural similarity"
+    )
+    semantic_duplicates: int = Field(
+        ..., ge=0, description="Groups with semantic similarity"
+    )
 
     # Impact metrics
-    total_duplicated_lines: int = Field(..., ge=0, description="Total lines in duplicate groups")
-    potential_loc_reduction: int = Field(..., ge=0, description="Potential lines that could be removed")
-    duplication_percentage: float = Field(..., ge=0.0, le=ScanDefaults.PERCENTAGE_MAX, description="Percentage of code that's duplicated")
+    total_duplicated_lines: int = Field(
+        ..., ge=0, description="Total lines in duplicate groups"
+    )
+    potential_loc_reduction: int = Field(
+        ..., ge=0, description="Potential lines that could be removed"
+    )
+    duplication_percentage: float = Field(
+        ...,
+        ge=0.0,
+        le=ScanDefaults.PERCENTAGE_MAX,
+        description="Percentage of code that's duplicated",
+    )
 
     # Consolidation suggestions
-    total_suggestions: int = Field(..., ge=0, description="Total consolidation suggestions")
+    total_suggestions: int = Field(
+        ..., ge=0, description="Total consolidation suggestions"
+    )
     quick_wins: int = Field(..., ge=0, description="Number of quick win suggestions")
-    high_priority_suggestions: int = Field(..., ge=0, description="High priority suggestions")
+    high_priority_suggestions: int = Field(
+        ..., ge=0, description="High priority suggestions"
+    )
 
     # Cross-repository analysis (if multiple repos scanned)
-    cross_repository_duplicates: int = Field(0, ge=0, description="Duplicates spanning multiple repos")
+    cross_repository_duplicates: int = Field(
+        0, ge=0, description="Duplicates spanning multiple repos"
+    )
 
 
 class ScanReport(BaseModel):
@@ -90,9 +124,15 @@ class ScanReport(BaseModel):
     scan_name: Optional[str] = Field(None, description="Descriptive name for this scan")
 
     # Scan metadata
-    scanned_at: datetime = Field(default_factory=datetime.utcnow, description="Scan timestamp")
-    scan_duration_seconds: Optional[float] = Field(None, ge=0, description="How long the scan took")
-    scanner_version: str = Field("1.0.0", description="Version of duplicate detection pipeline")
+    scanned_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Scan timestamp"
+    )
+    scan_duration_seconds: Optional[float] = Field(
+        None, ge=0, description="How long the scan took"
+    )
+    scanner_version: str = Field(
+        "1.0.0", description="Version of duplicate detection pipeline"
+    )
 
     # Configuration
     configuration: ScanConfiguration = Field(..., description="Scan configuration")
@@ -101,50 +141,68 @@ class ScanReport(BaseModel):
     repositories: List[RepositoryInfo] = Field(..., description="Repositories scanned")
 
     # Results (IDs only for performance, actual objects stored separately)
-    code_block_ids: List[str] = Field(default_factory=list, description="IDs of detected code blocks")
-    duplicate_group_ids: List[str] = Field(default_factory=list, description="IDs of duplicate groups")
-    suggestion_ids: List[str] = Field(default_factory=list, description="IDs of consolidation suggestions")
+    code_block_ids: List[str] = Field(
+        default_factory=list, description="IDs of detected code blocks"
+    )
+    duplicate_group_ids: List[str] = Field(
+        default_factory=list, description="IDs of duplicate groups"
+    )
+    suggestion_ids: List[str] = Field(
+        default_factory=list, description="IDs of consolidation suggestions"
+    )
 
     # Summary metrics
     metrics: ScanMetrics = Field(..., description="Statistical metrics")
 
     # Analysis summary
-    executive_summary: Optional[str] = Field(None, description="High-level summary of findings")
-    recommendations: List[str] = Field(default_factory=list, description="Top-level recommendations")
-    warnings: List[str] = Field(default_factory=list, description="Warnings or issues encountered")
+    executive_summary: Optional[str] = Field(
+        None, description="High-level summary of findings"
+    )
+    recommendations: List[str] = Field(
+        default_factory=list, description="Top-level recommendations"
+    )
+    warnings: List[str] = Field(
+        default_factory=list, description="Warnings or issues encountered"
+    )
 
     # Output paths
-    output_directory: str = Field(..., description="Directory where detailed results are saved")
+    output_directory: str = Field(
+        ..., description="Directory where detailed results are saved"
+    )
     report_files: Dict[str, str] = Field(
         default_factory=dict,
-        description="Paths to generated report files (HTML, JSON, etc.)"
+        description="Paths to generated report files (HTML, JSON, etc.)",
     )
 
     # Additional metadata
     tags: List[str] = Field(default_factory=list, description="Tags for categorization")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict, description="Additional metadata"
+    )
 
     model_config = {
-        'json_schema_extra': {
-            'example': {
-                'report_id': 'scan_20250111_001',
-                'scan_name': 'Sidequest Repository Scan',
-                'repositories': [{
-                    'repository_name': 'sidequest',
-                    'repository_path': '/Users/user/code/jobs/sidequest',
-                    'total_files': 15,
-                    'total_lines': 2500,
-                    'languages': ['javascript', 'typescript']
-                }],
-                'metrics': {
-                    'total_code_blocks': 150,
-                    'total_duplicate_groups': 12,
-                    'total_duplicated_lines': 300,
-                    'potential_loc_reduction': 250,
-                    'duplication_percentage': 12.0,
-                    'total_suggestions': 12,
-                    'quick_wins': 5
-                }
+        "json_schema_extra": {
+            "example": {
+                "report_id": "scan_20250111_001",
+                "scan_name": "Sidequest Repository Scan",
+                "repositories": [
+                    {
+                        "repository_name": "sidequest",
+                        "repository_path": "/Users/user/code/jobs/sidequest",
+                        "total_files": 15,
+                        "total_lines": 2500,
+                        "languages": ["javascript", "typescript"],
+                    }
+                ],
+                "metrics": {
+                    "total_code_blocks": 150,
+                    "total_duplicate_groups": 12,
+                    "total_duplicated_lines": 300,
+                    "potential_loc_reduction": 250,
+                    "duplication_percentage": 12.0,
+                    "total_suggestions": 12,
+                    "quick_wins": 5,
+                },
             }
         }
     }
@@ -178,15 +236,15 @@ class ScanReport(BaseModel):
         dup_pct = self.metrics.duplication_percentage
 
         if dup_pct < DuplicationThresholds.MINIMAL_PCT:
-            return 'minimal'
+            return "minimal"
         elif dup_pct < DuplicationThresholds.LOW_PCT:
-            return 'low'
+            return "low"
         elif dup_pct < DuplicationThresholds.MODERATE_PCT:
-            return 'moderate'
+            return "moderate"
         elif dup_pct < DuplicationThresholds.HIGH_PCT:
-            return 'high'
+            return "high"
         else:
-            return 'critical'
+            return "critical"
 
     @computed_field
     @property
@@ -197,9 +255,14 @@ class ScanReport(BaseModel):
         Higher score = more benefit from consolidation
         """
         # Factors: duplication %, number of quick wins, potential LOC reduction
-        dup_factor = min(self.metrics.duplication_percentage / DuplicationThresholds.HIGH_PCT * 100, 100)
+        dup_factor = min(
+            self.metrics.duplication_percentage / DuplicationThresholds.HIGH_PCT * 100,
+            100,
+        )
 
-        quick_win_factor = min(self.metrics.quick_wins / DuplicationThresholds.QUICK_WIN_CAP * 100, 100)
+        quick_win_factor = min(
+            self.metrics.quick_wins / DuplicationThresholds.QUICK_WIN_CAP * 100, 100
+        )
 
         if self.total_scanned_lines > 0:
             loc_reduction_factor = (
@@ -210,9 +273,9 @@ class ScanReport(BaseModel):
 
         # Weighted average
         score = (
-            dup_factor * OpportunityWeights.DUPLICATION +
-            quick_win_factor * OpportunityWeights.QUICK_WIN +
-            loc_reduction_factor * OpportunityWeights.LOC_REDUCTION
+            dup_factor * OpportunityWeights.DUPLICATION
+            + quick_win_factor * OpportunityWeights.QUICK_WIN
+            + loc_reduction_factor * OpportunityWeights.LOC_REDUCTION
         )
 
         return round(min(score, 100), 2)
@@ -242,19 +305,26 @@ class ScanReport(BaseModel):
 
         Returns a human-readable summary of the scan results
         """
-        repos_text = f"{len(self.repositories)} repository" if len(self.repositories) == 1 else f"{len(self.repositories)} repositories"
+        repos_text = (
+            f"{len(self.repositories)} repository"
+            if len(self.repositories) == 1
+            else f"{len(self.repositories)} repositories"
+        )
 
         summary = f"""
 # Duplicate Detection Scan Report
 
-Scanned {repos_text} containing {self.total_scanned_files:,} files and {self.total_scanned_lines:,} lines of code.
+Scanned {repos_text} containing {self.total_scanned_files:,} files and {
+            self.total_scanned_lines:,} lines of code.
 
 ## Key Findings
 
 - **Duplicate Groups Found:** {self.metrics.total_duplicate_groups}
-- **Duplicated Code:** {self.metrics.total_duplicated_lines:,} lines ({self.metrics.duplication_percentage:.1f}% of total)
+- **Duplicated Code:** {self.metrics.total_duplicated_lines:,} lines ({
+            self.metrics.duplication_percentage:.1f}% of total)
 - **Duplication Severity:** {self.duplication_severity.upper()}
-- **Potential Reduction:** {self.metrics.potential_loc_reduction:,} lines could be eliminated
+- **Potential Reduction:** {
+            self.metrics.potential_loc_reduction:,} lines could be eliminated
 
 ## Consolidation Opportunities
 
@@ -265,27 +335,31 @@ Scanned {repos_text} containing {self.total_scanned_files:,} files and {self.tot
 
 ## Recommendation
 
-{'🚀 Immediate action recommended - many quick wins available!' if self.metrics.quick_wins >= ScanDefaults.QUICK_WINS_RECOMMEND_THRESHOLD else
- '⚠️ Moderate duplication detected - consider prioritizing high-impact consolidations' if self.metrics.duplication_percentage >= ScanDefaults.HIGH_DUPLICATION_PCT else
- '✅ Low duplication - focus on preventing new duplicates'}
+{
+            "🚀 Immediate action recommended - many quick wins available!"
+            if self.metrics.quick_wins >= ScanDefaults.QUICK_WINS_RECOMMEND_THRESHOLD
+            else "⚠️ Moderate duplication detected - consider prioritizing high-impact consolidations"
+            if self.metrics.duplication_percentage >= ScanDefaults.HIGH_DUPLICATION_PCT
+            else "✅ Low duplication - focus on preventing new duplicates"
+        }
 """
         return summary.strip()
 
     def to_summary_dict(self) -> Dict[str, Any]:
         """Export summary data for dashboards/APIs"""
         return {
-            'report_id': self.report_id,
-            'scanned_at': self.scanned_at.isoformat(),
-            'repositories_count': len(self.repositories),
-            'total_files': self.total_scanned_files,
-            'total_lines': self.total_scanned_lines,
-            'duplication_percentage': self.metrics.duplication_percentage,
-            'duplication_severity': self.duplication_severity,
-            'duplicate_groups': self.metrics.total_duplicate_groups,
-            'potential_loc_reduction': self.metrics.potential_loc_reduction,
-            'suggestions_total': self.metrics.total_suggestions,
-            'quick_wins': self.metrics.quick_wins,
-            'opportunity_score': self.consolidation_opportunity_score,
+            "report_id": self.report_id,
+            "scanned_at": self.scanned_at.isoformat(),
+            "repositories_count": len(self.repositories),
+            "total_files": self.total_scanned_files,
+            "total_lines": self.total_scanned_lines,
+            "duplication_percentage": self.metrics.duplication_percentage,
+            "duplication_severity": self.duplication_severity,
+            "duplicate_groups": self.metrics.total_duplicate_groups,
+            "potential_loc_reduction": self.metrics.potential_loc_reduction,
+            "suggestions_total": self.metrics.total_suggestions,
+            "quick_wins": self.metrics.quick_wins,
+            "opportunity_score": self.consolidation_opportunity_score,
         }
 
     def __hash__(self) -> int:

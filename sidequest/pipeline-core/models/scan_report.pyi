@@ -5,7 +5,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
-
 class RepositoryInfo(BaseModel):
     repository_path: str
     repository_name: str
@@ -16,13 +15,11 @@ class RepositoryInfo(BaseModel):
     total_lines: int
     languages: List[str]
 
-
 class ScanConfiguration(BaseModel):
     rules_used: List[str]
     excluded_paths: List[str]
     min_similarity_threshold: float
     min_duplicate_size: int
-
 
 class ScanMetrics(BaseModel):
     total_code_blocks: int
@@ -39,7 +36,6 @@ class ScanMetrics(BaseModel):
     quick_wins: int
     high_priority_suggestions: int
     cross_repository_duplicates: int
-
 
 class ScanReport(BaseModel):
     report_id: str
@@ -71,7 +67,6 @@ class ScanReport(BaseModel):
     def duplication_severity(self) -> str: ...
     @property
     def consolidation_opportunity_score(self) -> float: ...
-
     def add_repository(self, repo_info: RepositoryInfo) -> None: ...
     def add_code_block_id(self, block_id: str) -> None: ...
     def add_duplicate_group_id(self, group_id: str) -> None: ...

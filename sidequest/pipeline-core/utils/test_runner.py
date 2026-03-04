@@ -20,7 +20,7 @@ def run_test_classes(title: str, test_classes: Sequence[type]) -> int:
         instance = test_class()
 
         for name in dir(instance):
-            if name.startswith('test_'):
+            if name.startswith("test_"):
                 method = getattr(instance, name)
                 try:
                     method()

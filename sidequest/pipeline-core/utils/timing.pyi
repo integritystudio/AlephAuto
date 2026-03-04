@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 
-
 @dataclass
 class TimingMetrics:
     """Collected timing metrics for a processing stage."""
@@ -17,7 +16,6 @@ class TimingMetrics:
     @property
     def avg_ms(self) -> float: ...
     def to_dict(self) -> dict: ...
-
 
 class Timer:
     """Context manager for timing code blocks."""

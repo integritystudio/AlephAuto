@@ -61,7 +61,9 @@ class FileContext:
     ) -> bool:
         """Check if regex pattern matches within a range of lines."""
         end = min(start_line + num_lines, len(self.lines))
-        return any(re.search(pattern, self.lines[j]) for j in range(start_line - 1, end))
+        return any(
+            re.search(pattern, self.lines[j]) for j in range(start_line - 1, end)
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -76,19 +78,19 @@ def _detect_promise_race_no_timeout(
     ctx: FileContext, line_num: int, line: str
 ) -> Finding | None:
     """Detect Promise.race() without timeout wrapper."""
-    if 'Promise.race' not in line:
+    if "Promise.race" not in line:
         return None
-    if 'timeout' in line.lower():
+    if "timeout" in line.lower():
         return None
 
     return Finding(
         file_path=str(ctx.file_path),
         line_number=line_num,
-        severity='high',
-        category='promise_race_no_timeout',
-        message='Promise.race() without timeout wrapper',
+        severity="high",
+        category="promise_race_no_timeout",
+        message="Promise.race() without timeout wrapper",
         code_snippet=line.strip(),
-        recommendation='Wrap with withTimeout() or add setTimeout rejection',
+        recommendation="Wrap with withTimeout() or add setTimeout rejection",
     )
 
 
@@ -96,20 +98,22 @@ def _detect_loading_without_finally(
     ctx: FileContext, line_num: int, line: str
 ) -> Finding | None:
     """Detect setLoading(true) without finally block."""
-    if 'setLoading(true)' not in line and 'setLoading( true )' not in line:
+    if "setLoading(true)" not in line and "setLoading( true )" not in line:
         return None
 
-    if ctx.has_text_in_range('finally', line_num, TimeoutDetectorDefaults.FINALLY_LOOKAHEAD):
+    if ctx.has_text_in_range(
+        "finally", line_num, TimeoutDetectorDefaults.FINALLY_LOOKAHEAD
+    ):
         return None
 
     return Finding(
         file_path=str(ctx.file_path),
         line_number=line_num,
-        severity='medium',
-        category='loading_without_finally',
-        message='setLoading(true) without finally block',
+        severity="medium",
+        category="loading_without_finally",
+        message="setLoading(true) without finally block",
         code_snippet=line.strip(),
-        recommendation='Add finally block with setLoading(false)',
+        recommendation="Add finally block with setLoading(false)",
     )
 
 
@@ -117,11 +121,15 @@ def _detect_async_no_error_handling(
     ctx: FileContext, line_num: int, line: str
 ) -> Finding | None:
     """Detect async function without try-catch."""
-    if not re.match(r'^\s*async\s+(function|\w+)\s*\(', line):
+    if not re.match(r"^\s*async\s+(function|\w+)\s*\(", line):
         return None
 
-    has_try = ctx.has_pattern_in_range(r'\btry\b', line_num, TimeoutDetectorDefaults.TRY_CATCH_LOOKAHEAD)
-    has_catch = ctx.has_pattern_in_range(r'\bcatch\b', line_num, TimeoutDetectorDefaults.TRY_CATCH_LOOKAHEAD)
+    has_try = ctx.has_pattern_in_range(
+        r"\btry\b", line_num, TimeoutDetectorDefaults.TRY_CATCH_LOOKAHEAD
+    )
+    has_catch = ctx.has_pattern_in_range(
+        r"\bcatch\b", line_num, TimeoutDetectorDefaults.TRY_CATCH_LOOKAHEAD
+    )
 
     if has_try and has_catch:
         return None
@@ -129,11 +137,11 @@ def _detect_async_no_error_handling(
     return Finding(
         file_path=str(ctx.file_path),
         line_number=line_num,
-        severity='low',
-        category='async_no_error_handling',
-        message='Async function without try-catch',
+        severity="low",
+        category="async_no_error_handling",
+        message="Async function without try-catch",
         code_snippet=line.strip(),
-        recommendation='Add try-catch block for error handling',
+        recommendation="Add try-catch block for error handling",
     )
 
 
@@ -141,23 +149,23 @@ def _detect_settimeout_no_cleanup(
     ctx: FileContext, line_num: int, line: str
 ) -> Finding | None:
     """Detect setTimeout without clearTimeout cleanup."""
-    if 'setTimeout' not in line:
+    if "setTimeout" not in line:
         return None
-    if 'clearTimeout' in ctx.content:
+    if "clearTimeout" in ctx.content:
         return None
-    if 'reject' not in line and 'timeout' not in line.lower():
+    if "reject" not in line and "timeout" not in line.lower():
         return None
-    if 'clearTimeout' in ctx.content or 'return () =>' in ctx.content:
+    if "clearTimeout" in ctx.content or "return () =>" in ctx.content:
         return None
 
     return Finding(
         file_path=str(ctx.file_path),
         line_number=line_num,
-        severity='low',
-        category='settimeout_no_cleanup',
-        message='setTimeout without cleanup in useEffect/cleanup',
+        severity="low",
+        category="settimeout_no_cleanup",
+        message="setTimeout without cleanup in useEffect/cleanup",
         code_snippet=line.strip(),
-        recommendation='Add cleanup function: return () => clearTimeout(timeoutId)',
+        recommendation="Add cleanup function: return () => clearTimeout(timeoutId)",
     )
 
 
@@ -174,7 +182,7 @@ PATTERN_DETECTORS: list[Callable[[FileContext, int, str], Finding | None]] = [
 # Excluded Directories
 # ---------------------------------------------------------------------------
 
-EXCLUDED_DIRS = frozenset({'node_modules', '.git', 'dist', 'build'})
+EXCLUDED_DIRS = frozenset({"node_modules", ".git", "dist", "build"})
 
 
 def _should_include_file(file_path: Path) -> bool:
@@ -201,27 +209,29 @@ class TimeoutDetector:
             self._scan_file(file_path)
 
         return {
-            'findings': [asdict(f) for f in self.findings],
-            'statistics': self._calculate_statistics(),
+            "findings": [asdict(f) for f in self.findings],
+            "statistics": self._calculate_statistics(),
         }
 
     def _find_files(self, repo_path: Path) -> Iterator[Path]:
         """Find all scannable files in repository."""
-        extensions = {'.ts', '.tsx', '.js', '.jsx', '.py'}
+        extensions = {".ts", ".tsx", ".js", ".jsx", ".py"}
         for ext in extensions:
-            for file_path in repo_path.rglob(f'*{ext}'):
+            for file_path in repo_path.rglob(f"*{ext}"):
                 if _should_include_file(file_path):
                     yield file_path
 
     def _scan_file(self, file_path: Path) -> None:
         """Scan a single file for patterns."""
         try:
-            content = file_path.read_text(encoding='utf-8')
+            content = file_path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as e:
             self.logger(f"Error reading {file_path}: {e}")
             return
 
-        ctx = FileContext(file_path=file_path, content=content, lines=content.split('\n'))
+        ctx = FileContext(
+            file_path=file_path, content=content, lines=content.split("\n")
+        )
 
         for line_num, line in enumerate(ctx.lines, start=1):
             self._check_line(ctx, line_num, line)
@@ -242,59 +252,67 @@ class TimeoutDetector:
         files_affected = {f.file_path for f in self.findings}
 
         return {
-            'total_findings': len(self.findings),
-            'files_affected': len(files_affected),
-            'severity_breakdown': dict(severity_counts),
-            'category_breakdown': dict(category_counts),
+            "total_findings": len(self.findings),
+            "files_affected": len(files_affected),
+            "severity_breakdown": dict(severity_counts),
+            "category_breakdown": dict(category_counts),
         }
 
     def generate_report(self, results: dict[str, Any]) -> str:
         """Generate markdown report."""
-        stats = results['statistics']
+        stats = results["statistics"]
         lines = [
-            '# Timeout Pattern Detection Report',
-            '',
-            '## Statistics',
-            '',
+            "# Timeout Pattern Detection Report",
+            "",
+            "## Statistics",
+            "",
             f"- **Total Findings:** {stats['total_findings']}",
             f"- **Files Affected:** {stats['files_affected']}",
-            '',
-            '### Severity Breakdown',
-            '',
+            "",
+            "### Severity Breakdown",
+            "",
         ]
 
-        severity_emoji = {'high': '🔴', 'medium': '🟡', 'low': '🟢'}
-        for severity, count in stats['severity_breakdown'].items():
-            emoji = severity_emoji.get(severity, '⚪')
+        severity_emoji = {"high": "🔴", "medium": "🟡", "low": "🟢"}
+        for severity, count in stats["severity_breakdown"].items():
+            emoji = severity_emoji.get(severity, "⚪")
             lines.append(f"- {emoji} **{severity.upper()}:** {count}")
 
-        lines.extend(['', '### Category Breakdown', ''])
-        for category, count in stats['category_breakdown'].items():
+        lines.extend(["", "### Category Breakdown", ""])
+        for category, count in stats["category_breakdown"].items():
             lines.append(f"- **{category}:** {count}")
 
-        lines.extend(['', '## Findings', ''])
+        lines.extend(["", "## Findings", ""])
         self._add_findings_by_severity(lines)
 
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
-    def _add_findings_by_severity(self, lines: list[str], max_per_severity: int = TimeoutDetectorDefaults.MAX_FINDINGS_PER_SEVERITY) -> None:
+    def _add_findings_by_severity(
+        self,
+        lines: list[str],
+        max_per_severity: int = TimeoutDetectorDefaults.MAX_FINDINGS_PER_SEVERITY,
+    ) -> None:
         """Add findings grouped by severity to report lines."""
-        for severity in ('high', 'medium', 'low'):
+        for severity in ("high", "medium", "low"):
             severity_findings = [f for f in self.findings if f.severity == severity]
             if not severity_findings:
                 continue
 
-            lines.extend([f'### {severity.upper()} Severity ({len(severity_findings)})', ''])
+            lines.extend(
+                [f"### {severity.upper()} Severity ({len(severity_findings)})", ""]
+            )
 
             for finding in severity_findings[:max_per_severity]:
-                lines.extend([
-                    f"**{finding.file_path}:{finding.line_number}**",
-                    f"- Category: {finding.category}",
-                    f"- Message: {finding.message}",
-                    f"- Code: `{finding.code_snippet}`",
-                    f"- Recommendation: {finding.recommendation}",
-                    '',
-                ])
+                lines.extend(
+                    [
+                        f"**{finding.file_path}:{finding.line_number}**",
+                        f"- Category: {finding.category}",
+                        f"- Message: {finding.message}",
+                        f"- Code: `{finding.code_snippet}`",
+                        f"- Recommendation: {finding.recommendation}",
+                        "",
+                    ]
+                )
 
             remaining = len(severity_findings) - max_per_severity
             if remaining > 0:
@@ -314,8 +332,8 @@ def main():
     repo_path = sys.argv[1]
     output_file = None
 
-    if '--output' in sys.argv:
-        output_index = sys.argv.index('--output')
+    if "--output" in sys.argv:
+        output_index = sys.argv.index("--output")
         if output_index + 1 < len(sys.argv):
             output_file = sys.argv[output_index + 1]
 
@@ -324,7 +342,7 @@ def main():
     results = detector.scan_directory(repo_path)
 
     # Generate report
-    if '--json' in sys.argv:
+    if "--json" in sys.argv:
         output = json.dumps(results, indent=2)
     else:
         output = detector.generate_report(results)
@@ -337,9 +355,9 @@ def main():
         print(output)
 
     # Exit code based on high severity findings
-    high_severity_count = results['statistics']['severity_breakdown'].get('high', 0)
+    high_severity_count = results["statistics"]["severity_breakdown"].get("high", 0)
     sys.exit(1 if high_severity_count > 0 else 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

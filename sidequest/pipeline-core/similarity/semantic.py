@@ -10,14 +10,14 @@ from pathlib import Path
 import sys
 
 # Import models from correct path (relative to pipeline-core)
-sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
+sys.path.insert(0, str(Path(__file__).parent.parent / "models"))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from code_block import CodeBlock, SemanticCategory
+from code_block import CodeBlock
 from constants import BlockExtraction, SemanticWeights
 
 
-def are_semantically_compatible(block1: 'CodeBlock', block2: 'CodeBlock') -> bool:
+def are_semantically_compatible(block1: "CodeBlock", block2: "CodeBlock") -> bool:
     """
     Check if two code blocks are semantically compatible for grouping.
 
@@ -55,7 +55,9 @@ def are_semantically_compatible(block1: 'CodeBlock', block2: 'CodeBlock') -> boo
 
     # Check 4: Complexity similarity
     # Blocks should have similar size (within 50% difference)
-    line_ratio = min(block1.line_count, block2.line_count) / max(block1.line_count, block2.line_count)
+    line_ratio = min(block1.line_count, block2.line_count) / max(
+        block1.line_count, block2.line_count
+    )
     if line_ratio < SemanticWeights.LINE_RATIO_THRESHOLD:
         # One block is more than 2x the size of the other
         return False
@@ -63,7 +65,7 @@ def are_semantically_compatible(block1: 'CodeBlock', block2: 'CodeBlock') -> boo
     return True
 
 
-def calculate_tag_overlap(block1: 'CodeBlock', block2: 'CodeBlock') -> float:
+def calculate_tag_overlap(block1: "CodeBlock", block2: "CodeBlock") -> float:
     """
     Calculate semantic tag overlap between two blocks.
 
@@ -90,11 +92,11 @@ def _extract_function_tag(tags: set) -> Optional[str]:
     """Extract function name from tag set."""
     for tag in tags:
         if tag.startswith(BlockExtraction.FUNCTION_TAG_PREFIX):
-            return tag[len(BlockExtraction.FUNCTION_TAG_PREFIX):]
+            return tag[len(BlockExtraction.FUNCTION_TAG_PREFIX) :]
     return None
 
 
-def validate_duplicate_group(blocks: List['CodeBlock']) -> bool:
+def validate_duplicate_group(blocks: List["CodeBlock"]) -> bool:
     """
     Validate that a group of blocks are truly semantic duplicates.
 
@@ -118,7 +120,7 @@ def validate_duplicate_group(blocks: List['CodeBlock']) -> bool:
 
     # Pairwise semantic compatibility
     for i, block1 in enumerate(blocks):
-        for block2 in blocks[i+1:]:
+        for block2 in blocks[i + 1 :]:
             if not are_semantically_compatible(block1, block2):
                 return False
 

@@ -25,6 +25,7 @@ class SemanticFeatures:
     These features preserve semantic information that would be lost during
     normalization (e.g., HTTP status codes, logical operators, method names).
     """
+
     http_status_codes: Set[int] = field(default_factory=set)
     logical_operators: Set[str] = field(default_factory=set)
     semantic_methods: Set[str] = field(default_factory=set)
@@ -54,7 +55,7 @@ def extract_semantic_features(source_code: str) -> SemanticFeatures:
         return features
 
     # Extract HTTP status codes (e.g., .status(200), .status(404))
-    status_pattern = r'\.status\((\d{3})\)'
+    status_pattern = r"\.status\((\d{3})\)"
     for match in re.finditer(status_pattern, source_code):
         status_code = int(match.group(1))
         features.http_status_codes.add(status_code)
@@ -62,13 +63,13 @@ def extract_semantic_features(source_code: str) -> SemanticFeatures:
     # Extract logical operators (===, !==, ==, !=, !, &&, ||)
     # Order matters: match longer operators first to avoid partial matches
     operator_patterns = [
-        (r'!==', '!=='),   # Strict inequality
-        (r'===', '==='),   # Strict equality
-        (r'!=', '!='),     # Loose inequality
-        (r'==', '=='),     # Loose equality
-        (r'!\s*[^=]', '!'), # Logical NOT (followed by non-=)
-        (r'&&', '&&'),     # Logical AND
-        (r'\|\|', '||'),   # Logical OR
+        (r"!==", "!=="),  # Strict inequality
+        (r"===", "==="),  # Strict equality
+        (r"!=", "!="),  # Loose inequality
+        (r"==", "=="),  # Loose equality
+        (r"!\s*[^=]", "!"),  # Logical NOT (followed by non-=)
+        (r"&&", "&&"),  # Logical AND
+        (r"\|\|", "||"),  # Logical OR
     ]
 
     for pattern, operator_name in operator_patterns:
@@ -77,17 +78,17 @@ def extract_semantic_features(source_code: str) -> SemanticFeatures:
 
     # Extract semantic methods (Math.max, Math.min, console.log, etc.)
     semantic_patterns = {
-        'Math.max': r'Math\.max\s*\(',
-        'Math.min': r'Math\.min\s*\(',
-        'Math.floor': r'Math\.floor\s*\(',
-        'Math.ceil': r'Math\.ceil\s*\(',
-        'Math.round': r'Math\.round\s*\(',
-        'console.log': r'console\.log\s*\(',
-        'console.error': r'console\.error\s*\(',
-        'console.warn': r'console\.warn\s*\(',
-        '.reverse': r'\.reverse\s*\(',
-        '.toUpperCase': r'\.toUpperCase\s*\(',
-        '.toLowerCase': r'\.toLowerCase\s*\(',
+        "Math.max": r"Math\.max\s*\(",
+        "Math.min": r"Math\.min\s*\(",
+        "Math.floor": r"Math\.floor\s*\(",
+        "Math.ceil": r"Math\.ceil\s*\(",
+        "Math.round": r"Math\.round\s*\(",
+        "console.log": r"console\.log\s*\(",
+        "console.error": r"console\.error\s*\(",
+        "console.warn": r"console\.warn\s*\(",
+        ".reverse": r"\.reverse\s*\(",
+        ".toUpperCase": r"\.toUpperCase\s*\(",
+        ".toLowerCase": r"\.toLowerCase\s*\(",
     }
 
     for method_name, pattern in semantic_patterns.items():
@@ -108,84 +109,134 @@ def normalize_code(source_code: str) -> str:
         return ""
 
     # Remove comments
-    normalized = re.sub(r'//.*?$', '', source_code, flags=re.MULTILINE)  # Single-line comments
-    normalized = re.sub(r'/\*.*?\*/', '', normalized, flags=re.DOTALL)   # Multi-line comments
+    normalized = re.sub(
+        r"//.*?$", "", source_code, flags=re.MULTILINE
+    )  # Single-line comments
+    normalized = re.sub(
+        r"/\*.*?\*/", "", normalized, flags=re.DOTALL
+    )  # Multi-line comments
 
     # Normalize whitespace (collapse to single spaces)
-    normalized = re.sub(r'\s+', ' ', normalized)
+    normalized = re.sub(r"\s+", " ", normalized)
 
     # Normalize string literals (replace with placeholder)
     normalized = re.sub(r"'[^']*'", "'STR'", normalized)
     normalized = re.sub(r'"[^"]*"', '"STR"', normalized)
-    normalized = re.sub(r'`[^`]*`', '`STR`', normalized)
+    normalized = re.sub(r"`[^`]*`", "`STR`", normalized)
 
     # Normalize numbers (replace with placeholder)
-    normalized = re.sub(r'\b\d+\b', 'NUM', normalized)
+    normalized = re.sub(r"\b\d+\b", "NUM", normalized)
 
     # Semantic operator and method whitelist
     # These methods have semantic meaning and should be preserved during normalization
     SEMANTIC_METHODS = {
         # Array functional methods (already preserved)
-        'map', 'filter', 'reduce', 'forEach', 'find', 'some', 'every',
-        'slice', 'splice', 'push', 'pop', 'shift', 'unshift',
-        'join', 'split', 'includes', 'indexOf',
-
+        "map",
+        "filter",
+        "reduce",
+        "forEach",
+        "find",
+        "some",
+        "every",
+        "slice",
+        "splice",
+        "push",
+        "pop",
+        "shift",
+        "unshift",
+        "join",
+        "split",
+        "includes",
+        "indexOf",
         # Object methods (already preserved)
-        'get', 'set', 'has', 'delete',
-        'keys', 'values', 'entries',
-
+        "get",
+        "set",
+        "has",
+        "delete",
+        "keys",
+        "values",
+        "entries",
         # Async patterns (already preserved)
-        'then', 'catch', 'finally', 'async', 'await',
-
+        "then",
+        "catch",
+        "finally",
+        "async",
+        "await",
         # Array transformations (already preserved)
-        'reverse', 'sort', 'concat',
-
+        "reverse",
+        "sort",
+        "concat",
         # NEW: Math operations (opposite semantics)
-        'max', 'min', 'abs', 'floor', 'ceil', 'round',
-
+        "max",
+        "min",
+        "abs",
+        "floor",
+        "ceil",
+        "round",
         # NEW: String operations (semantic meaning)
-        'trim', 'toLowerCase', 'toUpperCase', 'replace',
-
+        "trim",
+        "toLowerCase",
+        "toUpperCase",
+        "replace",
         # NEW: HTTP/API methods (semantic differences)
-        'status', 'json', 'send', 'redirect',
-
+        "status",
+        "json",
+        "send",
+        "redirect",
         # NEW: Properties with semantic value
-        'length', 'name', 'value', 'id', 'type'
+        "length",
+        "name",
+        "value",
+        "id",
+        "type",
     }
 
     # Preserve important objects
     SEMANTIC_OBJECTS = {
-        'Math', 'Object', 'Array', 'String', 'Number', 'Boolean',
-        'console', 'process', 'JSON', 'Date', 'Promise'
+        "Math",
+        "Object",
+        "Array",
+        "String",
+        "Number",
+        "Boolean",
+        "console",
+        "process",
+        "JSON",
+        "Date",
+        "Promise",
     }
 
     # Build a pattern that matches identifiers but NOT important methods/objects
     # First, mark important objects for preservation (Math, Object, etc.)
     for obj in SEMANTIC_OBJECTS:
-        normalized = re.sub(rf'\b{obj}\b', f'__PRESERVE_OBJ_{obj.upper()}__', normalized)
+        normalized = re.sub(
+            rf"\b{obj}\b", f"__PRESERVE_OBJ_{obj.upper()}__", normalized
+        )
 
     # Second, mark important methods so they're not replaced
     for method in SEMANTIC_METHODS:
-        normalized = re.sub(rf'\b{method}\b', f'__PRESERVE_{method.upper()}__', normalized)
+        normalized = re.sub(
+            rf"\b{method}\b", f"__PRESERVE_{method.upper()}__", normalized
+        )
 
     # Now normalize other identifiers
-    normalized = re.sub(r'\b[a-z][a-zA-Z0-9_]*\b', 'var', normalized)
-    normalized = re.sub(r'\b[A-Z][A-Z0-9_]*\b', 'CONST', normalized)
+    normalized = re.sub(r"\b[a-z][a-zA-Z0-9_]*\b", "var", normalized)
+    normalized = re.sub(r"\b[A-Z][A-Z0-9_]*\b", "CONST", normalized)
 
     # Restore preserved objects
     for obj in SEMANTIC_OBJECTS:
-        normalized = normalized.replace(f'__PRESERVE_OBJ_{obj.upper()}__', obj)
+        normalized = normalized.replace(f"__PRESERVE_OBJ_{obj.upper()}__", obj)
 
     # Restore preserved methods in lowercase
     for method in SEMANTIC_METHODS:
-        normalized = normalized.replace(f'__PRESERVE_{method.upper()}__', method)
+        normalized = normalized.replace(f"__PRESERVE_{method.upper()}__", method)
 
     # Remove extra spaces around operators and punctuation
-    normalized = re.sub(r'\s*([(){}[\];,.])\s*', r'\1', normalized)
-    normalized = re.sub(r'\s*(=>|===?|!==?|[+\-*/%<>=&|])\s*', r' \1 ', normalized)
+    normalized = re.sub(r"\s*([(){}[\];,.])\s*", r"\1", normalized)
+    normalized = re.sub(r"\s*(=>|===?|!==?|[+\-*/%<>=&|])\s*", r" \1 ", normalized)
 
     # Collapse multiple spaces
-    normalized = re.sub(r'\s+', ' ', normalized)
+    normalized = re.sub(r"\s+", " ", normalized)
 
     # Trim
     normalized = normalized.strip()
@@ -227,18 +278,18 @@ def extract_logical_operators(source_code: str) -> set:
 
     # Find all logical operators
     # Check compound operators first (order matters)
-    if '!==' in source_code:
-        operators.add('!==')
-    if '===' in source_code:
-        operators.add('===')
-    if '!=' in source_code and '!==' not in source_code:
-        operators.add('!=')
-    if '==' in source_code and '===' not in source_code:
-        operators.add('==')
+    if "!==" in source_code:
+        operators.add("!==")
+    if "===" in source_code:
+        operators.add("===")
+    if "!=" in source_code and "!==" not in source_code:
+        operators.add("!=")
+    if "==" in source_code and "===" not in source_code:
+        operators.add("==")
 
     # Match standalone ! (not part of !== or !=)
-    if re.search(r'(?<![!=])!(?![=])', source_code):
-        operators.add('!')
+    if re.search(r"(?<![!=])!(?![=])", source_code):
+        operators.add("!")
 
     return operators
 
@@ -253,7 +304,7 @@ def extract_http_status_codes(source_code: str) -> set:
     status_codes = set()
 
     # Pattern: res.status(200), response.status(404), etc.
-    pattern = r'(?:res|response)\.status\((\d{3})\)'
+    pattern = r"(?:res|response)\.status\((\d{3})\)"
     matches = re.finditer(pattern, source_code)
 
     for match in matches:
@@ -272,10 +323,10 @@ def extract_semantic_methods(source_code: str) -> set:
     methods = set()
 
     # Critical Math methods with opposite semantics
-    math_opposites = ['max', 'min', 'floor', 'ceil']
+    math_opposites = ["max", "min", "floor", "ceil"]
     for method in math_opposites:
-        if f'Math.{method}' in source_code:
-            methods.add(f'Math.{method}')
+        if f"Math.{method}" in source_code:
+            methods.add(f"Math.{method}")
 
     return methods
 
@@ -294,7 +345,7 @@ def extract_method_chain(source_code: str) -> list:
 
     # Find chained method calls
     # Pattern: .method_name( ... ).method_name( ... )
-    pattern = r'\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\('
+    pattern = r"\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\("
     matches = list(re.finditer(pattern, source_code))
 
     if not matches:
@@ -309,7 +360,10 @@ def extract_method_chain(source_code: str) -> list:
 
         # Check if this is part of a chain (close to previous match)
         # Allow up to METHOD_CHAIN_MAX_GAP characters between methods for complex arguments
-        if current_chain and match.start() - last_pos > ExtractionDefaults.METHOD_CHAIN_MAX_GAP:
+        if (
+            current_chain
+            and match.start() - last_pos > ExtractionDefaults.METHOD_CHAIN_MAX_GAP
+        ):
             # Too far apart, start a new chain
             if len(current_chain) > 1:  # Only save actual chains (2+ methods)
                 chains.append(current_chain)
@@ -346,7 +400,9 @@ def compare_method_chains(code1: str, code2: str) -> float:
         return 1.0  # No chains in either
 
     if not chain1 or not chain2:
-        return StructuralDefaults.CHAIN_MISSING_SIMILARITY  # One has chain, other doesn't
+        return (
+            StructuralDefaults.CHAIN_MISSING_SIMILARITY
+        )  # One has chain, other doesn't
 
     # Exact match
     if chain1 == chain2:
@@ -361,7 +417,7 @@ def compare_method_chains(code1: str, code2: str) -> float:
         shorter = chain1 if len(chain1) < len(chain2) else chain2
         longer = chain1 if len(chain1) > len(chain2) else chain2
 
-        if longer[:len(shorter)] == shorter:
+        if longer[: len(shorter)] == shorter:
             # One is extension of other → partial match
             # Similarity based on overlap ratio
             return len(shorter) / len(longer)
@@ -374,7 +430,9 @@ def compare_method_chains(code1: str, code2: str) -> float:
     return overlap / len(chain1)
 
 
-def calculate_semantic_penalty(features1: SemanticFeatures, features2: SemanticFeatures) -> float:
+def calculate_semantic_penalty(
+    features1: SemanticFeatures, features2: SemanticFeatures
+) -> float:
     """
     Calculate combined semantic penalty based on extracted features.
 
@@ -420,7 +478,11 @@ def calculate_semantic_penalty(features1: SemanticFeatures, features2: SemanticF
     return penalty
 
 
-def calculate_structural_similarity(code1: str, code2: str, threshold: float = StructuralDefaults.DEFAULT_SIMILARITY_THRESHOLD) -> Tuple[float, str]:
+def calculate_structural_similarity(
+    code1: str,
+    code2: str,
+    threshold: float = StructuralDefaults.DEFAULT_SIMILARITY_THRESHOLD,
+) -> Tuple[float, str]:
     """
     Calculate structural similarity between two code blocks using unified penalty system.
 
@@ -439,14 +501,14 @@ def calculate_structural_similarity(code1: str, code2: str, threshold: float = S
     - Return final similarity score and method
     """
     if not code1 or not code2:
-        return 0.0, 'different'
+        return 0.0, "different"
 
     # Layer 1: Exact content match (fastest)
     hash1 = hashlib.sha256(code1.encode()).hexdigest()
     hash2 = hashlib.sha256(code2.encode()).hexdigest()
 
     if hash1 == hash2:
-        return 1.0, 'exact'
+        return 1.0, "exact"
 
     # ✅ PHASE 1: Extract semantic features from ORIGINAL code
     # This MUST happen BEFORE normalization to preserve semantic information
@@ -459,7 +521,9 @@ def calculate_structural_similarity(code1: str, code2: str, threshold: float = S
 
     # Check if normalized versions are identical (structural duplicate)
     if normalized1 == normalized2:
-        base_similarity = StructuralDefaults.NORMALIZED_IDENTICAL  # Slightly less than exact match
+        base_similarity = (
+            StructuralDefaults.NORMALIZED_IDENTICAL
+        )  # Slightly less than exact match
     else:
         # Calculate similarity ratio using Levenshtein
         base_similarity = calculate_levenshtein_similarity(normalized1, normalized2)
@@ -470,7 +534,9 @@ def calculate_structural_similarity(code1: str, code2: str, threshold: float = S
         if chain_similarity < 1.0:
             # Different chain structure → penalize similarity
             # Weight: 70% Levenshtein + 30% chain similarity
-            base_similarity = (base_similarity * StructuralDefaults.CHAIN_LEVENSHTEIN_WEIGHT) + (chain_similarity * StructuralDefaults.CHAIN_STRUCTURE_WEIGHT)
+            base_similarity = (
+                base_similarity * StructuralDefaults.CHAIN_LEVENSHTEIN_WEIGHT
+            ) + (chain_similarity * StructuralDefaults.CHAIN_STRUCTURE_WEIGHT)
 
     # ✅ PHASE 3: Apply unified semantic penalties using ORIGINAL features
     penalty = calculate_semantic_penalty(features1, features2)
@@ -478,12 +544,16 @@ def calculate_structural_similarity(code1: str, code2: str, threshold: float = S
 
     # Determine method based on final similarity score
     if final_similarity >= threshold:
-        return final_similarity, 'structural'
+        return final_similarity, "structural"
     else:
-        return final_similarity, 'different'
+        return final_similarity, "different"
 
 
-def are_structurally_similar(code1: str, code2: str, threshold: float = StructuralDefaults.DEFAULT_SIMILARITY_THRESHOLD) -> bool:
+def are_structurally_similar(
+    code1: str,
+    code2: str,
+    threshold: float = StructuralDefaults.DEFAULT_SIMILARITY_THRESHOLD,
+) -> bool:
     """
     Check if two code blocks are structurally similar.
 

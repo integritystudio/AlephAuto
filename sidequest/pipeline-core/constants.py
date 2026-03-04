@@ -10,6 +10,7 @@ from enum import IntEnum
 
 class HTTPCodes(IntEnum):
     """Standard HTTP status codes referenced in structural similarity analysis."""
+
     OK = 200
     CREATED = 201
     MOVED_PERMANENTLY = 301
@@ -25,6 +26,7 @@ class HTTPCodes(IntEnum):
 
 class ScanDefaults:
     """Default thresholds for scan configuration and report recommendations."""
+
     MIN_SIMILARITY_THRESHOLD = 0.8
     MIN_DUPLICATE_SIZE = 3
     CONTENT_HASH_LENGTH = 16
@@ -68,8 +70,16 @@ class ChartColors:
     BAR_STROKE = "#333"
     PIE_STROKE = "white"
     PALETTE = (
-        "#0066cc", "#4da6ff", "#99ccff", "#00994d", "#ffcc00",
-        "#ff6600", "#cc0000", "#9966cc", "#66cc99", "#ff6699",
+        "#0066cc",
+        "#4da6ff",
+        "#99ccff",
+        "#00994d",
+        "#ffcc00",
+        "#ff6600",
+        "#cc0000",
+        "#9966cc",
+        "#66cc99",
+        "#ff6699",
     )
 
 
