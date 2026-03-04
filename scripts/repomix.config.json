@@ -15,7 +15,7 @@
     "removeEmptyLines": true,
     "truncateBase64": true,
 
-    "fileSummary": true,
+    "fileSummary": false,
     "directoryStructure": true,
     "files": true,
 
