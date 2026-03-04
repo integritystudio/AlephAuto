@@ -68,6 +68,9 @@ export class GitActivityWorker extends SidequestServer {
   personalSiteDir: string;
   outputDir: string;
 
+  /**
+   * constructor.
+   */
   constructor(options: GitActivityWorkerOptions = {}) {
     super({
       ...options,
@@ -98,7 +101,7 @@ export class GitActivityWorker extends SidequestServer {
       days,
       sinceDate,
       untilDate,
-      outputFormat = 'json',
+      outputFormat = 'both',
       generateVisualizations = true
     } = job.data as {
       reportType?: string;
@@ -343,6 +346,16 @@ export class GitActivityWorker extends SidequestServer {
       stats.totalCommits = parseInt(commitsMatch[1], 10);
     }
 
+    const additionsMatch = stdout.match(/Lines added:\s*(\d+)/i);
+    if (additionsMatch) {
+      stats.linesAdded = parseInt(additionsMatch[1], 10);
+    }
+
+    const deletionsMatch = stdout.match(/Lines deleted:\s*(\d+)/i);
+    if (deletionsMatch) {
+      stats.linesDeleted = parseInt(deletionsMatch[1], 10);
+    }
+
     const reposMatch = stdout.match(/Active repositories:\s*(\d+)/i);
     if (reposMatch) {
       stats.totalRepositories = parseInt(reposMatch[1], 10);
@@ -411,6 +424,7 @@ export class GitActivityWorker extends SidequestServer {
     return this.createJob(jobId, {
       reportType: 'weekly',
       days: 7,
+      outputFormat: 'both',
       type: 'git-activity-report',
     });
   }
@@ -424,6 +438,7 @@ export class GitActivityWorker extends SidequestServer {
     return this.createJob(jobId, {
       reportType: 'monthly',
       days: 30,
+      outputFormat: 'both',
       type: 'git-activity-report',
     });
   }
@@ -453,7 +468,7 @@ export class GitActivityWorker extends SidequestServer {
       days: options.days,
       sinceDate: options.sinceDate,
       untilDate: options.untilDate,
-      outputFormat: options.outputFormat ?? 'json',
+      outputFormat: options.outputFormat ?? 'both',
       generateVisualizations: options.generateVisualizations !== false,
       type: 'git-activity-report',
     });

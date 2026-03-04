@@ -149,6 +149,23 @@ def get_repo_stats(repo_path, since_date, until_date=None):
         result = subprocess.run(git_cmd.split(), capture_output=True, text=True)
         files = [f for f in result.stdout.strip().split('\n') if f]
 
+        # Get line-level additions/deletions
+        git_cmd = f"git log --since={since_date} --all --numstat --pretty=format:"
+        if until_date:
+            git_cmd += f" --until={until_date}"
+
+        result = subprocess.run(git_cmd.split(), capture_output=True, text=True)
+        additions = 0
+        deletions = 0
+        for line in result.stdout.strip().split('\n'):
+            parts = line.split('\t')
+            if len(parts) < 2:
+                continue
+            if parts[0].isdigit():
+                additions += int(parts[0])
+            if parts[1].isdigit():
+                deletions += int(parts[1])
+
         # Get parent directory (for organization/grouping)
         if repo_path.parent == CODE_DIR or repo_path.parent == REPORTS_DIR:
             parent = None
@@ -164,7 +181,9 @@ def get_repo_stats(repo_path, since_date, until_date=None):
             'name': repo_path.name,
             'parent': parent,
             'commits': commits,
-            'files': files
+            'files': files,
+            'additions': additions,
+            'deletions': deletions
         }
     except Exception as e:
         print(f"Error processing {repo_path}: {e}")
@@ -421,6 +440,8 @@ def _compile_activity_data(
             'end': until_date or datetime.now().strftime('%Y-%m-%d')
         },
         'total_commits': sum(r['commits'] for r in repositories),
+        'total_additions': sum(r.get('additions', 0) for r in repositories),
+        'total_deletions': sum(r.get('deletions', 0) for r in repositories),
         'total_repositories': len(repositories),
         'total_files': len(all_files),
         'repositories': repositories,
@@ -443,6 +464,8 @@ def _print_summary(data: dict, output_dir: Path | None = None) -> None:
     print("Summary")
     print(f"{'=' * GitActivityDefaults.SEPARATOR_LENGTH}")
     print(f"Total commits: {data['total_commits']}")
+    print(f"Lines added: {data.get('total_additions', 0)}")
+    print(f"Lines deleted: {data.get('total_deletions', 0)}")
     print(f"Active repositories: {len(repositories)}")
     print(f"File changes: {data['total_files']}")
     print(f"Languages detected: {len(language_stats)}")
