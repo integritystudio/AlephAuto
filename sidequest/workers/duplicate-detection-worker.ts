@@ -104,6 +104,8 @@ export class DuplicateDetectionWorker extends SidequestServer {
   private reportCoordinator: ReportCoordinator;
   private prCreator: PRCreator;
   private scanMetrics: ScanMetrics;
+  private lastScanJobTimestamp: number;
+  private scanJobSequence: number;
 
   /**
    * constructor.
@@ -150,6 +152,8 @@ export class DuplicateDetectionWorker extends SidequestServer {
     };
 
     this.enablePRCreation = options.enablePRCreation ?? config.enablePRCreation;
+    this.lastScanJobTimestamp = 0;
+    this.scanJobSequence = 0;
   }
 
   /**
@@ -530,7 +534,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
    * Schedule a scan job
    */
   scheduleScan(scanType: string, repositories: RepositoryConfig[], groupName: string | null = null): Job {
-    const jobId = `scan-${scanType}-${Date.now()}`;
+    const jobId = this.createScanJobId(scanType);
     const jobData = {
       scanType,
       repositories,
@@ -539,6 +543,20 @@ export class DuplicateDetectionWorker extends SidequestServer {
     };
 
     return this.createJob(jobId, jobData);
+  }
+
+  private createScanJobId(scanType: string): string {
+    const timestamp = Date.now();
+    if (timestamp === this.lastScanJobTimestamp) {
+      this.scanJobSequence += 1;
+    } else {
+      this.lastScanJobTimestamp = timestamp;
+      this.scanJobSequence = 0;
+    }
+
+    return this.scanJobSequence === 0
+      ? `scan-${scanType}-${timestamp}`
+      : `scan-${scanType}-${timestamp}-${this.scanJobSequence}`;
   }
 
   /**

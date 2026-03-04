@@ -14,6 +14,8 @@ import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
 import type { Job } from '../core/server.ts';
 import { TIMEOUTS } from '../core/constants.ts';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const logger = createComponentLogger('DashboardPopulatePipeline');
 
@@ -202,10 +204,18 @@ async function main(): Promise<void> {
   });
 }
 
-main().catch((error) => {
-  logError(logger, error, 'Fatal error in dashboard populate pipeline');
-  Sentry.captureException(error, {
-    tags: { component: 'dashboard-populate-pipeline', phase: 'startup' },
+function isDirectExecution(): boolean {
+  const currentModulePath = fileURLToPath(import.meta.url);
+  const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
+  return entryPath === currentModulePath;
+}
+
+if (isDirectExecution()) {
+  main().catch((error) => {
+    logError(logger, error, 'Fatal error in dashboard populate pipeline');
+    Sentry.captureException(error, {
+      tags: { component: 'dashboard-populate-pipeline', phase: 'startup' },
+    });
+    process.exit(1);
   });
-  process.exit(1);
-});
+}

@@ -8,6 +8,7 @@ import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
 import path from 'path';
 import os from 'os';
+import { fileURLToPath } from 'url';
 
 const logger = createComponentLogger('GitignorePipeline');
 
@@ -267,11 +268,18 @@ async function main(): Promise<void> {
   });
 }
 
-// Run the pipeline
-main().catch((error: unknown) => {
-  logError(logger, error, 'Fatal error in gitignore pipeline');
-  Sentry.captureException(error, {
-    tags: { component: 'gitignore-pipeline', phase: 'startup' },
+function isDirectExecution(): boolean {
+  const currentModulePath = fileURLToPath(import.meta.url);
+  const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
+  return entryPath === currentModulePath;
+}
+
+if (isDirectExecution()) {
+  main().catch((error: unknown) => {
+    logError(logger, error, 'Fatal error in gitignore pipeline');
+    Sentry.captureException(error, {
+      tags: { component: 'gitignore-pipeline', phase: 'startup' },
+    });
+    process.exit(1);
   });
-  process.exit(1);
-});
+}

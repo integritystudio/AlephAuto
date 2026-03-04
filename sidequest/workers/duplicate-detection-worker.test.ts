@@ -167,3 +167,24 @@ test('runNightlyScan reports only actually scheduled group scans', async () => {
   assert.equal(emittedStatus.groupScans, 1);
   assert.equal(emittedStatus.individualScans, 1);
 });
+
+test('scheduleScan generates unique IDs under same-millisecond bursts', (t) => {
+  const worker = new DuplicateDetectionWorker();
+  worker.stop();
+  t.after(() => worker.stop());
+
+  const originalDateNow = Date.now;
+  Date.now = () => 1_700_000_000_000;
+  t.after(() => {
+    Date.now = originalDateNow;
+  });
+
+  const repo = { name: 'repo-a', path: '/tmp/repo-a' } as unknown as never;
+  const first = worker.scheduleScan('intra-project', [repo]);
+  const second = worker.scheduleScan('intra-project', [repo]);
+  const third = worker.scheduleScan('intra-project', [repo]);
+
+  const ids = [first.id, second.id, third.id];
+  assert.equal(new Set(ids).size, 3, 'job IDs must remain unique within the same millisecond');
+  assert.equal(worker.jobs.size, 3, 'jobs map should retain all scheduled jobs');
+});
