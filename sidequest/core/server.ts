@@ -53,6 +53,7 @@ export interface JobStats {
   total: number;
   queued: number;
   active: number;
+  pendingRetries: number;
   completed: number;
   failed: number;
 }
@@ -713,6 +714,7 @@ export class SidequestServer extends EventEmitter {
       total: this.jobs.size,
       queued: this.queue.length,
       active: this.activeJobs,
+      pendingRetries: Array.from(this.jobs.values()).filter(j => j.retryPending === true).length,
       completed: this.jobHistory.filter(j => j.status === JOB_STATUS.COMPLETED).length,
       failed: this.jobHistory.filter(j => j.status === JOB_STATUS.FAILED).length,
     };
@@ -796,7 +798,8 @@ export class SidequestServer extends EventEmitter {
   }
 
   /**
-   * Cancels a non-terminal job.
+   * Cancels a queued or paused job.
+   * Running jobs are not cancellable because handlers are not abortable.
    *
    * @param jobId Job identifier.
    * @returns Action result summary.
@@ -804,8 +807,10 @@ export class SidequestServer extends EventEmitter {
   cancelJob(jobId: string): JobActionResult {
     return this._executeJobAction(jobId, {
       action: 'cancelled',
-      statusGuard: (s) => TERMINAL_STATUSES.includes(s),
-      guardMessage: (s) => `Cannot cancel job with status '${s}'`,
+      statusGuard: (s) => TERMINAL_STATUSES.includes(s) || s === JOB_STATUS.RUNNING,
+      guardMessage: (s) => s === JOB_STATUS.RUNNING
+        ? 'Cannot cancel a running job. Cancellation is only supported for queued or paused jobs.'
+        : `Cannot cancel job with status '${s}'`,
       mutate: (job) => {
         job.status = JOB_STATUS.CANCELLED;
         job.completedAt = new Date();
@@ -816,7 +821,7 @@ export class SidequestServer extends EventEmitter {
   }
 
   /**
-   * Pauses a runnable job.
+   * Pauses a queued job before execution.
    *
    * @param jobId Job identifier.
    * @returns Action result summary.
@@ -824,8 +829,10 @@ export class SidequestServer extends EventEmitter {
   pauseJob(jobId: string): JobActionResult {
     return this._executeJobAction(jobId, {
       action: 'paused',
-      statusGuard: (s) => TERMINAL_STATUSES.includes(s) || s === JOB_STATUS.PAUSED,
-      guardMessage: (s) => `Cannot pause job with status '${s}'`,
+      statusGuard: (s) => s !== JOB_STATUS.QUEUED,
+      guardMessage: (s) => s === JOB_STATUS.RUNNING
+        ? 'Cannot pause a running job. Pause is only supported for queued jobs.'
+        : `Cannot pause job with status '${s}'`,
       mutate: (job) => {
         job.status = JOB_STATUS.PAUSED;
         job.pausedAt = new Date();

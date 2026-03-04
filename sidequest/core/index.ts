@@ -45,6 +45,10 @@ interface TypedRepomixWorker {
   on(event: string, listener: (job: Job) => void): this;
 }
 
+export function isWorkerIdle(stats: JobStats): boolean {
+  return stats.active === 0 && stats.queued === 0 && stats.pendingRetries === 0;
+}
+
 /**
  * Main application entry point
  */
@@ -165,7 +169,7 @@ export class RepomixCronApp {
 
       const checkInterval = setInterval(() => {
         const stats = this.worker.getStats();
-        if (stats.active === 0 && stats.queued === 0) {
+        if (isWorkerIdle(stats)) {
           clearInterval(checkInterval);
           clearTimeout(timer);
           resolve();

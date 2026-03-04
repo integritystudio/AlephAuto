@@ -42,7 +42,7 @@ export abstract class BasePipeline<TWorker extends SidequestServer = SidequestSe
        */
       const checkAndResolve = () => {
         const stats = this.worker.getStats();
-        if (stats.active === 0 && stats.queued === 0) {
+        if (stats.active === 0 && stats.queued === 0 && stats.pendingRetries === 0) {
           cleanup();
           resolve();
         }
