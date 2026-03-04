@@ -13,11 +13,12 @@
  * - Comprehensive metrics tracking
  */
 
-import { SidequestServer, Job as BaseJob } from '../core/server.ts';
+import { SidequestServer, type Job as BaseJob } from '../core/server.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import { glob } from 'glob';
 import path from 'path';
 import fs from 'fs/promises';
+import { readFileSync } from 'fs';
 const logger = createComponentLogger('TestRefactorWorker');
 
 // Type definitions
@@ -155,7 +156,7 @@ export class TestRefactorWorker extends SidequestServer {
   detectFramework(projectPath: string): string {
     try {
       const packageJsonPath = path.join(projectPath, 'package.json');
-      const packageJson = JSON.parse(require('fs').readFileSync(packageJsonPath, 'utf-8'));
+      const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
       const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
 
       if (deps['vitest']) return 'vitest';
