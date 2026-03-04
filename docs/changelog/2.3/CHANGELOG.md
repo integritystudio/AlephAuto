@@ -6,6 +6,29 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.8] - 2026-03-04
+
+### Summary
+
+Backlog hygiene release for complexity items `CX11-CX13`: reclassified `CX11` as an active setup script (not archived) and retired `CX12-CX13` by removing archived one-time migration scripts.
+
+### Removed
+
+- `scripts/archive/migrate-db-to-render.js` (`CX12`)
+- `scripts/archive/generate-retroactive-reports.js` (`CX13`)
+
+### Changed
+
+- Updated `docs/BACKLOG.md` complexity section:
+  - Reclassified `CX11` (`docs/setup/sentry-to-discord.js`) from "Archive file" to "Active setup script (manual ops)".
+  - Migrated and closed `CX12-CX13`.
+
+### Validation
+
+- `npm run test:validate-backlog` (pass)
+
+---
+
 ## [2.3.7] - 2026-03-04
 
 ### Summary
