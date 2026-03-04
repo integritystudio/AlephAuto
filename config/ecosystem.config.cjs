@@ -60,8 +60,8 @@ module.exports = {
       max_size: '10M',
 
       // CRITICAL: Use node interpreter explicitly to prevent "fork/exec permission denied" errors
-      // This tells PM2 to run: node api/server.js
-      // NOT: ./api/server.js (which would require shebang + executable permissions)
+      // This tells PM2 to run: node api/server.ts
+      // NOT: ./api/server.ts (which would require shebang + executable permissions)
       // Environment variables from process.env, set by doppler run
       interpreter: 'node',
 
@@ -127,8 +127,8 @@ module.exports = {
       max_size: '10M',
 
       // CRITICAL: Use node interpreter explicitly to prevent "fork/exec permission denied" errors
-      // This tells PM2 to run: node sidequest/pipeline-runners/duplicate-detection-pipeline.js
-      // NOT: ./sidequest/pipeline-runners/duplicate-detection-pipeline.js
+      // This tells PM2 to run: node sidequest/pipeline-runners/duplicate-detection-pipeline.ts
+      // NOT: ./sidequest/pipeline-runners/duplicate-detection-pipeline.ts
       // Environment variables from process.env, set by doppler run
       interpreter: 'node',
 

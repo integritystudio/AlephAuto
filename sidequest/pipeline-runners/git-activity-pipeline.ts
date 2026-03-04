@@ -16,10 +16,18 @@ export interface ReportOptions {
 }
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const VALID_DEFAULT_REPORT_TYPES = new Set([
+type DefaultReportType =
+  | typeof GIT_ACTIVITY.WEEKLY_REPORT_TYPE
+  | typeof GIT_ACTIVITY.MONTHLY_REPORT_TYPE;
+
+const VALID_DEFAULT_REPORT_TYPES = new Set<DefaultReportType>([
   GIT_ACTIVITY.WEEKLY_REPORT_TYPE,
   GIT_ACTIVITY.MONTHLY_REPORT_TYPE,
 ]);
+
+function isDefaultReportType(reportType: string | undefined): reportType is DefaultReportType {
+  return reportType !== undefined && VALID_DEFAULT_REPORT_TYPES.has(reportType as DefaultReportType);
+}
 
 interface ParsedCliArgs {
   options: ReportOptions;
@@ -72,7 +80,7 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
     }));
 
     const configuredReportType = options.reportType as string | undefined;
-    this.reportType = configuredReportType && VALID_DEFAULT_REPORT_TYPES.has(configuredReportType)
+    this.reportType = isDefaultReportType(configuredReportType)
       ? configuredReportType
       : GIT_ACTIVITY.DEFAULT_REPORT_TYPE;
     this.setupEventListeners();

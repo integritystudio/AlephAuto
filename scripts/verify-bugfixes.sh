@@ -102,10 +102,10 @@ pre_deployment_checks() {
   print_section "Verifying New Files"
 
   local files=(
-    "sidequest/pipeline-core/doppler-health-monitor.js"
-    "api/utils/port-manager.js"
-    "api/activity-feed.js"
-    "api/event-broadcaster.js"
+    "sidequest/pipeline-core/doppler-health-monitor.ts"
+    "api/utils/port-manager.ts"
+    "api/activity-feed.ts"
+    "api/event-broadcaster.ts"
   )
 
   for file in "${files[@]}"; do
@@ -120,12 +120,12 @@ pre_deployment_checks() {
   print_section "Checking Pipeline Script Shebangs"
 
   local pipeline_scripts=(
-    "sidequest/pipeline-runners/duplicate-detection-pipeline.js"
-    "sidequest/pipeline-runners/git-activity-pipeline.js"
-    "sidequest/pipeline-runners/gitignore-pipeline.js"
-    "sidequest/pipeline-runners/plugin-management-pipeline.js"
-    "sidequest/pipeline-runners/claude-health-pipeline.js"
-    "sidequest/pipeline-runners/repo-cleanup-pipeline.js"
+    "sidequest/pipeline-runners/duplicate-detection-pipeline.ts"
+    "sidequest/pipeline-runners/git-activity-pipeline.ts"
+    "sidequest/pipeline-runners/gitignore-pipeline.ts"
+    "sidequest/pipeline-runners/plugin-management-pipeline.ts"
+    "sidequest/pipeline-runners/claude-health-pipeline.ts"
+    "sidequest/pipeline-runners/repo-cleanup-pipeline.ts"
   )
 
   for script in "${pipeline_scripts[@]}"; do
@@ -306,7 +306,7 @@ post_deployment_checks() {
 
   # Test that DopplerHealthMonitor can initialize
   local test_script=$(cat <<'EOF'
-import { DopplerHealthMonitor } from './sidequest/pipeline-core/doppler-health-monitor.js';
+import { DopplerHealthMonitor } from './sidequest/pipeline-core/doppler-health-monitor.ts';
 const monitor = new DopplerHealthMonitor();
 try {
   const health = await monitor.checkCacheHealth();
@@ -319,7 +319,7 @@ try {
 EOF
 )
 
-  local result=$(cd "$PROJECT_ROOT" && echo "$test_script" | node --input-type=module 2>&1)
+  local result=$(cd "$PROJECT_ROOT" && echo "$test_script" | node --strip-types --input-type=module 2>&1)
 
   if echo "$result" | jq -e '.success' &> /dev/null; then
     check_pass "Doppler health monitor initializes successfully"
@@ -353,8 +353,8 @@ EOF
   print_section "Testing Activity Feed Error Handling"
 
   local test_script=$(cat <<'EOF'
-import { ActivityFeedManager } from './api/activity-feed.js';
-import { ScanEventBroadcaster } from './api/event-broadcaster.js';
+import { ActivityFeedManager } from './api/activity-feed.ts';
+import { ScanEventBroadcaster } from './api/event-broadcaster.ts';
 
 // Mock broadcaster
 const mockBroadcaster = { broadcast: () => {} };
@@ -376,7 +376,7 @@ try {
 EOF
 )
 
-  local result=$(cd "$PROJECT_ROOT" && echo "$test_script" | node --input-type=module 2>&1)
+  local result=$(cd "$PROJECT_ROOT" && echo "$test_script" | node --strip-types --input-type=module 2>&1)
 
   if echo "$result" | jq -e '.success' &> /dev/null; then
     check_pass "Activity feed handles null errors gracefully"
@@ -388,8 +388,8 @@ EOF
   print_section "Verifying Pipeline Script Executability"
 
   local pipeline_scripts=(
-    "sidequest/pipeline-runners/duplicate-detection-pipeline.js"
-    "sidequest/pipeline-runners/git-activity-pipeline.js"
+    "sidequest/pipeline-runners/duplicate-detection-pipeline.ts"
+    "sidequest/pipeline-runners/git-activity-pipeline.ts"
   )
 
   for script in "${pipeline_scripts[@]}"; do
