@@ -2,6 +2,7 @@
 import { RepoCleanupWorker } from '../workers/repo-cleanup-worker.ts';
 import type { Job } from '../core/server.ts';
 import { config } from '../core/config.ts';
+import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
@@ -62,8 +63,63 @@ const DRY_RUN = process.env.CLEANUP_DRY_RUN === 'true';
 
 // Support both env var and --run-now flag
 const args = process.argv.slice(2);
+const RUN_WITH_CRON = args.includes('--cron');
 // || is correct here: CLI flags must also trigger when config.runOnStartup is false (boolean OR, not nullish coalescing)
 const RUN_ON_STARTUP = config.runOnStartup || args.includes('--run-now') || args.includes('--run');
+
+function waitForJobTerminalStatus(worker: RepoCleanupWorker, jobId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let timeoutHandle: NodeJS.Timeout | null = null;
+
+    const cleanup = () => {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+      worker.off('job:completed', onCompleted);
+      worker.off('job:failed', onFailed);
+    };
+
+    const rejectWithFailure = (job: Job) => {
+      const message = job.error?.message ?? `Startup cleanup job ${job.id} failed`;
+      cleanup();
+      reject(new Error(message));
+    };
+
+    const onCompleted = (job: Job) => {
+      if (job.id !== jobId) return;
+      cleanup();
+      resolve();
+    };
+
+    const onFailed = (job: Job) => {
+      if (job.id !== jobId) return;
+      rejectWithFailure(job);
+    };
+
+    worker.on('job:completed', onCompleted);
+    worker.on('job:failed', onFailed);
+
+    timeoutHandle = setTimeout(() => {
+      cleanup();
+      reject(new Error(`Timed out waiting for startup cleanup job ${jobId} after ${TIMEOUTS.ONE_HOUR_MS}ms`));
+    }, TIMEOUTS.ONE_HOUR_MS);
+
+    const currentJob = worker.getJob(jobId);
+    if (!currentJob) {
+      cleanup();
+      reject(new Error(`Startup cleanup job ${jobId} was not found after creation`));
+      return;
+    }
+    if (currentJob.status === 'completed') {
+      cleanup();
+      resolve();
+      return;
+    }
+    if (currentJob.status === 'failed') {
+      rejectWithFailure(currentJob);
+    }
+  });
+}
 
 /**
  * main.
@@ -149,15 +205,17 @@ async function main(): Promise<void> {
   });
 
   // Run immediately if requested
+  let startupJob: Job | null = null;
+
   if (RUN_ON_STARTUP) {
     logger.info('Running cleanup immediately (RUN_ON_STARTUP=true)');
     try {
-      const job = (worker as unknown as { createCleanupJob(dir: string, opts: { dryRun: boolean }): Job }).createCleanupJob(TARGET_DIR, {
+      startupJob = (worker as unknown as { createCleanupJob(dir: string, opts: { dryRun: boolean }): Job }).createCleanupJob(TARGET_DIR, {
         dryRun: DRY_RUN,
       });
 
       logger.info({
-        jobId: job.id,
+        jobId: startupJob.id,
         dryRun: DRY_RUN,
       }, 'Startup job created');
     } catch (error) {
@@ -165,7 +223,20 @@ async function main(): Promise<void> {
       Sentry.captureException(error, {
         tags: { component: 'repo-cleanup-pipeline', phase: 'startup' },
       });
+      if (!RUN_WITH_CRON) {
+        throw error;
+      }
     }
+  }
+
+  if (RUN_ON_STARTUP && !RUN_WITH_CRON) {
+    if (!startupJob) {
+      throw new Error('Startup cleanup job was not created');
+    }
+    logger.info({ jobId: startupJob.id }, 'Waiting for startup cleanup job to finish');
+    await waitForJobTerminalStatus(worker, startupJob.id);
+    logger.info({ jobId: startupJob.id }, 'Startup cleanup job completed; exiting');
+    return;
   }
 
   // Schedule cron job
