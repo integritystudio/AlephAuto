@@ -91,6 +91,17 @@ class TestJaccardSimilarity:
 class TestSemanticSimilarity:
     """Tests for weighted semantic similarity calculation."""
 
+    @staticmethod
+    def _make_annotation(operations: set, domains: set) -> SemanticAnnotation:
+        """Create a baseline annotation for weight-impact tests."""
+        return SemanticAnnotation(
+            category='utility',
+            operations=operations,
+            domains=domains,
+            patterns=set(),
+            data_types={'array'},
+        )
+
     def test_identical_annotations(self):
         """Test identical annotations have similarity 1.0."""
         ann = SemanticAnnotation(
@@ -103,47 +114,32 @@ class TestSemanticSimilarity:
         result = _calculate_semantic_similarity(ann, ann)
         assert result == 1.0
 
-    def test_different_operations_major_impact(self):
-        """Test operations have 40% weight."""
-        ann1 = SemanticAnnotation(
-            category='utility',
-            operations={'filter'},
-            domains={'user'},
-            patterns=set(),
-            data_types={'array'},
-        )
-        ann2 = SemanticAnnotation(
-            category='utility',
-            operations={'reduce'},  # Different operation
-            domains={'user'},
-            patterns=set(),
-            data_types={'array'},
-        )
-        result = _calculate_semantic_similarity(ann1, ann2)
-        # Operations differ (0.0 * 0.4), others match
-        expected = 0.0 * 0.4 + 1.0 * 0.25 + 1.0 * 0.20 + 1.0 * 0.15
-        assert abs(result - expected) < 0.01
+    def test_weight_impact_cases(self):
+        """Table-driven checks for weighted semantic components."""
+        cases = [
+            {
+                "name": "operations-major-impact",
+                "ann1_ops": {'filter'},
+                "ann2_ops": {'reduce'},
+                "ann1_domains": {'user'},
+                "ann2_domains": {'user'},
+                "expected": 0.0 * 0.4 + 1.0 * 0.25 + 1.0 * 0.20 + 1.0 * 0.15,
+            },
+            {
+                "name": "domains-moderate-impact",
+                "ann1_ops": {'filter'},
+                "ann2_ops": {'filter'},
+                "ann1_domains": {'user'},
+                "ann2_domains": {'payment'},
+                "expected": 1.0 * 0.4 + 0.0 * 0.25 + 1.0 * 0.20 + 1.0 * 0.15,
+            },
+        ]
 
-    def test_different_domains_moderate_impact(self):
-        """Test domains have 25% weight."""
-        ann1 = SemanticAnnotation(
-            category='utility',
-            operations={'filter'},
-            domains={'user'},
-            patterns=set(),
-            data_types={'array'},
-        )
-        ann2 = SemanticAnnotation(
-            category='utility',
-            operations={'filter'},
-            domains={'payment'},  # Different domain
-            patterns=set(),
-            data_types={'array'},
-        )
-        result = _calculate_semantic_similarity(ann1, ann2)
-        # Domains differ (0.0 * 0.25), others match
-        expected = 1.0 * 0.4 + 0.0 * 0.25 + 1.0 * 0.20 + 1.0 * 0.15
-        assert abs(result - expected) < 0.01
+        for case in cases:
+            ann1 = self._make_annotation(case["ann1_ops"], case["ann1_domains"])
+            ann2 = self._make_annotation(case["ann2_ops"], case["ann2_domains"])
+            result = _calculate_semantic_similarity(ann1, ann2)
+            assert abs(result - case["expected"]) < 0.01, case["name"]
 
     def test_similar_operations_high_score(self):
         """Test overlapping operations produce high score."""
