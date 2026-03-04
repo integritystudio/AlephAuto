@@ -16,7 +16,6 @@ Usage:
 import argparse
 import json
 import math
-import os
 import subprocess
 import sys
 from collections import defaultdict
@@ -137,8 +136,8 @@ def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=INCLUDE_DOTFILE
 
     # Scan main code directory
     print(f"Scanning for repositories in {CODE_DIR} (depth: {max_depth})...")
-    cmd = f"find {CODE_DIR} -maxdepth {max_depth} -name .git -type d"
-    result = subprocess.run(cmd.split(), capture_output=True, text=True)
+    cmd = ["find", str(CODE_DIR), "-maxdepth", str(max_depth), "-name", ".git", "-type", "d"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
 
     for line in result.stdout.strip().split('\n'):
         if line:
@@ -150,8 +149,8 @@ def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=INCLUDE_DOTFILE
     # Scan reports directory
     if REPORTS_DIR.exists():
         print(f"Scanning for repositories in {REPORTS_DIR} (depth: {max_depth})...")
-        cmd = f"find {REPORTS_DIR} -maxdepth {max_depth} -name .git -type d"
-        result = subprocess.run(cmd.split(), capture_output=True, text=True)
+        cmd = ["find", str(REPORTS_DIR), "-maxdepth", str(max_depth), "-name", ".git", "-type", "d"]
+        result = subprocess.run(cmd, capture_output=True, text=True)
 
         for line in result.stdout.strip().split('\n'):
             if line:
@@ -192,22 +191,25 @@ def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=INCLUDE_DOTFILE
 def get_repo_stats(repo_path, since_date, until_date=None):
     """Get commit statistics for a repository"""
     try:
-        os.chdir(repo_path)
-
-        # Build git log command
-        git_cmd = f"git log --since={since_date} --all --oneline"
+        base_git_cmd = ["git", "log", f"--since={since_date}", "--all"]
         if until_date:
-            git_cmd += f" --until={until_date}"
+            base_git_cmd.append(f"--until={until_date}")
 
-        result = subprocess.run(git_cmd.split(), capture_output=True, text=True)
+        result = subprocess.run(
+            [*base_git_cmd, "--oneline"],
+            capture_output=True,
+            text=True,
+            cwd=repo_path,
+        )
         commits = len(result.stdout.strip().split('\n')) if result.stdout.strip() else 0
 
         # Get monthly commit distribution for visualization
-        git_cmd = f"git log --since={since_date} --all --date=format:%Y-%m --pretty=format:%ad"
-        if until_date:
-            git_cmd += f" --until={until_date}"
-
-        result = subprocess.run(git_cmd.split(), capture_output=True, text=True)
+        result = subprocess.run(
+            [*base_git_cmd, "--date=format:%Y-%m", "--pretty=format:%ad"],
+            capture_output=True,
+            text=True,
+            cwd=repo_path,
+        )
         monthly_commits = defaultdict(int)
         for line in result.stdout.strip().split('\n'):
             month = line.strip()
@@ -215,19 +217,21 @@ def get_repo_stats(repo_path, since_date, until_date=None):
                 monthly_commits[month] += 1
 
         # Get file changes for language analysis
-        git_cmd = f"git log --since={since_date} --all --name-only --pretty=format:"
-        if until_date:
-            git_cmd += f" --until={until_date}"
-
-        result = subprocess.run(git_cmd.split(), capture_output=True, text=True)
+        result = subprocess.run(
+            [*base_git_cmd, "--name-only", "--pretty=format:"],
+            capture_output=True,
+            text=True,
+            cwd=repo_path,
+        )
         files = [f for f in result.stdout.strip().split('\n') if f]
 
         # Get line-level additions/deletions
-        git_cmd = f"git log --since={since_date} --all --numstat --pretty=format:"
-        if until_date:
-            git_cmd += f" --until={until_date}"
-
-        result = subprocess.run(git_cmd.split(), capture_output=True, text=True)
+        result = subprocess.run(
+            [*base_git_cmd, "--numstat", "--pretty=format:"],
+            capture_output=True,
+            text=True,
+            cwd=repo_path,
+        )
         additions = 0
         deletions = 0
         for line in result.stdout.strip().split('\n'):
