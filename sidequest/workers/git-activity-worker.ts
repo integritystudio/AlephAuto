@@ -196,8 +196,8 @@ export class GitActivityWorker extends SidequestServer {
 
     // Add date range arguments
     if (sinceDate && untilDate) {
-      args.push('--since', sinceDate);
-      args.push('--until', untilDate);
+      args.push('--start-date', sinceDate);
+      args.push('--end-date', untilDate);
     } else if (reportType === 'weekly' || days === 7) {
       args.push('--weekly');
     } else if (reportType === 'monthly' || days === 30) {

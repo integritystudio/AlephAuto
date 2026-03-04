@@ -9,6 +9,8 @@ Usage:
     python3 collect_git_activity.py --start-date YYYY-MM-DD --end-date YYYY-MM-DD
     python3 collect_git_activity.py --days N  # Last N days
     python3 collect_git_activity.py --weekly  # Last week
+    python3 collect_git_activity.py --monthly  # Last 30 days
+    python3 collect_git_activity.py --weekly --output-format both --no-visualizations
 """
 
 import argparse
@@ -431,7 +433,7 @@ def _compile_activity_data(
     }
 
 
-def _print_summary(data: dict, output_dir: Path) -> None:
+def _print_summary(data: dict, output_dir: Path | None = None) -> None:
     """Print activity summary to console."""
     repositories = data['repositories']
     language_stats = data['languages']
@@ -455,7 +457,10 @@ def _print_summary(data: dict, output_dir: Path) -> None:
     for i, (lang, count) in enumerate(sorted_langs[:GitActivityDefaults.TOP_N_DISPLAY], 1):
         print(f"  {i}. {lang}: {count} files")
 
-    print(f"\n✅ Complete! Visualizations saved to: {output_dir}")
+    if output_dir:
+        print(f"\n✅ Complete! Visualizations saved to: {output_dir}")
+    else:
+        print("\n✅ Complete! Visualizations were skipped.")
     print(f"{'=' * GitActivityDefaults.SEPARATOR_LENGTH}\n")
 
 
@@ -616,11 +621,21 @@ def main():
     parser = argparse.ArgumentParser(description='Generate comprehensive git activity report')
     parser.add_argument('--start-date', help='Start date (YYYY-MM-DD)')
     parser.add_argument('--end-date', help='End date (YYYY-MM-DD)', default=None)
+    # Backward-compatible aliases used by older worker/pipeline integrations.
+    parser.add_argument('--since', dest='start_date', help=argparse.SUPPRESS)
+    parser.add_argument('--until', dest='end_date', help=argparse.SUPPRESS)
     parser.add_argument('--days', type=int, help='Number of days back from today')
     parser.add_argument('--weekly', action='store_true', help='Last 7 days')
     parser.add_argument('--monthly', action='store_true', help='Last 30 days')
     parser.add_argument('--max-depth', type=int, default=DEFAULT_MAX_DEPTH, help='Max directory depth')
     parser.add_argument('--output-dir', help='Output directory for visualizations')
+    parser.add_argument(
+        '--output-format',
+        choices=['markdown', 'json', 'both'],
+        default='markdown',
+        help='Output format: markdown, json, or both'
+    )
+    parser.add_argument('--no-visualizations', action='store_true', help='Skip SVG chart generation')
     parser.add_argument('--json-output', help='Output JSON data file')
 
     args = parser.parse_args()
@@ -648,25 +663,36 @@ def main():
     # Compile all data
     data = _compile_activity_data(repositories, all_files, since_date, until_date)
 
-    # Save Jekyll markdown report
+    # Resolve output locations
     default_report_dir = Path.home() / 'code' / 'PersonalSite' / '_reports'
     default_report_dir.mkdir(parents=True, exist_ok=True)
     report_date = datetime.now().strftime('%Y-%m-%d')
     report_file = default_report_dir / f'{report_date}-git-activity-report.md'
-    generate_jekyll_report(data, report_file)
+    default_json_file = default_report_dir / f'{report_date}-git-activity-report.json'
 
-    # Also save JSON for programmatic access if requested
-    if args.json_output:
-        with open(args.json_output, 'w') as f:
+    wants_markdown = args.output_format in ('markdown', 'both')
+    wants_json = args.output_format in ('json', 'both') or bool(args.json_output)
+
+    # Save Jekyll markdown report when requested.
+    if wants_markdown:
+        generate_jekyll_report(data, report_file)
+
+    # Save JSON data when requested by output format or explicit path.
+    if wants_json:
+        json_path = Path(args.json_output) if args.json_output else default_json_file
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(json_path, 'w') as f:
             json.dump(data, f, indent=2)
-        print(f"✅ JSON data saved to: {args.json_output}")
+        print(f"✅ JSON data saved to: {json_path}")
 
-    # Generate visualizations
+    # Generate visualizations unless explicitly disabled.
     output_dir = _resolve_output_dir(args)
-    generate_visualizations(data, output_dir)
-
-    # Print summary
-    _print_summary(data, output_dir)
+    if args.no_visualizations:
+        print("\nSkipping visualizations (--no-visualizations).")
+        _print_summary(data, None)
+    else:
+        generate_visualizations(data, output_dir)
+        _print_summary(data, output_dir)
 
     return 0
 
