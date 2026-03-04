@@ -18,6 +18,7 @@ import { TIMEOUTS } from '../core/constants.ts';
 // @ts-ignore - no declaration file for node-cron
 import cron from 'node-cron';
 import * as Sentry from '@sentry/node';
+import { realpathSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -121,8 +122,13 @@ async function main(): Promise<void> {
 
 function isDirectExecution(): boolean {
   const currentModulePath = fileURLToPath(import.meta.url);
-  const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
-  return entryPath === currentModulePath;
+  const entryPath = process.argv[1];
+  if (!entryPath) return false;
+  try {
+    return realpathSync(path.resolve(entryPath)) === realpathSync(currentModulePath);
+  } catch {
+    return false;
+  }
 }
 
 if (isDirectExecution()) {

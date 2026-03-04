@@ -32,3 +32,32 @@ test('runCleanup treats targetDir as a literal path (no shell interpolation)', a
     /ENOENT/
   );
 });
+
+test('runCleanup succeeds when only temp files are detected', async (t) => {
+  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'repo-cleanup-temp-only-'));
+  const targetDir = path.join(tmpRoot, 'repo');
+  const tempFile = path.join(targetDir, '__pycache__', 'a.pyc');
+
+  await fs.mkdir(path.dirname(tempFile), { recursive: true });
+  await fs.writeFile(tempFile, 'x');
+
+  t.after(async () => {
+    await fs.rm(tmpRoot, { recursive: true, force: true });
+  });
+
+  const worker = new RepoCleanupWorker({ autoStart: false, baseDir: tmpRoot });
+  worker.stop();
+
+  const result = await (
+    worker as unknown as {
+      runCleanup: (targetDir: string) => Promise<{ totalItems: number; summary: { tempFiles: number } }>;
+    }
+  ).runCleanup(targetDir);
+
+  assert.ok(result.totalItems >= 1);
+  assert.ok(result.summary.tempFiles >= 1);
+  await assert.rejects(
+    fs.access(tempFile),
+    /ENOENT/
+  );
+});

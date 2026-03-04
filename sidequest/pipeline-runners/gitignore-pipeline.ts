@@ -6,6 +6,7 @@ import { TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
+import { realpathSync } from 'fs';
 import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
@@ -270,8 +271,13 @@ async function main(): Promise<void> {
 
 function isDirectExecution(): boolean {
   const currentModulePath = fileURLToPath(import.meta.url);
-  const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
-  return entryPath === currentModulePath;
+  const entryPath = process.argv[1];
+  if (!entryPath) return false;
+  try {
+    return realpathSync(path.resolve(entryPath)) === realpathSync(currentModulePath);
+  } catch {
+    return false;
+  }
 }
 
 if (isDirectExecution()) {

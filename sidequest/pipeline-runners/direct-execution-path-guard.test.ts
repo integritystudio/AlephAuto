@@ -24,7 +24,10 @@ const GUARDED_PIPELINES = [
   'pipeline-runners/git-activity-pipeline.ts',
   'pipeline-runners/bugfix-audit-pipeline.ts',
   'pipeline-runners/plugin-management-pipeline.ts',
-  'pipeline-runners/schema-enhancement-pipeline.ts'
+  'pipeline-runners/schema-enhancement-pipeline.ts',
+  'pipeline-runners/duplicate-detection-pipeline.ts',
+  'pipeline-runners/repo-cleanup-pipeline.ts',
+  'pipeline-runners/gitignore-pipeline.ts'
 ];
 
 async function runViaSymlinkWithSpace(scriptRelativePath: string): Promise<ScriptRunResult> {
