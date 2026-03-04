@@ -23,6 +23,7 @@ import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
+import { fileURLToPath } from 'url';
 import * as Sentry from '@sentry/node';
 import { TIMEOUTS } from '../core/constants.ts';
 
@@ -351,7 +352,8 @@ export class ScanOrchestrator {
       this._pythonValidated = false;
     }
 
-    this.extractorScript = options.extractorScript || path.join(process.cwd(), 'sidequest/pipeline-core/extractors/extract_blocks.py');
+    const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+    this.extractorScript = options.extractorScript || path.resolve(moduleDir, 'extractors', 'extract_blocks.py');
 
     // Report generation configuration
     this.reportConfig = options.reports || {};

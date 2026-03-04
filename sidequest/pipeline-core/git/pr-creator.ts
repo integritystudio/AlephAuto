@@ -199,7 +199,18 @@ export class PRCreator {
         return null;
       }
 
-      await runGitCommand(repositoryPath, ['add', '.']);
+      const filesToStage = Array.from(new Set(
+        filesModified
+          .map((filePath) => path.isAbsolute(filePath) ? path.relative(repositoryPath, filePath) : filePath)
+          .filter((filePath) => filePath.length > 0 && !filePath.startsWith('..'))
+      ));
+      if (filesToStage.length === 0) {
+        logger.warn({ branchName }, 'No in-repository files to stage, skipping PR creation');
+        await runGitCommand(repositoryPath, ['checkout', this.baseBranch]);
+        await runGitCommand(repositoryPath, ['branch', '-D', branchName]);
+        return null;
+      }
+      await runGitCommand(repositoryPath, ['add', '--', ...filesToStage]);
 
       const commitMessage = this._generateCommitMessage(suggestions, filesModified);
       await runGitCommand(repositoryPath, ['commit', '-m', commitMessage]);

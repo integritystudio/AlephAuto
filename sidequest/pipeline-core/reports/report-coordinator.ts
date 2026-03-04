@@ -230,7 +230,10 @@ export class ReportCoordinator {
   private _generateBaseFilename(scanResult: ScanResult, isInterProject: boolean | null = null): string {
     const isInter = isInterProject ?? (scanResult.scan_type === 'inter-project');
 
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+    const timestamp = new Date().toISOString()
+      .replace(/[:.]/g, '-')
+      .replace('T', '_')
+      .replace('Z', '');
 
     if (isInter) {
       const repoCount = scanResult.scan_metadata?.repository_count ?? 0;
