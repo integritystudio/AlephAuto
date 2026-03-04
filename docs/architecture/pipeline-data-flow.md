@@ -1,6 +1,6 @@
 # AlephAuto Pipeline Data Flow Documentation
 
-**Last Updated:** 2026-02-26
+**Last Updated:** 2026-03-04
 **Version:** 2.3
 **Author:** System Architecture Documentation
 
@@ -479,7 +479,7 @@ graph TB
 ### 3. Git Activity Reporter Pipeline
 
 **Purpose:** Generate weekly/monthly git activity reports with visualizations
-**Job Type:** `git-activity-report`
+**Job Type:** Worker `git-activity` (payload type: `git-activity-report`)
 **Languages:** JavaScript → Python
 **Git Workflow:** ❌ No (generates reports only)
 
@@ -492,7 +492,7 @@ graph TB
     C --> D{Report Type?}
     D -->|Weekly| E[--weekly flag]
     D -->|Monthly| F[--monthly flag]
-    D -->|Custom| G[--since/--until dates]
+    D -->|Custom| G[--start-date/--end-date]
     E --> H[Execute Python Script]
     F --> H
     G --> H
@@ -500,20 +500,25 @@ graph TB
     I --> J[Scan ~/code for git repos]
     J --> K[Collect commit data]
     K --> L[Calculate statistics]
-    L --> M[Generate JSON report]
-    M --> N{Visualizations?}
-    N -->|Yes| O[Generate SVG charts]
-    N -->|No| P[Skip visualizations]
-    O --> Q[Save output files]
+    L --> M{Output format?}
+    M -->|markdown| N[Generate Jekyll markdown]
+    M -->|json| O[Generate JSON]
+    M -->|both| P[Generate markdown + JSON]
+    N --> Q{Visualizations?}
+    O --> Q
     P --> Q
-    Q --> R[Parse stats from stdout]
-    R --> S[Verify files exist]
-    S --> T[Return job result]
+    Q -->|Yes| R[Generate SVG charts]
+    Q -->|No| S[Skip visualizations]
+    R --> T[Save output files]
+    S --> T
+    T --> U[Parse stats from stdout]
+    U --> V[Verify files exist]
+    V --> W[Return job result]
 
     style I fill:#bfb,stroke:#333
     style J fill:#bfb,stroke:#333
     style K fill:#bfb,stroke:#333
-    style O fill:#bbf,stroke:#333
+    style R fill:#bbf,stroke:#333
 ```
 
 #### Python Script Flow
@@ -522,7 +527,7 @@ graph TB
 
 ```python
 # 1. Parse command-line arguments
-args = parse_args()  # --weekly, --monthly, --since, --until
+args = parse_args()  # --weekly, --monthly, --start-date/--end-date, --output-format, --no-visualizations
 
 # 2. Find git repositories
 repos = find_git_repositories(base_dir="~/code")
@@ -537,17 +542,18 @@ total_commits = sum(repo.commits for repo in repos)
 total_additions = sum(repo.additions for repo in repos)
 total_deletions = sum(repo.deletions for repo in repos)
 
-# 5. Generate visualizations (optional)
-if --no-visualizations not set:
-    generate_commit_timeline_svg()
-    generate_repository_heatmap_svg()
+# 5. Save report outputs based on output format
+if args.output_format in ("markdown", "both"):
+    generate_jekyll_report(...)
+if args.output_format in ("json", "both") or args.json_output:
+    save_json_report(...)
 
-# 6. Save JSON report
-save_json_report({
-    "total_commits": total_commits,
-    "repositories": [...],
-    "time_period": {...}
-})
+# 6. Generate visualizations (optional)
+if not args.no_visualizations:
+    generate_svg_charts(...)
+
+# 7. Print summary + return
+print_summary(...)
 ```
 
 #### Job Data Format
@@ -559,7 +565,7 @@ save_json_report({
   days: 7 | 30 | null,
   sinceDate: "2025-11-17" | null,
   untilDate: "2025-11-24" | null,
-  outputFormat: "json",
+  outputFormat: "json" | "markdown" | "both",
   generateVisualizations: true
 }
 
@@ -576,20 +582,20 @@ save_json_report({
     linesDeleted: 1876
   },
   outputFiles: [
-    { path: "/tmp/git-activity-report.json", size: 45678, exists: true },
-    { path: "/tmp/commit-timeline.svg", size: 12345, exists: true }
+    { path: "/Users/<user>/code/PersonalSite/_reports/2026-03-04-git-activity-report.json", size: 45678, exists: true },
+    { path: "/Users/<user>/code/PersonalSite/assets/images/git-activity-2026/top-10-repos.svg", size: 12345, exists: true }
   ],
-  timestamp: "2025-11-24T12:00:00.000Z"
+  timestamp: "2026-03-04T12:00:00.000Z"
 }
 ```
 
 #### Output Files
 
-| File Type | Description | Format |
-|-----------|-------------|--------|
-| JSON Report | Aggregated statistics | `/tmp/git-activity-report.json` |
-| Timeline SVG | Commit timeline visualization | `/tmp/commit-timeline.svg` |
-| Heatmap SVG | Repository activity heatmap | `/tmp/repository-heatmap.svg` |
+| File Type | Description | Default Location |
+|-----------|-------------|------------------|
+| Markdown Report | Jekyll-formatted git activity report | `~/code/PersonalSite/_reports/{date}-git-activity-report.md` |
+| JSON Report | Aggregated statistics (when `--output-format json|both` or `--json-output`) | `~/code/PersonalSite/_reports/{date}-git-activity-report.json` or custom `--json-output` path |
+| SVG Charts | Repository/language/category visualizations | `~/code/PersonalSite/assets/images/git-activity-{year}/` |
 
 ---
 
@@ -2086,6 +2092,6 @@ signals.forEach((signal) => {
 
 ---
 
-**Document Version:** 2.2
-**Last Updated:** 2026-02-26
+**Document Version:** 2.3
+**Last Updated:** 2026-03-04
 **Maintainer:** Architecture Team
