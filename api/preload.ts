@@ -6,4 +6,4 @@
 // Increase max listeners before any other code runs
 process.setMaxListeners(20);
 
-console.log('[Preload] EventEmitter max listeners set to 20');
+process.stdout.write('[Preload] EventEmitter max listeners set to 20\n');

@@ -120,7 +120,7 @@ async function main(): Promise<void> {
         await fs.writeFile(outputFile, output);
         logger.info(`JSON report saved to: ${outputFile}`);
       } else {
-        console.log(output);
+        process.stdout.write(`${output}\n`);
       }
     } else {
       const report = generateMarkdownReport(results);
@@ -128,7 +128,7 @@ async function main(): Promise<void> {
         await fs.writeFile(outputFile, report);
         logger.info(`Markdown report saved to: ${outputFile}`);
       } else {
-        console.log('\n' + report);
+        process.stdout.write(`\n${report}\n`);
       }
     }
 

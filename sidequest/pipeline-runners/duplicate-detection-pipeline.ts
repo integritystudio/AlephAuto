@@ -42,9 +42,7 @@ async function main(): Promise<void> {
   const cronSchedule = process.env.DUPLICATE_SCAN_CRON_SCHEDULE || '0 2 * * *';
   const runOnStartup = config.runOnStartup;
 
-  console.log('╔══════════════════════════════════════════════════════════╗');
-  console.log('║     DUPLICATE DETECTION AUTOMATED PIPELINE              ║');
-  console.log('╚══════════════════════════════════════════════════════════╝\n');
+  logger.info({ cronSchedule, runOnStartup }, 'Starting duplicate detection pipeline');
 
   try {
     // Initialize worker
@@ -54,17 +52,18 @@ async function main(): Promise<void> {
 
     await worker.initialize();
 
-    console.log('✅ Duplicate detection pipeline initialized\n');
+    logger.info('Duplicate detection pipeline initialized');
 
     const stats = worker.configLoader.getStats();
-    console.log('📊 Configuration:');
-    console.log(`   Total repositories: ${stats.totalRepositories}`);
-    console.log(`   Enabled repositories: ${stats.enabledRepositories}`);
-    console.log(`   Repository groups: ${stats.groups}\n`);
+    logger.info({
+      totalRepositories: stats.totalRepositories,
+      enabledRepositories: stats.enabledRepositories,
+      repositoryGroups: stats.groups
+    }, 'Loaded duplicate-detection configuration');
 
     // Schedule cron job
     if (!runOnStartup) {
-      console.log(`⏰ Scheduling nightly scans: ${cronSchedule}\n`);
+      logger.info({ cronSchedule }, 'Scheduling nightly duplicate scans');
 
       cron.schedule(cronSchedule, async () => {
         logger.info('Cron job triggered');
@@ -76,7 +75,7 @@ async function main(): Promise<void> {
         }
       });
 
-      console.log('🚀 Pipeline is running. Press Ctrl+C to stop.\n');
+      logger.info('Duplicate detection scheduler is running');
 
       // Notify PM2 that process is ready (fork mode)
       if (process.send) {
@@ -90,30 +89,29 @@ async function main(): Promise<void> {
         logger.debug('Worker keep-alive heartbeat');
       }, TIMEOUTS.FIVE_MINUTES_MS);
     } else {
-      console.log('▶️  Running scan immediately (RUN_ON_STARTUP=true)\n');
+      logger.info('Running scan immediately (runOnStartup=true)');
       await worker.runNightlyScan();
 
-      console.log('\n✅ Startup scan completed');
       const metrics = worker.getScanMetrics();
-      console.log('\n📊 Scan Metrics:');
-      console.log(`   Total scans: ${metrics.totalScans}`);
-      console.log(`   Duplicates found: ${metrics.totalDuplicatesFound}`);
-      console.log(`   Suggestions generated: ${metrics.totalSuggestionsGenerated}`);
-      console.log(`   High-impact duplicates: ${metrics.highImpactDuplicates}`);
+      logger.info({
+        totalScans: metrics.totalScans,
+        duplicatesFound: metrics.totalDuplicatesFound,
+        suggestionsGenerated: metrics.totalSuggestionsGenerated,
+        highImpactDuplicates: metrics.highImpactDuplicates
+      }, 'Startup scan completed');
 
       if (worker.enablePRCreation) {
-        console.log('\n🔀 PR Creation:');
-        console.log(`   PRs created: ${metrics.prsCreated}`);
-        console.log(`   PR creation errors: ${metrics.prCreationErrors}`);
+        logger.info({
+          prsCreated: metrics.prsCreated,
+          prCreationErrors: metrics.prCreationErrors
+        }, 'PR creation metrics');
       }
 
-      console.log('');
       process.exit(0);
     }
 
   } catch (error) {
-    console.error('\n❌ Error:', (error as Error).message);
-    logger.error({ error }, 'Pipeline initialization failed');
+    logger.error({ error, message: (error as Error).message }, 'Pipeline initialization failed');
     Sentry.captureException(error);
     process.exit(1);
   }
@@ -126,7 +124,7 @@ const isDirectExecution = import.meta.url === `file://${process.argv[1]}` || pro
 
 if (isDirectExecution) {
   main().catch((error) => {
-    console.error('Fatal error:', error);
+    logger.error({ error }, 'Fatal error in duplicate detection pipeline');
     process.exit(1);
   });
 }

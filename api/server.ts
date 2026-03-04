@@ -412,15 +412,20 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
     });
 
     logger.info({ port: actualPort }, 'API server started');
-    console.log(`\n🚀 AlephAuto API Server & Dashboard running on port ${actualPort}`);
+    logger.info({ port: actualPort }, 'AlephAuto API Server & Dashboard running');
     if (actualPort !== PREFERRED_PORT) {
-      console.log(`   ⚠️  Using fallback port ${actualPort} (preferred ${PREFERRED_PORT} was in use)`);
+      logger.warn({
+        actualPort,
+        preferredPort: PREFERRED_PORT
+      }, 'Using fallback API port because preferred port was in use');
     }
-    console.log(`   📊 Dashboard: http://localhost:${actualPort}/`);
-    console.log(`   ❤️  Health check: http://localhost:${actualPort}/health`);
-    console.log(`   🩺 Doppler health: http://localhost:${actualPort}/api/health/doppler`);
-    console.log(`   🔌 WebSocket: ws://localhost:${actualPort}/ws`);
-    console.log(`   📡 API: http://localhost:${actualPort}/api/\n`);
+    logger.info({
+      dashboardUrl: `http://localhost:${actualPort}/`,
+      healthUrl: `http://localhost:${actualPort}/health`,
+      dopplerHealthUrl: `http://localhost:${actualPort}/api/health/doppler`,
+      websocketUrl: `ws://localhost:${actualPort}/ws`,
+      apiBaseUrl: `http://localhost:${actualPort}/api/`
+    }, 'Service endpoints');
 
     // Start Doppler health monitoring (check every 15 minutes)
     await dopplerMonitor.startMonitoring(15);

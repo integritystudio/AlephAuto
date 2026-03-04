@@ -93,9 +93,9 @@ class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
       return;
     }
 
-    console.log('\n╔════════════════════════════════════════════════════════════════╗');
-    console.log('║          Plugin Audit Recommendations                          ║');
-    console.log('╚════════════════════════════════════════════════════════════════╝\n');
+    logger.info('\n╔════════════════════════════════════════════════════════════════╗');
+    logger.info('║          Plugin Audit Recommendations                          ║');
+    logger.info('╚════════════════════════════════════════════════════════════════╝\n');
 
     result.recommendations.forEach((rec) => {
       const priorityIcon: Record<string, string> = {
@@ -105,18 +105,18 @@ class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
       };
       const icon = priorityIcon[rec.priority] || '📌';
 
-      console.log(`${icon} [${rec.priority.toUpperCase()}] ${rec.type}`);
-      console.log(`   ${rec.message}`);
-      console.log(`   Action: ${rec.action}`);
+      logger.info(`${icon} [${rec.priority.toUpperCase()}] ${rec.type}`);
+      logger.info(`   ${rec.message}`);
+      logger.info(`   Action: ${rec.action}`);
 
       if (rec.details) {
-        console.log('   Details:');
+        logger.info('   Details:');
         rec.details.forEach((detail) => {
-          console.log(`     • ${detail.category}: ${detail.plugins.join(', ')}`);
-          console.log(`       → ${detail.suggestion}`);
+          logger.info(`     • ${detail.category}: ${detail.plugins.join(', ')}`);
+          logger.info(`       → ${detail.suggestion}`);
         });
       }
-      console.log('');
+      logger.info('');
     });
   }
 

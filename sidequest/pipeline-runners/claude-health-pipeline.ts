@@ -242,77 +242,77 @@ class ClaudeHealthPipeline extends BasePipeline<ClaudeHealthWorker> {
  * printSummary.
  */
 function printSummary(result: HealthCheckResult): void {
-  console.log('\n╔════════════════════════════════════════════════════════════════╗');
-  console.log('║          Claude Code Health Check Summary                     ║');
-  console.log('╚════════════════════════════════════════════════════════════════╝\n');
+  logger.info('\n╔════════════════════════════════════════════════════════════════╗');
+  logger.info('║          Claude Code Health Check Summary                     ║');
+  logger.info('╚════════════════════════════════════════════════════════════════╝\n');
 
-  console.log(`Health Score: ${getScoreColor(result.summary.healthScore)}${result.summary.healthScore}/100\x1b[0m`);
-  console.log(`Status:       ${result.summary.message}\n`);
+  logger.info(`Health Score: ${getScoreColor(result.summary.healthScore)}${result.summary.healthScore}/100\x1b[0m`);
+  logger.info(`Status:       ${result.summary.message}\n`);
 
   // Component inventory
   if (result.checks.components) {
-    console.log('Component Inventory:');
-    console.log(`  Skills:        ${result.checks.components.skills}`);
-    console.log(`  Agents:        ${result.checks.components.agents}`);
-    console.log(`  Commands:      ${result.checks.components.commands}`);
-    console.log(`  Hooks:         ${result.checks.hooks?.executableHooks ?? 0}/${result.checks.hooks?.totalHooks ?? 0} executable`);
-    console.log(`  Registered:    ${result.checks.hooks?.registeredHooks ?? 0} hook types`);
+    logger.info('Component Inventory:');
+    logger.info(`  Skills:        ${result.checks.components.skills}`);
+    logger.info(`  Agents:        ${result.checks.components.agents}`);
+    logger.info(`  Commands:      ${result.checks.components.commands}`);
+    logger.info(`  Hooks:         ${result.checks.hooks?.executableHooks ?? 0}/${result.checks.hooks?.totalHooks ?? 0} executable`);
+    logger.info(`  Registered:    ${result.checks.hooks?.registeredHooks ?? 0} hook types`);
     if (result.checks.plugins) {
-      console.log(`  Plugins:       ${result.checks.plugins.totalPlugins}`);
+      logger.info(`  Plugins:       ${result.checks.plugins.totalPlugins}`);
     }
-    console.log(`  Active Tasks:  ${result.checks.components.activeTasks}`);
-    console.log(`  Archived:      ${result.checks.components.archivedTasks}`);
-    console.log('');
+    logger.info(`  Active Tasks:  ${result.checks.components.activeTasks}`);
+    logger.info(`  Archived:      ${result.checks.components.archivedTasks}`);
+    logger.info('');
   }
 
   // Environment
   if (result.checks.environment) {
     const env = result.checks.environment;
-    console.log('Environment:');
-    console.log(`  Node.js:       ${env.nodeVersion ?? 'not found'}`);
-    console.log(`  npm:           ${env.npmVersion ?? 'not found'}`);
-    console.log(`  direnv:        ${env.direnv ? '✓ installed' : '✗ not installed'}`);
+    logger.info('Environment:');
+    logger.info(`  Node.js:       ${env.nodeVersion ?? 'not found'}`);
+    logger.info(`  npm:           ${env.npmVersion ?? 'not found'}`);
+    logger.info(`  direnv:        ${env.direnv ? '✓ installed' : '✗ not installed'}`);
     if (env.direnv && !env.direnvAllowed) {
-      console.log(`  \x1b[33m⚠  Environment variables not loaded\x1b[0m`);
+      logger.info(`  \x1b[33m⚠  Environment variables not loaded\x1b[0m`);
     }
-    console.log('');
+    logger.info('');
   }
 
   // Summary statistics
-  console.log('Summary:');
-  console.log(`  Critical Issues: ${result.summary.criticalIssues}`);
-  console.log(`  Warnings:        ${result.summary.warnings}`);
-  console.log(`  Duration:        ${result.duration}ms\n`);
+  logger.info('Summary:');
+  logger.info(`  Critical Issues: ${result.summary.criticalIssues}`);
+  logger.info(`  Warnings:        ${result.summary.warnings}`);
+  logger.info(`  Duration:        ${result.duration}ms\n`);
 }
 
 /**
  * printRecommendations.
  */
 function printRecommendations(recommendations: Recommendation[]): void {
-  console.log('╔════════════════════════════════════════════════════════════════╗');
-  console.log('║          Recommendations                                       ║');
-  console.log('╚════════════════════════════════════════════════════════════════╝\n');
+  logger.info('╔════════════════════════════════════════════════════════════════╗');
+  logger.info('║          Recommendations                                       ║');
+  logger.info('╚════════════════════════════════════════════════════════════════╝\n');
 
   for (const rec of recommendations) {
     const icon = rec.priority === 'high' ? '🔴' : rec.priority === 'medium' ? '🟡' : '✅';
     const priority = rec.priority.toUpperCase();
 
-    console.log(`${icon} [${priority}] ${rec.type}`);
-    console.log(`   ${rec.message}`);
-    console.log(`   Action: ${rec.action}`);
+    logger.info(`${icon} [${priority}] ${rec.type}`);
+    logger.info(`   ${rec.message}`);
+    logger.info(`   Action: ${rec.action}`);
 
     if (rec.details) {
-      console.log('   Details:');
+      logger.info('   Details:');
       for (const detail of rec.details) {
         if (detail.category && detail.plugins) {
-          console.log(`     • ${detail.category}: ${detail.plugins.join(', ')}`);
+          logger.info(`     • ${detail.category}: ${detail.plugins.join(', ')}`);
           if (detail.suggestion) {
-            console.log(`       → ${detail.suggestion}`);
+            logger.info(`       → ${detail.suggestion}`);
           }
         }
       }
     }
-    console.log('');
+    logger.info('');
   }
 }
 
@@ -320,57 +320,57 @@ function printRecommendations(recommendations: Recommendation[]): void {
  * printDetailedChecks.
  */
 function printDetailedChecks(checks: HealthCheckResult['checks']): void {
-  console.log('╔════════════════════════════════════════════════════════════════╗');
-  console.log('║          Detailed Check Results                                ║');
-  console.log('╚════════════════════════════════════════════════════════════════╝\n');
+  logger.info('╔════════════════════════════════════════════════════════════════╗');
+  logger.info('║          Detailed Check Results                                ║');
+  logger.info('╚════════════════════════════════════════════════════════════════╝\n');
 
   // Configuration
   if (checks.configuration) {
-    console.log('Configuration Files:');
-    console.log(`  settings.json:     ${checks.configuration.settingsJson.valid ? '✓' : '✗'} valid`);
-    console.log(`  skill-rules.json:  ${checks.configuration.skillRulesJson.valid ? '✓' : '✗'} valid`);
-    console.log(`  package.json:      ${checks.configuration.packageJson.valid ? '✓' : '✗'} valid`);
-    console.log(`  .envrc:            ${checks.configuration.envrc.exists ? '✓' : '✗'} exists`);
-    console.log('');
+    logger.info('Configuration Files:');
+    logger.info(`  settings.json:     ${checks.configuration.settingsJson.valid ? '✓' : '✗'} valid`);
+    logger.info(`  skill-rules.json:  ${checks.configuration.skillRulesJson.valid ? '✓' : '✗'} valid`);
+    logger.info(`  package.json:      ${checks.configuration.packageJson.valid ? '✓' : '✗'} valid`);
+    logger.info(`  .envrc:            ${checks.configuration.envrc.exists ? '✓' : '✗'} exists`);
+    logger.info('');
   }
 
   // Hooks
   if (checks.hooks?.hooks) {
-    console.log('Hook Details:');
+    logger.info('Hook Details:');
     for (const hook of checks.hooks.hooks) {
       const status = hook.executable ? '✓' : '✗';
-      console.log(`  ${status} ${hook.name}`);
+      logger.info(`  ${status} ${hook.name}`);
     }
-    console.log('');
+    logger.info('');
   }
 
   // Plugins
   if (checks.plugins?.duplicateCategories && checks.plugins.duplicateCategories.length > 0) {
-    console.log('Duplicate Plugin Categories:');
+    logger.info('Duplicate Plugin Categories:');
     for (const cat of checks.plugins.duplicateCategories) {
-      console.log(`  ${cat.category} (${cat.count} plugins):`);
+      logger.info(`  ${cat.category} (${cat.count} plugins):`);
       for (const plugin of cat.plugins) {
-        console.log(`    • ${plugin}`);
+        logger.info(`    • ${plugin}`);
       }
     }
-    console.log('');
+    logger.info('');
   }
 
   // Performance
   if (checks.performance?.logExists) {
-    console.log('Performance:');
-    console.log(`  Log size:       ${formatBytes(checks.performance.logSize)}`);
-    console.log(`  Total entries:  ${checks.performance.totalEntries}`);
-    console.log(`  Slow hooks:     ${checks.performance.slowHooks}`);
-    console.log(`  Failures:       ${checks.performance.failures}`);
+    logger.info('Performance:');
+    logger.info(`  Log size:       ${formatBytes(checks.performance.logSize)}`);
+    logger.info(`  Total entries:  ${checks.performance.totalEntries}`);
+    logger.info(`  Slow hooks:     ${checks.performance.slowHooks}`);
+    logger.info(`  Failures:       ${checks.performance.failures}`);
 
     if (checks.performance.slowHookDetails && checks.performance.slowHookDetails.length > 0) {
-      console.log('\n  Slowest hooks:');
+      logger.info('\n  Slowest hooks:');
       for (const hook of checks.performance.slowHookDetails) {
-        console.log(`    • ${hook.hook}: ${hook.duration}ms`);
+        logger.info(`    • ${hook.hook}: ${hook.duration}ms`);
       }
     }
-    console.log('');
+    logger.info('');
   }
 }
 
@@ -428,8 +428,8 @@ logger.info({
       logger.info({ schedule: CRON_SCHEDULE }, 'Setting up cron schedule');
       pipeline.scheduleHealthChecks(CRON_SCHEDULE);
 
-      console.log(`\n✓ Claude Health Check scheduled: ${CRON_SCHEDULE}`);
-      console.log('  Press Ctrl+C to stop\n');
+      logger.info({ cronSchedule: CRON_SCHEDULE }, 'Claude Health Check scheduled');
+      logger.info('Press Ctrl+C to stop');
 
       // Keep process alive
       process.stdin.resume();

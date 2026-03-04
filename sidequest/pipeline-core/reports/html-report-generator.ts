@@ -665,8 +665,7 @@ export class HTMLReportGenerator {
    */
   private static _getScripts(): string {
     return `
-        // Add interactivity here if needed
-        console.log('Duplicate Detection Report loaded');
+        // Add interactivity hooks here if needed.
     `;
   }
 
