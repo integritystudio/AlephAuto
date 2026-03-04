@@ -1,3 +1,17 @@
+113010d 2026-03-04 chore(repomix): centralize bundle ignores and regenerate outputs
+  docs/repomix/repomix-docs.xml
+  docs/repomix/repomix-git-ranked.xml
+  docs/repomix/repomix.xml
+
+56ecd41 2026-03-04 chore(repomix): refresh docs-only bundle
+  docs/repomix/repomix-docs.xml
+
+e94204c 2026-03-04 chore(repomix): add docs bundles and generation helpers
+  docs/repomix/repo-compressed.xml
+  docs/repomix/repomix-docs.xml
+  docs/repomix/repomix-git-ranked.xml
+  docs/repomix/repomix.xml
+
 e6bad80 2026-03-04 chore(repomix): refresh gitlog and compressed artifacts
   docs/repomix/gitlog-sidequest.txt
   docs/repomix/repo-compressed.xml
@@ -5,7 +19,6 @@ e6bad80 2026-03-04 chore(repomix): refresh gitlog and compressed artifacts
   sidequest/docs/gitlog-sidequest.txt
 
 fcfec59 2026-03-04 refactor: centralize session-introduced magic literals
-  sidequest/pipeline-core/similarity/grouping.py
   sidequest/pipeline-runners/collect_git_activity.py
   sidequest/utils/refactor-test-suite.ts
 
@@ -44,12 +57,10 @@ b150b8a 2026-03-04 chore: refresh docs, repomix artifacts, and test coverage
 
 b0ca84a 2026-03-04 style(sidequest): apply ruff formatting
   sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/similarity/grouping.py
   sidequest/pipeline-runners/collect_git_activity.py
 
 b488c1d 2026-03-04 fix(sidequest): resolve lint, ruff, and typecheck failures
   sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/similarity/grouping.py
 
 ab0c7f9 2026-03-04 refactor(sidequest): relocate duplicate detection types and align tests
   sidequest/repomix-output.xml
@@ -86,7 +97,6 @@ fa5bd57 2026-03-04 docs(architecture): align git activity flow with current sche
   sidequest/docs/gitlog-sidequest.txt
   sidequest/repomix-output.xml
   sidequest/utils/refactor-test-suite.ts
-  tests/unit/activity-feed.test.ts
 
 4287dd6 2026-03-04 fix(git-activity): harden subprocess argv/cwd and refresh repomix
   sidequest/pipeline-runners/collect_git_activity.py
@@ -120,21 +130,16 @@ a27b26b 2026-03-03 more robust repomix files
   docs/repomix/repo-compressed.xml
   docs/repomix/repomix.xml
   sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/similarity/grouping.py
 
 1c5972c 2026-03-03 (chore) update docs
   docs/repomix/repo-compressed.xml
   docs/repomix/repomix.xml
-
-4690b4d 2026-03-01 refactor(pipeline): replace numbered docstring list with bullets in grouping.py
-  sidequest/pipeline-core/similarity/grouping.py
 
 1a9ce69 2026-03-01 refactor(pipeline): extract inline CSS colors to ChartColors constants
   sidequest/pipeline-runners/collect_git_activity.py
 
 ce97a5f 2026-03-01 refactor(pipeline): eliminate remaining magic numbers (126 → 31)
   sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/similarity/grouping.py
   sidequest/pipeline-runners/collect_git_activity.py
 
 ffb9601 2026-03-01 refactor(pipeline): replace remaining magic numbers with named constants
@@ -142,16 +147,13 @@ ffb9601 2026-03-01 refactor(pipeline): replace remaining magic numbers with name
 
 99f96d5 2026-03-01 refactor(pipeline): centralize magic numbers into constants.py
   sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/similarity/grouping.py
   sidequest/pipeline-runners/collect_git_activity.py
 
 d71098e 2026-03-01 refactor(pipeline): extract remaining magic numbers to constants.py
   sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/similarity/grouping.py
 
 56d2c5a 2026-03-01 refactor(pipeline): centralize magic numbers into constants.py
   sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/similarity/grouping.py
   sidequest/pipeline-runners/collect_git_activity.py
 
 a9e0a56 2026-02-26 refactor: extract helpers to reduce complexity in test/script files (CX2-CX10)
@@ -179,15 +181,8 @@ e1fc1eb 2026-02-25 chore: remove completed migration audit doc and update repomi
 8ddeb49 2026-02-25 chore(lint): add ESLint config with TypeScript support
   pnpm-lock.yaml
 
-9a450fa 2026-02-24 test(review-fixes): address high/medium/low findings from code review
-  tests/unit/activity-feed.test.ts
-
-6196f96 2026-02-24 test(tst-m10,m11,m15): extract factory, parameterize constructor tests, de-flakify port test
-  tests/unit/activity-feed.test.ts
-
 75b3bc2 2026-02-24 test(database): replace assert.ok(true) with meaningful assertions
   sidequest/repomix-output.xml
-  tests/unit/activity-feed.test.ts
 
 23caae1 2026-02-24 feat(ts-migration): migrate Phase 9 API layer to TypeScript
   pnpm-lock.yaml
@@ -236,9 +231,6 @@ ddb7da0 2026-02-08 update pnpm subdependencies
 91297a7 2026-02-03 fix(git-activity): update Jekyll frontmatter and remove duplicate title
   sidequest/pipeline-runners/collect_git_activity.py
 
-587d80c 2026-02-03 refactor(similarity): centralize threshold config and tune MIN_UNIQUE_TOKENS
-  sidequest/pipeline-core/similarity/grouping.py
-
 812a8d7 2026-02-03 feat(pipeline): add semantic categories for process_io, timing, tracing
   sidequest/pipeline-core/extractors/extract_blocks.py
 
@@ -254,12 +246,6 @@ cc5cbd1 2026-02-02 feat(git-activity): expand repo scanning to dotfiles and addi
 150fcda 2026-02-02 refactor logging into packages
   pnpm-lock.yaml
 
-f6b83f6 2026-02-02 feat(pipeline-core): add type stubs and Layer 3 timing metrics
-  sidequest/pipeline-core/similarity/grouping.py
-
-413d1a7 2026-02-02 refactor(annotator): rename annotate() to extract_annotation()
-  sidequest/pipeline-core/similarity/grouping.py
-
 aff0104 2026-02-01 refactor(logging): remove redundant DEBUG checks before _debug calls
   sidequest/pipeline-core/extractors/extract_blocks.py
 
@@ -269,19 +255,11 @@ aff0104 2026-02-01 refactor(logging): remove redundant DEBUG checks before _debu
 f78c7f5 2026-02-01 feat(metrics): add semantic annotation coverage metrics
   sidequest/pipeline-core/extractors/extract_blocks.py
 
-c0df1c1 2026-02-01 fix(grouping): address code review feedback on docstrings
-  sidequest/pipeline-core/similarity/grouping.py
-
-da41cb3 2026-02-01 docs(grouping): add comprehensive docstrings to helper functions
-  sidequest/pipeline-core/similarity/grouping.py
-
 e6a9044 2026-02-01 fix(security): address critical and high priority code review issues
   sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/similarity/grouping.py
 
 c07f736 2026-02-01 feat(pipeline): implement Layer 3 semantic similarity detection
   sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/similarity/grouping.py
 
 ec8a3be 2026-02-01 docs: complete L6-L8 documentation backlog items
   docs/architecture/similarity-algorithm.md
@@ -313,14 +291,8 @@ e3ae29d 2026-01-16 fix(security): resolve high-severity vulnerabilities in depen
 5def1bd 2026-01-16 chore: update pnpm-lock.yaml for c8 dependency
   pnpm-lock.yaml
 
-921ecd7 2026-01-16 refactor(grouping): extract _try_accept_group helper for duplicate logic
-  sidequest/pipeline-core/similarity/grouping.py
-
 84064fe 2026-01-16 refactor(collect_git_activity): reduce main() complexity 17→4
   sidequest/pipeline-runners/collect_git_activity.py
-
-03f618f 2026-01-16 refactor(grouping): add semantic check registry pattern
-  sidequest/pipeline-core/similarity/grouping.py
 
 eff351d 2026-01-16 refactor(extractors): reduce complexity in extract_blocks.py
   sidequest/pipeline-core/extractors/extract_blocks.py
@@ -380,7 +352,6 @@ b7e6e76 2025-11-24 doc updates
 
 1bbda9f 2025-11-23 fix: update Python pipeline imports after lib reorganization
   sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/similarity/grouping.py
 
 fccefe2 2025-11-23 fix: update extractorScript path and pipeline jobs endpoint
   sidequest/repomix-output.xml
@@ -390,7 +361,6 @@ fccefe2 2025-11-23 fix: update extractorScript path and pipeline jobs endpoint
 
 bcb1bb1 2025-11-23 refactor: move lib to sidequest/pipeline-core and migrate to TypeScript
   sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/similarity/grouping.py
 
 291a13c 2025-11-23 organize pipelines
   docs/architecture/ERROR_HANDLING.md

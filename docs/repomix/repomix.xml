@@ -31393,142 +31393,7 @@ tsconfig.json</directory_structure><files>This section contains the contents of 
 243: if (import.meta.url === `file://${process.argv[1]}`) {
 244:   main();
 245: }
-246: export { cleanup, scanErrorLogs };</file><file path="scripts/generate-repomix-docs.sh">1: set -euo pipefail
-2: ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
-3: OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
-4: CONFIG_FILE=&quot;$ROOT/scripts/repomix-docs.config.json&quot;
-5: FORCE_COLOR=0 NO_COLOR=1 timeout 60 \
-6: npx repomix &quot;$ROOT&quot; -c &quot;$CONFIG_FILE&quot; -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/generate-repomix-git-ranked.sh"> 1: set -euo pipefail
- 2: ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt; [include_logs_count]}&quot;
- 3: OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt; [include_logs_count]}&quot;
- 4: INCLUDE_LOGS_COUNT=&quot;${3:-200}&quot;
- 5: INCLUDE_DIFFS=&quot;${REPOMIX_INCLUDE_DIFFS:-true}&quot;
- 6: INCLUDE_LOGS=&quot;${REPOMIX_INCLUDE_LOGS:-true}&quot;
- 7: SORT_BY_CHANGES_MAX_COMMITS=&quot;${REPOMIX_SORT_BY_CHANGES_MAX_COMMITS:-1000}&quot;
- 8: TIMEOUT_SECONDS=&quot;${REPOMIX_TIMEOUT_SECONDS:-120}&quot;
- 9: if ! [[ &quot;$INCLUDE_LOGS_COUNT&quot; =~ ^[0-9]+$ ]] || [[ &quot;$INCLUDE_LOGS_COUNT&quot; -lt 0 ]]; then
-10:   echo &quot;include_logs_count must be a non-negative integer: $INCLUDE_LOGS_COUNT&quot; &gt;&amp;2
-11:   exit 1
-12: fi
-13: if ! [[ &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot; =~ ^[0-9]+$ ]] || [[ &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot; -lt 1 ]]; then
-14:   echo &quot;REPOMIX_SORT_BY_CHANGES_MAX_COMMITS must be a positive integer: $SORT_BY_CHANGES_MAX_COMMITS&quot; &gt;&amp;2
-15:   exit 1
-16: fi
-17: if [[ &quot;$INCLUDE_DIFFS&quot; != &quot;true&quot; &amp;&amp; &quot;$INCLUDE_DIFFS&quot; != &quot;false&quot; ]]; then
-18:   echo &quot;REPOMIX_INCLUDE_DIFFS must be true|false: $INCLUDE_DIFFS&quot; &gt;&amp;2
-19:   exit 1
-20: fi
-21: if [[ &quot;$INCLUDE_LOGS&quot; != &quot;true&quot; &amp;&amp; &quot;$INCLUDE_LOGS&quot; != &quot;false&quot; ]]; then
-22:   echo &quot;REPOMIX_INCLUDE_LOGS must be true|false: $INCLUDE_LOGS&quot; &gt;&amp;2
-23:   exit 1
-24: fi
-25: TMP_CONFIG=&quot;$(mktemp &quot;${TMPDIR:-/tmp}/repomix-git-ranked.XXXXXX.json&quot;)&quot;
-26: cleanup() {
-27:   rm -f &quot;$TMP_CONFIG&quot;
-28: }
-29: trap cleanup EXIT
-30: is_generated_bundle_artifact() {
-31:   local rel_path=&quot;$1&quot;
-32:   case &quot;$rel_path&quot; in
-33:     docs/repomix/*.xml|docs/repomix/*.txt|sidequest/repomix-output.xml|sidequest/docs/gitlog-sidequest.txt)
-34:       return 0
-35:       ;;
-36:     *)
-37:       return 1
-38:       ;;
-39:   esac
-40: }
-41: declare -A seen=()
-42: include_files=()
-43: while IFS= read -r -d &apos;&apos; rel_path; do
-44:   [[ -z &quot;$rel_path&quot; ]] &amp;&amp; continue
-45:   if is_generated_bundle_artifact &quot;$rel_path&quot;; then
-46:     continue
-47:   fi
-48:   [[ -n &quot;${seen[$rel_path]:-}&quot; ]] &amp;&amp; continue
-49:   # Keep only files that still exist on disk so repomix can resolve them.
-50:   if [[ -f &quot;$ROOT/$rel_path&quot; ]]; then
-51:     seen[&quot;$rel_path&quot;]=1
-52:     include_files+=(&quot;$rel_path&quot;)
-53:   fi
-54: done &lt; &lt;(git -C &quot;$ROOT&quot; log --name-only --pretty=format: -z -n &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot;)
-55: if [[ &quot;${#include_files[@]}&quot; -eq 0 ]]; then
-56:   echo &quot;No existing files found in the selected commit window.&quot; &gt;&amp;2
-57:   exit 1
-58: fi
-59: include_files_json=&quot;$(printf &apos;%s\0&apos; &quot;${include_files[@]}&quot; | jq -Rs &apos;split(&quot;\u0000&quot;)[:-1]&apos;)&quot;
-60: jq -n \
-61:   --argjson includeFiles &quot;$include_files_json&quot; \
-62:   --argjson includeLogsCount &quot;$INCLUDE_LOGS_COUNT&quot; \
-63:   --argjson sortByChangesMaxCommits &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot; \
-64:   --arg includeDiffs &quot;$INCLUDE_DIFFS&quot; \
-65:   --arg includeLogs &quot;$INCLUDE_LOGS&quot; &apos;
-66: {
-67:   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
-68:   &quot;output&quot;: {
-69:     &quot;style&quot;: &quot;xml&quot;,
-70:     &quot;parsableStyle&quot;: true,
-71:     &quot;removeComments&quot;: true,
-72:     &quot;removeEmptyLines&quot;: true,
-73:     &quot;fileSummary&quot;: false,
-74:     &quot;directoryStructure&quot;: false,
-75:     &quot;files&quot;: true,
-76:     &quot;includeEmptyDirectories&quot;: false,
-77:     &quot;git&quot;: {
-78:       &quot;sortByChanges&quot;: true,
-79:       &quot;sortByChangesMaxCommits&quot;: $sortByChangesMaxCommits,
-80:       &quot;includeDiffs&quot;: ($includeDiffs == &quot;true&quot;),
-81:       &quot;includeLogs&quot;: ($includeLogs == &quot;true&quot;),
-82:       &quot;includeLogsCount&quot;: $includeLogsCount
-83:     }
-84:   },
-85:   &quot;include&quot;: $includeFiles
-86: }&apos; &gt; &quot;$TMP_CONFIG&quot;
-87: FORCE_COLOR=0 NO_COLOR=1 timeout &quot;$TIMEOUT_SECONDS&quot; \
-88:   npx repomix &quot;$ROOT&quot; -c &quot;$TMP_CONFIG&quot; -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/repomix-docs.config.json"> 1: {
- 2:   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
- 3: 
- 4:   &quot;output&quot;: {
- 5:     &quot;style&quot;: &quot;xml&quot;,
- 6:     &quot;parsableStyle&quot;: true,
- 7:     &quot;removeComments&quot;: true,
- 8:     &quot;removeEmptyLines&quot;: true,
- 9:     &quot;truncateBase64&quot;: true,
-10:     &quot;fileSummary&quot;: false,
-11:     &quot;directoryStructure&quot;: true,
-12:     &quot;files&quot;: true,
-13:     &quot;showLineNumbers&quot;: false,
-14:     &quot;includeEmptyDirectories&quot;: false,
-15:     &quot;git&quot;: {
-16:       &quot;includeDiffs&quot;: false,
-17:       &quot;includeLogs&quot;: false,
-18:       &quot;includeLogsCount&quot;: 1
-19:     }
-20:   },
-21: 
-22:   &quot;include&quot;: [
-23:     &quot;docs/**&quot;
-24:   ],
-25: 
-26:   &quot;ignore&quot;: {
-27:     &quot;useGitignore&quot;: true,
-28:     &quot;useDotIgnore&quot;: true,
-29:     &quot;useDefaultPatterns&quot;: true,
-30:     &quot;customPatterns&quot;: [
-31:       &quot;docs/repomix/**&quot;,
-32:       &quot;docs/repomix/repomix-docs.xml&quot;,
-33:       &quot;**/node_modules/**&quot;
-34:     ]
-35:   },
-36: 
-37:   &quot;security&quot;: {
-38:     &quot;enableSecurityCheck&quot;: true
-39:   },
-40: 
-41:   &quot;tokenCount&quot;: {
-42:     &quot;encoding&quot;: &quot;o200k_base&quot;
-43:   }
-44: }</file><file path="scripts/run-python-tests.sh"> 1: set -euo pipefail
+246: export { cleanup, scanErrorLogs };</file><file path="scripts/run-python-tests.sh"> 1: set -euo pipefail
  2: ROOT=&quot;$(cd &quot;$(dirname &quot;$0&quot;)/..&quot; &amp;&amp; pwd)&quot;
  3: TEST_TARGETS=(
  4:   &quot;sidequest/pipeline-core&quot;
@@ -37790,107 +37655,149 @@ tsconfig.json</directory_structure><files>This section contains the contents of 
 298:       dryRun: true,
 299:     });
 300:   }
-301: }</file><file path="sidequest/repomix.config.json">  1: {
-  2:   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
-  3: 
-  4:   &quot;output&quot;: {
-  5:     &quot;style&quot;: &quot;xml&quot;,
-  6:     &quot;parsableStyle&quot;: true,
-  7: 
-  8:     &quot;compress&quot;: false,
-  9:     &quot;removeComments&quot;: true,
- 10:     &quot;removeEmptyLines&quot;: true,
- 11:     &quot;truncateBase64&quot;: true,
- 12: 
- 13:     &quot;directoryStructure&quot;: true,
- 14:     &quot;files&quot;: true,
- 15:     &quot;fileSummary&quot;: false,
- 16: 
- 17:     &quot;topFilesLength&quot;: 10,
- 18:     &quot;showLineNumbers&quot;: false,
- 19: 
- 20:     &quot;git&quot;: {
- 21:       &quot;sortByChanges&quot;: true,
- 22:       &quot;sortByChangesMaxCommits&quot;: 200,
- 23:       &quot;includeDiffs&quot;: false,
- 24:       &quot;includeLogs&quot;: false,
- 25:       &quot;includeLogsCount&quot;: 1
- 26:     }
- 27:   },
- 28: 
- 29:   &quot;ignore&quot;: {
- 30:     &quot;useGitignore&quot;: true,
- 31:     &quot;useDotIgnore&quot;: true,
- 32:     &quot;useDefaultPatterns&quot;: true,
- 33:     &quot;customPatterns&quot;: [
- 34:       &quot;**/docs/**&quot;,
- 35:       &quot;**/node_modules/**&quot;,
- 36:       &quot;**/dist/**&quot;,
- 37:       &quot;**/build/**&quot;,
- 38:       &quot;**/out/**&quot;,
- 39:       &quot;**/.next/**&quot;,
- 40:       &quot;**/.turbo/**&quot;,
- 41:       &quot;**/.vite/**&quot;,
- 42:       &quot;**/coverage/**&quot;,
- 43:       &quot;**/fixtures/**&quot;,
- 44:       &quot;**/test-files/**&quot;,
- 45:       &quot;**/__snapshots__/**&quot;,
- 46:       &quot;**/*.snap&quot;,
- 47:       &quot;tests/**&quot;,
- 48:       &quot;**/*.test.*&quot;,
- 49:       &quot;**/*.spec.*&quot;,
- 50:       &quot;**/*.log&quot;,
- 51:       &quot;**/*.tmp&quot;,
- 52:       &quot;**/*.temp&quot;,
- 53:       &quot;**/*.cache&quot;,
- 54:       &quot;**/*.swp&quot;,
- 55:       &quot;**/*.swo&quot;,
- 56:       &quot;**/*.tsbuildinfo&quot;,
- 57:       &quot;**/__pycache__/**&quot;,
- 58:       &quot;**/*.pyc&quot;,
- 59:       &quot;**/*.pyo&quot;,
- 60:       &quot;**/*.map&quot;,
- 61:       &quot;**/*.min.js&quot;,
- 62:       &quot;**/*.min.css&quot;,
- 63:       &quot;**/*.png&quot;,
- 64:       &quot;**/*.jpg&quot;,
- 65:       &quot;**/*.jpeg&quot;,
- 66:       &quot;**/*.gif&quot;,
- 67:       &quot;**/*.webp&quot;,
- 68:       &quot;**/*.ico&quot;,
- 69:       &quot;**/*.pdf&quot;,
- 70:       &quot;**/*.zip&quot;,
- 71:       &quot;**/*.tar&quot;,
- 72:       &quot;**/*.gz&quot;,
- 73:       &quot;**/*.tgz&quot;,
- 74:       &quot;**/*.7z&quot;,
- 75:       &quot;**/*.mp4&quot;,
- 76:       &quot;**/*.mov&quot;,
- 77:       &quot;**/*.avi&quot;,
- 78:       &quot;**/*.mp3&quot;,
- 79:       &quot;**/*.wav&quot;,
- 80:       &quot;**/.env&quot;,
- 81:       &quot;**/.env.*&quot;,
- 82:       &quot;**/*.pem&quot;,
- 83:       &quot;**/*.key&quot;,
- 84:       &quot;**/*.p12&quot;,
- 85:       &quot;**/*.pfx&quot;,
- 86:       &quot;**/*secret*&quot;,
- 87:       &quot;.claude/**&quot;,
- 88:       &quot;**/.claude/**&quot;,
- 89:       &quot;.ast-grep-backups/**&quot;,
- 90:       &quot;**/.ast-grep-backups/**&quot;
- 91:     ]
- 92:   },
- 93: 
- 94:   &quot;security&quot;: {
- 95:     &quot;enableSecurityCheck&quot;: false
- 96:   },
- 97: 
- 98:   &quot;tokenCount&quot;: {
- 99:     &quot;encoding&quot;: &quot;o200k_base&quot;
-100:   }
-101: }</file><file path="scripts/generate-sidequest-gitlog.sh"> 1: set -euo pipefail
+301: }</file><file path="scripts/generate-repomix-docs.sh"> 1: set -euo pipefail
+ 2: ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
+ 3: OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
+ 4: CONFIG_FILE=&quot;$ROOT/scripts/repomix-docs.config.json&quot;
+ 5: BASE_CONFIG_FILE=&quot;$ROOT/repomix.config.json&quot;
+ 6: TMP_CONFIG=&quot;$(mktemp &quot;${TMPDIR:-/tmp}/repomix-docs.XXXXXX.json&quot;)&quot;
+ 7: cleanup() {
+ 8:   rm -f &quot;$TMP_CONFIG&quot;
+ 9: }
+10: trap cleanup EXIT
+11: BUNDLE_IGNORE_PATTERNS_JSON=&quot;$(
+12:   jq -c &apos;
+13:     [
+14:       .ignore.customPatterns[]?
+15:       | select(
+16:           . == &quot;docs/repomix/**&quot;
+17:           or . == &quot;**/repomix-output.*&quot;
+18:           or . == &quot;**/repo-compressed.*&quot;
+19:           or . == &quot;**/repomix.xml&quot;
+20:           or . == &quot;**/repo-compressed.xml&quot;
+21:         )
+22:     ] | unique
+23:   &apos; &quot;$BASE_CONFIG_FILE&quot;
+24: )&quot;
+25: jq \
+26:   --argjson bundleIgnorePatterns &quot;$BUNDLE_IGNORE_PATTERNS_JSON&quot; \
+27:   &apos;
+28:     .ignore.customPatterns = ((.ignore.customPatterns // []) + $bundleIgnorePatterns | unique)
+29:   &apos; \
+30:   &quot;$CONFIG_FILE&quot; &gt; &quot;$TMP_CONFIG&quot;
+31: FORCE_COLOR=0 NO_COLOR=1 timeout 60 \
+32: npx repomix &quot;$ROOT&quot; -c &quot;$TMP_CONFIG&quot; -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/generate-repomix-git-ranked.sh">  1: set -euo pipefail
+  2: ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt; [include_logs_count]}&quot;
+  3: OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt; [include_logs_count]}&quot;
+  4: INCLUDE_LOGS_COUNT=&quot;${3:-200}&quot;
+  5: INCLUDE_DIFFS=&quot;${REPOMIX_INCLUDE_DIFFS:-true}&quot;
+  6: INCLUDE_LOGS=&quot;${REPOMIX_INCLUDE_LOGS:-true}&quot;
+  7: SORT_BY_CHANGES_MAX_COMMITS=&quot;${REPOMIX_SORT_BY_CHANGES_MAX_COMMITS:-1000}&quot;
+  8: TIMEOUT_SECONDS=&quot;${REPOMIX_TIMEOUT_SECONDS:-120}&quot;
+  9: if ! [[ &quot;$INCLUDE_LOGS_COUNT&quot; =~ ^[0-9]+$ ]] || [[ &quot;$INCLUDE_LOGS_COUNT&quot; -lt 0 ]]; then
+ 10:   echo &quot;include_logs_count must be a non-negative integer: $INCLUDE_LOGS_COUNT&quot; &gt;&amp;2
+ 11:   exit 1
+ 12: fi
+ 13: if ! [[ &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot; =~ ^[0-9]+$ ]] || [[ &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot; -lt 1 ]]; then
+ 14:   echo &quot;REPOMIX_SORT_BY_CHANGES_MAX_COMMITS must be a positive integer: $SORT_BY_CHANGES_MAX_COMMITS&quot; &gt;&amp;2
+ 15:   exit 1
+ 16: fi
+ 17: if [[ &quot;$INCLUDE_DIFFS&quot; != &quot;true&quot; &amp;&amp; &quot;$INCLUDE_DIFFS&quot; != &quot;false&quot; ]]; then
+ 18:   echo &quot;REPOMIX_INCLUDE_DIFFS must be true|false: $INCLUDE_DIFFS&quot; &gt;&amp;2
+ 19:   exit 1
+ 20: fi
+ 21: if [[ &quot;$INCLUDE_LOGS&quot; != &quot;true&quot; &amp;&amp; &quot;$INCLUDE_LOGS&quot; != &quot;false&quot; ]]; then
+ 22:   echo &quot;REPOMIX_INCLUDE_LOGS must be true|false: $INCLUDE_LOGS&quot; &gt;&amp;2
+ 23:   exit 1
+ 24: fi
+ 25: TMP_CONFIG=&quot;$(mktemp &quot;${TMPDIR:-/tmp}/repomix-git-ranked.XXXXXX.json&quot;)&quot;
+ 26: cleanup() {
+ 27:   rm -f &quot;$TMP_CONFIG&quot;
+ 28: }
+ 29: trap cleanup EXIT
+ 30: BUNDLE_IGNORE_PATTERNS_FILE=&quot;$ROOT/repomix.config.json&quot;
+ 31: BUNDLE_IGNORE_PATTERNS_JSON=&quot;$(
+ 32:   jq -c &apos;
+ 33:     [
+ 34:       .ignore.customPatterns[]?
+ 35:       | select(
+ 36:           . == &quot;docs/repomix/**&quot;
+ 37:           or . == &quot;**/repomix-output.*&quot;
+ 38:           or . == &quot;**/repo-compressed.*&quot;
+ 39:           or . == &quot;**/repomix.xml&quot;
+ 40:           or . == &quot;**/repo-compressed.xml&quot;
+ 41:         )
+ 42:     ] | unique
+ 43:   &apos; &quot;$BUNDLE_IGNORE_PATTERNS_FILE&quot; 2&gt;/dev/null || echo &apos;[]&apos;
+ 44: )&quot;
+ 45: # Generated artifacts that should never be re-ingested into ranked bundles.
+ 46: is_generated_bundle_artifact() {
+ 47:   local rel_path=&quot;$1&quot;
+ 48:   case &quot;$rel_path&quot; in
+ 49:     sidequest/docs/gitlog-sidequest.txt)
+ 50:       return 0
+ 51:       ;;
+ 52:     *)
+ 53:       return 1
+ 54:       ;;
+ 55:   esac
+ 56: }
+ 57: # Build include list from files touched in the selected commit window.
+ 58: declare -A seen=()
+ 59: include_files=()
+ 60: while IFS= read -r -d &apos;&apos; rel_path; do
+ 61:   [[ -z &quot;$rel_path&quot; ]] &amp;&amp; continue
+ 62:   if is_generated_bundle_artifact &quot;$rel_path&quot;; then
+ 63:     continue
+ 64:   fi
+ 65:   [[ -n &quot;${seen[$rel_path]:-}&quot; ]] &amp;&amp; continue
+ 66:   # Keep only files that still exist on disk so repomix can resolve them.
+ 67:   if [[ -f &quot;$ROOT/$rel_path&quot; ]]; then
+ 68:     seen[&quot;$rel_path&quot;]=1
+ 69:     include_files+=(&quot;$rel_path&quot;)
+ 70:   fi
+ 71: done &lt; &lt;(git -C &quot;$ROOT&quot; log --name-only --pretty=format: -z -n &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot;)
+ 72: if [[ &quot;${#include_files[@]}&quot; -eq 0 ]]; then
+ 73:   echo &quot;No existing files found in the selected commit window.&quot; &gt;&amp;2
+ 74:   exit 1
+ 75: fi
+ 76: include_files_json=&quot;$(printf &apos;%s\0&apos; &quot;${include_files[@]}&quot; | jq -Rs &apos;split(&quot;\u0000&quot;)[:-1]&apos;)&quot;
+ 77: jq -n \
+ 78:   --argjson includeFiles &quot;$include_files_json&quot; \
+ 79:   --argjson bundleIgnorePatterns &quot;$BUNDLE_IGNORE_PATTERNS_JSON&quot; \
+ 80:   --argjson includeLogsCount &quot;$INCLUDE_LOGS_COUNT&quot; \
+ 81:   --argjson sortByChangesMaxCommits &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot; \
+ 82:   --arg includeDiffs &quot;$INCLUDE_DIFFS&quot; \
+ 83:   --arg includeLogs &quot;$INCLUDE_LOGS&quot; &apos;
+ 84: {
+ 85:   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
+ 86:   &quot;output&quot;: {
+ 87:     &quot;style&quot;: &quot;xml&quot;,
+ 88:     &quot;parsableStyle&quot;: true,
+ 89:     &quot;removeComments&quot;: true,
+ 90:     &quot;removeEmptyLines&quot;: true,
+ 91:     &quot;fileSummary&quot;: false,
+ 92:     &quot;directoryStructure&quot;: false,
+ 93:     &quot;files&quot;: true,
+ 94:     &quot;includeEmptyDirectories&quot;: false,
+ 95:     &quot;git&quot;: {
+ 96:       &quot;sortByChanges&quot;: true,
+ 97:       &quot;sortByChangesMaxCommits&quot;: $sortByChangesMaxCommits,
+ 98:       &quot;includeDiffs&quot;: ($includeDiffs == &quot;true&quot;),
+ 99:       &quot;includeLogs&quot;: ($includeLogs == &quot;true&quot;),
+100:       &quot;includeLogsCount&quot;: $includeLogsCount
+101:     }
+102:   },
+103:   &quot;ignore&quot;: {
+104:     &quot;useGitignore&quot;: true,
+105:     &quot;useDotIgnore&quot;: true,
+106:     &quot;useDefaultPatterns&quot;: true,
+107:     &quot;customPatterns&quot;: $bundleIgnorePatterns
+108:   },
+109:   &quot;include&quot;: $includeFiles
+110: }&apos; &gt; &quot;$TMP_CONFIG&quot;
+111: FORCE_COLOR=0 NO_COLOR=1 timeout &quot;$TIMEOUT_SECONDS&quot; \
+112:   npx repomix &quot;$ROOT&quot; -c &quot;$TMP_CONFIG&quot; -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/generate-sidequest-gitlog.sh"> 1: set -euo pipefail
  2: REPO_ROOT=&quot;$(cd &quot;$(dirname &quot;$0&quot;)/..&quot; &amp;&amp; pwd)&quot;
  3: COMMITS=&quot;${1:-200}&quot;
  4: DEFAULT_OUT=&quot;$REPO_ROOT/sidequest/docs/gitlog-sidequest.txt&quot;
@@ -37917,284 +37824,53 @@ tsconfig.json</directory_structure><files>This section contains the contents of 
 25:   echo &quot;Wrote: $MIRROR_OUT&quot;
 26: else
 27:   echo &quot;Wrote: $OUT&quot;
-28: fi</file><file path="scripts/repomix.config.json">  1: {
-  2:   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
-  3: 
-  4:   &quot;input&quot;: {
-  5:     &quot;maxFileSize&quot;: 50000000
-  6:   },
-  7: 
-  8:   &quot;output&quot;: {
-  9:     &quot;filePath&quot;: &quot;docs/repomix/repo-compressed.xml&quot;,
- 10:     &quot;style&quot;: &quot;xml&quot;,
- 11:     &quot;parsableStyle&quot;: true,
- 12: 
- 13:     &quot;compress&quot;: true,
- 14:     &quot;removeComments&quot;: true,
- 15:     &quot;removeEmptyLines&quot;: true,
- 16:     &quot;truncateBase64&quot;: true,
- 17: 
- 18:     &quot;fileSummary&quot;: false,
- 19:     &quot;directoryStructure&quot;: true,
- 20:     &quot;files&quot;: true,
- 21: 
- 22:     &quot;topFilesLength&quot;: 20,
- 23:     &quot;showLineNumbers&quot;: false,
- 24:     &quot;copyToClipboard&quot;: false,
- 25: 
- 26:     &quot;includeEmptyDirectories&quot;: false,
- 27:     &quot;includeFullDirectoryStructure&quot;: true,
- 28: 
- 29:     &quot;headerText&quot;: &quot;Repo bundle generated by Repomix (XML output, compressed). Focus on core runtime code first: api/, sidequest/, frontend/, scripts/, config/. Docs are mostly excluded to control token bloat. Git diffs/logs are disabled.&quot;,
- 30: 
- 31:     &quot;instructionFilePath&quot;: &quot;docs/repomix/repomix-instruction.md&quot;,
- 32: 
- 33:     &quot;git&quot;: {
- 34:       &quot;sortByChanges&quot;: true,
- 35:       &quot;sortByChangesMaxCommits&quot;: 200,
- 36:       &quot;includeDiffs&quot;: false,
- 37:       &quot;includeLogs&quot;: false,
- 38:       &quot;includeLogsCount&quot;: 1
- 39:     }
- 40:   },
- 41: 
- 42:   &quot;include&quot;: [
- 43:     &quot;api/**/*&quot;,
- 44:     &quot;frontend/**/*&quot;,
- 45:     &quot;sidequest/**/*&quot;,
- 46:     &quot;cloudflare-workers/**/*&quot;,
- 47:     &quot;config/**/*&quot;,
- 48:     &quot;scripts/**/*&quot;,
- 49:     &quot;nginx/**/*&quot;,
- 50:     &quot;.github/**/*&quot;,
- 51:     &quot;.husky/**/*&quot;,
- 52:     &quot;.ast-grep/**/*&quot;,
- 53: 
- 54:     &quot;package.json&quot;,
- 55:     &quot;pnpm-workspace.yaml&quot;,
- 56:     &quot;tsconfig.json&quot;,
- 57:     &quot;eslint.config.js&quot;,
- 58:     &quot;render.yaml&quot;,
- 59:     &quot;requirements.txt&quot;,
- 60:     &quot;README.md&quot;,
- 61:     &quot;CLAUDE.md&quot;,
- 62:     &quot;GEMINI.md&quot;,
- 63:     &quot;.mise.toml&quot;,
- 64:     &quot;.repomixignore&quot;,
- 65:     &quot;.env.example&quot;
- 66:   ],
- 67: 
- 68:   &quot;ignore&quot;: {
- 69:     &quot;useGitignore&quot;: true,
- 70:     &quot;useDotIgnore&quot;: true,
- 71:     &quot;useDefaultPatterns&quot;: true,
- 72: 
- 73:     &quot;customPatterns&quot;: [
- 74:       &quot;**/docs/**&quot;,
- 75:       &quot;docs/**&quot;,
- 76: 
- 77:       &quot;docs/repomix/**&quot;,
- 78:       &quot;**/repo-compressed.xml&quot;,
- 79:       &quot;**/repomix.xml&quot;,
- 80: 
- 81:       &quot;**/.ast-grep-backups/**&quot;,
- 82:       &quot;.ast-grep-backups/**&quot;,
- 83: 
- 84:       &quot;**/node_modules/**&quot;,
- 85:       &quot;**/dist/**&quot;,
- 86:       &quot;**/build/**&quot;,
- 87:       &quot;**/out/**&quot;,
- 88:       &quot;**/.next/**&quot;,
- 89:       &quot;**/.turbo/**&quot;,
- 90:       &quot;**/.vite/**&quot;,
- 91:       &quot;**/coverage/**&quot;,
- 92: 
- 93:       &quot;**/*.log&quot;,
- 94:       &quot;**/*.tmp&quot;,
- 95:       &quot;**/*.temp&quot;,
- 96:       &quot;**/*.cache&quot;,
- 97:       &quot;**/*.swp&quot;,
- 98:       &quot;**/*.swo&quot;,
- 99:       &quot;**/*.tsbuildinfo&quot;,
-100:       &quot;**/*.map&quot;,
-101:       &quot;**/*.min.js&quot;,
-102:       &quot;**/*.min.css&quot;,
-103: 
-104:       &quot;**/__snapshots__/**&quot;,
-105:       &quot;**/*.snap&quot;,
-106:       &quot;tests/**&quot;,
-107:       &quot;**/*.test.*&quot;,
-108:       &quot;**/*.spec.*&quot;,
-109: 
-110:       &quot;**/fixtures/**&quot;,
-111:       &quot;**/test-files/**&quot;,
-112:       &quot;**/manual/**&quot;,
-113:       &quot;**/results/**&quot;,
-114: 
-115:       &quot;**/*.png&quot;,
-116:       &quot;**/*.jpg&quot;,
-117:       &quot;**/*.jpeg&quot;,
-118:       &quot;**/*.gif&quot;,
-119:       &quot;**/*.webp&quot;,
-120:       &quot;**/*.ico&quot;,
-121:       &quot;**/*.pdf&quot;,
-122:       &quot;**/*.zip&quot;,
-123:       &quot;**/*.tar&quot;,
-124:       &quot;**/*.gz&quot;,
-125:       &quot;**/*.tgz&quot;,
-126:       &quot;**/*.7z&quot;,
-127:       &quot;**/*.mp4&quot;,
-128:       &quot;**/*.mov&quot;,
-129:       &quot;**/*.avi&quot;,
-130:       &quot;**/*.mp3&quot;,
-131:       &quot;**/*.wav&quot;,
-132: 
-133:       &quot;**/.env&quot;,
-134:       &quot;**/.env.*&quot;,
-135:       &quot;**/*.pem&quot;,
-136:       &quot;**/*.key&quot;,
-137:       &quot;**/*.p12&quot;,
-138:       &quot;**/*.pfx&quot;,
-139:       &quot;**/*secret*&quot;
-140:     ]
-141:   },
-142: 
-143:   &quot;security&quot;: {
-144:     &quot;enableSecurityCheck&quot;: true
-145:   },
-146: 
-147:   &quot;tokenCount&quot;: {
-148:     &quot;encoding&quot;: &quot;o200k_base&quot;
-149:   },
-150: 
-151:   &quot;tokenBudget&quot;: {
-152:     &quot;maxTokens&quot;: 200000
-153:   }
-154: }</file><file path="repomix.config.json">  1: {
-  2:   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
-  3: 
-  4:   &quot;output&quot;: {
-  5:     &quot;filePath&quot;: &quot;docs/repomix/repomix.xml&quot;,
-  6:     &quot;style&quot;: &quot;xml&quot;,
-  7:     &quot;parsableStyle&quot;: true,
-  8: 
-  9:     &quot;removeComments&quot;: true,
- 10:     &quot;removeEmptyLines&quot;: true,
- 11:     &quot;truncateBase64&quot;: true,
- 12: 
- 13:     &quot;fileSummary&quot;: false,
- 14:     &quot;directoryStructure&quot;: true,
- 15:     &quot;files&quot;: true,
- 16: 
- 17:     &quot;showLineNumbers&quot;: true,
- 18: 
- 19:     &quot;includeEmptyDirectories&quot;: false,
- 20:     &quot;instructionFilePath&quot;: &quot;docs/repomix/repomix-instruction.md&quot;,
- 21:     &quot;git&quot;: {
- 22:       &quot;sortByChanges&quot;: true,
- 23:       &quot;sortByChangesMaxCommits&quot;: 20,
- 24:       &quot;includeDiffs&quot;: false,
- 25:       &quot;includeLogs&quot;: false,
- 26:       &quot;includeLogsCount&quot;: 1
- 27:     }
- 28:   },
- 29: 
- 30:   &quot;include&quot;: [
- 31:     &quot;api/**/*&quot;,
- 32:     &quot;frontend/**/*&quot;,
- 33:     &quot;sidequest/**/*&quot;,
- 34:     &quot;scripts/**/*&quot;,
- 35:     &quot;config/**/*&quot;,
- 36:     &quot;cloudflare-workers/**/*&quot;,
- 37:     &quot;.ast-grep/**/*&quot;,
- 38:     &quot;.github/workflows/**/*&quot;,
- 39:     &quot;*.json&quot;,
- 40:     &quot;*.ts&quot;,
- 41:     &quot;*.tsx&quot;,
- 42:     &quot;*.js&quot;,
- 43:     &quot;*.py&quot;,
- 44:     &quot;*.sh&quot;
- 45:   ],
- 46: 
- 47:   &quot;ignore&quot;: {
- 48:     &quot;useGitignore&quot;: true,
- 49:     &quot;useDotIgnore&quot;: true,
- 50:     &quot;useDefaultPatterns&quot;: true,
- 51: 
- 52:     &quot;customPatterns&quot;: [
- 53:       &quot;docs/**&quot;,
- 54:       &quot;docs/archive/**&quot;,
- 55:       &quot;docs/backlog/**&quot;,
- 56:       &quot;docs/repomix/**&quot;,
- 57: 
- 58:       &quot;**/node_modules/**&quot;,
- 59:       &quot;**/.next/**&quot;,
- 60:       &quot;**/.turbo/**&quot;,
- 61:       &quot;**/.vite/**&quot;,
- 62:       &quot;**/dist/**&quot;,
- 63:       &quot;**/build/**&quot;,
- 64:       &quot;**/out/**&quot;,
- 65:       &quot;**/coverage/**&quot;,
- 66: 
- 67:       &quot;**/.ast-grep-backups/**&quot;,
- 68: 
- 69:       &quot;**/fixtures/**&quot;,
- 70:       &quot;**/test-files/**&quot;,
- 71:       &quot;**/__snapshots__/**&quot;,
- 72:       &quot;**/*.snap&quot;,
- 73:       &quot;tests/**&quot;,
- 74:       &quot;**/*.test.*&quot;,
- 75:       &quot;**/*.spec.*&quot;,
- 76: 
- 77:       &quot;**/*.log&quot;,
- 78:       &quot;**/*.tmp&quot;,
- 79:       &quot;**/*.temp&quot;,
- 80:       &quot;**/*.cache&quot;,
- 81:       &quot;**/*.swp&quot;,
- 82:       &quot;**/*.swo&quot;,
- 83:       &quot;**/*.tsbuildinfo&quot;,
- 84:       &quot;**/*.map&quot;,
- 85:       &quot;**/*.min.js&quot;,
- 86:       &quot;**/*.min.css&quot;,
- 87: 
- 88:       &quot;**/*.png&quot;,
- 89:       &quot;**/*.jpg&quot;,
- 90:       &quot;**/*.jpeg&quot;,
- 91:       &quot;**/*.gif&quot;,
- 92:       &quot;**/*.webp&quot;,
- 93:       &quot;**/*.ico&quot;,
- 94:       &quot;**/*.pdf&quot;,
- 95:       &quot;**/*.zip&quot;,
- 96:       &quot;**/*.tar&quot;,
- 97:       &quot;**/*.gz&quot;,
- 98:       &quot;**/*.tgz&quot;,
- 99:       &quot;**/*.7z&quot;,
-100: 
-101:       &quot;**/*.mp4&quot;,
-102:       &quot;**/*.mov&quot;,
-103:       &quot;**/*.avi&quot;,
-104:       &quot;**/*.mp3&quot;,
-105:       &quot;**/*.wav&quot;,
-106: 
-107:       &quot;**/.env&quot;,
-108:       &quot;**/.env.*&quot;,
-109:       &quot;**/*.pem&quot;,
-110:       &quot;**/*.key&quot;,
-111:       &quot;**/*.p12&quot;,
-112:       &quot;**/*.pfx&quot;,
-113:       &quot;**/*secret*&quot;
-114:     ]
-115:   },
-116: 
-117: 
-118:   &quot;security&quot;: {
-119:     &quot;enableSecurityCheck&quot;: true
-120:   },
-121: 
-122:   &quot;tokenCount&quot;: {
-123:     &quot;encoding&quot;: &quot;o200k_base&quot;
-124:   }
-125: }</file><file path="sidequest/pipeline-runners/bugfix-audit-pipeline.ts">  1: #!/usr/bin/env -S node --strip-types
+28: fi</file><file path="scripts/repomix-docs.config.json"> 1: {
+ 2:   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
+ 3: 
+ 4:   &quot;output&quot;: {
+ 5:     &quot;style&quot;: &quot;xml&quot;,
+ 6:     &quot;parsableStyle&quot;: true,
+ 7:     &quot;removeComments&quot;: false,
+ 8:     &quot;removeEmptyLines&quot;: false,
+ 9:     &quot;truncateBase64&quot;: false,
+10:     &quot;fileSummary&quot;: false,
+11:     &quot;directoryStructure&quot;: true,
+12:     &quot;files&quot;: true,
+13:     &quot;showLineNumbers&quot;: false,
+14:     &quot;includeEmptyDirectories&quot;: false,
+15:     &quot;git&quot;: {
+16:       &quot;includeDiffs&quot;: false,
+17:       &quot;includeLogs&quot;: false,
+18:       &quot;includeLogsCount&quot;: 1
+19:     }
+20:   },
+21: 
+22:   &quot;include&quot;: [
+23:     &quot;docs/**&quot;
+24:   ],
+25: 
+26:   &quot;ignore&quot;: {
+27:     &quot;useGitignore&quot;: true,
+28:     &quot;useDotIgnore&quot;: true,
+29:     &quot;useDefaultPatterns&quot;: true,
+30:     &quot;customPatterns&quot;: [
+31:       &quot;**/node_modules/**&quot;,
+32:       &quot;docs/repomix/**&quot;,
+33:       &quot;**/repomix-output.*&quot;,
+34:       &quot;**/repo-compressed.*&quot;,
+35:       &quot;**/repomix.xml&quot;,
+36:       &quot;**/repo-compressed.xml&quot;
+37:     ]
+38:   },
+39: 
+40:   &quot;security&quot;: {
+41:     &quot;enableSecurityCheck&quot;: true
+42:   },
+43: 
+44:   &quot;tokenCount&quot;: {
+45:     &quot;encoding&quot;: &quot;o200k_base&quot;
+46:   }
+47: }</file><file path="sidequest/pipeline-runners/bugfix-audit-pipeline.ts">  1: #!/usr/bin/env -S node --strip-types
   2: import { BugfixAuditWorker } from &apos;../workers/bugfix-audit-worker.ts&apos;;
   3: import { config } from &apos;../core/config.ts&apos;;
   4: import { JOB_EVENTS } from &apos;../core/constants.ts&apos;;
@@ -39715,244 +39391,267 @@ tsconfig.json</directory_structure><files>This section contains the contents of 
 243:     logger.info(&apos;Schema enhancement pipeline running. Press Ctrl+C to stop.&apos;);
 244:   }
 245: }
-246: export { SchemaEnhancementPipeline };</file><file path="package.json">  1: {
-  2:   &quot;name&quot;: &quot;repomix-cron-sidequest&quot;,
-  3:   &quot;version&quot;: &quot;1.0.0&quot;,
-  4:   &quot;description&quot;: &quot;Automated job management with sidequest server - repomix runner and documentation enhancement pipeline&quot;,
-  5:   &quot;main&quot;: &quot;api/server.ts&quot;,
-  6:   &quot;type&quot;: &quot;module&quot;,
-  7:   &quot;workspaces&quot;: [
-  8:     &quot;packages/*&quot;
-  9:   ],
- 10:   &quot;scripts&quot;: {
- 11:     &quot;start&quot;: &quot;node --strip-types api/server.ts&quot;,
- 12:     &quot;start:api&quot;: &quot;node --strip-types api/server.ts&quot;,
- 13:     &quot;dev&quot;: &quot;node --strip-types --watch api/server.ts&quot;,
- 14:     &quot;build:frontend&quot;: &quot;cd frontend &amp;&amp; npm ci --include=dev &amp;&amp; npm run build&quot;,
- 15:     &quot;dashboard&quot;: &quot;doppler run -- node --strip-types api/server.ts&quot;,
- 16:     &quot;fix:types&quot;: &quot;node --strip-types scripts/fix-types.ts&quot;,
- 17:     &quot;test&quot;: &quot;node --strip-types --test --test-timeout=30000 --test-force-exit --test-name-pattern=&apos;.&apos; tests/unit/*.test.ts&quot;,
- 18:     &quot;test:coverage&quot;: &quot;c8 --reporter=text --reporter=text-summary node --strip-types --test --test-timeout=30000 --test-force-exit --test-name-pattern=&apos;.&apos; tests/unit/*.test.ts&quot;,
- 19:     &quot;test:coverage:html&quot;: &quot;c8 --reporter=html --reporter=text-summary node --strip-types --test --test-timeout=30000 --test-force-exit --test-name-pattern=&apos;.&apos; tests/unit/*.test.ts&quot;,
- 20:     &quot;test:integration&quot;: &quot;node --strip-types --test --test-timeout=60000 --test-force-exit --test-concurrency=1 tests/integration/*.test.ts&quot;,
- 21:     &quot;test:cache&quot;: &quot;node --strip-types --test --test-timeout=60000 --test-force-exit tests/integration/test-cache-layer.ts&quot;,
- 22:     &quot;test:all:core&quot;: &quot;SKIP_ENV_SENSITIVE_TESTS=1 node --strip-types --test --test-timeout=30000 --test-force-exit $(rg --files tests/unit -g &apos;*.test.ts&apos; -g &apos;!api-routes.test.ts&apos;) $(rg --files tests/integration -g &apos;*.test.ts&apos; -g &apos;!error-recovery.integration.test.ts&apos; -g &apos;!pipeline-execution.integration.test.ts&apos; -g &apos;!port-manager.integration.test.ts&apos;) sidequest/core/*.test.ts sidequest/pipeline-runners/*.test.ts sidequest/utils/*.test.ts sidequest/workers/*.test.ts&quot;,
- 23:     &quot;test:all:env-safe&quot;: &quot;echo &apos;No env-safe tests currently defined&apos;&quot;,
- 24:     &quot;test:all:env-host-required&quot;: &quot;node --strip-types --test --test-timeout=60000 --test-force-exit tests/unit/api-routes.test.ts tests/unit/port-manager.test.ts tests/unit/websocket.test.ts tests/integration/error-recovery.integration.test.ts tests/integration/pipeline-execution.integration.test.ts tests/integration/port-manager.integration.test.ts sidequest/pipeline-runners/startup-once-mode.test.ts&quot;,
- 25:     &quot;test:all:env&quot;: &quot;npm run test:all:env-safe &amp;&amp; npm run test:all:env-host-required&quot;,
- 26:     &quot;test:all:node&quot;: &quot;npm run test:all:core&quot;,
- 27:     &quot;test:all:py&quot;: &quot;bash scripts/run-python-tests.sh&quot;,
- 28:     &quot;test:all&quot;: &quot;npm run test:all:core &amp;&amp; npm run test:all:py&quot;,
- 29:     &quot;test:all:full&quot;: &quot;npm run test:all:core &amp;&amp; npm run test:all:env &amp;&amp; npm run test:all:py&quot;,
- 30:     &quot;test:aall&quot;: &quot;npm run test:all&quot;,
- 31:     &quot;test:validate-paths&quot;: &quot;node --strip-types tests/scripts/validate-test-paths.ts&quot;,
- 32:     &quot;test:validate-backlog&quot;: &quot;node --strip-types tests/scripts/validate-backlog.ts&quot;,
- 33:     &quot;test:single&quot;: &quot;node --strip-types tests/scripts/test-single-job.ts&quot;,
- 34:     &quot;test:scanner&quot;: &quot;node --strip-types tests/scripts/test-directory-scanner.ts&quot;,
- 35:     &quot;test:gitignore&quot;: &quot;node --strip-types tests/scripts/test-gitignore-respect.ts&quot;,
- 36:     &quot;test:repomix-fix&quot;: &quot;node --strip-types tests/scripts/test-repomix-fix.ts&quot;,
- 37:     &quot;docs:enhance&quot;: &quot;RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts&quot;,
- 38:     &quot;docs:enhance:dry&quot;: &quot;RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts --dry-run&quot;,
- 39:     &quot;docs:enhance:schedule&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts&quot;,
- 40:     &quot;docs:test&quot;: &quot;node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts --run --dry-run --dir .&quot;,
- 41:     &quot;git:weekly&quot;: &quot;node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --weekly&quot;,
- 42:     &quot;git:monthly&quot;: &quot;node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --monthly&quot;,
- 43:     &quot;git:schedule&quot;: &quot;node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts&quot;,
- 44:     &quot;plugin:audit&quot;: &quot;RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/plugin-management-pipeline.ts&quot;,
- 45:     &quot;plugin:audit:detailed&quot;: &quot;DETAILED=true RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/plugin-management-pipeline.ts&quot;,
- 46:     &quot;plugin:schedule&quot;: &quot;node --strip-types sidequest/pipeline-runners/plugin-management-pipeline.ts&quot;,
- 47:     &quot;claude:health&quot;: &quot;zsh -c &apos;source ~/.zshrc &amp;&amp; RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/claude-health-pipeline.ts&apos;&quot;,
- 48:     &quot;claude:health:detailed&quot;: &quot;zsh -c &apos;source ~/.zshrc &amp;&amp; DETAILED=true RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/claude-health-pipeline.ts&apos;&quot;,
- 49:     &quot;claude:health:schedule&quot;: &quot;zsh -c &apos;source ~/.zshrc &amp;&amp; node --strip-types sidequest/pipeline-runners/claude-health-pipeline.ts --cron&apos;&quot;,
- 50:     &quot;claude:health:quick&quot;: &quot;zsh -c &apos;source ~/.zshrc &amp;&amp; SKIP_PERFORMANCE=true SKIP_PLUGINS=true RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/claude-health-pipeline.ts&apos;&quot;,
- 51:     &quot;gitignore:update&quot;: &quot;RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts&quot;,
- 52:     &quot;gitignore:update:dry&quot;: &quot;GITIGNORE_DRY_RUN=true RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts&quot;,
- 53:     &quot;gitignore:schedule&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts&quot;,
- 54:     &quot;cleanup:once&quot;: &quot;RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/repo-cleanup-pipeline.ts&quot;,
- 55:     &quot;cleanup:dryrun&quot;: &quot;CLEANUP_DRY_RUN=true RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/repo-cleanup-pipeline.ts&quot;,
- 56:     &quot;cleanup:schedule&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/repo-cleanup-pipeline.ts&quot;,
- 57:     &quot;setup:sentry&quot;: &quot;node docs/setup/setup-sentry.js&quot;,
- 58:     &quot;verify&quot;: &quot;node --strip-types scripts/verify-setup.ts&quot;,
- 59:     &quot;lint&quot;: &quot;eslint .&quot;,
- 60:     &quot;lint:fix&quot;: &quot;eslint . --fix&quot;,
- 61:     &quot;typecheck&quot;: &quot;tsc --noEmit&quot;,
- 62:     &quot;logs:cleanup&quot;: &quot;node --strip-types scripts/cleanup-error-logs.ts&quot;,
- 63:     &quot;logs:cleanup:dry&quot;: &quot;node --strip-types scripts/cleanup-error-logs.ts --dry-run&quot;,
- 64:     &quot;logs:cleanup:verbose&quot;: &quot;node --strip-types scripts/cleanup-error-logs.ts --verbose&quot;,
- 65:     &quot;permissions:check&quot;: &quot;node --strip-types scripts/validate-permissions.ts --check-only&quot;,
- 66:     &quot;permissions:fix&quot;: &quot;node --strip-types scripts/validate-permissions.ts --fix&quot;,
- 67:     &quot;prestart&quot;: &quot;node --strip-types scripts/validate-permissions.ts --fix&quot;,
- 68:     &quot;verify:bugfixes&quot;: &quot;./scripts/verify-bugfixes.sh&quot;,
- 69:     &quot;verify:bugfixes:pre&quot;: &quot;./scripts/verify-bugfixes.sh --pre&quot;,
- 70:     &quot;verify:bugfixes:post&quot;: &quot;./scripts/verify-bugfixes.sh --post&quot;,
- 71:     &quot;verify:bugfixes:health&quot;: &quot;./scripts/verify-bugfixes.sh --health&quot;,
- 72:     &quot;verify:bugfixes:smoke&quot;: &quot;./scripts/verify-bugfixes.sh --smoke&quot;,
- 73:     &quot;bugfix:once&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/bugfix-audit-pipeline.ts --run-now&quot;,
- 74:     &quot;bugfix:schedule&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/bugfix-audit-pipeline.ts --recurring&quot;,
- 75:     &quot;bugfix:tonight&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/bugfix-audit-pipeline.ts --once&quot;,
- 76:     &quot;dashboard:populate&quot;: &quot;RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/dashboard-populate-pipeline.ts --run-now&quot;,
- 77:     &quot;dashboard:populate:full&quot;: &quot;RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/dashboard-populate-pipeline.ts --run-now --no-seed&quot;,
- 78:     &quot;dashboard:populate:dry&quot;: &quot;RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/dashboard-populate-pipeline.ts --run-now --dry-run&quot;,
- 79:     &quot;dashboard:populate:schedule&quot;: &quot;node --strip-types sidequest/pipeline-runners/dashboard-populate-pipeline.ts&quot;
- 80:   },
- 81:   &quot;keywords&quot;: [
- 82:     &quot;repomix&quot;,
- 83:     &quot;cron&quot;,
- 84:     &quot;sidequest&quot;,
- 85:     &quot;sentry&quot;,
- 86:     &quot;documentation&quot;,
- 87:     &quot;schema.org&quot;,
- 88:     &quot;automation&quot;
- 89:   ],
- 90:   &quot;author&quot;: &quot;&quot;,
- 91:   &quot;license&quot;: &quot;MIT&quot;,
- 92:   &quot;dependencies&quot;: {
- 93:     &quot;@babel/core&quot;: &quot;^7.29.0&quot;,
- 94:     &quot;@babel/generator&quot;: &quot;^7.29.1&quot;,
- 95:     &quot;@babel/traverse&quot;: &quot;^7.29.0&quot;,
- 96:     &quot;@babel/types&quot;: &quot;^7.29.0&quot;,
- 97:     &quot;@isaacs/brace-expansion&quot;: &quot;^5.0.1&quot;,
- 98:     &quot;@sentry/node&quot;: &quot;^7.120.4&quot;,
- 99:     &quot;@shared/logging&quot;: &quot;workspace:*&quot;,
-100:     &quot;@shared/process-io&quot;: &quot;workspace:*&quot;,
-101:     &quot;better-sqlite3&quot;: &quot;^12.6.2&quot;,
-102:     &quot;cors&quot;: &quot;^2.8.6&quot;,
-103:     &quot;dompurify&quot;: &quot;^3.3.1&quot;,
-104:     &quot;dotenv&quot;: &quot;^17.2.4&quot;,
-105:     &quot;express&quot;: &quot;^5.2.1&quot;,
-106:     &quot;express-rate-limit&quot;: &quot;^8.2.1&quot;,
-107:     &quot;jsdom&quot;: &quot;^27.4.0&quot;,
-108:     &quot;marked&quot;: &quot;^17.0.1&quot;,
-109:     &quot;node-cron&quot;: &quot;^3.0.3&quot;,
-110:     &quot;pino&quot;: &quot;^9.14.0&quot;,
-111:     &quot;pino-pretty&quot;: &quot;^11.3.0&quot;,
-112:     &quot;repomix&quot;: &quot;^1.11.1&quot;,
-113:     &quot;ws&quot;: &quot;^8.19.0&quot;,
-114:     &quot;zod&quot;: &quot;^3.25.76&quot;
-115:   },
-116:   &quot;devDependencies&quot;: {
-117:     &quot;@babel/parser&quot;: &quot;^7.29.0&quot;,
-118:     &quot;@eslint/js&quot;: &quot;^10.0.1&quot;,
-119:     &quot;@sentry/vite-plugin&quot;: &quot;^4.9.0&quot;,
-120:     &quot;@types/babel__generator&quot;: &quot;^7.27.0&quot;,
-121:     &quot;@types/babel__traverse&quot;: &quot;^7.28.0&quot;,
-122:     &quot;@types/better-sqlite3&quot;: &quot;^7.6.13&quot;,
-123:     &quot;@types/cors&quot;: &quot;^2.8.19&quot;,
-124:     &quot;@types/express&quot;: &quot;^5.0.6&quot;,
-125:     &quot;@types/jsdom&quot;: &quot;^28.0.0&quot;,
-126:     &quot;@types/node&quot;: &quot;^20.19.33&quot;,
-127:     &quot;@types/node-cron&quot;: &quot;^3.0.11&quot;,
-128:     &quot;@types/ws&quot;: &quot;^8.18.1&quot;,
-129:     &quot;c8&quot;: &quot;^10.1.3&quot;,
-130:     &quot;chai&quot;: &quot;^4.5.0&quot;,
-131:     &quot;eslint&quot;: &quot;^10.0.2&quot;,
-132:     &quot;glob&quot;: &quot;^13.0.1&quot;,
-133:     &quot;js-yaml&quot;: &quot;^4.1.1&quot;,
-134:     &quot;supertest&quot;: &quot;^7.2.2&quot;,
-135:     &quot;typescript&quot;: &quot;^5.9.3&quot;,
-136:     &quot;typescript-eslint&quot;: &quot;^8.56.1&quot;
-137:   },
-138:   &quot;optionalDependencies&quot;: {
-139:     &quot;@ast-grep/cli&quot;: &quot;^0.40.5&quot;
-140:   },
-141:   &quot;imports&quot;: {
-142:     &quot;#sidequest/*.ts&quot;: &quot;./sidequest/*.ts&quot;,
-143:     &quot;#api/types/*.ts&quot;: &quot;./api/types/*.ts&quot;
-144:   },
-145:   &quot;engines&quot;: {
-146:     &quot;node&quot;: &quot;&gt;=22.0.0&quot;
+246: export { SchemaEnhancementPipeline };</file><file path="sidequest/repomix.config.json">  1: {
+  2:   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
+  3: 
+  4:   &quot;output&quot;: {
+  5:     &quot;style&quot;: &quot;xml&quot;,
+  6:     &quot;parsableStyle&quot;: true,
+  7: 
+  8:     &quot;compress&quot;: false,
+  9:     &quot;removeComments&quot;: true,
+ 10:     &quot;removeEmptyLines&quot;: true,
+ 11:     &quot;truncateBase64&quot;: true,
+ 12: 
+ 13:     &quot;directoryStructure&quot;: true,
+ 14:     &quot;files&quot;: true,
+ 15:     &quot;fileSummary&quot;: false,
+ 16: 
+ 17:     &quot;topFilesLength&quot;: 10,
+ 18:     &quot;showLineNumbers&quot;: false,
+ 19: 
+ 20:     &quot;git&quot;: {
+ 21:       &quot;sortByChanges&quot;: true,
+ 22:       &quot;sortByChangesMaxCommits&quot;: 200,
+ 23:       &quot;includeDiffs&quot;: false,
+ 24:       &quot;includeLogs&quot;: false,
+ 25:       &quot;includeLogsCount&quot;: 1
+ 26:     }
+ 27:   },
+ 28: 
+ 29:   &quot;ignore&quot;: {
+ 30:     &quot;useGitignore&quot;: true,
+ 31:     &quot;useDotIgnore&quot;: true,
+ 32:     &quot;useDefaultPatterns&quot;: true,
+ 33:     &quot;customPatterns&quot;: [
+ 34:       &quot;docs/repomix/**&quot;,
+ 35:       &quot;**/repomix-output.*&quot;,
+ 36:       &quot;**/repo-compressed.*&quot;,
+ 37:       &quot;**/repomix.xml&quot;,
+ 38:       &quot;**/repo-compressed.xml&quot;,
+ 39:       &quot;**/docs/**&quot;,
+ 40:       &quot;**/node_modules/**&quot;,
+ 41:       &quot;**/dist/**&quot;,
+ 42:       &quot;**/build/**&quot;,
+ 43:       &quot;**/out/**&quot;,
+ 44:       &quot;**/.next/**&quot;,
+ 45:       &quot;**/.turbo/**&quot;,
+ 46:       &quot;**/.vite/**&quot;,
+ 47:       &quot;**/coverage/**&quot;,
+ 48:       &quot;**/fixtures/**&quot;,
+ 49:       &quot;**/test-files/**&quot;,
+ 50:       &quot;**/__snapshots__/**&quot;,
+ 51:       &quot;**/*.snap&quot;,
+ 52:       &quot;tests/**&quot;,
+ 53:       &quot;**/*.test.*&quot;,
+ 54:       &quot;**/*.spec.*&quot;,
+ 55:       &quot;**/*.log&quot;,
+ 56:       &quot;**/*.tmp&quot;,
+ 57:       &quot;**/*.temp&quot;,
+ 58:       &quot;**/*.cache&quot;,
+ 59:       &quot;**/*.swp&quot;,
+ 60:       &quot;**/*.swo&quot;,
+ 61:       &quot;**/*.tsbuildinfo&quot;,
+ 62:       &quot;**/__pycache__/**&quot;,
+ 63:       &quot;**/*.pyc&quot;,
+ 64:       &quot;**/*.pyo&quot;,
+ 65:       &quot;**/*.map&quot;,
+ 66:       &quot;**/*.min.js&quot;,
+ 67:       &quot;**/*.min.css&quot;,
+ 68:       &quot;**/*.png&quot;,
+ 69:       &quot;**/*.jpg&quot;,
+ 70:       &quot;**/*.jpeg&quot;,
+ 71:       &quot;**/*.gif&quot;,
+ 72:       &quot;**/*.webp&quot;,
+ 73:       &quot;**/*.ico&quot;,
+ 74:       &quot;**/*.pdf&quot;,
+ 75:       &quot;**/*.zip&quot;,
+ 76:       &quot;**/*.tar&quot;,
+ 77:       &quot;**/*.gz&quot;,
+ 78:       &quot;**/*.tgz&quot;,
+ 79:       &quot;**/*.7z&quot;,
+ 80:       &quot;**/*.mp4&quot;,
+ 81:       &quot;**/*.mov&quot;,
+ 82:       &quot;**/*.avi&quot;,
+ 83:       &quot;**/*.mp3&quot;,
+ 84:       &quot;**/*.wav&quot;,
+ 85:       &quot;**/.env&quot;,
+ 86:       &quot;**/.env.*&quot;,
+ 87:       &quot;**/*.pem&quot;,
+ 88:       &quot;**/*.key&quot;,
+ 89:       &quot;**/*.p12&quot;,
+ 90:       &quot;**/*.pfx&quot;,
+ 91:       &quot;**/*secret*&quot;,
+ 92:       &quot;.claude/**&quot;,
+ 93:       &quot;**/.claude/**&quot;,
+ 94:       &quot;.ast-grep-backups/**&quot;,
+ 95:       &quot;**/.ast-grep-backups/**&quot;
+ 96:     ]
+ 97:   },
+ 98: 
+ 99:   &quot;security&quot;: {
+100:     &quot;enableSecurityCheck&quot;: false
+101:   },
+102: 
+103:   &quot;tokenCount&quot;: {
+104:     &quot;encoding&quot;: &quot;o200k_base&quot;
+105:   }
+106: }</file><file path="scripts/repomix.config.json">  1: {
+  2:   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
+  3: 
+  4:   &quot;input&quot;: {
+  5:     &quot;maxFileSize&quot;: 50000000
+  6:   },
+  7: 
+  8:   &quot;output&quot;: {
+  9:     &quot;filePath&quot;: &quot;docs/repomix/repo-compressed.xml&quot;,
+ 10:     &quot;style&quot;: &quot;xml&quot;,
+ 11:     &quot;parsableStyle&quot;: true,
+ 12: 
+ 13:     &quot;compress&quot;: true,
+ 14:     &quot;removeComments&quot;: true,
+ 15:     &quot;removeEmptyLines&quot;: true,
+ 16:     &quot;truncateBase64&quot;: true,
+ 17: 
+ 18:     &quot;fileSummary&quot;: false,
+ 19:     &quot;directoryStructure&quot;: true,
+ 20:     &quot;files&quot;: true,
+ 21: 
+ 22:     &quot;topFilesLength&quot;: 20,
+ 23:     &quot;showLineNumbers&quot;: false,
+ 24:     &quot;copyToClipboard&quot;: false,
+ 25: 
+ 26:     &quot;includeEmptyDirectories&quot;: false,
+ 27:     &quot;includeFullDirectoryStructure&quot;: true,
+ 28: 
+ 29:     &quot;headerText&quot;: &quot;Repo bundle generated by Repomix (XML output, compressed). Focus on core runtime code first: api/, sidequest/, frontend/, scripts/, config/. Docs are mostly excluded to control token bloat. Git diffs/logs are disabled.&quot;,
+ 30: 
+ 31:     &quot;instructionFilePath&quot;: &quot;docs/repomix/repomix-instruction.md&quot;,
+ 32: 
+ 33:     &quot;git&quot;: {
+ 34:       &quot;sortByChanges&quot;: true,
+ 35:       &quot;sortByChangesMaxCommits&quot;: 200,
+ 36:       &quot;includeDiffs&quot;: false,
+ 37:       &quot;includeLogs&quot;: false,
+ 38:       &quot;includeLogsCount&quot;: 1
+ 39:     }
+ 40:   },
+ 41: 
+ 42:   &quot;include&quot;: [
+ 43:     &quot;api/**/*&quot;,
+ 44:     &quot;frontend/**/*&quot;,
+ 45:     &quot;sidequest/**/*&quot;,
+ 46:     &quot;cloudflare-workers/**/*&quot;,
+ 47:     &quot;config/**/*&quot;,
+ 48:     &quot;scripts/**/*&quot;,
+ 49:     &quot;nginx/**/*&quot;,
+ 50:     &quot;.github/**/*&quot;,
+ 51:     &quot;.husky/**/*&quot;,
+ 52:     &quot;.ast-grep/**/*&quot;,
+ 53: 
+ 54:     &quot;package.json&quot;,
+ 55:     &quot;pnpm-workspace.yaml&quot;,
+ 56:     &quot;tsconfig.json&quot;,
+ 57:     &quot;eslint.config.js&quot;,
+ 58:     &quot;render.yaml&quot;,
+ 59:     &quot;requirements.txt&quot;,
+ 60:     &quot;README.md&quot;,
+ 61:     &quot;CLAUDE.md&quot;,
+ 62:     &quot;GEMINI.md&quot;,
+ 63:     &quot;.mise.toml&quot;,
+ 64:     &quot;.repomixignore&quot;,
+ 65:     &quot;.env.example&quot;
+ 66:   ],
+ 67: 
+ 68:   &quot;ignore&quot;: {
+ 69:     &quot;useGitignore&quot;: true,
+ 70:     &quot;useDotIgnore&quot;: true,
+ 71:     &quot;useDefaultPatterns&quot;: true,
+ 72: 
+ 73:     &quot;customPatterns&quot;: [
+ 74:       &quot;**/docs/**&quot;,
+ 75:       &quot;docs/**&quot;,
+ 76: 
+ 77:       &quot;docs/repomix/**&quot;,
+ 78:       &quot;**/repomix-output.*&quot;,
+ 79:       &quot;**/repo-compressed.*&quot;,
+ 80:       &quot;**/repo-compressed.xml&quot;,
+ 81:       &quot;**/repomix.xml&quot;,
+ 82: 
+ 83:       &quot;**/.ast-grep-backups/**&quot;,
+ 84:       &quot;.ast-grep-backups/**&quot;,
+ 85: 
+ 86:       &quot;**/node_modules/**&quot;,
+ 87:       &quot;**/dist/**&quot;,
+ 88:       &quot;**/build/**&quot;,
+ 89:       &quot;**/out/**&quot;,
+ 90:       &quot;**/.next/**&quot;,
+ 91:       &quot;**/.turbo/**&quot;,
+ 92:       &quot;**/.vite/**&quot;,
+ 93:       &quot;**/coverage/**&quot;,
+ 94: 
+ 95:       &quot;**/*.log&quot;,
+ 96:       &quot;**/*.tmp&quot;,
+ 97:       &quot;**/*.temp&quot;,
+ 98:       &quot;**/*.cache&quot;,
+ 99:       &quot;**/*.swp&quot;,
+100:       &quot;**/*.swo&quot;,
+101:       &quot;**/*.tsbuildinfo&quot;,
+102:       &quot;**/*.map&quot;,
+103:       &quot;**/*.min.js&quot;,
+104:       &quot;**/*.min.css&quot;,
+105: 
+106:       &quot;**/__snapshots__/**&quot;,
+107:       &quot;**/*.snap&quot;,
+108:       &quot;tests/**&quot;,
+109:       &quot;**/*.test.*&quot;,
+110:       &quot;**/*.spec.*&quot;,
+111: 
+112:       &quot;**/fixtures/**&quot;,
+113:       &quot;**/test-files/**&quot;,
+114:       &quot;**/manual/**&quot;,
+115:       &quot;**/results/**&quot;,
+116: 
+117:       &quot;**/*.png&quot;,
+118:       &quot;**/*.jpg&quot;,
+119:       &quot;**/*.jpeg&quot;,
+120:       &quot;**/*.gif&quot;,
+121:       &quot;**/*.webp&quot;,
+122:       &quot;**/*.ico&quot;,
+123:       &quot;**/*.pdf&quot;,
+124:       &quot;**/*.zip&quot;,
+125:       &quot;**/*.tar&quot;,
+126:       &quot;**/*.gz&quot;,
+127:       &quot;**/*.tgz&quot;,
+128:       &quot;**/*.7z&quot;,
+129:       &quot;**/*.mp4&quot;,
+130:       &quot;**/*.mov&quot;,
+131:       &quot;**/*.avi&quot;,
+132:       &quot;**/*.mp3&quot;,
+133:       &quot;**/*.wav&quot;,
+134: 
+135:       &quot;**/.env&quot;,
+136:       &quot;**/.env.*&quot;,
+137:       &quot;**/*.pem&quot;,
+138:       &quot;**/*.key&quot;,
+139:       &quot;**/*.p12&quot;,
+140:       &quot;**/*.pfx&quot;,
+141:       &quot;**/*secret*&quot;
+142:     ]
+143:   },
+144: 
+145:   &quot;security&quot;: {
+146:     &quot;enableSecurityCheck&quot;: true
 147:   },
-148:   &quot;pnpm&quot;: {
-149:     &quot;onlyBuiltDependencies&quot;: [
-150:       &quot;better-sqlite3&quot;
-151:     ],
-152:     &quot;overrides&quot;: {
-153:       &quot;qs&quot;: &quot;&gt;=6.14.1&quot;
-154:     }
+148: 
+149:   &quot;tokenCount&quot;: {
+150:     &quot;encoding&quot;: &quot;o200k_base&quot;
+151:   },
+152: 
+153:   &quot;tokenBudget&quot;: {
+154:     &quot;maxTokens&quot;: 200000
 155:   }
-156: }</file><file path="scripts/repomix-regen.sh"> 1: set -euo pipefail
- 2: ROOT=&quot;$(cd &quot;$(dirname &quot;$0&quot;)/..&quot; &amp;&amp; pwd)&quot;
- 3: TREE_FILE=&quot;token-tree&quot;
- 4: COMPRESSED_FILE=&quot;repo-compressed&quot;
- 5: LOSSLESS_FILE=&quot;repomix&quot;
- 6: DOCS_ONLY_FILE=&quot;repomix-docs&quot;
- 7: GIT_RANKED_FILE=&quot;repomix-git-ranked&quot;
- 8: OUTPUT_PATH=&quot;docs/repomix&quot;
- 9: OUT_DIR=&quot;$ROOT/$OUTPUT_PATH&quot;
-10: TOKEN_TREE_FILE=&quot;$OUT_DIR/$TREE_FILE.txt&quot;
-11: COMPRESSED_REPO_FILE=&quot;$OUT_DIR/$COMPRESSED_FILE.xml&quot;
-12: LOSSLESS_REPO_FILE=&quot;$OUT_DIR/$LOSSLESS_FILE.xml&quot;
-13: DOCS_ONLY_REPO_FILE=&quot;$OUT_DIR/$DOCS_ONLY_FILE.xml&quot;
-14: GIT_RANKED_REPO_FILE=&quot;$OUT_DIR/$GIT_RANKED_FILE.xml&quot;
-15: GITLOG_TOP_FILE=&quot;$OUT_DIR/gitlog-top20.txt&quot;
-16: TREE_FILE_NAME=&quot;$OUTPUT_PATH/$TREE_FILE.txt&quot;
-17: COMPRESSED_FILE_NAME=&quot;$OUTPUT_PATH/$COMPRESSED_FILE.xml&quot;
-18: LOSSLESS_FILE_NAME=&quot;$OUTPUT_PATH/$LOSSLESS_FILE.xml&quot;
-19: DOCS_ONLY_FILE_NAME=&quot;$OUTPUT_PATH/$DOCS_ONLY_FILE.xml&quot;
-20: GIT_RANKED_FILE_NAME=&quot;$OUTPUT_PATH/$GIT_RANKED_FILE.xml&quot;
-21: GITLOG_TOP_FILE_NAME=&quot;$OUTPUT_PATH/gitlog-top20.txt&quot;
-22: INPUT_DIR=&quot;$ROOT/scripts/generate-&quot;
-23: TOKEN_TREE_SCRIPT=&quot;$INPUT_DIR$TREE_FILE.sh&quot;
-24: COMPRESS_SCRIPT=&quot;$INPUT_DIR$COMPRESSED_FILE.sh&quot;
-25: LOSSLESS_SCRIPT=&quot;$INPUT_DIR$LOSSLESS_FILE.sh&quot;
-26: DOCS_ONLY_SCRIPT=&quot;$INPUT_DIR$DOCS_ONLY_FILE.sh&quot;
-27: GIT_RANKED_SCRIPT=&quot;$INPUT_DIR$GIT_RANKED_FILE.sh&quot;
-28: GITLOG_TOP_SCRIPT=&quot;$ROOT/scripts/generate-diff-summary.sh&quot;
-29: echo &quot;File set up...&quot;
-30: mkdir -p &quot;$OUT_DIR&quot;
-31: rm -f \
-32:   &quot;$TOKEN_TREE_FILE&quot; \
-33:   &quot;$COMPRESSED_REPO_FILE&quot; \
-34:   &quot;$LOSSLESS_REPO_FILE&quot; \
-35:   &quot;$DOCS_ONLY_REPO_FILE&quot; \
-36:   &quot;$GIT_RANKED_REPO_FILE&quot; \
-37:   &quot;$GITLOG_TOP_FILE&quot;
-38: PROJECT_DIR=&quot;$(basename &quot;$ROOT&quot;)&quot;
-39: echo &quot;Generating token count tree for $PROJECT_DIR at $TREE_FILE_NAME&quot;
-40: bash &quot;$TOKEN_TREE_SCRIPT&quot; &quot;$ROOT&quot; &quot;$TOKEN_TREE_FILE&quot;
-41: echo &quot;Success!&quot;
-42: echo
-43: echo &quot;Generating compressed repomix file for $PROJECT_DIR at $COMPRESSED_FILE_NAME&quot;
-44: bash &quot;$COMPRESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$COMPRESSED_REPO_FILE&quot;
-45: echo &quot;Success!&quot;
-46: echo
-47: echo &quot;Generating repomix file for $PROJECT_DIR at $LOSSLESS_FILE_NAME&quot;
-48: bash &quot;$LOSSLESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$LOSSLESS_REPO_FILE&quot;
-49: echo &quot;Success!&quot;
-50: echo
-51: echo &quot;Generating docs-only repomix file for $PROJECT_DIR at $DOCS_ONLY_FILE_NAME&quot;
-52: bash &quot;$DOCS_ONLY_SCRIPT&quot; &quot;$ROOT&quot; &quot;$DOCS_ONLY_REPO_FILE&quot;
-53: echo &quot;Success!&quot;
-54: echo
-55: echo &quot;Generating git-ranked repomix file for $PROJECT_DIR at $GIT_RANKED_FILE_NAME&quot;
-56: bash &quot;$GIT_RANKED_SCRIPT&quot; &quot;$ROOT&quot; &quot;$GIT_RANKED_REPO_FILE&quot;
-57: echo &quot;Success!&quot;
-58: echo
-59: echo &quot;Generating top-file git history at $GITLOG_TOP_FILE_NAME&quot;
-60: (
-61:   cd &quot;$ROOT&quot;
-62:   bash &quot;$GITLOG_TOP_SCRIPT&quot;
-63: )
-64: echo &quot;Success!&quot;
-65: echo
-66: echo &quot;Artifacts:&quot;
-67: print_artifact() {
-68:   local file_path=&quot;$1&quot;
-69:   local display_name=&quot;$2&quot;
-70:   if [[ -f &quot;$file_path&quot; ]]; then
-71:     chars=$(wc -c &lt; &quot;$file_path&quot; | tr -d &apos; &apos;)
-72:     tokens=$((chars / 4))
-73:     echo &quot; - $display_name (~$tokens tokens, $chars chars)&quot;
-74:   else
-75:     echo &quot; - $display_name (missing)&quot;
-76:   fi
-77: }
-78: print_artifact &quot;$TOKEN_TREE_FILE&quot; &quot;$TREE_FILE_NAME&quot;
-79: print_artifact &quot;$COMPRESSED_REPO_FILE&quot; &quot;$COMPRESSED_FILE_NAME&quot;
-80: print_artifact &quot;$LOSSLESS_REPO_FILE&quot; &quot;$LOSSLESS_FILE_NAME&quot;
-81: print_artifact &quot;$DOCS_ONLY_REPO_FILE&quot; &quot;$DOCS_ONLY_FILE_NAME&quot;
-82: print_artifact &quot;$GIT_RANKED_REPO_FILE&quot; &quot;$GIT_RANKED_FILE_NAME&quot;
-83: print_artifact &quot;$GITLOG_TOP_FILE&quot; &quot;$GITLOG_TOP_FILE_NAME&quot;</file><file path="sidequest/pipeline-runners/gitignore-pipeline.ts">  1: #!/usr/bin/env -S node --strip-types
+156: }</file><file path="sidequest/pipeline-runners/gitignore-pipeline.ts">  1: #!/usr/bin/env -S node --strip-types
   2: import { GitignoreWorker } from &apos;../workers/gitignore-worker.ts&apos;;
   3: import type { Job } from &apos;../core/server.ts&apos;;
   4: import { config } from &apos;../core/config.ts&apos;;
@@ -40403,7 +40102,373 @@ tsconfig.json</directory_structure><files>This section contains the contents of 
 225:     });
 226:     process.exit(1);
 227:   });
-228: }</file><file path="sidequest/docs/gitlog-sidequest.txt">   1: fcfec59 2026-03-04 refactor: centralize session-introduced magic literals
+228: }</file><file path="package.json">  1: {
+  2:   &quot;name&quot;: &quot;repomix-cron-sidequest&quot;,
+  3:   &quot;version&quot;: &quot;1.0.0&quot;,
+  4:   &quot;description&quot;: &quot;Automated job management with sidequest server - repomix runner and documentation enhancement pipeline&quot;,
+  5:   &quot;main&quot;: &quot;api/server.ts&quot;,
+  6:   &quot;type&quot;: &quot;module&quot;,
+  7:   &quot;workspaces&quot;: [
+  8:     &quot;packages/*&quot;
+  9:   ],
+ 10:   &quot;scripts&quot;: {
+ 11:     &quot;start&quot;: &quot;node --strip-types api/server.ts&quot;,
+ 12:     &quot;start:api&quot;: &quot;node --strip-types api/server.ts&quot;,
+ 13:     &quot;dev&quot;: &quot;node --strip-types --watch api/server.ts&quot;,
+ 14:     &quot;build:frontend&quot;: &quot;cd frontend &amp;&amp; npm ci --include=dev &amp;&amp; npm run build&quot;,
+ 15:     &quot;dashboard&quot;: &quot;doppler run -- node --strip-types api/server.ts&quot;,
+ 16:     &quot;fix:types&quot;: &quot;node --strip-types scripts/fix-types.ts&quot;,
+ 17:     &quot;test&quot;: &quot;node --strip-types --test --test-timeout=30000 --test-force-exit --test-name-pattern=&apos;.&apos; tests/unit/*.test.ts&quot;,
+ 18:     &quot;test:coverage&quot;: &quot;c8 --reporter=text --reporter=text-summary node --strip-types --test --test-timeout=30000 --test-force-exit --test-name-pattern=&apos;.&apos; tests/unit/*.test.ts&quot;,
+ 19:     &quot;test:coverage:html&quot;: &quot;c8 --reporter=html --reporter=text-summary node --strip-types --test --test-timeout=30000 --test-force-exit --test-name-pattern=&apos;.&apos; tests/unit/*.test.ts&quot;,
+ 20:     &quot;test:integration&quot;: &quot;node --strip-types --test --test-timeout=60000 --test-force-exit --test-concurrency=1 tests/integration/*.test.ts&quot;,
+ 21:     &quot;test:cache&quot;: &quot;node --strip-types --test --test-timeout=60000 --test-force-exit tests/integration/test-cache-layer.ts&quot;,
+ 22:     &quot;test:all:core&quot;: &quot;SKIP_ENV_SENSITIVE_TESTS=1 node --strip-types --test --test-timeout=30000 --test-force-exit $(rg --files tests/unit -g &apos;*.test.ts&apos; -g &apos;!api-routes.test.ts&apos;) $(rg --files tests/integration -g &apos;*.test.ts&apos; -g &apos;!error-recovery.integration.test.ts&apos; -g &apos;!pipeline-execution.integration.test.ts&apos; -g &apos;!port-manager.integration.test.ts&apos;) sidequest/core/*.test.ts sidequest/pipeline-runners/*.test.ts sidequest/utils/*.test.ts sidequest/workers/*.test.ts&quot;,
+ 23:     &quot;test:all:env-safe&quot;: &quot;echo &apos;No env-safe tests currently defined&apos;&quot;,
+ 24:     &quot;test:all:env-host-required&quot;: &quot;node --strip-types --test --test-timeout=60000 --test-force-exit tests/unit/api-routes.test.ts tests/unit/port-manager.test.ts tests/unit/websocket.test.ts tests/integration/error-recovery.integration.test.ts tests/integration/pipeline-execution.integration.test.ts tests/integration/port-manager.integration.test.ts sidequest/pipeline-runners/startup-once-mode.test.ts&quot;,
+ 25:     &quot;test:all:env&quot;: &quot;npm run test:all:env-safe &amp;&amp; npm run test:all:env-host-required&quot;,
+ 26:     &quot;test:all:node&quot;: &quot;npm run test:all:core&quot;,
+ 27:     &quot;test:all:py&quot;: &quot;bash scripts/run-python-tests.sh&quot;,
+ 28:     &quot;test:all&quot;: &quot;npm run test:all:core &amp;&amp; npm run test:all:py&quot;,
+ 29:     &quot;test:all:full&quot;: &quot;npm run test:all:core &amp;&amp; npm run test:all:env &amp;&amp; npm run test:all:py&quot;,
+ 30:     &quot;test:aall&quot;: &quot;npm run test:all&quot;,
+ 31:     &quot;test:validate-paths&quot;: &quot;node --strip-types tests/scripts/validate-test-paths.ts&quot;,
+ 32:     &quot;test:validate-backlog&quot;: &quot;node --strip-types tests/scripts/validate-backlog.ts&quot;,
+ 33:     &quot;test:single&quot;: &quot;node --strip-types tests/scripts/test-single-job.ts&quot;,
+ 34:     &quot;test:scanner&quot;: &quot;node --strip-types tests/scripts/test-directory-scanner.ts&quot;,
+ 35:     &quot;test:gitignore&quot;: &quot;node --strip-types tests/scripts/test-gitignore-respect.ts&quot;,
+ 36:     &quot;test:repomix-fix&quot;: &quot;node --strip-types tests/scripts/test-repomix-fix.ts&quot;,
+ 37:     &quot;docs:enhance&quot;: &quot;RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts&quot;,
+ 38:     &quot;docs:enhance:dry&quot;: &quot;RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts --dry-run&quot;,
+ 39:     &quot;docs:enhance:schedule&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts&quot;,
+ 40:     &quot;docs:test&quot;: &quot;node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts --run --dry-run --dir .&quot;,
+ 41:     &quot;git:weekly&quot;: &quot;node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --weekly&quot;,
+ 42:     &quot;git:monthly&quot;: &quot;node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --monthly&quot;,
+ 43:     &quot;git:schedule&quot;: &quot;node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts&quot;,
+ 44:     &quot;plugin:audit&quot;: &quot;RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/plugin-management-pipeline.ts&quot;,
+ 45:     &quot;plugin:audit:detailed&quot;: &quot;DETAILED=true RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/plugin-management-pipeline.ts&quot;,
+ 46:     &quot;plugin:schedule&quot;: &quot;node --strip-types sidequest/pipeline-runners/plugin-management-pipeline.ts&quot;,
+ 47:     &quot;claude:health&quot;: &quot;zsh -c &apos;source ~/.zshrc &amp;&amp; RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/claude-health-pipeline.ts&apos;&quot;,
+ 48:     &quot;claude:health:detailed&quot;: &quot;zsh -c &apos;source ~/.zshrc &amp;&amp; DETAILED=true RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/claude-health-pipeline.ts&apos;&quot;,
+ 49:     &quot;claude:health:schedule&quot;: &quot;zsh -c &apos;source ~/.zshrc &amp;&amp; node --strip-types sidequest/pipeline-runners/claude-health-pipeline.ts --cron&apos;&quot;,
+ 50:     &quot;claude:health:quick&quot;: &quot;zsh -c &apos;source ~/.zshrc &amp;&amp; SKIP_PERFORMANCE=true SKIP_PLUGINS=true RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/claude-health-pipeline.ts&apos;&quot;,
+ 51:     &quot;gitignore:update&quot;: &quot;RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts&quot;,
+ 52:     &quot;gitignore:update:dry&quot;: &quot;GITIGNORE_DRY_RUN=true RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts&quot;,
+ 53:     &quot;gitignore:schedule&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts&quot;,
+ 54:     &quot;cleanup:once&quot;: &quot;RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/repo-cleanup-pipeline.ts&quot;,
+ 55:     &quot;cleanup:dryrun&quot;: &quot;CLEANUP_DRY_RUN=true RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/repo-cleanup-pipeline.ts&quot;,
+ 56:     &quot;cleanup:schedule&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/repo-cleanup-pipeline.ts&quot;,
+ 57:     &quot;setup:sentry&quot;: &quot;node docs/setup/setup-sentry.js&quot;,
+ 58:     &quot;verify&quot;: &quot;node --strip-types scripts/verify-setup.ts&quot;,
+ 59:     &quot;lint&quot;: &quot;eslint .&quot;,
+ 60:     &quot;lint:fix&quot;: &quot;eslint . --fix&quot;,
+ 61:     &quot;typecheck&quot;: &quot;tsc --noEmit&quot;,
+ 62:     &quot;logs:cleanup&quot;: &quot;node --strip-types scripts/cleanup-error-logs.ts&quot;,
+ 63:     &quot;logs:cleanup:dry&quot;: &quot;node --strip-types scripts/cleanup-error-logs.ts --dry-run&quot;,
+ 64:     &quot;logs:cleanup:verbose&quot;: &quot;node --strip-types scripts/cleanup-error-logs.ts --verbose&quot;,
+ 65:     &quot;permissions:check&quot;: &quot;node --strip-types scripts/validate-permissions.ts --check-only&quot;,
+ 66:     &quot;permissions:fix&quot;: &quot;node --strip-types scripts/validate-permissions.ts --fix&quot;,
+ 67:     &quot;prestart&quot;: &quot;node --strip-types scripts/validate-permissions.ts --fix&quot;,
+ 68:     &quot;verify:bugfixes&quot;: &quot;./scripts/verify-bugfixes.sh&quot;,
+ 69:     &quot;verify:bugfixes:pre&quot;: &quot;./scripts/verify-bugfixes.sh --pre&quot;,
+ 70:     &quot;verify:bugfixes:post&quot;: &quot;./scripts/verify-bugfixes.sh --post&quot;,
+ 71:     &quot;verify:bugfixes:health&quot;: &quot;./scripts/verify-bugfixes.sh --health&quot;,
+ 72:     &quot;verify:bugfixes:smoke&quot;: &quot;./scripts/verify-bugfixes.sh --smoke&quot;,
+ 73:     &quot;bugfix:once&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/bugfix-audit-pipeline.ts --run-now&quot;,
+ 74:     &quot;bugfix:schedule&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/bugfix-audit-pipeline.ts --recurring&quot;,
+ 75:     &quot;bugfix:tonight&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/bugfix-audit-pipeline.ts --once&quot;,
+ 76:     &quot;dashboard:populate&quot;: &quot;RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/dashboard-populate-pipeline.ts --run-now&quot;,
+ 77:     &quot;dashboard:populate:full&quot;: &quot;RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/dashboard-populate-pipeline.ts --run-now --no-seed&quot;,
+ 78:     &quot;dashboard:populate:dry&quot;: &quot;RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/dashboard-populate-pipeline.ts --run-now --dry-run&quot;,
+ 79:     &quot;dashboard:populate:schedule&quot;: &quot;node --strip-types sidequest/pipeline-runners/dashboard-populate-pipeline.ts&quot;
+ 80:   },
+ 81:   &quot;keywords&quot;: [
+ 82:     &quot;repomix&quot;,
+ 83:     &quot;cron&quot;,
+ 84:     &quot;sidequest&quot;,
+ 85:     &quot;sentry&quot;,
+ 86:     &quot;documentation&quot;,
+ 87:     &quot;schema.org&quot;,
+ 88:     &quot;automation&quot;
+ 89:   ],
+ 90:   &quot;author&quot;: &quot;&quot;,
+ 91:   &quot;license&quot;: &quot;MIT&quot;,
+ 92:   &quot;dependencies&quot;: {
+ 93:     &quot;@babel/core&quot;: &quot;^7.29.0&quot;,
+ 94:     &quot;@babel/generator&quot;: &quot;^7.29.1&quot;,
+ 95:     &quot;@babel/traverse&quot;: &quot;^7.29.0&quot;,
+ 96:     &quot;@babel/types&quot;: &quot;^7.29.0&quot;,
+ 97:     &quot;@isaacs/brace-expansion&quot;: &quot;^5.0.1&quot;,
+ 98:     &quot;@sentry/node&quot;: &quot;^7.120.4&quot;,
+ 99:     &quot;@shared/logging&quot;: &quot;workspace:*&quot;,
+100:     &quot;@shared/process-io&quot;: &quot;workspace:*&quot;,
+101:     &quot;better-sqlite3&quot;: &quot;^12.6.2&quot;,
+102:     &quot;cors&quot;: &quot;^2.8.6&quot;,
+103:     &quot;dompurify&quot;: &quot;^3.3.1&quot;,
+104:     &quot;dotenv&quot;: &quot;^17.2.4&quot;,
+105:     &quot;express&quot;: &quot;^5.2.1&quot;,
+106:     &quot;express-rate-limit&quot;: &quot;^8.2.1&quot;,
+107:     &quot;jsdom&quot;: &quot;^27.4.0&quot;,
+108:     &quot;marked&quot;: &quot;^17.0.1&quot;,
+109:     &quot;node-cron&quot;: &quot;^3.0.3&quot;,
+110:     &quot;pino&quot;: &quot;^9.14.0&quot;,
+111:     &quot;pino-pretty&quot;: &quot;^11.3.0&quot;,
+112:     &quot;repomix&quot;: &quot;^1.11.1&quot;,
+113:     &quot;ws&quot;: &quot;^8.19.0&quot;,
+114:     &quot;zod&quot;: &quot;^3.25.76&quot;
+115:   },
+116:   &quot;devDependencies&quot;: {
+117:     &quot;@babel/parser&quot;: &quot;^7.29.0&quot;,
+118:     &quot;@eslint/js&quot;: &quot;^10.0.1&quot;,
+119:     &quot;@sentry/vite-plugin&quot;: &quot;^4.9.0&quot;,
+120:     &quot;@types/babel__generator&quot;: &quot;^7.27.0&quot;,
+121:     &quot;@types/babel__traverse&quot;: &quot;^7.28.0&quot;,
+122:     &quot;@types/better-sqlite3&quot;: &quot;^7.6.13&quot;,
+123:     &quot;@types/cors&quot;: &quot;^2.8.19&quot;,
+124:     &quot;@types/express&quot;: &quot;^5.0.6&quot;,
+125:     &quot;@types/jsdom&quot;: &quot;^28.0.0&quot;,
+126:     &quot;@types/node&quot;: &quot;^20.19.33&quot;,
+127:     &quot;@types/node-cron&quot;: &quot;^3.0.11&quot;,
+128:     &quot;@types/ws&quot;: &quot;^8.18.1&quot;,
+129:     &quot;c8&quot;: &quot;^10.1.3&quot;,
+130:     &quot;chai&quot;: &quot;^4.5.0&quot;,
+131:     &quot;eslint&quot;: &quot;^10.0.2&quot;,
+132:     &quot;glob&quot;: &quot;^13.0.1&quot;,
+133:     &quot;js-yaml&quot;: &quot;^4.1.1&quot;,
+134:     &quot;supertest&quot;: &quot;^7.2.2&quot;,
+135:     &quot;typescript&quot;: &quot;^5.9.3&quot;,
+136:     &quot;typescript-eslint&quot;: &quot;^8.56.1&quot;
+137:   },
+138:   &quot;optionalDependencies&quot;: {
+139:     &quot;@ast-grep/cli&quot;: &quot;^0.40.5&quot;
+140:   },
+141:   &quot;imports&quot;: {
+142:     &quot;#sidequest/*.ts&quot;: &quot;./sidequest/*.ts&quot;,
+143:     &quot;#api/types/*.ts&quot;: &quot;./api/types/*.ts&quot;
+144:   },
+145:   &quot;engines&quot;: {
+146:     &quot;node&quot;: &quot;&gt;=22.0.0&quot;
+147:   },
+148:   &quot;pnpm&quot;: {
+149:     &quot;onlyBuiltDependencies&quot;: [
+150:       &quot;better-sqlite3&quot;
+151:     ],
+152:     &quot;overrides&quot;: {
+153:       &quot;qs&quot;: &quot;&gt;=6.14.1&quot;
+154:     }
+155:   }
+156: }</file><file path="repomix.config.json">  1: {
+  2:   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
+  3: 
+  4:   &quot;output&quot;: {
+  5:     &quot;filePath&quot;: &quot;docs/repomix/repomix.xml&quot;,
+  6:     &quot;style&quot;: &quot;xml&quot;,
+  7:     &quot;parsableStyle&quot;: true,
+  8: 
+  9:     &quot;removeComments&quot;: true,
+ 10:     &quot;removeEmptyLines&quot;: true,
+ 11:     &quot;truncateBase64&quot;: true,
+ 12: 
+ 13:     &quot;fileSummary&quot;: false,
+ 14:     &quot;directoryStructure&quot;: true,
+ 15:     &quot;files&quot;: true,
+ 16: 
+ 17:     &quot;showLineNumbers&quot;: true,
+ 18: 
+ 19:     &quot;includeEmptyDirectories&quot;: false,
+ 20:     &quot;instructionFilePath&quot;: &quot;docs/repomix/repomix-instruction.md&quot;,
+ 21:     &quot;git&quot;: {
+ 22:       &quot;sortByChanges&quot;: true,
+ 23:       &quot;sortByChangesMaxCommits&quot;: 20,
+ 24:       &quot;includeDiffs&quot;: false,
+ 25:       &quot;includeLogs&quot;: false,
+ 26:       &quot;includeLogsCount&quot;: 1
+ 27:     }
+ 28:   },
+ 29: 
+ 30:   &quot;include&quot;: [
+ 31:     &quot;api/**/*&quot;,
+ 32:     &quot;frontend/**/*&quot;,
+ 33:     &quot;sidequest/**/*&quot;,
+ 34:     &quot;scripts/**/*&quot;,
+ 35:     &quot;config/**/*&quot;,
+ 36:     &quot;cloudflare-workers/**/*&quot;,
+ 37:     &quot;.ast-grep/**/*&quot;,
+ 38:     &quot;.github/workflows/**/*&quot;,
+ 39:     &quot;*.json&quot;,
+ 40:     &quot;*.ts&quot;,
+ 41:     &quot;*.tsx&quot;,
+ 42:     &quot;*.js&quot;,
+ 43:     &quot;*.py&quot;,
+ 44:     &quot;*.sh&quot;
+ 45:   ],
+ 46: 
+ 47:   &quot;ignore&quot;: {
+ 48:     &quot;useGitignore&quot;: true,
+ 49:     &quot;useDotIgnore&quot;: true,
+ 50:     &quot;useDefaultPatterns&quot;: true,
+ 51: 
+ 52:     &quot;customPatterns&quot;: [
+ 53:       &quot;docs/**&quot;,
+ 54:       &quot;docs/archive/**&quot;,
+ 55:       &quot;docs/backlog/**&quot;,
+ 56:       &quot;docs/repomix/**&quot;,
+ 57:       &quot;**/repomix-output.*&quot;,
+ 58:       &quot;**/repo-compressed.*&quot;,
+ 59:       &quot;**/repomix.xml&quot;,
+ 60:       &quot;**/repo-compressed.xml&quot;,
+ 61: 
+ 62:       &quot;**/node_modules/**&quot;,
+ 63:       &quot;**/.next/**&quot;,
+ 64:       &quot;**/.turbo/**&quot;,
+ 65:       &quot;**/.vite/**&quot;,
+ 66:       &quot;**/dist/**&quot;,
+ 67:       &quot;**/build/**&quot;,
+ 68:       &quot;**/out/**&quot;,
+ 69:       &quot;**/coverage/**&quot;,
+ 70: 
+ 71:       &quot;**/.ast-grep-backups/**&quot;,
+ 72: 
+ 73:       &quot;**/fixtures/**&quot;,
+ 74:       &quot;**/test-files/**&quot;,
+ 75:       &quot;**/__snapshots__/**&quot;,
+ 76:       &quot;**/*.snap&quot;,
+ 77:       &quot;tests/**&quot;,
+ 78:       &quot;**/*.test.*&quot;,
+ 79:       &quot;**/*.spec.*&quot;,
+ 80: 
+ 81:       &quot;**/*.log&quot;,
+ 82:       &quot;**/*.tmp&quot;,
+ 83:       &quot;**/*.temp&quot;,
+ 84:       &quot;**/*.cache&quot;,
+ 85:       &quot;**/*.swp&quot;,
+ 86:       &quot;**/*.swo&quot;,
+ 87:       &quot;**/*.tsbuildinfo&quot;,
+ 88:       &quot;**/*.map&quot;,
+ 89:       &quot;**/*.min.js&quot;,
+ 90:       &quot;**/*.min.css&quot;,
+ 91: 
+ 92:       &quot;**/*.png&quot;,
+ 93:       &quot;**/*.jpg&quot;,
+ 94:       &quot;**/*.jpeg&quot;,
+ 95:       &quot;**/*.gif&quot;,
+ 96:       &quot;**/*.webp&quot;,
+ 97:       &quot;**/*.ico&quot;,
+ 98:       &quot;**/*.pdf&quot;,
+ 99:       &quot;**/*.zip&quot;,
+100:       &quot;**/*.tar&quot;,
+101:       &quot;**/*.gz&quot;,
+102:       &quot;**/*.tgz&quot;,
+103:       &quot;**/*.7z&quot;,
+104: 
+105:       &quot;**/*.mp4&quot;,
+106:       &quot;**/*.mov&quot;,
+107:       &quot;**/*.avi&quot;,
+108:       &quot;**/*.mp3&quot;,
+109:       &quot;**/*.wav&quot;,
+110: 
+111:       &quot;**/.env&quot;,
+112:       &quot;**/.env.*&quot;,
+113:       &quot;**/*.pem&quot;,
+114:       &quot;**/*.key&quot;,
+115:       &quot;**/*.p12&quot;,
+116:       &quot;**/*.pfx&quot;,
+117:       &quot;**/*secret*&quot;
+118:     ]
+119:   },
+120: 
+121: 
+122:   &quot;security&quot;: {
+123:     &quot;enableSecurityCheck&quot;: true
+124:   },
+125: 
+126:   &quot;tokenCount&quot;: {
+127:     &quot;encoding&quot;: &quot;o200k_base&quot;
+128:   }
+129: }</file><file path="scripts/repomix-regen.sh"> 1: set -euo pipefail
+ 2: ROOT=&quot;$(cd &quot;$(dirname &quot;$0&quot;)/..&quot; &amp;&amp; pwd)&quot;
+ 3: TREE_FILE=&quot;token-tree&quot;
+ 4: COMPRESSED_FILE=&quot;repo-compressed&quot;
+ 5: LOSSLESS_FILE=&quot;repomix&quot;
+ 6: DOCS_ONLY_FILE=&quot;repomix-docs&quot;
+ 7: GIT_RANKED_FILE=&quot;repomix-git-ranked&quot;
+ 8: OUTPUT_PATH=&quot;docs/repomix&quot;
+ 9: OUT_DIR=&quot;$ROOT/$OUTPUT_PATH&quot;
+10: TOKEN_TREE_FILE=&quot;$OUT_DIR/$TREE_FILE.txt&quot;
+11: COMPRESSED_REPO_FILE=&quot;$OUT_DIR/$COMPRESSED_FILE.xml&quot;
+12: LOSSLESS_REPO_FILE=&quot;$OUT_DIR/$LOSSLESS_FILE.xml&quot;
+13: DOCS_ONLY_REPO_FILE=&quot;$OUT_DIR/$DOCS_ONLY_FILE.xml&quot;
+14: GIT_RANKED_REPO_FILE=&quot;$OUT_DIR/$GIT_RANKED_FILE.xml&quot;
+15: GITLOG_TOP_FILE=&quot;$OUT_DIR/gitlog-top20.txt&quot;
+16: TREE_FILE_NAME=&quot;$OUTPUT_PATH/$TREE_FILE.txt&quot;
+17: COMPRESSED_FILE_NAME=&quot;$OUTPUT_PATH/$COMPRESSED_FILE.xml&quot;
+18: LOSSLESS_FILE_NAME=&quot;$OUTPUT_PATH/$LOSSLESS_FILE.xml&quot;
+19: DOCS_ONLY_FILE_NAME=&quot;$OUTPUT_PATH/$DOCS_ONLY_FILE.xml&quot;
+20: GIT_RANKED_FILE_NAME=&quot;$OUTPUT_PATH/$GIT_RANKED_FILE.xml&quot;
+21: GITLOG_TOP_FILE_NAME=&quot;$OUTPUT_PATH/gitlog-top20.txt&quot;
+22: INPUT_DIR=&quot;$ROOT/scripts/generate-&quot;
+23: TOKEN_TREE_SCRIPT=&quot;$INPUT_DIR$TREE_FILE.sh&quot;
+24: COMPRESS_SCRIPT=&quot;$INPUT_DIR$COMPRESSED_FILE.sh&quot;
+25: LOSSLESS_SCRIPT=&quot;$INPUT_DIR$LOSSLESS_FILE.sh&quot;
+26: DOCS_ONLY_SCRIPT=&quot;$INPUT_DIR$DOCS_ONLY_FILE.sh&quot;
+27: GIT_RANKED_SCRIPT=&quot;$INPUT_DIR$GIT_RANKED_FILE.sh&quot;
+28: GITLOG_TOP_SCRIPT=&quot;$ROOT/scripts/generate-diff-summary.sh&quot;
+29: GIT_RANKED_INCLUDE_LOGS_COUNT=&quot;${REPOMIX_GIT_RANKED_INCLUDE_LOGS_COUNT:-200}&quot;
+30: echo &quot;File set up...&quot;
+31: mkdir -p &quot;$OUT_DIR&quot;
+32: rm -f \
+33:   &quot;$TOKEN_TREE_FILE&quot; \
+34:   &quot;$COMPRESSED_REPO_FILE&quot; \
+35:   &quot;$LOSSLESS_REPO_FILE&quot; \
+36:   &quot;$DOCS_ONLY_REPO_FILE&quot; \
+37:   &quot;$GIT_RANKED_REPO_FILE&quot; \
+38:   &quot;$GITLOG_TOP_FILE&quot;
+39: PROJECT_DIR=&quot;$(basename &quot;$ROOT&quot;)&quot;
+40: echo &quot;Generating token count tree for $PROJECT_DIR at $TREE_FILE_NAME&quot;
+41: bash &quot;$TOKEN_TREE_SCRIPT&quot; &quot;$ROOT&quot; &quot;$TOKEN_TREE_FILE&quot;
+42: echo &quot;Success!&quot;
+43: echo
+44: echo &quot;Generating compressed repomix file for $PROJECT_DIR at $COMPRESSED_FILE_NAME&quot;
+45: bash &quot;$COMPRESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$COMPRESSED_REPO_FILE&quot;
+46: echo &quot;Success!&quot;
+47: echo
+48: echo &quot;Generating repomix file for $PROJECT_DIR at $LOSSLESS_FILE_NAME&quot;
+49: bash &quot;$LOSSLESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$LOSSLESS_REPO_FILE&quot;
+50: echo &quot;Success!&quot;
+51: echo
+52: echo &quot;Generating docs-only repomix file for $PROJECT_DIR at $DOCS_ONLY_FILE_NAME&quot;
+53: bash &quot;$DOCS_ONLY_SCRIPT&quot; &quot;$ROOT&quot; &quot;$DOCS_ONLY_REPO_FILE&quot;
+54: echo &quot;Success!&quot;
+55: echo
+56: echo &quot;Generating git-ranked repomix file for $PROJECT_DIR at $GIT_RANKED_FILE_NAME&quot;
+57: bash &quot;$GIT_RANKED_SCRIPT&quot; &quot;$ROOT&quot; &quot;$GIT_RANKED_REPO_FILE&quot; &quot;$GIT_RANKED_INCLUDE_LOGS_COUNT&quot;
+58: echo &quot;Success!&quot;
+59: echo
+60: echo &quot;Generating top-file git history at $GITLOG_TOP_FILE_NAME&quot;
+61: (
+62:   cd &quot;$ROOT&quot;
+63:   bash &quot;$GITLOG_TOP_SCRIPT&quot;
+64: )
+65: echo &quot;Success!&quot;
+66: echo
+67: echo &quot;Artifacts:&quot;
+68: print_artifact() {
+69:   local file_path=&quot;$1&quot;
+70:   local display_name=&quot;$2&quot;
+71:   if [[ -f &quot;$file_path&quot; ]]; then
+72:     chars=$(wc -c &lt; &quot;$file_path&quot; | tr -d &apos; &apos;)
+73:     tokens=$((chars / 4))
+74:     echo &quot; - $display_name (~$tokens tokens, $chars chars)&quot;
+75:   else
+76:     echo &quot; - $display_name (missing)&quot;
+77:   fi
+78: }
+79: print_artifact &quot;$TOKEN_TREE_FILE&quot; &quot;$TREE_FILE_NAME&quot;
+80: print_artifact &quot;$COMPRESSED_REPO_FILE&quot; &quot;$COMPRESSED_FILE_NAME&quot;
+81: print_artifact &quot;$LOSSLESS_REPO_FILE&quot; &quot;$LOSSLESS_FILE_NAME&quot;
+82: print_artifact &quot;$DOCS_ONLY_REPO_FILE&quot; &quot;$DOCS_ONLY_FILE_NAME&quot;
+83: print_artifact &quot;$GIT_RANKED_REPO_FILE&quot; &quot;$GIT_RANKED_FILE_NAME&quot;
+84: print_artifact &quot;$GITLOG_TOP_FILE&quot; &quot;$GITLOG_TOP_FILE_NAME&quot;</file><file path="sidequest/docs/gitlog-sidequest.txt">   1: fcfec59 2026-03-04 refactor: centralize session-introduced magic literals
    2:   sidequest/core/config.ts
    3:   sidequest/core/constants.ts
    4:   sidequest/core/index.ts

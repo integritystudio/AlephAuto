@@ -4,9 +4,9 @@
   "output": {
     "style": "xml",
     "parsableStyle": true,
-    "removeComments": true,
-    "removeEmptyLines": true,
-    "truncateBase64": true,
+    "removeComments": false,
+    "removeEmptyLines": false,
+    "truncateBase64": false,
     "fileSummary": false,
     "directoryStructure": true,
     "files": true,
@@ -28,7 +28,12 @@
     "useDotIgnore": true,
     "useDefaultPatterns": true,
     "customPatterns": [
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "docs/repomix/**",
+      "**/repomix-output.*",
+      "**/repo-compressed.*",
+      "**/repomix.xml",
+      "**/repo-compressed.xml"
     ]
   },
 
