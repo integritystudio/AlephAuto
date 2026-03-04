@@ -7,7 +7,7 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { createComponentLogger } from '../utils/logger.ts';
-import { TIMEOUTS, TIME } from '../core/constants.ts';
+import { TIMEOUTS, TIME, GIT_ACTIVITY } from '../core/constants.ts';
 
 const logger = createComponentLogger('GitActivityWorker');
 
@@ -293,9 +293,9 @@ export class GitActivityWorker extends SidequestServer {
       if (untilDate) {
         args.push('--end-date', untilDate);
       }
-    } else if (reportType === 'weekly' || days === 7) {
+    } else if (reportType === GIT_ACTIVITY.WEEKLY_REPORT_TYPE || days === GIT_ACTIVITY.WEEKLY_WINDOW_DAYS) {
       args.push('--weekly');
-    } else if (reportType === 'monthly' || days === 30) {
+    } else if (reportType === GIT_ACTIVITY.MONTHLY_REPORT_TYPE || days === GIT_ACTIVITY.MONTHLY_WINDOW_DAYS) {
       args.push('--monthly');
     } else if (days) {
       args.push('--days', String(days));
@@ -467,8 +467,8 @@ export class GitActivityWorker extends SidequestServer {
     const jobId = `git-activity-weekly-${Date.now()}`;
 
     return this.createJob(jobId, {
-      reportType: 'weekly',
-      days: 7,
+      reportType: GIT_ACTIVITY.WEEKLY_REPORT_TYPE,
+      days: GIT_ACTIVITY.WEEKLY_WINDOW_DAYS,
       outputFormat: 'both',
       type: 'git-activity-report',
     });
@@ -481,8 +481,8 @@ export class GitActivityWorker extends SidequestServer {
     const jobId = `git-activity-monthly-${Date.now()}`;
 
     return this.createJob(jobId, {
-      reportType: 'monthly',
-      days: 30,
+      reportType: GIT_ACTIVITY.MONTHLY_REPORT_TYPE,
+      days: GIT_ACTIVITY.MONTHLY_WINDOW_DAYS,
       outputFormat: 'both',
       type: 'git-activity-report',
     });
@@ -495,7 +495,7 @@ export class GitActivityWorker extends SidequestServer {
     const jobId = `git-activity-custom-${Date.now()}`;
 
     return this.createJob(jobId, {
-      reportType: 'custom',
+      reportType: GIT_ACTIVITY.CUSTOM_REPORT_TYPE,
       sinceDate,
       untilDate,
       type: 'git-activity-report',
@@ -509,7 +509,7 @@ export class GitActivityWorker extends SidequestServer {
     const jobId = options.jobId ?? `git-activity-${Date.now()}`;
 
     return this.createJob(jobId, {
-      reportType: options.reportType ?? 'weekly',
+      reportType: options.reportType ?? GIT_ACTIVITY.DEFAULT_REPORT_TYPE,
       days: options.days,
       sinceDate: options.sinceDate,
       untilDate: options.untilDate,

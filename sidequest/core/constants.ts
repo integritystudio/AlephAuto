@@ -207,6 +207,27 @@ export const RATE_LIMIT = {
 } as const;
 
 /**
+ * Git activity pipeline/report constants
+ */
+export const GIT_ACTIVITY = {
+  /** Default report type when no explicit mode is provided */
+  DEFAULT_REPORT_TYPE: 'weekly',
+
+  /** Explicit report type values */
+  WEEKLY_REPORT_TYPE: 'weekly',
+  MONTHLY_REPORT_TYPE: 'monthly',
+  CUSTOM_REPORT_TYPE: 'custom',
+
+  /** Time windows used by weekly/monthly report shortcuts */
+  WEEKLY_WINDOW_DAYS: 7,
+  MONTHLY_WINDOW_DAYS: 30,
+
+  /** Default cron schedules for scheduled pipeline mode */
+  DEFAULT_WEEKLY_CRON: '0 20 * * 0',
+  DEFAULT_MONTHLY_CRON: '0 8 1 * *',
+} as const;
+
+/**
  * Size limits
  */
 export const LIMITS = {

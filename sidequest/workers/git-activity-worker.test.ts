@@ -66,6 +66,32 @@ test('parseGitActivityStatsFromJsonFiles skips invalid JSON and returns null whe
   assert.equal(stats, null);
 });
 
+test('parseGitActivityStatsFromJsonFiles skips JSON without total_commits and uses next file', async (t) => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'git-activity-worker-test-'));
+  t.after(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  await fs.writeFile(path.join(tmpDir, 'partial.json'), JSON.stringify({ total_files: 9 }));
+  await fs.writeFile(path.join(tmpDir, 'good.json'), JSON.stringify({
+    total_commits: 4,
+    total_repositories: 2,
+    total_additions: 11,
+    total_deletions: 3,
+    total_files: 9,
+  }));
+
+  const stats = await parseGitActivityStatsFromJsonFiles(['partial.json', 'good.json'], tmpDir);
+
+  assert.deepEqual(stats, {
+    totalCommits: 4,
+    totalRepositories: 2,
+    linesAdded: 11,
+    linesDeleted: 3,
+    filesChanged: 9,
+  });
+});
+
 test('parseGitActivityStatsFromText parses text summary fallback', () => {
   const stats = parseGitActivityStatsFromText(`
 Total commits: 17
@@ -81,5 +107,16 @@ File changes: 45
     linesAdded: 222,
     linesDeleted: 101,
     filesChanged: 45,
+  });
+});
+
+test('parseGitActivityStatsFromText defaults missing fields to zero', () => {
+  const stats = parseGitActivityStatsFromText('Total commits: 3');
+
+  assert.deepEqual(stats, {
+    totalCommits: 3,
+    totalRepositories: 0,
+    linesAdded: 0,
+    linesDeleted: 0,
   });
 });

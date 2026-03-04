@@ -1,6 +1,7 @@
 #!/usr/bin/env -S node --strip-types
 import { GitActivityWorker } from '../workers/git-activity-worker.ts';
 import { config } from '../core/config.ts';
+import { GIT_ACTIVITY } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 
@@ -15,11 +16,20 @@ export interface ReportOptions {
 }
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const VALID_DEFAULT_REPORT_TYPES = new Set([
+  GIT_ACTIVITY.WEEKLY_REPORT_TYPE,
+  GIT_ACTIVITY.MONTHLY_REPORT_TYPE,
+]);
 
 interface ParsedCliArgs {
   options: ReportOptions;
   runNow: boolean;
   errors: string[];
+}
+
+interface JobSelection {
+  strategy: 'custom' | 'monthly' | 'weekly' | 'generic';
+  options: ReportOptions;
 }
 
 interface OutputFile {
@@ -61,7 +71,10 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
       ...options
     }));
 
-    this.reportType = (options.reportType as string) || 'weekly';
+    const configuredReportType = options.reportType as string | undefined;
+    this.reportType = configuredReportType && VALID_DEFAULT_REPORT_TYPES.has(configuredReportType)
+      ? configuredReportType
+      : GIT_ACTIVITY.DEFAULT_REPORT_TYPE;
     this.setupEventListeners();
   }
 
@@ -125,16 +138,15 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
       // Create job based on options
       let job: Job;
 
-      if (options.sinceDate) {
-        job = options.untilDate
-          ? this.worker.createCustomReportJob(options.sinceDate, options.untilDate)
-          : this.worker.createReportJob(options);
-      } else if (options.reportType === 'monthly' || options.days === 30) {
+      const selection = selectGitActivityJob(options, this.reportType);
+      if (selection.strategy === 'custom') {
+        job = this.worker.createCustomReportJob(selection.options.sinceDate!, selection.options.untilDate!);
+      } else if (selection.strategy === 'monthly') {
         job = this.worker.createMonthlyReportJob();
-      } else if (options.reportType === 'weekly' || options.days === 7) {
+      } else if (selection.strategy === 'weekly') {
         job = this.worker.createWeeklyReportJob();
       } else {
-        job = this.worker.createReportJob(options);
+        job = this.worker.createReportJob(selection.options);
       }
 
       logger.info({ jobId: job.id }, 'Report job created');
@@ -160,16 +172,58 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
   /**
    * Schedule weekly reports
    */
-  scheduleWeeklyReports(cronSchedule: string = '0 20 * * 0') {
-    return this.scheduleCron(logger, 'weekly git activity report', cronSchedule, () => this.runReport({ reportType: 'weekly' }));
+  scheduleWeeklyReports(cronSchedule: string = GIT_ACTIVITY.DEFAULT_WEEKLY_CRON) {
+    return this.scheduleCron(
+      logger,
+      'weekly git activity report',
+      cronSchedule,
+      () => this.runReport({ reportType: GIT_ACTIVITY.WEEKLY_REPORT_TYPE })
+    );
   }
 
   /**
    * Schedule monthly reports
    */
-  scheduleMonthlyReports(cronSchedule: string = '0 8 1 * *') {
-    return this.scheduleCron(logger, 'monthly git activity report', cronSchedule, () => this.runReport({ reportType: 'monthly' }));
+  scheduleMonthlyReports(cronSchedule: string = GIT_ACTIVITY.DEFAULT_MONTHLY_CRON) {
+    return this.scheduleCron(
+      logger,
+      'monthly git activity report',
+      cronSchedule,
+      () => this.runReport({ reportType: GIT_ACTIVITY.MONTHLY_REPORT_TYPE })
+    );
   }
+}
+
+export function selectGitActivityJob(
+  options: ReportOptions,
+  defaultReportType: string = GIT_ACTIVITY.DEFAULT_REPORT_TYPE
+): JobSelection {
+  const normalizedOptions: ReportOptions = {
+    ...options,
+    reportType: options.reportType ?? defaultReportType,
+  };
+
+  if (normalizedOptions.sinceDate) {
+    return normalizedOptions.untilDate
+      ? { strategy: 'custom', options: normalizedOptions }
+      : { strategy: 'generic', options: normalizedOptions };
+  }
+
+  if (
+    normalizedOptions.reportType === GIT_ACTIVITY.MONTHLY_REPORT_TYPE
+    || normalizedOptions.days === GIT_ACTIVITY.MONTHLY_WINDOW_DAYS
+  ) {
+    return { strategy: 'monthly', options: normalizedOptions };
+  }
+
+  if (
+    normalizedOptions.reportType === GIT_ACTIVITY.WEEKLY_REPORT_TYPE
+    || normalizedOptions.days === GIT_ACTIVITY.WEEKLY_WINDOW_DAYS
+  ) {
+    return { strategy: 'weekly', options: normalizedOptions };
+  }
+
+  return { strategy: 'generic', options: normalizedOptions };
 }
 
 export function parseGitActivityCliArgs(args: string[], runOnStartup: boolean): ParsedCliArgs {
@@ -181,9 +235,9 @@ export function parseGitActivityCliArgs(args: string[], runOnStartup: boolean): 
     if (args[i] === '--run-now' || args[i] === '--run') {
       runNow = true;
     } else if (args[i] === '--weekly') {
-      options.reportType = 'weekly';
+      options.reportType = GIT_ACTIVITY.WEEKLY_REPORT_TYPE;
     } else if (args[i] === '--monthly') {
-      options.reportType = 'monthly';
+      options.reportType = GIT_ACTIVITY.MONTHLY_REPORT_TYPE;
     } else if ((args[i] === '--start-date' || args[i] === '--since') && args[i + 1]) {
       options.sinceDate = args[i + 1];
       i++;
@@ -224,8 +278,8 @@ export function parseGitActivityCliArgs(args: string[], runOnStartup: boolean): 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const pipeline = new GitActivityPipeline();
 
-  const weeklyCronSchedule = process.env.GIT_CRON_SCHEDULE || '0 20 * * 0'; // Sunday 8 PM
-  const monthlyCronSchedule = process.env.GIT_MONTHLY_CRON_SCHEDULE || '0 8 1 * *'; // 1st of month 8 AM
+  const weeklyCronSchedule = process.env.GIT_CRON_SCHEDULE || GIT_ACTIVITY.DEFAULT_WEEKLY_CRON; // Sunday 8 PM
+  const monthlyCronSchedule = process.env.GIT_MONTHLY_CRON_SCHEDULE || GIT_ACTIVITY.DEFAULT_MONTHLY_CRON; // 1st of month 8 AM
 
   const args = process.argv.slice(2);
   const { options, runNow, errors } = parseGitActivityCliArgs(args, config.runOnStartup);
@@ -239,7 +293,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
     // Default to weekly if no options specified
     if (!options.reportType && !options.sinceDate && !options.days) {
-      options.reportType = 'weekly';
+      options.reportType = GIT_ACTIVITY.DEFAULT_REPORT_TYPE;
     }
 
     pipeline.runReport(options)
