@@ -1,3 +1,6 @@
+64f16f5 2026-03-04 chore: mirror sidequest gitlog into docs repomix output
+  sidequest/docs/gitlog-sidequest.txt
+
 3588a79 2026-03-04 chore: update repomix wrapper and refresh git history artifacts
   sidequest/docs/gitlog-sidequest.txt
 
@@ -1234,7 +1237,3 @@ cfcd591 2026-01-29 refactor: address 28 code review issues for modularity and ma
   sidequest/pipeline-runners/duplicate-detection-pipeline.js
   sidequest/workers/claude-health-worker.js
   sidequest/workers/duplicate-detection-worker.js
-
-5c4a4a8 2026-01-29 fix: add input validation and configurable database save interval
-  sidequest/core/config.js
-  sidequest/core/database.js

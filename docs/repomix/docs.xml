@@ -38,6 +38,8 @@
     pages.yml
     quality-checks.yml
 api/
+  constants/
+    http-status.ts
   middleware/
     auth.ts
     error-handler.ts
@@ -156,6 +158,7 @@ scripts/
   generate-token-tree.sh
   repomix-regen.sh
   repomix.config.json
+  run-python-tests.sh
   validate-permissions.ts
   verify-bugfixes.sh
   verify-setup.ts
@@ -173,8 +176,6 @@ sidequest/
     server-actions.test.ts
     server-retention.test.ts
     server.ts
-  docs/
-    gitlog-sidequest.txt
   pipeline-core/
     annotators/
       __init__.py

@@ -14,17 +14,23 @@ const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 describe('Aggregate Test Script Coverage', () => {
-  it('package.json wires test:all and test:aall to include Node+Python suites', async () => {
+  it('package.json wires core/env/full aggregate scripts for Node+Python suites', async () => {
     const packageJsonPath = path.join(PROJECT_ROOT, 'package.json');
     const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
     const scripts = packageJson.scripts as Record<string, string>;
 
     assert.equal(
-      scripts['test:all:node'],
-      'node --strip-types --test --test-timeout=30000 --test-force-exit tests/unit/**/*.test.ts tests/integration/*.test.ts sidequest/core/*.test.ts sidequest/pipeline-runners/*.test.ts sidequest/utils/*.test.ts sidequest/workers/*.test.ts'
+      scripts['test:all:core'],
+      'SKIP_ENV_SENSITIVE_TESTS=1 node --strip-types --test --test-timeout=30000 --test-force-exit tests/unit/**/*.test.ts tests/integration/*.test.ts sidequest/core/*.test.ts sidequest/pipeline-runners/*.test.ts sidequest/utils/*.test.ts sidequest/workers/*.test.ts'
     );
+    assert.equal(
+      scripts['test:all:env'],
+      'node --strip-types --test --test-timeout=60000 --test-force-exit tests/unit/port-manager.test.ts tests/unit/websocket.test.ts sidequest/pipeline-runners/startup-once-mode.test.ts'
+    );
+    assert.equal(scripts['test:all:node'], 'npm run test:all:core');
     assert.equal(scripts['test:all:py'], 'bash scripts/run-python-tests.sh');
-    assert.equal(scripts['test:all'], 'npm run test:all:node && npm run test:all:py');
+    assert.equal(scripts['test:all'], 'npm run test:all:core && npm run test:all:py');
+    assert.equal(scripts['test:all:full'], 'npm run test:all:core && npm run test:all:env && npm run test:all:py');
     assert.equal(scripts['test:aall'], 'npm run test:all');
   });
 

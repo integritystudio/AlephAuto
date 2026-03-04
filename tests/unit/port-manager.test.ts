@@ -16,7 +16,11 @@ import {
 } from '../../api/utils/port-manager.ts';
 import { createServer } from 'http';
 
-describe('Port Manager', () => {
+const describeEnvSensitive = process.env.SKIP_ENV_SENSITIVE_TESTS === '1'
+  ? describe.skip
+  : describe;
+
+describeEnvSensitive('Port Manager', () => {
   let servers = [];
 
   // Track process listeners added by setupGracefulShutdown so we can remove them

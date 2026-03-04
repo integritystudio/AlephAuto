@@ -5,6 +5,10 @@ import { WebSocket } from 'ws';
 import { createWebSocketServer } from '../../api/websocket.ts';
 import { ScanEventBroadcaster } from '../../api/event-broadcaster.ts';
 
+const describeEnvSensitive = process.env.SKIP_ENV_SENSITIVE_TESTS === '1'
+  ? describe.skip
+  : describe;
+
 /**
  * WebSocket Server Integration Tests
  *
@@ -17,7 +21,7 @@ import { ScanEventBroadcaster } from '../../api/event-broadcaster.ts';
  *    handshake before testing channel-filtered broadcasts.
  *
  */
-describe('WebSocket Server', () => {
+describeEnvSensitive('WebSocket Server', () => {
   let httpServer;
   let wss;
   let broadcaster;

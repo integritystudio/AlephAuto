@@ -38,6 +38,8 @@
     pages.yml
     quality-checks.yml
 api/
+  constants/
+    http-status.ts
   middleware/
     auth.ts
     error-handler.ts
@@ -156,6 +158,7 @@ scripts/
   generate-token-tree.sh
   repomix-regen.sh
   repomix.config.json
+  run-python-tests.sh
   validate-permissions.ts
   verify-bugfixes.sh
   verify-setup.ts
@@ -173,8 +176,6 @@ sidequest/
     server-actions.test.ts
     server-retention.test.ts
     server.ts
-  docs/
-    gitlog-sidequest.txt
   pipeline-core/
     annotators/
       __init__.py
@@ -1358,27 +1359,7 @@ jobs:
             echo &quot;::warning::Function() constructor detected - review for safety&quot;
           fi
       - name: TypeScript type check
-        run: pnpm run typecheck || true</file><file path="api/middleware/auth.ts">import type { Request, Response, NextFunction } from &apos;express&apos;;
-import { createComponentLogger } from &apos;#sidequest/utils/logger.ts&apos;;
-import { config } from &apos;#sidequest/core/config.ts&apos;;
-import crypto from &apos;crypto&apos;;
-⋮----
-function validateApiKey(apiKey: string): boolean
-export function authMiddleware(req: Request, res: Response, next: NextFunction): void</file><file path="api/middleware/error-handler.ts">import type { Request, Response, NextFunction } from &apos;express&apos;;
-import { createComponentLogger } from &apos;#sidequest/utils/logger.ts&apos;;
-import { config } from &apos;#sidequest/core/config.ts&apos;;
-⋮----
-interface ApiError extends Error {
-  statusCode?: number;
-  status?: number;
-  code?: string;
-}
-⋮----
-function sanitizeBody(body: unknown): unknown
-export function errorHandler(err: ApiError, req: Request, res: Response, _next: NextFunction): void</file><file path="api/middleware/rate-limit.ts">import type { Request, Response } from &apos;express&apos;;
-import rateLimit from &apos;express-rate-limit&apos;;
-import { createComponentLogger } from &apos;#sidequest/utils/logger.ts&apos;;
-import { RATE_LIMIT } from &apos;#sidequest/core/constants.ts&apos;;</file><file path="api/middleware/validation.ts">import type { Request, Response, NextFunction } from &apos;express&apos;;
+        run: pnpm run typecheck || true</file><file path="api/middleware/validation.ts">import type { Request, Response, NextFunction } from &apos;express&apos;;
 import { type ZodSchema, ZodError } from &apos;zod&apos;;
 import { createComponentLogger } from &apos;#sidequest/utils/logger.ts&apos;;
 import { sendValidationError } from &apos;../utils/api-error.ts&apos;;
@@ -1391,74 +1372,7 @@ interface ValidationErrorDetail {
 function formatZodErrors(error: ZodError): ValidationErrorDetail[]
 export function validateRequest(schema: ZodSchema): (req: Request, res: Response, next: NextFunction) =&gt; void
 export function validateQuery(schema: ZodSchema): (req: Request, res: Response, next: NextFunction) =&gt; void
-export function validateParams(schema: ZodSchema): (req: Request, res: Response, next: NextFunction) =&gt; void</file><file path="api/routes/jobs.ts">import express from &apos;express&apos;;
-import crypto from &apos;crypto&apos;;
-import { createComponentLogger, logError, logStart } from &apos;#sidequest/utils/logger.ts&apos;;
-import { jobRepository } from &apos;#sidequest/core/job-repository.ts&apos;;
-import { workerRegistry } from &apos;../utils/worker-registry.ts&apos;;
-import { config } from &apos;#sidequest/core/config.ts&apos;;
-import { getPipelineName } from &apos;#sidequest/utils/pipeline-names.ts&apos;;
-import { isValidJobStatus, JOB_STATUS } from &apos;../types/job-status.ts&apos;;
-import { PAGINATION, VALIDATION, RETRY } from &apos;#sidequest/core/constants.ts&apos;;
-import { sendError, sendNotFoundError, sendInternalError, ERROR_CODES } from &apos;../utils/api-error.ts&apos;;
-import { bulkImportRateLimiter } from &apos;../middleware/rate-limit.ts&apos;;
-function timingSafeEqual(a: unknown, b: unknown): boolean
-⋮----
-function validateJobId(jobId: string):
-function sanitizePaginationParams(limit: string | number, offset: string | number):</file><file path="api/routes/pipelines.ts">import express, { type Request, type Response, type NextFunction } from &apos;express&apos;;
-import { validateQuery, validateRequest } from &apos;../middleware/validation.ts&apos;;
-import {
-  JobQueryParamsSchema,
-  ManualTriggerRequestSchema,
-  type JobQueryParams,
-  type JobsListResponse,
-  type JobDetails,
-  type ManualTriggerRequest,
-  type ManualTriggerResponse
-} from &apos;../types/pipeline-requests.ts&apos;;
-import { createComponentLogger } from &apos;#sidequest/utils/logger.ts&apos;;
-⋮----
-import { jobRepository } from &apos;#sidequest/core/job-repository.ts&apos;;
-import { workerRegistry } from &apos;../utils/worker-registry.ts&apos;;
-⋮----
-async function fetchJobsForPipeline(
-  pipelineId: string,
-  options: JobQueryParams
-): Promise&lt;
-async function triggerPipelineJob(
-  pipelineId: string,
-  parameters: Record&lt;string, unknown&gt;
-): Promise&lt;string&gt;</file><file path="api/routes/reports.ts">import express from &apos;express&apos;;
-import { createComponentLogger, logError } from &apos;#sidequest/utils/logger.ts&apos;;
-import { validateQuery } from &apos;../middleware/validation.ts&apos;;
-import { ReportQuerySchema } from &apos;../types/report-requests.ts&apos;;
-import fs from &apos;fs/promises&apos;;
-import path from &apos;path&apos;;</file><file path="api/routes/repositories.ts">import express from &apos;express&apos;;
-import { RepositoryConfigLoader } from &apos;#sidequest/pipeline-core/config/repository-config-loader.ts&apos;;
-import { CachedScanner } from &apos;#sidequest/pipeline-core/cache/cached-scanner.ts&apos;;
-import { createComponentLogger, logError } from &apos;#sidequest/utils/logger.ts&apos;;
-import { strictRateLimiter } from &apos;../middleware/rate-limit.ts&apos;;
-import { validateQuery } from &apos;../middleware/validation.ts&apos;;
-import { RepositoryQuerySchema, RepositoryGroupQuerySchema } from &apos;../types/repository-requests.ts&apos;;</file><file path="api/routes/scans.ts">import express, { type Request, type Response, type NextFunction } from &apos;express&apos;;
-import { CachedScanner } from &apos;#sidequest/pipeline-core/cache/cached-scanner.ts&apos;;
-import { InterProjectScanner } from &apos;#sidequest/pipeline-core/inter-project-scanner.ts&apos;;
-import { DuplicateDetectionWorker } from &apos;#sidequest/workers/duplicate-detection-worker.ts&apos;;
-import { createComponentLogger, logStart } from &apos;#sidequest/utils/logger.ts&apos;;
-import { strictRateLimiter } from &apos;../middleware/rate-limit.ts&apos;;
-import { validateRequest } from &apos;../middleware/validation.ts&apos;;
-import {
-  StartScanRequestSchema,
-  type StartScanRequest,
-  type ScanResponse,
-  type ScanResults
-} from &apos;../types/scan-requests.ts&apos;;
-import { getJobs, type ParsedJob } from &apos;#sidequest/core/database.ts&apos;;
-import { JOB_STATUS } from &apos;../types/job-status.ts&apos;;
-import { PAGINATION } from &apos;#sidequest/core/constants.ts&apos;;
-import { type RepositoryConfig } from &apos;#sidequest/pipeline-core/config/repository-config-loader.ts&apos;;
-import path from &apos;path&apos;;
-⋮----
-const getJobsArray = (result: ReturnType&lt;typeof getJobs&gt;): ParsedJob[]</file><file path="api/types/job-status.ts">import { z } from &apos;zod&apos;;
+export function validateParams(schema: ZodSchema): (req: Request, res: Response, next: NextFunction) =&gt; void</file><file path="api/types/job-status.ts">import { z } from &apos;zod&apos;;
 ⋮----
 export type JobStatus = z.infer&lt;typeof JobStatusSchema&gt;;
 export function isValidJobStatus(value: unknown): value is JobStatus
@@ -1515,38 +1429,7 @@ export type StartScanRequest = z.infer&lt;typeof StartScanRequestSchema&gt;;
 ⋮----
 export type ScanResponse = z.infer&lt;typeof ScanResponseSchema&gt;;
 ⋮----
-export type ScanResults = z.infer&lt;typeof ScanResultsSchema&gt;;</file><file path="api/types/shared-schemas.ts">import { z } from &apos;zod&apos;;
-⋮----
-export type ErrorResponse = z.infer&lt;typeof ErrorResponseSchema&gt;;
-⋮----
-export type ValidationErrorDetail = z.infer&lt;typeof ValidationErrorDetailSchema&gt;;
-⋮----
-export type ValidationErrorResponse = z.infer&lt;typeof ValidationErrorResponseSchema&gt;;
-export function createErrorResponse(
-  error: string,
-  message: string,
-  status: number = 500
-): ErrorResponse
-export function createValidationErrorResponse(
-  message: string,
-  errors?: ValidationErrorDetail[]
-): ValidationErrorResponse
-export function createValidationError(
-  field: string,
-  message: string,
-  code: string = &apos;VALIDATION_ERROR&apos;
-): ValidationErrorResponse</file><file path="api/utils/api-error.ts">import type { Response } from &apos;express&apos;;
-import { createComponentLogger } from &apos;#sidequest/utils/logger.ts&apos;;
-⋮----
-export class ApiError extends Error
-⋮----
-constructor(code: string, message: string, status = 400, details: object | null = null)
-toJSON()
-⋮----
-export function sendError(res: Response, code: string, message: string, status = 400, details: object | null = null)
-export function sendValidationError(res: Response, message: string, errors: unknown[] = [])
-export function sendNotFoundError(res: Response, resource: string, identifier: string)
-export function sendInternalError(res: Response, message = &apos;An internal error occurred&apos;)</file><file path="api/utils/port-manager.ts">import type { Server as HttpServer } from &apos;http&apos;;
+export type ScanResults = z.infer&lt;typeof ScanResultsSchema&gt;;</file><file path="api/utils/port-manager.ts">import type { Server as HttpServer } from &apos;http&apos;;
 import net from &apos;net&apos;;
 import { createComponentLogger } from &apos;#sidequest/utils/logger.ts&apos;;
 import { PORT } from &apos;#sidequest/core/constants.ts&apos;;
@@ -3449,27 +3332,7 @@ name: &apos;&apos;,  // apex domain
 ⋮----
 async function createCNAMERecord()
 async function verifyRecords()
-async function main()</file><file path="scripts/analyze-duplicates.py">def get_file_path(location)
-def analyze_report(report_path)
-⋮----
-data = json.load(f)
-hash_to_blocks = defaultdict(list)
-⋮----
-exact_dups = [(h, blocks) for h, blocks in hash_to_blocks.items() if len(blocks) &gt;= 2]
-⋮----
-files = list(set(get_file_path(b[&quot;location&quot;]) for b in blocks))
-code = blocks[0][&quot;source_code&quot;]
-short_files = [Path(f).name for f in files[:4]]
-⋮----
-def find_latest_report()
-⋮----
-output_dir = Path(&quot;output/reports&quot;)
-⋮----
-reports = list(output_dir.glob(&quot;scan-*.json&quot;))
-⋮----
-report_path = sys.argv[1]
-⋮----
-report_path = find_latest_report()</file><file path="scripts/cleanup-error-logs.ts">import fs from &apos;fs/promises&apos;;
+async function main()</file><file path="scripts/cleanup-error-logs.ts">import fs from &apos;fs/promises&apos;;
 import path from &apos;path&apos;;
 import { createGzip } from &apos;zlib&apos;;
 import { pipeline } from &apos;stream/promises&apos;;
@@ -3739,7 +3602,178 @@ else
     exit 1
 fi
 log &quot;🎉 Doppler cache warming completed successfully&quot;
-exit 0</file><file path="sidequest/core/git-workflow-manager.ts">import { BranchManager } from &apos;../pipeline-core/git/branch-manager.ts&apos;;
+exit 0</file><file path="sidequest/core/config.ts">import path from &apos;path&apos;;
+import os from &apos;os&apos;;
+import { fileURLToPath } from &apos;url&apos;;
+import { dirname } from &apos;path&apos;;
+import { GIT_ACTIVITY, JOB_RETENTION } from &apos;./constants.ts&apos;;
+⋮----
+function safeParseInt(value: string | undefined, defaultValue: number, min?: number, max?: number): number
+function safeParseFloat(value: string | undefined, defaultValue: number, min?: number, max?: number): number
+function safeParseRetentionByType(value: string | undefined): Record&lt;string, number&gt;
+⋮----
+function validateConfig(): void</file><file path="sidequest/core/constants.ts"></file><file path="sidequest/core/database.test.ts">import test from &apos;node:test&apos;;
+import assert from &apos;node:assert/strict&apos;;
+import {
+  bulkImportJobs,
+  closeDatabase,
+  getDatabase,
+  initDatabase,
+  saveJob,
+} from &apos;./database.ts&apos;;
+interface RawJobJsonColumns {
+  data: string | null;
+  result: string | null;
+  error: string | null;
+  git: string | null;
+}
+function getRawJsonColumns(jobId: string): RawJobJsonColumns | null</file><file path="sidequest/core/database.ts">import Database from &apos;better-sqlite3&apos;;
+type DatabaseType = InstanceType&lt;typeof Database&gt;;
+import path from &apos;path&apos;;
+import fs from &apos;fs&apos;;
+import { fileURLToPath } from &apos;url&apos;;
+import { createComponentLogger, logMetrics } from &apos;../utils/logger.ts&apos;;
+import { isValidJobStatus } from &apos;#api/types/job-status.ts&apos;;
+import { VALIDATION } from &apos;./constants.ts&apos;;
+⋮----
+export interface JobRow {
+  id: string;
+  pipeline_id: string;
+  status: string;
+  data: string | null;
+  result: string | null;
+  error: string | null;
+  git: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+}
+export interface ParsedJobError {
+  message: string;
+  stack?: string;
+  code?: string;
+  cancelled?: boolean;
+}
+function isParsedJobError(value: unknown): value is ParsedJobError
+export interface ParsedJob {
+  id: string;
+  pipelineId: string;
+  status: string;
+  data: unknown;
+  result: unknown;
+  error: ParsedJobError | null;
+  git: unknown;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+export interface JobQueryOptions {
+  status?: string;
+  limit?: number;
+  offset?: number;
+  tab?: string;
+  includeTotal?: boolean;
+}
+export interface AllJobsQueryOptions {
+  status?: string;
+  limit?: number;
+  offset?: number;
+}
+export interface JobCounts {
+  total: number;
+  completed: number;
+  failed: number;
+  running: number;
+  queued: number;
+}
+export interface PipelineStats {
+  pipelineId: string;
+  total: number;
+  completed: number;
+  failed: number;
+  running: number;
+  queued: number;
+  lastRun: string | null;
+}
+export interface BulkImportResult {
+  imported: number;
+  skipped: number;
+  errors: string[];
+}
+export interface HealthStatus {
+  initialized: boolean;
+  degradedMode: boolean;
+  persistenceWorking: boolean;
+  persistFailureCount: number;
+  recoveryAttempts: number;
+  queuedWrites: number;
+  queueStalenessMs: number;
+  dbPath: string;
+  dbSizeBytes: number;
+  memoryPressure: string;
+  status: string;
+  message: string;
+}
+export interface SaveJobInput {
+  id: string;
+  pipelineId?: string;
+  status: string;
+  createdAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  data?: unknown;
+  result?: unknown;
+  error?: unknown;
+  git?: unknown;
+}
+export interface BulkImportJob {
+  id: string;
+  pipeline_id?: string;
+  pipelineId?: string;
+  status: string;
+  created_at?: string;
+  createdAt?: string;
+  started_at?: string | null;
+  startedAt?: string | null;
+  completed_at?: string | null;
+  completedAt?: string | null;
+  data?: unknown;
+  result?: unknown;
+  error?: unknown;
+  git?: unknown;
+}
+function safeJsonParse(str: string | null, fallback: unknown = null): unknown
+function serializeJsonForStorage(value: unknown): string | null
+function rowToParsedJob(row: JobRow): ParsedJob
+export async function initDatabase(dbPath?: string): Promise&lt;DatabaseType&gt;
+export function getDatabase(): DatabaseType
+export function isDatabaseReady(): boolean
+export function saveJob(job: SaveJobInput): void
+function queryAll(sql: string, params: (string | number)[] = []): JobRow[]
+function queryOne&lt;T = Record&lt;string, unknown&gt;&gt;(sql: string, params: (string | number)[] = []): T | null
+export function getJobs(pipelineId: string, options: JobQueryOptions =
+export function getJobById(id: string): ParsedJob | null
+export function getJobCount(options:
+export function getAllJobs(options: AllJobsQueryOptions =
+export function getJobCounts(pipelineId: string): JobCounts | null
+export function getLastJob(pipelineId: string): ParsedJob | null
+export function getAllPipelineStats(): PipelineStats[]
+export async function importReportsToDatabase(reportsDir: string): Promise&lt;number&gt;
+⋮----
+// Check if already imported
+⋮----
+// Import as completed job
+⋮----
+export async function importLogsToDatabase(logsDir: string): Promise&lt;number&gt;
+⋮----
+// Check if already imported
+⋮----
+// Determine status from content
+⋮----
+export function getHealthStatus(): HealthStatus
+export function closeDatabase(): void
+function isValidJobId(id: string): boolean
+export function bulkImportJobs(jobs: BulkImportJob[]): BulkImportResult</file><file path="sidequest/core/git-workflow-manager.ts">import { BranchManager } from &apos;../pipeline-core/git/branch-manager.ts&apos;;
 import type { BranchManagerOptions, JobBranchContext, BranchResult, PRContext } from &apos;../pipeline-core/git/branch-manager.ts&apos;;
 import { createComponentLogger, logError, logWarn } from &apos;../utils/logger.ts&apos;;
 ⋮----
@@ -3779,7 +3813,66 @@ async commitChanges(repositoryPath: string, commitContext: CommitContext): Promi
 async pushBranch(repositoryPath: string, branchName: string): Promise&lt;boolean&gt;
 async createPullRequest(repositoryPath: string, prContext: PRContext): Promise&lt;string | null&gt;
 async cleanupBranch(repositoryPath: string, branchName: string, originalBranch: string): Promise&lt;void&gt;
-async executeWorkflow(repositoryPath: string, gitInfo: GitInfo, messageGenerator: MessageGenerator): Promise&lt;WorkflowResult&gt;</file><file path="sidequest/core/job-repository.ts">import {
+async executeWorkflow(repositoryPath: string, gitInfo: GitInfo, messageGenerator: MessageGenerator): Promise&lt;WorkflowResult&gt;</file><file path="sidequest/core/index.test.ts">import test from &apos;node:test&apos;;
+import assert from &apos;node:assert/strict&apos;;
+import { isWorkerIdle } from &apos;./index.ts&apos;;
+import type { JobStats } from &apos;./server.ts&apos;;</file><file path="sidequest/core/index.ts">import cron from &apos;node-cron&apos;;
+import { RepomixWorker } from &apos;../workers/repomix-worker.ts&apos;;
+import { DirectoryScanner } from &apos;../utils/directory-scanner.ts&apos;;
+import { config } from &apos;./config.ts&apos;;
+import { TIMEOUTS, TIME } from &apos;./constants.ts&apos;;
+import path from &apos;path&apos;;
+import fs from &apos;fs/promises&apos;;
+import { fileURLToPath } from &apos;url&apos;;
+import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;
+import type { Job, JobStats } from &apos;./server.ts&apos;;
+⋮----
+interface ScanDirectory {
+  fullPath: string;
+  relativePath: string;
+}
+interface TypedDirectoryScanner {
+  baseDir: string;
+  scanDirectories(): Promise&lt;ScanDirectory[]&gt;;
+  generateAndSaveScanResults(dirs: ScanDirectory[]): Promise&lt;{
+    reportPath: string;
+    treePath: string;
+    summaryPath: string;
+    summary: {
+      maxDepth: number;
+      stats: { topDirectoryNames: Array&lt;{ name: string }&gt; };
+    };
+  }&gt;;
+}
+⋮----
+scanDirectories(): Promise&lt;ScanDirectory[]&gt;;
+generateAndSaveScanResults(dirs: ScanDirectory[]): Promise&lt;
+⋮----
+interface TypedRepomixWorker {
+  logDir: string;
+  outputBaseDir: string;
+  createRepomixJob(fullPath: string, relativePath: string): void;
+  getStats(): JobStats;
+  on(event: string, listener: (job: Job) =&gt; void): this;
+}
+⋮----
+createRepomixJob(fullPath: string, relativePath: string): void;
+getStats(): JobStats;
+on(event: string, listener: (job: Job)
+⋮----
+export function isWorkerIdle(stats: JobStats): boolean
+export class RepomixCronApp
+⋮----
+constructor()
+private setupEventListeners(): void
+async runRepomixOnAllDirectories(): Promise&lt;void&gt;
+private async waitForCompletion(): Promise&lt;void&gt;
+private async saveRunSummary(stats: JobStats, duration: number): Promise&lt;void&gt;
+private setupCronJob(schedule: string = &apos;0 2 * * *&apos;): void
+async start(): Promise&lt;void&gt;
+⋮----
+function isDirectExecution(): boolean
+// Entrypoint mode: run only when invoked directly, not when imported by tests/tools.</file><file path="sidequest/core/job-repository.ts">import {
   initDatabase,
   saveJob as dbSaveJob,
   getJobById as dbGetJobById,
@@ -3824,7 +3917,21 @@ bulkImport(jobs: BulkImportJob[]): BulkImportResult
 close(): void
 reset(): void
 ⋮----
-export function createJobRepository(options: JobRepositoryOptions =</file><file path="sidequest/pipeline-core/annotators/__init__.pyi">&quot;&quot;&quot;Type stubs for annotators package.&quot;&quot;&quot;
+export function createJobRepository(options: JobRepositoryOptions =</file><file path="sidequest/core/server-retention.test.ts">import test from &apos;node:test&apos;;
+import assert from &apos;node:assert/strict&apos;;
+import type { Job } from &apos;./server.ts&apos;;
+import { SidequestServer } from &apos;./server.ts&apos;;
+import { config } from &apos;./config.ts&apos;;
+import { GIT_ACTIVITY, JOB_RETENTION, TIME } from &apos;./constants.ts&apos;;
+import { jobRepository } from &apos;./job-repository.ts&apos;;
+import { JOB_STATUS } from &apos;#api/types/job-status.ts&apos;;
+function makeJob(
+  id: string,
+  status: Job[&apos;status&apos;],
+  createdAt: Date,
+  completedAt: Date | null
+): Job
+function stubRepositoryInit(t: test.TestContext): void</file><file path="sidequest/pipeline-core/annotators/__init__.pyi">&quot;&quot;&quot;Type stubs for annotators package.&quot;&quot;&quot;
 
 from .semantic_annotator import (
     SemanticAnnotation as SemanticAnnotation,
@@ -6709,7 +6816,27 @@ For issues or improvements:
 
 **Last Updated:** 2025-11-24
 **Author:** Data Architecture Cleanup Process
-**License:** Use freely for any repository cleanup</file><file path="sidequest/pipeline-runners/git-activity-pipeline.test.ts">import test from &apos;node:test&apos;;
+**License:** Use freely for any repository cleanup</file><file path="sidequest/pipeline-runners/base-pipeline.ts">import type { Job, JobStats } from &apos;../core/server.ts&apos;;
+import { SidequestServer } from &apos;../core/server.ts&apos;;
+import { logError } from &apos;../utils/logger.ts&apos;;
+import cron from &apos;node-cron&apos;;
+import type { Logger } from &apos;pino&apos;;
+⋮----
+export abstract class BasePipeline&lt;TWorker extends SidequestServer = SidequestServer&gt;
+⋮----
+constructor(worker: TWorker)
+waitForCompletion(): Promise&lt;void&gt;
+⋮----
+const cleanup = () =&gt;
+const checkAndResolve = () =&gt;
+⋮----
+protected scheduleCron(
+    logger: Logger,
+    name: string,
+    cronSchedule: string,
+    runFn: () =&gt; Promise&lt;unknown&gt;
+): cron.ScheduledTask
+getStats(): JobStats</file><file path="sidequest/pipeline-runners/git-activity-pipeline.test.ts">import test from &apos;node:test&apos;;
 import assert from &apos;node:assert/strict&apos;;
 import { GIT_ACTIVITY } from &apos;../core/constants.ts&apos;;
 import { parseGitActivityCliArgs, selectGitActivityJob } from &apos;./git-activity-pipeline.ts&apos;;</file><file path="sidequest/pipeline-runners/plugin-management-audit.sh">set -euo pipefail
@@ -6861,409 +6988,7 @@ if [[ &quot;$has_duplicates&quot; == true ]] || [[ $PLUGIN_COUNT -gt 30 ]]; then
     exit 1
 else
     exit 0
-fi</file><file path="sidequest/pipeline-runners/universal-repo-cleanup.sh">set -e
-set -u
-RED=&apos;\033[0;31m&apos;
-GREEN=&apos;\033[0;32m&apos;
-YELLOW=&apos;\033[1;33m&apos;
-BLUE=&apos;\033[0;34m&apos;
-NC=&apos;\033[0m&apos;
-TARGET_DIR=&quot;${1:-$(pwd)}&quot;
-TARGET_DIR=&quot;$(cd &quot;$TARGET_DIR&quot; 2&gt;/dev/null &amp;&amp; pwd)&quot; || {
-    echo -e &quot;${RED}✗ Error: Directory &apos;$1&apos; does not exist${NC}&quot;
-    exit 1
-}
-################################################################################
-# Configuration - Customize what gets cleaned
-################################################################################
-# Python virtual environment directory names (common patterns)
-VENV_PATTERNS=(
-    &quot;venv&quot;
-    &quot;.venv&quot;
-    &quot;env&quot;
-    &quot;.env&quot;
-    &quot;virtualenv&quot;
-    &quot;*.venv&quot;
-    &quot;personal_site&quot;
-)
-BUILD_ARTIFACTS=(
-    &quot;.jekyll-cache&quot;
-    &quot;.sass-cache&quot;
-    &quot;.bundle&quot;
-    &quot;node_modules/.cache&quot;
-    &quot;dist&quot;
-    &quot;build&quot;
-    &quot;.next&quot;
-    &quot;.nuxt&quot;
-    &quot;out&quot;
-    &quot;.output&quot;
-    &quot;target&quot;
-    &quot;.gradle&quot;
-)
-TEMP_FILE_PATTERNS=(
-    &quot;.DS_Store&quot;
-    &quot;*.pyc&quot;
-    &quot;*.pyo&quot;
-    &quot;__pycache__&quot;
-    &quot;*.swp&quot;
-    &quot;*.swo&quot;
-    &quot;*~&quot;
-    &quot;.*.swp&quot;
-    &quot;Thumbs.db&quot;
-    &quot;desktop.ini&quot;
-)
-OUTPUT_FILE_PATTERNS=(
-    &quot;repomix-output.xml&quot;
-    &quot;*.log&quot;
-    &quot;npm-debug.log*&quot;
-    &quot;yarn-debug.log*&quot;
-    &quot;yarn-error.log*&quot;
-)
-REDUNDANT_DIRS=(
-    &quot;drafts&quot;
-    &quot;temp&quot;
-    &quot;tmp&quot;
-    &quot;backup&quot;
-    &quot;backups&quot;
-    &quot;old&quot;
-    &quot;archive&quot;
-    &quot;deprecated&quot;
-)
-print_header() {
-    echo -e &quot;\n${BLUE}========================================${NC}&quot;
-    echo -e &quot;${BLUE}$1${NC}&quot;
-    echo -e &quot;${BLUE}========================================${NC}\n&quot;
-}
-print_success() {
-    echo -e &quot;${GREEN}✓ $1${NC}&quot;
-}
-print_warning() {
-    echo -e &quot;${YELLOW}⚠ $1${NC}&quot;
-}
-print_error() {
-    echo -e &quot;${RED}✗ $1${NC}&quot;
-}
-print_info() {
-    echo -e &quot;${BLUE}→ $1${NC}&quot;
-}
-get_size() {
-    local path=&quot;$1&quot;
-    if [ -e &quot;$path&quot; ]; then
-        du -sh &quot;$path&quot; 2&gt;/dev/null | cut -f1
-    else
-        echo &quot;N/A&quot;
-    fi
-}
-count_files() {
-    local path=&quot;$1&quot;
-    if [ -d &quot;$path&quot; ]; then
-        find &quot;$path&quot; -type f 2&gt;/dev/null | wc -l | tr -d &apos; &apos;
-    else
-        echo &quot;0&quot;
-    fi
-}
-scan_venvs() {
-    print_info &quot;Scanning for Python virtual environments...&quot; &gt;&amp;2
-    local found=()
-    for pattern in &quot;${VENV_PATTERNS[@]}&quot;; do
-        while IFS= read -r -d &apos;&apos; dir; do
-            # Skip if inside node_modules
-            if [[ ! &quot;$dir&quot; =~ node_modules ]]; then
-                found+=(&quot;$dir&quot;)
-            fi
-        done &lt; &lt;(find &quot;$TARGET_DIR&quot; -maxdepth 3 -type d -name &quot;$pattern&quot; -print0 2&gt;/dev/null)
-    done
-    # Remove duplicates (handle empty array safely)
-    [ ${#found[@]} -gt 0 ] &amp;&amp; printf &apos;%s\n&apos; &quot;${found[@]}&quot; | sort -u
-}
-scan_temp_files() {
-    print_info &quot;Scanning for temporary/cache files...&quot; &gt;&amp;2
-    local found=()
-    for pattern in &quot;${TEMP_FILE_PATTERNS[@]}&quot;; do
-        while IFS= read -r -d &apos;&apos; file; do
-            found+=(&quot;$file&quot;)
-        done &lt; &lt;(find &quot;$TARGET_DIR&quot; -name &quot;$pattern&quot; -print0 2&gt;/dev/null)
-    done
-    [ ${#found[@]} -gt 0 ] &amp;&amp; printf &apos;%s\n&apos; &quot;${found[@]}&quot; | sort -u
-}
-scan_output_files() {
-    print_info &quot;Scanning for output/generated files...&quot; &gt;&amp;2
-    local found=()
-    for pattern in &quot;${OUTPUT_FILE_PATTERNS[@]}&quot;; do
-        while IFS= read -r -d &apos;&apos; file; do
-            # Keep root-level repomix-output.xml
-            if [[ &quot;$file&quot; != &quot;$TARGET_DIR/repomix-output.xml&quot; ]]; then
-                found+=(&quot;$file&quot;)
-            fi
-        done &lt; &lt;(find &quot;$TARGET_DIR&quot; -name &quot;$pattern&quot; -print0 2&gt;/dev/null)
-    done
-    [ ${#found[@]} -gt 0 ] &amp;&amp; printf &apos;%s\n&apos; &quot;${found[@]}&quot; | sort -u
-}
-scan_build_artifacts() {
-    print_info &quot;Scanning for build artifacts...&quot; &gt;&amp;2
-    local found=()
-    for artifact in &quot;${BUILD_ARTIFACTS[@]}&quot;; do
-        local path=&quot;$TARGET_DIR/$artifact&quot;
-        if [ -d &quot;$path&quot; ]; then
-            found+=(&quot;$path&quot;)
-        fi
-    done
-    [ ${
-}
-scan_redundant_dirs() {
-    print_info &quot;Scanning for redundant directories...&quot; &gt;&amp;2
-    local found=()
-    for dir_name in &quot;${REDUNDANT_DIRS[@]}&quot;; do
-        local path=&quot;$TARGET_DIR/$dir_name&quot;
-        if [ -d &quot;$path&quot; ]; then
-            if [ -f &quot;$TARGET_DIR/.gitignore&quot; ] &amp;&amp; grep -q &quot;^${dir_name}/\?$&quot; &quot;$TARGET_DIR/.gitignore&quot; 2&gt;/dev/null; then
-                found+=(&quot;$path (in .gitignore)&quot;)
-            else
-                found+=(&quot;$path&quot;)
-            fi
-        fi
-    done
-    [ ${
-}
-show_preview() {
-    print_header &quot;Repository Cleanup Preview&quot;
-    echo &quot;Target Directory: $TARGET_DIR&quot;
-    echo &quot;Current Size: $(get_size &quot;$TARGET_DIR&quot;)&quot;
-    echo &quot;&quot;
-    # Scan all categories
-    local venvs=($(scan_venvs))
-    local temp_files=($(scan_temp_files))
-    local output_files=($(scan_output_files))
-    local build_artifacts=($(scan_build_artifacts))
-    local redundant_dirs=($(scan_redundant_dirs))
-    local total_items=0
-    # Python venvs
-    if [ ${#venvs[@]} -gt 0 ]; then
-        echo -e &quot;${YELLOW}Python Virtual Environments (${
-        for venv in &quot;${venvs[@]}&quot;; do
-            [ -n &quot;$venv&quot; ] &amp;&amp; echo &quot;  - $venv ($(get_size &quot;$venv&quot;))&quot; &amp;&amp; ((total_items++))
-        done
-        echo &quot;&quot;
-    fi
-    # Temporary files
-    if [ ${#temp_files[@]} -gt 0 ]; then
-        echo -e &quot;${YELLOW}Temporary/Cache Files (${
-        local count=0
-        for file in &quot;${temp_files[@]}&quot;; do
-            [ -n &quot;$file&quot; ] &amp;&amp; ((count++)) &amp;&amp; ((total_items++))
-        done
-        echo &quot;  - $count files (.DS_Store, __pycache__, .swp, etc.)&quot;
-        echo &quot;&quot;
-    fi
-    # Output files
-    if [ ${#output_files[@]} -gt 0 ]; then
-        echo -e &quot;${YELLOW}Output/Generated Files (${
-        for file in &quot;${output_files[@]}&quot;; do
-            [ -n &quot;$file&quot; ] &amp;&amp; echo &quot;  - $file&quot; &amp;&amp; ((total_items++))
-        done
-        echo &quot;&quot;
-    fi
-    # Build artifacts
-    if [ ${#build_artifacts[@]} -gt 0 ]; then
-        echo -e &quot;${YELLOW}Build Artifacts (${
-        for artifact in &quot;${build_artifacts[@]}&quot;; do
-            [ -n &quot;$artifact&quot; ] &amp;&amp; echo &quot;  - $artifact ($(get_size &quot;$artifact&quot;))&quot; &amp;&amp; ((total_items++))
-        done
-        echo &quot;&quot;
-    fi
-    # Redundant directories
-    if [ ${#redundant_dirs[@]} -gt 0 ]; then
-        echo -e &quot;${YELLOW}Redundant Directories (${
-        for dir in &quot;${redundant_dirs[@]}&quot;; do
-            [ -n &quot;$dir&quot; ] &amp;&amp; echo &quot;  - $dir&quot; &amp;&amp; ((total_items++))
-        done
-        echo &quot;&quot;
-    fi
-    if [ $total_items -eq 0 ]; then
-        print_success &quot;No items found to clean - repository is already clean!&quot;
-        exit 0
-    fi
-    echo -e &quot;${YELLOW}Total items to remove: $total_items${NC}&quot;
-    echo &quot;&quot;
-    # Store for cleanup functions
-    export FOUND_VENVS=&quot;${venvs[*]}&quot;
-    export FOUND_TEMP_FILES=&quot;${temp_files[*]}&quot;
-    export FOUND_OUTPUT_FILES=&quot;${output_files[*]}&quot;
-    export FOUND_BUILD_ARTIFACTS=&quot;${build_artifacts[*]}&quot;
-    export FOUND_REDUNDANT_DIRS=&quot;${redundant_dirs[*]}&quot;
-}
-confirm_cleanup() {
-    read -p &quot;Do you want to proceed with cleanup? (yes/no): &quot; response
-    if [[ ! &quot;$response&quot; =~ ^[Yy][Ee][Ss]$ ]]; then
-        print_warning &quot;Cleanup cancelled by user&quot;
-        exit 0
-    fi
-    echo &quot;&quot;
-}
-################################################################################
-# Cleanup Functions
-################################################################################
-cleanup_venvs() {
-    print_header &quot;Step 1: Removing Python Virtual Environments&quot;
-    local venvs=($FOUND_VENVS)
-    local removed=0
-    if [ ${
-        print_info &quot;No virtual environments to remove&quot;
-        return
-    fi
-    for venv in &quot;${venvs[@]}&quot;; do
-        if [ -n &quot;$venv&quot; ] &amp;&amp; [ -d &quot;$venv&quot; ]; then
-            local size=$(get_size &quot;$venv&quot;)
-            print_info &quot;Removing $(basename &quot;$venv&quot;) ($size)...&quot;
-            rm -rf &quot;$venv&quot;
-            print_success &quot;Removed $venv&quot;
-            ((removed++))
-        fi
-    done
-    print_success &quot;Removed $removed virtual environment(s)&quot;
-}
-cleanup_temp_files() {
-    print_header &quot;Step 2: Removing Temporary/Cache Files&quot;
-    local temp_files=($FOUND_TEMP_FILES)
-    local removed=0
-    if [ ${
-        print_info &quot;No temporary files to remove&quot;
-        return
-    fi
-    for file in &quot;${temp_files[@]}&quot;; do
-        if [ -n &quot;$file&quot; ] &amp;&amp; [ -e &quot;$file&quot; ]; then
-            rm -rf &quot;$file&quot; 2&gt;/dev/null &amp;&amp; ((removed++))
-        fi
-    done
-    print_success &quot;Removed $removed temporary file(s)&quot;
-}
-cleanup_output_files() {
-    print_header &quot;Step 3: Removing Output/Generated Files&quot;
-    local output_files=($FOUND_OUTPUT_FILES)
-    local removed=0
-    if [ ${
-        print_info &quot;No output files to remove&quot;
-        return
-    fi
-    for file in &quot;${output_files[@]}&quot;; do
-        if [ -n &quot;$file&quot; ] &amp;&amp; [ -f &quot;$file&quot; ]; then
-            print_info &quot;Removing $(basename &quot;$file&quot;)...&quot;
-            rm -f &quot;$file&quot;
-            print_success &quot;Removed $file&quot;
-            ((removed++))
-        fi
-    done
-    print_success &quot;Removed $removed output file(s)&quot;
-}
-cleanup_build_artifacts() {
-    print_header &quot;Step 4: Removing Build Artifacts&quot;
-    local build_artifacts=($FOUND_BUILD_ARTIFACTS)
-    local removed=0
-    if [ ${
-        print_info &quot;No build artifacts to remove&quot;
-        return
-    fi
-    for artifact in &quot;${build_artifacts[@]}&quot;; do
-        if [ -n &quot;$artifact&quot; ] &amp;&amp; [ -d &quot;$artifact&quot; ]; then
-            local size=$(get_size &quot;$artifact&quot;)
-            print_info &quot;Removing $(basename &quot;$artifact&quot;) ($size)...&quot;
-            rm -rf &quot;$artifact&quot;
-            print_success &quot;Removed $artifact&quot;
-            ((removed++))
-        fi
-    done
-    print_success &quot;Removed $removed build artifact(s)&quot;
-}
-cleanup_redundant_dirs() {
-    print_header &quot;Step 5: Removing Redundant Directories&quot;
-    local redundant_dirs=($FOUND_REDUNDANT_DIRS)
-    local removed=0
-    if [ ${
-        print_info &quot;No redundant directories to remove&quot;
-        return
-    fi
-    for dir in &quot;${redundant_dirs[@]}&quot;; do
-        dir=&quot;${dir% (in .gitignore)}&quot;
-        if [ -n &quot;$dir&quot; ] &amp;&amp; [ -d &quot;$dir&quot; ]; then
-            local size=$(get_size &quot;$dir&quot;)
-            print_info &quot;Removing $(basename &quot;$dir&quot;) ($size)...&quot;
-            rm -rf &quot;$dir&quot;
-            print_success &quot;Removed $dir&quot;
-            ((removed++))
-        fi
-    done
-    print_success &quot;Removed $removed redundant director(ies)&quot;
-}
-print_summary() {
-    print_header &quot;Cleanup Summary&quot;
-    local final_size=$(get_size &quot;$TARGET_DIR&quot;)
-    echo &quot;Cleanup completed successfully!&quot;
-    echo &quot;&quot;
-    echo &quot;Target Directory: $TARGET_DIR&quot;
-    echo &quot;Final Size: $final_size&quot;
-    echo &quot;&quot;
-    echo &quot;Cleaned up:&quot;
-    echo &quot;  ✓ Python virtual environments&quot;
-    echo &quot;  ✓ Temporary/cache files (.DS_Store, __pycache__, etc.)&quot;
-    echo &quot;  ✓ Output/generated files (logs, repomix files, etc.)&quot;
-    echo &quot;  ✓ Build artifacts (.jekyll-cache, dist/, etc.)&quot;
-    echo &quot;  ✓ Redundant directories (drafts/, temp/, backup/, etc.)&quot;
-    echo &quot;&quot;
-    print_success &quot;Repository cleanup completed!&quot;
-}
-recommend_gitignore() {
-    print_header &quot;Recommendations&quot;
-    if [ ! -f &quot;$TARGET_DIR/.gitignore&quot; ]; then
-        print_warning &quot;No .gitignore found - consider creating one&quot;
-        return
-    fi
-    echo &quot;Consider adding these patterns to .gitignore if not already present:&quot;
-    echo &quot;&quot;
-    echo &quot;
-    echo &quot;  venv/&quot;
-    echo &quot;  .venv/&quot;
-    echo &quot;  *.pyc&quot;
-    echo &quot;  __pycache__/&quot;
-    echo &quot;&quot;
-    echo &quot;
-    echo &quot;  .DS_Store&quot;
-    echo &quot;  Thumbs.db&quot;
-    echo &quot;&quot;
-    echo &quot;
-    echo &quot;  dist/&quot;
-    echo &quot;  build/&quot;
-    echo &quot;  *.log&quot;
-    echo &quot;&quot;
-    echo &quot;
-    echo &quot;  temp/&quot;
-    echo &quot;  tmp/&quot;
-    echo &quot;  *.swp&quot;
-    echo &quot;&quot;
-}
-################################################################################
-# Main Execution
-################################################################################
-main() {
-    print_header &quot;Universal Repository Cleanup Script&quot;
-    echo &quot;Target: $TARGET_DIR&quot;
-    echo &quot;&quot;
-    # Show preview and get confirmation
-    show_preview
-    confirm_cleanup
-    # Execute cleanup tasks
-    cleanup_venvs
-    cleanup_temp_files
-    cleanup_output_files
-    cleanup_build_artifacts
-    cleanup_redundant_dirs
-    # Print summary
-    print_summary
-    # Print recommendations
-    recommend_gitignore
-    print_success &quot;All cleanup tasks completed successfully!&quot;
-}
-# Run main function
-main &quot;$@&quot;</file><file path="sidequest/utils/dependency-validator.ts">import { execSync } from &apos;child_process&apos;;
+fi</file><file path="sidequest/utils/dependency-validator.ts">import { execSync } from &apos;child_process&apos;;
 import { createComponentLogger } from &apos;./logger.ts&apos;;
 import { TIMEOUTS } from &apos;../core/constants.ts&apos;;
 ⋮----
@@ -8370,42 +8095,142 @@ build/
     &quot;mcp-servers/**/*&quot;,
     &quot;**/*.example.js&quot;
   ]
-}</file><file path="api/server.ts">import express, { type Request, type Response, type NextFunction } from &apos;express&apos;;
-import cors from &apos;cors&apos;;
-import path from &apos;path&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-import { marked } from &apos;marked&apos;;
-import DOMPurify from &apos;dompurify&apos;;
-import { JSDOM } from &apos;jsdom&apos;;
-import { createComponentLogger, logError, logStart } from &apos;../sidequest/utils/logger.ts&apos;;
-import { config } from &apos;../sidequest/core/config.ts&apos;;
-import { CONCURRENCY, PORT } from &apos;../sidequest/core/constants.ts&apos;;
-import { authMiddleware } from &apos;./middleware/auth.ts&apos;;
-import { rateLimiter } from &apos;./middleware/rate-limit.ts&apos;;
-import { errorHandler } from &apos;./middleware/error-handler.ts&apos;;
-import scanRoutes from &apos;./routes/scans.ts&apos;;
-import repositoryRoutes from &apos;./routes/repositories.ts&apos;;
-import reportRoutes from &apos;./routes/reports.ts&apos;;
-import pipelineRoutes from &apos;./routes/pipelines.ts&apos;;
-import jobsRoutes from &apos;./routes/jobs.ts&apos;;
+}</file><file path="api/constants/http-status.ts">export type HttpStatusCode = (typeof HttpStatus)[keyof typeof HttpStatus];</file><file path="api/middleware/auth.ts">import type { Request, Response, NextFunction } from &apos;express&apos;;
+import { createComponentLogger } from &apos;#sidequest/utils/logger.ts&apos;;
+import { config } from &apos;#sidequest/core/config.ts&apos;;
+import crypto from &apos;crypto&apos;;
+import { HttpStatus } from &apos;../constants/http-status.ts&apos;;
 ⋮----
-import { createServer } from &apos;http&apos;;
-import { createWebSocketServer } from &apos;./websocket.ts&apos;;
-import { ScanEventBroadcaster } from &apos;./event-broadcaster.ts&apos;;
-import { ActivityFeedManager } from &apos;./activity-feed.ts&apos;;
-import { DopplerHealthMonitor } from &apos;../sidequest/pipeline-core/doppler-health-monitor.ts&apos;;
-import { setupServerWithPortFallback, setupGracefulShutdown } from &apos;./utils/port-manager.ts&apos;;
-import { jobRepository } from &apos;../sidequest/core/job-repository.ts&apos;;
-import type { ParsedJob } from &apos;../sidequest/core/database.ts&apos;;
-import { getPipelineName } from &apos;../sidequest/utils/pipeline-names.ts&apos;;
-import { workerRegistry } from &apos;./utils/worker-registry.ts&apos;;
+function validateApiKey(apiKey: string): boolean
+export function authMiddleware(req: Request, res: Response, next: NextFunction): void</file><file path="api/middleware/error-handler.ts">import type { Request, Response, NextFunction } from &apos;express&apos;;
+import { createComponentLogger } from &apos;#sidequest/utils/logger.ts&apos;;
+import { config } from &apos;#sidequest/core/config.ts&apos;;
+⋮----
+import { HttpStatus } from &apos;../constants/http-status.ts&apos;;
+⋮----
+interface ApiError extends Error {
+  statusCode?: number;
+  status?: number;
+  code?: string;
+}
+⋮----
+function sanitizeBody(body: unknown): unknown
+export function errorHandler(err: ApiError, req: Request, res: Response, _next: NextFunction): void</file><file path="api/middleware/rate-limit.ts">import type { Request, Response } from &apos;express&apos;;
+import rateLimit from &apos;express-rate-limit&apos;;
+import { createComponentLogger } from &apos;#sidequest/utils/logger.ts&apos;;
+import { RATE_LIMIT } from &apos;#sidequest/core/constants.ts&apos;;
+import { HttpStatus } from &apos;../constants/http-status.ts&apos;;</file><file path="api/routes/jobs.ts">import express from &apos;express&apos;;
+import crypto from &apos;crypto&apos;;
+import { createComponentLogger, logError, logStart } from &apos;#sidequest/utils/logger.ts&apos;;
+import { jobRepository } from &apos;#sidequest/core/job-repository.ts&apos;;
+import { workerRegistry } from &apos;../utils/worker-registry.ts&apos;;
+import { config } from &apos;#sidequest/core/config.ts&apos;;
+import { getPipelineName } from &apos;#sidequest/utils/pipeline-names.ts&apos;;
+import { isValidJobStatus, JOB_STATUS } from &apos;../types/job-status.ts&apos;;
+import { PAGINATION, VALIDATION, RETRY } from &apos;#sidequest/core/constants.ts&apos;;
+import { sendError, sendNotFoundError, sendInternalError, ERROR_CODES } from &apos;../utils/api-error.ts&apos;;
+import { bulkImportRateLimiter } from &apos;../middleware/rate-limit.ts&apos;;
+import { HttpStatus } from &apos;../constants/http-status.ts&apos;;
+function timingSafeEqual(a: unknown, b: unknown): boolean
+⋮----
+function validateJobId(jobId: string):
+function sanitizePaginationParams(limit: string | number, offset: string | number):</file><file path="api/routes/pipelines.ts">import express, { type Request, type Response, type NextFunction } from &apos;express&apos;;
+import { validateQuery, validateRequest } from &apos;../middleware/validation.ts&apos;;
+import {
+  JobQueryParamsSchema,
+  ManualTriggerRequestSchema,
+  type JobQueryParams,
+  type JobsListResponse,
+  type JobDetails,
+  type ManualTriggerRequest,
+  type ManualTriggerResponse
+} from &apos;../types/pipeline-requests.ts&apos;;
+import { createComponentLogger } from &apos;#sidequest/utils/logger.ts&apos;;
+⋮----
+import { jobRepository } from &apos;#sidequest/core/job-repository.ts&apos;;
+import { workerRegistry } from &apos;../utils/worker-registry.ts&apos;;
+import { HttpStatus } from &apos;../constants/http-status.ts&apos;;
+⋮----
+async function fetchJobsForPipeline(
+  pipelineId: string,
+  options: JobQueryParams
+): Promise&lt;
+async function triggerPipelineJob(
+  pipelineId: string,
+  parameters: Record&lt;string, unknown&gt;
+): Promise&lt;string&gt;</file><file path="api/routes/reports.ts">import express from &apos;express&apos;;
+import { createComponentLogger, logError } from &apos;#sidequest/utils/logger.ts&apos;;
+import { validateQuery } from &apos;../middleware/validation.ts&apos;;
+import { ReportQuerySchema } from &apos;../types/report-requests.ts&apos;;
 import fs from &apos;fs/promises&apos;;
+import path from &apos;path&apos;;
+import { HttpStatus } from &apos;../constants/http-status.ts&apos;;</file><file path="api/routes/repositories.ts">import express from &apos;express&apos;;
+import { RepositoryConfigLoader } from &apos;#sidequest/pipeline-core/config/repository-config-loader.ts&apos;;
+import { CachedScanner } from &apos;#sidequest/pipeline-core/cache/cached-scanner.ts&apos;;
+import { createComponentLogger, logError } from &apos;#sidequest/utils/logger.ts&apos;;
+import { strictRateLimiter } from &apos;../middleware/rate-limit.ts&apos;;
+import { validateQuery } from &apos;../middleware/validation.ts&apos;;
+import { RepositoryQuerySchema, RepositoryGroupQuerySchema } from &apos;../types/repository-requests.ts&apos;;
+import { HttpStatus } from &apos;../constants/http-status.ts&apos;;</file><file path="api/routes/scans.ts">import express, { type Request, type Response, type NextFunction } from &apos;express&apos;;
+import { CachedScanner } from &apos;#sidequest/pipeline-core/cache/cached-scanner.ts&apos;;
+import { InterProjectScanner } from &apos;#sidequest/pipeline-core/inter-project-scanner.ts&apos;;
+import { DuplicateDetectionWorker } from &apos;#sidequest/workers/duplicate-detection-worker.ts&apos;;
+import { createComponentLogger, logStart } from &apos;#sidequest/utils/logger.ts&apos;;
+import { strictRateLimiter } from &apos;../middleware/rate-limit.ts&apos;;
+import { validateRequest } from &apos;../middleware/validation.ts&apos;;
+import {
+  StartScanRequestSchema,
+  type StartScanRequest,
+  type ScanResponse,
+  type ScanResults
+} from &apos;../types/scan-requests.ts&apos;;
+import { getJobs, type ParsedJob } from &apos;#sidequest/core/database.ts&apos;;
+import { JOB_STATUS } from &apos;../types/job-status.ts&apos;;
+import { PAGINATION } from &apos;#sidequest/core/constants.ts&apos;;
+import { type RepositoryConfig } from &apos;#sidequest/pipeline-core/config/repository-config-loader.ts&apos;;
+import path from &apos;path&apos;;
+import { HttpStatus } from &apos;../constants/http-status.ts&apos;;
 ⋮----
-const mapJobForApi = (job: ParsedJob) =&gt; (
+const getJobsArray = (result: ReturnType&lt;typeof getJobs&gt;): ParsedJob[]</file><file path="api/types/shared-schemas.ts">import { z } from &apos;zod&apos;;
+import { HttpStatus, type HttpStatusCode } from &apos;../constants/http-status.ts&apos;;
 ⋮----
-// Cast to unknown first then to the type DOMPurify expects (WindowLike)
+export type ErrorResponse = z.infer&lt;typeof ErrorResponseSchema&gt;;
 ⋮----
-async function emergencyShutdown()</file><file path="config/ecosystem.config.cjs">/**
+export type ValidationErrorDetail = z.infer&lt;typeof ValidationErrorDetailSchema&gt;;
+⋮----
+export type ValidationErrorResponse = z.infer&lt;typeof ValidationErrorResponseSchema&gt;;
+export function createErrorResponse(
+  error: string,
+  message: string,
+  status: HttpStatusCode = HttpStatus.INTERNAL_SERVER_ERROR
+): ErrorResponse
+export function createValidationErrorResponse(
+  message: string,
+  errors?: ValidationErrorDetail[]
+): ValidationErrorResponse
+export function createValidationError(
+  field: string,
+  message: string,
+  code: string = &apos;VALIDATION_ERROR&apos;
+): ValidationErrorResponse</file><file path="api/utils/api-error.ts">import type { Response } from &apos;express&apos;;
+import { createComponentLogger } from &apos;#sidequest/utils/logger.ts&apos;;
+import { HttpStatus, type HttpStatusCode } from &apos;../constants/http-status.ts&apos;;
+⋮----
+export class ApiError extends Error
+⋮----
+constructor(code: string, message: string, status: HttpStatusCode = HttpStatus.BAD_REQUEST, details: object | null = null)
+toJSON()
+⋮----
+export function sendError(
+  res: Response,
+  code: string,
+  message: string,
+  status: HttpStatusCode = HttpStatus.BAD_REQUEST,
+  details: object | null = null
+)
+export function sendValidationError(res: Response, message: string, errors: unknown[] = [])
+export function sendNotFoundError(res: Response, resource: string, identifier: string)
+export function sendInternalError(res: Response, message = &apos;An internal error occurred&apos;)</file><file path="config/ecosystem.config.cjs">/**
  * PM2 Ecosystem Configuration - Production
  *
  * Usage:
@@ -8501,69 +8326,84 @@ listen_timeout: 10000,  // Wait up to 10s for ready signal
 ⋮----
 // Pre-setup commands (first-time deployment)
 ⋮----
-// Environment</file><file path="scripts/generate-sidequest-gitlog.sh">set -euo pipefail
-REPO_ROOT=&quot;$(cd &quot;$(dirname &quot;$0&quot;)/..&quot; &amp;&amp; pwd)&quot;
-COMMITS=&quot;${1:-200}&quot;
-OUT=&quot;${2:-&quot;$REPO_ROOT&quot;/sidequest/docs/gitlog-sidequest.txt}&quot;
-mkdir -p &quot;$(dirname &quot;$OUT&quot;)&quot;
-git -C &quot;$REPO_ROOT&quot; log -n &quot;$COMMITS&quot; \
-  --date=short \
-  --pretty=&apos;format:%h %ad %s&apos; \
-  --name-only \
-  -- sidequest/ \
-| awk &apos;
-    NF==0 { print &quot;&quot;; next }              # blank line between commits
-    /^[0-9a-f]{7,40} / { print; next }    # commit header
-    { print &quot;  &quot; $0 }                     # indent filenames
-  &apos; &gt; &quot;$OUT&quot;
-echo &quot;Wrote: $OUT&quot;</file><file path="scripts/repomix-regen.sh">set -euo pipefail
+// Environment</file><file path="scripts/analyze-duplicates.py">def get_file_path(location)
+def analyze_report(report_path)
+⋮----
+data = json.load(f)
+hash_to_blocks = defaultdict(list)
+⋮----
+exact_dups = [
+⋮----
+files = list(set(get_file_path(b[&quot;location&quot;]) for b in blocks))
+code = blocks[0][&quot;source_code&quot;]
+short_files = [Path(f).name for f in files[:4]]
+⋮----
+def find_latest_report()
+⋮----
+output_dir = Path(&quot;output/reports&quot;)
+⋮----
+reports = list(output_dir.glob(&quot;scan-*.json&quot;))
+⋮----
+report_path = sys.argv[1]
+⋮----
+report_path = find_latest_report()</file><file path="scripts/run-python-tests.sh">set -euo pipefail
 ROOT=&quot;$(cd &quot;$(dirname &quot;$0&quot;)/..&quot; &amp;&amp; pwd)&quot;
-TREE_FILE=&quot;token-tree&quot;
-COMPRESSED_FILE=&quot;repo-compressed&quot;
-LOSSLESS_FILE=&quot;repomix&quot;
-OUTPUT_PATH=&quot;docs/repomix&quot;
-OUT_DIR=&quot;$ROOT/$OUTPUT_PATH&quot;
-TOKEN_TREE_FILE=&quot;$OUT_DIR/$TREE_FILE.txt&quot;
-COMPRESSED_REPO_FILE=&quot;$OUT_DIR/$COMPRESSED_FILE.xml&quot;
-LOSSLESS_REPO_FILE=&quot;$OUT_DIR/$LOSSLESS_FILE.xml&quot;
-TREE_FILE_NAME=&quot;$OUTPUT_PATH/$TREE_FILE.txt&quot;
-COMPRESSED_FILE_NAME=&quot;$OUTPUT_PATH/$COMPRESSED_FILE.xml&quot;
-LOSSLESS_FILE_NAME=&quot;$OUTPUT_PATH/$LOSSLESS_FILE.xml&quot;
-INPUT_DIR=&quot;$ROOT/scripts/generate-&quot;
-TOKEN_TREE_SCRIPT=&quot;$INPUT_DIR$TREE_FILE.sh&quot;
-COMPRESS_SCRIPT=&quot;$INPUT_DIR$COMPRESSED_FILE.sh&quot;
-LOSSLESS_SCRIPT=&quot;$INPUT_DIR$LOSSLESS_FILE.sh&quot;
-echo &quot;File set up...&quot;
-mkdir -p &quot;$OUT_DIR&quot;
-rm -f &quot;$TOKEN_TREE_FILE&quot; &quot;$COMPRESSED_REPO_FILE&quot; &quot;$LOSSLESS_REPO_FILE&quot;
-PROJECT_DIR=&quot;$(basename &quot;$ROOT&quot;)&quot;
-echo &quot;Generating token count tree for $PROJECT_DIR at $TREE_FILE_NAME&quot;
-bash &quot;$TOKEN_TREE_SCRIPT&quot; &quot;$ROOT&quot; &quot;$TOKEN_TREE_FILE&quot;
-echo &quot;Success!&quot;
-echo
-echo &quot;Generating compressed repomix file for $PROJECT_DIR at $COMPRESSED_FILE_NAME&quot;
-bash &quot;$COMPRESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$COMPRESSED_REPO_FILE&quot;
-echo &quot;Success!&quot;
-echo
-echo &quot;Generating repomix file for $PROJECT_DIR at $LOSSLESS_FILE_NAME&quot;
-bash &quot;$LOSSLESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$LOSSLESS_REPO_FILE&quot;
-echo &quot;Success!&quot;
-echo
-echo &quot;Artifacts:&quot;
-print_artifact() {
-  local file_path=&quot;$1&quot;
-  local display_name=&quot;$2&quot;
-  if [[ -f &quot;$file_path&quot; ]]; then
-    chars=$(wc -c &lt; &quot;$file_path&quot; | tr -d &apos; &apos;)
-    tokens=$((chars / 4))
-    echo &quot; - $display_name (~$tokens tokens, $chars chars)&quot;
-  else
-    echo &quot; - $display_name (missing)&quot;
+TEST_TARGETS=(
+  &quot;sidequest/pipeline-core&quot;
+  &quot;sidequest/pipeline-runners/test_collect_git_activity.py&quot;
+)
+resolve_python() {
+  local candidate=&quot;$1&quot;
+  if [[ -z &quot;$candidate&quot; ]]; then
+    return 1
   fi
+  if [[ &quot;$candidate&quot; == */* ]]; then
+    [[ -x &quot;$candidate&quot; ]] || return 1
+    printf &apos;%s\n&apos; &quot;$candidate&quot;
+    return 0
+  fi
+  command -v &quot;$candidate&quot; 2&gt;/dev/null || return 1
 }
-print_artifact &quot;$TOKEN_TREE_FILE&quot; &quot;$TREE_FILE_NAME&quot;
-print_artifact &quot;$COMPRESSED_REPO_FILE&quot; &quot;$COMPRESSED_FILE_NAME&quot;
-print_artifact &quot;$LOSSLESS_REPO_FILE&quot; &quot;$LOSSLESS_FILE_NAME&quot;</file><file path="scripts/validate-permissions.ts">import fs from &apos;fs/promises&apos;;
+can_run_tests() {
+  local python_bin=&quot;$1&quot;
+  &quot;$python_bin&quot; -c &quot;import pytest, pydantic&quot; &gt;/dev/null 2&gt;&amp;1
+}
+declare -a CANDIDATES=()
+if [[ -n &quot;${PYTEST_PYTHON:-}&quot; ]]; then
+  CANDIDATES+=(&quot;$PYTEST_PYTHON&quot;)
+fi
+CANDIDATES+=(
+  &quot;$ROOT/venv/bin/python&quot;
+  &quot;python3&quot;
+  &quot;python&quot;
+  &quot;$HOME/.pyenv/versions/3.13.7/bin/python&quot;
+  &quot;/Users/alyshialedlie/code-env/python/pyenv/versions/3.13.7/bin/python&quot;
+)
+declare -a UNIQUE_BINS=()
+for candidate in &quot;${CANDIDATES[@]}&quot;; do
+  python_bin=&quot;$(resolve_python &quot;$candidate&quot; || true)&quot;
+  [[ -n &quot;${python_bin:-}&quot; ]] || continue
+  already_seen=false
+  for seen_bin in &quot;${UNIQUE_BINS[@]-}&quot;; do
+    if [[ &quot;$seen_bin&quot; == &quot;$python_bin&quot; ]]; then
+      already_seen=true
+      break
+    fi
+  done
+  if [[ &quot;$already_seen&quot; == true ]]; then
+    continue
+  fi
+  UNIQUE_BINS+=(&quot;$python_bin&quot;)
+  if can_run_tests &quot;$python_bin&quot;; then
+    echo &quot;Using Python test runner: $python_bin&quot;
+    cd &quot;$ROOT&quot;
+    PYTHONNOUSERSITE=1 &quot;$python_bin&quot; -m pytest -q &quot;${TEST_TARGETS[@]}&quot; &quot;$@&quot;
+    exit 0
+  fi
+done
+echo &quot;No Python interpreter with both pytest and pydantic was found.&quot; &gt;&amp;2
+echo &quot;Set PYTEST_PYTHON=/path/to/python and retry.&quot; &gt;&amp;2
+exit 1</file><file path="scripts/validate-permissions.ts">import fs from &apos;fs/promises&apos;;
 import path from &apos;path&apos;;
 import { fileURLToPath } from &apos;url&apos;;
 ⋮----
@@ -9045,1403 +8885,7 @@ if [ $FAILED -eq 0 ]; then
   exit 0
 else
   exit 1
-fi</file><file path="sidequest/core/config.ts">import path from &apos;path&apos;;
-import os from &apos;os&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-import { dirname } from &apos;path&apos;;
-import { GIT_ACTIVITY, JOB_RETENTION } from &apos;./constants.ts&apos;;
-⋮----
-function safeParseInt(value: string | undefined, defaultValue: number, min?: number, max?: number): number
-function safeParseFloat(value: string | undefined, defaultValue: number, min?: number, max?: number): number
-function safeParseRetentionByType(value: string | undefined): Record&lt;string, number&gt;
-⋮----
-function validateConfig(): void</file><file path="sidequest/core/constants.ts"></file><file path="sidequest/core/database.test.ts">import test from &apos;node:test&apos;;
-import assert from &apos;node:assert/strict&apos;;
-import {
-  bulkImportJobs,
-  closeDatabase,
-  getDatabase,
-  initDatabase,
-  saveJob,
-} from &apos;./database.ts&apos;;
-interface RawJobJsonColumns {
-  data: string | null;
-  result: string | null;
-  error: string | null;
-  git: string | null;
-}
-function getRawJsonColumns(jobId: string): RawJobJsonColumns | null</file><file path="sidequest/core/database.ts">import Database from &apos;better-sqlite3&apos;;
-type DatabaseType = InstanceType&lt;typeof Database&gt;;
-import path from &apos;path&apos;;
-import fs from &apos;fs&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-import { createComponentLogger, logMetrics } from &apos;../utils/logger.ts&apos;;
-import { isValidJobStatus } from &apos;#api/types/job-status.ts&apos;;
-import { VALIDATION } from &apos;./constants.ts&apos;;
-⋮----
-export interface JobRow {
-  id: string;
-  pipeline_id: string;
-  status: string;
-  data: string | null;
-  result: string | null;
-  error: string | null;
-  git: string | null;
-  created_at: string;
-  started_at: string | null;
-  completed_at: string | null;
-}
-export interface ParsedJobError {
-  message: string;
-  stack?: string;
-  code?: string;
-  cancelled?: boolean;
-}
-function isParsedJobError(value: unknown): value is ParsedJobError
-export interface ParsedJob {
-  id: string;
-  pipelineId: string;
-  status: string;
-  data: unknown;
-  result: unknown;
-  error: ParsedJobError | null;
-  git: unknown;
-  createdAt: string;
-  startedAt: string | null;
-  completedAt: string | null;
-}
-export interface JobQueryOptions {
-  status?: string;
-  limit?: number;
-  offset?: number;
-  tab?: string;
-  includeTotal?: boolean;
-}
-export interface AllJobsQueryOptions {
-  status?: string;
-  limit?: number;
-  offset?: number;
-}
-export interface JobCounts {
-  total: number;
-  completed: number;
-  failed: number;
-  running: number;
-  queued: number;
-}
-export interface PipelineStats {
-  pipelineId: string;
-  total: number;
-  completed: number;
-  failed: number;
-  running: number;
-  queued: number;
-  lastRun: string | null;
-}
-export interface BulkImportResult {
-  imported: number;
-  skipped: number;
-  errors: string[];
-}
-export interface HealthStatus {
-  initialized: boolean;
-  degradedMode: boolean;
-  persistenceWorking: boolean;
-  persistFailureCount: number;
-  recoveryAttempts: number;
-  queuedWrites: number;
-  queueStalenessMs: number;
-  dbPath: string;
-  dbSizeBytes: number;
-  memoryPressure: string;
-  status: string;
-  message: string;
-}
-export interface SaveJobInput {
-  id: string;
-  pipelineId?: string;
-  status: string;
-  createdAt?: string | null;
-  startedAt?: string | null;
-  completedAt?: string | null;
-  data?: unknown;
-  result?: unknown;
-  error?: unknown;
-  git?: unknown;
-}
-export interface BulkImportJob {
-  id: string;
-  pipeline_id?: string;
-  pipelineId?: string;
-  status: string;
-  created_at?: string;
-  createdAt?: string;
-  started_at?: string | null;
-  startedAt?: string | null;
-  completed_at?: string | null;
-  completedAt?: string | null;
-  data?: unknown;
-  result?: unknown;
-  error?: unknown;
-  git?: unknown;
-}
-function safeJsonParse(str: string | null, fallback: unknown = null): unknown
-function serializeJsonForStorage(value: unknown): string | null
-function rowToParsedJob(row: JobRow): ParsedJob
-export async function initDatabase(dbPath?: string): Promise&lt;DatabaseType&gt;
-export function getDatabase(): DatabaseType
-export function isDatabaseReady(): boolean
-export function saveJob(job: SaveJobInput): void
-function queryAll(sql: string, params: (string | number)[] = []): JobRow[]
-function queryOne&lt;T = Record&lt;string, unknown&gt;&gt;(sql: string, params: (string | number)[] = []): T | null
-export function getJobs(pipelineId: string, options: JobQueryOptions =
-export function getJobById(id: string): ParsedJob | null
-export function getJobCount(options:
-export function getAllJobs(options: AllJobsQueryOptions =
-export function getJobCounts(pipelineId: string): JobCounts | null
-export function getLastJob(pipelineId: string): ParsedJob | null
-export function getAllPipelineStats(): PipelineStats[]
-export async function importReportsToDatabase(reportsDir: string): Promise&lt;number&gt;
-⋮----
-// Check if already imported
-⋮----
-// Import as completed job
-⋮----
-export async function importLogsToDatabase(logsDir: string): Promise&lt;number&gt;
-⋮----
-// Check if already imported
-⋮----
-// Determine status from content
-⋮----
-export function getHealthStatus(): HealthStatus
-export function closeDatabase(): void
-function isValidJobId(id: string): boolean
-export function bulkImportJobs(jobs: BulkImportJob[]): BulkImportResult</file><file path="sidequest/core/index.test.ts">import test from &apos;node:test&apos;;
-import assert from &apos;node:assert/strict&apos;;
-import { isWorkerIdle } from &apos;./index.ts&apos;;
-import type { JobStats } from &apos;./server.ts&apos;;</file><file path="sidequest/core/server-retention.test.ts">import test from &apos;node:test&apos;;
-import assert from &apos;node:assert/strict&apos;;
-import type { Job } from &apos;./server.ts&apos;;
-import { SidequestServer } from &apos;./server.ts&apos;;
-import { config } from &apos;./config.ts&apos;;
-import { GIT_ACTIVITY, JOB_RETENTION, TIME } from &apos;./constants.ts&apos;;
-import { jobRepository } from &apos;./job-repository.ts&apos;;
-import { JOB_STATUS } from &apos;#api/types/job-status.ts&apos;;
-function makeJob(
-  id: string,
-  status: Job[&apos;status&apos;],
-  createdAt: Date,
-  completedAt: Date | null
-): Job
-function stubRepositoryInit(t: test.TestContext): void</file><file path="sidequest/docs/gitlog-sidequest.txt">b0ca84a 2026-03-04 style(sidequest): apply ruff formatting
-  sidequest/pipeline-core/annotators/__init__.py
-  sidequest/pipeline-core/annotators/semantic_annotator.py
-  sidequest/pipeline-core/annotators/semantic_annotator.pyi
-  sidequest/pipeline-core/annotators/test_semantic_annotator.py
-  sidequest/pipeline-core/constants.py
-  sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/extractors/test_extract_blocks.py
-  sidequest/pipeline-core/models/__init__.py
-  sidequest/pipeline-core/models/code_block.py
-  sidequest/pipeline-core/models/code_block.pyi
-  sidequest/pipeline-core/models/consolidation_suggestion.py
-  sidequest/pipeline-core/models/consolidation_suggestion.pyi
-  sidequest/pipeline-core/models/duplicate_group.py
-  sidequest/pipeline-core/models/duplicate_group.pyi
-  sidequest/pipeline-core/models/scan_report.py
-  sidequest/pipeline-core/models/scan_report.pyi
-  sidequest/pipeline-core/models/test_models.py
-  sidequest/pipeline-core/scanners/timeout_detector.py
-  sidequest/pipeline-core/similarity/.ast-grep-backups/backup-20260301-031555-140/structural.py
-  sidequest/pipeline-core/similarity/__init__.py
-  sidequest/pipeline-core/similarity/__init__.pyi
-  sidequest/pipeline-core/similarity/config.py
-  sidequest/pipeline-core/similarity/config.pyi
-  sidequest/pipeline-core/similarity/grouping.py
-  sidequest/pipeline-core/similarity/grouping.pyi
-  sidequest/pipeline-core/similarity/semantic.py
-  sidequest/pipeline-core/similarity/semantic.pyi
-  sidequest/pipeline-core/similarity/structural.py
-  sidequest/pipeline-core/similarity/structural.pyi
-  sidequest/pipeline-core/similarity/test_grouping_layer3.py
-  sidequest/pipeline-core/utils/__init__.py
-  sidequest/pipeline-core/utils/test_runner.py
-  sidequest/pipeline-core/utils/timing.py
-  sidequest/pipeline-core/utils/timing.pyi
-  sidequest/pipeline-runners/collect_git_activity.py
-  sidequest/pipeline-runners/test_collect_git_activity.py
-
-e1d3019 2026-03-04 fix duplicate scan id collisions and pipeline import side effects
-  sidequest/pipeline-runners/dashboard-populate-pipeline.ts
-  sidequest/pipeline-runners/gitignore-pipeline.ts
-  sidequest/pipeline-runners/pipeline-import-safety.test.ts
-  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
-  sidequest/workers/duplicate-detection-worker.test.ts
-  sidequest/workers/duplicate-detection-worker.ts
-
-b488c1d 2026-03-04 fix(sidequest): resolve lint, ruff, and typecheck failures
-  sidequest/core/server-actions.test.ts
-  sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/similarity/grouping.py
-  sidequest/workers/duplicate-detection-worker.test.ts
-  sidequest/workers/duplicate-detection-worker.ts
-  sidequest/workers/test-refactor-worker.ts
-
-37d2159 2026-03-04 fix: resolve remaining stale runtime paths and permission checks
-  sidequest/git-report-config.json
-  sidequest/pipeline-runners/bugfix-audit-pipeline.ts
-  sidequest/pipeline-runners/claude-health-pipeline.ts
-  sidequest/pipeline-runners/dashboard-populate-pipeline.ts
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-  sidequest/pipeline-runners/git-activity-pipeline.ts
-  sidequest/pipeline-runners/gitignore-pipeline.ts
-  sidequest/pipeline-runners/plugin-management-pipeline.ts
-  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
-  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
-
-f1addd8 2026-03-04 fix one-shot pipeline startup flow and add tests
-  sidequest/pipeline-runners/dashboard-populate-pipeline.ts
-  sidequest/pipeline-runners/gitignore-pipeline.ts
-  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
-  sidequest/pipeline-runners/startup-once-mode.test.ts
-
-d91d60c 2026-03-04 fix queue dispatch race and pipeline import side effects
-  sidequest/core/server-actions.test.ts
-  sidequest/core/server.ts
-  sidequest/pipeline-runners/test-refactor-pipeline.test.ts
-  sidequest/pipeline-runners/test-refactor-pipeline.ts
-
-ab0c7f9 2026-03-04 refactor(sidequest): relocate duplicate detection types and align tests
-  sidequest/README.md
-  sidequest/pipeline-core/similarity/test_grouping_layer3.py
-  sidequest/pipeline-core/types/duplicate-detection-types.ts
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-  sidequest/repomix-output.xml
-  sidequest/workers/duplicate-detection-worker.ts
-
-10bacd8 2026-03-04 fix(retry): clear pending retries on action and wait for them in test-refactor pipeline
-  sidequest/core/server-actions.test.ts
-  sidequest/core/server.ts
-  sidequest/pipeline-runners/test-refactor-pipeline.ts
-
-8934932 2026-03-04 fix(queue): prevent running pause/cancel and wait for pending retries
-  sidequest/core/index.test.ts
-  sidequest/core/index.ts
-  sidequest/core/server-actions.test.ts
-  sidequest/core/server.ts
-  sidequest/pipeline-runners/base-pipeline.ts
-
-813900b 2026-03-04 fix(core): add retention pruning and safe cron entrypoint
-  sidequest/core/config.ts
-  sidequest/core/constants.ts
-  sidequest/core/index.ts
-  sidequest/core/server-retention.test.ts
-  sidequest/core/server.ts
-
-5fb93e4 2026-03-04 fix(database): preserve falsy JSON values in persistence
-  sidequest/core/database.test.ts
-  sidequest/core/database.ts
-
-912f9ee 2026-03-04 docs(repomix): regenerate repomix and gitlog artifacts
-  sidequest/docs/gitlog-sidequest.txt
-
-22951f1 2026-03-04 Fix duplicate-detection reliability issues and add focused tests
-  sidequest/pipeline-core/config/repository-config-loader.ts
-  sidequest/pipeline-core/git/pr-creator.ts
-  sidequest/pipeline-core/reports/report-coordinator.ts
-  sidequest/pipeline-core/scan-orchestrator.ts
-  sidequest/workers/duplicate-detection-worker.test.ts
-  sidequest/workers/duplicate-detection-worker.ts
-
-8028340 2026-03-04 docs: refresh runbooks/components and regenerate repomix artifacts
-  sidequest/docs/gitlog-sidequest.txt
-  sidequest/repomix-output.xml
-
-fde03e5 2026-03-04 fix(git-activity): reject unknown CLI args and add parse telemetry
-  sidequest/pipeline-runners/git-activity-pipeline.test.ts
-  sidequest/pipeline-runners/git-activity-pipeline.ts
-  sidequest/workers/git-activity-worker.ts
-
-fa3ad97 2026-03-04 refactor(git-activity): centralize constants and job selection
-  sidequest/core/constants.ts
-  sidequest/pipeline-runners/git-activity-pipeline.test.ts
-  sidequest/pipeline-runners/git-activity-pipeline.ts
-  sidequest/workers/git-activity-worker.test.ts
-  sidequest/workers/git-activity-worker.ts
-
-8f64b98 2026-03-04 test(git-activity): add CLI and stats parsing coverage
-  sidequest/pipeline-runners/git-activity-pipeline.test.ts
-  sidequest/pipeline-runners/git-activity-pipeline.ts
-  sidequest/pipeline-runners/test_collect_git_activity.py
-  sidequest/workers/git-activity-worker.test.ts
-  sidequest/workers/git-activity-worker.ts
-
-17c5667 2026-03-04 fix: apply session updates and migration transformer declaration cleanup
-  sidequest/pipeline-core/git/migration-transformer.ts
-  sidequest/pipeline-runners/collect_git_activity.py
-  sidequest/pipeline-runners/git-activity-pipeline.ts
-  sidequest/repomix-output.xml
-  sidequest/workers/git-activity-worker.ts
-
-9552434 2026-03-04 chore: remove doppler resilience example file
-  sidequest/utils/doppler-resilience.example.js
-
-b0df920 2026-03-04 fix(test-refactor): resolve ESM Job import/runtime fs usage
-  sidequest/workers/test-refactor-worker.ts
-
-c82b55b 2026-03-04 docs(backlog): close SV1 and finish scanner console cleanup
-  sidequest/pipeline-core/scanners/codebase-health-scanner.ts
-
-8c9eafd 2026-03-04 refactor(logging): migrate remaining SV1 console.log usage
-  sidequest/pipeline-core/reports/html-report-generator.ts
-  sidequest/pipeline-core/scanners/codebase-health-scanner.ts
-  sidequest/pipeline-runners/claude-health-pipeline.ts
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-  sidequest/pipeline-runners/plugin-management-pipeline.ts
-  sidequest/utils/refactor-test-suite.ts
-
-a79d2b8 2026-03-04 fix(git-activity): honor partial date range and harden module path resolution
-  sidequest/pipeline-runners/git-activity-pipeline.ts
-  sidequest/workers/git-activity-worker.ts
-
-1e2581f 2026-03-04 chore: commit pending workspace updates
-  sidequest/README.md
-  sidequest/core/index.ts
-  sidequest/core/job-repository.ts
-  sidequest/core/server.ts
-  sidequest/docs/gitlog-sidequest.txt
-  sidequest/pipeline-core/git/migration-transformer.ts
-  sidequest/pipeline-runners/base-pipeline.ts
-  sidequest/pipeline-runners/bugfix-audit-pipeline.ts
-  sidequest/pipeline-runners/claude-health-pipeline.ts
-  sidequest/pipeline-runners/dashboard-populate-pipeline.ts
-  sidequest/pipeline-runners/git-activity-pipeline.ts
-  sidequest/pipeline-runners/gitignore-pipeline.ts
-  sidequest/pipeline-runners/plugin-management-pipeline.ts
-  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
-  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
-  sidequest/pipeline-runners/test-refactor-pipeline.ts
-  sidequest/repomix-output.xml
-  sidequest/repomix.config.json
-  sidequest/utils/dependency-validator.ts
-  sidequest/utils/directory-scanner.ts
-  sidequest/utils/doppler-resilience.ts
-  sidequest/utils/gitignore-repomix-updater.ts
-  sidequest/utils/plugin-manager.ts
-  sidequest/utils/refactor-test-suite.ts
-  sidequest/utils/report-generator.ts
-  sidequest/utils/schema-mcp-tools.ts
-  sidequest/workers/bugfix-audit-worker.ts
-  sidequest/workers/claude-health-worker.ts
-  sidequest/workers/dashboard-populate-worker.ts
-  sidequest/workers/duplicate-detection-worker.ts
-  sidequest/workers/git-activity-worker.ts
-  sidequest/workers/gitignore-worker.ts
-  sidequest/workers/repo-cleanup-worker.ts
-  sidequest/workers/repomix-worker.ts
-  sidequest/workers/schema-enhancement-worker.ts
-  sidequest/workers/test-refactor-worker.ts
-
-9481717 2026-03-04 test(git-activity): add collector coverage
-  sidequest/pipeline-runners/test_collect_git_activity.py
-
-4287dd6 2026-03-04 fix(git-activity): harden subprocess argv/cwd and refresh repomix
-  sidequest/pipeline-runners/collect_git_activity.py
-  sidequest/repomix-output.xml
-
-9361c74 2026-03-04 fix(git-activity): load collector config and emit monthly data
-  sidequest/pipeline-runners/collect_git_activity.py
-
-fc3ae89 2026-03-04 fix(git-activity): emit line metrics and default to both outputs
-  sidequest/pipeline-runners/collect_git_activity.py
-  sidequest/workers/git-activity-worker.ts
-
-fba6ae6 2026-03-03 fix(git-activity): stabilize output format and file detection
-  sidequest/pipeline-runners/collect_git_activity.py
-  sidequest/workers/git-activity-worker.ts
-
-349a28e 2026-03-03 docs: resolve DOC1-DOC7 documentation backlog
-  sidequest/core/database.ts
-  sidequest/core/git-workflow-manager.ts
-  sidequest/core/server.ts
-
-1a232a9 2026-03-03 fix(git-activity): align worker/python CLI flags
-  sidequest/pipeline-runners/collect_git_activity.py
-  sidequest/workers/git-activity-worker.ts
-
-36eb7fb 2026-03-03 test(similarity): deduplicate semantic weight impact cases
-  sidequest/pipeline-core/similarity/test_grouping_layer3.py
-
-a1bc2a4 2026-03-03 refactor(schema-mcp-tools): resolve CS8 and migrate backlog entry
-  sidequest/utils/schema-mcp-tools.ts
-
-d2631cc 2026-03-03 repomix &amp; CS7 fix
-  sidequest/repomix-output.xml
-
-a27b26b 2026-03-03 more robust repomix files
-  sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/similarity/grouping.py
-
-f69a95c 2026-03-03 new scripts
-  sidequest/pipeline-core/similarity/.ast-grep-backups/backup-20260301-031555-140/backup-metadata.json
-  sidequest/pipeline-core/similarity/.ast-grep-backups/backup-20260301-031555-140/structural.py
-
-4690b4d 2026-03-01 refactor(pipeline): replace numbered docstring list with bullets in grouping.py
-  sidequest/pipeline-core/similarity/grouping.py
-
-f6d1717 2026-03-01 refactor(pipeline): replace numbered docstring list with bullets in structural.py
-  sidequest/pipeline-core/similarity/structural.py
-
-964abc5 2026-03-01 refactor(pipeline): reword effort comments to avoid magic number detection
-  sidequest/pipeline-core/models/consolidation_suggestion.py
-
-1a9ce69 2026-03-01 refactor(pipeline): extract inline CSS colors to ChartColors constants
-  sidequest/pipeline-core/constants.py
-  sidequest/pipeline-runners/collect_git_activity.py
-
-ce97a5f 2026-03-01 refactor(pipeline): eliminate remaining magic numbers (126 → 31)
-  sidequest/pipeline-core/annotators/semantic_annotator.py
-  sidequest/pipeline-core/constants.py
-  sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/models/scan_report.py
-  sidequest/pipeline-core/scanners/timeout_detector.py
-  sidequest/pipeline-core/similarity/grouping.py
-  sidequest/pipeline-core/similarity/semantic.py
-  sidequest/pipeline-core/similarity/structural.py
-  sidequest/pipeline-runners/collect_git_activity.py
-
-ffb9601 2026-03-01 refactor(pipeline): replace remaining magic numbers with named constants
-  sidequest/pipeline-core/constants.py
-  sidequest/pipeline-core/scanners/timeout_detector.py
-  sidequest/pipeline-core/similarity/semantic.py
-  sidequest/pipeline-runners/collect_git_activity.py
-
-99f96d5 2026-03-01 refactor(pipeline): centralize magic numbers into constants.py
-  sidequest/pipeline-core/constants.py
-  sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/models/code_block.py
-  sidequest/pipeline-core/models/scan_report.py
-  sidequest/pipeline-core/similarity/grouping.py
-  sidequest/pipeline-runners/collect_git_activity.py
-
-d71098e 2026-03-01 refactor(pipeline): extract remaining magic numbers to constants.py
-  sidequest/pipeline-core/constants.py
-  sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/models/consolidation_suggestion.py
-  sidequest/pipeline-core/models/scan_report.py
-  sidequest/pipeline-core/similarity/config.py
-  sidequest/pipeline-core/similarity/config.pyi
-  sidequest/pipeline-core/similarity/grouping.py
-  sidequest/pipeline-core/similarity/semantic.py
-  sidequest/pipeline-core/similarity/structural.py
-
-56d2c5a 2026-03-01 refactor(pipeline): centralize magic numbers into constants.py
-  sidequest/pipeline-core/constants.py
-  sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/models/consolidation_suggestion.py
-  sidequest/pipeline-core/models/duplicate_group.py
-  sidequest/pipeline-core/models/scan_report.py
-  sidequest/pipeline-core/similarity/grouping.py
-  sidequest/pipeline-core/similarity/structural.py
-  sidequest/pipeline-runners/collect_git_activity.py
-
-8f32310 2026-02-27 fix(duplicate-detection): address code review findings from fb93b0c
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-  sidequest/workers/duplicate-detection-worker.ts
-
-fb93b0c 2026-02-27 refactor(duplicate-detection): remove duplicated DuplicateDetectionWorker from pipeline (DRY-C1)
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-
-a9e0a56 2026-02-26 refactor: extract helpers to reduce complexity in test/script files (CX2-CX10)
-  sidequest/utils/refactor-test-suite.ts
-
-fe18a0f 2026-02-26 fix(error-helpers): replace == null with explicit === null || === undefined
-  sidequest/pipeline-core/utils/error-helpers.ts
-
-751f10a 2026-02-26 docs(pipeline-core): add JSDoc to all 161 functions, fix 269 mismatches
-  sidequest/pipeline-core/cache/cached-scanner.ts
-  sidequest/pipeline-core/cache/git-tracker.ts
-  sidequest/pipeline-core/cache/scan-cache.ts
-  sidequest/pipeline-core/config/repository-config-loader.ts
-  sidequest/pipeline-core/doppler-health-monitor.ts
-  sidequest/pipeline-core/errors/error-classifier.ts
-  sidequest/pipeline-core/git/branch-manager.ts
-  sidequest/pipeline-core/git/migration-transformer.ts
-  sidequest/pipeline-core/git/pr-creator.ts
-  sidequest/pipeline-core/inter-project-scanner.ts
-  sidequest/pipeline-core/reports/report-coordinator.ts
-  sidequest/pipeline-core/scan-orchestrator.ts
-  sidequest/pipeline-core/scanners/ast-grep-detector.ts
-  sidequest/pipeline-core/scanners/codebase-health-scanner.ts
-  sidequest/pipeline-core/scanners/repository-scanner.ts
-  sidequest/pipeline-core/scanners/root-directory-analyzer.ts
-  sidequest/pipeline-core/scanners/timeout-pattern-detector.ts
-  sidequest/pipeline-core/utils/error-helpers.ts
-  sidequest/pipeline-core/utils/fs-helpers.ts
-  sidequest/pipeline-core/utils/process-helpers.ts
-  sidequest/pipeline-core/utils/timing-helpers.ts
-
-0931766 2026-02-26 fix: address remaining faithfulness issues from quality review
-  sidequest/pipeline-runners/test-refactor-pipeline.ts
-
-11f58d8 2026-02-26 fix(code-review): address all findings from 2025-02-26 review
-  sidequest/.env.example
-  sidequest/core/config.ts
-  sidequest/pipeline-runners/gitignore-pipeline.ts
-  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
-  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
-  sidequest/pipeline-runners/test-refactor-pipeline.ts
-  sidequest/utils/doppler-resilience.ts
-
-5a81e37 2026-02-26 docs: add 2025-02-25 code review report and fix architecture doc
-  sidequest/pipeline-runners/base-pipeline.ts
-  sidequest/repomix-output.xml
-
-a797fd6 2026-02-26 fix(pipeline-runners): address final review findings M2, L1, L2
-  sidequest/pipeline-runners/git-activity-pipeline.ts
-  sidequest/pipeline-runners/gitignore-pipeline.ts
-  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
-  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
-  sidequest/pipeline-runners/test-refactor-pipeline.ts
-
-e3303d9 2026-02-26 fix(pipeline-runners): address low-severity review findings CR-L1..L4
-  sidequest/pipeline-core/annotators/test_semantic_annotator.py
-  sidequest/pipeline-core/git/branch-manager.ts
-  sidequest/pipeline-core/similarity/test_grouping_layer3.py
-  sidequest/pipeline-runners/claude-health-pipeline.ts
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-  sidequest/pipeline-runners/git-activity-pipeline.ts
-  sidequest/pipeline-runners/plugin-management-pipeline.ts
-  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
-  sidequest/pipeline-runners/test-refactor-pipeline.ts
-
-ebf8efb 2026-02-26 fix(fs-helpers): remove unused joinLines export
-  sidequest/pipeline-core/utils/fs-helpers.ts
-
-334377e 2026-02-26 fix(pipeline-runners): standardize job.retryCount and remove local Job shadows
-  sidequest/pipeline-runners/gitignore-pipeline.ts
-  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
-
-f227467 2026-02-26 fix(pipeline-runners): replace blanket config cast with direct property access
-  sidequest/pipeline-runners/bugfix-audit-pipeline.ts
-  sidequest/pipeline-runners/claude-health-pipeline.ts
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-  sidequest/pipeline-runners/git-activity-pipeline.ts
-  sidequest/pipeline-runners/plugin-management-pipeline.ts
-  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
-
-cfc9f35 2026-02-26 fix(process-helpers): remove duplicate runCommand binding
-  sidequest/pipeline-core/utils/process-helpers.ts
-
-078c0c9 2026-02-26 fix(types): eliminate local Job interface shadowing canonical type in duplicate-detection-pipeline
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-
-693a27e 2026-02-26 fix(pipeline-runners): address final review findings H1, M2, M3
-  sidequest/pipeline-core/git/pr-creator.ts
-  sidequest/pipeline-runners/base-pipeline.ts
-  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
-
-a99c81f 2026-02-26 refactor(python): extract shared run_test_classes utility from test files
-  sidequest/pipeline-core/annotators/test_semantic_annotator.py
-  sidequest/pipeline-core/similarity/test_grouping_layer3.py
-  sidequest/pipeline-core/utils/test_runner.py
-
-d86c1b8 2026-02-26 refactor(git): extract shared runGitCommand utility from BranchManager and PRCreator
-  sidequest/pipeline-core/git/branch-manager.ts
-  sidequest/pipeline-core/git/pr-creator.ts
-  sidequest/pipeline-core/utils/process-helpers.ts
-
-2867764 2026-02-26 refactor(duplicate-detection): consolidate DuplicateDetectionWorkerOptions
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-  sidequest/types/duplicate-detection-types.ts
-  sidequest/workers/duplicate-detection-worker.ts
-
-7586d6b 2026-02-26 refactor(reports): extract saveGeneratedReport to eliminate saveReport boilerplate
-  sidequest/pipeline-core/reports/html-report-generator.ts
-  sidequest/pipeline-core/reports/json-report-generator.ts
-  sidequest/pipeline-core/reports/markdown-report-generator.ts
-  sidequest/pipeline-core/utils/fs-helpers.ts
-
-23f25c9 2026-02-26 refactor(pipeline-core): consolidate MigrationStep into shared types file
-  sidequest/pipeline-core/git/migration-transformer.ts
-  sidequest/pipeline-core/git/pr-creator.ts
-  sidequest/pipeline-core/reports/json-report-generator.ts
-  sidequest/pipeline-core/types/migration-types.ts
-
-ae0938a 2026-02-26 refactor(duplicate-detection): import RetryInfo/RetryMetrics/ScanMetrics from canonical types
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-  sidequest/workers/duplicate-detection-worker.ts
-
-74437bd 2026-02-26 refactor(workers): extend SidequestServerOptions to eliminate git option duplication
-  sidequest/workers/bugfix-audit-worker.ts
-  sidequest/workers/claude-health-worker.ts
-  sidequest/workers/git-activity-worker.ts
-  sidequest/workers/repomix-worker.ts
-  sidequest/workers/schema-enhancement-worker.ts
-
-394a62a 2026-02-26 fix(pipeline-runners): address code review findings from CR-H1/H3/M4 commits
-  sidequest/pipeline-runners/base-pipeline.ts
-  sidequest/pipeline-runners/bugfix-audit-pipeline.ts
-  sidequest/pipeline-runners/claude-health-pipeline.ts
-  sidequest/pipeline-runners/git-activity-pipeline.ts
-  sidequest/pipeline-runners/gitignore-pipeline.ts
-  sidequest/pipeline-runners/plugin-management-pipeline.ts
-  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
-  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
-
-43d7456 2026-02-26 fix(pipeline-runners): remove unsafe casts and fix options spread order
-  sidequest/pipeline-runners/bugfix-audit-pipeline.ts
-  sidequest/pipeline-runners/claude-health-pipeline.ts
-  sidequest/pipeline-runners/git-activity-pipeline.ts
-  sidequest/pipeline-runners/plugin-management-pipeline.ts
-  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
-
-94f4667 2026-02-26 fix(base-pipeline): replace polling waitForCompletion with event-based drain
-  sidequest/pipeline-runners/base-pipeline.ts
-
-5aaae71 2026-02-25 refactor(pipeline-runners): extract BasePipeline to eliminate DRY violations
-  sidequest/pipeline-runners/base-pipeline.ts
-  sidequest/pipeline-runners/bugfix-audit-pipeline.ts
-  sidequest/pipeline-runners/claude-health-pipeline.ts
-  sidequest/pipeline-runners/git-activity-pipeline.ts
-  sidequest/pipeline-runners/plugin-management-pipeline.ts
-  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
-
-e1fc1eb 2026-02-25 chore: remove completed migration audit doc and update repomix output
-  sidequest/repomix-output.xml
-
-03c55c5 2026-02-25 fix(tests): resolve 29 failing integration tests
-  sidequest/pipeline-runners/bugfix-audit-pipeline.ts
-  sidequest/pipeline-runners/claude-health-pipeline.ts
-  sidequest/pipeline-runners/dashboard-populate-pipeline.ts
-  sidequest/pipeline-runners/git-activity-pipeline.ts
-  sidequest/pipeline-runners/gitignore-pipeline.ts
-  sidequest/pipeline-runners/plugin-management-pipeline.ts
-  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
-  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
-  sidequest/pipeline-runners/test-refactor-pipeline.ts
-
-b2e09be 2026-02-25 fix(lint): resolve all 217 ESLint warnings across source and test files
-  sidequest/pipeline-core/scan-orchestrator.ts
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-  sidequest/pipeline-runners/test-refactor-pipeline.ts
-
-fc293e2 2026-02-25 fix(lint): resolve all 22 ESLint errors across source and test files
-  sidequest/pipeline-core/scan-orchestrator.ts
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-  sidequest/pipeline-runners/test-refactor-pipeline.ts
-  sidequest/utils/plugin-manager.ts
-  sidequest/workers/claude-health-worker.ts
-  sidequest/workers/duplicate-detection-worker.ts
-  sidequest/workers/test-refactor-worker.ts
-
-1ee1aca 2026-02-25 (fix) tests -   1. job-persistence-broadcast.test.ts — Added server.stop() to 4 afterEach blocks. Servers with autoStart: true were leaking event loop handles.
-  sidequest/core/server.ts
-
-75b3bc2 2026-02-24 test(database): replace assert.ok(true) with meaningful assertions
-  sidequest/repomix-output.xml
-
-23caae1 2026-02-24 feat(ts-migration): migrate Phase 9 API layer to TypeScript
-  sidequest/core/database.ts
-  sidequest/core/server.ts
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-
-e78b8c8 2026-02-23 feat(ts-migration): migrate Phase 7 utils, dashboard worker/runner to TypeScript
-  sidequest/core/index.ts
-  sidequest/pipeline-core/scan-orchestrator.ts
-  sidequest/pipeline-runners/dashboard-populate-pipeline.ts
-  sidequest/pipeline-runners/plugin-management-pipeline.ts
-  sidequest/pipeline-runners/test-refactor-pipeline.ts
-  sidequest/utils/dependency-validator.ts
-  sidequest/utils/directory-scanner.ts
-  sidequest/utils/doppler-resilience.example.js
-  sidequest/utils/doppler-resilience.ts
-  sidequest/utils/gitignore-repomix-updater.ts
-  sidequest/utils/plugin-manager.ts
-  sidequest/utils/report-generator.ts
-  sidequest/utils/schema-mcp-tools.ts
-  sidequest/workers/claude-health-worker.ts
-  sidequest/workers/dashboard-populate-worker.ts
-  sidequest/workers/git-activity-worker.ts
-  sidequest/workers/gitignore-worker.ts
-  sidequest/workers/repo-cleanup-worker.ts
-  sidequest/workers/repomix-worker.ts
-  sidequest/workers/schema-enhancement-worker.ts
-
-5ab45ca 2026-02-23 fix(ts-migration): add type keyword to interface imports in inter-project-scanner
-  sidequest/pipeline-core/inter-project-scanner.ts
-
-edc5eff 2026-02-23 fix(ts-migration): update stale .js imports to .ts in pipeline runners
-  sidequest/pipeline-runners/bugfix-audit-pipeline.ts
-  sidequest/pipeline-runners/claude-health-pipeline.ts
-  sidequest/pipeline-runners/git-activity-pipeline.ts
-  sidequest/pipeline-runners/test-refactor-pipeline.ts
-
-ce05e8e 2026-02-23 fix(tests): unskip websocket tests, fix API mismatches and cleanup
-  sidequest/pipeline-core/scanners/ast-grep-detector.js
-  sidequest/pipeline-core/scanners/repository-scanner.js
-  sidequest/pipeline-core/scanners/root-directory-analyzer.js
-  sidequest/pipeline-core/scanners/timeout-pattern-detector.js
-  sidequest/repomix-output.xml
-
-2a73b7e 2026-02-22 fix(ts-migration): update pipeline runner references to .ts in consumers
-  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
-
-23a95a9 2026-02-22 feat(ts-migration): migrate bugfix-audit-pipeline to TypeScript (Phase 8)
-  sidequest/pipeline-runners/bugfix-audit-pipeline.ts
-
-4a9d142 2026-02-22 feat(ts-migration): migrate plugin-management-pipeline to TypeScript (Phase 8)
-  sidequest/pipeline-runners/plugin-management-pipeline.ts
-
-451d7c2 2026-02-22 feat(ts-migration): migrate repo-cleanup-worker to TypeScript (Phase 8)
-  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
-  sidequest/workers/repo-cleanup-worker.ts
-
-5d01ec2 2026-02-22 feat(ts-migration): migrate claude-health-pipeline to TypeScript (Phase 8)
-  sidequest/pipeline-runners/claude-health-pipeline.ts
-
-8536760 2026-02-22 feat(ts-migration): migrate gitignore-worker to TypeScript (Phase 8)
-  sidequest/pipeline-runners/gitignore-pipeline.ts
-  sidequest/workers/gitignore-worker.ts
-
-73fd3b6 2026-02-22 feat(ts-migration): migrate bugfix-audit-worker to TypeScript (Phase 8)
-  sidequest/pipeline-runners/bugfix-audit-pipeline.js
-  sidequest/workers/bugfix-audit-worker.ts
-
-05dc6c6 2026-02-22 feat(ts-migration): migrate schema-enhancement-worker to TypeScript (Phase 8)
-  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
-  sidequest/workers/schema-enhancement-worker.ts
-
-56d6881 2026-02-22 feat(ts-migration): migrate claude-health-worker to TypeScript (Phase 8)
-  sidequest/pipeline-runners/claude-health-pipeline.js
-  sidequest/pipeline-runners/git-activity-pipeline.ts
-  sidequest/workers/claude-health-worker.ts
-
-88a7e4c 2026-02-22 feat(ts-migration): migrate repo-cleanup-pipeline to TypeScript (Phase 8)
-  sidequest/pipeline-runners/repo-cleanup-pipeline.ts
-
-039fa9a 2026-02-22 feat(ts-migration): migrate gitignore-pipeline to TypeScript (Phase 8)
-  sidequest/pipeline-runners/gitignore-pipeline.ts
-
-4bbb907 2026-02-22 feat(ts-migration): migrate duplicate-detection-worker to TypeScript (Phase 8)
-  sidequest/workers/duplicate-detection-worker.ts
-
-6bae0d7 2026-02-22 feat(ts-migration): migrate repomix-worker to TypeScript (Phase 8)
-  sidequest/core/index.ts
-  sidequest/pipeline-core/scanners/repository-scanner.ts
-  sidequest/workers/repomix-worker.ts
-
-7cf8b45 2026-02-22 feat(ts-migration): migrate schema-enhancement-pipeline to TypeScript (Phase 8)
-  sidequest/pipeline-runners/schema-enhancement-pipeline.ts
-
-063565e 2026-02-22 feat(ts-migration): migrate git-activity-worker to TypeScript (Phase 8)
-  sidequest/pipeline-runners/git-activity-pipeline.js
-  sidequest/workers/git-activity-worker.ts
-
-69f04b1 2026-02-22 feat(ts-migration): migrate codebase-health-scanner to TypeScript (Phase 7)
-  sidequest/pipeline-core/scanners/codebase-health-scanner.ts
-
-e0fe16d 2026-02-22 feat(ts-migration): migrate report-coordinator to TypeScript (Phase 7)
-  sidequest/pipeline-core/reports/report-coordinator.ts
-  sidequest/pipeline-core/scan-orchestrator.ts
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-  sidequest/workers/duplicate-detection-worker.js
-
-b9539d4 2026-02-22 feat(ts-migration): migrate ast-grep-detector to TypeScript (Phase 7)
-  sidequest/pipeline-core/scan-orchestrator.ts
-  sidequest/pipeline-core/scanners/ast-grep-detector.ts
-
-7c1d6fd 2026-02-22 feat(ts-migration): migrate cached-scanner to TypeScript (Phase 7)
-  sidequest/pipeline-core/cache/cached-scanner.ts
-
-83a007e 2026-02-22 feat(ts-migration): migrate markdown-report-generator to TypeScript (Phase 7)
-  sidequest/pipeline-core/config/repository-config-loader.ts
-  sidequest/pipeline-core/doppler-health-monitor.ts
-  sidequest/pipeline-core/inter-project-scanner.ts
-  sidequest/pipeline-core/reports/markdown-report-generator.ts
-  sidequest/pipeline-core/scan-orchestrator.ts
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-  sidequest/workers/duplicate-detection-worker.js
-
-dbf9375 2026-02-22 feat(ts-migration): migrate root-directory-analyzer to TypeScript (Phase 7)
-  sidequest/pipeline-core/scanners/codebase-health-scanner.js
-  sidequest/pipeline-core/scanners/root-directory-analyzer.ts
-
-527bc13 2026-02-22 feat(ts-migration): migrate html-report-generator to TypeScript (Phase 7)
-  sidequest/pipeline-core/reports/html-report-generator.ts
-  sidequest/pipeline-core/scan-orchestrator.ts
-
-79ca7eb 2026-02-22 feat(ts-migration): migrate timeout-pattern-detector to TypeScript (Phase 7)
-  sidequest/pipeline-core/cache/cached-scanner.js
-  sidequest/pipeline-core/cache/scan-cache.ts
-  sidequest/pipeline-core/scanners/codebase-health-scanner.js
-  sidequest/pipeline-core/scanners/timeout-pattern-detector.ts
-
-121a0cd 2026-02-22 feat(ts-migration): migrate json-report-generator to TypeScript (Phase 7)
-  sidequest/pipeline-core/reports/json-report-generator.js
-  sidequest/pipeline-core/reports/json-report-generator.ts
-
-0a5392a 2026-02-22 feat(ts-migration): migrate git-tracker to TypeScript (Phase 7)
-  sidequest/pipeline-core/cache/cached-scanner.js
-  sidequest/pipeline-core/cache/git-tracker.ts
-
-1979a3c 2026-02-22 feat(ts-migration): migrate repository-scanner to TypeScript (Phase 7)
-  sidequest/pipeline-core/scan-orchestrator.ts
-  sidequest/pipeline-core/scanners/repository-scanner.ts
-
-b261e83 2026-02-22 fix(migration-transformer): ensure unstash runs even if rollback throws
-  sidequest/pipeline-core/git/migration-transformer.ts
-
-5d75088 2026-02-21 fix: address H1/H2 review findings - stash ref tracking, required unstash
-  sidequest/pipeline-core/git/branch-manager.ts
-  sidequest/pipeline-core/git/migration-transformer.ts
-
-9913154 2026-02-21 fix: address final code review findings (H1 rollback, M4 skip, L1/L3)
-  sidequest/core/server.ts
-  sidequest/pipeline-core/git/branch-manager.ts
-  sidequest/pipeline-core/git/migration-transformer.ts
-
-4a4accf 2026-02-20 fix: Node version guard, deterministic log path, document entry point
-  sidequest/core/index.ts
-
-b2dd9ab 2026-02-20 fix(server): type-safe gitWorkflowManager, readonly config, document degradation
-  sidequest/core/git-workflow-manager.ts
-  sidequest/core/server.ts
-
-6a10313 2026-02-20 fix(migration-transformer): fix rollback, null-safe Map.get, namespace alias
-  sidequest/pipeline-core/git/migration-transformer.ts
-
-8ddd8a7 2026-02-20 fix(branch-manager): sanitize jobType in branch names, fix rename parsing
-  sidequest/pipeline-core/git/branch-manager.ts
-
-87a8c66 2026-02-20 fix(database): add saveJob validation, narrow ParsedJob.error, document BulkImportJob
-  sidequest/core/database.ts
-  sidequest/core/job-repository.ts
-
-0cd3037 2026-02-19 fix(ts-migration): address code review findings for Phase 4-6
-  sidequest/core/database.ts
-  sidequest/core/index.ts
-  sidequest/core/server.ts
-  sidequest/pipeline-runners/test-refactor-pipeline.ts
-
-71366dd 2026-02-18 fix(ts-migration): replace @ts-ignore with proper type declarations
-  sidequest/core/database.ts
-  sidequest/core/index.ts
-  sidequest/pipeline-core/git/migration-transformer.ts
-
-f6e2f7b 2026-02-18 Phase 4-6 TypeScript migration: data layer, git workflow, core server
-  sidequest/core/database.ts
-  sidequest/core/git-workflow-manager.ts
-  sidequest/core/index.ts
-  sidequest/core/job-repository.js
-  sidequest/core/job-repository.ts
-  sidequest/core/server.d.ts
-  sidequest/core/server.ts
-  sidequest/pipeline-core/git/branch-manager.ts
-  sidequest/pipeline-core/git/migration-transformer.ts
-  sidequest/pipeline-core/git/pr-creator.ts
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-  sidequest/utils/plugin-manager.js
-  sidequest/workers/bugfix-audit-worker.js
-  sidequest/workers/claude-health-worker.js
-  sidequest/workers/dashboard-populate-worker.js
-  sidequest/workers/duplicate-detection-worker.js
-  sidequest/workers/git-activity-worker.js
-  sidequest/workers/gitignore-worker.js
-  sidequest/workers/repo-cleanup-worker.js
-  sidequest/workers/repomix-worker.js
-  sidequest/workers/schema-enhancement-worker.js
-  sidequest/workers/test-refactor-worker.ts
-
-a240084 2026-02-22 fix(deploy): resolve dashboard-populate and plugin-manager failures on Render
-  sidequest/utils/plugin-manager.js
-  sidequest/workers/dashboard-populate-worker.js
-
-ed9bcdb 2026-02-17 Phase 2 and 3 Typescript migration
-  sidequest/core/config.ts
-  sidequest/core/constants.ts
-  sidequest/core/database.js
-  sidequest/core/git-workflow-manager.js
-  sidequest/core/index.js
-  sidequest/core/job-repository.js
-  sidequest/core/server.js
-  sidequest/pipeline-core/cache/cached-scanner.js
-  sidequest/pipeline-core/cache/git-tracker.js
-  sidequest/pipeline-core/cache/scan-cache.js
-  sidequest/pipeline-core/config/repository-config-loader.js
-  sidequest/pipeline-core/doppler-health-monitor.js
-  sidequest/pipeline-core/errors/error-classifier.ts
-  sidequest/pipeline-core/errors/error-types.d.ts
-  sidequest/pipeline-core/errors/types.d.ts
-  sidequest/pipeline-core/git/branch-manager.js
-  sidequest/pipeline-core/git/migration-transformer.js
-  sidequest/pipeline-core/git/pr-creator.js
-  sidequest/pipeline-core/inter-project-scanner.js
-  sidequest/pipeline-core/reports/html-report-generator.js
-  sidequest/pipeline-core/reports/json-report-generator.js
-  sidequest/pipeline-core/reports/markdown-report-generator.js
-  sidequest/pipeline-core/reports/report-coordinator.js
-  sidequest/pipeline-core/scan-orchestrator.ts
-  sidequest/pipeline-core/scanners/ast-grep-detector.js
-  sidequest/pipeline-core/scanners/codebase-health-scanner.js
-  sidequest/pipeline-core/scanners/repository-scanner.js
-  sidequest/pipeline-core/scanners/timeout-pattern-detector.js
-  sidequest/pipeline-core/utils/error-helpers.js
-  sidequest/pipeline-core/utils/error-helpers.ts
-  sidequest/pipeline-core/utils/fs-helpers.js
-  sidequest/pipeline-core/utils/fs-helpers.ts
-  sidequest/pipeline-core/utils/index.js
-  sidequest/pipeline-core/utils/index.ts
-  sidequest/pipeline-core/utils/process-helpers.ts
-  sidequest/pipeline-core/utils/timing-helpers.ts
-  sidequest/pipeline-runners/bugfix-audit-pipeline.js
-  sidequest/pipeline-runners/claude-health-pipeline.js
-  sidequest/pipeline-runners/dashboard-populate-pipeline.js
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-  sidequest/pipeline-runners/git-activity-pipeline.js
-  sidequest/pipeline-runners/gitignore-pipeline.js
-  sidequest/pipeline-runners/plugin-management-pipeline.js
-  sidequest/pipeline-runners/repo-cleanup-pipeline.js
-  sidequest/pipeline-runners/schema-enhancement-pipeline.js
-  sidequest/pipeline-runners/test-refactor-pipeline.ts
-  sidequest/repomix-output.xml
-  sidequest/utils/dependency-validator.js
-  sidequest/utils/directory-scanner.js
-  sidequest/utils/doppler-resilience.example.js
-  sidequest/utils/doppler-resilience.js
-  sidequest/utils/gitignore-repomix-updater.js
-  sidequest/utils/logger.d.ts
-  sidequest/utils/logger.js
-  sidequest/utils/logger.ts
-  sidequest/utils/pipeline-names.ts
-  sidequest/utils/plugin-manager.js
-  sidequest/utils/report-generator.js
-  sidequest/utils/schema-mcp-tools.js
-  sidequest/utils/time-helpers.ts
-  sidequest/workers/bugfix-audit-worker.js
-  sidequest/workers/claude-health-worker.js
-  sidequest/workers/dashboard-populate-worker.js
-  sidequest/workers/duplicate-detection-worker.js
-  sidequest/workers/git-activity-worker.js
-  sidequest/workers/gitignore-worker.js
-  sidequest/workers/repo-cleanup-worker.js
-  sidequest/workers/repomix-worker.js
-  sidequest/workers/schema-enhancement-worker.js
-  sidequest/workers/test-refactor-worker.ts
-
-2ccd876 2026-02-17 fix(ts-migration): resolve strict-mode errors in test-refactor-pipeline.ts
-  sidequest/pipeline-runners/test-refactor-pipeline.ts
-
-62e57c6 2026-02-17 fix(ts-migration): resolve strict-mode TS errors in migrated .ts files
-  sidequest/pipeline-core/scan-orchestrator.ts
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-
-d6bab33 2026-02-17 chore(ts-migration): delete stale pipeline-core .js and .d.ts files
-  sidequest/pipeline-core/cache/cached-scanner.js
-  sidequest/pipeline-core/inter-project-scanner.js
-  sidequest/pipeline-core/scan-orchestrator.d.ts
-  sidequest/pipeline-core/scan-orchestrator.js
-  sidequest/pipeline-runners/duplicate-detection-pipeline.js
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-  sidequest/workers/duplicate-detection-worker.js
-
-a688970 2026-02-17 chore(ts-migration): delete 5 stale type .js files, update importers to .ts
-  sidequest/core/database.js
-  sidequest/core/server.js
-
-43151ae 2026-02-16 chore: delete stale JS type files with TS replacements (Phase 0 partial)
-  sidequest/pipeline-core/types/scan-orchestrator-types.js
-  sidequest/types/duplicate-detection-types.js
-
-cc4f3a1 2026-02-16 test(sidequest-server): unskip tests after better-sqlite3 migration
-  sidequest/core/database.js
-
-21d2d0d 2026-02-16 fix(database): add test isolation via in-memory databases
-  sidequest/core/database.js
-
-085b462 2026-02-16 feat(database): replace sql.js with better-sqlite3 for multi-process DB access
-  sidequest/core/config.js
-  sidequest/core/database.js
-
-35a5c6d 2026-02-16 docs: mark PROD-H3, PROD-M1, PROD-L1 as done in backlog
-  sidequest/repomix-output.xml
-
-f4562c3 2026-02-16 fix(server): await DB init in start(), normalize pipeline stats to camelCase
-  sidequest/core/database.js
-  sidequest/core/server.js
-
-a567ab1 2026-02-16 fix(server): propagate DB errors from _persistJob() instead of swallowing
-  sidequest/core/server.js
-
-fe61e46 2026-02-16 fix(registry): register dashboard-populate and plugin-manager pipelines
-  sidequest/utils/pipeline-names.js
-  sidequest/utils/plugin-manager.js
-
-5ef6f5d 2026-02-16 fix(db): resolve jobs not populating in production dashboard
-  sidequest/core/database.js
-  sidequest/core/job-repository.js
-
-26e62f1 2026-02-15 fix: use Promise.allSettled() in pruneOldReports for race safety
-  sidequest/utils/report-generator.js
-
-19b3daa 2026-02-15 fix(observability): report Sentry exceptions for pruning failures
-  sidequest/utils/report-generator.js
-
-e95040b 2026-02-15 refactor(logging): replace console fallback with createComponentLogger
-  sidequest/pipeline-core/scanners/timeout-pattern-detector.js
-
-bfbc675 2026-02-15 perf: parallelize pruneOldReports() with Promise.all()
-  sidequest/utils/report-generator.js
-
-895a3ed 2026-02-15 feat: add 30-day report retention policy
-  sidequest/utils/report-generator.js
-
-a536810 2026-02-15 refactor(logging): replace console.log with structured logger
-  sidequest/pipeline-core/reports/report-coordinator.js
-  sidequest/pipeline-core/scanners/codebase-health-scanner.js
-
-85ae6aa 2026-02-14 chore: remove duplicate documentation files
-  sidequest/pipeline-runners/docs/GIT-ACTIVITY-REPORTER-README.md
-  sidequest/pipeline-runners/docs/GITIGNORE_UPDATER_README.md
-
-d1c6832 2026-02-14 chore: set executable permission on dashboard-populate-pipeline
-  sidequest/pipeline-runners/dashboard-populate-pipeline.js
-
-ee73321 2026-02-14 refactor(logging): adopt logMetrics utility in database.js
-  sidequest/core/database.js
-
-1742be6 2026-02-14 add new pipeline documentation
-  sidequest/bug-fixes/QUICKSTART.md
-  sidequest/bug-fixes/README.md
-  sidequest/bug-fixes/launch-tonight.sh
-  sidequest/bug-fixes/package-lock.json
-  sidequest/pipeline-core/errors/README_ENHANCED.md
-  sidequest/pipeline-core/extractors/README_ENHANCED.md
-  sidequest/pipeline-core/git/README_ENHANCED.md
-  sidequest/pipeline-core/scanners/README_ENHANCED.md
-  sidequest/pipeline-core/similarity/README_ENHANCED.md
-  sidequest/pipeline-runners/bugfix-audit-pipeline.js
-  sidequest/repomix-output.xml
-  sidequest/utils/README_ENHANCED.md
-
-be22cc2 2026-02-13 feat(pipeline): add dashboard populate pipeline runner
-  sidequest/pipeline-runners/dashboard-populate-pipeline.js
-  sidequest/workers/dashboard-populate-worker.js
-
-170ca02 2026-02-09 chore: remove legacy files and relocate docs
-  sidequest/INSTALL.md
-  sidequest/bug-fixes/README_ENHANCED.md
-  sidequest/core/README_ENHANCED.md
-  sidequest/pipeline-core/README_ENHANCED.md
-  sidequest/pipeline-runners/README_ENHANCED.md
-  sidequest/pipeline-runners/plugin-management-audit.sh
-  sidequest/pipeline-runners/schema-enhancement-pipeline.js
-  sidequest/workers/README_ENHANCED.md
-
-d463cc9 2026-02-09 feat(bugfix-audit): integrate bug-fixes module into core pipeline infrastructure
-  sidequest/bug-fixes/bugfix-audit-worker.js
-  sidequest/bug-fixes/index.js
-  sidequest/bug-fixes/launch-tonight.sh
-  sidequest/bug-fixes/package.json
-  sidequest/pipeline-runners/bugfix-audit-pipeline.js
-  sidequest/workers/bugfix-audit-worker.js
-
-a10ae4e 2026-02-08 Merge branch &apos;main&apos; of github.com:aledlie/AlephAuto
-ddb7da0 2026-02-08 update pnpm subdependencies
-  sidequest/repomix-output.xml
-
-7c5ff96 2026-02-08 feat(migration): add pattern-based file detection for MigrationTransformer
-  sidequest/pipeline-core/git/migration-transformer.js
-
-11eb23b 2026-02-08 chore(git-activity): increase default repo search depth to 3
-  sidequest/pipeline-runners/collect_git_activity.py
-
-cf97b8c 2026-02-03 fix(cleanup): handle empty arrays and stderr output in scan functions
-  sidequest/pipeline-runners/universal-repo-cleanup.sh
-
-91297a7 2026-02-03 fix(git-activity): update Jekyll frontmatter and remove duplicate title
-  sidequest/pipeline-runners/collect_git_activity.py
-
-587d80c 2026-02-03 refactor(similarity): centralize threshold config and tune MIN_UNIQUE_TOKENS
-  sidequest/pipeline-core/similarity/config.py
-  sidequest/pipeline-core/similarity/grouping.py
-
-812a8d7 2026-02-03 feat(pipeline): add semantic categories for process_io, timing, tracing
-  sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/models/code_block.py
-
-2aed025 2026-02-03 refactor(logging): use logStart in bugfix audit (LOG3)
-  sidequest/bug-fixes/index.js
-
-e0da404 2026-02-03 refactor(logging): adopt logRetry utility for retry logging
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-  sidequest/workers/duplicate-detection-worker.js
-
-cb3c532 2026-02-03 refactor(logging): adopt logStage utility for pipeline stages
-  sidequest/bug-fixes/bugfix-audit-worker.js
-  sidequest/pipeline-core/inter-project-scanner.js
-  sidequest/pipeline-core/scan-orchestrator.js
-  sidequest/pipeline-core/scan-orchestrator.ts
-
-cbb99c3 2026-02-03 refactor(logging): adopt logStart utility across 18 files
-  sidequest/core/index.js
-  sidequest/pipeline-core/cache/cached-scanner.js
-  sidequest/pipeline-core/scan-orchestrator.js
-  sidequest/pipeline-core/scan-orchestrator.ts
-  sidequest/pipeline-core/scanners/ast-grep-detector.js
-  sidequest/pipeline-core/scanners/repository-scanner.js
-  sidequest/pipeline-runners/claude-health-pipeline.js
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-  sidequest/pipeline-runners/git-activity-pipeline.js
-  sidequest/pipeline-runners/plugin-management-pipeline.js
-  sidequest/pipeline-runners/schema-enhancement-pipeline.js
-  sidequest/workers/claude-health-worker.js
-  sidequest/workers/duplicate-detection-worker.js
-
-8a5b601 2026-02-03 feat(logging): add logStage, logMetrics, logRetry utilities
-  sidequest/utils/logger.d.ts
-  sidequest/utils/logger.js
-
-5f0afce 2026-02-03 refactor(constants): migrate magic numbers to named constants
-  sidequest/core/constants.js
-  sidequest/core/database.js
-  sidequest/core/index.js
-  sidequest/core/server.js
-  sidequest/pipeline-core/doppler-health-monitor.js
-  sidequest/pipeline-core/errors/error-classifier.js
-  sidequest/pipeline-core/utils/timing-helpers.js
-  sidequest/pipeline-runners/duplicate-detection-pipeline.js
-  sidequest/pipeline-runners/duplicate-detection-pipeline.ts
-  sidequest/pipeline-runners/git-activity-pipeline.js
-  sidequest/pipeline-runners/plugin-management-pipeline.js
-  sidequest/pipeline-runners/schema-enhancement-pipeline.js
-  sidequest/pipeline-runners/test-refactor-pipeline.ts
-  sidequest/utils/dependency-validator.js
-  sidequest/utils/doppler-resilience.js
-  sidequest/utils/report-generator.js
-  sidequest/utils/time-helpers.js
-  sidequest/workers/claude-health-worker.js
-  sidequest/workers/duplicate-detection-worker.js
-  sidequest/workers/git-activity-worker.js
-  sidequest/workers/repomix-worker.js
-
-cc9bce3 2026-02-03 refactor(logging): adopt logError utility across 35 files
-  sidequest/bug-fixes/bugfix-audit-worker.js
-  sidequest/core/job-repository.js
-  sidequest/pipeline-core/cache/scan-cache.js
-  sidequest/pipeline-core/config/repository-config-loader.js
-  sidequest/pipeline-core/doppler-health-monitor.js
-  sidequest/pipeline-core/git/branch-manager.js
-  sidequest/pipeline-core/git/migration-transformer.js
-  sidequest/pipeline-core/git/pr-creator.js
-  sidequest/pipeline-core/inter-project-scanner.js
-  sidequest/pipeline-core/reports/report-coordinator.js
-  sidequest/pipeline-runners/claude-health-pipeline.js
-  sidequest/pipeline-runners/duplicate-detection-pipeline.js
-  sidequest/pipeline-runners/git-activity-pipeline.js
-  sidequest/pipeline-runners/gitignore-pipeline.js
-  sidequest/pipeline-runners/plugin-management-pipeline.js
-  sidequest/pipeline-runners/repo-cleanup-pipeline.js
-  sidequest/pipeline-runners/schema-enhancement-pipeline.js
-  sidequest/utils/doppler-resilience.js
-  sidequest/utils/logger.js
-  sidequest/utils/report-generator.js
-  sidequest/workers/repomix-worker.js
-
-dd893e9 2026-02-03 refactor(logging): add DRY utilities and expand adoption across 12 files
-  sidequest/bug-fixes/index.js
-  sidequest/core/git-workflow-manager.js
-  sidequest/core/index.js
-  sidequest/core/server.js
-  sidequest/pipeline-core/cache/cached-scanner.js
-  sidequest/pipeline-core/scan-orchestrator.js
-  sidequest/utils/directory-scanner.js
-  sidequest/utils/gitignore-repomix-updater.js
-  sidequest/utils/logger.d.ts
-  sidequest/utils/logger.js
-  sidequest/utils/plugin-manager.js
-  sidequest/workers/claude-health-worker.js
-  sidequest/workers/duplicate-detection-worker.js
-
-9377ce4 2026-02-03 refactor(shared): extract process I/O utilities to @shared/process-io package
-  sidequest/pipeline-core/git/branch-manager.js
-  sidequest/pipeline-core/git/pr-creator.js
-  sidequest/pipeline-core/scanners/timeout-pattern-detector.js
-  sidequest/pipeline-core/utils/process-helpers.js
-  sidequest/workers/git-activity-worker.js
-  sidequest/workers/repomix-worker.js
-
-aa669e9 2026-02-02 chore: update scan history and regenerate repomix output
-  sidequest/repomix-output.xml
-
-cc5cbd1 2026-02-02 feat(git-activity): expand repo scanning to dotfiles and additional paths
-  sidequest/git-report-config.json
-  sidequest/pipeline-runners/collect_git_activity.py
-  sidequest/workers/git-activity-worker.js
-
-cd31ad1 2026-02-02 feat(pipeline-runners): add --run-now CLI flag for immediate execution
-  sidequest/pipeline-runners/duplicate-detection-pipeline.js
-  sidequest/pipeline-runners/git-activity-pipeline.js
-  sidequest/pipeline-runners/gitignore-pipeline.js
-  sidequest/pipeline-runners/repo-cleanup-pipeline.js
-  sidequest/pipeline-runners/schema-enhancement-pipeline.js
-
-150fcda 2026-02-02 refactor logging into packages
-  sidequest/utils/logger.d.ts
-  sidequest/utils/logger.js
-
-2830473 2026-02-02 fix(reports): include member_block_ids in JSON report output
-  sidequest/pipeline-core/reports/json-report-generator.js
-
-02fb9e5 2026-02-02 refactor(utils): consolidate duplicate patterns into helper utilities
-  sidequest/pipeline-core/reports/html-report-generator.js
-  sidequest/pipeline-core/reports/json-report-generator.js
-  sidequest/pipeline-core/reports/markdown-report-generator.js
-  sidequest/pipeline-core/reports/report-coordinator.js
-  sidequest/pipeline-core/scanners/ast-grep-detector.js
-  sidequest/pipeline-core/utils/fs-helpers.js
-  sidequest/pipeline-core/utils/index.js
-  sidequest/pipeline-core/utils/process-helpers.js
-  sidequest/pipeline-core/utils/timing-helpers.js
-
-f6b83f6 2026-02-02 feat(pipeline-core): add type stubs and Layer 3 timing metrics
-  sidequest/pipeline-core/annotators/__init__.pyi
-  sidequest/pipeline-core/annotators/semantic_annotator.py
-  sidequest/pipeline-core/annotators/semantic_annotator.pyi
-  sidequest/pipeline-core/models/__init__.pyi
-  sidequest/pipeline-core/models/code_block.pyi
-  sidequest/pipeline-core/models/consolidation_suggestion.pyi
-  sidequest/pipeline-core/models/duplicate_group.pyi
-  sidequest/pipeline-core/models/scan_report.pyi
-  sidequest/pipeline-core/py.typed
-  sidequest/pipeline-core/similarity/__init__.pyi
-  sidequest/pipeline-core/similarity/config.pyi
-  sidequest/pipeline-core/similarity/grouping.py
-  sidequest/pipeline-core/similarity/grouping.pyi
-  sidequest/pipeline-core/similarity/semantic.pyi
-  sidequest/pipeline-core/similarity/structural.pyi
-  sidequest/pipeline-core/utils/__init__.py
-  sidequest/pipeline-core/utils/__init__.pyi
-  sidequest/pipeline-core/utils/timing.py
-  sidequest/pipeline-core/utils/timing.pyi
-
-413d1a7 2026-02-02 refactor(annotator): rename annotate() to extract_annotation()
-  sidequest/pipeline-core/annotators/semantic_annotator.py
-  sidequest/pipeline-core/annotators/test_semantic_annotator.py
-  sidequest/pipeline-core/similarity/grouping.py
-
-aff0104 2026-02-01 refactor(logging): remove redundant DEBUG checks before _debug calls
-  sidequest/pipeline-core/extractors/extract_blocks.py
-
-3b16661 2026-02-01 fix(errors): add context to extraction pipeline error messages
-  sidequest/pipeline-core/extractors/extract_blocks.py
-
-cf62821 2026-02-01 refactor(annotator): consolidate duplicate auth patterns
-  sidequest/pipeline-core/annotators/semantic_annotator.py
-
-7b0a20a 2026-02-01 fix(tests): add tags field to MockCodeBlock and add annotation tests
-  sidequest/pipeline-core/extractors/test_extract_blocks.py
-
-f78c7f5 2026-02-01 feat(metrics): add semantic annotation coverage metrics
-  sidequest/pipeline-core/extractors/extract_blocks.py
-
-c0df1c1 2026-02-01 fix(grouping): address code review feedback on docstrings
-  sidequest/pipeline-core/similarity/grouping.py
-
-da41cb3 2026-02-01 docs(grouping): add comprehensive docstrings to helper functions
-  sidequest/pipeline-core/similarity/grouping.py
-
-deaecef 2026-02-01 fix(tests): disable retries in TestWorker by default
-  sidequest/core/server.js
-
-e6a9044 2026-02-01 fix(security): address critical and high priority code review issues
-  sidequest/core/server.js
-  sidequest/pipeline-core/annotators/semantic_annotator.py
-  sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/similarity/config.py
-  sidequest/pipeline-core/similarity/grouping.py
-
-c07f736 2026-02-01 feat(pipeline): implement Layer 3 semantic similarity detection
-  sidequest/pipeline-core/annotators/__init__.py
-  sidequest/pipeline-core/annotators/semantic_annotator.py
-  sidequest/pipeline-core/annotators/test_semantic_annotator.py
-  sidequest/pipeline-core/extractors/extract_blocks.py
-  sidequest/pipeline-core/extractors/test_extract_blocks.py
-  sidequest/pipeline-core/similarity/grouping.py
-  sidequest/pipeline-core/similarity/test_grouping_layer3.py
-
-bdd88d3 2026-02-01 feat(jobs): implement automatic retry for retryable errors
-  sidequest/core/server.js
-
-0c4027f 2026-02-01 docs: complete L2-L5 documentation backlog items
-  sidequest/pipeline-core/models/README.md
-
-8aaf80f 2026-02-01 feat: auto-categorize extracted strings in test refactoring tools
-  sidequest/utils/refactor-test-suite.ts
-  sidequest/workers/test-refactor-worker.ts
-
-7918fd1 2026-01-29 chore: address 5 low-priority code review issues
-  sidequest/core/server.js
-  sidequest/utils/time-helpers.js
-
-b7693e9 2026-01-29 fix: address 6 medium-priority code review issues
-  sidequest/core/constants.js
-  sidequest/core/database.js
-  sidequest/core/server.js
-
-68cc8bd 2026-01-29 fix: address 4 high-priority code review issues
-  sidequest/core/database.js
-
-ee9d230 2026-01-29 fix(security): address 5 critical issues from enterprise code review
-  sidequest/core/config.js
-  sidequest/core/database.js
-  sidequest/core/server.js
-
-cfcd591 2026-01-29 refactor: address 28 code review issues for modularity and maintainability
-  sidequest/core/config.js
-  sidequest/core/constants.js
-  sidequest/core/database.js
-  sidequest/core/job-repository.js
-  sidequest/core/server.js
-  sidequest/pipeline-core/scan-orchestrator.js
-  sidequest/pipeline-core/scan-orchestrator.ts
-  sidequest/pipeline-runners/duplicate-detection-pipeline.js
-  sidequest/workers/claude-health-worker.js
-  sidequest/workers/duplicate-detection-worker.js
-
-5c4a4a8 2026-01-29 fix: add input validation and configurable database save interval
-  sidequest/core/config.js
-  sidequest/core/database.js
-
-c97012e 2026-01-29 fix: address critical and high-priority code review issues
-  sidequest/core/constants.js
-  sidequest/core/database.js
-  sidequest/core/job-repository.js
-  sidequest/core/server.js
-
-bba2a57 2026-01-29 refactor: implement remaining code review fixes
-  sidequest/core/database.js
-  sidequest/core/server.js
-
-b537128 2026-01-29 refactor(server): consolidate job persistence into _persistJob helper
-  sidequest/core/server.js
-
-9b7533d 2026-01-29 fix(types): resolve TypeScript errors from refactoring
-  sidequest/core/git-workflow-manager.js
-  sidequest/core/job-repository.js
-
-858e576 2026-01-29 refactor(core): break executeJob into helper methods
-  sidequest/core/server.js
-
-891e9b0 2026-01-29 refactor(core): extract GitWorkflowManager from SidequestServer
-  sidequest/core/git-workflow-manager.js
-  sidequest/core/server.js
-
-88518fe 2026-01-29 refactor: migrate core files to use JobRepository
-  sidequest/core/server.js
-
-9976810 2026-01-29 feat(core): add JobRepository abstraction layer
-  sidequest/core/job-repository.js</file><file path="sidequest/pipeline-core/annotators/__init__.py">__all__ = [&quot;SemanticAnnotation&quot;, &quot;SemanticAnnotator&quot;]</file><file path="sidequest/pipeline-core/annotators/semantic_annotator.py">@dataclass
+fi</file><file path="sidequest/pipeline-core/annotators/__init__.py">__all__ = [&quot;SemanticAnnotation&quot;, &quot;SemanticAnnotator&quot;]</file><file path="sidequest/pipeline-core/annotators/semantic_annotator.py">@dataclass
 class SemanticAnnotation
 ⋮----
 category: str
@@ -12502,27 +10946,7 @@ class BlockExtraction
 FUNCTION_TAG_PREFIX = &quot;function:&quot;
 BLOCK_HASH_LENGTH = 12
 DEBUG_LOG_DEDUP_LIMIT = 10
-DEBUG_LOG_BLOCK_LIMIT = 3</file><file path="sidequest/pipeline-runners/base-pipeline.ts">import type { Job, JobStats } from &apos;../core/server.ts&apos;;
-import { SidequestServer } from &apos;../core/server.ts&apos;;
-import { logError } from &apos;../utils/logger.ts&apos;;
-import cron from &apos;node-cron&apos;;
-import type { Logger } from &apos;pino&apos;;
-⋮----
-export abstract class BasePipeline&lt;TWorker extends SidequestServer = SidequestServer&gt;
-⋮----
-constructor(worker: TWorker)
-waitForCompletion(): Promise&lt;void&gt;
-⋮----
-const cleanup = () =&gt;
-const checkAndResolve = () =&gt;
-⋮----
-protected scheduleCron(
-    logger: Logger,
-    name: string,
-    cronSchedule: string,
-    runFn: () =&gt; Promise&lt;unknown&gt;
-): cron.ScheduledTask
-getStats(): JobStats</file><file path="sidequest/pipeline-runners/collect_git_activity.py">def _load_git_report_config() -&gt; dict
+DEBUG_LOG_BLOCK_LIMIT = 3</file><file path="sidequest/pipeline-runners/collect_git_activity.py">def _load_git_report_config() -&gt; dict
 ⋮----
 config_path = Path(__file__).parent.parent / &quot;git-report-config.json&quot;
 ⋮----
@@ -12787,22 +11211,7 @@ wants_json = args.output_format in (&quot;json&quot;, &quot;both&quot;) or bool(
 json_path = (
 ⋮----
 # Generate visualizations unless explicitly disabled.
-output_dir = _resolve_output_dir(args)</file><file path="sidequest/pipeline-runners/direct-execution-path-guard.test.ts">import test from &apos;node:test&apos;;
-import assert from &apos;node:assert/strict&apos;;
-import fs from &apos;fs/promises&apos;;
-import os from &apos;os&apos;;
-import path from &apos;path&apos;;
-import { spawn } from &apos;child_process&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-interface ScriptRunResult {
-  code: number | null;
-  signal: NodeJS.Signals | null;
-  stdout: string;
-  stderr: string;
-  timedOut: boolean;
-}
-⋮----
-async function runViaSymlinkWithSpace(scriptRelativePath: string): Promise&lt;ScriptRunResult&gt;</file><file path="sidequest/pipeline-runners/startup-once-mode.test.ts">import test from &apos;node:test&apos;;
+output_dir = _resolve_output_dir(args)</file><file path="sidequest/pipeline-runners/startup-once-mode.test.ts">import test from &apos;node:test&apos;;
 import assert from &apos;node:assert/strict&apos;;
 import fs from &apos;fs/promises&apos;;
 import os from &apos;os&apos;;
@@ -12895,7 +11304,505 @@ def test_generate_visualizations_dispatches_expected_charts(monkeypatch, tmp_pat
 calls: list[tuple[str, Path]] = []
 def fake_pie(data, title, output_file, width=800, height=600)
 def fake_bar(data, title, output_file, width=800, height=600)</file><file path="sidequest/pipeline-runners/test-refactor-pipeline.test.ts">import test from &apos;node:test&apos;;
-import assert from &apos;node:assert/strict&apos;;</file><file path="sidequest/utils/directory-scanner.test.ts">import test from &apos;node:test&apos;;
+import assert from &apos;node:assert/strict&apos;;</file><file path="sidequest/pipeline-runners/test-refactor-pipeline.ts">import { TestRefactorWorker } from &apos;../workers/test-refactor-worker.ts&apos;;
+import type { Job as BaseJob } from &apos;../core/server.ts&apos;;
+import { DirectoryScanner } from &apos;../utils/directory-scanner.ts&apos;;
+import { createComponentLogger } from &apos;../utils/logger.ts&apos;;
+import { config } from &apos;../core/config.ts&apos;;
+import { TIMEOUTS } from &apos;../core/constants.ts&apos;;
+import cron from &apos;node-cron&apos;;
+import path from &apos;path&apos;;
+import { fileURLToPath } from &apos;url&apos;;
+⋮----
+interface PipelineMetrics {
+  totalProjects: number;
+  successfulRefactors: number;
+  failedRefactors: number;
+  filesGenerated: number;
+  patternsDetected: number;
+  stringsExtracted: number;
+  recommendationsGenerated: number;
+}
+interface PipelineStats {
+  total: number;
+  queued: number;
+  active: number;
+  completed: number;
+  failed: number;
+}
+interface PipelineResult {
+  metrics: PipelineMetrics;
+  stats: PipelineStats;
+}
+async function runPipeline(targetPath: string | null = null): Promise&lt;PipelineResult&gt;
+async function hasTestDirectory(dirPath: string): Promise&lt;boolean&gt;
+function waitForCompletion(worker: TestRefactorWorker): Promise&lt;void&gt;
+⋮----
+const cleanup = () =&gt;
+const checkAndResolve = () =&gt;
+⋮----
+async function main(): Promise&lt;void&gt;
+function isDirectExecution(): boolean</file><file path="sidequest/pipeline-runners/universal-repo-cleanup.sh">set -e
+set -u
+RED=&apos;\033[0;31m&apos;
+GREEN=&apos;\033[0;32m&apos;
+YELLOW=&apos;\033[1;33m&apos;
+BLUE=&apos;\033[0;34m&apos;
+NC=&apos;\033[0m&apos;
+TARGET_DIR=&quot;${1:-$(pwd)}&quot;
+TARGET_DIR=&quot;$(cd &quot;$TARGET_DIR&quot; 2&gt;/dev/null &amp;&amp; pwd)&quot; || {
+    echo -e &quot;${RED}✗ Error: Directory &apos;$1&apos; does not exist${NC}&quot;
+    exit 1
+}
+################################################################################
+# Configuration - Customize what gets cleaned
+################################################################################
+# Python virtual environment directory names (common patterns)
+VENV_PATTERNS=(
+    &quot;venv&quot;
+    &quot;.venv&quot;
+    &quot;env&quot;
+    &quot;.env&quot;
+    &quot;virtualenv&quot;
+    &quot;*.venv&quot;
+    &quot;personal_site&quot;
+)
+BUILD_ARTIFACTS=(
+    &quot;.jekyll-cache&quot;
+    &quot;.sass-cache&quot;
+    &quot;.bundle&quot;
+    &quot;node_modules/.cache&quot;
+    &quot;dist&quot;
+    &quot;build&quot;
+    &quot;.next&quot;
+    &quot;.nuxt&quot;
+    &quot;out&quot;
+    &quot;.output&quot;
+    &quot;target&quot;
+    &quot;.gradle&quot;
+)
+TEMP_FILE_PATTERNS=(
+    &quot;.DS_Store&quot;
+    &quot;*.pyc&quot;
+    &quot;*.pyo&quot;
+    &quot;__pycache__&quot;
+    &quot;*.swp&quot;
+    &quot;*.swo&quot;
+    &quot;*~&quot;
+    &quot;.*.swp&quot;
+    &quot;Thumbs.db&quot;
+    &quot;desktop.ini&quot;
+)
+OUTPUT_FILE_PATTERNS=(
+    &quot;repomix-output.xml&quot;
+    &quot;*.log&quot;
+    &quot;npm-debug.log*&quot;
+    &quot;yarn-debug.log*&quot;
+    &quot;yarn-error.log*&quot;
+)
+REDUNDANT_DIRS=(
+    &quot;drafts&quot;
+    &quot;temp&quot;
+    &quot;tmp&quot;
+    &quot;backup&quot;
+    &quot;backups&quot;
+    &quot;old&quot;
+    &quot;archive&quot;
+    &quot;deprecated&quot;
+)
+print_header() {
+    echo -e &quot;\n${BLUE}========================================${NC}&quot;
+    echo -e &quot;${BLUE}$1${NC}&quot;
+    echo -e &quot;${BLUE}========================================${NC}\n&quot;
+}
+print_success() {
+    echo -e &quot;${GREEN}✓ $1${NC}&quot;
+}
+print_warning() {
+    echo -e &quot;${YELLOW}⚠ $1${NC}&quot;
+}
+print_error() {
+    echo -e &quot;${RED}✗ $1${NC}&quot;
+}
+print_info() {
+    echo -e &quot;${BLUE}→ $1${NC}&quot;
+}
+get_size() {
+    local path=&quot;$1&quot;
+    if [ -e &quot;$path&quot; ]; then
+        du -sh &quot;$path&quot; 2&gt;/dev/null | cut -f1
+    else
+        echo &quot;N/A&quot;
+    fi
+}
+count_files() {
+    local path=&quot;$1&quot;
+    if [ -d &quot;$path&quot; ]; then
+        find &quot;$path&quot; -type f 2&gt;/dev/null | wc -l | tr -d &apos; &apos;
+    else
+        echo &quot;0&quot;
+    fi
+}
+scan_venvs() {
+    print_info &quot;Scanning for Python virtual environments...&quot; &gt;&amp;2
+    local found=()
+    for pattern in &quot;${VENV_PATTERNS[@]}&quot;; do
+        while IFS= read -r -d &apos;&apos; dir; do
+            # Skip if inside node_modules
+            if [[ ! &quot;$dir&quot; =~ node_modules ]]; then
+                found+=(&quot;$dir&quot;)
+            fi
+        done &lt; &lt;(find &quot;$TARGET_DIR&quot; -maxdepth 3 -type d -name &quot;$pattern&quot; -print0 2&gt;/dev/null)
+    done
+    # Remove duplicates (handle empty array safely)
+    [ ${#found[@]} -gt 0 ] &amp;&amp; printf &apos;%s\n&apos; &quot;${found[@]}&quot; | sort -u
+}
+scan_temp_files() {
+    print_info &quot;Scanning for temporary/cache files...&quot; &gt;&amp;2
+    local found=()
+    for pattern in &quot;${TEMP_FILE_PATTERNS[@]}&quot;; do
+        while IFS= read -r -d &apos;&apos; file; do
+            found+=(&quot;$file&quot;)
+        done &lt; &lt;(find &quot;$TARGET_DIR&quot; -name &quot;$pattern&quot; -print0 2&gt;/dev/null)
+    done
+    [ ${#found[@]} -gt 0 ] &amp;&amp; printf &apos;%s\n&apos; &quot;${found[@]}&quot; | sort -u
+}
+scan_output_files() {
+    print_info &quot;Scanning for output/generated files...&quot; &gt;&amp;2
+    local found=()
+    for pattern in &quot;${OUTPUT_FILE_PATTERNS[@]}&quot;; do
+        while IFS= read -r -d &apos;&apos; file; do
+            # Keep root-level repomix-output.xml
+            if [[ &quot;$file&quot; != &quot;$TARGET_DIR/repomix-output.xml&quot; ]]; then
+                found+=(&quot;$file&quot;)
+            fi
+        done &lt; &lt;(find &quot;$TARGET_DIR&quot; -name &quot;$pattern&quot; -print0 2&gt;/dev/null)
+    done
+    [ ${#found[@]} -gt 0 ] &amp;&amp; printf &apos;%s\n&apos; &quot;${found[@]}&quot; | sort -u
+}
+scan_build_artifacts() {
+    print_info &quot;Scanning for build artifacts...&quot; &gt;&amp;2
+    local found=()
+    for artifact in &quot;${BUILD_ARTIFACTS[@]}&quot;; do
+        local path=&quot;$TARGET_DIR/$artifact&quot;
+        if [ -d &quot;$path&quot; ]; then
+            found+=(&quot;$path&quot;)
+        fi
+    done
+    [ ${
+}
+scan_redundant_dirs() {
+    print_info &quot;Scanning for redundant directories...&quot; &gt;&amp;2
+    local found=()
+    for dir_name in &quot;${REDUNDANT_DIRS[@]}&quot;; do
+        local path=&quot;$TARGET_DIR/$dir_name&quot;
+        if [ -d &quot;$path&quot; ]; then
+            if [ -f &quot;$TARGET_DIR/.gitignore&quot; ] &amp;&amp; grep -q &quot;^${dir_name}/\?$&quot; &quot;$TARGET_DIR/.gitignore&quot; 2&gt;/dev/null; then
+                found+=(&quot;$path (in .gitignore)&quot;)
+            else
+                found+=(&quot;$path&quot;)
+            fi
+        fi
+    done
+    [ ${
+}
+show_preview() {
+    print_header &quot;Repository Cleanup Preview&quot;
+    echo &quot;Target Directory: $TARGET_DIR&quot;
+    echo &quot;Current Size: $(get_size &quot;$TARGET_DIR&quot;)&quot;
+    echo &quot;&quot;
+    # Scan all categories
+    local -a venvs=()
+    local -a temp_files=()
+    local -a output_files=()
+    local -a build_artifacts=()
+    local -a redundant_dirs=()
+    local previous_ifs=&quot;$IFS&quot;
+    IFS=$&apos;\n&apos;
+    venvs=($(scan_venvs || true))
+    temp_files=($(scan_temp_files || true))
+    output_files=($(scan_output_files || true))
+    build_artifacts=($(scan_build_artifacts || true))
+    redundant_dirs=($(scan_redundant_dirs || true))
+    IFS=&quot;$previous_ifs&quot;
+    local total_items=0
+    if [ ${
+        echo -e &quot;${YELLOW}Python Virtual Environments (${#venvs[@]} found):${NC}&quot;
+        for venv in &quot;${venvs[@]}&quot;; do
+            [ -n &quot;$venv&quot; ] &amp;&amp; echo &quot;  - $venv ($(get_size &quot;$venv&quot;))&quot; &amp;&amp; ((total_items++))
+        done
+        echo &quot;&quot;
+    fi
+    # Temporary files
+    if [ ${#temp_files[@]} -gt 0 ]; then
+        echo -e &quot;${YELLOW}Temporary/Cache Files (${
+        local count=0
+        for file in &quot;${temp_files[@]}&quot;; do
+            [ -n &quot;$file&quot; ] &amp;&amp; ((count++)) &amp;&amp; ((total_items++))
+        done
+        echo &quot;  - $count files (.DS_Store, __pycache__, .swp, etc.)&quot;
+        echo &quot;&quot;
+    fi
+    # Output files
+    if [ ${#output_files[@]} -gt 0 ]; then
+        echo -e &quot;${YELLOW}Output/Generated Files (${
+        for file in &quot;${output_files[@]}&quot;; do
+            [ -n &quot;$file&quot; ] &amp;&amp; echo &quot;  - $file&quot; &amp;&amp; ((total_items++))
+        done
+        echo &quot;&quot;
+    fi
+    # Build artifacts
+    if [ ${#build_artifacts[@]} -gt 0 ]; then
+        echo -e &quot;${YELLOW}Build Artifacts (${
+        for artifact in &quot;${build_artifacts[@]}&quot;; do
+            [ -n &quot;$artifact&quot; ] &amp;&amp; echo &quot;  - $artifact ($(get_size &quot;$artifact&quot;))&quot; &amp;&amp; ((total_items++))
+        done
+        echo &quot;&quot;
+    fi
+    # Redundant directories
+    if [ ${#redundant_dirs[@]} -gt 0 ]; then
+        echo -e &quot;${YELLOW}Redundant Directories (${
+        for dir in &quot;${redundant_dirs[@]}&quot;; do
+            [ -n &quot;$dir&quot; ] &amp;&amp; echo &quot;  - $dir&quot; &amp;&amp; ((total_items++))
+        done
+        echo &quot;&quot;
+    fi
+    if [ $total_items -eq 0 ]; then
+        print_success &quot;No items found to clean - repository is already clean!&quot;
+        exit 0
+    fi
+    echo -e &quot;${YELLOW}Total items to remove: $total_items${NC}&quot;
+    echo &quot;&quot;
+    # Store for cleanup functions (newline-delimited to preserve spaces in paths)
+    if [ ${#venvs[@]} -gt 0 ]; then
+        FOUND_VENVS=$(printf &apos;%s\n&apos; &quot;${venvs[@]}&quot;)
+    else
+        FOUND_VENVS=&quot;&quot;
+    fi
+    if [ ${#temp_files[@]} -gt 0 ]; then
+        FOUND_TEMP_FILES=$(printf &apos;%s\n&apos; &quot;${temp_files[@]}&quot;)
+    else
+        FOUND_TEMP_FILES=&quot;&quot;
+    fi
+    if [ ${#output_files[@]} -gt 0 ]; then
+        FOUND_OUTPUT_FILES=$(printf &apos;%s\n&apos; &quot;${output_files[@]}&quot;)
+    else
+        FOUND_OUTPUT_FILES=&quot;&quot;
+    fi
+    if [ ${#build_artifacts[@]} -gt 0 ]; then
+        FOUND_BUILD_ARTIFACTS=$(printf &apos;%s\n&apos; &quot;${build_artifacts[@]}&quot;)
+    else
+        FOUND_BUILD_ARTIFACTS=&quot;&quot;
+    fi
+    if [ ${#redundant_dirs[@]} -gt 0 ]; then
+        FOUND_REDUNDANT_DIRS=$(printf &apos;%s\n&apos; &quot;${redundant_dirs[@]}&quot;)
+    else
+        FOUND_REDUNDANT_DIRS=&quot;&quot;
+    fi
+    export FOUND_VENVS FOUND_TEMP_FILES FOUND_OUTPUT_FILES FOUND_BUILD_ARTIFACTS FOUND_REDUNDANT_DIRS
+}
+confirm_cleanup() {
+    read -p &quot;Do you want to proceed with cleanup? (yes/no): &quot; response
+    if [[ ! &quot;$response&quot; =~ ^[Yy][Ee][Ss]$ ]]; then
+        print_warning &quot;Cleanup cancelled by user&quot;
+        exit 0
+    fi
+    echo &quot;&quot;
+}
+################################################################################
+# Cleanup Functions
+################################################################################
+cleanup_venvs() {
+    print_header &quot;Step 1: Removing Python Virtual Environments&quot;
+    local -a venvs=()
+    if [ -n &quot;${FOUND_VENVS:-}&quot; ]; then
+        local previous_ifs=&quot;$IFS&quot;
+        IFS=$&apos;\n&apos;
+        venvs=($FOUND_VENVS)
+        IFS=&quot;$previous_ifs&quot;
+    fi
+    local removed=0
+    if [ ${
+        print_info &quot;No virtual environments to remove&quot;
+        return
+    fi
+    for venv in &quot;${venvs[@]}&quot;; do
+        if [ -n &quot;$venv&quot; ] &amp;&amp; [ -d &quot;$venv&quot; ]; then
+            local size=$(get_size &quot;$venv&quot;)
+            print_info &quot;Removing $(basename &quot;$venv&quot;) ($size)...&quot;
+            rm -rf &quot;$venv&quot;
+            print_success &quot;Removed $venv&quot;
+            ((removed++))
+        fi
+    done
+    print_success &quot;Removed $removed virtual environment(s)&quot;
+}
+cleanup_temp_files() {
+    print_header &quot;Step 2: Removing Temporary/Cache Files&quot;
+    local -a temp_files=()
+    if [ -n &quot;${FOUND_TEMP_FILES:-}&quot; ]; then
+        local previous_ifs=&quot;$IFS&quot;
+        IFS=$&apos;\n&apos;
+        temp_files=($FOUND_TEMP_FILES)
+        IFS=&quot;$previous_ifs&quot;
+    fi
+    local removed=0
+    if [ ${
+        print_info &quot;No temporary files to remove&quot;
+        return
+    fi
+    for file in &quot;${temp_files[@]}&quot;; do
+        if [ -n &quot;$file&quot; ] &amp;&amp; [ -e &quot;$file&quot; ]; then
+            rm -rf &quot;$file&quot; 2&gt;/dev/null &amp;&amp; ((removed++))
+        fi
+    done
+    print_success &quot;Removed $removed temporary file(s)&quot;
+}
+cleanup_output_files() {
+    print_header &quot;Step 3: Removing Output/Generated Files&quot;
+    local -a output_files=()
+    if [ -n &quot;${FOUND_OUTPUT_FILES:-}&quot; ]; then
+        local previous_ifs=&quot;$IFS&quot;
+        IFS=$&apos;\n&apos;
+        output_files=($FOUND_OUTPUT_FILES)
+        IFS=&quot;$previous_ifs&quot;
+    fi
+    local removed=0
+    if [ ${
+        print_info &quot;No output files to remove&quot;
+        return
+    fi
+    for file in &quot;${output_files[@]}&quot;; do
+        if [ -n &quot;$file&quot; ] &amp;&amp; [ -f &quot;$file&quot; ]; then
+            print_info &quot;Removing $(basename &quot;$file&quot;)...&quot;
+            rm -f &quot;$file&quot;
+            print_success &quot;Removed $file&quot;
+            ((removed++))
+        fi
+    done
+    print_success &quot;Removed $removed output file(s)&quot;
+}
+cleanup_build_artifacts() {
+    print_header &quot;Step 4: Removing Build Artifacts&quot;
+    local -a build_artifacts=()
+    if [ -n &quot;${FOUND_BUILD_ARTIFACTS:-}&quot; ]; then
+        local previous_ifs=&quot;$IFS&quot;
+        IFS=$&apos;\n&apos;
+        build_artifacts=($FOUND_BUILD_ARTIFACTS)
+        IFS=&quot;$previous_ifs&quot;
+    fi
+    local removed=0
+    if [ ${
+        print_info &quot;No build artifacts to remove&quot;
+        return
+    fi
+    for artifact in &quot;${build_artifacts[@]}&quot;; do
+        if [ -n &quot;$artifact&quot; ] &amp;&amp; [ -d &quot;$artifact&quot; ]; then
+            local size=$(get_size &quot;$artifact&quot;)
+            print_info &quot;Removing $(basename &quot;$artifact&quot;) ($size)...&quot;
+            rm -rf &quot;$artifact&quot;
+            print_success &quot;Removed $artifact&quot;
+            ((removed++))
+        fi
+    done
+    print_success &quot;Removed $removed build artifact(s)&quot;
+}
+cleanup_redundant_dirs() {
+    print_header &quot;Step 5: Removing Redundant Directories&quot;
+    local -a redundant_dirs=()
+    if [ -n &quot;${FOUND_REDUNDANT_DIRS:-}&quot; ]; then
+        local previous_ifs=&quot;$IFS&quot;
+        IFS=$&apos;\n&apos;
+        redundant_dirs=($FOUND_REDUNDANT_DIRS)
+        IFS=&quot;$previous_ifs&quot;
+    fi
+    local removed=0
+    if [ ${
+        print_info &quot;No redundant directories to remove&quot;
+        return
+    fi
+    for dir in &quot;${redundant_dirs[@]}&quot;; do
+        dir=&quot;${dir% (in .gitignore)}&quot;
+        if [ -n &quot;$dir&quot; ] &amp;&amp; [ -d &quot;$dir&quot; ]; then
+            local size=$(get_size &quot;$dir&quot;)
+            print_info &quot;Removing $(basename &quot;$dir&quot;) ($size)...&quot;
+            rm -rf &quot;$dir&quot;
+            print_success &quot;Removed $dir&quot;
+            ((removed++))
+        fi
+    done
+    print_success &quot;Removed $removed redundant director(ies)&quot;
+}
+print_summary() {
+    print_header &quot;Cleanup Summary&quot;
+    local final_size=$(get_size &quot;$TARGET_DIR&quot;)
+    echo &quot;Cleanup completed successfully!&quot;
+    echo &quot;&quot;
+    echo &quot;Target Directory: $TARGET_DIR&quot;
+    echo &quot;Final Size: $final_size&quot;
+    echo &quot;&quot;
+    echo &quot;Cleaned up:&quot;
+    echo &quot;  ✓ Python virtual environments&quot;
+    echo &quot;  ✓ Temporary/cache files (.DS_Store, __pycache__, etc.)&quot;
+    echo &quot;  ✓ Output/generated files (logs, repomix files, etc.)&quot;
+    echo &quot;  ✓ Build artifacts (.jekyll-cache, dist/, etc.)&quot;
+    echo &quot;  ✓ Redundant directories (drafts/, temp/, backup/, etc.)&quot;
+    echo &quot;&quot;
+    print_success &quot;Repository cleanup completed!&quot;
+}
+recommend_gitignore() {
+    print_header &quot;Recommendations&quot;
+    if [ ! -f &quot;$TARGET_DIR/.gitignore&quot; ]; then
+        print_warning &quot;No .gitignore found - consider creating one&quot;
+        return
+    fi
+    echo &quot;Consider adding these patterns to .gitignore if not already present:&quot;
+    echo &quot;&quot;
+    echo &quot;
+    echo &quot;  venv/&quot;
+    echo &quot;  .venv/&quot;
+    echo &quot;  *.pyc&quot;
+    echo &quot;  __pycache__/&quot;
+    echo &quot;&quot;
+    echo &quot;
+    echo &quot;  .DS_Store&quot;
+    echo &quot;  Thumbs.db&quot;
+    echo &quot;&quot;
+    echo &quot;
+    echo &quot;  dist/&quot;
+    echo &quot;  build/&quot;
+    echo &quot;  *.log&quot;
+    echo &quot;&quot;
+    echo &quot;
+    echo &quot;  temp/&quot;
+    echo &quot;  tmp/&quot;
+    echo &quot;  *.swp&quot;
+    echo &quot;&quot;
+}
+################################################################################
+# Main Execution
+################################################################################
+main() {
+    print_header &quot;Universal Repository Cleanup Script&quot;
+    echo &quot;Target: $TARGET_DIR&quot;
+    echo &quot;&quot;
+    # Show preview and get confirmation
+    show_preview
+    confirm_cleanup
+    # Execute cleanup tasks
+    cleanup_venvs
+    cleanup_temp_files
+    cleanup_output_files
+    cleanup_build_artifacts
+    cleanup_redundant_dirs
+    # Print summary
+    print_summary
+    # Print recommendations
+    recommend_gitignore
+    print_success &quot;All cleanup tasks completed successfully!&quot;
+}
+# Run main function
+main &quot;$@&quot;</file><file path="sidequest/utils/directory-scanner.test.ts">import test from &apos;node:test&apos;;
 import assert from &apos;node:assert/strict&apos;;
 import fs from &apos;fs/promises&apos;;
 import os from &apos;os&apos;;
@@ -13025,12 +11932,7 @@ async runAuditScript(detailed: boolean = false): Promise&lt;AuditResults&gt;
 async analyzeResults(auditResults: AuditResults): Promise&lt;Analysis&gt;
 async loadPluginMetadata(): Promise&lt;PluginMetadata&gt;
 generateRecommendations(analysis: Analysis): Recommendation[]
-addJob(options:</file><file path="sidequest/workers/repo-cleanup-worker.test.ts">import test from &apos;node:test&apos;;
-import assert from &apos;node:assert/strict&apos;;
-import fs from &apos;fs/promises&apos;;
-import os from &apos;os&apos;;
-import path from &apos;path&apos;;
-import { RepoCleanupWorker } from &apos;./repo-cleanup-worker.ts&apos;;</file><file path="sidequest/workers/repo-cleanup-worker.ts">import { SidequestServer, type Job, type SidequestServerOptions } from &apos;../core/server.ts&apos;;
+addJob(options:</file><file path="sidequest/workers/repo-cleanup-worker.ts">import { SidequestServer, type Job, type SidequestServerOptions } from &apos;../core/server.ts&apos;;
 import { generateReport } from &apos;../utils/report-generator.ts&apos;;
 import { createComponentLogger } from &apos;../utils/logger.ts&apos;;
 ⋮----
@@ -13791,154 +12693,43 @@ npm run typecheck           # TypeScript checks
 - `../docs/API_REFERENCE.md` - REST API endpoints
 - `../docs/architecture/ERROR_HANDLING.md` - Retry logic details
 - `../docs/architecture/TYPE_SYSTEM.md` - Type patterns
-- `../docs/runbooks/troubleshooting.md` - Debugging guide</file><file path="package.json">{
-  &quot;name&quot;: &quot;repomix-cron-sidequest&quot;,
-  &quot;version&quot;: &quot;1.0.0&quot;,
-  &quot;description&quot;: &quot;Automated job management with sidequest server - repomix runner and documentation enhancement pipeline&quot;,
-  &quot;main&quot;: &quot;api/server.ts&quot;,
-  &quot;type&quot;: &quot;module&quot;,
-  &quot;workspaces&quot;: [
-    &quot;packages/*&quot;
-  ],
-  &quot;scripts&quot;: {
-    &quot;start&quot;: &quot;node --strip-types api/server.ts&quot;,
-    &quot;start:api&quot;: &quot;node --strip-types api/server.ts&quot;,
-    &quot;dev&quot;: &quot;node --strip-types --watch api/server.ts&quot;,
-    &quot;build:frontend&quot;: &quot;cd frontend &amp;&amp; npm ci --include=dev &amp;&amp; npm run build&quot;,
-    &quot;dashboard&quot;: &quot;doppler run -- node --strip-types api/server.ts&quot;,
-    &quot;fix:types&quot;: &quot;node --strip-types scripts/fix-types.ts&quot;,
-    &quot;test&quot;: &quot;node --strip-types --test --test-timeout=30000 --test-force-exit --test-name-pattern=&apos;.&apos; tests/unit/*.test.ts&quot;,
-    &quot;test:coverage&quot;: &quot;c8 --reporter=text --reporter=text-summary node --strip-types --test --test-timeout=30000 --test-force-exit --test-name-pattern=&apos;.&apos; tests/unit/*.test.ts&quot;,
-    &quot;test:coverage:html&quot;: &quot;c8 --reporter=html --reporter=text-summary node --strip-types --test --test-timeout=30000 --test-force-exit --test-name-pattern=&apos;.&apos; tests/unit/*.test.ts&quot;,
-    &quot;test:integration&quot;: &quot;node --strip-types --test --test-timeout=60000 --test-force-exit --test-concurrency=1 tests/integration/*.test.ts&quot;,
-    &quot;test:cache&quot;: &quot;node --strip-types --test --test-timeout=60000 --test-force-exit tests/integration/test-cache-layer.ts&quot;,
-    &quot;test:all&quot;: &quot;node --strip-types --test --test-timeout=30000 --test-force-exit tests/unit/**/*.test.ts tests/integration/*.test.ts&quot;,
-    &quot;test:validate-paths&quot;: &quot;node --strip-types tests/scripts/validate-test-paths.ts&quot;,
-    &quot;test:validate-backlog&quot;: &quot;node --strip-types tests/scripts/validate-backlog.ts&quot;,
-    &quot;test:single&quot;: &quot;node --strip-types tests/scripts/test-single-job.ts&quot;,
-    &quot;test:scanner&quot;: &quot;node --strip-types tests/scripts/test-directory-scanner.ts&quot;,
-    &quot;test:gitignore&quot;: &quot;node --strip-types tests/scripts/test-gitignore-respect.ts&quot;,
-    &quot;test:repomix-fix&quot;: &quot;node --strip-types tests/scripts/test-repomix-fix.ts&quot;,
-    &quot;docs:enhance&quot;: &quot;RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts&quot;,
-    &quot;docs:enhance:dry&quot;: &quot;RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts --dry-run&quot;,
-    &quot;docs:enhance:schedule&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts&quot;,
-    &quot;docs:test&quot;: &quot;node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts --run --dry-run --dir .&quot;,
-    &quot;git:weekly&quot;: &quot;node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --weekly&quot;,
-    &quot;git:monthly&quot;: &quot;node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --monthly&quot;,
-    &quot;git:schedule&quot;: &quot;node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts&quot;,
-    &quot;plugin:audit&quot;: &quot;RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/plugin-management-pipeline.ts&quot;,
-    &quot;plugin:audit:detailed&quot;: &quot;DETAILED=true RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/plugin-management-pipeline.ts&quot;,
-    &quot;plugin:schedule&quot;: &quot;node --strip-types sidequest/pipeline-runners/plugin-management-pipeline.ts&quot;,
-    &quot;claude:health&quot;: &quot;zsh -c &apos;source ~/.zshrc &amp;&amp; RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/claude-health-pipeline.ts&apos;&quot;,
-    &quot;claude:health:detailed&quot;: &quot;zsh -c &apos;source ~/.zshrc &amp;&amp; DETAILED=true RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/claude-health-pipeline.ts&apos;&quot;,
-    &quot;claude:health:schedule&quot;: &quot;zsh -c &apos;source ~/.zshrc &amp;&amp; node --strip-types sidequest/pipeline-runners/claude-health-pipeline.ts --cron&apos;&quot;,
-    &quot;claude:health:quick&quot;: &quot;zsh -c &apos;source ~/.zshrc &amp;&amp; SKIP_PERFORMANCE=true SKIP_PLUGINS=true RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/claude-health-pipeline.ts&apos;&quot;,
-    &quot;gitignore:update&quot;: &quot;RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts&quot;,
-    &quot;gitignore:update:dry&quot;: &quot;GITIGNORE_DRY_RUN=true RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts&quot;,
-    &quot;gitignore:schedule&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts&quot;,
-    &quot;cleanup:once&quot;: &quot;RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/repo-cleanup-pipeline.ts&quot;,
-    &quot;cleanup:dryrun&quot;: &quot;CLEANUP_DRY_RUN=true RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/repo-cleanup-pipeline.ts&quot;,
-    &quot;cleanup:schedule&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/repo-cleanup-pipeline.ts&quot;,
-    &quot;setup:sentry&quot;: &quot;node docs/setup/setup-sentry.js&quot;,
-    &quot;verify&quot;: &quot;node --strip-types scripts/verify-setup.ts&quot;,
-    &quot;lint&quot;: &quot;eslint .&quot;,
-    &quot;lint:fix&quot;: &quot;eslint . --fix&quot;,
-    &quot;typecheck&quot;: &quot;tsc --noEmit&quot;,
-    &quot;logs:cleanup&quot;: &quot;node --strip-types scripts/cleanup-error-logs.ts&quot;,
-    &quot;logs:cleanup:dry&quot;: &quot;node --strip-types scripts/cleanup-error-logs.ts --dry-run&quot;,
-    &quot;logs:cleanup:verbose&quot;: &quot;node --strip-types scripts/cleanup-error-logs.ts --verbose&quot;,
-    &quot;permissions:check&quot;: &quot;node --strip-types scripts/validate-permissions.ts --check-only&quot;,
-    &quot;permissions:fix&quot;: &quot;node --strip-types scripts/validate-permissions.ts --fix&quot;,
-    &quot;prestart&quot;: &quot;node --strip-types scripts/validate-permissions.ts --fix&quot;,
-    &quot;verify:bugfixes&quot;: &quot;./scripts/verify-bugfixes.sh&quot;,
-    &quot;verify:bugfixes:pre&quot;: &quot;./scripts/verify-bugfixes.sh --pre&quot;,
-    &quot;verify:bugfixes:post&quot;: &quot;./scripts/verify-bugfixes.sh --post&quot;,
-    &quot;verify:bugfixes:health&quot;: &quot;./scripts/verify-bugfixes.sh --health&quot;,
-    &quot;verify:bugfixes:smoke&quot;: &quot;./scripts/verify-bugfixes.sh --smoke&quot;,
-    &quot;bugfix:once&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/bugfix-audit-pipeline.ts --run-now&quot;,
-    &quot;bugfix:schedule&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/bugfix-audit-pipeline.ts --recurring&quot;,
-    &quot;bugfix:tonight&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/bugfix-audit-pipeline.ts --once&quot;,
-    &quot;dashboard:populate&quot;: &quot;RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/dashboard-populate-pipeline.ts --run-now&quot;,
-    &quot;dashboard:populate:full&quot;: &quot;RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/dashboard-populate-pipeline.ts --run-now --no-seed&quot;,
-    &quot;dashboard:populate:dry&quot;: &quot;RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/dashboard-populate-pipeline.ts --run-now --dry-run&quot;,
-    &quot;dashboard:populate:schedule&quot;: &quot;node --strip-types sidequest/pipeline-runners/dashboard-populate-pipeline.ts&quot;
-  },
-  &quot;keywords&quot;: [
-    &quot;repomix&quot;,
-    &quot;cron&quot;,
-    &quot;sidequest&quot;,
-    &quot;sentry&quot;,
-    &quot;documentation&quot;,
-    &quot;schema.org&quot;,
-    &quot;automation&quot;
-  ],
-  &quot;author&quot;: &quot;&quot;,
-  &quot;license&quot;: &quot;MIT&quot;,
-  &quot;dependencies&quot;: {
-    &quot;@babel/core&quot;: &quot;^7.29.0&quot;,
-    &quot;@babel/generator&quot;: &quot;^7.29.1&quot;,
-    &quot;@babel/traverse&quot;: &quot;^7.29.0&quot;,
-    &quot;@babel/types&quot;: &quot;^7.29.0&quot;,
-    &quot;@isaacs/brace-expansion&quot;: &quot;^5.0.1&quot;,
-    &quot;@sentry/node&quot;: &quot;^7.120.4&quot;,
-    &quot;@shared/logging&quot;: &quot;workspace:*&quot;,
-    &quot;@shared/process-io&quot;: &quot;workspace:*&quot;,
-    &quot;better-sqlite3&quot;: &quot;^12.6.2&quot;,
-    &quot;cors&quot;: &quot;^2.8.6&quot;,
-    &quot;dompurify&quot;: &quot;^3.3.1&quot;,
-    &quot;dotenv&quot;: &quot;^17.2.4&quot;,
-    &quot;express&quot;: &quot;^5.2.1&quot;,
-    &quot;express-rate-limit&quot;: &quot;^8.2.1&quot;,
-    &quot;jsdom&quot;: &quot;^27.4.0&quot;,
-    &quot;marked&quot;: &quot;^17.0.1&quot;,
-    &quot;node-cron&quot;: &quot;^3.0.3&quot;,
-    &quot;pino&quot;: &quot;^9.14.0&quot;,
-    &quot;pino-pretty&quot;: &quot;^11.3.0&quot;,
-    &quot;repomix&quot;: &quot;^1.11.1&quot;,
-    &quot;ws&quot;: &quot;^8.19.0&quot;,
-    &quot;zod&quot;: &quot;^3.25.76&quot;
-  },
-  &quot;devDependencies&quot;: {
-    &quot;@babel/parser&quot;: &quot;^7.29.0&quot;,
-    &quot;@eslint/js&quot;: &quot;^10.0.1&quot;,
-    &quot;@sentry/vite-plugin&quot;: &quot;^4.9.0&quot;,
-    &quot;@types/babel__generator&quot;: &quot;^7.27.0&quot;,
-    &quot;@types/babel__traverse&quot;: &quot;^7.28.0&quot;,
-    &quot;@types/better-sqlite3&quot;: &quot;^7.6.13&quot;,
-    &quot;@types/cors&quot;: &quot;^2.8.19&quot;,
-    &quot;@types/express&quot;: &quot;^5.0.6&quot;,
-    &quot;@types/jsdom&quot;: &quot;^28.0.0&quot;,
-    &quot;@types/node&quot;: &quot;^20.19.33&quot;,
-    &quot;@types/node-cron&quot;: &quot;^3.0.11&quot;,
-    &quot;@types/ws&quot;: &quot;^8.18.1&quot;,
-    &quot;c8&quot;: &quot;^10.1.3&quot;,
-    &quot;chai&quot;: &quot;^4.5.0&quot;,
-    &quot;eslint&quot;: &quot;^10.0.2&quot;,
-    &quot;glob&quot;: &quot;^13.0.1&quot;,
-    &quot;js-yaml&quot;: &quot;^4.1.1&quot;,
-    &quot;supertest&quot;: &quot;^7.2.2&quot;,
-    &quot;typescript&quot;: &quot;^5.9.3&quot;,
-    &quot;typescript-eslint&quot;: &quot;^8.56.1&quot;
-  },
-  &quot;optionalDependencies&quot;: {
-    &quot;@ast-grep/cli&quot;: &quot;^0.40.5&quot;
-  },
-  &quot;imports&quot;: {
-    &quot;#sidequest/*.ts&quot;: &quot;./sidequest/*.ts&quot;,
-    &quot;#api/types/*.ts&quot;: &quot;./api/types/*.ts&quot;
-  },
-  &quot;engines&quot;: {
-    &quot;node&quot;: &quot;&gt;=22.0.0&quot;
-  },
-  &quot;pnpm&quot;: {
-    &quot;onlyBuiltDependencies&quot;: [
-      &quot;better-sqlite3&quot;
-    ],
-    &quot;overrides&quot;: {
-      &quot;qs&quot;: &quot;&gt;=6.14.1&quot;
-    }
-  }
-}</file><file path="scripts/deploy-traditional-server.sh">set -e
+- `../docs/runbooks/troubleshooting.md` - Debugging guide</file><file path="api/server.ts">import express, { type Request, type Response, type NextFunction } from &apos;express&apos;;
+import cors from &apos;cors&apos;;
+import path from &apos;path&apos;;
+import { fileURLToPath } from &apos;url&apos;;
+import { marked } from &apos;marked&apos;;
+import DOMPurify from &apos;dompurify&apos;;
+import { JSDOM } from &apos;jsdom&apos;;
+import { createComponentLogger, logError, logStart } from &apos;../sidequest/utils/logger.ts&apos;;
+import { config } from &apos;../sidequest/core/config.ts&apos;;
+import { CONCURRENCY, PORT } from &apos;../sidequest/core/constants.ts&apos;;
+import { authMiddleware } from &apos;./middleware/auth.ts&apos;;
+import { rateLimiter } from &apos;./middleware/rate-limit.ts&apos;;
+import { errorHandler } from &apos;./middleware/error-handler.ts&apos;;
+import scanRoutes from &apos;./routes/scans.ts&apos;;
+import repositoryRoutes from &apos;./routes/repositories.ts&apos;;
+import reportRoutes from &apos;./routes/reports.ts&apos;;
+import pipelineRoutes from &apos;./routes/pipelines.ts&apos;;
+import jobsRoutes from &apos;./routes/jobs.ts&apos;;
+import { HttpStatus } from &apos;./constants/http-status.ts&apos;;
+⋮----
+import { createServer } from &apos;http&apos;;
+import { createWebSocketServer } from &apos;./websocket.ts&apos;;
+import { ScanEventBroadcaster } from &apos;./event-broadcaster.ts&apos;;
+import { ActivityFeedManager } from &apos;./activity-feed.ts&apos;;
+import { DopplerHealthMonitor } from &apos;../sidequest/pipeline-core/doppler-health-monitor.ts&apos;;
+import { setupServerWithPortFallback, setupGracefulShutdown } from &apos;./utils/port-manager.ts&apos;;
+import { jobRepository } from &apos;../sidequest/core/job-repository.ts&apos;;
+import type { ParsedJob } from &apos;../sidequest/core/database.ts&apos;;
+import { getPipelineName } from &apos;../sidequest/utils/pipeline-names.ts&apos;;
+import { workerRegistry } from &apos;./utils/worker-registry.ts&apos;;
+import fs from &apos;fs/promises&apos;;
+⋮----
+const mapJobForApi = (job: ParsedJob) =&gt; (
+⋮----
+// Cast to unknown first then to the type DOMPurify expects (WindowLike)
+⋮----
+async function emergencyShutdown()</file><file path="scripts/deploy-traditional-server.sh">set -e
 set -u
 OS=&quot;$(uname -s)&quot;
 IS_MACOS=false
@@ -14395,63 +13186,198 @@ main() {
     esac
 }
 # Run main function
-main &quot;$@&quot;</file><file path="sidequest/core/index.ts">import cron from &apos;node-cron&apos;;
-import { RepomixWorker } from &apos;../workers/repomix-worker.ts&apos;;
-import { DirectoryScanner } from &apos;../utils/directory-scanner.ts&apos;;
+main &quot;$@&quot;</file><file path="scripts/generate-sidequest-gitlog.sh">set -euo pipefail
+REPO_ROOT=&quot;$(cd &quot;$(dirname &quot;$0&quot;)/..&quot; &amp;&amp; pwd)&quot;
+COMMITS=&quot;${1:-200}&quot;
+DEFAULT_OUT=&quot;$REPO_ROOT/sidequest/docs/gitlog-sidequest.txt&quot;
+REPO_MIRROR_OUT=&quot;$REPO_ROOT/docs/repomix/gitlog-sidequest.txt&quot;
+OUT=&quot;${2:-&quot;$DEFAULT_OUT&quot;}&quot;
+MIRROR_OUT=&quot;${3:-&quot;$REPO_MIRROR_OUT&quot;}&quot;
+mkdir -p &quot;$(dirname &quot;$OUT&quot;)&quot; &quot;$(dirname &quot;$MIRROR_OUT&quot;)&quot;
+TMP_OUT=&quot;$(mktemp)&quot;
+trap &apos;rm -f &quot;$TMP_OUT&quot;&apos; EXIT
+git -C &quot;$REPO_ROOT&quot; log -n &quot;$COMMITS&quot; \
+  --date=short \
+  --pretty=&apos;format:%h %ad %s&apos; \
+  --name-only \
+  -- sidequest/ \
+| awk &apos;
+    NF==0 { print &quot;&quot;; next }              # blank line between commits
+    /^[0-9a-f]{7,40} / { print; next }    # commit header
+    { print &quot;  &quot; $0 }                     # indent filenames
+  &apos; &gt; &quot;$TMP_OUT&quot;
+cp &quot;$TMP_OUT&quot; &quot;$OUT&quot;
+if [[ &quot;$MIRROR_OUT&quot; != &quot;$OUT&quot; ]]; then
+  cp &quot;$TMP_OUT&quot; &quot;$MIRROR_OUT&quot;
+fi
+echo &quot;Wrote: $OUT&quot;
+echo &quot;Wrote: $MIRROR_OUT&quot;</file><file path="scripts/repomix-regen.sh">set -euo pipefail
+ROOT=&quot;$(cd &quot;$(dirname &quot;$0&quot;)/..&quot; &amp;&amp; pwd)&quot;
+TREE_FILE=&quot;token-tree&quot;
+COMPRESSED_FILE=&quot;repo-compressed&quot;
+LOSSLESS_FILE=&quot;repomix&quot;
+OUTPUT_PATH=&quot;docs/repomix&quot;
+OUT_DIR=&quot;$ROOT/$OUTPUT_PATH&quot;
+TOKEN_TREE_FILE=&quot;$OUT_DIR/$TREE_FILE.txt&quot;
+COMPRESSED_REPO_FILE=&quot;$OUT_DIR/$COMPRESSED_FILE.xml&quot;
+LOSSLESS_REPO_FILE=&quot;$OUT_DIR/$LOSSLESS_FILE.xml&quot;
+GITLOG_TOP_FILE=&quot;$OUT_DIR/gitlog-top20.txt&quot;
+GITLOG_SIDEQUEST_FILE=&quot;$ROOT/sidequest/docs/gitlog-sidequest.txt&quot;
+TREE_FILE_NAME=&quot;$OUTPUT_PATH/$TREE_FILE.txt&quot;
+COMPRESSED_FILE_NAME=&quot;$OUTPUT_PATH/$COMPRESSED_FILE.xml&quot;
+LOSSLESS_FILE_NAME=&quot;$OUTPUT_PATH/$LOSSLESS_FILE.xml&quot;
+GITLOG_TOP_FILE_NAME=&quot;$OUTPUT_PATH/gitlog-top20.txt&quot;
+GITLOG_SIDEQUEST_FILE_NAME=&quot;sidequest/docs/gitlog-sidequest.txt&quot;
+INPUT_DIR=&quot;$ROOT/scripts/generate-&quot;
+TOKEN_TREE_SCRIPT=&quot;$INPUT_DIR$TREE_FILE.sh&quot;
+COMPRESS_SCRIPT=&quot;$INPUT_DIR$COMPRESSED_FILE.sh&quot;
+LOSSLESS_SCRIPT=&quot;$INPUT_DIR$LOSSLESS_FILE.sh&quot;
+GITLOG_TOP_SCRIPT=&quot;$ROOT/scripts/generate-diff-summary.sh&quot;
+GITLOG_SIDEQUEST_SCRIPT=&quot;$ROOT/scripts/generate-sidequest-gitlog.sh&quot;
+echo &quot;File set up...&quot;
+mkdir -p &quot;$OUT_DIR&quot;
+rm -f \
+  &quot;$TOKEN_TREE_FILE&quot; \
+  &quot;$COMPRESSED_REPO_FILE&quot; \
+  &quot;$LOSSLESS_REPO_FILE&quot; \
+  &quot;$GITLOG_TOP_FILE&quot; \
+  &quot;$GITLOG_SIDEQUEST_FILE&quot;
+PROJECT_DIR=&quot;$(basename &quot;$ROOT&quot;)&quot;
+echo &quot;Generating token count tree for $PROJECT_DIR at $TREE_FILE_NAME&quot;
+bash &quot;$TOKEN_TREE_SCRIPT&quot; &quot;$ROOT&quot; &quot;$TOKEN_TREE_FILE&quot;
+echo &quot;Success!&quot;
+echo
+echo &quot;Generating compressed repomix file for $PROJECT_DIR at $COMPRESSED_FILE_NAME&quot;
+bash &quot;$COMPRESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$COMPRESSED_REPO_FILE&quot;
+echo &quot;Success!&quot;
+echo
+echo &quot;Generating repomix file for $PROJECT_DIR at $LOSSLESS_FILE_NAME&quot;
+bash &quot;$LOSSLESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$LOSSLESS_REPO_FILE&quot;
+echo &quot;Success!&quot;
+echo
+echo &quot;Generating top-file git history at $GITLOG_TOP_FILE_NAME&quot;
+(
+  cd &quot;$ROOT&quot;
+  bash &quot;$GITLOG_TOP_SCRIPT&quot;
+)
+echo &quot;Success!&quot;
+echo
+echo &quot;Generating sidequest git history at $GITLOG_SIDEQUEST_FILE_NAME&quot;
+bash &quot;$GITLOG_SIDEQUEST_SCRIPT&quot;
+echo &quot;Success!&quot;
+echo
+echo &quot;Artifacts:&quot;
+print_artifact() {
+  local file_path=&quot;$1&quot;
+  local display_name=&quot;$2&quot;
+  if [[ -f &quot;$file_path&quot; ]]; then
+    chars=$(wc -c &lt; &quot;$file_path&quot; | tr -d &apos; &apos;)
+    tokens=$((chars / 4))
+    echo &quot; - $display_name (~$tokens tokens, $chars chars)&quot;
+  else
+    echo &quot; - $display_name (missing)&quot;
+  fi
+}
+print_artifact &quot;$TOKEN_TREE_FILE&quot; &quot;$TREE_FILE_NAME&quot;
+print_artifact &quot;$COMPRESSED_REPO_FILE&quot; &quot;$COMPRESSED_FILE_NAME&quot;
+print_artifact &quot;$LOSSLESS_REPO_FILE&quot; &quot;$LOSSLESS_FILE_NAME&quot;
+print_artifact &quot;$GITLOG_TOP_FILE&quot; &quot;$GITLOG_TOP_FILE_NAME&quot;
+print_artifact &quot;$GITLOG_SIDEQUEST_FILE&quot; &quot;$GITLOG_SIDEQUEST_FILE_NAME&quot;</file><file path="sidequest/core/server.ts">import { EventEmitter } from &apos;events&apos;;
+⋮----
 import { config } from &apos;./config.ts&apos;;
-import { TIMEOUTS, TIME } from &apos;./constants.ts&apos;;
-import path from &apos;path&apos;;
 import fs from &apos;fs/promises&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;
-import type { Job, JobStats } from &apos;./server.ts&apos;;
+import path from &apos;path&apos;;
+import { createComponentLogger, logError, logWarn } from &apos;../utils/logger.ts&apos;;
+import { safeErrorMessage } from &apos;../pipeline-core/utils/error-helpers.ts&apos;;
+import { GitWorkflowManager } from &apos;./git-workflow-manager.ts&apos;;
+import { jobRepository } from &apos;./job-repository.ts&apos;;
+import { CONCURRENCY, RETRY, TIME } from &apos;./constants.ts&apos;;
+import { isRetryable, classifyError } from &apos;../pipeline-core/errors/error-classifier.ts&apos;;
+import { toISOString } from &apos;../utils/time-helpers.ts&apos;;
+import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from &apos;#api/types/job-status.ts&apos;;
+import type { JobStatus } from &apos;#api/types/job-status.ts&apos;;
 ⋮----
-interface ScanDirectory {
-  fullPath: string;
-  relativePath: string;
+export interface JobGitMetadata {
+  branchName: string | null;
+  originalBranch: string | null;
+  commitSha: string | null;
+  prUrl: string | null;
+  changedFiles: string[];
 }
-interface TypedDirectoryScanner {
-  baseDir: string;
-  scanDirectories(): Promise&lt;ScanDirectory[]&gt;;
-  generateAndSaveScanResults(dirs: ScanDirectory[]): Promise&lt;{
-    reportPath: string;
-    treePath: string;
-    summaryPath: string;
-    summary: {
-      maxDepth: number;
-      stats: { topDirectoryNames: Array&lt;{ name: string }&gt; };
-    };
-  }&gt;;
+export interface Job {
+  id: string;
+  status: JobStatus;
+  data: Record&lt;string, unknown&gt;;
+  createdAt: Date;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  error: { message: string; stack?: string; code?: string; cancelled?: boolean } | null;
+  result: unknown;
+  retryCount: number;
+  retryPending?: boolean;
+  pausedAt?: Date;
+  resumedAt?: Date;
+  git: JobGitMetadata;
 }
-⋮----
-scanDirectories(): Promise&lt;ScanDirectory[]&gt;;
-generateAndSaveScanResults(dirs: ScanDirectory[]): Promise&lt;
-⋮----
-interface TypedRepomixWorker {
-  logDir: string;
-  outputBaseDir: string;
-  createRepomixJob(fullPath: string, relativePath: string): void;
-  getStats(): JobStats;
-  on(event: string, listener: (job: Job) =&gt; void): this;
+export interface JobStats {
+  total: number;
+  queued: number;
+  active: number;
+  pendingRetries: number;
+  completed: number;
+  failed: number;
 }
+export interface SidequestServerOptions {
+  maxConcurrent?: number;
+  maxRetries?: number;
+  logDir?: string;
+  autoStart?: boolean;
+  gitWorkflowEnabled?: boolean;
+  gitBranchPrefix?: string;
+  gitBaseBranch?: string;
+  gitDryRun?: boolean;
+  jobType?: string;
+  jobRetentionDays?: number;
+  sentryDsn?: string;
+}
+interface JobActionResult {
+  success: boolean;
+  message: string;
+  job?: Job;
+}
+export class SidequestServer extends EventEmitter
 ⋮----
-createRepomixJob(fullPath: string, relativePath: string): void;
-getStats(): JobStats;
-on(event: string, listener: (job: Job)
-⋮----
-export function isWorkerIdle(stats: JobStats): boolean
-export class RepomixCronApp
-⋮----
-constructor()
-private setupEventListeners(): void
-async runRepomixOnAllDirectories(): Promise&lt;void&gt;
-private async waitForCompletion(): Promise&lt;void&gt;
-private async saveRunSummary(stats: JobStats, duration: number): Promise&lt;void&gt;
-private setupCronJob(schedule: string = &apos;0 2 * * *&apos;): void
+constructor(options: SidequestServerOptions =
+createJob(jobId: string, jobData: Record&lt;string, unknown&gt;): Job
+private _resolveUniqueJobId(requestedJobId: string): string
+async processQueue(): Promise&lt;void&gt;
+async executeJob(jobId: string): Promise&lt;void&gt;
+private _persistJob(job: Job): void
+private _prepareJobForExecution(job: Job): boolean
+private async _setupGitBranchIfEnabled(job: Job): Promise&lt;boolean&gt;
+private async _finalizeJobSuccess(job: Job, result: unknown, branchCreated: boolean): Promise&lt;void&gt;
+private async _finalizeJobFailure(job: Job, error: unknown, branchCreated: boolean): Promise&lt;void&gt;
+private async _handleGitWorkflowSuccess(job: Job): Promise&lt;void&gt;
+public async _generateCommitMessage(job: Job): Promise&lt;
+public async _generatePRContext(job: Job, commitMessage?:
+async runJobHandler(_job: Job): Promise&lt;unknown&gt;
 async start(): Promise&lt;void&gt;
-⋮----
-function isDirectExecution(): boolean
-// Entrypoint mode: run only when invoked directly, not when imported by tests/tools.</file><file path="sidequest/pipeline-core/extractors/extract_blocks.py">class PatternMatchInput(BaseModel)
+stop(): void
+set handleJob(handler: (job: Job) =&gt; Promise&lt;unknown&gt;)
+private async _writeJobLog(job: Job, suffix: string, extra?: Record&lt;string, unknown&gt;): Promise&lt;void&gt;
+async logJobCompletion(job: Job): Promise&lt;void&gt;
+async logJobFailure(job: Job, error: Error): Promise&lt;void&gt;
+getJob(jobId: string): Job | undefined
+getAllJobs(): Job[]
+getStats(): JobStats
+private _isExpiredTerminalJob(job: Job, cutoffMs: number): boolean
+private _pruneExpiredJobs(referenceTimeMs: number = Date.now()): void
+private _executeJobAction(jobId: string, config: {
+    action: string;
+statusGuard: (status: JobStatus)
+cancelJob(jobId: string): JobActionResult
+pauseJob(jobId: string): JobActionResult
+resumeJob(jobId: string): JobActionResult</file><file path="sidequest/pipeline-core/extractors/extract_blocks.py">class PatternMatchInput(BaseModel)
 ⋮----
 file_path: str = Field(
 rule_id: str = Field(
@@ -14989,48 +13915,25 @@ blocks = [MockCodeBlock(block_id=&quot;b1&quot;, source_code=&quot;code1&quot;)]
 ⋮----
 def test_multiple_groups_formed(self)
 def test_missing_annotation_skipped(self)
-def run_tests()</file><file path="sidequest/pipeline-runners/pipeline-import-safety.test.ts">import test from &apos;node:test&apos;;
+def run_tests()</file><file path="sidequest/pipeline-runners/direct-execution-path-guard.test.ts">import test from &apos;node:test&apos;;
+import assert from &apos;node:assert/strict&apos;;
+import fs from &apos;fs/promises&apos;;
+import os from &apos;os&apos;;
+import path from &apos;path&apos;;
+import { spawn } from &apos;child_process&apos;;
+import { fileURLToPath } from &apos;url&apos;;
+interface ScriptRunResult {
+  code: number | null;
+  signal: NodeJS.Signals | null;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+}
+⋮----
+async function runViaSymlinkWithSpace(scriptRelativePath: string): Promise&lt;ScriptRunResult&gt;</file><file path="sidequest/pipeline-runners/pipeline-import-safety.test.ts">import test from &apos;node:test&apos;;
 import assert from &apos;node:assert/strict&apos;;
 async function assertImportDoesNotRegisterSignalHandlers(modulePath: string): Promise&lt;void&gt;
-async function assertImportWithPmIdDoesNotStartTimers(modulePath: string): Promise&lt;void&gt;</file><file path="sidequest/pipeline-runners/test-refactor-pipeline.ts">import { TestRefactorWorker } from &apos;../workers/test-refactor-worker.ts&apos;;
-import type { Job as BaseJob } from &apos;../core/server.ts&apos;;
-import { DirectoryScanner } from &apos;../utils/directory-scanner.ts&apos;;
-import { createComponentLogger } from &apos;../utils/logger.ts&apos;;
-import { config } from &apos;../core/config.ts&apos;;
-import { TIMEOUTS } from &apos;../core/constants.ts&apos;;
-import cron from &apos;node-cron&apos;;
-import path from &apos;path&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-⋮----
-interface PipelineMetrics {
-  totalProjects: number;
-  successfulRefactors: number;
-  failedRefactors: number;
-  filesGenerated: number;
-  patternsDetected: number;
-  stringsExtracted: number;
-  recommendationsGenerated: number;
-}
-interface PipelineStats {
-  total: number;
-  queued: number;
-  active: number;
-  completed: number;
-  failed: number;
-}
-interface PipelineResult {
-  metrics: PipelineMetrics;
-  stats: PipelineStats;
-}
-async function runPipeline(targetPath: string | null = null): Promise&lt;PipelineResult&gt;
-async function hasTestDirectory(dirPath: string): Promise&lt;boolean&gt;
-function waitForCompletion(worker: TestRefactorWorker): Promise&lt;void&gt;
-⋮----
-const cleanup = () =&gt;
-const checkAndResolve = () =&gt;
-⋮----
-async function main(): Promise&lt;void&gt;
-function isDirectExecution(): boolean</file><file path="sidequest/workers/duplicate-detection-worker.test.ts">import test from &apos;node:test&apos;;
+async function assertImportWithPmIdDoesNotStartTimers(modulePath: string): Promise&lt;void&gt;</file><file path="sidequest/workers/duplicate-detection-worker.test.ts">import test from &apos;node:test&apos;;
 import assert from &apos;node:assert/strict&apos;;
 import { DuplicateDetectionWorker } from &apos;./duplicate-detection-worker.ts&apos;;
 interface MinimalRepoConfig {
@@ -15044,7 +13947,173 @@ interface PipelineStatusPayload {
 }
 function waitForEvent&lt;T&gt;(emitter: NodeJS.EventEmitter, eventName: string): Promise&lt;T&gt;
 ⋮----
-async recordScanResult(repoName: string, entry: Record&lt;string, unknown&gt;): Promise&lt;void&gt;</file><file path="sidequest/workers/duplicate-detection-worker.ts">import { SidequestServer, type Job } from &apos;../core/server.ts&apos;;
+async recordScanResult(repoName: string, entry: Record&lt;string, unknown&gt;): Promise&lt;void&gt;</file><file path="sidequest/workers/repo-cleanup-worker.test.ts">import test from &apos;node:test&apos;;
+import assert from &apos;node:assert/strict&apos;;
+import fs from &apos;fs/promises&apos;;
+import os from &apos;os&apos;;
+import path from &apos;path&apos;;
+import { RepoCleanupWorker } from &apos;./repo-cleanup-worker.ts&apos;;</file><file path="package.json">{
+  &quot;name&quot;: &quot;repomix-cron-sidequest&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;description&quot;: &quot;Automated job management with sidequest server - repomix runner and documentation enhancement pipeline&quot;,
+  &quot;main&quot;: &quot;api/server.ts&quot;,
+  &quot;type&quot;: &quot;module&quot;,
+  &quot;workspaces&quot;: [
+    &quot;packages/*&quot;
+  ],
+  &quot;scripts&quot;: {
+    &quot;start&quot;: &quot;node --strip-types api/server.ts&quot;,
+    &quot;start:api&quot;: &quot;node --strip-types api/server.ts&quot;,
+    &quot;dev&quot;: &quot;node --strip-types --watch api/server.ts&quot;,
+    &quot;build:frontend&quot;: &quot;cd frontend &amp;&amp; npm ci --include=dev &amp;&amp; npm run build&quot;,
+    &quot;dashboard&quot;: &quot;doppler run -- node --strip-types api/server.ts&quot;,
+    &quot;fix:types&quot;: &quot;node --strip-types scripts/fix-types.ts&quot;,
+    &quot;test&quot;: &quot;node --strip-types --test --test-timeout=30000 --test-force-exit --test-name-pattern=&apos;.&apos; tests/unit/*.test.ts&quot;,
+    &quot;test:coverage&quot;: &quot;c8 --reporter=text --reporter=text-summary node --strip-types --test --test-timeout=30000 --test-force-exit --test-name-pattern=&apos;.&apos; tests/unit/*.test.ts&quot;,
+    &quot;test:coverage:html&quot;: &quot;c8 --reporter=html --reporter=text-summary node --strip-types --test --test-timeout=30000 --test-force-exit --test-name-pattern=&apos;.&apos; tests/unit/*.test.ts&quot;,
+    &quot;test:integration&quot;: &quot;node --strip-types --test --test-timeout=60000 --test-force-exit --test-concurrency=1 tests/integration/*.test.ts&quot;,
+    &quot;test:cache&quot;: &quot;node --strip-types --test --test-timeout=60000 --test-force-exit tests/integration/test-cache-layer.ts&quot;,
+    &quot;test:all:node&quot;: &quot;node --strip-types --test --test-timeout=30000 --test-force-exit tests/unit/**/*.test.ts tests/integration/*.test.ts sidequest/core/*.test.ts sidequest/pipeline-runners/*.test.ts sidequest/utils/*.test.ts sidequest/workers/*.test.ts&quot;,
+    &quot;test:all:py&quot;: &quot;bash scripts/run-python-tests.sh&quot;,
+    &quot;test:all&quot;: &quot;npm run test:all:node &amp;&amp; npm run test:all:py&quot;,
+    &quot;test:aall&quot;: &quot;npm run test:all&quot;,
+    &quot;test:validate-paths&quot;: &quot;node --strip-types tests/scripts/validate-test-paths.ts&quot;,
+    &quot;test:validate-backlog&quot;: &quot;node --strip-types tests/scripts/validate-backlog.ts&quot;,
+    &quot;test:single&quot;: &quot;node --strip-types tests/scripts/test-single-job.ts&quot;,
+    &quot;test:scanner&quot;: &quot;node --strip-types tests/scripts/test-directory-scanner.ts&quot;,
+    &quot;test:gitignore&quot;: &quot;node --strip-types tests/scripts/test-gitignore-respect.ts&quot;,
+    &quot;test:repomix-fix&quot;: &quot;node --strip-types tests/scripts/test-repomix-fix.ts&quot;,
+    &quot;docs:enhance&quot;: &quot;RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts&quot;,
+    &quot;docs:enhance:dry&quot;: &quot;RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts --dry-run&quot;,
+    &quot;docs:enhance:schedule&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts&quot;,
+    &quot;docs:test&quot;: &quot;node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts --run --dry-run --dir .&quot;,
+    &quot;git:weekly&quot;: &quot;node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --weekly&quot;,
+    &quot;git:monthly&quot;: &quot;node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --monthly&quot;,
+    &quot;git:schedule&quot;: &quot;node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts&quot;,
+    &quot;plugin:audit&quot;: &quot;RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/plugin-management-pipeline.ts&quot;,
+    &quot;plugin:audit:detailed&quot;: &quot;DETAILED=true RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/plugin-management-pipeline.ts&quot;,
+    &quot;plugin:schedule&quot;: &quot;node --strip-types sidequest/pipeline-runners/plugin-management-pipeline.ts&quot;,
+    &quot;claude:health&quot;: &quot;zsh -c &apos;source ~/.zshrc &amp;&amp; RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/claude-health-pipeline.ts&apos;&quot;,
+    &quot;claude:health:detailed&quot;: &quot;zsh -c &apos;source ~/.zshrc &amp;&amp; DETAILED=true RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/claude-health-pipeline.ts&apos;&quot;,
+    &quot;claude:health:schedule&quot;: &quot;zsh -c &apos;source ~/.zshrc &amp;&amp; node --strip-types sidequest/pipeline-runners/claude-health-pipeline.ts --cron&apos;&quot;,
+    &quot;claude:health:quick&quot;: &quot;zsh -c &apos;source ~/.zshrc &amp;&amp; SKIP_PERFORMANCE=true SKIP_PLUGINS=true RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/claude-health-pipeline.ts&apos;&quot;,
+    &quot;gitignore:update&quot;: &quot;RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts&quot;,
+    &quot;gitignore:update:dry&quot;: &quot;GITIGNORE_DRY_RUN=true RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts&quot;,
+    &quot;gitignore:schedule&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts&quot;,
+    &quot;cleanup:once&quot;: &quot;RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/repo-cleanup-pipeline.ts&quot;,
+    &quot;cleanup:dryrun&quot;: &quot;CLEANUP_DRY_RUN=true RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/repo-cleanup-pipeline.ts&quot;,
+    &quot;cleanup:schedule&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/repo-cleanup-pipeline.ts&quot;,
+    &quot;setup:sentry&quot;: &quot;node docs/setup/setup-sentry.js&quot;,
+    &quot;verify&quot;: &quot;node --strip-types scripts/verify-setup.ts&quot;,
+    &quot;lint&quot;: &quot;eslint .&quot;,
+    &quot;lint:fix&quot;: &quot;eslint . --fix&quot;,
+    &quot;typecheck&quot;: &quot;tsc --noEmit&quot;,
+    &quot;logs:cleanup&quot;: &quot;node --strip-types scripts/cleanup-error-logs.ts&quot;,
+    &quot;logs:cleanup:dry&quot;: &quot;node --strip-types scripts/cleanup-error-logs.ts --dry-run&quot;,
+    &quot;logs:cleanup:verbose&quot;: &quot;node --strip-types scripts/cleanup-error-logs.ts --verbose&quot;,
+    &quot;permissions:check&quot;: &quot;node --strip-types scripts/validate-permissions.ts --check-only&quot;,
+    &quot;permissions:fix&quot;: &quot;node --strip-types scripts/validate-permissions.ts --fix&quot;,
+    &quot;prestart&quot;: &quot;node --strip-types scripts/validate-permissions.ts --fix&quot;,
+    &quot;verify:bugfixes&quot;: &quot;./scripts/verify-bugfixes.sh&quot;,
+    &quot;verify:bugfixes:pre&quot;: &quot;./scripts/verify-bugfixes.sh --pre&quot;,
+    &quot;verify:bugfixes:post&quot;: &quot;./scripts/verify-bugfixes.sh --post&quot;,
+    &quot;verify:bugfixes:health&quot;: &quot;./scripts/verify-bugfixes.sh --health&quot;,
+    &quot;verify:bugfixes:smoke&quot;: &quot;./scripts/verify-bugfixes.sh --smoke&quot;,
+    &quot;bugfix:once&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/bugfix-audit-pipeline.ts --run-now&quot;,
+    &quot;bugfix:schedule&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/bugfix-audit-pipeline.ts --recurring&quot;,
+    &quot;bugfix:tonight&quot;: &quot;doppler run -- node --strip-types sidequest/pipeline-runners/bugfix-audit-pipeline.ts --once&quot;,
+    &quot;dashboard:populate&quot;: &quot;RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/dashboard-populate-pipeline.ts --run-now&quot;,
+    &quot;dashboard:populate:full&quot;: &quot;RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/dashboard-populate-pipeline.ts --run-now --no-seed&quot;,
+    &quot;dashboard:populate:dry&quot;: &quot;RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/dashboard-populate-pipeline.ts --run-now --dry-run&quot;,
+    &quot;dashboard:populate:schedule&quot;: &quot;node --strip-types sidequest/pipeline-runners/dashboard-populate-pipeline.ts&quot;
+  },
+  &quot;keywords&quot;: [
+    &quot;repomix&quot;,
+    &quot;cron&quot;,
+    &quot;sidequest&quot;,
+    &quot;sentry&quot;,
+    &quot;documentation&quot;,
+    &quot;schema.org&quot;,
+    &quot;automation&quot;
+  ],
+  &quot;author&quot;: &quot;&quot;,
+  &quot;license&quot;: &quot;MIT&quot;,
+  &quot;dependencies&quot;: {
+    &quot;@babel/core&quot;: &quot;^7.29.0&quot;,
+    &quot;@babel/generator&quot;: &quot;^7.29.1&quot;,
+    &quot;@babel/traverse&quot;: &quot;^7.29.0&quot;,
+    &quot;@babel/types&quot;: &quot;^7.29.0&quot;,
+    &quot;@isaacs/brace-expansion&quot;: &quot;^5.0.1&quot;,
+    &quot;@sentry/node&quot;: &quot;^7.120.4&quot;,
+    &quot;@shared/logging&quot;: &quot;workspace:*&quot;,
+    &quot;@shared/process-io&quot;: &quot;workspace:*&quot;,
+    &quot;better-sqlite3&quot;: &quot;^12.6.2&quot;,
+    &quot;cors&quot;: &quot;^2.8.6&quot;,
+    &quot;dompurify&quot;: &quot;^3.3.1&quot;,
+    &quot;dotenv&quot;: &quot;^17.2.4&quot;,
+    &quot;express&quot;: &quot;^5.2.1&quot;,
+    &quot;express-rate-limit&quot;: &quot;^8.2.1&quot;,
+    &quot;jsdom&quot;: &quot;^27.4.0&quot;,
+    &quot;marked&quot;: &quot;^17.0.1&quot;,
+    &quot;node-cron&quot;: &quot;^3.0.3&quot;,
+    &quot;pino&quot;: &quot;^9.14.0&quot;,
+    &quot;pino-pretty&quot;: &quot;^11.3.0&quot;,
+    &quot;repomix&quot;: &quot;^1.11.1&quot;,
+    &quot;ws&quot;: &quot;^8.19.0&quot;,
+    &quot;zod&quot;: &quot;^3.25.76&quot;
+  },
+  &quot;devDependencies&quot;: {
+    &quot;@babel/parser&quot;: &quot;^7.29.0&quot;,
+    &quot;@eslint/js&quot;: &quot;^10.0.1&quot;,
+    &quot;@sentry/vite-plugin&quot;: &quot;^4.9.0&quot;,
+    &quot;@types/babel__generator&quot;: &quot;^7.27.0&quot;,
+    &quot;@types/babel__traverse&quot;: &quot;^7.28.0&quot;,
+    &quot;@types/better-sqlite3&quot;: &quot;^7.6.13&quot;,
+    &quot;@types/cors&quot;: &quot;^2.8.19&quot;,
+    &quot;@types/express&quot;: &quot;^5.0.6&quot;,
+    &quot;@types/jsdom&quot;: &quot;^28.0.0&quot;,
+    &quot;@types/node&quot;: &quot;^20.19.33&quot;,
+    &quot;@types/node-cron&quot;: &quot;^3.0.11&quot;,
+    &quot;@types/ws&quot;: &quot;^8.18.1&quot;,
+    &quot;c8&quot;: &quot;^10.1.3&quot;,
+    &quot;chai&quot;: &quot;^4.5.0&quot;,
+    &quot;eslint&quot;: &quot;^10.0.2&quot;,
+    &quot;glob&quot;: &quot;^13.0.1&quot;,
+    &quot;js-yaml&quot;: &quot;^4.1.1&quot;,
+    &quot;supertest&quot;: &quot;^7.2.2&quot;,
+    &quot;typescript&quot;: &quot;^5.9.3&quot;,
+    &quot;typescript-eslint&quot;: &quot;^8.56.1&quot;
+  },
+  &quot;optionalDependencies&quot;: {
+    &quot;@ast-grep/cli&quot;: &quot;^0.40.5&quot;
+  },
+  &quot;imports&quot;: {
+    &quot;#sidequest/*.ts&quot;: &quot;./sidequest/*.ts&quot;,
+    &quot;#api/types/*.ts&quot;: &quot;./api/types/*.ts&quot;
+  },
+  &quot;engines&quot;: {
+    &quot;node&quot;: &quot;&gt;=22.0.0&quot;
+  },
+  &quot;pnpm&quot;: {
+    &quot;onlyBuiltDependencies&quot;: [
+      &quot;better-sqlite3&quot;
+    ],
+    &quot;overrides&quot;: {
+      &quot;qs&quot;: &quot;&gt;=6.14.1&quot;
+    }
+  }
+}</file><file path="sidequest/core/server-actions.test.ts">import test from &apos;node:test&apos;;
+import assert from &apos;node:assert/strict&apos;;
+import { SidequestServer } from &apos;./server.ts&apos;;
+import { jobRepository } from &apos;./job-repository.ts&apos;;
+import type { SaveJobInput } from &apos;./job-repository.ts&apos;;
+import { JOB_STATUS } from &apos;#api/types/job-status.ts&apos;;
+function stubRepositoryInit(t: test.TestContext): void
+class DelayedDispatchServer extends SidequestServer
+⋮----
+async executeJob(jobId: string): Promise&lt;void&gt;
+⋮----
+async function flushDispatchQueue(): Promise&lt;void&gt;</file><file path="sidequest/workers/duplicate-detection-worker.ts">import { SidequestServer, type Job } from &apos;../core/server.ts&apos;;
 import { RepositoryConfigLoader, type RepositoryConfig } from &apos;../pipeline-core/config/repository-config-loader.ts&apos;;
 import { InterProjectScanner } from &apos;../pipeline-core/inter-project-scanner.ts&apos;;
 import { ScanOrchestrator } from &apos;../pipeline-core/scan-orchestrator.ts&apos;;
@@ -15433,113 +14502,7 @@ async createEnhancementJobs(readmeFiles: ReadmeFile[]): Promise&lt;void&gt;
 async runEnhancement(directory: string = this.baseDir): Promise&lt;EnhancementResult&gt;
 scheduleEnhancements(cronSchedule: string = &apos;0 3 * * 0&apos;)
 ⋮----
-function isDirectExecution(): boolean</file><file path="sidequest/core/server-actions.test.ts">import test from &apos;node:test&apos;;
-import assert from &apos;node:assert/strict&apos;;
-import { SidequestServer } from &apos;./server.ts&apos;;
-import { jobRepository } from &apos;./job-repository.ts&apos;;
-import type { SaveJobInput } from &apos;./job-repository.ts&apos;;
-import { JOB_STATUS } from &apos;#api/types/job-status.ts&apos;;
-function stubRepositoryInit(t: test.TestContext): void
-class DelayedDispatchServer extends SidequestServer
-⋮----
-async executeJob(jobId: string): Promise&lt;void&gt;
-⋮----
-async function flushDispatchQueue(): Promise&lt;void&gt;</file><file path="sidequest/core/server.ts">import { EventEmitter } from &apos;events&apos;;
-⋮----
-import { config } from &apos;./config.ts&apos;;
-import fs from &apos;fs/promises&apos;;
-import path from &apos;path&apos;;
-import { createComponentLogger, logError, logWarn } from &apos;../utils/logger.ts&apos;;
-import { safeErrorMessage } from &apos;../pipeline-core/utils/error-helpers.ts&apos;;
-import { GitWorkflowManager } from &apos;./git-workflow-manager.ts&apos;;
-import { jobRepository } from &apos;./job-repository.ts&apos;;
-import { CONCURRENCY, RETRY, TIME } from &apos;./constants.ts&apos;;
-import { isRetryable, classifyError } from &apos;../pipeline-core/errors/error-classifier.ts&apos;;
-import { toISOString } from &apos;../utils/time-helpers.ts&apos;;
-import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from &apos;#api/types/job-status.ts&apos;;
-import type { JobStatus } from &apos;#api/types/job-status.ts&apos;;
-⋮----
-export interface JobGitMetadata {
-  branchName: string | null;
-  originalBranch: string | null;
-  commitSha: string | null;
-  prUrl: string | null;
-  changedFiles: string[];
-}
-export interface Job {
-  id: string;
-  status: JobStatus;
-  data: Record&lt;string, unknown&gt;;
-  createdAt: Date;
-  startedAt: Date | null;
-  completedAt: Date | null;
-  error: { message: string; stack?: string; code?: string; cancelled?: boolean } | null;
-  result: unknown;
-  retryCount: number;
-  retryPending?: boolean;
-  pausedAt?: Date;
-  resumedAt?: Date;
-  git: JobGitMetadata;
-}
-export interface JobStats {
-  total: number;
-  queued: number;
-  active: number;
-  pendingRetries: number;
-  completed: number;
-  failed: number;
-}
-export interface SidequestServerOptions {
-  maxConcurrent?: number;
-  maxRetries?: number;
-  logDir?: string;
-  autoStart?: boolean;
-  gitWorkflowEnabled?: boolean;
-  gitBranchPrefix?: string;
-  gitBaseBranch?: string;
-  gitDryRun?: boolean;
-  jobType?: string;
-  jobRetentionDays?: number;
-  sentryDsn?: string;
-}
-interface JobActionResult {
-  success: boolean;
-  message: string;
-  job?: Job;
-}
-export class SidequestServer extends EventEmitter
-⋮----
-constructor(options: SidequestServerOptions =
-createJob(jobId: string, jobData: Record&lt;string, unknown&gt;): Job
-private _resolveUniqueJobId(requestedJobId: string): string
-async processQueue(): Promise&lt;void&gt;
-async executeJob(jobId: string): Promise&lt;void&gt;
-private _persistJob(job: Job): void
-private _prepareJobForExecution(job: Job): boolean
-private async _setupGitBranchIfEnabled(job: Job): Promise&lt;boolean&gt;
-private async _finalizeJobSuccess(job: Job, result: unknown, branchCreated: boolean): Promise&lt;void&gt;
-private async _finalizeJobFailure(job: Job, error: unknown, branchCreated: boolean): Promise&lt;void&gt;
-private async _handleGitWorkflowSuccess(job: Job): Promise&lt;void&gt;
-public async _generateCommitMessage(job: Job): Promise&lt;
-public async _generatePRContext(job: Job, commitMessage?:
-async runJobHandler(_job: Job): Promise&lt;unknown&gt;
-async start(): Promise&lt;void&gt;
-stop(): void
-set handleJob(handler: (job: Job) =&gt; Promise&lt;unknown&gt;)
-private async _writeJobLog(job: Job, suffix: string, extra?: Record&lt;string, unknown&gt;): Promise&lt;void&gt;
-async logJobCompletion(job: Job): Promise&lt;void&gt;
-async logJobFailure(job: Job, error: Error): Promise&lt;void&gt;
-getJob(jobId: string): Job | undefined
-getAllJobs(): Job[]
-getStats(): JobStats
-private _isExpiredTerminalJob(job: Job, cutoffMs: number): boolean
-private _pruneExpiredJobs(referenceTimeMs: number = Date.now()): void
-private _executeJobAction(jobId: string, config: {
-    action: string;
-statusGuard: (status: JobStatus)
-cancelJob(jobId: string): JobActionResult
-pauseJob(jobId: string): JobActionResult
-resumeJob(jobId: string): JobActionResult</file><file path="sidequest/pipeline-runners/dashboard-populate-pipeline.ts">import { DashboardPopulateWorker } from &apos;../workers/dashboard-populate-worker.ts&apos;;
+function isDirectExecution(): boolean</file><file path="sidequest/pipeline-runners/dashboard-populate-pipeline.ts">import { DashboardPopulateWorker } from &apos;../workers/dashboard-populate-worker.ts&apos;;
 import { createComponentLogger, logError } from &apos;../utils/logger.ts&apos;;
 ⋮----
 import cron from &apos;node-cron&apos;;
@@ -15570,6 +14533,7 @@ import { config } from &apos;../core/config.ts&apos;;
 import { TIMEOUTS } from &apos;../core/constants.ts&apos;;
 import cron from &apos;node-cron&apos;;
 ⋮----
+import { realpathSync } from &apos;fs&apos;;
 import path from &apos;path&apos;;
 import { fileURLToPath } from &apos;url&apos;;
 import type { Logger } from &apos;pino&apos;;
@@ -15582,6 +14546,7 @@ import { TIMEOUTS } from &apos;../core/constants.ts&apos;;
 import { createComponentLogger, logError } from &apos;../utils/logger.ts&apos;;
 ⋮----
 import cron from &apos;node-cron&apos;;
+import { realpathSync } from &apos;fs&apos;;
 import path from &apos;path&apos;;
 import os from &apos;os&apos;;
 import { fileURLToPath } from &apos;url&apos;;
@@ -15622,6 +14587,7 @@ import { TIMEOUTS } from &apos;../core/constants.ts&apos;;
 import { createComponentLogger, logError } from &apos;../utils/logger.ts&apos;;
 ⋮----
 import cron from &apos;node-cron&apos;;
+import { realpathSync } from &apos;fs&apos;;
 import path from &apos;path&apos;;
 import os from &apos;os&apos;;
 import { fileURLToPath } from &apos;url&apos;;

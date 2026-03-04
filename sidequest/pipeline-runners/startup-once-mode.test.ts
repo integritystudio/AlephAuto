@@ -18,6 +18,9 @@ const TEST_TIMEOUT_MS = 15_000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
+const envSensitiveTest = process.env.SKIP_ENV_SENSITIVE_TESTS === '1'
+  ? test.skip
+  : test;
 
 async function runScript(
   scriptRelativePath: string,
@@ -69,7 +72,7 @@ async function runScript(
   });
 }
 
-test('repo-cleanup --run-now exits after startup job without entering cron mode', async (t) => {
+envSensitiveTest('repo-cleanup --run-now exits after startup job without entering cron mode', async (t) => {
   const cleanupRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'repo-cleanup-once-'));
   await fs.mkdir(path.join(cleanupRoot, 'repo-a', '__pycache__'), { recursive: true });
   await fs.writeFile(path.join(cleanupRoot, 'repo-a', '__pycache__', 'a.pyc'), 'x');
@@ -92,7 +95,7 @@ test('repo-cleanup --run-now exits after startup job without entering cron mode'
   assert.equal(result.code, 0, `repo-cleanup exit code ${result.code}.\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
 });
 
-test('gitignore --run-now exits after startup job without entering cron mode', async (t) => {
+envSensitiveTest('gitignore --run-now exits after startup job without entering cron mode', async (t) => {
   const baseDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gitignore-once-'));
   const repoDir = path.join(baseDir, 'repo-a');
   await fs.mkdir(path.join(repoDir, '.git'), { recursive: true });
@@ -117,7 +120,7 @@ test('gitignore --run-now exits after startup job without entering cron mode', a
   assert.equal(result.code, 0, `gitignore exit code ${result.code}.\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
 });
 
-test('dashboard populate --run-now surfaces startup job failure and exits non-zero', async (t) => {
+envSensitiveTest('dashboard populate --run-now surfaces startup job failure and exits non-zero', async (t) => {
   const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'dashboard-once-'));
 
   t.after(async () => {

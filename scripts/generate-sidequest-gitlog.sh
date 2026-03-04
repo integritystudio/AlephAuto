@@ -28,7 +28,8 @@ cp "$TMP_OUT" "$OUT"
 
 if [[ "$MIRROR_OUT" != "$OUT" ]]; then
   cp "$TMP_OUT" "$MIRROR_OUT"
+  echo "Wrote: $OUT"
+  echo "Wrote: $MIRROR_OUT"
+else
+  echo "Wrote: $OUT"
 fi
-
-echo "Wrote: $OUT"
-echo "Wrote: $MIRROR_OUT"
