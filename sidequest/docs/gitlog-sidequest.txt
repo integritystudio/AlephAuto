@@ -1,3 +1,20 @@
+22951f1 2026-03-04 Fix duplicate-detection reliability issues and add focused tests
+  sidequest/pipeline-core/config/repository-config-loader.ts
+  sidequest/pipeline-core/git/pr-creator.ts
+  sidequest/pipeline-core/reports/report-coordinator.ts
+  sidequest/pipeline-core/scan-orchestrator.ts
+  sidequest/workers/duplicate-detection-worker.test.ts
+  sidequest/workers/duplicate-detection-worker.ts
+
+8028340 2026-03-04 docs: refresh runbooks/components and regenerate repomix artifacts
+  sidequest/docs/gitlog-sidequest.txt
+  sidequest/repomix-output.xml
+
+fde03e5 2026-03-04 fix(git-activity): reject unknown CLI args and add parse telemetry
+  sidequest/pipeline-runners/git-activity-pipeline.test.ts
+  sidequest/pipeline-runners/git-activity-pipeline.ts
+  sidequest/workers/git-activity-worker.ts
+
 fa3ad97 2026-03-04 refactor(git-activity): centralize constants and job selection
   sidequest/core/constants.ts
   sidequest/pipeline-runners/git-activity-pipeline.test.ts
@@ -1132,16 +1149,3 @@ c1746a0 2026-01-16 fix(dashboard): include reportPaths in duplicate-detection jo
 
 27a8142 2026-01-16 fix(mcp): redirect logger to stderr for MCP protocol compatibility
   sidequest/utils/logger.js
-
-95adaa7 2026-01-16 fix(types): resolve pre-existing TypeScript errors
-  sidequest/core/index.js
-  sidequest/pipeline-core/scan-orchestrator.ts
-  sidequest/pipeline-runners/git-activity-pipeline.js
-  sidequest/pipeline-runners/schema-enhancement-pipeline.js
-  sidequest/workers/test-refactor-worker.ts
-
-59aaf53 2026-01-16 fix(types): use 'any' for Job.data and Job.result for flexibility
-  sidequest/core/server.d.ts
-
-23f61d4 2026-01-16 fix(types): add SidequestServer type definitions and fix JobStats naming
-  sidequest/core/server.d.ts
