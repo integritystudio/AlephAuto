@@ -2428,7 +2428,22 @@ export const LoadingOverlay: React.FC&lt;LoadingOverlayProps&gt; = ({
   show,
   message,
   className = &apos;&apos;
-}) =&gt;</file><file path="frontend/src/components/ui/index.ts"></file><file path="frontend/src/services/api.ts">import axios, { AxiosError } from &apos;axios&apos;;
+}) =&gt;</file><file path="frontend/src/components/ui/index.ts"></file><file path="frontend/src/hooks/useWebSocketConnection.ts">import { useEffect, useRef } from &apos;react&apos;;
+import { wsService } from &apos;../services/websocket&apos;;
+import { useDashboardStore } from &apos;../store/dashboard&apos;;
+import { PipelineType } from &apos;../types&apos;;
+import type { Pipeline, SystemHealth } from &apos;../types&apos;;
+⋮----
+async function fetchStatus()
+function mapActiveJob(j: any)
+function mapQueuedJob(j: any)
+function mapPipeline(p: any): Pipeline
+function applyJobsToStore(store: ReturnType&lt;typeof useDashboardStore.getState&gt;, statusData: any)
+async function loadInitialData()
+async function pollForUpdates()
+export const useWebSocketConnection = () =&gt;
+function getPipelineIcon(pipelineId: string): string
+function getPipelineColor(pipelineId: string): &apos;purple&apos; | &apos;cyan&apos; | &apos;pink&apos; | &apos;teal&apos; | &apos;blue&apos; | &apos;green&apos; | &apos;amber&apos;</file><file path="frontend/src/services/api.ts">import axios, { AxiosError } from &apos;axios&apos;;
 import type {
   HealthCheckResponse,
   SystemStatusResponse,
@@ -11696,22 +11711,7 @@ listen_timeout: 10000,  // Wait up to 10s for ready signal
     &quot;onHighImpactDuplicates&quot;: true,
     &quot;highImpactThreshold&quot;: 75
   }
-}</file><file path="frontend/src/hooks/useWebSocketConnection.ts">import { useEffect, useRef } from &apos;react&apos;;
-import { wsService } from &apos;../services/websocket&apos;;
-import { useDashboardStore } from &apos;../store/dashboard&apos;;
-import { PipelineType } from &apos;../types&apos;;
-import type { Pipeline, SystemHealth } from &apos;../types&apos;;
-⋮----
-async function fetchStatus()
-function mapActiveJob(j: any)
-function mapQueuedJob(j: any)
-function mapPipeline(p: any): Pipeline
-function applyJobsToStore(store: ReturnType&lt;typeof useDashboardStore.getState&gt;, statusData: any)
-async function loadInitialData()
-async function pollForUpdates()
-export const useWebSocketConnection = () =&gt;
-function getPipelineIcon(pipelineId: string): string
-function getPipelineColor(pipelineId: string): &apos;purple&apos; | &apos;cyan&apos; | &apos;pink&apos; | &apos;teal&apos; | &apos;blue&apos; | &apos;green&apos; | &apos;amber&apos;</file><file path="scripts/cleanup-error-logs.ts">import fs from &apos;fs/promises&apos;;
+}</file><file path="scripts/cleanup-error-logs.ts">import fs from &apos;fs/promises&apos;;
 import path from &apos;path&apos;;
 import { createGzip } from &apos;zlib&apos;;
 import { pipeline } from &apos;stream/promises&apos;;
@@ -11735,11 +11735,7 @@ async function cleanup(options)
 /**
  * Main entry point
  */
-async function main()</file><file path="scripts/generate-repo-compressed.sh">set -euo pipefail
-ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
-OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
-FORCE_COLOR=0 NO_COLOR=1 timeout 60 \
-npx repomix &quot;$ROOT&quot; --compress -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/repomix.config.json">{
+async function main()</file><file path="scripts/repomix.config.json">{
   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
 
   &quot;input&quot;: {
@@ -12398,7 +12394,151 @@ async _checkForHighImpactDuplicates(scanResult: ScanResult): Promise&lt;void&gt;
 scheduleScan(scanType: string, repositories: RepositoryConfig[], groupName: string | null = null): Job
 async runNightlyScan(): Promise&lt;void&gt;
 getRetryMetrics(): RetryMetrics
-getScanMetrics(): ScanMetrics &amp;</file><file path="repomix.config.json">{
+getScanMetrics(): ScanMetrics &amp;</file><file path="api/activity-feed.ts">import type { SidequestServer, Job } from &apos;../sidequest/core/server.ts&apos;;
+import { createComponentLogger, logError } from &apos;../sidequest/utils/logger.ts&apos;;
+import { TIMEOUTS, TIME } from &apos;../sidequest/core/constants.ts&apos;;
+⋮----
+import { safeErrorMessage, toErrorObject } from &apos;../sidequest/pipeline-core/utils/error-helpers.ts&apos;;
+import type { ScanEventBroadcaster } from &apos;./event-broadcaster.ts&apos;;
+⋮----
+interface ActivityEntry {
+  id: number;
+  timestamp: string;
+  type?: string;
+  [key: string]: unknown;
+}
+interface ActivityStats {
+  recentActivities: { lastHour: number; lastDay: number; total: number };
+  typeCount: Record&lt;string, number&gt;;
+  oldestActivity: string | null;
+  newestActivity: string | null;
+}
+interface RetryInfo {
+  attempt?: number;
+  maxAttempts?: number;
+  reason?: string;
+  delay?: number;
+}
+export class ActivityFeedManager
+⋮----
+constructor(broadcaster: ScanEventBroadcaster | null, options:
+addActivity(activity: Record&lt;string, unknown&gt;): ActivityEntry
+getRecentActivities(limit: number = 20): ActivityEntry[]
+clear(): void
+getStats(): ActivityStats
+listenToWorker(worker: SidequestServer): void
+private handleJobCreated(job: Job, worker: SidequestServer): void
+private handleJobStarted(job: Job, worker: SidequestServer): void
+private handleJobCompleted(job: Job, worker: SidequestServer): void
+private handleJobFailed(job: Job, error: unknown, worker: SidequestServer): void
+private handleRetryCreated(job: Job, retryInfo: RetryInfo, worker: SidequestServer): void
+private handleRetryMaxAttempts(jobId: string, attempts: number): void</file><file path="scripts/generate-repo-compressed.sh">set -euo pipefail
+ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
+OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
+FORCE_COLOR=0 NO_COLOR=1 timeout 60 \
+npx repomix &quot;$ROOT&quot; --compress -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="sidequest/pipeline-core/scanners/timeout_detector.py">@dataclass
+class Finding
+⋮----
+file_path: str
+line_number: int
+severity: str
+category: str
+message: str
+code_snippet: str
+recommendation: str
+⋮----
+@dataclass
+class FileContext
+⋮----
+file_path: Path
+content: str
+lines: list[str]
+def has_text_in_range(self, text: str, start_line: int, num_lines: int) -&gt; bool
+⋮----
+end = min(start_line + num_lines, len(self.lines))
+⋮----
+has_try = ctx.has_pattern_in_range(r&apos;\btry\b&apos;, line_num, TimeoutDetectorDefaults.TRY_CATCH_LOOKAHEAD)
+has_catch = ctx.has_pattern_in_range(r&apos;\bcatch\b&apos;, line_num, TimeoutDetectorDefaults.TRY_CATCH_LOOKAHEAD)
+⋮----
+PATTERN_DETECTORS: list[Callable[[FileContext, int, str], Finding | None]] = [
+EXCLUDED_DIRS = frozenset({&apos;node_modules&apos;, &apos;.git&apos;, &apos;dist&apos;, &apos;build&apos;})
+def _should_include_file(file_path: Path) -&gt; bool
+class TimeoutDetector
+⋮----
+def __init__(self, logger: Callable[[str], None] | None = None) -&gt; None
+def scan_directory(self, repo_path: str) -&gt; dict[str, Any]
+⋮----
+path = Path(repo_path)
+⋮----
+files = list(self._find_files(path))
+⋮----
+def _find_files(self, repo_path: Path) -&gt; Iterator[Path]
+⋮----
+extensions = {&apos;.ts&apos;, &apos;.tsx&apos;, &apos;.js&apos;, &apos;.jsx&apos;, &apos;.py&apos;}
+⋮----
+def _scan_file(self, file_path: Path) -&gt; None
+⋮----
+&quot;&quot;&quot;Scan a single file for patterns.&quot;&quot;&quot;
+⋮----
+content = file_path.read_text(encoding=&apos;utf-8&apos;)
+⋮----
+ctx = FileContext(file_path=file_path, content=content, lines=content.split(&apos;\n&apos;))
+⋮----
+def _check_line(self, ctx: FileContext, line_num: int, line: str) -&gt; None
+⋮----
+&quot;&quot;&quot;Check a line against all pattern detectors.&quot;&quot;&quot;
+⋮----
+finding = detector(ctx, line_num, line)
+⋮----
+def _calculate_statistics(self) -&gt; dict[str, Any]
+⋮----
+&quot;&quot;&quot;Calculate statistics from findings.&quot;&quot;&quot;
+⋮----
+severity_counts = Counter(f.severity for f in self.findings)
+category_counts = Counter(f.category for f in self.findings)
+files_affected = {f.file_path for f in self.findings}
+⋮----
+def generate_report(self, results: dict[str, Any]) -&gt; str
+⋮----
+&quot;&quot;&quot;Generate markdown report.&quot;&quot;&quot;
+stats = results[&apos;statistics&apos;]
+lines = [
+severity_emoji = {&apos;high&apos;: &apos;🔴&apos;, &apos;medium&apos;: &apos;🟡&apos;, &apos;low&apos;: &apos;🟢&apos;}
+⋮----
+emoji = severity_emoji.get(severity, &apos;⚪&apos;)
+⋮----
+def _add_findings_by_severity(self, lines: list[str], max_per_severity: int = TimeoutDetectorDefaults.MAX_FINDINGS_PER_SEVERITY) -&gt; None
+⋮----
+&quot;&quot;&quot;Add findings grouped by severity to report lines.&quot;&quot;&quot;
+⋮----
+severity_findings = [f for f in self.findings if f.severity == severity]
+⋮----
+remaining = len(severity_findings) - max_per_severity
+⋮----
+def main()
+⋮----
+repo_path = sys.argv[1]
+output_file = None
+⋮----
+output_index = sys.argv.index(&apos;--output&apos;)
+⋮----
+output_file = sys.argv[output_index + 1]
+detector = TimeoutDetector()
+results = detector.scan_directory(repo_path)
+⋮----
+output = json.dumps(results, indent=2)
+⋮----
+output = detector.generate_report(results)
+⋮----
+high_severity_count = results[&apos;statistics&apos;][&apos;severity_breakdown&apos;].get(&apos;high&apos;, 0)</file><file path="sidequest/pipeline-runners/duplicate-detection-pipeline.ts">import { DuplicateDetectionWorker } from &apos;../workers/duplicate-detection-worker.ts&apos;;
+import { createComponentLogger } from &apos;../utils/logger.ts&apos;;
+import { config } from &apos;../core/config.ts&apos;;
+import { TIMEOUTS } from &apos;../core/constants.ts&apos;;
+import cron from &apos;node-cron&apos;;
+⋮----
+import type { Logger } from &apos;pino&apos;;
+⋮----
+async function main(): Promise&lt;void&gt;</file><file path="repomix.config.json">{
   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
 
   &quot;output&quot;: {
@@ -12508,64 +12648,18 @@ getScanMetrics(): ScanMetrics &amp;</file><file path="repomix.config.json">{
   &quot;tokenCount&quot;: {
     &quot;encoding&quot;: &quot;o200k_base&quot;
   },
-}</file><file path="api/activity-feed.ts">import type { SidequestServer, Job } from &apos;../sidequest/core/server.ts&apos;;
-import { createComponentLogger, logError } from &apos;../sidequest/utils/logger.ts&apos;;
-import { TIMEOUTS, TIME } from &apos;../sidequest/core/constants.ts&apos;;
-⋮----
-import { safeErrorMessage, toErrorObject } from &apos;../sidequest/pipeline-core/utils/error-helpers.ts&apos;;
-import type { ScanEventBroadcaster } from &apos;./event-broadcaster.ts&apos;;
-⋮----
-interface ActivityEntry {
-  id: number;
-  timestamp: string;
-  type?: string;
-  [key: string]: unknown;
-}
-interface ActivityStats {
-  recentActivities: { lastHour: number; lastDay: number; total: number };
-  typeCount: Record&lt;string, number&gt;;
-  oldestActivity: string | null;
-  newestActivity: string | null;
-}
-interface RetryInfo {
-  attempt?: number;
-  maxAttempts?: number;
-  reason?: string;
-  delay?: number;
-}
-export class ActivityFeedManager
-⋮----
-constructor(broadcaster: ScanEventBroadcaster | null, options:
-addActivity(activity: Record&lt;string, unknown&gt;): ActivityEntry
-getRecentActivities(limit: number = 20): ActivityEntry[]
-clear(): void
-getStats(): ActivityStats
-listenToWorker(worker: SidequestServer): void
-private handleJobCreated(job: Job, worker: SidequestServer): void
-private handleJobStarted(job: Job, worker: SidequestServer): void
-private handleJobCompleted(job: Job, worker: SidequestServer): void
-private handleJobFailed(job: Job, error: unknown, worker: SidequestServer): void
-private handleRetryCreated(job: Job, retryInfo: RetryInfo, worker: SidequestServer): void
-private handleRetryMaxAttempts(jobId: string, attempts: number): void</file><file path="scripts/generate-repomix.sh">set -euo pipefail
+}</file><file path="scripts/generate-repomix.sh">set -euo pipefail
 ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
 OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
 FORCE_COLOR=0 NO_COLOR=1 timeout 60 \
 npx repomix &quot;$ROOT&quot; -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/generate-token-tree.sh">set -euo pipefail
 ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
 OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
-mkdir -p &quot;$(dirname &quot;$OUTPUT_FILE&quot;)&quot;
-# Capture token tree output (repomix may print to stderr; keep 2&gt;&amp;1)
-tree_lines=&quot;$(npx repomix &quot;$ROOT&quot; --token-count-tree --no-files --no-file-summary 2&gt;&amp;1 || true)&quot;
-# Keep only from the header onward (fallback to whole output if header not found)
-tree_lines_filtered=&quot;$(
-  printf &apos;%s\n&apos; &quot;$tree_lines&quot; | awk &apos;
-    BEGIN { keep=0 }
-    /^📈 Top 5 Files by Token Count:/ { keep=1 }
-    /^🔎 Security Check:/ { keep=0 }
-    keep { print }
-  &apos;
-)&quot;
-printf &apos;%s\n&apos; &quot;$tree_lines_filtered&quot; &gt; &quot;$OUTPUT_FILE&quot; 2&gt;&amp;1</file><file path="scripts/repomix-regen.sh">set -euo pipefail
+FORCE_COLOR=0 NO_COLOR=1 npx repomix &quot;$ROOT&quot; --token-count-tree --no-files --no-file-summary 2&gt;&amp;1 \
+  | tr -d &apos;\r&apos; \
+  | sed -E &apos;s/\x1B\[[0-9;]*[A-Za-z]//g&apos; \
+  | awk &apos;BEGIN{keep=0} /^🔢 Token Count Tree:/{keep=1} /^🔎 Security Check:/{keep=0} keep&apos; \
+  &gt; &quot;$OUTPUT_FILE&quot;</file><file path="scripts/repomix-regen.sh">set -euo pipefail
 ROOT=&quot;$(cd &quot;$(dirname &quot;$0&quot;)/..&quot; &amp;&amp; pwd)&quot;
 TREE_FILE=&quot;token-tree&quot;
 COMPRESSED_FILE=&quot;repo-compressed&quot;
@@ -12615,109 +12709,7 @@ print_artifact() {
 }
 print_artifact &quot;$TOKEN_TREE_FILE&quot; &quot;$TREE_FILE_NAME&quot;
 print_artifact &quot;$COMPRESSED_REPO_FILE&quot; &quot;$COMPRESSED_FILE_NAME&quot;
-print_artifact &quot;$LOSSLESS_REPO_FILE&quot; &quot;$LOSSLESS_FILE_NAME&quot;</file><file path="sidequest/pipeline-core/scanners/timeout_detector.py">@dataclass
-class Finding
-⋮----
-file_path: str
-line_number: int
-severity: str
-category: str
-message: str
-code_snippet: str
-recommendation: str
-⋮----
-@dataclass
-class FileContext
-⋮----
-file_path: Path
-content: str
-lines: list[str]
-def has_text_in_range(self, text: str, start_line: int, num_lines: int) -&gt; bool
-⋮----
-end = min(start_line + num_lines, len(self.lines))
-⋮----
-has_try = ctx.has_pattern_in_range(r&apos;\btry\b&apos;, line_num, TimeoutDetectorDefaults.TRY_CATCH_LOOKAHEAD)
-has_catch = ctx.has_pattern_in_range(r&apos;\bcatch\b&apos;, line_num, TimeoutDetectorDefaults.TRY_CATCH_LOOKAHEAD)
-⋮----
-PATTERN_DETECTORS: list[Callable[[FileContext, int, str], Finding | None]] = [
-EXCLUDED_DIRS = frozenset({&apos;node_modules&apos;, &apos;.git&apos;, &apos;dist&apos;, &apos;build&apos;})
-def _should_include_file(file_path: Path) -&gt; bool
-class TimeoutDetector
-⋮----
-def __init__(self, logger: Callable[[str], None] | None = None) -&gt; None
-def scan_directory(self, repo_path: str) -&gt; dict[str, Any]
-⋮----
-path = Path(repo_path)
-⋮----
-files = list(self._find_files(path))
-⋮----
-def _find_files(self, repo_path: Path) -&gt; Iterator[Path]
-⋮----
-extensions = {&apos;.ts&apos;, &apos;.tsx&apos;, &apos;.js&apos;, &apos;.jsx&apos;, &apos;.py&apos;}
-⋮----
-def _scan_file(self, file_path: Path) -&gt; None
-⋮----
-&quot;&quot;&quot;Scan a single file for patterns.&quot;&quot;&quot;
-⋮----
-content = file_path.read_text(encoding=&apos;utf-8&apos;)
-⋮----
-ctx = FileContext(file_path=file_path, content=content, lines=content.split(&apos;\n&apos;))
-⋮----
-def _check_line(self, ctx: FileContext, line_num: int, line: str) -&gt; None
-⋮----
-&quot;&quot;&quot;Check a line against all pattern detectors.&quot;&quot;&quot;
-⋮----
-finding = detector(ctx, line_num, line)
-⋮----
-def _calculate_statistics(self) -&gt; dict[str, Any]
-⋮----
-&quot;&quot;&quot;Calculate statistics from findings.&quot;&quot;&quot;
-⋮----
-severity_counts = Counter(f.severity for f in self.findings)
-category_counts = Counter(f.category for f in self.findings)
-files_affected = {f.file_path for f in self.findings}
-⋮----
-def generate_report(self, results: dict[str, Any]) -&gt; str
-⋮----
-&quot;&quot;&quot;Generate markdown report.&quot;&quot;&quot;
-stats = results[&apos;statistics&apos;]
-lines = [
-severity_emoji = {&apos;high&apos;: &apos;🔴&apos;, &apos;medium&apos;: &apos;🟡&apos;, &apos;low&apos;: &apos;🟢&apos;}
-⋮----
-emoji = severity_emoji.get(severity, &apos;⚪&apos;)
-⋮----
-def _add_findings_by_severity(self, lines: list[str], max_per_severity: int = TimeoutDetectorDefaults.MAX_FINDINGS_PER_SEVERITY) -&gt; None
-⋮----
-&quot;&quot;&quot;Add findings grouped by severity to report lines.&quot;&quot;&quot;
-⋮----
-severity_findings = [f for f in self.findings if f.severity == severity]
-⋮----
-remaining = len(severity_findings) - max_per_severity
-⋮----
-def main()
-⋮----
-repo_path = sys.argv[1]
-output_file = None
-⋮----
-output_index = sys.argv.index(&apos;--output&apos;)
-⋮----
-output_file = sys.argv[output_index + 1]
-detector = TimeoutDetector()
-results = detector.scan_directory(repo_path)
-⋮----
-output = json.dumps(results, indent=2)
-⋮----
-output = detector.generate_report(results)
-⋮----
-high_severity_count = results[&apos;statistics&apos;][&apos;severity_breakdown&apos;].get(&apos;high&apos;, 0)</file><file path="sidequest/pipeline-runners/duplicate-detection-pipeline.ts">import { DuplicateDetectionWorker } from &apos;../workers/duplicate-detection-worker.ts&apos;;
-import { createComponentLogger } from &apos;../utils/logger.ts&apos;;
-import { config } from &apos;../core/config.ts&apos;;
-import { TIMEOUTS } from &apos;../core/constants.ts&apos;;
-import cron from &apos;node-cron&apos;;
-⋮----
-import type { Logger } from &apos;pino&apos;;
-⋮----
-async function main(): Promise&lt;void&gt;</file><file path="sidequest/pipeline-core/models/consolidation_suggestion.py">class ConsolidationStrategy(str, Enum)
+print_artifact &quot;$LOSSLESS_REPO_FILE&quot; &quot;$LOSSLESS_FILE_NAME&quot;</file><file path="sidequest/pipeline-core/models/consolidation_suggestion.py">class ConsolidationStrategy(str, Enum)
 ⋮----
 LOCAL_UTIL = &quot;local_util&quot;
 SHARED_PACKAGE = &quot;shared_package&quot;

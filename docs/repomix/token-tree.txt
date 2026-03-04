@@ -1,11 +1,3 @@
-📈 Top 5 Files by Token Count:
-──────────────────────────────
-1.  sidequest/pipeline-core/extractors/extract_blocks.py (9,462 tokens, 38,233 chars, 503.6%)
-2.  sidequest/utils/refactor-test-suite.ts (7,752 tokens, 29,774 chars, 412.6%)
-3.  sidequest/pipeline-core/reports/html-report-generator.ts (7,035 tokens, 26,871 chars, 374.4%)
-4.  sidequest/workers/claude-health-worker.ts (6,957 tokens, 27,065 chars, 370.3%)
-5.  sidequest/workers/test-refactor-worker.ts (6,942 tokens, 26,080 chars, 369.5%)
-
 🔢 Token Count Tree:
 ────────────────────
 ├── eslint.config.js (475 tokens)
@@ -155,14 +147,14 @@
 │       │   └── dashboard.ts (943 tokens)
 │       └── types/ (2,077 tokens)
 │           └── index.ts (2,077 tokens)
-├── scripts/ (27,039 tokens)
+├── scripts/ (26,966 tokens)
 │   ├── analyze-duplicates.py (586 tokens)
 │   ├── cleanup-error-logs.ts (2,931 tokens)
 │   ├── deploy-traditional-server.sh (5,072 tokens)
 │   ├── fix-types.ts (854 tokens)
 │   ├── generate-repo-compressed.sh (87 tokens)
 │   ├── generate-repomix.sh (85 tokens)
-│   ├── generate-token-tree.sh (241 tokens)
+│   ├── generate-token-tree.sh (168 tokens)
 │   ├── repomix-regen.sh (611 tokens)
 │   ├── repomix.config.json (1,280 tokens)
 │   ├── validate-permissions.ts (1,280 tokens)
@@ -309,3 +301,4 @@
         ├── repomix-worker.ts (2,413 tokens)
         ├── schema-enhancement-worker.ts (3,591 tokens)
         └── test-refactor-worker.ts (6,942 tokens)
+

@@ -7302,7 +7302,192 @@ tsconfig.json</directory_structure><files>This section contains the contents of 
 21: export { Spinner, LoadingOverlay } from &apos;./Loading&apos;;
 22: export type { SpinnerProps, LoadingOverlayProps, SpinnerSize } from &apos;./Loading&apos;;
 23: export { ErrorMessage } from &apos;./ErrorMessage&apos;;
-24: export type { ErrorMessageProps } from &apos;./ErrorMessage&apos;;</file><file path="frontend/src/services/api.ts">  1: import axios, { AxiosError } from &apos;axios&apos;;
+24: export type { ErrorMessageProps } from &apos;./ErrorMessage&apos;;</file><file path="frontend/src/hooks/useWebSocketConnection.ts">  1: import { useEffect, useRef } from &apos;react&apos;;
+  2: import { wsService } from &apos;../services/websocket&apos;;
+  3: import { useDashboardStore } from &apos;../store/dashboard&apos;;
+  4: import { PipelineType } from &apos;../types&apos;;
+  5: import type { Pipeline, SystemHealth } from &apos;../types&apos;;
+  6: const POLL_INTERVAL_MS = 5000;
+  7: const PIPELINE_TYPE_MAP: Record&lt;string, PipelineType&gt; = {
+  8:   &apos;duplicate-detection&apos;: PipelineType.DUPLICATE_DETECTION,
+  9:   &apos;schema-enhancement&apos;: PipelineType.DOC_ENHANCEMENT,
+ 10:   &apos;git-activity&apos;: PipelineType.GIT_ACTIVITY,
+ 11:   &apos;repomix&apos;: PipelineType.REPOMIX_AUTOMATION,
+ 12:   &apos;claude-health&apos;: PipelineType.CLAUDE_HEALTH,
+ 13:   &apos;gitignore-manager&apos;: PipelineType.GITIGNORE_MANAGER,
+ 14:   &apos;plugin-manager&apos;: PipelineType.PLUGIN_AUDIT,
+ 15:   &apos;test-refactor&apos;: PipelineType.TEST_REFACTOR,
+ 16: };
+ 17: async function fetchStatus() {
+ 18:   const response = await fetch(&apos;/api/status&apos;);
+ 19:   if (!response.ok) {
+ 20:     throw new Error(`API error: ${response.status}`);
+ 21:   }
+ 22:   return response.json();
+ 23: }
+ 24: function mapActiveJob(j: any) {
+ 25:   return {
+ 26:     &apos;@type&apos;: &apos;https://schema.org/Action&apos; as const,
+ 27:     id: j.id,
+ 28:     pipelineId: j.pipelineId,
+ 29:     pipelineName: j.pipelineName,
+ 30:     status: j.status,
+ 31:     createdAt: j.createdAt,
+ 32:     startedAt: j.startedAt,
+ 33:     progress: j.progress,
+ 34:     currentOperation: j.currentOperation,
+ 35:   };
+ 36: }
+ 37: function mapQueuedJob(j: any) {
+ 38:   return {
+ 39:     &apos;@type&apos;: &apos;https://schema.org/Action&apos; as const,
+ 40:     id: j.id,
+ 41:     pipelineId: j.pipelineId,
+ 42:     pipelineName: j.pipelineName,
+ 43:     status: j.status,
+ 44:     createdAt: j.createdAt,
+ 45:   };
+ 46: }
+ 47: function mapPipeline(p: any): Pipeline {
+ 48:   return {
+ 49:     &apos;@type&apos;: &apos;https://schema.org/SoftwareApplication&apos; as const,
+ 50:     id: p.id,
+ 51:     name: p.name,
+ 52:     description: p.description,
+ 53:     icon: getPipelineIcon(p.id),
+ 54:     color: getPipelineColor(p.id),
+ 55:     status: p.status || &apos;idle&apos;,
+ 56:     type: PIPELINE_TYPE_MAP[p.id] ?? PipelineType.DUPLICATE_DETECTION,
+ 57:     totalJobs: (p.completedJobs || 0) + (p.failedJobs || 0),
+ 58:     successRate: p.completedJobs &gt; 0
+ 59:       ? p.completedJobs / ((p.completedJobs || 0) + (p.failedJobs || 0))
+ 60:       : 1,
+ 61:     lastRunAt: p.lastRun,
+ 62:     nextRun: p.nextRun,
+ 63:     createdAt: p.lastRun || new Date().toISOString(),
+ 64:     updatedAt: p.lastRun || new Date().toISOString(),
+ 65:   };
+ 66: }
+ 67: function applyJobsToStore(store: ReturnType&lt;typeof useDashboardStore.getState&gt;, statusData: any) {
+ 68:   if (statusData.activeJobs !== undefined) {
+ 69:     store.setActiveJobs(statusData.activeJobs.map(mapActiveJob));
+ 70:   }
+ 71:   if (statusData.queuedJobs !== undefined) {
+ 72:     store.setQueuedJobs(statusData.queuedJobs.map(mapQueuedJob));
+ 73:   }
+ 74: }
+ 75: async function loadInitialData() {
+ 76:   const store = useDashboardStore.getState();
+ 77:   store.setLoading(true);
+ 78:   store.setError(null);
+ 79:   try {
+ 80:     console.log(&apos;[Dashboard] Loading initial data...&apos;);
+ 81:     const statusData = await fetchStatus();
+ 82:     store.setPipelines((statusData.pipelines || []).map(mapPipeline));
+ 83:     applyJobsToStore(store, statusData);
+ 84:     store.setSystemStatus({
+ 85:       &apos;@type&apos;: &apos;https://schema.org/Report&apos;,
+ 86:       health: &apos;healthy&apos; as SystemHealth,
+ 87:       activeJobs: statusData.queue?.active || 0,
+ 88:       queuedJobs: statusData.queue?.queued || 0,
+ 89:       totalCapacity: statusData.queue?.capacity || 5,
+ 90:       websocketConnected: false,
+ 91:       lastUpdate: statusData.timestamp || new Date().toISOString(),
+ 92:       retryQueueSize: statusData.retryMetrics?.activeRetries || 0,
+ 93:     });
+ 94:     if (statusData.recentActivity?.length &gt; 0) {
+ 95:       statusData.recentActivity.forEach((activity: any) =&gt; {
+ 96:         const pipelineId = activity.pipelineId || activity.jobType || &apos;unknown&apos;;
+ 97:         store.addActivityItem({
+ 98:           &apos;@type&apos;: &apos;https://schema.org/Event&apos;,
+ 99:           id: activity.id || `activity-${Date.now()}`,
+100:           type: activity.type || &apos;info&apos;,
+101:           pipelineId,
+102:           pipelineName: activity.pipelineName || pipelineId || &apos;Unknown&apos;,
+103:           message: activity.message || &apos;&apos;,
+104:           timestamp: activity.timestamp || new Date().toISOString(),
+105:         });
+106:       });
+107:     }
+108:     console.log(&apos;[Dashboard] Initial data loaded:&apos;, (statusData.pipelines || []).length, &apos;pipelines&apos;);
+109:     store.setLoading(false);
+110:   } catch (error) {
+111:     console.error(&apos;[Dashboard] Failed to load initial data:&apos;, error);
+112:     const errorMessage = error instanceof Error
+113:       ? error.message
+114:       : &apos;Failed to connect to API. Please ensure the backend server is running on port 8080.&apos;;
+115:     store.setError(errorMessage);
+116:     store.setLoading(false);
+117:   }
+118: }
+119: async function pollForUpdates() {
+120:   const systemStatus = useDashboardStore.getState().systemStatus;
+121:   if (systemStatus.websocketConnected) return;
+122:   console.log(&apos;[Dashboard] Polling for updates (WebSocket disconnected)&apos;);
+123:   try {
+124:     const statusData = await fetchStatus();
+125:     const store = useDashboardStore.getState();
+126:     store.setSystemStatus({
+127:       ...store.systemStatus,
+128:       activeJobs: statusData.queue?.active || 0,
+129:       queuedJobs: statusData.queue?.queued || 0,
+130:       lastUpdate: new Date().toISOString(),
+131:     });
+132:     if (statusData.activeJobs) {
+133:       store.setActiveJobs(statusData.activeJobs.map(mapActiveJob));
+134:     }
+135:     if (statusData.queuedJobs) {
+136:       store.setQueuedJobs(statusData.queuedJobs.map(mapQueuedJob));
+137:     }
+138:   } catch (error) {
+139:     console.error(&apos;[Dashboard] Polling failed:&apos;, error);
+140:   }
+141: }
+142: export const useWebSocketConnection = () =&gt; {
+143:   const isInitialized = useRef(false);
+144:   useEffect(() =&gt; {
+145:     if (isInitialized.current) return;
+146:     isInitialized.current = true;
+147:     loadInitialData();
+148:     console.log(&apos;[Dashboard] Connecting WebSocket...&apos;);
+149:     wsService.connect();
+150:     const pollInterval = setInterval(pollForUpdates, POLL_INTERVAL_MS);
+151:     return () =&gt; {
+152:       console.log(&apos;[Dashboard] Cleaning up...&apos;);
+153:       clearInterval(pollInterval);
+154:       wsService.disconnect();
+155:       isInitialized.current = false;
+156:     };
+157:   }, []);
+158: };
+159: function getPipelineIcon(pipelineId: string): string {
+160:   const icons: Record&lt;string, string&gt; = {
+161:     &apos;duplicate-detection&apos;: &apos;🔍&apos;,
+162:     &apos;schema-enhancement&apos;: &apos;📄&apos;,
+163:     &apos;git-activity&apos;: &apos;📊&apos;,
+164:     &apos;repomix&apos;: &apos;📦&apos;,
+165:     &apos;claude-health&apos;: &apos;🏥&apos;,
+166:     &apos;gitignore-manager&apos;: &apos;📝&apos;,
+167:     &apos;plugin-manager&apos;: &apos;🔌&apos;,
+168:     &apos;test-refactor&apos;: &apos;🧪&apos;,
+169:     &apos;repo-cleanup&apos;: &apos;🧹&apos;,
+170:   };
+171:   return icons[pipelineId] || &apos;⚙️&apos;;
+172: }
+173: function getPipelineColor(pipelineId: string): &apos;purple&apos; | &apos;cyan&apos; | &apos;pink&apos; | &apos;teal&apos; | &apos;blue&apos; | &apos;green&apos; | &apos;amber&apos; {
+174:   const colors: Record&lt;string, &apos;purple&apos; | &apos;cyan&apos; | &apos;pink&apos; | &apos;teal&apos; | &apos;blue&apos; | &apos;green&apos; | &apos;amber&apos;&gt; = {
+175:     &apos;duplicate-detection&apos;: &apos;purple&apos;,
+176:     &apos;schema-enhancement&apos;: &apos;cyan&apos;,
+177:     &apos;git-activity&apos;: &apos;pink&apos;,
+178:     &apos;repomix&apos;: &apos;teal&apos;,
+179:     &apos;claude-health&apos;: &apos;green&apos;,
+180:     &apos;gitignore-manager&apos;: &apos;blue&apos;,
+181:     &apos;plugin-manager&apos;: &apos;amber&apos;,
+182:     &apos;test-refactor&apos;: &apos;purple&apos;,
+183:     &apos;repo-cleanup&apos;: &apos;cyan&apos;,
+184:   };
+185:   return colors[pipelineId] || &apos;blue&apos;;
+186: }</file><file path="frontend/src/services/api.ts">  1: import axios, { AxiosError } from &apos;axios&apos;;
   2: import type {
   3:   HealthCheckResponse,
   4:   SystemStatusResponse,
@@ -31453,192 +31638,7 @@ tsconfig.json</directory_structure><files>This section contains the contents of 
 228:     &quot;onHighImpactDuplicates&quot;: true,
 229:     &quot;highImpactThreshold&quot;: 75
 230:   }
-231: }</file><file path="frontend/src/hooks/useWebSocketConnection.ts">  1: import { useEffect, useRef } from &apos;react&apos;;
-  2: import { wsService } from &apos;../services/websocket&apos;;
-  3: import { useDashboardStore } from &apos;../store/dashboard&apos;;
-  4: import { PipelineType } from &apos;../types&apos;;
-  5: import type { Pipeline, SystemHealth } from &apos;../types&apos;;
-  6: const POLL_INTERVAL_MS = 5000;
-  7: const PIPELINE_TYPE_MAP: Record&lt;string, PipelineType&gt; = {
-  8:   &apos;duplicate-detection&apos;: PipelineType.DUPLICATE_DETECTION,
-  9:   &apos;schema-enhancement&apos;: PipelineType.DOC_ENHANCEMENT,
- 10:   &apos;git-activity&apos;: PipelineType.GIT_ACTIVITY,
- 11:   &apos;repomix&apos;: PipelineType.REPOMIX_AUTOMATION,
- 12:   &apos;claude-health&apos;: PipelineType.CLAUDE_HEALTH,
- 13:   &apos;gitignore-manager&apos;: PipelineType.GITIGNORE_MANAGER,
- 14:   &apos;plugin-manager&apos;: PipelineType.PLUGIN_AUDIT,
- 15:   &apos;test-refactor&apos;: PipelineType.TEST_REFACTOR,
- 16: };
- 17: async function fetchStatus() {
- 18:   const response = await fetch(&apos;/api/status&apos;);
- 19:   if (!response.ok) {
- 20:     throw new Error(`API error: ${response.status}`);
- 21:   }
- 22:   return response.json();
- 23: }
- 24: function mapActiveJob(j: any) {
- 25:   return {
- 26:     &apos;@type&apos;: &apos;https://schema.org/Action&apos; as const,
- 27:     id: j.id,
- 28:     pipelineId: j.pipelineId,
- 29:     pipelineName: j.pipelineName,
- 30:     status: j.status,
- 31:     createdAt: j.createdAt,
- 32:     startedAt: j.startedAt,
- 33:     progress: j.progress,
- 34:     currentOperation: j.currentOperation,
- 35:   };
- 36: }
- 37: function mapQueuedJob(j: any) {
- 38:   return {
- 39:     &apos;@type&apos;: &apos;https://schema.org/Action&apos; as const,
- 40:     id: j.id,
- 41:     pipelineId: j.pipelineId,
- 42:     pipelineName: j.pipelineName,
- 43:     status: j.status,
- 44:     createdAt: j.createdAt,
- 45:   };
- 46: }
- 47: function mapPipeline(p: any): Pipeline {
- 48:   return {
- 49:     &apos;@type&apos;: &apos;https://schema.org/SoftwareApplication&apos; as const,
- 50:     id: p.id,
- 51:     name: p.name,
- 52:     description: p.description,
- 53:     icon: getPipelineIcon(p.id),
- 54:     color: getPipelineColor(p.id),
- 55:     status: p.status || &apos;idle&apos;,
- 56:     type: PIPELINE_TYPE_MAP[p.id] ?? PipelineType.DUPLICATE_DETECTION,
- 57:     totalJobs: (p.completedJobs || 0) + (p.failedJobs || 0),
- 58:     successRate: p.completedJobs &gt; 0
- 59:       ? p.completedJobs / ((p.completedJobs || 0) + (p.failedJobs || 0))
- 60:       : 1,
- 61:     lastRunAt: p.lastRun,
- 62:     nextRun: p.nextRun,
- 63:     createdAt: p.lastRun || new Date().toISOString(),
- 64:     updatedAt: p.lastRun || new Date().toISOString(),
- 65:   };
- 66: }
- 67: function applyJobsToStore(store: ReturnType&lt;typeof useDashboardStore.getState&gt;, statusData: any) {
- 68:   if (statusData.activeJobs !== undefined) {
- 69:     store.setActiveJobs(statusData.activeJobs.map(mapActiveJob));
- 70:   }
- 71:   if (statusData.queuedJobs !== undefined) {
- 72:     store.setQueuedJobs(statusData.queuedJobs.map(mapQueuedJob));
- 73:   }
- 74: }
- 75: async function loadInitialData() {
- 76:   const store = useDashboardStore.getState();
- 77:   store.setLoading(true);
- 78:   store.setError(null);
- 79:   try {
- 80:     console.log(&apos;[Dashboard] Loading initial data...&apos;);
- 81:     const statusData = await fetchStatus();
- 82:     store.setPipelines((statusData.pipelines || []).map(mapPipeline));
- 83:     applyJobsToStore(store, statusData);
- 84:     store.setSystemStatus({
- 85:       &apos;@type&apos;: &apos;https://schema.org/Report&apos;,
- 86:       health: &apos;healthy&apos; as SystemHealth,
- 87:       activeJobs: statusData.queue?.active || 0,
- 88:       queuedJobs: statusData.queue?.queued || 0,
- 89:       totalCapacity: statusData.queue?.capacity || 5,
- 90:       websocketConnected: false,
- 91:       lastUpdate: statusData.timestamp || new Date().toISOString(),
- 92:       retryQueueSize: statusData.retryMetrics?.activeRetries || 0,
- 93:     });
- 94:     if (statusData.recentActivity?.length &gt; 0) {
- 95:       statusData.recentActivity.forEach((activity: any) =&gt; {
- 96:         const pipelineId = activity.pipelineId || activity.jobType || &apos;unknown&apos;;
- 97:         store.addActivityItem({
- 98:           &apos;@type&apos;: &apos;https://schema.org/Event&apos;,
- 99:           id: activity.id || `activity-${Date.now()}`,
-100:           type: activity.type || &apos;info&apos;,
-101:           pipelineId,
-102:           pipelineName: activity.pipelineName || pipelineId || &apos;Unknown&apos;,
-103:           message: activity.message || &apos;&apos;,
-104:           timestamp: activity.timestamp || new Date().toISOString(),
-105:         });
-106:       });
-107:     }
-108:     console.log(&apos;[Dashboard] Initial data loaded:&apos;, (statusData.pipelines || []).length, &apos;pipelines&apos;);
-109:     store.setLoading(false);
-110:   } catch (error) {
-111:     console.error(&apos;[Dashboard] Failed to load initial data:&apos;, error);
-112:     const errorMessage = error instanceof Error
-113:       ? error.message
-114:       : &apos;Failed to connect to API. Please ensure the backend server is running on port 8080.&apos;;
-115:     store.setError(errorMessage);
-116:     store.setLoading(false);
-117:   }
-118: }
-119: async function pollForUpdates() {
-120:   const systemStatus = useDashboardStore.getState().systemStatus;
-121:   if (systemStatus.websocketConnected) return;
-122:   console.log(&apos;[Dashboard] Polling for updates (WebSocket disconnected)&apos;);
-123:   try {
-124:     const statusData = await fetchStatus();
-125:     const store = useDashboardStore.getState();
-126:     store.setSystemStatus({
-127:       ...store.systemStatus,
-128:       activeJobs: statusData.queue?.active || 0,
-129:       queuedJobs: statusData.queue?.queued || 0,
-130:       lastUpdate: new Date().toISOString(),
-131:     });
-132:     if (statusData.activeJobs) {
-133:       store.setActiveJobs(statusData.activeJobs.map(mapActiveJob));
-134:     }
-135:     if (statusData.queuedJobs) {
-136:       store.setQueuedJobs(statusData.queuedJobs.map(mapQueuedJob));
-137:     }
-138:   } catch (error) {
-139:     console.error(&apos;[Dashboard] Polling failed:&apos;, error);
-140:   }
-141: }
-142: export const useWebSocketConnection = () =&gt; {
-143:   const isInitialized = useRef(false);
-144:   useEffect(() =&gt; {
-145:     if (isInitialized.current) return;
-146:     isInitialized.current = true;
-147:     loadInitialData();
-148:     console.log(&apos;[Dashboard] Connecting WebSocket...&apos;);
-149:     wsService.connect();
-150:     const pollInterval = setInterval(pollForUpdates, POLL_INTERVAL_MS);
-151:     return () =&gt; {
-152:       console.log(&apos;[Dashboard] Cleaning up...&apos;);
-153:       clearInterval(pollInterval);
-154:       wsService.disconnect();
-155:       isInitialized.current = false;
-156:     };
-157:   }, []);
-158: };
-159: function getPipelineIcon(pipelineId: string): string {
-160:   const icons: Record&lt;string, string&gt; = {
-161:     &apos;duplicate-detection&apos;: &apos;🔍&apos;,
-162:     &apos;schema-enhancement&apos;: &apos;📄&apos;,
-163:     &apos;git-activity&apos;: &apos;📊&apos;,
-164:     &apos;repomix&apos;: &apos;📦&apos;,
-165:     &apos;claude-health&apos;: &apos;🏥&apos;,
-166:     &apos;gitignore-manager&apos;: &apos;📝&apos;,
-167:     &apos;plugin-manager&apos;: &apos;🔌&apos;,
-168:     &apos;test-refactor&apos;: &apos;🧪&apos;,
-169:     &apos;repo-cleanup&apos;: &apos;🧹&apos;,
-170:   };
-171:   return icons[pipelineId] || &apos;⚙️&apos;;
-172: }
-173: function getPipelineColor(pipelineId: string): &apos;purple&apos; | &apos;cyan&apos; | &apos;pink&apos; | &apos;teal&apos; | &apos;blue&apos; | &apos;green&apos; | &apos;amber&apos; {
-174:   const colors: Record&lt;string, &apos;purple&apos; | &apos;cyan&apos; | &apos;pink&apos; | &apos;teal&apos; | &apos;blue&apos; | &apos;green&apos; | &apos;amber&apos;&gt; = {
-175:     &apos;duplicate-detection&apos;: &apos;purple&apos;,
-176:     &apos;schema-enhancement&apos;: &apos;cyan&apos;,
-177:     &apos;git-activity&apos;: &apos;pink&apos;,
-178:     &apos;repomix&apos;: &apos;teal&apos;,
-179:     &apos;claude-health&apos;: &apos;green&apos;,
-180:     &apos;gitignore-manager&apos;: &apos;blue&apos;,
-181:     &apos;plugin-manager&apos;: &apos;amber&apos;,
-182:     &apos;test-refactor&apos;: &apos;purple&apos;,
-183:     &apos;repo-cleanup&apos;: &apos;cyan&apos;,
-184:   };
-185:   return colors[pipelineId] || &apos;blue&apos;;
-186: }</file><file path="scripts/cleanup-error-logs.ts">  1: #!/usr/bin/env node
+231: }</file><file path="scripts/cleanup-error-logs.ts">  1: #!/usr/bin/env node
   2: import fs from &apos;fs/promises&apos;;
   3: import path from &apos;path&apos;;
   4: import { createGzip } from &apos;zlib&apos;;
@@ -31882,11 +31882,7 @@ tsconfig.json</directory_structure><files>This section contains the contents of 
 242: if (import.meta.url === `file://${process.argv[1]}`) {
 243:   main();
 244: }
-245: export { cleanup, scanErrorLogs };</file><file path="scripts/generate-repo-compressed.sh">1: set -euo pipefail
-2: ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
-3: OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
-4: FORCE_COLOR=0 NO_COLOR=1 timeout 60 \
-5: npx repomix &quot;$ROOT&quot; --compress -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/repomix.config.json">  1: {
+245: export { cleanup, scanErrorLogs };</file><file path="scripts/repomix.config.json">  1: {
   2:   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
   3: 
   4:   &quot;input&quot;: {
@@ -34213,117 +34209,7 @@ tsconfig.json</directory_structure><files>This section contains the contents of 
 625:       retryMetrics: this.getRetryMetrics()
 626:     };
 627:   }
-628: }</file><file path="repomix.config.json">  1: {
-  2:   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
-  3: 
-  4:   &quot;output&quot;: {
-  5:     &quot;filePath&quot;: &quot;docs/repomix/docs.xml&quot;,
-  6:     &quot;style&quot;: &quot;xml&quot;,
-  7:     &quot;parsableStyle&quot;: true,
-  8: 
-  9:     &quot;removeComments&quot;: true,
- 10:     &quot;removeEmptyLines&quot;: true,
- 11:     &quot;truncateBase64&quot;: true,
- 12: 
- 13:     &quot;fileSummary&quot;: false,
- 14:     &quot;directoryStructure&quot;: true,
- 15:     &quot;files&quot;: true,
- 16: 
- 17:     &quot;showLineNumbers&quot;: true,
- 18: 
- 19:     &quot;includeEmptyDirectories&quot;: false,
- 20:     &quot;instructionFilePath&quot;: &quot;docs/repomix/repomix-instruction.md&quot;,
- 21:     &quot;git&quot;: {
- 22:       &quot;sortByChanges&quot;: true,
- 23:       &quot;sortByChangesMaxCommits&quot;: 20,
- 24:       &quot;includeDiffs&quot;: false,
- 25:       &quot;includeLogs&quot;: false,
- 26:       &quot;includeLogsCount&quot;: 1
- 27:     }
- 28:   },
- 29: 
- 30:   &quot;include&quot;: [
- 31:     &quot;api/**/*&quot;,
- 32:     &quot;frontend/**/*&quot;,
- 33:     &quot;sidequest/**/*&quot;,
- 34:     &quot;scripts/**/*&quot;,
- 35:     &quot;config/**/*&quot;,
- 36:     &quot;cloudflare-workers/**/*&quot;,
- 37:     &quot;.ast-grep/**/*&quot;,
- 38:     &quot;.github/workflows/**/*&quot;,
- 39:     &quot;*.json&quot;,
- 40:     &quot;*.ts&quot;,
- 41:     &quot;*.tsx&quot;,
- 42:     &quot;*.js&quot;,
- 43:     &quot;*.py&quot;,
- 44:     &quot;*.sh&quot;
- 45:   ],
- 46: 
- 47:   &quot;ignore&quot;: {
- 48:     &quot;useGitignore&quot;: true,
- 49:     &quot;useDotIgnore&quot;: true,
- 50:     &quot;useDefaultPatterns&quot;: true,
- 51: 
- 52:     &quot;customPatterns&quot;: [
- 53:       &quot;docs/**&quot;,
- 54:       &quot;docs/archive/**&quot;,
- 55:       &quot;docs/backlog/**&quot;,
- 56:       &quot;docs/repomix/**&quot;,
- 57: 
- 58:       &quot;**/node_modules/**&quot;,
- 59:       &quot;**/.next/**&quot;,
- 60:       &quot;**/.turbo/**&quot;,
- 61:       &quot;**/.vite/**&quot;,
- 62:       &quot;**/dist/**&quot;,
- 63:       &quot;**/build/**&quot;,
- 64:       &quot;**/coverage/**&quot;,
- 65: 
- 66:       &quot;**/.ast-grep-backups/**&quot;,
- 67: 
- 68:       &quot;**/*.log&quot;,
- 69:       &quot;**/*.tmp&quot;,
- 70:       &quot;**/*.cache&quot;,
- 71:       &quot;**/*.map&quot;,
- 72:       &quot;**/*.min.js&quot;,
- 73:       &quot;**/*.min.css&quot;,
- 74: 
- 75:       &quot;**/*.png&quot;,
- 76:       &quot;**/*.jpg&quot;,
- 77:       &quot;**/*.jpeg&quot;,
- 78:       &quot;**/*.gif&quot;,
- 79:       &quot;**/*.webp&quot;,
- 80:       &quot;**/*.ico&quot;,
- 81:       &quot;**/*.pdf&quot;,
- 82:       &quot;**/*.zip&quot;,
- 83:       &quot;**/*.tar&quot;,
- 84:       &quot;**/*.gz&quot;,
- 85:       &quot;**/*.tgz&quot;,
- 86:       &quot;**/*.7z&quot;,
- 87: 
- 88:       &quot;**/*.mp4&quot;,
- 89:       &quot;**/*.mov&quot;,
- 90:       &quot;**/*.avi&quot;,
- 91:       &quot;**/*.mp3&quot;,
- 92:       &quot;**/*.wav&quot;,
- 93: 
- 94:       &quot;**/.env&quot;,
- 95:       &quot;**/.env.*&quot;,
- 96:       &quot;**/*.pem&quot;,
- 97:       &quot;**/*.key&quot;,
- 98:       &quot;**/*.p12&quot;,
- 99:       &quot;**/*.pfx&quot;
-100:     ]
-101:   },
-102: 
-103: 
-104:   &quot;security&quot;: {
-105:     &quot;enableSecurityCheck&quot;: true
-106:   },
-107: 
-108:   &quot;tokenCount&quot;: {
-109:     &quot;encoding&quot;: &quot;o200k_base&quot;
-110:   },
-111: }</file><file path="api/activity-feed.ts">  1: import type { SidequestServer, Job } from &apos;../sidequest/core/server.ts&apos;;
+628: }</file><file path="api/activity-feed.ts">  1: import type { SidequestServer, Job } from &apos;../sidequest/core/server.ts&apos;;
   2: import { createComponentLogger, logError } from &apos;../sidequest/utils/logger.ts&apos;;
   3: import { TIMEOUTS, TIME } from &apos;../sidequest/core/constants.ts&apos;;
   4: import * as Sentry from &apos;@sentry/node&apos;;
@@ -34683,76 +34569,11 @@ tsconfig.json</directory_structure><files>This section contains the contents of 
 358:       });
 359:     }
 360:   }
-361: }</file><file path="scripts/generate-repomix.sh">1: set -euo pipefail
+361: }</file><file path="scripts/generate-repo-compressed.sh">1: set -euo pipefail
 2: ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
 3: OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
 4: FORCE_COLOR=0 NO_COLOR=1 timeout 60 \
-5: npx repomix &quot;$ROOT&quot; -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/generate-token-tree.sh"> 1: set -euo pipefail
- 2: ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
- 3: OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
- 4: mkdir -p &quot;$(dirname &quot;$OUTPUT_FILE&quot;)&quot;
- 5: # Capture token tree output (repomix may print to stderr; keep 2&gt;&amp;1)
- 6: tree_lines=&quot;$(npx repomix &quot;$ROOT&quot; --token-count-tree --no-files --no-file-summary 2&gt;&amp;1 || true)&quot;
- 7: # Keep only from the header onward (fallback to whole output if header not found)
- 8: tree_lines_filtered=&quot;$(
- 9:   printf &apos;%s\n&apos; &quot;$tree_lines&quot; | awk &apos;
-10:     BEGIN { keep=0 }
-11:     /^📈 Top 5 Files by Token Count:/ { keep=1 }
-12:     /^🔎 Security Check:/ { keep=0 }
-13:     keep { print }
-14:   &apos;
-15: )&quot;
-16: printf &apos;%s\n&apos; &quot;$tree_lines_filtered&quot; &gt; &quot;$OUTPUT_FILE&quot; 2&gt;&amp;1</file><file path="scripts/repomix-regen.sh"> 1: set -euo pipefail
- 2: ROOT=&quot;$(cd &quot;$(dirname &quot;$0&quot;)/..&quot; &amp;&amp; pwd)&quot;
- 3: TREE_FILE=&quot;token-tree&quot;
- 4: COMPRESSED_FILE=&quot;repo-compressed&quot;
- 5: LOSSLESS_FILE=&quot;repomix&quot;
- 6: OUTPUT_PATH=&quot;docs/repomix&quot;
- 7: OUT_DIR=&quot;$ROOT/$OUTPUT_PATH&quot;
- 8: TOKEN_TREE_FILE=&quot;$OUT_DIR/$TREE_FILE.txt&quot;
- 9: COMPRESSED_REPO_FILE=&quot;$OUT_DIR/$COMPRESSED_FILE.xml&quot;
-10: LOSSLESS_REPO_FILE=&quot;$OUT_DIR/$LOSSLESS_FILE.xml&quot;
-11: TREE_FILE_NAME=&quot;$OUTPUT_PATH/$TREE_FILE.txt&quot;
-12: COMPRESSED_FILE_NAME=&quot;$OUTPUT_PATH/$COMPRESSED_FILE.xml&quot;
-13: LOSSLESS_FILE_NAME=&quot;$OUTPUT_PATH/$LOSSLESS_FILE.xml&quot;
-14: INPUT_DIR=&quot;$ROOT/scripts/generate-&quot;
-15: TOKEN_TREE_SCRIPT=&quot;$INPUT_DIR$TREE_FILE.sh&quot;
-16: COMPRESS_SCRIPT=&quot;$INPUT_DIR$COMPRESSED_FILE.sh&quot;
-17: LOSSLESS_SCRIPT=&quot;$INPUT_DIR$LOSSLESS_FILE.sh&quot;
-18: echo &quot;File set up...&quot;
-19: mkdir -p &quot;$OUT_DIR&quot;
-20: find &quot;$OUT_DIR&quot; -maxdepth 1 -type f \
-21:   ! -name &apos;repomix-instruction.md&apos; \
-22:   ! -name &apos;.gitkeep&apos; \
-23:   -exec rm -f {} +
-24: PROJECT_DIR=&quot;$(basename &quot;$ROOT&quot;)&quot;
-25: echo &quot;Generating token count tree for $PROJECT_DIR at $TREE_FILE_NAME&quot;
-26: bash &quot;$TOKEN_TREE_SCRIPT&quot; &quot;$ROOT&quot; &quot;$TOKEN_TREE_FILE&quot;
-27: echo &quot;Success!&quot;
-28: echo
-29: echo &quot;Generating compressed repomix file for $PROJECT_DIR at $COMPRESSED_FILE_NAME&quot;
-30: bash &quot;$COMPRESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$COMPRESSED_REPO_FILE&quot;
-31: echo &quot;Success!&quot;
-32: echo
-33: echo &quot;Generating repomix file for $PROJECT_DIR at $LOSSLESS_FILE_NAME&quot;
-34: bash &quot;$LOSSLESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$LOSSLESS_REPO_FILE&quot;
-35: echo &quot;Success!&quot;
-36: echo
-37: echo &quot;Artifacts:&quot;
-38: print_artifact() {
-39:   local file_path=&quot;$1&quot;
-40:   local display_name=&quot;$2&quot;
-41:   if [[ -f &quot;$file_path&quot; ]]; then
-42:     chars=$(wc -c &lt; &quot;$file_path&quot; | tr -d &apos; &apos;)
-43:     tokens=$((chars / 4))
-44:     echo &quot; - $display_name (~$tokens tokens, $chars chars)&quot;
-45:   else
-46:     echo &quot; - $display_name (missing)&quot;
-47:   fi
-48: }
-49: print_artifact &quot;$TOKEN_TREE_FILE&quot; &quot;$TREE_FILE_NAME&quot;
-50: print_artifact &quot;$COMPRESSED_REPO_FILE&quot; &quot;$COMPRESSED_FILE_NAME&quot;
-51: print_artifact &quot;$LOSSLESS_REPO_FILE&quot; &quot;$LOSSLESS_FILE_NAME&quot;</file><file path="sidequest/pipeline-core/scanners/timeout_detector.py">  1: from __future__ import annotations
+5: npx repomix &quot;$ROOT&quot; --compress -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="sidequest/pipeline-core/scanners/timeout_detector.py">  1: from __future__ import annotations
   2: import json
   3: import re
   4: import sys
@@ -35067,7 +34888,178 @@ tsconfig.json</directory_structure><files>This section contains the contents of 
 81:     console.error(&apos;Fatal error:&apos;, error);
 82:     process.exit(1);
 83:   });
-84: }</file><file path="sidequest/pipeline-core/models/consolidation_suggestion.py">  1: import sys
+84: }</file><file path="repomix.config.json">  1: {
+  2:   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
+  3: 
+  4:   &quot;output&quot;: {
+  5:     &quot;filePath&quot;: &quot;docs/repomix/docs.xml&quot;,
+  6:     &quot;style&quot;: &quot;xml&quot;,
+  7:     &quot;parsableStyle&quot;: true,
+  8: 
+  9:     &quot;removeComments&quot;: true,
+ 10:     &quot;removeEmptyLines&quot;: true,
+ 11:     &quot;truncateBase64&quot;: true,
+ 12: 
+ 13:     &quot;fileSummary&quot;: false,
+ 14:     &quot;directoryStructure&quot;: true,
+ 15:     &quot;files&quot;: true,
+ 16: 
+ 17:     &quot;showLineNumbers&quot;: true,
+ 18: 
+ 19:     &quot;includeEmptyDirectories&quot;: false,
+ 20:     &quot;instructionFilePath&quot;: &quot;docs/repomix/repomix-instruction.md&quot;,
+ 21:     &quot;git&quot;: {
+ 22:       &quot;sortByChanges&quot;: true,
+ 23:       &quot;sortByChangesMaxCommits&quot;: 20,
+ 24:       &quot;includeDiffs&quot;: false,
+ 25:       &quot;includeLogs&quot;: false,
+ 26:       &quot;includeLogsCount&quot;: 1
+ 27:     }
+ 28:   },
+ 29: 
+ 30:   &quot;include&quot;: [
+ 31:     &quot;api/**/*&quot;,
+ 32:     &quot;frontend/**/*&quot;,
+ 33:     &quot;sidequest/**/*&quot;,
+ 34:     &quot;scripts/**/*&quot;,
+ 35:     &quot;config/**/*&quot;,
+ 36:     &quot;cloudflare-workers/**/*&quot;,
+ 37:     &quot;.ast-grep/**/*&quot;,
+ 38:     &quot;.github/workflows/**/*&quot;,
+ 39:     &quot;*.json&quot;,
+ 40:     &quot;*.ts&quot;,
+ 41:     &quot;*.tsx&quot;,
+ 42:     &quot;*.js&quot;,
+ 43:     &quot;*.py&quot;,
+ 44:     &quot;*.sh&quot;
+ 45:   ],
+ 46: 
+ 47:   &quot;ignore&quot;: {
+ 48:     &quot;useGitignore&quot;: true,
+ 49:     &quot;useDotIgnore&quot;: true,
+ 50:     &quot;useDefaultPatterns&quot;: true,
+ 51: 
+ 52:     &quot;customPatterns&quot;: [
+ 53:       &quot;docs/**&quot;,
+ 54:       &quot;docs/archive/**&quot;,
+ 55:       &quot;docs/backlog/**&quot;,
+ 56:       &quot;docs/repomix/**&quot;,
+ 57: 
+ 58:       &quot;**/node_modules/**&quot;,
+ 59:       &quot;**/.next/**&quot;,
+ 60:       &quot;**/.turbo/**&quot;,
+ 61:       &quot;**/.vite/**&quot;,
+ 62:       &quot;**/dist/**&quot;,
+ 63:       &quot;**/build/**&quot;,
+ 64:       &quot;**/coverage/**&quot;,
+ 65: 
+ 66:       &quot;**/.ast-grep-backups/**&quot;,
+ 67: 
+ 68:       &quot;**/*.log&quot;,
+ 69:       &quot;**/*.tmp&quot;,
+ 70:       &quot;**/*.cache&quot;,
+ 71:       &quot;**/*.map&quot;,
+ 72:       &quot;**/*.min.js&quot;,
+ 73:       &quot;**/*.min.css&quot;,
+ 74: 
+ 75:       &quot;**/*.png&quot;,
+ 76:       &quot;**/*.jpg&quot;,
+ 77:       &quot;**/*.jpeg&quot;,
+ 78:       &quot;**/*.gif&quot;,
+ 79:       &quot;**/*.webp&quot;,
+ 80:       &quot;**/*.ico&quot;,
+ 81:       &quot;**/*.pdf&quot;,
+ 82:       &quot;**/*.zip&quot;,
+ 83:       &quot;**/*.tar&quot;,
+ 84:       &quot;**/*.gz&quot;,
+ 85:       &quot;**/*.tgz&quot;,
+ 86:       &quot;**/*.7z&quot;,
+ 87: 
+ 88:       &quot;**/*.mp4&quot;,
+ 89:       &quot;**/*.mov&quot;,
+ 90:       &quot;**/*.avi&quot;,
+ 91:       &quot;**/*.mp3&quot;,
+ 92:       &quot;**/*.wav&quot;,
+ 93: 
+ 94:       &quot;**/.env&quot;,
+ 95:       &quot;**/.env.*&quot;,
+ 96:       &quot;**/*.pem&quot;,
+ 97:       &quot;**/*.key&quot;,
+ 98:       &quot;**/*.p12&quot;,
+ 99:       &quot;**/*.pfx&quot;
+100:     ]
+101:   },
+102: 
+103: 
+104:   &quot;security&quot;: {
+105:     &quot;enableSecurityCheck&quot;: true
+106:   },
+107: 
+108:   &quot;tokenCount&quot;: {
+109:     &quot;encoding&quot;: &quot;o200k_base&quot;
+110:   },
+111: }</file><file path="scripts/generate-repomix.sh">1: set -euo pipefail
+2: ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
+3: OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
+4: FORCE_COLOR=0 NO_COLOR=1 timeout 60 \
+5: npx repomix &quot;$ROOT&quot; -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/generate-token-tree.sh">1: set -euo pipefail
+2: ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
+3: OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
+4: FORCE_COLOR=0 NO_COLOR=1 npx repomix &quot;$ROOT&quot; --token-count-tree --no-files --no-file-summary 2&gt;&amp;1 \
+5:   | tr -d &apos;\r&apos; \
+6:   | sed -E &apos;s/\x1B\[[0-9;]*[A-Za-z]//g&apos; \
+7:   | awk &apos;BEGIN{keep=0} /^🔢 Token Count Tree:/{keep=1} /^🔎 Security Check:/{keep=0} keep&apos; \
+8:   &gt; &quot;$OUTPUT_FILE&quot;</file><file path="scripts/repomix-regen.sh"> 1: set -euo pipefail
+ 2: ROOT=&quot;$(cd &quot;$(dirname &quot;$0&quot;)/..&quot; &amp;&amp; pwd)&quot;
+ 3: TREE_FILE=&quot;token-tree&quot;
+ 4: COMPRESSED_FILE=&quot;repo-compressed&quot;
+ 5: LOSSLESS_FILE=&quot;repomix&quot;
+ 6: OUTPUT_PATH=&quot;docs/repomix&quot;
+ 7: OUT_DIR=&quot;$ROOT/$OUTPUT_PATH&quot;
+ 8: TOKEN_TREE_FILE=&quot;$OUT_DIR/$TREE_FILE.txt&quot;
+ 9: COMPRESSED_REPO_FILE=&quot;$OUT_DIR/$COMPRESSED_FILE.xml&quot;
+10: LOSSLESS_REPO_FILE=&quot;$OUT_DIR/$LOSSLESS_FILE.xml&quot;
+11: TREE_FILE_NAME=&quot;$OUTPUT_PATH/$TREE_FILE.txt&quot;
+12: COMPRESSED_FILE_NAME=&quot;$OUTPUT_PATH/$COMPRESSED_FILE.xml&quot;
+13: LOSSLESS_FILE_NAME=&quot;$OUTPUT_PATH/$LOSSLESS_FILE.xml&quot;
+14: INPUT_DIR=&quot;$ROOT/scripts/generate-&quot;
+15: TOKEN_TREE_SCRIPT=&quot;$INPUT_DIR$TREE_FILE.sh&quot;
+16: COMPRESS_SCRIPT=&quot;$INPUT_DIR$COMPRESSED_FILE.sh&quot;
+17: LOSSLESS_SCRIPT=&quot;$INPUT_DIR$LOSSLESS_FILE.sh&quot;
+18: echo &quot;File set up...&quot;
+19: mkdir -p &quot;$OUT_DIR&quot;
+20: find &quot;$OUT_DIR&quot; -maxdepth 1 -type f \
+21:   ! -name &apos;repomix-instruction.md&apos; \
+22:   ! -name &apos;.gitkeep&apos; \
+23:   -exec rm -f {} +
+24: PROJECT_DIR=&quot;$(basename &quot;$ROOT&quot;)&quot;
+25: echo &quot;Generating token count tree for $PROJECT_DIR at $TREE_FILE_NAME&quot;
+26: bash &quot;$TOKEN_TREE_SCRIPT&quot; &quot;$ROOT&quot; &quot;$TOKEN_TREE_FILE&quot;
+27: echo &quot;Success!&quot;
+28: echo
+29: echo &quot;Generating compressed repomix file for $PROJECT_DIR at $COMPRESSED_FILE_NAME&quot;
+30: bash &quot;$COMPRESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$COMPRESSED_REPO_FILE&quot;
+31: echo &quot;Success!&quot;
+32: echo
+33: echo &quot;Generating repomix file for $PROJECT_DIR at $LOSSLESS_FILE_NAME&quot;
+34: bash &quot;$LOSSLESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$LOSSLESS_REPO_FILE&quot;
+35: echo &quot;Success!&quot;
+36: echo
+37: echo &quot;Artifacts:&quot;
+38: print_artifact() {
+39:   local file_path=&quot;$1&quot;
+40:   local display_name=&quot;$2&quot;
+41:   if [[ -f &quot;$file_path&quot; ]]; then
+42:     chars=$(wc -c &lt; &quot;$file_path&quot; | tr -d &apos; &apos;)
+43:     tokens=$((chars / 4))
+44:     echo &quot; - $display_name (~$tokens tokens, $chars chars)&quot;
+45:   else
+46:     echo &quot; - $display_name (missing)&quot;
+47:   fi
+48: }
+49: print_artifact &quot;$TOKEN_TREE_FILE&quot; &quot;$TREE_FILE_NAME&quot;
+50: print_artifact &quot;$COMPRESSED_REPO_FILE&quot; &quot;$COMPRESSED_FILE_NAME&quot;
+51: print_artifact &quot;$LOSSLESS_REPO_FILE&quot; &quot;$LOSSLESS_FILE_NAME&quot;</file><file path="sidequest/pipeline-core/models/consolidation_suggestion.py">  1: import sys
   2: from datetime import datetime
   3: from enum import Enum
   4: from pathlib import Path
