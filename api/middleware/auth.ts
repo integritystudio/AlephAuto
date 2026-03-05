@@ -28,26 +28,42 @@ const PUBLIC_PATHS = [
 ];
 
 /**
- * Validates an API key using constant-time comparison.
+ * Returns true only for explicit development environments.
+ */
+function isDevelopmentEnvironment(): boolean {
+  return config.nodeEnv.toLowerCase() === 'development';
+}
+
+/**
+ * Returns the configured API key when present.
+ */
+function getConfiguredApiKey(): string | null {
+  const configuredValue =
+    ((config as Record<string, unknown>).apiKey as string | undefined)
+    || process.env.API_KEY;
+
+  if (!configuredValue) {
+    return null;
+  }
+
+  const trimmed = configuredValue.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/**
+ * Validates an API key using constant-time comparison against configured key.
  *
  * @param apiKey API key from request headers.
- * @returns `true` when the key is valid or auth is intentionally disabled.
+ * @param configuredApiKey API key from configuration.
+ * @returns `true` when the key is valid.
  */
-function validateApiKey(apiKey: string): boolean {
+function validateApiKey(apiKey: string, configuredApiKey: string): boolean {
   if (!apiKey) {
     return false;
   }
 
-  // Get configured API key from environment
-  const validApiKey = (config as Record<string, unknown>).apiKey as string | undefined || process.env.API_KEY;
-
-  if (!validApiKey) {
-    logger.warn('No API key configured, authentication disabled');
-    return true; // Allow if no key configured (development mode)
-  }
-
   // Constant-time comparison to prevent timing attacks
-  const expectedBuffer = Buffer.from(validApiKey);
+  const expectedBuffer = Buffer.from(configuredApiKey);
   const actualBuffer = Buffer.from(apiKey);
 
   if (expectedBuffer.length !== actualBuffer.length) {
@@ -71,6 +87,26 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     return;
   }
 
+  const configuredApiKey = getConfiguredApiKey();
+  if (!configuredApiKey) {
+    if (isDevelopmentEnvironment()) {
+      logger.warn('No API key configured; allowing protected API access in development mode');
+      next();
+      return;
+    }
+
+    logger.error({
+      path: req.path,
+      nodeEnv: config.nodeEnv
+    }, 'API_KEY is not configured; denying protected API request');
+    res.status(HttpStatus.SERVICE_UNAVAILABLE).json({
+      error: 'Service Unavailable',
+      message: 'API authentication is not configured',
+      timestamp: new Date().toISOString()
+    });
+    return;
+  }
+
   // Extract API key from header
   const apiKey = (req.headers['x-api-key'] as string | undefined) || req.headers['authorization']?.replace('Bearer ', '');
 
@@ -85,7 +121,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
   }
 
   // Validate API key
-  if (!validateApiKey(apiKey)) {
+  if (!validateApiKey(apiKey, configuredApiKey)) {
     logger.warn({
       path: req.path,
       ip: req.ip,

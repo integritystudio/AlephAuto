@@ -109,9 +109,16 @@ export function createWebSocketServer(httpServer: HttpServer): ExtendedWebSocket
       }
     }, WEBSOCKET.HEARTBEAT_INTERVAL_MS);
 
+    const clearHeartbeat = () => {
+      clearInterval(heartbeat);
+    };
+
     ws.on('pong', () => {
       logger.debug({ clientId }, 'Heartbeat received');
     });
+
+    ws.on('close', clearHeartbeat);
+    ws.on('error', clearHeartbeat);
   });
 
   wss.on('error', (error) => {

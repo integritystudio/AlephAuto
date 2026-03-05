@@ -35,4 +35,4 @@ jobs:
             echo "::warning::Function() constructor detected - review for safety"
           fi
       - name: TypeScript type check
-        run: pnpm run typecheck || true
+        run: pnpm run typecheck
