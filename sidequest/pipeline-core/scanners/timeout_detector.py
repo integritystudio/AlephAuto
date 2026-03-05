@@ -322,11 +322,6 @@ class TimeoutDetector:
 def main():
     """Main CLI entry point"""
     if len(sys.argv) < 2:
-        print("Usage: python3 timeout_detector.py <repo-path> [--output <file>]")
-        print("")
-        print("Examples:")
-        print("  python3 timeout_detector.py ~/code/myproject")
-        print("  python3 timeout_detector.py ~/code/myproject --output report.md")
         sys.exit(1)
 
     repo_path = sys.argv[1]
@@ -350,7 +345,6 @@ def main():
     # Output
     if output_file:
         Path(output_file).write_text(output)
-        print(f"Report saved to: {output_file}")
     else:
         print(output)
 

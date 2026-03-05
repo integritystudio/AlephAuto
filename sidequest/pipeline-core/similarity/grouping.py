@@ -339,10 +339,6 @@ def validate_exact_group_semantics(group_blocks: List["CodeBlock"]) -> tuple:
                 group_blocks[i].source_code, group_blocks[j].source_code
             )
             if not result.is_valid:
-                print(
-                    f"DEBUG: Layer 1 REJECTED - {result.reason}: {func_names}",
-                    file=sys.stderr,
-                )
                 if result.details:
                     print(
                         f"       {result.details[0]} vs {result.details[1]}",
@@ -388,20 +384,12 @@ def _try_accept_group(
     if validate_semantics:
         is_valid, reason = validate_exact_group_semantics(group_blocks)
         if not is_valid:
-            print(
-                f"DEBUG: {layer_name} group REJECTED (semantic): {func_names} - {reason}",
-                file=sys.stderr,
-            )
             return False
 
     # Check group quality
     quality_score = calculate_group_quality_score(group_blocks, similarity_score)
 
     if quality_score < MIN_GROUP_QUALITY:
-        print(
-            f"DEBUG: {layer_name} group REJECTED (quality): {func_names} (quality={quality_score:.2f})",
-            file=sys.stderr,
-        )
         return False
 
     # Accept group
@@ -412,10 +400,6 @@ def _try_accept_group(
     for block in group_blocks:
         grouped_block_ids.add(block.block_id)
 
-    print(
-        f"DEBUG: {layer_name} group ACCEPTED: {func_names} (quality={quality_score:.2f})",
-        file=sys.stderr,
-    )
     return True
 
 
@@ -451,14 +435,9 @@ def group_by_similarity(
     grouped_block_ids = set()
 
     # Layer 1: Exact matching (hash-based)
-    print("Layer 1: Grouping by exact content hash...", file=sys.stderr)
     exact_groups = _group_by_exact_hash(complex_blocks)
 
     for hash_val, group_blocks in exact_groups.items():
-        print(
-            f"DEBUG: Layer 1 exact group candidate: {_extract_function_names(group_blocks)} (hash={hash_val[:8]})",
-            file=sys.stderr,
-        )
         _try_accept_group(
             group_blocks,
             SemanticWeights.BOTH_EMPTY_SIMILARITY,
@@ -469,16 +448,11 @@ def group_by_similarity(
             validate_semantics=True,
         )
 
-    print(f"Layer 1: Found {len(groups)} exact duplicate groups", file=sys.stderr)
 
     # Layer 2: Structural similarity (for ungrouped blocks)
     ungrouped_blocks = [
         b for b in complex_blocks if b.block_id not in grouped_block_ids
     ]
-    print(
-        f"Layer 2: Checking {len(ungrouped_blocks)} remaining blocks for structural similarity...",
-        file=sys.stderr,
-    )
 
     structural_groups = _group_by_structural_similarity(
         ungrouped_blocks, similarity_threshold
@@ -495,19 +469,11 @@ def group_by_similarity(
             "Layer 2",
         )
 
-    print(
-        f"Layer 2: Found {len(groups) - layer1_count} structural duplicate groups",
-        file=sys.stderr,
-    )
 
     # Layer 3: Semantic similarity (for remaining ungrouped blocks)
     ungrouped_blocks = [
         b for b in complex_blocks if b.block_id not in grouped_block_ids
     ]
-    print(
-        f"Layer 3: Checking {len(ungrouped_blocks)} remaining blocks for semantic similarity...",
-        file=sys.stderr,
-    )
 
     if ungrouped_blocks:
         import time
@@ -541,12 +507,6 @@ def group_by_similarity(
 
         # Print timing summary when DEBUG
         if DEBUG:
-            print("Layer 3 timing:", file=sys.stderr)
-            print(
-                f"  Annotation: {annotation_time_ms:.1f}ms ({len(ungrouped_blocks)} blocks)",
-                file=sys.stderr,
-            )
-            print(f"  Grouping: {grouping_time_ms:.1f}ms", file=sys.stderr)
             timing_report = annotator.get_timing_report()
             for name, m in timing_report.items():
                 print(
@@ -554,14 +514,9 @@ def group_by_similarity(
                     file=sys.stderr,
                 )
 
-        print(
-            f"Layer 3: Found {len(groups) - layer2_count} semantic duplicate groups",
-            file=sys.stderr,
-        )
     else:
         print("Layer 3: No ungrouped blocks remaining", file=sys.stderr)
 
-    print(f"Total: {len(groups)} duplicate groups found", file=sys.stderr)
     return groups
 
 
@@ -577,10 +532,6 @@ def _group_by_exact_hash(blocks: List["CodeBlock"]) -> Dict[str, List["CodeBlock
         if i < ScanDefaults.DEBUG_HASH_DISPLAY_LIMIT:
             func_names = _extract_function_names([block])
             func_name = func_names[0] if func_names else "unknown"
-            print(
-                f"Warning: DEBUG hash block {i}: {func_name} at {block.location.file_path}:{block.location.line_start}, hash={hash_val[:8]}, code_len={len(block.source_code)}",
-                file=sys.stderr,
-            )
 
     return hash_groups
 

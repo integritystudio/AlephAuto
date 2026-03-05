@@ -264,10 +264,6 @@ def _search_file_for_function_name(
     try:
         lines = full_path.read_text(encoding="utf-8").splitlines()
     except (OSError, UnicodeDecodeError) as e:
-        print(
-            f"Warning: Could not read file context for {file_path}: {e}",
-            file=sys.stderr,
-        )
         return None
 
     # Search backwards from match line (up to SEARCH_WINDOW lines before)
@@ -473,10 +469,6 @@ def extract_code_blocks(
             blocks.append(block)
 
         except Exception as e:
-            print(
-                f"Warning: Failed to extract block {i} from {match.get('file_path', 'unknown')}: {e}",
-                file=sys.stderr,
-            )
             import traceback
 
             traceback.print_exc(file=sys.stderr)
@@ -1077,10 +1069,6 @@ def main():
                 if isinstance(raw_input, dict)
                 else "invalid_input"
             )
-            print(
-                f"Input validation failed: {validation_error} (repo={repo_hint})",
-                file=sys.stderr,
-            )
             sys.exit(2)  # Distinct exit code for validation errors
 
         # Convert validated models to dicts for compatibility
@@ -1127,10 +1115,6 @@ def main():
             else "unknown"
         )
         match_count = len(pattern_matches) if "pattern_matches" in dir() else 0
-        print(
-            f"Error in extraction pipeline: {e} (repo={repo_path}, matches={match_count})",
-            file=sys.stderr,
-        )
         import traceback
 
         traceback.print_exc(file=sys.stderr)

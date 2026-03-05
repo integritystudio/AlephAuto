@@ -21,14 +21,11 @@ def test_model_structure():
         "scan_report",
     ]
 
-    print("Testing model file structure...")
-    print("-" * 60)
 
     for model_name in models:
         model_path = models_dir / f"{model_name}.py"
 
         if not model_path.exists():
-            print(f"❌ {model_name}.py - File not found")
             continue
 
         # Check file can be read
@@ -48,22 +45,17 @@ def test_model_structure():
             all_passed = all(checks.values())
             symbol = "✅" if all_passed else "⚠️"
 
-            print(f"{symbol} {model_name}.py")
 
             for check, passed in checks.items():
                 status = "✓" if passed else "✗"
-                print(f"  {status} {check}")
 
         except Exception as e:
             print(f"❌ {model_name}.py - Error: {e}")
 
-    print("-" * 60)
 
 
 def test_sample_data():
     """Test with sample data structure (without pydantic)"""
-    print("\nTesting sample data structures...")
-    print("-" * 60)
 
     # Sample CodeBlock data
     code_block_data = {
@@ -154,16 +146,11 @@ def test_sample_data():
 
     for name, data in samples:
         required_fields = len(data)
-        print(f"✅ {name} - {required_fields} fields defined")
-        print(f"   Sample keys: {', '.join(list(data.keys())[:5])}")
 
-    print("-" * 60)
 
 
 def test_computed_fields_logic():
     """Test the logic of computed fields (without pydantic)"""
-    print("\nTesting computed field logic...")
-    print("-" * 60)
 
     # Test DuplicateGroup impact_score calculation
     def calculate_impact_score(occurrence_count, similarity_score, total_lines):
@@ -179,12 +166,8 @@ def test_computed_fields_logic():
         (20, 0.8, 100, "High occurrence, good similarity, large size"),
     ]
 
-    print("Impact Score Calculation Tests:")
     for occurrence, similarity, lines, desc in test_cases:
         score = calculate_impact_score(occurrence, similarity, lines)
-        print(f"  {desc}")
-        print(f"    Occurrence: {occurrence}, Similarity: {similarity}, Lines: {lines}")
-        print(f"    → Impact Score: {score}/100")
 
     # Test ROI score calculation
     def calculate_roi_score(impact_score, estimated_hours):
@@ -193,7 +176,6 @@ def test_computed_fields_logic():
         roi = (impact_score / estimated_hours) * 10
         return min(round(roi, 2), 100.0)
 
-    print("\nROI Score Calculation Tests:")
     roi_tests = [
         (75.0, 0.5, "High impact, trivial effort"),
         (50.0, 2.0, "Medium impact, simple effort"),
@@ -202,30 +184,16 @@ def test_computed_fields_logic():
 
     for impact, hours, desc in roi_tests:
         roi = calculate_roi_score(impact, hours)
-        print(f"  {desc}")
-        print(f"    Impact: {impact}, Effort: {hours}h")
-        print(f"    → ROI Score: {roi}/100")
 
-    print("-" * 60)
 
 
 def main():
     """Run all tests"""
-    print("\n" + "=" * 60)
-    print("Pydantic Models Structure Test")
-    print("=" * 60)
 
     test_model_structure()
     test_sample_data()
     test_computed_fields_logic()
 
-    print("\n" + "=" * 60)
-    print("All structure tests completed!")
-    print("=" * 60)
-    print("\nNote: To fully test with Pydantic validation:")
-    print("  1. Install pydantic: pip install pydantic")
-    print("  2. Run: python -m pytest test_models.py")
-    print("=" * 60 + "\n")
 
 
 if __name__ == "__main__":

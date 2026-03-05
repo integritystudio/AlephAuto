@@ -245,7 +245,7 @@ export default {
         const queryString = url.search || '';
         const metricsUrl = `${env.QUALITY_METRICS_API_URL}${path}${queryString}`;
         const cacheKey = new Request(metricsUrl, request);
-        let cachedResponse = await cache.match(cacheKey);
+        const cachedResponse = await cache.match(cacheKey);
 
         if (cachedResponse) {
           const cachedData = await cachedResponse.json();
