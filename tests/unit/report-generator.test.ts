@@ -12,6 +12,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { generateReport, pruneOldReports } from '../../sidequest/utils/report-generator.ts';
+import { TestTiming } from '../constants/timing-test-constants.ts';
 
 describe('Report Generator', () => {
   let tempDir;
@@ -34,7 +35,7 @@ describe('Report Generator', () => {
         jobType: 'claude-health',
         status: 'completed',
         result: { healthScore: 95 },
-        startTime: Date.now() - 5000,
+        startTime: Date.now() - TestTiming.JOB_COMPLETION_OFFSET_MS,
         endTime: Date.now(),
         outputDir: tempDir
       };

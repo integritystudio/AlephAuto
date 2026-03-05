@@ -16,6 +16,7 @@
 import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
 import { config } from '../core/config.ts';
 import { BYTES_PER_KB, TIMEOUTS } from '../core/constants.ts';
+import { HEALTH_SCORE_THRESHOLDS } from '../core/score-thresholds.ts';
 import { createComponentLogger, logError, logWarn, logStart } from '../utils/logger.ts';
 import { generateReport } from '../utils/report-generator.ts';
 import { exec } from 'child_process';
@@ -847,7 +848,9 @@ class ClaudeHealthWorker extends SidequestServer {
 
     return {
       healthScore: analysis.healthScore,
-      status: analysis.healthScore >= 90 ? 'healthy' : analysis.healthScore >= 70 ? 'warning' : 'critical',
+      status: analysis.healthScore >= HEALTH_SCORE_THRESHOLDS.HEALTHY_MIN_SCORE
+        ? 'healthy'
+        : analysis.healthScore >= HEALTH_SCORE_THRESHOLDS.WARNING_MIN_SCORE ? 'warning' : 'critical',
       criticalIssues: critical,
       warnings: warningCount,
       message: this.getStatusMessage(analysis.healthScore, critical, warningCount)
@@ -858,9 +861,9 @@ class ClaudeHealthWorker extends SidequestServer {
    * Get status message based on health score
    */
   getStatusMessage(healthScore: number, critical: number, warnings: number): string {
-    if (healthScore >= 90 && critical === 0 && warnings === 0) {
+    if (healthScore >= HEALTH_SCORE_THRESHOLDS.HEALTHY_MIN_SCORE && critical === 0 && warnings === 0) {
       return 'Claude environment is healthy';
-    } else if (healthScore >= 70) {
+    } else if (healthScore >= HEALTH_SCORE_THRESHOLDS.WARNING_MIN_SCORE) {
       return `Claude environment has ${warnings} warning(s)`;
     } else {
       return `Claude environment has ${critical} critical issue(s)`;

@@ -16,6 +16,7 @@ import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { TestTiming } from '../constants/timing-test-constants.ts';
 
 const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
@@ -90,7 +91,7 @@ describe('Pipeline Execution - Integration Tests', () => {
         `"${pipelinePath}" --version || true`,
         {
           cwd: projectRoot,
-          timeout: 5000,
+          timeout: TestTiming.DEFAULT_WAIT_TIMEOUT_MS,
           env: {
             ...process.env,
             RUN_ON_STARTUP: 'false'

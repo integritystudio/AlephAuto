@@ -10,6 +10,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { ReportCoordinator } from '../../sidequest/pipeline-core/reports/report-coordinator.ts';
+import { TestScoreFixtures } from '../constants/test-score-constants.ts';
 
 describe('ReportCoordinator', () => {
   let tempDir;
@@ -46,7 +47,7 @@ describe('ReportCoordinator', () => {
         ],
         occurrence_count: 2,
         similarity_score: 0.95,
-        impact_score: 70
+        impact_score: TestScoreFixtures.GOOD_IMPACT_SCORE
       }
     ],
     suggestions: [
@@ -56,7 +57,7 @@ describe('ReportCoordinator', () => {
         strategy: 'local_util',
         strategy_rationale: 'Extract to shared utility',
         target_location: 'src/utils/common.js',
-        impact_score: 70,
+        impact_score: TestScoreFixtures.GOOD_IMPACT_SCORE,
         roi_score: 85,
         complexity: 'simple',
         migration_risk: 'low'

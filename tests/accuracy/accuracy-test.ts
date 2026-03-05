@@ -11,6 +11,7 @@
 
 import { ScanOrchestrator } from '../../sidequest/pipeline-core/scan-orchestrator.ts';
 import { compareResults, calculateAllMetrics, generateAccuracyReport } from './metrics.ts';
+import { TestOutputFormat } from '../constants/output-format-constants.ts';
 import { readFile, writeFile } from 'fs/promises';
 import { createComponentLogger } from '../../sidequest/logger.ts';
 import path from 'path';
@@ -184,7 +185,7 @@ async function executeDuplicateScan(testRepoPath): Promise<{ scanResult: any; du
   });
 
   console.log('Running duplicate detection scan...');
-  console.log('-'.repeat(70));
+  console.log('-'.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
 
   const startTime = Date.now();
 
@@ -245,7 +246,7 @@ function processDetectedGroups(scanResult): any[] {
  */
 function calculateAccuracyMetrics(detectedGroups, expected): { comparison: any; metrics: any; report: any } {
   console.log('Comparing results against ground truth...');
-  console.log('-'.repeat(70));
+  console.log('-'.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
 
   const comparison = compareResults(
     detectedGroups,
@@ -266,7 +267,7 @@ function calculateAccuracyMetrics(detectedGroups, expected): { comparison: any; 
 function printAccuracyMetrics(metrics) {
   console.log();
   console.log('ACCURACY METRICS');
-  console.log('='.repeat(70));
+  console.log('='.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
   console.log();
 
   console.log(`Precision:  ${metrics.precision.percentage.padStart(8)} - ${metrics.precision.interpretation}`);
@@ -292,7 +293,7 @@ function printAccuracyMetrics(metrics) {
  */
 function printTargetComparison(targets) {
   console.log('TARGET COMPARISON');
-  console.log('='.repeat(70));
+  console.log('='.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
   console.log();
 
   /**
@@ -318,7 +319,7 @@ function printTargetComparison(targets) {
  */
 function printDetailedResults(comparison) {
   console.log('DETAILS');
-  console.log('='.repeat(70));
+  console.log('='.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
   console.log();
 
   if (comparison.truePositives.length > 0) {
@@ -367,7 +368,7 @@ function printDetailedResults(comparison) {
  */
 async function printOverallAssessmentAndSave(report, comparison): Promise<boolean> {
   console.log('OVERALL ASSESSMENT');
-  console.log('='.repeat(70));
+  console.log('='.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
   console.log();
   console.log(`Grade:              ${report.overall_assessment.grade}`);
   console.log(`All Targets Met:    ${report.overall_assessment.all_targets_met ? '✅ YES' : '❌ NO'}`);
@@ -393,9 +394,9 @@ async function printOverallAssessmentAndSave(report, comparison): Promise<boolea
  * Run accuracy test - main coordinator function
  */
 async function runAccuracyTest() {
-  console.log('='.repeat(70));
+  console.log('='.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
   console.log('Duplicate Detection Accuracy Test Suite');
-  console.log('='.repeat(70));
+  console.log('='.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
   console.log();
 
   // Phase 1: Load ground truth
@@ -425,7 +426,7 @@ async function runAccuracyTest() {
     console.log('❌ Some accuracy targets not met. See details above.');
   }
 
-  console.log('='.repeat(70));
+  console.log('='.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
 
   process.exit(success ? 0 : 1);
 }

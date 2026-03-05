@@ -13,8 +13,9 @@ import { wsService } from '../services/websocket';
 import { useDashboardStore } from '../store/dashboard';
 import { PipelineType } from '../types';
 import type { Pipeline, SystemHealth } from '../types';
+import { DASHBOARD_TIMING } from '../constants/timing';
 
-const POLL_INTERVAL_MS = 5000;
+const POLL_INTERVAL_MS = DASHBOARD_TIMING.STATUS_POLL_INTERVAL_MS;
 
 const PIPELINE_TYPE_MAP: Record<string, PipelineType> = {
   'duplicate-detection': PipelineType.DUPLICATE_DETECTION,

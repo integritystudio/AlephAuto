@@ -31,6 +31,7 @@ import { ClaudeHealthWorker } from '../workers/claude-health-worker.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
 import { BYTES_PER_KB, HEALTH, JOB_EVENTS } from '../core/constants.ts';
+import { HEALTH_SCORE_THRESHOLDS } from '../core/score-thresholds.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -383,8 +384,8 @@ function printDetailedChecks(checks: HealthCheckResult['checks']): void {
  * getScoreColor.
  */
 function getScoreColor(score: number): string {
-  if (score >= 90) return '\x1b[32m'; // Green
-  if (score >= 70) return '\x1b[33m'; // Yellow
+  if (score >= HEALTH_SCORE_THRESHOLDS.HEALTHY_MIN_SCORE) return '\x1b[32m'; // Green
+  if (score >= HEALTH_SCORE_THRESHOLDS.WARNING_MIN_SCORE) return '\x1b[33m'; // Yellow
   return '\x1b[31m'; // Red
 }
 

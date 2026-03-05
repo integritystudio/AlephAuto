@@ -10,6 +10,7 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { TIMEOUTS } from '../sidequest/core/constants.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -87,7 +88,7 @@ check('repomix available via npx', () => {
     const version = execSync('npx repomix --version', {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 5000,
+      timeout: TIMEOUTS.SHORT_MS,
     }).trim();
     console.log(`   Version: ${version}`);
   } catch (error) {

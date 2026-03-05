@@ -15,6 +15,7 @@ import { MigrationTransformer } from './migration-transformer.ts';
 import type { MigrationStep } from '../types/migration-types.ts';
 
 const logger = createComponentLogger('PRCreator');
+const STRATEGY_RATIONALE_PREVIEW_CHARS = 80;
 
 
 interface Suggestion {
@@ -354,7 +355,7 @@ export class PRCreator {
       `This commit consolidates ${consolidationCount} identified duplicate code pattern${consolidationCount > 1 ? 's' : ''} across ${fileCount} file${fileCount > 1 ? 's' : ''}.`,
       '',
       'Consolidations:',
-      ...suggestions.map((s, i) => `${i + 1}. ${s.target_name || s.suggestion_id}: ${s.strategy_rationale.substring(0, 80)}...`),
+      ...suggestions.map((s, i) => `${i + 1}. ${s.target_name || s.suggestion_id}: ${s.strategy_rationale.substring(0, STRATEGY_RATIONALE_PREVIEW_CHARS)}...`),
       '',
       'Files created:',
       ...filesModified.map(f => `- ${f}`),

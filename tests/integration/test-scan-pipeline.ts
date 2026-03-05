@@ -8,6 +8,7 @@
 
 import { ScanOrchestrator } from '../../sidequest/pipeline-core/scan-orchestrator.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
+import { TestOutputFormat } from '../constants/output-format-constants.ts';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -88,9 +89,9 @@ async function main() {
       pattern_config: { languages: ['javascript', 'typescript'] }
     });
 
-    console.log('\n' + '='.repeat(80));
+    console.log('\n' + '='.repeat(TestOutputFormat.WIDE_SEPARATOR_WIDTH));
     console.log('SCAN RESULTS');
-    console.log('='.repeat(80));
+    console.log('='.repeat(TestOutputFormat.WIDE_SEPARATOR_WIDTH));
 
     printScanMetrics(result.metrics);
     printTopGroups(result.duplicate_groups);
@@ -101,7 +102,7 @@ async function main() {
     await fs.writeFile(outputPath, JSON.stringify(result, null, 2));
 
     console.log(`\n\nFull results saved to: ${outputPath}`);
-    console.log('='.repeat(80) + '\n');
+    console.log('='.repeat(TestOutputFormat.WIDE_SEPARATOR_WIDTH) + '\n');
     logger.info('Test scan completed successfully');
 
   } catch (error) {

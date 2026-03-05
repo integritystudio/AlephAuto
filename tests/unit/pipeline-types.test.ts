@@ -15,6 +15,7 @@ import {
   createErrorResponse,
   createValidationErrorResponse
 } from '../../api/types/pipeline-requests.ts';
+import { TestTiming } from '../constants/timing-test-constants.ts';
 
 describe('Pipeline Type Schemas', () => {
   describe('JobStatusSchema', () => {
@@ -92,7 +93,7 @@ describe('Pipeline Type Schemas', () => {
         status: 'completed',
         startTime: new Date().toISOString(),
         endTime: new Date().toISOString(),
-        duration: 5000,
+        duration: TestTiming.JOB_COMPLETION_OFFSET_MS,
         parameters: {
           repositoryPath: '/path/to/repo'
         },

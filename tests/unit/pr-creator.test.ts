@@ -9,6 +9,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { PRCreator } from '../../sidequest/pipeline-core/git/pr-creator.ts';
+import { TestScoreFixtures } from '../constants/test-score-constants.ts';
 
 describe('PRCreator', () => {
   describe('Constructor', () => {
@@ -227,7 +228,7 @@ describe('PRCreator', () => {
         suggestion_id: 'sug-1',
         target_name: 'formatDate',
         strategy: 'local_util',
-        impact_score: 80,
+        impact_score: TestScoreFixtures.HIGH_IMPACT_SCORE,
         complexity: 'simple',
         migration_risk: 'low',
         strategy_rationale: 'Extract utility',
@@ -249,7 +250,7 @@ describe('PRCreator', () => {
         suggestion_id: 'sug-1',
         target_name: 'util',
         strategy: 'shared_package',
-        impact_score: 70,
+        impact_score: TestScoreFixtures.GOOD_IMPACT_SCORE,
         complexity: 'moderate',
         migration_risk: 'medium',
         strategy_rationale: 'Create shared package',
@@ -270,7 +271,7 @@ describe('PRCreator', () => {
           suggestion_id: 'sug-1',
           target_name: 'util1',
           strategy: 'local_util',
-          impact_score: 80,
+          impact_score: TestScoreFixtures.HIGH_IMPACT_SCORE,
           complexity: 'simple',
           migration_risk: 'low',
           strategy_rationale: 'Extract util1',
@@ -328,7 +329,7 @@ describe('PRCreator', () => {
 
       const scanResult = {
         suggestions: [
-          { suggestion_id: 'sug-1', automated_refactor_possible: false, impact_score: 80 },
+          { suggestion_id: 'sug-1', automated_refactor_possible: false, impact_score: TestScoreFixtures.HIGH_IMPACT_SCORE },
           { suggestion_id: 'sug-2', automated_refactor_possible: true, impact_score: 30 }, // Low impact
         ]
       };
@@ -344,8 +345,8 @@ describe('PRCreator - Helper Functions', () => {
   describe('Suggestion filtering', () => {
     it('should filter by automated_refactor_possible and impact_score', () => {
       const suggestions = [
-        { suggestion_id: 'a', automated_refactor_possible: true, impact_score: 80 }, // Pass
-        { suggestion_id: 'b', automated_refactor_possible: false, impact_score: 80 }, // Fail - not automatable
+        { suggestion_id: 'a', automated_refactor_possible: true, impact_score: TestScoreFixtures.HIGH_IMPACT_SCORE }, // Pass
+        { suggestion_id: 'b', automated_refactor_possible: false, impact_score: TestScoreFixtures.HIGH_IMPACT_SCORE }, // Fail - not automatable
         { suggestion_id: 'c', automated_refactor_possible: true, impact_score: 40 }, // Fail - low impact
         { suggestion_id: 'd', automated_refactor_possible: true, impact_score: 50 }, // Pass - exactly 50
       ];

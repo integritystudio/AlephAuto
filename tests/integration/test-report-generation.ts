@@ -11,6 +11,7 @@ import { HTMLReportGenerator } from '../../sidequest/pipeline-core/reports/html-
 import { MarkdownReportGenerator } from '../../sidequest/pipeline-core/reports/markdown-report-generator.ts';
 import { BYTES_PER_KB } from '../../sidequest/core/constants.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
+import { TestOutputFormat } from '../constants/output-format-constants.ts';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -47,9 +48,9 @@ async function main() {
     const markdownPath = path.join(outputDir, `${baseName}.md`);
     const summaryPath = path.join(outputDir, `${baseName}-summary.md`);
 
-    console.log('\n' + '='.repeat(80));
+    console.log('\n' + '='.repeat(TestOutputFormat.WIDE_SEPARATOR_WIDTH));
     console.log('REPORT GENERATION TEST');
-    console.log('='.repeat(80));
+    console.log('='.repeat(TestOutputFormat.WIDE_SEPARATOR_WIDTH));
 
     // Test 1: Generate HTML report
     console.log('\n1. Generating HTML report...');
@@ -101,17 +102,17 @@ async function main() {
     console.log(`   📊 Size: ${(summaryStats.size / BYTES_PER_KB).toFixed(2)} KB`);
 
     // Display summary content
-    console.log('\n' + '='.repeat(80));
+    console.log('\n' + '='.repeat(TestOutputFormat.WIDE_SEPARATOR_WIDTH));
     console.log('QUICK SUMMARY');
-    console.log('='.repeat(80));
+    console.log('='.repeat(TestOutputFormat.WIDE_SEPARATOR_WIDTH));
 
     const summaryContent = await fs.readFile(summaryOutput, 'utf8');
     console.log('\n' + summaryContent);
 
     // Display first few lines of Markdown report
-    console.log('='.repeat(80));
+    console.log('='.repeat(TestOutputFormat.WIDE_SEPARATOR_WIDTH));
     console.log('MARKDOWN REPORT PREVIEW');
-    console.log('='.repeat(80));
+    console.log('='.repeat(TestOutputFormat.WIDE_SEPARATOR_WIDTH));
 
     const markdownContent = await fs.readFile(markdownOutput, 'utf8');
     const lines = markdownContent.split('\n');
@@ -120,13 +121,13 @@ async function main() {
       console.log(`\n... and ${lines.length - 30} more lines`);
     }
 
-    console.log('\n' + '='.repeat(80));
+    console.log('\n' + '='.repeat(TestOutputFormat.WIDE_SEPARATOR_WIDTH));
     console.log('REPORT GENERATION COMPLETED');
-    console.log('='.repeat(80));
+    console.log('='.repeat(TestOutputFormat.WIDE_SEPARATOR_WIDTH));
     console.log(`\nHTML:     ${htmlOutput}`);
     console.log(`Markdown: ${markdownOutput}`);
     console.log(`Summary:  ${summaryOutput}`);
-    console.log('='.repeat(80) + '\n');
+    console.log('='.repeat(TestOutputFormat.WIDE_SEPARATOR_WIDTH) + '\n');
 
     logger.info('Report generation test completed successfully');
 

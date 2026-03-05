@@ -22,6 +22,7 @@ import { ActivityFeedManager } from '../../api/activity-feed.ts';
 import { SidequestServer } from '../../sidequest/core/server.ts';
 import { initDatabase } from '../../sidequest/core/database.ts';
 import { waitForQueueDrain } from '../fixtures/test-helpers.ts';
+import { TestTiming } from '../constants/timing-test-constants.ts';
 
 describe('Activity Feed - Integration Tests', () => {
   let activityFeed;
@@ -63,7 +64,7 @@ describe('Activity Feed - Integration Tests', () => {
     // This is a no-op if the test body already called waitForQueueDrain.
     // For retry scenarios (Scenario 7), the queue is also drained at this point
     // because the test waited for retry:created (active=0, queued=0).
-    await waitForQueueDrain(worker, { timeout: 5000 });
+    await waitForQueueDrain(worker, { timeout: TestTiming.DEFAULT_WAIT_TIMEOUT_MS });
     worker.stop();
   });
 

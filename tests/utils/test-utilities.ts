@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import { SidequestServer } from '../../sidequest/core/server.ts';
+import { TestTiming } from '../constants/timing-test-constants.ts';
 
 interface TestWorkerOptions {
   jobType?: string;
@@ -90,7 +91,11 @@ export class TestWorker extends SidequestServer {
 }
 
 /** Wait for one event emission and resolve with emitted arguments. */
-export function waitForEvent(emitter: EventEmitter, eventName: string, timeout = 5000): Promise<unknown[]> {
+export function waitForEvent(
+  emitter: EventEmitter,
+  eventName: string,
+  timeout = TestTiming.DEFAULT_WAIT_TIMEOUT_MS
+): Promise<unknown[]> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error(`Timeout waiting for event: ${eventName} (waited ${timeout}ms)`));
@@ -110,7 +115,11 @@ interface JobCompletionResult {
 }
 
 /** Wait until a specific job reaches completed or failed status. */
-export async function waitForJobCompletion(worker: EventEmitter, jobId: string, timeout = 5000): Promise<JobCompletionResult> {
+export async function waitForJobCompletion(
+  worker: EventEmitter,
+  jobId: string,
+  timeout = TestTiming.DEFAULT_WAIT_TIMEOUT_MS
+): Promise<JobCompletionResult> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error(`Job ${jobId} did not complete within ${timeout}ms`));
@@ -283,7 +292,7 @@ export async function waitForMultipleEvents(
   worker: EventEmitter,
   eventName: string,
   count: number,
-  timeout = 5000
+  timeout = TestTiming.DEFAULT_WAIT_TIMEOUT_MS
 ): Promise<unknown[][]> {
   const events: unknown[][] = [];
 

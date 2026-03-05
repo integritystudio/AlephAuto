@@ -15,6 +15,7 @@ import {
   killProcessOnPort
 } from '../../api/utils/port-manager.ts';
 import { createServer } from 'http';
+import { TestTiming } from '../constants/timing-test-constants.ts';
 
 const describeEnvSensitive = process.env.SKIP_ENV_SENSITIVE_TESTS === '1'
   ? describe.skip
@@ -506,7 +507,7 @@ describeEnvSensitive('Port Manager', () => {
 
       // Should not throw with custom timeout
       setupGracefulShutdown(server, {
-        timeout: 5000
+        timeout: TestTiming.DEFAULT_WAIT_TIMEOUT_MS
       });
 
       assert.ok(process.listeners('SIGTERM').length > 0);

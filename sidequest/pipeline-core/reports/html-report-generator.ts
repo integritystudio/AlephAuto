@@ -5,6 +5,7 @@
  */
 
 import { saveGeneratedReport } from '../utils/index.ts';
+import { REPORT_SCORE_CLASS_THRESHOLDS } from '../../core/score-thresholds.ts';
 import type { ScanResult } from './json-report-generator.ts';
 
 export interface HTMLReportOptions {
@@ -674,8 +675,8 @@ export class HTMLReportGenerator {
    * @private
    */
   private static _getImpactClass(score: number): string {
-    if (score >= 70) return 'impact-high';
-    if (score >= 40) return 'impact-medium';
+    if (score >= REPORT_SCORE_CLASS_THRESHOLDS.IMPACT_HIGH_MIN_SCORE) return 'impact-high';
+    if (score >= REPORT_SCORE_CLASS_THRESHOLDS.IMPACT_MEDIUM_MIN_SCORE) return 'impact-medium';
     return 'impact-low';
   }
 
@@ -684,8 +685,8 @@ export class HTMLReportGenerator {
    * @private
    */
   private static _getROIClass(score: number): string {
-    if (score >= 80) return 'roi-high';
-    if (score >= 50) return 'roi-medium';
+    if (score >= REPORT_SCORE_CLASS_THRESHOLDS.ROI_HIGH_MIN_SCORE) return 'roi-high';
+    if (score >= REPORT_SCORE_CLASS_THRESHOLDS.ROI_MEDIUM_MIN_SCORE) return 'roi-medium';
     return 'roi-low';
   }
 

@@ -24,6 +24,7 @@ import {
   getJobs,
   isDatabaseReady
 } from '../../sidequest/core/database.ts';
+import { TestTiming } from '../constants/timing-test-constants.ts';
 
 // Test implementation of SidequestServer
 class TestServer extends SidequestServer {
@@ -176,7 +177,7 @@ describe('Job Persistence on Running Status', () => {
     // Wait for job to start (with timeout)
     const startedJob = await Promise.race([
       startedPromise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Job did not start')), 5000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Job did not start')), TestTiming.DEFAULT_WAIT_TIMEOUT_MS))
     ]);
 
     assert.ok(startedJob, 'Job should have started');
@@ -206,7 +207,7 @@ describe('Job Persistence on Running Status', () => {
     // Wait for job to complete (with timeout)
     await Promise.race([
       completedPromise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Job did not complete')), 5000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Job did not complete')), TestTiming.DEFAULT_WAIT_TIMEOUT_MS))
     ]);
 
     // Check final state in database
@@ -268,7 +269,7 @@ describe('Job Status Lifecycle in Database', () => {
     // Wait for completion with timeout
     await Promise.race([
       completedPromise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Job did not complete')), 5000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Job did not complete')), TestTiming.DEFAULT_WAIT_TIMEOUT_MS))
     ]);
 
     // Verify lifecycle
@@ -303,7 +304,7 @@ describe('Job Status Lifecycle in Database', () => {
     // Wait for failure with timeout
     await Promise.race([
       failedPromise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Job did not fail')), 5000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Job did not fail')), TestTiming.DEFAULT_WAIT_TIMEOUT_MS))
     ]);
 
     // Verify lifecycle
@@ -544,7 +545,7 @@ describe('Integration: Server + Activity Feed', () => {
     // Wait for completion with timeout
     await Promise.race([
       completedPromise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Job did not complete')), 5000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Job did not complete')), TestTiming.DEFAULT_WAIT_TIMEOUT_MS))
     ]);
 
     // Verify database persistence
@@ -594,7 +595,7 @@ describe('Integration: Server + Activity Feed', () => {
     // Wait for failure with timeout
     await Promise.race([
       failedPromise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Job did not fail')), 5000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Job did not fail')), TestTiming.DEFAULT_WAIT_TIMEOUT_MS))
     ]);
 
     // Verify database persistence

@@ -1,6 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
 import { SchemaMCPTools } from '../../sidequest/utils/schema-mcp-tools.ts';
+import { TestScoreFixtures } from '../constants/test-score-constants.ts';
 
 describe('SchemaMCPTools', () => {
   test('should initialize with default options', () => {
@@ -226,7 +227,7 @@ describe('SchemaMCPTools', () => {
 
     const impact = await tools.analyzeSchemaImpact('original', 'enhanced', schema);
 
-    assert.ok(impact.impactScore >= 80);
+    assert.ok(impact.impactScore >= TestScoreFixtures.HIGH_IMPACT_SCORE);
     assert.strictEqual(impact.rating, 'Excellent');
   });
 
@@ -285,7 +286,7 @@ describe('SchemaMCPTools', () => {
     const tools = new SchemaMCPTools();
 
     assert.strictEqual(tools.getRating(90), 'Excellent');
-    assert.strictEqual(tools.getRating(70), 'Good');
+    assert.strictEqual(tools.getRating(TestScoreFixtures.GOOD_IMPACT_SCORE), 'Good');
     assert.strictEqual(tools.getRating(50), 'Fair');
     assert.strictEqual(tools.getRating(30), 'Needs Improvement');
   });

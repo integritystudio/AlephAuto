@@ -39,7 +39,10 @@ export const TIMEOUTS = {
 
   /** Shared operation durations */
   POLL_INTERVAL_MS: TIME_MS.SECOND,
+  TWO_SECONDS_MS: 2 * TIME_MS.SECOND,
   SHORT_MS: 5 * TIME_MS.SECOND,
+  TEN_SECONDS_MS: 10 * TIME_MS.SECOND,
+  FIFTEEN_SECONDS_MS: 15 * TIME_MS.SECOND,
   MEDIUM_MS: 10 * TIME_MS.SECOND,
   LONG_MS: 30 * TIME_MS.SECOND,
   ONE_MINUTE_MS: TIME_MS.MINUTE,
@@ -140,6 +143,14 @@ export const RATE_LIMIT = {
 
   /** Strict rate limit window (1 hour) */
   STRICT_WINDOW_MS: TIME_MS.HOUR,
+} as const;
+
+/**
+ * Database runtime configuration
+ */
+export const DATABASE = {
+  /** Busy timeout for SQLite lock waits */
+  BUSY_TIMEOUT_MS: TIMEOUTS.SHORT_MS,
 } as const;
 
 /**

@@ -1,4 +1,5 @@
 import { config } from '../core/config.ts';
+import { SCHEMA_RATING_THRESHOLDS } from '../core/score-thresholds.ts';
 
 interface SchemaContext {
   hasPackageJson?: boolean;
@@ -322,13 +323,13 @@ function computeImpactScore(impact: SchemaImpact, schema: SchemaObject): number 
  * getRatingForScore.
  */
 function getRatingForScore(score: number): string {
-  if (score >= 80) {
+  if (score >= SCHEMA_RATING_THRESHOLDS.EXCELLENT_MIN_SCORE) {
     return 'Excellent';
   }
-  if (score >= 60) {
+  if (score >= SCHEMA_RATING_THRESHOLDS.GOOD_MIN_SCORE) {
     return 'Good';
   }
-  if (score >= 40) {
+  if (score >= SCHEMA_RATING_THRESHOLDS.FAIR_MIN_SCORE) {
     return 'Fair';
   }
   return 'Needs Improvement';

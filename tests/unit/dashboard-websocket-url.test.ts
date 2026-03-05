@@ -15,6 +15,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
+const DEFAULT_HTTP_PORT = 80;
+
 /**
  * Derives WebSocket URL from API base URL
  * This mirrors the logic in public/dashboard.js connectWebSocket()
@@ -165,12 +167,12 @@ describe('Dashboard WebSocket URL Derivation', () => {
       assert.ok(!wsUrl.includes(':443'), 'Should not include default HTTPS port');
     });
 
-    it('should handle URL without explicit port (http default 80)', () => {
+    it(`should handle URL without explicit port (http default ${DEFAULT_HTTP_PORT})`, () => {
       const apiBaseUrl = 'http://example.com';
       const wsUrl = deriveWebSocketUrl(apiBaseUrl);
 
       assert.strictEqual(wsUrl, 'ws://example.com/ws');
-      assert.ok(!wsUrl.includes(':80'), 'Should not include default HTTP port');
+      assert.ok(!wsUrl.includes(`:${DEFAULT_HTTP_PORT}`), 'Should not include default HTTP port');
     });
 
     it('should throw for invalid URL', () => {

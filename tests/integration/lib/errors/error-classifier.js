@@ -22,6 +22,8 @@ export const ErrorCategory = {
   NON_RETRYABLE: 'non-retryable'
 };
 
+const RETRYABLE_NETWORK_DELAY_MS = 5000;
+
 // =============================================================================
 // ERROR CODE CONFIGURATION
 // =============================================================================
@@ -57,12 +59,12 @@ const ERROR_CODE_CONFIG = {
 
   // Retryable network errors
   ETIMEDOUT: { retryable: true, delay: 10000 },
-  ECONNRESET: { retryable: true, delay: 5000 },
-  EHOSTUNREACH: { retryable: true, delay: 5000 },
-  ENETUNREACH: { retryable: true, delay: 5000 },
-  EPIPE: { retryable: true, delay: 5000 },
-  EAGAIN: { retryable: true, delay: 5000 },
-  EBUSY: { retryable: true, delay: 5000 }
+  ECONNRESET: { retryable: true, delay: RETRYABLE_NETWORK_DELAY_MS },
+  EHOSTUNREACH: { retryable: true, delay: RETRYABLE_NETWORK_DELAY_MS },
+  ENETUNREACH: { retryable: true, delay: RETRYABLE_NETWORK_DELAY_MS },
+  EPIPE: { retryable: true, delay: RETRYABLE_NETWORK_DELAY_MS },
+  EAGAIN: { retryable: true, delay: RETRYABLE_NETWORK_DELAY_MS },
+  EBUSY: { retryable: true, delay: RETRYABLE_NETWORK_DELAY_MS }
 };
 
 // =============================================================================
@@ -291,9 +293,9 @@ export function isRetryable(error) {
  * Get recommended retry delay for an error.
  *
  * @param {Error} error - The error
- * @returns {number} - Delay in milliseconds (default: 5000)
+ * @returns {number} - Delay in milliseconds (default: RETRYABLE_NETWORK_DELAY_MS)
  */
 export function getRetryDelay(error) {
   const classification = classifyError(error);
-  return classification.delay || 5000;
+  return classification.delay || RETRYABLE_NETWORK_DELAY_MS;
 }

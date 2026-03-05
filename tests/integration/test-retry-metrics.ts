@@ -12,6 +12,7 @@
 // @ts-nocheck
 import { createTempRepository } from '../fixtures/test-helpers.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
+import { TestTiming } from '../constants/timing-test-constants.ts';
 // Using Node.js built-in fetch (v18+)
 
 const logger = createComponentLogger('RetryMetricsTest');
@@ -155,7 +156,7 @@ async function testCircuitBreaker() {
   }
 
   // Wait for retries to accumulate
-  await new Promise(resolve => setTimeout(resolve, 5000));
+  await new Promise(resolve => setTimeout(resolve, TestTiming.DEFAULT_WAIT_TIMEOUT_MS));
 
   // Check metrics
   const metrics = await getRetryMetrics();

@@ -15,7 +15,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createComponentLogger, logMetrics } from '../utils/logger.ts';
 import { isValidJobStatus } from '#api/types/job-status.ts';
-import { VALIDATION } from './constants.ts';
+import { DATABASE, VALIDATION } from './constants.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logger = createComponentLogger('Database');
@@ -233,7 +233,7 @@ export async function initDatabase(dbPath?: string): Promise<DatabaseType> {
       db.pragma('journal_mode = WAL');
     }
     // Wait up to 5s for locks instead of failing immediately
-    db.pragma('busy_timeout = 5000');
+    db.pragma(`busy_timeout = ${DATABASE.BUSY_TIMEOUT_MS}`);
 
     // Create jobs table if not exists
     db.exec(`

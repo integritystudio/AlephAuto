@@ -8,6 +8,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import path from 'node:path';
 import { DuplicateDetectionWorker } from '../../sidequest/workers/duplicate-detection-worker.ts';
+import { TestScoreFixtures } from '../constants/test-score-constants.ts';
 
 function createRetryingJob(jobId: string, retryCount: number, retryPending: boolean): Record<string, unknown> {
   const now = new Date();
@@ -134,7 +135,7 @@ describe('DuplicateDetectionWorker', () => {
           total_suggestions: 3
         },
         duplicate_groups: [
-          { impact_score: 80 },
+          { impact_score: TestScoreFixtures.HIGH_IMPACT_SCORE },
           { impact_score: 50 },
           { impact_score: 90 }
         ]
@@ -202,7 +203,7 @@ describe('DuplicateDetectionWorker', () => {
           total_duplicate_groups: 5,
           total_suggestions: 3
         },
-        duplicate_groups: [{ impact_score: 80 }]
+        duplicate_groups: [{ impact_score: TestScoreFixtures.HIGH_IMPACT_SCORE }]
       } as never);
 
       worker._updateMetrics({
