@@ -40,11 +40,11 @@ export function calculateDurationSeconds(startTime: Date | string | null, endTim
 export function formatDuration(seconds: number | null | undefined): string {
   if (seconds === null || seconds === undefined) return 'unknown';
 
-  if (seconds < 60) return `${seconds}s`;
+  if (seconds < TIME.MINUTE / TIME.SECOND) return `${seconds}s`;
 
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
+  const hours = Math.floor(seconds / (TIME.HOUR / TIME.SECOND));
+  const minutes = Math.floor((seconds % (TIME.HOUR / TIME.SECOND)) / (TIME.MINUTE / TIME.SECOND));
+  const secs = seconds % (TIME.MINUTE / TIME.SECOND);
 
   if (hours > 0) {
     return `${hours}h ${minutes}m ${secs}s`;

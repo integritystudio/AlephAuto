@@ -2,7 +2,7 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { GIT_ACTIVITY, JOB_RETENTION, NUMBER_BASE } from './constants.ts';
+import { GIT_ACTIVITY, JOB_RETENTION, NUMBER_BASE, RETRY, TIME, TIMEOUTS } from './constants.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -119,7 +119,7 @@ export const config = {
   enablePRCreation: process.env.ENABLE_PR_CREATION === 'true',
 
   // Repomix settings
-  repomixTimeout: safeParseInt(process.env.REPOMIX_TIMEOUT, 600000, 1000), // 10 minutes, min 1s
+  repomixTimeout: safeParseInt(process.env.REPOMIX_TIMEOUT, TIMEOUTS.REPOMIX_MS, TIME.SECOND), // 10 minutes, min 1s
   repomixMaxBuffer: safeParseInt(process.env.REPOMIX_MAX_BUFFER, 52428800, 1024), // 50MB, min 1KB
   repomixIgnorePatterns: process.env.REPOMIX_IGNORE_PATTERNS
     ? process.env.REPOMIX_IGNORE_PATTERNS.split(',')
@@ -167,12 +167,12 @@ export const config = {
     // Circuit breaker settings
     failureThreshold: safeParseInt(process.env.DOPPLER_FAILURE_THRESHOLD, 3, 1, 10),
     successThreshold: safeParseInt(process.env.DOPPLER_SUCCESS_THRESHOLD, 2, 1, 10),
-    timeout: safeParseInt(process.env.DOPPLER_TIMEOUT, 5000, 1000), // 5s before attempting recovery
+    timeout: safeParseInt(process.env.DOPPLER_TIMEOUT, TIMEOUTS.SHORT_MS, TIME.SECOND), // 5s before attempting recovery
 
     // Exponential backoff settings
-    baseDelayMs: safeParseInt(process.env.DOPPLER_BASE_DELAY_MS, 1000, 100), // 1s
+    baseDelayMs: safeParseInt(process.env.DOPPLER_BASE_DELAY_MS, RETRY.BASE_BACKOFF_MS, 100), // 1s
     backoffMultiplier: safeParseFloat(process.env.DOPPLER_BACKOFF_MULTIPLIER, 2.0, 1.0, 5.0),
-    maxBackoffMs: safeParseInt(process.env.DOPPLER_MAX_BACKOFF_MS, 10000, 1000), // 10s
+    maxBackoffMs: safeParseInt(process.env.DOPPLER_MAX_BACKOFF_MS, RETRY.MAX_BACKOFF_MS, TIME.SECOND), // 10s
 
     // Cache settings - Doppler CLI uses a fallback directory, not a single file
     cacheDir: process.env.DOPPLER_CACHE_DIR || path.join(os.homedir(), '.doppler', 'fallback')
@@ -192,7 +192,7 @@ export const config = {
     // Enable caching when Redis is available
     enabled: process.env.REDIS_URL !== undefined || process.env.REDIS_HOST !== undefined,
     // Cache TTL in seconds (default: 30 days)
-    ttl: safeParseInt(process.env.REDIS_CACHE_TTL, 30 * 24 * 60 * 60, 1),
+    ttl: safeParseInt(process.env.REDIS_CACHE_TTL, GIT_ACTIVITY.MONTHLY_WINDOW_DAYS * (TIME.DAY / TIME.SECOND), 1),
   },
 
   // Migration API key for bulk import operations
@@ -202,7 +202,7 @@ export const config = {
   // Database settings
   database: {
     // NOTE: saveIntervalMs is unused after migration to better-sqlite3 (WAL mode, direct disk writes)
-    saveIntervalMs: safeParseInt(process.env.DATABASE_SAVE_INTERVAL_MS, 30000, 1000),
+    saveIntervalMs: safeParseInt(process.env.DATABASE_SAVE_INTERVAL_MS, TIMEOUTS.DATABASE_SAVE_INTERVAL_MS, TIME.SECOND),
   },
 
   // System paths
@@ -219,7 +219,7 @@ function validateConfig(): void {
     errors.push('MAX_CONCURRENT must be between 1 and 50');
   }
 
-  if (config.repomixTimeout < 1000) {
+  if (config.repomixTimeout < TIME.SECOND) {
     errors.push('REPOMIX_TIMEOUT must be at least 1000ms');
   }
 
@@ -236,7 +236,7 @@ function validateConfig(): void {
     errors.push('DOPPLER_SUCCESS_THRESHOLD must be between 1 and 10');
   }
 
-  if (config.doppler.timeout < 1000) {
+  if (config.doppler.timeout < TIME.SECOND) {
     errors.push('DOPPLER_TIMEOUT must be at least 1000ms');
   }
 
@@ -248,12 +248,12 @@ function validateConfig(): void {
     errors.push('DOPPLER_BACKOFF_MULTIPLIER must be between 1.0 and 5.0');
   }
 
-  if (config.doppler.maxBackoffMs < 1000) {
+  if (config.doppler.maxBackoffMs < TIME.SECOND) {
     errors.push('DOPPLER_MAX_BACKOFF_MS must be at least 1000ms');
   }
 
   // Database validation
-  if (config.database.saveIntervalMs < 1000) {
+  if (config.database.saveIntervalMs < TIME.SECOND) {
     errors.push('DATABASE_SAVE_INTERVAL_MS must be at least 1000ms');
   }
 

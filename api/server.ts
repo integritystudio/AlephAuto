@@ -19,7 +19,7 @@ import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 import { createComponentLogger, logError, logStart } from '../sidequest/utils/logger.ts';
 import { config } from '../sidequest/core/config.ts';
-import { CONCURRENCY, PORT } from '../sidequest/core/constants.ts';
+import { CONCURRENCY, HEALTH, PORT } from '../sidequest/core/constants.ts';
 import { authMiddleware } from './middleware/auth.ts';
 import { rateLimiter } from './middleware/rate-limit.ts';
 import { errorHandler } from './middleware/error-handler.ts';
@@ -191,7 +191,7 @@ app.get('/api/status', (req: Request, res: Response) => {
       active: workerStats.active || 0,
       queued: workerStats.queued || 0,
       capacity: workerStats.active > 0
-        ? Math.min(100, (workerStats.active / CONCURRENCY.DEFAULT_MAX_JOBS) * 100)
+        ? Math.min(HEALTH.MAX_SCORE, (workerStats.active / CONCURRENCY.DEFAULT_MAX_JOBS) * HEALTH.MAX_SCORE)
         : 0
     };
 
