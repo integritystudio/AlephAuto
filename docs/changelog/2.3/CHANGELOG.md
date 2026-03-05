@@ -6,6 +6,33 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.14] - 2026-03-05
+
+### Summary
+
+Migrated completed backlog item `CONST5` into changelog tracking after implementing shared effort-tier modeling and regression/e2e coverage for affected pipelines.
+
+### Changed
+
+- Replaced duplicated effort-tier constants with a shared enum and unit-specific mapping tables:
+  - `sidequest/pipeline-core/constants.py`
+  - `sidequest/pipeline-core/models/consolidation_suggestion.py`
+  - `sidequest/pipeline-core/extractors/extract_blocks.py`
+- Added regression coverage for the new effort-tier mapping behavior:
+  - `sidequest/pipeline-core/models/test_consolidation_suggestion_effort.py`
+  - `sidequest/pipeline-core/extractors/test_extract_blocks.py`
+- Added E2E/smoke coverage for touched pipeline entrypoints:
+  - `sidequest/pipeline-core/extractors/test_extract_blocks.py` (`main()` stdin->JSON orchestration)
+  - `sidequest/pipeline-runners/test_collect_git_activity.py` (`main()` weekly + monthly flows)
+- Backlog `CONST5` migrated and closed in `docs/BACKLOG.md`.
+
+### Validation
+
+- `pytest -q sidequest/pipeline-core/models/test_consolidation_suggestion_effort.py sidequest/pipeline-core/extractors/test_extract_blocks.py sidequest/pipeline-runners/test_collect_git_activity.py` (pass)
+- `npm run test:validate-backlog` (pass)
+
+---
+
 ## [2.3.13] - 2026-03-04
 
 ### Summary

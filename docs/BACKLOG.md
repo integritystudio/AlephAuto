@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-05 | **Last Session:** 2026-03-05 (constants dedup follow-up)
+**Last Updated:** 2026-03-05 | **Last Session:** 2026-03-05 (migrated CONST5 to changelog)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -13,6 +13,7 @@ Technical debt and planned improvements.
 No active deferred/blocked items.
 
 Closed items migrated to changelog:
+- [v2.3.14](changelog/2.3/CHANGELOG.md) (`CONST5`)
 - [v2.3.10](changelog/2.3/CHANGELOG.md) (`SV1`)
 - [v2.3.9](changelog/2.3/CHANGELOG.md) (`CX11`)
 - [v2.3.8](changelog/2.3/CHANGELOG.md) (`CX12`, `CX13`)
@@ -31,8 +32,8 @@ Closed items migrated to changelog:
 
 - `CONST4` Repeated duration values remain defined under multiple semantic keys in [sidequest/core/constants.ts](sidequest/core/constants.ts).
   - Scope: consolidate repeated values like `5 * TIME_MS.SECOND`, `10 * TIME_MS.SECOND`, `30 * TIME_MS.SECOND`, `TIME_MS.MINUTE` via shared duration tokens while preserving current export API.
-- `CONST5` Effort tier labels are duplicated with different scales in [sidequest/pipeline-core/constants.py](sidequest/pipeline-core/constants.py).
-  - Scope: introduce a shared effort-tier enum and explicit per-model mappings (estimation scale vs engineering-hours scale) to avoid semantic drift.
+
+> `CONST5` completed and migrated to [v2.3.14 changelog](changelog/2.3/CHANGELOG.md).
 
 ---
 
