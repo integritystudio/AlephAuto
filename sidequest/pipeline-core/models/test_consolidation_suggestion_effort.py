@@ -16,10 +16,14 @@ from consolidation_suggestion import (
 )
 from constants import EFFORT_ROI_HOURS_BY_TIER, EffortTier, ROIMultipliers, SuggestionDefaults
 
+DEFAULT_IMPACT_SCORE = 50.0
+EXPLICIT_IMPACT_SCORE = 40.0
+EXPLICIT_EFFORT_HOURS = 8.0
+
 
 def _build_suggestion(
     complexity: ImplementationComplexity,
-    impact_score: float = 50.0,
+    impact_score: float = DEFAULT_IMPACT_SCORE,
     estimated_effort_hours: float | None = None,
 ) -> ConsolidationSuggestion:
     return ConsolidationSuggestion(
@@ -43,23 +47,24 @@ def test_effort_roi_mapping_covers_all_effort_tiers():
 
 
 @pytest.mark.parametrize(
-    ("complexity", "expected_effort_hours"),
+    ("complexity", "effort_tier"),
     [
-        (ImplementationComplexity.TRIVIAL, 0.5),
-        (ImplementationComplexity.SIMPLE, 2.5),
-        (ImplementationComplexity.MODERATE, 12.0),
-        (ImplementationComplexity.COMPLEX, 40.0),
-        (ImplementationComplexity.VERY_COMPLEX, 80.0),
+        (ImplementationComplexity.TRIVIAL, EffortTier.TRIVIAL),
+        (ImplementationComplexity.SIMPLE, EffortTier.SIMPLE),
+        (ImplementationComplexity.MODERATE, EffortTier.MODERATE),
+        (ImplementationComplexity.COMPLEX, EffortTier.COMPLEX),
+        (ImplementationComplexity.VERY_COMPLEX, EffortTier.VERY_COMPLEX),
     ],
 )
 def test_roi_score_uses_effort_tier_defaults(
     complexity: ImplementationComplexity,
-    expected_effort_hours: float,
+    effort_tier: EffortTier,
 ):
-    suggestion = _build_suggestion(complexity=complexity, impact_score=50.0)
+    suggestion = _build_suggestion(complexity=complexity, impact_score=DEFAULT_IMPACT_SCORE)
+    expected_effort_hours = EFFORT_ROI_HOURS_BY_TIER[effort_tier]
 
     expected = min(
-        round((50.0 / expected_effort_hours) * SuggestionDefaults.ROI_NORMALIZER, 2),
+        round((DEFAULT_IMPACT_SCORE / expected_effort_hours) * SuggestionDefaults.ROI_NORMALIZER, 2),
         ROIMultipliers.MAX_SCORE,
     )
     assert suggestion.roi_score == expected
@@ -68,8 +73,12 @@ def test_roi_score_uses_effort_tier_defaults(
 def test_roi_score_prefers_explicit_estimated_effort_hours():
     suggestion = _build_suggestion(
         complexity=ImplementationComplexity.TRIVIAL,
-        impact_score=40.0,
-        estimated_effort_hours=8.0,
+        impact_score=EXPLICIT_IMPACT_SCORE,
+        estimated_effort_hours=EXPLICIT_EFFORT_HOURS,
     )
 
-    assert suggestion.roi_score == 50.0
+    expected = round(
+        (EXPLICIT_IMPACT_SCORE / EXPLICIT_EFFORT_HOURS) * SuggestionDefaults.ROI_NORMALIZER,
+        2,
+    )
+    assert suggestion.roi_score == expected

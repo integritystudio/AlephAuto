@@ -18,6 +18,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "models"))
 from extract_blocks import detect_language, LANGUAGE_MAP, calculate_metrics
 import extract_blocks as eb
 from extract_blocks import _estimate_effort
+from constants import (
+    EFFORT_IMPLEMENTATION_DEFAULT_HOURS,
+    EFFORT_IMPLEMENTATION_HOURS_BY_TIER,
+    EFFORT_IMPLEMENTATION_PER_FILE_INCREMENT_HOURS,
+    EFFORT_IMPLEMENTATION_TESTING_OVERHEAD_HOURS,
+    EffortTier,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -338,20 +345,31 @@ def test_estimate_effort_uses_implementation_effort_mapping():
         ["/test/a.js", "/test/b.js"],
     )
 
-    # simple => 1.0h + (2 files * 0.25h) + 0.5h testing = 2.0h
-    assert _estimate_effort(group, "simple") == 2.0
+    expected = round(
+        EFFORT_IMPLEMENTATION_HOURS_BY_TIER[EffortTier.SIMPLE]
+        + (len(group.affected_files) * EFFORT_IMPLEMENTATION_PER_FILE_INCREMENT_HOURS)
+        + EFFORT_IMPLEMENTATION_TESTING_OVERHEAD_HOURS,
+        1,
+    )
+    assert _estimate_effort(group, EffortTier.SIMPLE.value) == expected
 
 
 def test_estimate_effort_falls_back_to_default_for_unknown_complexity():
     """Regression: unknown complexity should use default implementation effort."""
     group = MockDuplicateGroup("g_effort_fallback", "exact_match", 2, 12, ["/test/a.js"])
 
-    # default 2.0h + (1 file * 0.25h) + 0.5h testing = 2.75h -> rounded to 2.8
-    assert _estimate_effort(group, "unknown-tier") == 2.8
+    expected = round(
+        EFFORT_IMPLEMENTATION_DEFAULT_HOURS
+        + (len(group.affected_files) * EFFORT_IMPLEMENTATION_PER_FILE_INCREMENT_HOURS)
+        + EFFORT_IMPLEMENTATION_TESTING_OVERHEAD_HOURS,
+        1,
+    )
+    assert _estimate_effort(group, "unknown-tier") == expected
 
 
 def test_extract_blocks_main_e2e_emits_expected_json_shape(monkeypatch):
     """E2E pipeline smoke test for stdin->JSON orchestration."""
+    default_count = 1
 
     class StubModel:
         def __init__(self, payload):
@@ -371,7 +389,10 @@ def test_extract_blocks_main_e2e_emits_expected_json_shape(monkeypatch):
     monkeypatch.setattr(
         eb,
         "calculate_metrics",
-        lambda *_args, **_kwargs: {"total_code_blocks": 1, "total_duplicate_groups": 1},
+        lambda *_args, **_kwargs: {
+            "total_code_blocks": default_count,
+            "total_duplicate_groups": default_count,
+        },
     )
 
     payload = {
@@ -384,8 +405,8 @@ def test_extract_blocks_main_e2e_emits_expected_json_shape(monkeypatch):
                 "file_path": "src/a.ts",
                 "rule_id": "validation",
                 "matched_text": "const x = 1;",
-                "line_start": 1,
-                "line_end": 1,
+                "line_start": default_count,
+                "line_end": default_count,
             }
         ],
     }
@@ -402,14 +423,11 @@ def test_extract_blocks_main_e2e_emits_expected_json_shape(monkeypatch):
     assert result["code_blocks"] == [{"block_id": "cb_1"}]
     assert result["duplicate_groups"] == [{"group_id": "dg_1"}]
     assert result["suggestions"] == [{"suggestion_id": "cs_1"}]
-    assert result["metrics"]["total_code_blocks"] == 1
+    assert result["metrics"]["total_code_blocks"] == default_count
 
 
 def main():
     """Run tests without pytest."""
-    print("\n" + "=" * 60)
-    print("Extract Blocks Tests")
-    print("=" * 60)
 
     tests = [
         # Language detection tests
@@ -442,18 +460,12 @@ def main():
     for test in tests:
         try:
             test()
-            print(f"  ✅ {test.__name__}")
             passed += 1
         except AssertionError as e:
-            print(f"  ❌ {test.__name__}: {e}")
             failed += 1
         except Exception as e:
-            print(f"  ❌ {test.__name__}: Unexpected error: {e}")
             failed += 1
 
-    print("=" * 60)
-    print(f"Results: {passed} passed, {failed} failed")
-    print("=" * 60 + "\n")
 
     return 0 if failed == 0 else 1
 

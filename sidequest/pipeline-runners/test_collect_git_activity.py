@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 import sys
@@ -20,6 +20,34 @@ class FrozenDateTime(datetime):
 
 def _result(stdout: str, stderr: str = "", returncode: int = 0) -> SimpleNamespace:
     return SimpleNamespace(stdout=stdout, stderr=stderr, returncode=returncode)
+
+
+def _empty_activity_data(since_date: str, until_date: str | None) -> dict:
+    return {
+        "date_range": {"start": since_date, "end": until_date},
+        "total_commits": 0,
+        "total_additions": 0,
+        "total_deletions": 0,
+        "total_repositories": 0,
+        "total_files": 0,
+        "repositories": [],
+        "languages": {},
+        "categories": {},
+        "websites": {},
+        "monthly": {},
+    }
+
+
+def _frozen_report_date() -> str:
+    return FrozenDateTime.now().strftime(cga.GitActivityDefaults.ISO_DATE_FORMAT)
+
+
+def _frozen_weekly_title() -> str:
+    end = FrozenDateTime.now()
+    start = end - timedelta(days=cga.GitActivityDefaults.WEEKLY_WINDOW_DAYS)
+    start_str = start.strftime(cga.GitActivityDefaults.ISO_DATE_FORMAT)
+    end_str = end.strftime(cga.GitActivityDefaults.ISO_DATE_FORMAT)
+    return f'title: "Weekly Git Activity Report: {start_str} to {end_str}"'
 
 
 def test_find_git_repos_uses_argv_and_filters_excludes(monkeypatch, tmp_path):
@@ -320,19 +348,10 @@ def test_main_e2e_weekly_generates_markdown_and_json_without_visualizations(
     monkeypatch.setattr(
         cga,
         "_compile_activity_data",
-        lambda repositories, all_files, since_date, until_date: {
-            "date_range": {"start": since_date, "end": until_date},
-            "total_commits": 0,
-            "total_additions": 0,
-            "total_deletions": 0,
-            "total_repositories": 0,
-            "total_files": 0,
-            "repositories": [],
-            "languages": {},
-            "categories": {},
-            "websites": {},
-            "monthly": {},
-        },
+        lambda repositories, all_files, since_date, until_date: _empty_activity_data(
+            since_date,
+            until_date,
+        ),
     )
 
     captured_summary = []
@@ -361,12 +380,13 @@ def test_main_e2e_weekly_generates_markdown_and_json_without_visualizations(
     assert exit_code == 0
 
     report_dir = tmp_path / "site" / "work"
-    markdown_report = report_dir / "2026-03-04-git-activity-report.md"
-    json_report = report_dir / "2026-03-04-git-activity-report.json"
+    report_date = _frozen_report_date()
+    markdown_report = report_dir / f"{report_date}-git-activity-report.md"
+    json_report = report_dir / f"{report_date}-git-activity-report.json"
 
     assert markdown_report.exists()
     assert json_report.exists()
-    assert 'title: "Weekly Git Activity Report: 2026-02-25 to 2026-03-04"' in markdown_report.read_text()
+    assert _frozen_weekly_title() in markdown_report.read_text()
     assert captured_summary == [None]
 
 
@@ -381,19 +401,10 @@ def test_main_e2e_31_day_range_generates_monthly_report_title(monkeypatch, tmp_p
     monkeypatch.setattr(
         cga,
         "_compile_activity_data",
-        lambda repositories, all_files, since_date, until_date: {
-            "date_range": {"start": since_date, "end": until_date},
-            "total_commits": 0,
-            "total_additions": 0,
-            "total_deletions": 0,
-            "total_repositories": 0,
-            "total_files": 0,
-            "repositories": [],
-            "languages": {},
-            "categories": {},
-            "websites": {},
-            "monthly": {},
-        },
+        lambda repositories, all_files, since_date, until_date: _empty_activity_data(
+            since_date,
+            until_date,
+        ),
     )
     monkeypatch.setattr(cga, "_print_summary", lambda data, output_dir=None: None)
     monkeypatch.setattr(cga, "generate_visualizations", lambda data, output_dir: None)
@@ -414,6 +425,6 @@ def test_main_e2e_31_day_range_generates_monthly_report_title(monkeypatch, tmp_p
     exit_code = cga.main()
     assert exit_code == 0
 
-    report_path = tmp_path / "site" / "work" / "2026-03-04-git-activity-report.md"
+    report_path = tmp_path / "site" / "work" / f"{_frozen_report_date()}-git-activity-report.md"
     assert report_path.exists()
     assert 'title: "Monthly Git Activity Report: 2026-01-01 to 2026-02-01"' in report_path.read_text()
