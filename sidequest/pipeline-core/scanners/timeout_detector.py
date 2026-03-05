@@ -346,7 +346,9 @@ def main():
     if output_file:
         Path(output_file).write_text(output)
     else:
-        print(output)
+        sys.stdout.write(output)
+        if not output.endswith("\n"):
+            sys.stdout.write("\n")
 
     # Exit code based on high severity findings
     high_severity_count = results["statistics"]["severity_breakdown"].get("high", 0)

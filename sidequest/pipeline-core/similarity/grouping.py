@@ -58,6 +58,12 @@ except ImportError:
 # Debug mode from config
 DEBUG = SimilarityConfig.DEBUG
 
+
+def _stderr(message: str) -> None:
+    """Write diagnostic output to stderr without using print()."""
+    sys.stderr.write(f"{message}\n")
+
+
 # Minimum complexity threshold for duplicate detection
 # Uses values from SimilarityConfig for consistency
 MIN_COMPLEXITY_THRESHOLD = {
@@ -340,10 +346,7 @@ def validate_exact_group_semantics(group_blocks: List["CodeBlock"]) -> tuple:
             )
             if not result.is_valid:
                 if result.details:
-                    print(
-                        f"       {result.details[0]} vs {result.details[1]}",
-                        file=sys.stderr,
-                    )
+                    _stderr(f"       {result.details[0]} vs {result.details[1]}")
                 return (
                     False,
                     f"{result.reason}: {result.details[0]} vs {result.details[1]}",
@@ -426,9 +429,8 @@ def group_by_similarity(
     trivial_count = len(blocks) - len(complex_blocks)
 
     if trivial_count > 0:
-        print(
-            f"Layer 0: Filtered {trivial_count} trivial blocks (below complexity threshold)",
-            file=sys.stderr,
+        _stderr(
+            f"Layer 0: Filtered {trivial_count} trivial blocks (below complexity threshold)"
         )
 
     groups = []
@@ -509,13 +511,12 @@ def group_by_similarity(
         if DEBUG:
             timing_report = annotator.get_timing_report()
             for name, m in timing_report.items():
-                print(
-                    f"    - {name}: avg={m['avg_ms']:.2f}ms, total={m['total_ms']:.1f}ms",
-                    file=sys.stderr,
+                _stderr(
+                    f"    - {name}: avg={m['avg_ms']:.2f}ms, total={m['total_ms']:.1f}ms"
                 )
 
     else:
-        print("Layer 3: No ungrouped blocks remaining", file=sys.stderr)
+        _stderr("Layer 3: No ungrouped blocks remaining")
 
     return groups
 
@@ -597,9 +598,8 @@ def _group_by_structural_similarity(
                 groups.append((group, avg_similarity))
             else:
                 # Group failed semantic validation
-                print(
-                    f"Warning: Group rejected by semantic validation: {[b.block_id for b in group]}",
-                    file=sys.stderr,
+                _stderr(
+                    f"Warning: Group rejected by semantic validation: {[b.block_id for b in group]}"
                 )
 
     return groups

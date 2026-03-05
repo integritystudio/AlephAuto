@@ -7,6 +7,8 @@ Tests basic functionality of all models without requiring
 the actual pydantic package (design validation).
 """
 
+import sys
+
 
 def test_model_structure():
     """Test that model files have correct structure"""
@@ -50,7 +52,7 @@ def test_model_structure():
                 status = "✓" if passed else "✗"
 
         except Exception as e:
-            print(f"❌ {model_name}.py - Error: {e}")
+            sys.stderr.write(f"❌ {model_name}.py - Error: {e}\n")
 
 
 
