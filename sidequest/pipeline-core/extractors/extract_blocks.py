@@ -138,7 +138,7 @@ DEBUG = SimilarityConfig.DEBUG
 def _debug(msg: str) -> None:
     """Print debug message if DEBUG is enabled."""
     if DEBUG:
-        print(f"DEBUG {msg}", file=sys.stderr)
+        sys.stderr.write(f"DEBUG {msg}\n")
 
 
 # ---------------------------------------------------------------------------
@@ -395,9 +395,8 @@ def deduplicate_blocks(blocks: list[CodeBlock]) -> list[CodeBlock]:
 
     removed = len(blocks) - len(unique_blocks)
     if removed > 0:
-        print(
-            f"Deduplication: Removed {removed} duplicate blocks ({len(seen_functions)} unique functions, {len(seen_locations)} unique locations)",
-            file=sys.stderr,
+        sys.stderr.write(
+            f"Deduplication: Removed {removed} duplicate blocks ({len(seen_functions)} unique functions, {len(seen_locations)} unique locations)\n"
         )
 
     return unique_blocks
