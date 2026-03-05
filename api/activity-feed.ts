@@ -7,7 +7,7 @@
 
 import type { SidequestServer, Job } from '../sidequest/core/server.ts';
 import { createComponentLogger, logError } from '../sidequest/utils/logger.ts';
-import { TIMEOUTS, TIME } from '../sidequest/core/constants.ts';
+import { TIMEOUTS, TIME_MS } from '../sidequest/core/constants.ts';
 import * as Sentry from '@sentry/node';
 import { safeErrorMessage, toErrorObject } from '../sidequest/pipeline-core/utils/error-helpers.ts';
 import type { ScanEventBroadcaster } from './event-broadcaster.ts';
@@ -251,7 +251,7 @@ export class ActivityFeedManager {
       if (durationSeconds === undefined && job.startedAt && job.completedAt) {
         const startTime = job.startedAt instanceof Date ? job.startedAt : new Date(job.startedAt);
         const endTime = job.completedAt instanceof Date ? job.completedAt : new Date(job.completedAt);
-        durationSeconds = (endTime.getTime() - startTime.getTime()) / TIME.SECOND;
+        durationSeconds = (endTime.getTime() - startTime.getTime()) / TIME_MS.SECOND;
       }
 
       const duration = durationSeconds != null ? `${durationSeconds.toFixed(2)}s` : 'unknown duration';

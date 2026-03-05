@@ -7,7 +7,7 @@ and visualization modules. Organized by domain into namespace classes.
 
 from enum import IntEnum
 
-
+# BEGIN GENERATED HTTP STATUS CONSTANTS
 class HTTPCodes(IntEnum):
     """Standard HTTP status codes referenced in structural similarity analysis."""
 
@@ -19,10 +19,12 @@ class HTTPCodes(IntEnum):
     UNAUTHORIZED = 401
     FORBIDDEN = 403
     NOT_FOUND = 404
+    CONFLICT = 409
+    TOO_MANY_REQUESTS = 429
     INTERNAL_SERVER_ERROR = 500
     BAD_GATEWAY = 502
     SERVICE_UNAVAILABLE = 503
-
+# END GENERATED HTTP STATUS CONSTANTS
 
 class ScanDefaults:
     """Default thresholds for scan configuration and report recommendations."""
@@ -191,8 +193,9 @@ class GitActivityDefaults:
     LEGACY_COMMIT_THRESHOLD = 5
     TOP_N_DISPLAY = 5
     TOP_N_TABLE_DISPLAY = 10
-    WEEKLY_MAX_DAYS = 7
-    MONTHLY_MAX_DAYS = 31
+    WEEKLY_WINDOW_DAYS = 7
+    MONTHLY_WINDOW_DAYS = 30
+    MONTHLY_BUCKET_MAX_DAYS = 31
     SEPARATOR_LENGTH = 60
     ISO_DATE_FORMAT = "%Y-%m-%d"
     ISO_DATETIME_MINUTE_FORMAT = "%Y-%m-%d %H:%M"

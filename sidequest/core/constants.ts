@@ -23,16 +23,6 @@ export const TIME_MS = {
 } as const;
 
 /**
- * Time conversion constants (exported for calculations)
- */
-export const TIME = {
-  SECOND: TIME_MS.SECOND,
-  MINUTE: TIME_MS.MINUTE,
-  HOUR: TIME_MS.HOUR,
-  DAY: TIME_MS.DAY,
-} as const;
-
-/**
  * Timeout values in milliseconds
  */
 // -----------------------------------------------------------------------------
@@ -258,6 +248,7 @@ export const GIT_ACTIVITY = {
   /** Time windows used by weekly/monthly report shortcuts */
   WEEKLY_WINDOW_DAYS: 7,
   MONTHLY_WINDOW_DAYS: 30,
+  MONTHLY_BUCKET_MAX_DAYS: 31,
 
   /** Default cron schedules for scheduled pipeline mode */
   DEFAULT_WEEKLY_CRON: '0 20 * * 0',

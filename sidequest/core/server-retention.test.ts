@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import type { Job } from './server.ts';
 import { SidequestServer } from './server.ts';
 import { config } from './config.ts';
-import { GIT_ACTIVITY, JOB_RETENTION, TIME } from './constants.ts';
+import { GIT_ACTIVITY, JOB_RETENTION, TIME_MS } from './constants.ts';
 import { jobRepository } from './job-repository.ts';
 import { JOB_STATUS } from '#api/types/job-status.ts';
 
@@ -81,8 +81,8 @@ test('prune removes expired terminal jobs from jobs map and history', (t) => {
   server.stop();
 
   const nowMs = Date.UTC(2026, 2, 4, 12, 0, 0);
-  const oldDate = new Date(nowMs - (2 * TIME.DAY));
-  const freshDate = new Date(nowMs - (12 * TIME.HOUR));
+  const oldDate = new Date(nowMs - (2 * TIME_MS.DAY));
+  const freshDate = new Date(nowMs - (12 * TIME_MS.HOUR));
 
   const oldCompleted = makeJob('old-completed', JOB_STATUS.COMPLETED, oldDate, oldDate);
   const oldCancelled = makeJob('old-cancelled', JOB_STATUS.CANCELLED, oldDate, oldDate);

@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { RepomixWorker } from '../workers/repomix-worker.ts';
 import { DirectoryScanner } from '../utils/directory-scanner.ts';
 import { config } from './config.ts';
-import { JOB_EVENTS, TIMEOUTS, TIME } from './constants.ts';
+import { JOB_EVENTS, TIMEOUTS, TIME_MS } from './constants.ts';
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
@@ -145,7 +145,7 @@ export class RepomixCronApp {
       const workerStats = this.worker.getStats();
 
       logger.info({
-        durationSeconds: Math.round(duration / TIME.SECOND),
+        durationSeconds: Math.round(duration / TIME_MS.SECOND),
         totalJobs: workerStats.total,
         completed: workerStats.completed,
         failed: workerStats.failed
@@ -160,7 +160,7 @@ export class RepomixCronApp {
   }
 
   private async waitForCompletion(): Promise<void> {
-    const maxWaitMs = 30 * 60 * TIME.SECOND;
+    const maxWaitMs = 30 * 60 * TIME_MS.SECOND;
     return new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
         clearInterval(checkInterval);

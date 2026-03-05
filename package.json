@@ -38,6 +38,7 @@
     "docs:enhance:dry": "RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts --dry-run",
     "docs:enhance:schedule": "doppler run -- node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts",
     "docs:test": "node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts --run --dry-run --dir .",
+    "constants:generate:http-status": "node --strip-types scripts/generate-http-status-constants.ts",
     "git:weekly": "node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --weekly",
     "git:monthly": "node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --monthly",
     "git:schedule": "node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts",

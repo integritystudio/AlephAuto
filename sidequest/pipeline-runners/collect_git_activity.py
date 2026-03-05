@@ -513,9 +513,9 @@ def _calculate_date_range(args) -> tuple[str, str | None] | None:
     """
     # Handle shorthand flags
     if args.weekly:
-        args.days = 7
+        args.days = GitActivityDefaults.WEEKLY_WINDOW_DAYS
     elif args.monthly:
-        args.days = 30
+        args.days = GitActivityDefaults.MONTHLY_WINDOW_DAYS
 
     if args.days:
         end_date = datetime.now()
@@ -652,9 +652,9 @@ def generate_jekyll_report(data: dict, output_file: Path) -> None:
     end = datetime.strptime(end_date, GitActivityDefaults.ISO_DATE_FORMAT)
     days = (end - start).days
 
-    if days <= GitActivityDefaults.WEEKLY_MAX_DAYS:
+    if days <= GitActivityDefaults.WEEKLY_WINDOW_DAYS:
         report_type = "Weekly"
-    elif days <= GitActivityDefaults.MONTHLY_MAX_DAYS:
+    elif days <= GitActivityDefaults.MONTHLY_BUCKET_MAX_DAYS:
         report_type = "Monthly"
     else:
         report_type = f"{days}-Day"
@@ -808,8 +808,16 @@ def main():
     parser.add_argument("--since", dest="start_date", help=argparse.SUPPRESS)
     parser.add_argument("--until", dest="end_date", help=argparse.SUPPRESS)
     parser.add_argument("--days", type=int, help="Number of days back from today")
-    parser.add_argument("--weekly", action="store_true", help="Last 7 days")
-    parser.add_argument("--monthly", action="store_true", help="Last 30 days")
+    parser.add_argument(
+        "--weekly",
+        action="store_true",
+        help=f"Last {GitActivityDefaults.WEEKLY_WINDOW_DAYS} days",
+    )
+    parser.add_argument(
+        "--monthly",
+        action="store_true",
+        help=f"Last {GitActivityDefaults.MONTHLY_WINDOW_DAYS} days",
+    )
     parser.add_argument(
         "--max-depth", type=int, default=DEFAULT_MAX_DEPTH, help="Max directory depth"
     )

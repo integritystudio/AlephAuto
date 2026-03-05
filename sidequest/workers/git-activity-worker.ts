@@ -8,7 +8,7 @@ import os from 'os';
 import { fileURLToPath } from 'url';
 import * as Sentry from '@sentry/node';
 import { createComponentLogger } from '../utils/logger.ts';
-import { TIMEOUTS, TIME, GIT_ACTIVITY, NUMBER_BASE } from '../core/constants.ts';
+import { TIMEOUTS, TIME_MS, GIT_ACTIVITY, NUMBER_BASE } from '../core/constants.ts';
 
 const logger = createComponentLogger('GitActivityWorker');
 
@@ -435,7 +435,7 @@ export class GitActivityWorker extends SidequestServer {
     const since = new Date(sinceDate);
     const until = new Date(untilDate);
     const diffTime = Math.abs(until.getTime() - since.getTime());
-    const diffDays = Math.ceil(diffTime / TIME.DAY);
+    const diffDays = Math.ceil(diffTime / TIME_MS.DAY);
 
     return diffDays;
   }

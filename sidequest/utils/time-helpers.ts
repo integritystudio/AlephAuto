@@ -6,7 +6,7 @@
  * @module sidequest/utils/time-helpers
  */
 
-import { TIME } from '../core/constants.ts';
+import { TIME_MS } from '../core/constants.ts';
 
 /**
  * Normalize a value to ISO string format
@@ -31,7 +31,7 @@ export function calculateDurationSeconds(startTime: Date | string | null, endTim
 
   if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
 
-  return Math.round((end.getTime() - start.getTime()) / TIME.SECOND);
+  return Math.round((end.getTime() - start.getTime()) / TIME_MS.SECOND);
 }
 
 /**
@@ -40,11 +40,11 @@ export function calculateDurationSeconds(startTime: Date | string | null, endTim
 export function formatDuration(seconds: number | null | undefined): string {
   if (seconds === null || seconds === undefined) return 'unknown';
 
-  if (seconds < TIME.MINUTE / TIME.SECOND) return `${seconds}s`;
+  if (seconds < TIME_MS.MINUTE / TIME_MS.SECOND) return `${seconds}s`;
 
-  const hours = Math.floor(seconds / (TIME.HOUR / TIME.SECOND));
-  const minutes = Math.floor((seconds % (TIME.HOUR / TIME.SECOND)) / (TIME.MINUTE / TIME.SECOND));
-  const secs = seconds % (TIME.MINUTE / TIME.SECOND);
+  const hours = Math.floor(seconds / (TIME_MS.HOUR / TIME_MS.SECOND));
+  const minutes = Math.floor((seconds % (TIME_MS.HOUR / TIME_MS.SECOND)) / (TIME_MS.MINUTE / TIME_MS.SECOND));
+  const secs = seconds % (TIME_MS.MINUTE / TIME_MS.SECOND);
 
   if (hours > 0) {
     return `${hours}h ${minutes}m ${secs}s`;

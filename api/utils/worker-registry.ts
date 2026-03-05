@@ -19,7 +19,7 @@ import { PluginManagerWorker } from '#sidequest/utils/plugin-manager.ts';
 import { config } from '#sidequest/core/config.ts';
 import { createComponentLogger, logError } from '#sidequest/utils/logger.ts';
 import { jobRepository } from '#sidequest/core/job-repository.ts';
-import { CONCURRENCY, TIMEOUTS, TIME, WORKER_COOLDOWN } from '#sidequest/core/constants.ts';
+import { CONCURRENCY, TIMEOUTS, TIME_MS, WORKER_COOLDOWN } from '#sidequest/core/constants.ts';
 import type { ActivityFeedManager } from '../activity-feed.ts';
 
 /**
@@ -184,7 +184,7 @@ function enforceInitCircuitBreaker(pipelineId: string): void {
 
   if (timeSinceLastAttempt < cooldownMs) {
     throw new Error(
-      `${pipelineId} worker initialization is in cooldown after ${failureInfo.count} failures. Retry in ${Math.ceil((cooldownMs - timeSinceLastAttempt) / TIME.SECOND)}s`
+      `${pipelineId} worker initialization is in cooldown after ${failureInfo.count} failures. Retry in ${Math.ceil((cooldownMs - timeSinceLastAttempt) / TIME_MS.SECOND)}s`
     );
   }
 

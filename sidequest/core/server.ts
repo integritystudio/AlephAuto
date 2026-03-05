@@ -7,7 +7,7 @@ import { createComponentLogger, logError, logWarn } from '../utils/logger.ts';
 import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.ts';
 import { GitWorkflowManager } from './git-workflow-manager.ts';
 import { jobRepository } from './job-repository.ts';
-import { CONCURRENCY, JOB_EVENTS, RETRY, RETRY_EVENTS, TIME } from './constants.ts';
+import { CONCURRENCY, JOB_EVENTS, RETRY, RETRY_EVENTS, TIME_MS } from './constants.ts';
 import { isRetryable, classifyError } from '../pipeline-core/errors/error-classifier.ts';
 import { toISOString } from '../utils/time-helpers.ts';
 import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '#api/types/job-status.ts';
@@ -761,7 +761,7 @@ export class SidequestServer extends EventEmitter {
   }
 
   private _pruneExpiredJobs(referenceTimeMs: number = Date.now()): void {
-    const cutoffMs = referenceTimeMs - (this.jobRetentionDays * TIME.DAY);
+    const cutoffMs = referenceTimeMs - (this.jobRetentionDays * TIME_MS.DAY);
     let removedFromJobs = 0;
 
     for (const [jobId, job] of this.jobs.entries()) {

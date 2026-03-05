@@ -9,7 +9,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import * as Sentry from '@sentry/node';
 import { createComponentLogger, logError } from './logger.ts';
-import { TIME } from '../core/constants.ts';
+import { TIME_MS } from '../core/constants.ts';
 
 const logger = createComponentLogger('ReportGenerator');
 
@@ -136,7 +136,7 @@ function generateHTMLReport(data: ReportData): string {
     timestamp
   } = data;
 
-  const duration = endTime && startTime ? ((endTime - startTime) / TIME.SECOND).toFixed(2) : 'N/A';
+  const duration = endTime && startTime ? ((endTime - startTime) / TIME_MS.SECOND).toFixed(2) : 'N/A';
   const title = getJobTypeTitle(jobType);
   const statusClass = status === 'completed' ? 'success' : status === 'failed' ? 'error' : 'warning';
 
@@ -185,7 +185,7 @@ function generateJSONReport(data: ReportData): object {
       id: jobId,
       type: jobType,
       status,
-      duration_seconds: endTime && startTime ? (endTime - startTime) / TIME.SECOND : null,
+      duration_seconds: endTime && startTime ? (endTime - startTime) / TIME_MS.SECOND : null,
       started_at: startTime ? new Date(startTime).toISOString() : null,
       completed_at: endTime ? new Date(endTime).toISOString() : null
     },
@@ -431,7 +431,7 @@ function formatValue(value: unknown): string {
 /**
  * Remove reports older than the retention period (30 days).
  */
-export async function pruneOldReports(outputDir: string = DEFAULT_OUTPUT_DIR, maxAgeMs: number = 30 * TIME.DAY): Promise<void> {
+export async function pruneOldReports(outputDir: string = DEFAULT_OUTPUT_DIR, maxAgeMs: number = 30 * TIME_MS.DAY): Promise<void> {
   const cutoff = Date.now() - maxAgeMs;
   let entries;
   try {
