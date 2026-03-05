@@ -7,13 +7,19 @@ groups, consolidation suggestions, and summary metrics.
 """
 
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, computed_field
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from constants import DuplicationThresholds, OpportunityWeights, ScanDefaults
+
+
+def utc_now() -> datetime:
+    """Return timezone-aware current UTC datetime."""
+    return datetime.now(UTC)
+
 
 # Import our other models
 # Note: In actual implementation, these would be proper imports
@@ -125,7 +131,7 @@ class ScanReport(BaseModel):
 
     # Scan metadata
     scanned_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Scan timestamp"
+        default_factory=utc_now, description="Scan timestamp"
     )
     scan_duration_seconds: Optional[float] = Field(
         None, ge=0, description="How long the scan took"

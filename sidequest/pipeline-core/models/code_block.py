@@ -8,7 +8,7 @@ for similarity comparison.
 
 import hashlib
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Optional, Dict, Any, List
@@ -17,6 +17,11 @@ from pydantic import BaseModel, Field, computed_field, field_validator
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from constants import ScanDefaults
+
+
+def utc_now() -> datetime:
+    """Return timezone-aware current UTC datetime."""
+    return datetime.now(UTC)
 
 
 class LanguageType(str, Enum):
@@ -152,7 +157,7 @@ class CodeBlock(BaseModel):
 
     # Timestamps
     detected_at: datetime = Field(
-        default_factory=datetime.utcnow, description="When this block was detected"
+        default_factory=utc_now, description="When this block was detected"
     )
 
     # Complexity metrics

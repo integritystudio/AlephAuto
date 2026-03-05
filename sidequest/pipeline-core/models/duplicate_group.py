@@ -6,7 +6,7 @@ duplicates or candidates for consolidation.
 """
 
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import List, Optional, Dict, Any
@@ -14,6 +14,11 @@ from pydantic import BaseModel, Field, computed_field, field_validator
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from constants import ImpactWeights, ScoringThresholds
+
+
+def utc_now() -> datetime:
+    """Return timezone-aware current UTC datetime."""
+    return datetime.now(UTC)
 
 
 class SimilarityMethod(str, Enum):
@@ -85,10 +90,10 @@ class DuplicateGroup(BaseModel):
 
     # Timestamps
     created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="When this group was created"
+        default_factory=utc_now, description="When this group was created"
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Last update timestamp"
+        default_factory=utc_now, description="Last update timestamp"
     )
 
     # Additional context
@@ -204,14 +209,14 @@ class DuplicateGroup(BaseModel):
         if block_id not in self.member_block_ids:
             self.member_block_ids.append(block_id)
             self.occurrence_count = len(self.member_block_ids)
-            self.updated_at = datetime.utcnow()
+            self.updated_at = utc_now()
 
     def remove_member(self, block_id: str) -> None:
         """Remove a member from this group"""
         if block_id in self.member_block_ids:
             self.member_block_ids.remove(block_id)
             self.occurrence_count = len(self.member_block_ids)
-            self.updated_at = datetime.utcnow()
+            self.updated_at = utc_now()
 
             # Reset canonical if it was the removed block
             if self.canonical_block_id == block_id:
@@ -222,7 +227,7 @@ class DuplicateGroup(BaseModel):
         if block_id not in self.member_block_ids:
             raise ValueError(f"Block {block_id} is not a member of this group")
         self.canonical_block_id = block_id
-        self.updated_at = datetime.utcnow()
+        self.updated_at = utc_now()
 
     def __hash__(self) -> int:
         """Enable use in sets and as dict keys"""

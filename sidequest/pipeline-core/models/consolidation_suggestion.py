@@ -6,7 +6,7 @@ including the strategy tier, implementation steps, and impact assessment.
 """
 
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import List, Optional
@@ -20,6 +20,11 @@ from constants import (
     ScoringThresholds,
     SuggestionDefaults,
 )
+
+
+def utc_now() -> datetime:
+    """Return timezone-aware current UTC datetime."""
+    return datetime.now(UTC)
 
 
 class ConsolidationStrategy(str, Enum):
@@ -176,7 +181,7 @@ class ConsolidationSuggestion(BaseModel):
 
     # Timestamps
     created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="When this suggestion was created"
+        default_factory=utc_now, description="When this suggestion was created"
     )
 
     model_config = {
