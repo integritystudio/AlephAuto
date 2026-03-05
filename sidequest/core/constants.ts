@@ -20,14 +20,6 @@ export const TIME_MS = {
   WEEK: 7 * 24 * 60 * 60 * 1000,
 } as const;
 
-// ---------- Time (seconds) ----------
-export const TIME_SECONDS = {
-  SECOND: 1,
-  MINUTE: 60,
-  HOUR: 60 * 60,
-  DAY: 24 * 60 * 60,
-  WEEK: 7 * 24 * 60 * 60,
-} as const;
 /**
  * Timeout values in milliseconds
  */
