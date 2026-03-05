@@ -15,7 +15,7 @@
 
 import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
 import { config } from '../core/config.ts';
-import { TIMEOUTS } from '../core/constants.ts';
+import { BYTES_PER_KB, TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logWarn, logStart } from '../utils/logger.ts';
 import { generateReport } from '../utils/report-generator.ts';
 import { exec } from 'child_process';
@@ -198,8 +198,8 @@ class ClaudeHealthWorker extends SidequestServer {
       maxPlugins: 30,
       warnPlugins: 20,
       maxHookExecutionTime: TIMEOUTS.POLL_INTERVAL_MS, // Max hook execution time
-      minDiskSpace: 1024 * 1024 * 100, // 100MB
-      maxLogSize: 1024 * 1024 * 10 // 10MB
+      minDiskSpace: BYTES_PER_KB * BYTES_PER_KB * 100, // 100MB
+      maxLogSize: BYTES_PER_KB * BYTES_PER_KB * 10 // 10MB
     };
 
     logger.info({

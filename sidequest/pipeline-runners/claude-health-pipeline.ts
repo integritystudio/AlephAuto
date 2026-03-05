@@ -30,7 +30,7 @@
 import { ClaudeHealthWorker } from '../workers/claude-health-worker.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
-import { HEALTH, JOB_EVENTS } from '../core/constants.ts';
+import { BYTES_PER_KB, HEALTH, JOB_EVENTS } from '../core/constants.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -393,7 +393,7 @@ function getScoreColor(score: number): string {
  */
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
-  const k = 1024;
+  const k = BYTES_PER_KB;
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];

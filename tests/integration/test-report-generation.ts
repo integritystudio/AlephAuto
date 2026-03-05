@@ -9,6 +9,7 @@
 
 import { HTMLReportGenerator } from '../../sidequest/pipeline-core/reports/html-report-generator.ts';
 import { MarkdownReportGenerator } from '../../sidequest/pipeline-core/reports/markdown-report-generator.ts';
+import { BYTES_PER_KB } from '../../sidequest/core/constants.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 import fs from 'fs/promises';
 import path from 'path';
@@ -66,7 +67,7 @@ async function main() {
 
     const htmlStats = await fs.stat(htmlOutput);
     console.log(`   ✅ HTML report generated: ${htmlOutput}`);
-    console.log(`   📊 Size: ${(htmlStats.size / 1024).toFixed(2)} KB`);
+    console.log(`   📊 Size: ${(htmlStats.size / BYTES_PER_KB).toFixed(2)} KB`);
 
     // Test 2: Generate Markdown report
     console.log('\n2. Generating Markdown report...');
@@ -84,7 +85,7 @@ async function main() {
 
     const markdownStats = await fs.stat(markdownOutput);
     console.log(`   ✅ Markdown report generated: ${markdownOutput}`);
-    console.log(`   📊 Size: ${(markdownStats.size / 1024).toFixed(2)} KB`);
+    console.log(`   📊 Size: ${(markdownStats.size / BYTES_PER_KB).toFixed(2)} KB`);
 
     // Test 3: Generate concise summary
     console.log('\n3. Generating concise summary...');
@@ -97,7 +98,7 @@ async function main() {
 
     const summaryStats = await fs.stat(summaryOutput);
     console.log(`   ✅ Summary generated: ${summaryOutput}`);
-    console.log(`   📊 Size: ${(summaryStats.size / 1024).toFixed(2)} KB`);
+    console.log(`   📊 Size: ${(summaryStats.size / BYTES_PER_KB).toFixed(2)} KB`);
 
     // Display summary content
     console.log('\n' + '='.repeat(80));

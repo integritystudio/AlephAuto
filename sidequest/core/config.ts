@@ -2,7 +2,7 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { GIT_ACTIVITY, JOB_RETENTION, NUMBER_BASE, RETRY, TIME_MS, TIMEOUTS } from './constants.ts';
+import { BYTES_PER_KB, GIT_ACTIVITY, JOB_RETENTION, NUMBER_BASE, RETRY, TIME_MS, TIMEOUTS } from './constants.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -120,7 +120,7 @@ export const config = {
 
   // Repomix settings
   repomixTimeout: safeParseInt(process.env.REPOMIX_TIMEOUT, TIMEOUTS.REPOMIX_MS, TIME_MS.SECOND), // 10 minutes, min 1s
-  repomixMaxBuffer: safeParseInt(process.env.REPOMIX_MAX_BUFFER, 52428800, 1024), // 50MB, min 1KB
+  repomixMaxBuffer: safeParseInt(process.env.REPOMIX_MAX_BUFFER, 52428800, BYTES_PER_KB), // 50MB, min 1KB
   repomixIgnorePatterns: process.env.REPOMIX_IGNORE_PATTERNS
     ? process.env.REPOMIX_IGNORE_PATTERNS.split(',')
     : ['**/README.md', '**/README.MD', '**/*.md'], // Skip README and markdown files by default
@@ -223,8 +223,8 @@ function validateConfig(): void {
     errors.push('REPOMIX_TIMEOUT must be at least 1000ms');
   }
 
-  if (config.repomixMaxBuffer < 1024) {
-    errors.push('REPOMIX_MAX_BUFFER must be at least 1024 bytes');
+  if (config.repomixMaxBuffer < BYTES_PER_KB) {
+    errors.push(`REPOMIX_MAX_BUFFER must be at least ${BYTES_PER_KB} bytes`);
   }
 
   // Doppler resilience validation

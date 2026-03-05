@@ -1,6 +1,7 @@
 import { RepomixWorker } from '../../sidequest/workers/repomix-worker.ts';
 import path from 'path';
 import os from 'os';
+import { BYTES_PER_KB } from '../../sidequest/core/constants.ts';
 
 /**
  * Test script to run a single repomix job
@@ -55,7 +56,7 @@ async function testSingleJob() {
     console.log(`\n✓ Job completed successfully!`);
     console.log(`  Duration: ${Math.round(duration / 1000)}s`);
     console.log(`  Output file: ${job.result.outputFile}`);
-    console.log(`  File size: ${(job.result.size / 1024).toFixed(2)} KB`);
+    console.log(`  File size: ${(job.result.size / BYTES_PER_KB).toFixed(2)} KB`);
     console.log(`  Log file: ./logs/${job.id}.json`);
     process.exit(0);
   });

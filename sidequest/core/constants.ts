@@ -174,6 +174,11 @@ export const NUMBER_BASE = {
 } as const;
 
 /**
+ * Byte-size unit constants
+ */
+export const BYTES_PER_KB = 1024;
+
+/**
  * Health scoring constants
  */
 export const HEALTH = {
