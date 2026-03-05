@@ -35,7 +35,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from constants import (
     BlockExtraction,
     ConfidenceThresholds,
-    EffortHours,
+    EFFORT_IMPLEMENTATION_DEFAULT_HOURS,
+    EFFORT_IMPLEMENTATION_HOURS_BY_TIER,
+    EFFORT_IMPLEMENTATION_PER_FILE_INCREMENT_HOURS,
+    EFFORT_IMPLEMENTATION_TESTING_OVERHEAD_HOURS,
+    EffortTier,
     ExtractionDefaults,
     ROIMultipliers,
     ScoringThresholds,
@@ -939,21 +943,17 @@ def _suggest_target_location(group: DuplicateGroup, strategy: str) -> str:
 
 def _estimate_effort(group: DuplicateGroup, complexity: str) -> float:
     """Estimate effort in hours"""
-
-    base_hours = {
-        "trivial": EffortHours.TRIVIAL,
-        "simple": EffortHours.SIMPLE,
-        "moderate": EffortHours.MODERATE,
-        "complex": EffortHours.COMPLEX,
-    }
-
-    hours = base_hours.get(complexity, EffortHours.DEFAULT)
+    try:
+        effort_tier = EffortTier(complexity)
+        hours = EFFORT_IMPLEMENTATION_HOURS_BY_TIER[effort_tier]
+    except ValueError:
+        hours = EFFORT_IMPLEMENTATION_DEFAULT_HOURS
 
     # Add time per affected file (more files = more refactoring)
-    hours += len(group.affected_files) * EffortHours.PER_FILE_INCREMENT
+    hours += len(group.affected_files) * EFFORT_IMPLEMENTATION_PER_FILE_INCREMENT_HOURS
 
     # Add time for testing
-    hours += EffortHours.TESTING_OVERHEAD
+    hours += EFFORT_IMPLEMENTATION_TESTING_OVERHEAD_HOURS
 
     return round(hours, 1)
 

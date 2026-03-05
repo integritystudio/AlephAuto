@@ -14,7 +14,8 @@ from pydantic import BaseModel, Field, computed_field, field_validator
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from constants import (
-    EffortEstimates,
+    EFFORT_ROI_HOURS_BY_TIER,
+    EffortTier,
     ROIMultipliers,
     ScoringThresholds,
     SuggestionDefaults,
@@ -239,17 +240,9 @@ class ConsolidationSuggestion(BaseModel):
 
         Higher ROI = better impact relative to effort
         """
-        # Complexity to hours mapping
-        complexity_hours = {
-            ImplementationComplexity.TRIVIAL: EffortEstimates.TRIVIAL,
-            ImplementationComplexity.SIMPLE: EffortEstimates.SIMPLE,
-            ImplementationComplexity.MODERATE: EffortEstimates.MODERATE,
-            ImplementationComplexity.COMPLEX: EffortEstimates.COMPLEX,
-            ImplementationComplexity.VERY_COMPLEX: EffortEstimates.VERY_COMPLEX,
-        }
-
-        effort = self.estimated_effort_hours or complexity_hours.get(
-            self.complexity, SuggestionDefaults.DEFAULT_EFFORT_FALLBACK
+        effort_tier = EffortTier(self.complexity.value)
+        effort = self.estimated_effort_hours or EFFORT_ROI_HOURS_BY_TIER.get(
+            effort_tier, SuggestionDefaults.DEFAULT_EFFORT_FALLBACK
         )
 
         # ROI = impact / effort (normalized to 0-100)

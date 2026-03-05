@@ -5,7 +5,7 @@ Eliminates magic numbers scattered across extractors, models, similarity,
 and visualization modules. Organized by domain into namespace classes.
 """
 
-from enum import IntEnum
+from enum import Enum, IntEnum
 
 # BEGIN GENERATED HTTP STATUS CONSTANTS
 class HTTPCodes(IntEnum):
@@ -118,12 +118,24 @@ class ExtractionDefaults:
     METHOD_CHAIN_MAX_GAP = 100
 
 
-class EffortEstimates:
-    TRIVIAL = 0.5
-    SIMPLE = 2.5
-    MODERATE = 12
-    COMPLEX = 40
-    VERY_COMPLEX = 80
+class EffortTier(str, Enum):
+    """Shared effort tiers used across effort-estimation models."""
+
+    TRIVIAL = "trivial"
+    SIMPLE = "simple"
+    MODERATE = "moderate"
+    COMPLEX = "complex"
+    VERY_COMPLEX = "very_complex"
+
+
+# ROI model: broader strategic effort estimates (hours)
+EFFORT_ROI_HOURS_BY_TIER: dict[EffortTier, float] = {
+    EffortTier.TRIVIAL: 0.5,
+    EffortTier.SIMPLE: 2.5,
+    EffortTier.MODERATE: 12.0,
+    EffortTier.COMPLEX: 40.0,
+    EffortTier.VERY_COMPLEX: 80.0,
+}
 
 
 class StructuralDefaults:
@@ -172,14 +184,16 @@ class ROIMultipliers:
     MAX_SCORE = 100.0
 
 
-class EffortHours:
-    TRIVIAL = 0.5
-    SIMPLE = 1.0
-    MODERATE = 3.0
-    COMPLEX = 8.0
-    DEFAULT = 2.0
-    PER_FILE_INCREMENT = 0.25
-    TESTING_OVERHEAD = 0.5
+# Refactor implementation model: concrete engineering effort (hours)
+EFFORT_IMPLEMENTATION_HOURS_BY_TIER: dict[EffortTier, float] = {
+    EffortTier.TRIVIAL: 0.5,
+    EffortTier.SIMPLE: 1.0,
+    EffortTier.MODERATE: 3.0,
+    EffortTier.COMPLEX: 8.0,
+}
+EFFORT_IMPLEMENTATION_DEFAULT_HOURS = 2.0
+EFFORT_IMPLEMENTATION_PER_FILE_INCREMENT_HOURS = 0.25
+EFFORT_IMPLEMENTATION_TESTING_OVERHEAD_HOURS = 0.5
 
 
 class SuggestionDefaults:

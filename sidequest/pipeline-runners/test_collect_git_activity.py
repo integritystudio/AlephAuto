@@ -305,3 +305,115 @@ def test_generate_visualizations_dispatches_expected_charts(monkeypatch, tmp_pat
     assert ("bar", tmp_path / "top-10-repos.svg") in calls
     assert ("pie", tmp_path / "project-categories.svg") in calls
     assert ("pie", tmp_path / "language-distribution.svg") in calls
+
+
+def test_main_e2e_weekly_generates_markdown_and_json_without_visualizations(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(cga, "datetime", FrozenDateTime)
+    monkeypatch.setattr(cga, "PERSONALSITE_DIR", tmp_path / "site")
+    monkeypatch.setattr(cga, "WORK_COLLECTION", "work")
+    monkeypatch.setattr(cga, "find_git_repos", lambda max_depth: [tmp_path / "repo"])
+    monkeypatch.setattr(
+        cga, "_collect_repository_stats", lambda repos, since, until: ([], [])
+    )
+    monkeypatch.setattr(
+        cga,
+        "_compile_activity_data",
+        lambda repositories, all_files, since_date, until_date: {
+            "date_range": {"start": since_date, "end": until_date},
+            "total_commits": 0,
+            "total_additions": 0,
+            "total_deletions": 0,
+            "total_repositories": 0,
+            "total_files": 0,
+            "repositories": [],
+            "languages": {},
+            "categories": {},
+            "websites": {},
+            "monthly": {},
+        },
+    )
+
+    captured_summary = []
+    monkeypatch.setattr(
+        cga, "_print_summary", lambda data, output_dir=None: captured_summary.append(output_dir)
+    )
+    monkeypatch.setattr(
+        cga,
+        "generate_visualizations",
+        lambda data, output_dir: (_ for _ in ()).throw(AssertionError("should not generate visualizations")),
+    )
+
+    monkeypatch.setattr(
+        cga.sys,
+        "argv",
+        [
+            "collect_git_activity.py",
+            "--weekly",
+            "--output-format",
+            "both",
+            "--no-visualizations",
+        ],
+    )
+
+    exit_code = cga.main()
+    assert exit_code == 0
+
+    report_dir = tmp_path / "site" / "work"
+    markdown_report = report_dir / "2026-03-04-git-activity-report.md"
+    json_report = report_dir / "2026-03-04-git-activity-report.json"
+
+    assert markdown_report.exists()
+    assert json_report.exists()
+    assert 'title: "Weekly Git Activity Report: 2026-02-25 to 2026-03-04"' in markdown_report.read_text()
+    assert captured_summary == [None]
+
+
+def test_main_e2e_31_day_range_generates_monthly_report_title(monkeypatch, tmp_path):
+    monkeypatch.setattr(cga, "datetime", FrozenDateTime)
+    monkeypatch.setattr(cga, "PERSONALSITE_DIR", tmp_path / "site")
+    monkeypatch.setattr(cga, "WORK_COLLECTION", "work")
+    monkeypatch.setattr(cga, "find_git_repos", lambda max_depth: [tmp_path / "repo"])
+    monkeypatch.setattr(
+        cga, "_collect_repository_stats", lambda repos, since, until: ([], [])
+    )
+    monkeypatch.setattr(
+        cga,
+        "_compile_activity_data",
+        lambda repositories, all_files, since_date, until_date: {
+            "date_range": {"start": since_date, "end": until_date},
+            "total_commits": 0,
+            "total_additions": 0,
+            "total_deletions": 0,
+            "total_repositories": 0,
+            "total_files": 0,
+            "repositories": [],
+            "languages": {},
+            "categories": {},
+            "websites": {},
+            "monthly": {},
+        },
+    )
+    monkeypatch.setattr(cga, "_print_summary", lambda data, output_dir=None: None)
+    monkeypatch.setattr(cga, "generate_visualizations", lambda data, output_dir: None)
+
+    monkeypatch.setattr(
+        cga.sys,
+        "argv",
+        [
+            "collect_git_activity.py",
+            "--start-date",
+            "2026-01-01",
+            "--end-date",
+            "2026-02-01",
+            "--no-visualizations",
+        ],
+    )
+
+    exit_code = cga.main()
+    assert exit_code == 0
+
+    report_path = tmp_path / "site" / "work" / "2026-03-04-git-activity-report.md"
+    assert report_path.exists()
+    assert 'title: "Monthly Git Activity Report: 2026-01-01 to 2026-02-01"' in report_path.read_text()
