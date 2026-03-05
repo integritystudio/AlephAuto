@@ -8,9 +8,11 @@
  */
 
 /**
- * Time conversion helpers (for readability)
+ * Time units and conversion helpers
  */
-// ---------- Time (milliseconds) ----------
+// -----------------------------------------------------------------------------
+// Time Units
+// -----------------------------------------------------------------------------
 export const TIME_MS = {
   MS: 1,
   SECOND: 1000,
@@ -21,165 +23,69 @@ export const TIME_MS = {
 } as const;
 
 /**
+ * Time conversion constants (exported for calculations)
+ */
+export const TIME = {
+  SECOND: TIME_MS.SECOND,
+  MINUTE: TIME_MS.MINUTE,
+  HOUR: TIME_MS.HOUR,
+  DAY: TIME_MS.DAY,
+} as const;
+
+/**
  * Timeout values in milliseconds
  */
+// -----------------------------------------------------------------------------
+// Timing and Resilience
+// -----------------------------------------------------------------------------
 export const TIMEOUTS = {
-  /** Base Python pipeline execution timeout (10 minutes) */
+  /** Pipeline and worker execution */
   PYTHON_PIPELINE_BASE_MS: 10 * TIME_MS.MINUTE,
-
-  /** Additional timeout per pattern match (100ms) */
   PYTHON_PIPELINE_PER_PATTERN_MS: 100,
-
-  /** Additional timeout per file (10ms) */
   PYTHON_PIPELINE_PER_FILE_MS: 10,
+  REPOMIX_MS: 10 * TIME_MS.MINUTE,
+  GIT_REPORT_MS: 5 * TIME_MS.MINUTE,
+  WORKER_INIT_MS: 30 * TIME_MS.SECOND,
 
-  /** Database auto-save interval (30 seconds) */
-  DATABASE_SAVE_INTERVAL_MS: 30 * TIME_MS.SECOND,
-
-  /** Polling/checking interval (1 second) */
+  /** Shared operation durations */
   POLL_INTERVAL_MS: TIME_MS.SECOND,
-
-  /** Short timeout for quick operations (5 seconds) */
   SHORT_MS: 5 * TIME_MS.SECOND,
-
-  /** Medium timeout for moderate operations (10 seconds) */
   MEDIUM_MS: 10 * TIME_MS.SECOND,
-
-  /** Long timeout for extended operations (30 seconds) */
   LONG_MS: 30 * TIME_MS.SECOND,
-
-  /** One minute timeout */
   ONE_MINUTE_MS: TIME_MS.MINUTE,
-
-  /** Five minute timeout */
   FIVE_MINUTES_MS: 5 * TIME_MS.MINUTE,
-
-  /** One hour duration */
   ONE_HOUR_MS: TIME_MS.HOUR,
-
-  /** One day duration */
   ONE_DAY_MS: TIME_MS.DAY,
 
-  /** Repomix execution timeout (10 minutes) */
-  REPOMIX_MS: 10 * TIME_MS.MINUTE,
-
-  /** Git activity report timeout (5 minutes) */
-  GIT_REPORT_MS: 5 * TIME_MS.MINUTE,
-
-  /** Dependency validation timeout (30 seconds) */
+  /** Service and integration checks */
+  DATABASE_SAVE_INTERVAL_MS: 30 * TIME_MS.SECOND,
   DEPENDENCY_CHECK_MS: 30 * TIME_MS.SECOND,
-
-  /** Version check timeout (5 seconds) */
   VERSION_CHECK_MS: 5 * TIME_MS.SECOND,
-
-  /** Worker initialization timeout (30 seconds) */
-  WORKER_INIT_MS: 30 * TIME_MS.SECOND,
 } as const;
 
 /**
  * Retry configuration
  */
 export const RETRY = {
-  /** Maximum retry attempts before giving up (circuit breaker) */
+  /** Retry limits */
   MAX_ABSOLUTE_ATTEMPTS: 5,
-
-  /** Attempt count considered "nearing retry limit" for reporting */
   NEARING_LIMIT_ATTEMPT_THRESHOLD: 3,
-
-  /** Maximum manual retry count for a job via API */
   MAX_MANUAL_RETRIES: 10,
 
-  /** Network error retry delay (5 seconds) */
+  /** Error-type delay defaults */
   NETWORK_ERROR_DELAY_MS: 5 * TIME_MS.SECOND,
-
-  /** Server error retry delay (10 seconds) */
   SERVER_ERROR_DELAY_MS: 10 * TIME_MS.SECOND,
-
-  /** Rate limit retry delay (60 seconds) */
   RATE_LIMIT_DELAY_MS: TIME_MS.MINUTE,
-
-  /** Request timeout retry delay (30 seconds) */
   REQUEST_TIMEOUT_DELAY_MS: 30 * TIME_MS.SECOND,
-
-  /** Default retry delay when classification unknown (5 seconds) */
   DEFAULT_DELAY_MS: 5 * TIME_MS.SECOND,
 
-  /** Base backoff delay for exponential backoff (1 second) */
+  /** Exponential backoff policy */
   BASE_BACKOFF_MS: TIME_MS.SECOND,
-
-  /** Maximum backoff delay (10 seconds) */
   MAX_BACKOFF_MS: 10 * TIME_MS.SECOND,
 
-  /** Database recovery base delay (5 seconds) */
+  /** Database-specific recovery delays */
   DATABASE_RECOVERY_BASE_MS: 5 * TIME_MS.SECOND,
-
-  /** Maximum database recovery delay (5 minutes) */
   DATABASE_RECOVERY_MAX_MS: 5 * TIME_MS.MINUTE,
-} as const;
-
-/**
- * Shared event names used by Sidequest workers and pipelines
- */
-export const JOB_EVENTS = {
-  CREATED: 'job:created',
-  STARTED: 'job:started',
-  COMPLETED: 'job:completed',
-  FAILED: 'job:failed',
-} as const;
-
-export const RETRY_EVENTS = {
-  CREATED: 'retry:created',
-} as const;
-
-export const WORKER_EVENTS = {
-  METRICS_UPDATED: 'metrics:updated',
-} as const;
-
-/**
- * Numeric parsing radix values
- */
-export const NUMBER_BASE = {
-  DECIMAL: 10,
-} as const;
-
-/**
- * Health scoring constants
- */
-export const HEALTH = {
-  MAX_SCORE: 100,
-} as const;
-
-/**
- * Concurrency limits
- */
-export const CONCURRENCY = {
-  /** Default maximum concurrent jobs per worker */
-  DEFAULT_MAX_JOBS: 5,
-
-  /** Maximum concurrent worker initializations */
-  MAX_WORKER_INITS: 3,
-} as const;
-
-/**
- * Pagination defaults
- */
-export const PAGINATION = {
-  /** Default page size for job listings */
-  DEFAULT_LIMIT: 50,
-
-  /** Default page size for all jobs listing */
-  DEFAULT_ALL_LIMIT: 100,
-
-  /** Maximum allowed page size to prevent memory issues */
-  MAX_LIMIT: 1000,
-} as const;
-
-/**
- * Input validation patterns
- */
-export const VALIDATION = {
-  /** Job ID pattern - alphanumeric, hyphens, underscores, max 100 chars */
-  JOB_ID_PATTERN: /^[a-zA-Z0-9_-]{1,100}$/,
 } as const;
 
 /**
@@ -247,8 +153,99 @@ export const RATE_LIMIT = {
 } as const;
 
 /**
+ * Shared event names used by Sidequest workers and pipelines
+ */
+// -----------------------------------------------------------------------------
+// Event Names
+// -----------------------------------------------------------------------------
+export const JOB_EVENTS = {
+  CREATED: 'job:created',
+  STARTED: 'job:started',
+  COMPLETED: 'job:completed',
+  FAILED: 'job:failed',
+} as const;
+
+export const RETRY_EVENTS = {
+  CREATED: 'retry:created',
+} as const;
+
+export const WORKER_EVENTS = {
+  METRICS_UPDATED: 'metrics:updated',
+} as const;
+
+/**
+ * Numeric parsing radix values
+ */
+// -----------------------------------------------------------------------------
+// Runtime Defaults and Guards
+// -----------------------------------------------------------------------------
+export const NUMBER_BASE = {
+  DECIMAL: 10,
+} as const;
+
+/**
+ * Health scoring constants
+ */
+export const HEALTH = {
+  MAX_SCORE: 100,
+} as const;
+
+/**
+ * Concurrency limits
+ */
+export const CONCURRENCY = {
+  /** Default maximum concurrent jobs per worker */
+  DEFAULT_MAX_JOBS: 5,
+
+  /** Maximum concurrent worker initializations */
+  MAX_WORKER_INITS: 3,
+} as const;
+
+/**
+ * Pagination defaults
+ */
+export const PAGINATION = {
+  /** Default page size for job listings */
+  DEFAULT_LIMIT: 50,
+
+  /** Default page size for all jobs listing */
+  DEFAULT_ALL_LIMIT: 100,
+
+  /** Maximum allowed page size to prevent memory issues */
+  MAX_LIMIT: 1000,
+} as const;
+
+/**
+ * Input validation patterns
+ */
+export const VALIDATION = {
+  /** Job ID pattern - alphanumeric, hyphens, underscores, max 100 chars */
+  JOB_ID_PATTERN: /^[a-zA-Z0-9_-]{1,100}$/,
+} as const;
+
+/**
+ * Size limits
+ */
+export const LIMITS = {
+  /** Maximum output characters for log truncation */
+  MAX_OUTPUT_CHARS: 1000,
+
+  /** Maximum write queue size */
+  MAX_WRITE_QUEUE_SIZE: 10000,
+
+  /** Number of scan history entries retained per repository */
+  REPOSITORY_SCAN_HISTORY_ENTRIES: 10,
+
+  /** Minimum hardcoded string occurrences before surfacing in analysis output */
+  HARD_CODED_STRING_MIN_OCCURRENCES: 3,
+} as const;
+
+/**
  * Git activity pipeline/report constants
  */
+// -----------------------------------------------------------------------------
+// Domain-Specific Constants
+// -----------------------------------------------------------------------------
 export const GIT_ACTIVITY = {
   /** Default report type when no explicit mode is provided */
   DEFAULT_REPORT_TYPE: 'weekly',
@@ -276,31 +273,4 @@ export const JOB_RETENTION = {
 
   /** Maximum retention period in days (10 years) */
   MAX_DAYS: 3650,
-} as const;
-
-/**
- * Size limits
- */
-export const LIMITS = {
-  /** Maximum output characters for log truncation */
-  MAX_OUTPUT_CHARS: 1000,
-
-  /** Maximum write queue size */
-  MAX_WRITE_QUEUE_SIZE: 10000,
-
-  /** Number of scan history entries retained per repository */
-  REPOSITORY_SCAN_HISTORY_ENTRIES: 10,
-
-  /** Minimum hardcoded string occurrences before surfacing in analysis output */
-  HARD_CODED_STRING_MIN_OCCURRENCES: 3,
-} as const;
-
-/**
- * Time conversion constants (exported for calculations)
- */
-export const TIME = {
-  SECOND: TIME_MS.SECOND,
-  MINUTE: TIME_MS.MINUTE,
-  HOUR: TIME_MS.HOUR,
-  DAY: TIME_MS.DAY,
 } as const;
