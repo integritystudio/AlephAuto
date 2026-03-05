@@ -1,3 +1,24 @@
+91373a0 2026-03-04 Replace stderr print calls with sys.stderr.write in extract_blocks
+  sidequest/pipeline-core/extractors/extract_blocks.py
+
+043ffdc 2026-03-04 chore: apply auto-fixable standards violations
+  sidequest/pipeline-core/extractors/extract_blocks.py
+
+7c51265 2026-03-04 test(pipeline-core): add effort-tier regression and e2e pipeline coverage
+  sidequest/pipeline-core/extractors/extract_blocks.py
+
+89499ac 2026-03-04 refactor(constants): unify time units and generate http constants from yaml
+  sidequest/pipeline-runners/collect_git_activity.py
+
+123d948 2026-03-04 chore: add sonarjs linting and replace key magic numbers with constants
+  pnpm-lock.yaml
+
+70d8d25 2026-03-04 chore(repomix): regenerate all bundles and fix docs self-inclusion
+  docs/repomix/repo-compressed.xml
+  docs/repomix/repomix-docs.xml
+  docs/repomix/repomix-git-ranked.xml
+  docs/repomix/repomix.xml
+
 113010d 2026-03-04 chore(repomix): centralize bundle ignores and regenerate outputs
   docs/repomix/repomix-docs.xml
   docs/repomix/repomix-git-ranked.xml
