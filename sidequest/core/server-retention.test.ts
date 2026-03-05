@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import type { Job } from './server.ts';
 import { SidequestServer } from './server.ts';
 import { config } from './config.ts';
-import { GIT_ACTIVITY, JOB_RETENTION, TIME_MS } from './constants.ts';
+import { GIT_ACTIVITY, JOB_RETENTION } from './constants.ts';
+import { TIME_MS } from './units.ts';
 import { jobRepository } from './job-repository.ts';
 import { JOB_STATUS } from '#api/types/job-status.ts';
 

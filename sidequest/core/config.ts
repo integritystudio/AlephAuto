@@ -2,8 +2,8 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { BYTES_PER_KB, GIT_ACTIVITY, JOB_RETENTION, NUMBER_BASE, RETRY, TIME_MS, TIMEOUTS } from './constants.ts';
-
+import { BYTES_PER_KB, GIT_ACTIVITY, JOB_RETENTION, NUMBER_BASE, RETRY, TIMEOUTS } from './constants.ts';
+import { TIME_MS } from './units.ts';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 

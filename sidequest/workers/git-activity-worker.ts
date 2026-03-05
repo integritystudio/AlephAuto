@@ -8,7 +8,8 @@ import os from 'os';
 import { fileURLToPath } from 'url';
 import * as Sentry from '@sentry/node';
 import { createComponentLogger } from '../utils/logger.ts';
-import { TIMEOUTS, TIME_MS, GIT_ACTIVITY, NUMBER_BASE } from '../core/constants.ts';
+import { TIMEOUTS, GIT_ACTIVITY, NUMBER_BASE } from '../core/constants.ts';
+import { TIME_MS } from '../core/units.js';
 
 const logger = createComponentLogger('GitActivityWorker');
 

@@ -14,7 +14,8 @@
  */
 
 import { createComponentLogger, logError } from '../utils/logger.ts';
-import { CACHE, TIME_MS } from '../core/constants.ts';
+import { CACHE } from '../core/constants.ts';
+import { TIME_MS } from '../core/units.js';
 import Sentry from '@sentry/node';
 import fs from 'fs/promises';
 import path from 'path';

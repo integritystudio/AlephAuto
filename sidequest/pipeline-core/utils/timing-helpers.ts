@@ -6,7 +6,7 @@
  * @module lib/utils/timing-helpers
  */
 
-import { TIME_MS } from '../../core/constants.ts';
+import { TIME_MS } from '../../core/units.ts';
 
 interface Timer {
   /** Returns elapsed time in seconds */

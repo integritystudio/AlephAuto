@@ -19,7 +19,8 @@ import { PluginManagerWorker } from '#sidequest/utils/plugin-manager.ts';
 import { config } from '#sidequest/core/config.ts';
 import { createComponentLogger, logError } from '#sidequest/utils/logger.ts';
 import { jobRepository } from '#sidequest/core/job-repository.ts';
-import { CONCURRENCY, TIMEOUTS, TIME_MS, WORKER_COOLDOWN } from '#sidequest/core/constants.ts';
+import { CONCURRENCY, TIMEOUTS, WORKER_COOLDOWN } from '#sidequest/core/constants.ts';
+import { TIME_MS } from '#sidequest/core/units.ts';
 import type { ActivityFeedManager } from '../activity-feed.ts';
 
 /**
