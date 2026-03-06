@@ -2,12 +2,17 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { BYTES_PER_KB, GIT_ACTIVITY, JOB_RETENTION, NUMBER_BASE, RETRY, TIMEOUTS } from './constants.ts';
+import {
+  CONFIG_POLICY,
+  GIT_ACTIVITY,
+  JOB_RETENTION,
+  NUMBER_BASE,
+  RETRY,
+  TIMEOUTS
+} from './constants.ts';
 import { TIME_MS } from './units.ts';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const DOPPLER_BACKOFF_MULTIPLIER_DEFAULT = TIMEOUTS.TWO_SECONDS_MS / TIME_MS.SECOND;
-const DOPPLER_BACKOFF_MULTIPLIER_MAX = TIMEOUTS.SHORT_MS / TIME_MS.SECOND;
 
 /**
  * Safely parse an integer from environment variable with bounds checking
@@ -89,7 +94,12 @@ export const config = {
   scanReportsDir: path.resolve(__dirname, '..', '..', 'output'),
 
   // Job processing
-  maxConcurrent: safeParseInt(process.env.MAX_CONCURRENT, 5, 1, 50),
+  maxConcurrent: safeParseInt(
+    process.env.MAX_CONCURRENT,
+    CONFIG_POLICY.CONCURRENCY.DEFAULT_MAX_CONCURRENT,
+    CONFIG_POLICY.CONCURRENCY.MIN_MAX_CONCURRENT,
+    CONFIG_POLICY.CONCURRENCY.MAX_MAX_CONCURRENT
+  ),
   defaultJobRetentionDays: safeParseInt(
     process.env.JOB_RETENTION_DAYS,
     GIT_ACTIVITY.MONTHLY_WINDOW_DAYS,
@@ -121,8 +131,16 @@ export const config = {
   enablePRCreation: process.env.ENABLE_PR_CREATION === 'true',
 
   // Repomix settings
-  repomixTimeout: safeParseInt(process.env.REPOMIX_TIMEOUT, TIMEOUTS.REPOMIX_MS, TIME_MS.SECOND), // 10 minutes, min 1s
-  repomixMaxBuffer: safeParseInt(process.env.REPOMIX_MAX_BUFFER, 52428800, BYTES_PER_KB), // 50MB, min 1KB
+  repomixTimeout: safeParseInt(
+    process.env.REPOMIX_TIMEOUT,
+    TIMEOUTS.REPOMIX_MS,
+    CONFIG_POLICY.REPOMIX.MIN_TIMEOUT_MS
+  ), // 10 minutes, min 1s
+  repomixMaxBuffer: safeParseInt(
+    process.env.REPOMIX_MAX_BUFFER,
+    CONFIG_POLICY.REPOMIX.DEFAULT_MAX_BUFFER_BYTES,
+    CONFIG_POLICY.REPOMIX.MIN_MAX_BUFFER_BYTES
+  ), // 50MB, min 1KB
   repomixIgnorePatterns: process.env.REPOMIX_IGNORE_PATTERNS
     ? process.env.REPOMIX_IGNORE_PATTERNS.split(',')
     : ['**/README.md', '**/README.MD', '**/*.md'], // Skip README and markdown files by default
@@ -158,28 +176,60 @@ export const config = {
   ],
 
   // Health check server
-  healthCheckPort: safeParseInt(process.env.HEALTH_CHECK_PORT, 3000, 1, 65535),
+  healthCheckPort: safeParseInt(
+    process.env.HEALTH_CHECK_PORT,
+    CONFIG_POLICY.PORTS.DEFAULT_HEALTH_CHECK_PORT,
+    CONFIG_POLICY.PORTS.MIN_PORT,
+    CONFIG_POLICY.PORTS.MAX_PORT
+  ),
 
   // API server port
   // PORT is standard for Render/Heroku, JOBS_API_PORT is our custom env var
-  apiPort: safeParseInt(process.env.PORT || process.env.JOBS_API_PORT, 8080, 1, 65535),
+  apiPort: safeParseInt(
+    process.env.PORT || process.env.JOBS_API_PORT,
+    CONFIG_POLICY.PORTS.DEFAULT_API_PORT,
+    CONFIG_POLICY.PORTS.MIN_PORT,
+    CONFIG_POLICY.PORTS.MAX_PORT
+  ),
 
   // Doppler resilience configuration
   doppler: {
     // Circuit breaker settings
-    failureThreshold: safeParseInt(process.env.DOPPLER_FAILURE_THRESHOLD, 3, 1, 10),
-    successThreshold: safeParseInt(process.env.DOPPLER_SUCCESS_THRESHOLD, 2, 1, 10),
-    timeout: safeParseInt(process.env.DOPPLER_TIMEOUT, TIMEOUTS.SHORT_MS, TIME_MS.SECOND), // 5s before attempting recovery
+    failureThreshold: safeParseInt(
+      process.env.DOPPLER_FAILURE_THRESHOLD,
+      CONFIG_POLICY.DOPPLER.DEFAULT_FAILURE_THRESHOLD,
+      CONFIG_POLICY.DOPPLER.MIN_THRESHOLD,
+      CONFIG_POLICY.DOPPLER.MAX_THRESHOLD
+    ),
+    successThreshold: safeParseInt(
+      process.env.DOPPLER_SUCCESS_THRESHOLD,
+      CONFIG_POLICY.DOPPLER.DEFAULT_SUCCESS_THRESHOLD,
+      CONFIG_POLICY.DOPPLER.MIN_THRESHOLD,
+      CONFIG_POLICY.DOPPLER.MAX_THRESHOLD
+    ),
+    timeout: safeParseInt(
+      process.env.DOPPLER_TIMEOUT,
+      TIMEOUTS.SHORT_MS,
+      CONFIG_POLICY.DOPPLER.MIN_TIMEOUT_MS
+    ), // 5s before attempting recovery
 
     // Exponential backoff settings
-    baseDelayMs: safeParseInt(process.env.DOPPLER_BASE_DELAY_MS, RETRY.BASE_BACKOFF_MS, 100), // 1s
+    baseDelayMs: safeParseInt(
+      process.env.DOPPLER_BASE_DELAY_MS,
+      RETRY.BASE_BACKOFF_MS,
+      CONFIG_POLICY.DOPPLER.MIN_BASE_DELAY_MS
+    ), // 1s
     backoffMultiplier: safeParseFloat(
       process.env.DOPPLER_BACKOFF_MULTIPLIER,
-      DOPPLER_BACKOFF_MULTIPLIER_DEFAULT,
-      1.0,
-      DOPPLER_BACKOFF_MULTIPLIER_MAX
+      CONFIG_POLICY.DOPPLER.DEFAULT_BACKOFF_MULTIPLIER,
+      CONFIG_POLICY.DOPPLER.MIN_BACKOFF_MULTIPLIER,
+      CONFIG_POLICY.DOPPLER.MAX_BACKOFF_MULTIPLIER
     ),
-    maxBackoffMs: safeParseInt(process.env.DOPPLER_MAX_BACKOFF_MS, RETRY.MAX_BACKOFF_MS, TIME_MS.SECOND), // 10s
+    maxBackoffMs: safeParseInt(
+      process.env.DOPPLER_MAX_BACKOFF_MS,
+      RETRY.MAX_BACKOFF_MS,
+      CONFIG_POLICY.DOPPLER.MIN_MAX_BACKOFF_MS
+    ), // 10s
 
     // Cache settings - Doppler CLI uses a fallback directory, not a single file
     cacheDir: process.env.DOPPLER_CACHE_DIR || path.join(os.homedir(), '.doppler', 'fallback')
@@ -195,11 +245,20 @@ export const config = {
     url: process.env.REDIS_URL || null,
     // Fallback to individual settings for local development
     host: process.env.REDIS_HOST || 'localhost',
-    port: safeParseInt(process.env.REDIS_PORT, 6379, 1, 65535),
+    port: safeParseInt(
+      process.env.REDIS_PORT,
+      CONFIG_POLICY.PORTS.DEFAULT_REDIS_PORT,
+      CONFIG_POLICY.PORTS.MIN_PORT,
+      CONFIG_POLICY.PORTS.MAX_PORT
+    ),
     // Enable caching when Redis is available
     enabled: process.env.REDIS_URL !== undefined || process.env.REDIS_HOST !== undefined,
     // Cache TTL in seconds (default: 30 days)
-    ttl: safeParseInt(process.env.REDIS_CACHE_TTL, GIT_ACTIVITY.MONTHLY_WINDOW_DAYS * (TIME_MS.DAY / TIME_MS.SECOND), 1),
+    ttl: safeParseInt(
+      process.env.REDIS_CACHE_TTL,
+      GIT_ACTIVITY.MONTHLY_WINDOW_DAYS * (TIME_MS.DAY / TIME_MS.SECOND),
+      CONFIG_POLICY.REDIS.MIN_CACHE_TTL_SECONDS
+    ),
   },
 
   // Migration API key for bulk import operations
@@ -209,7 +268,11 @@ export const config = {
   // Database settings
   database: {
     // NOTE: saveIntervalMs is unused after migration to better-sqlite3 (WAL mode, direct disk writes)
-    saveIntervalMs: safeParseInt(process.env.DATABASE_SAVE_INTERVAL_MS, TIMEOUTS.DATABASE_SAVE_INTERVAL_MS, TIME_MS.SECOND),
+    saveIntervalMs: safeParseInt(
+      process.env.DATABASE_SAVE_INTERVAL_MS,
+      TIMEOUTS.DATABASE_SAVE_INTERVAL_MS,
+      CONFIG_POLICY.DATABASE.MIN_SAVE_INTERVAL_MS
+    ),
   },
 
   // System paths
@@ -222,49 +285,66 @@ export const config = {
 function validateConfig(): void {
   const errors: string[] = [];
 
-  if (config.maxConcurrent < 1 || config.maxConcurrent > 50) {
-    errors.push('MAX_CONCURRENT must be between 1 and 50');
+  if (
+    config.maxConcurrent < CONFIG_POLICY.CONCURRENCY.MIN_MAX_CONCURRENT
+    || config.maxConcurrent > CONFIG_POLICY.CONCURRENCY.MAX_MAX_CONCURRENT
+  ) {
+    errors.push(
+      `MAX_CONCURRENT must be between ${CONFIG_POLICY.CONCURRENCY.MIN_MAX_CONCURRENT} and ${CONFIG_POLICY.CONCURRENCY.MAX_MAX_CONCURRENT}`
+    );
   }
 
-  if (config.repomixTimeout < TIME_MS.SECOND) {
-    errors.push('REPOMIX_TIMEOUT must be at least 1000ms');
+  if (config.repomixTimeout < CONFIG_POLICY.REPOMIX.MIN_TIMEOUT_MS) {
+    errors.push(`REPOMIX_TIMEOUT must be at least ${CONFIG_POLICY.REPOMIX.MIN_TIMEOUT_MS}ms`);
   }
 
-  if (config.repomixMaxBuffer < BYTES_PER_KB) {
-    errors.push(`REPOMIX_MAX_BUFFER must be at least ${BYTES_PER_KB} bytes`);
+  if (config.repomixMaxBuffer < CONFIG_POLICY.REPOMIX.MIN_MAX_BUFFER_BYTES) {
+    errors.push(`REPOMIX_MAX_BUFFER must be at least ${CONFIG_POLICY.REPOMIX.MIN_MAX_BUFFER_BYTES} bytes`);
   }
 
   // Doppler resilience validation
-  if (config.doppler.failureThreshold < 1 || config.doppler.failureThreshold > 10) {
-    errors.push('DOPPLER_FAILURE_THRESHOLD must be between 1 and 10');
-  }
-
-  if (config.doppler.successThreshold < 1 || config.doppler.successThreshold > 10) {
-    errors.push('DOPPLER_SUCCESS_THRESHOLD must be between 1 and 10');
-  }
-
-  if (config.doppler.timeout < TIME_MS.SECOND) {
-    errors.push('DOPPLER_TIMEOUT must be at least 1000ms');
-  }
-
-  if (config.doppler.baseDelayMs < 100) {
-    errors.push('DOPPLER_BASE_DELAY_MS must be at least 100ms');
+  if (
+    config.doppler.failureThreshold < CONFIG_POLICY.DOPPLER.MIN_THRESHOLD
+    || config.doppler.failureThreshold > CONFIG_POLICY.DOPPLER.MAX_THRESHOLD
+  ) {
+    errors.push(
+      `DOPPLER_FAILURE_THRESHOLD must be between ${CONFIG_POLICY.DOPPLER.MIN_THRESHOLD} and ${CONFIG_POLICY.DOPPLER.MAX_THRESHOLD}`
+    );
   }
 
   if (
-    config.doppler.backoffMultiplier < 1.0
-    || config.doppler.backoffMultiplier > DOPPLER_BACKOFF_MULTIPLIER_MAX
+    config.doppler.successThreshold < CONFIG_POLICY.DOPPLER.MIN_THRESHOLD
+    || config.doppler.successThreshold > CONFIG_POLICY.DOPPLER.MAX_THRESHOLD
   ) {
-    errors.push('DOPPLER_BACKOFF_MULTIPLIER must be between 1.0 and 5.0');
+    errors.push(
+      `DOPPLER_SUCCESS_THRESHOLD must be between ${CONFIG_POLICY.DOPPLER.MIN_THRESHOLD} and ${CONFIG_POLICY.DOPPLER.MAX_THRESHOLD}`
+    );
   }
 
-  if (config.doppler.maxBackoffMs < TIME_MS.SECOND) {
-    errors.push('DOPPLER_MAX_BACKOFF_MS must be at least 1000ms');
+  if (config.doppler.timeout < CONFIG_POLICY.DOPPLER.MIN_TIMEOUT_MS) {
+    errors.push(`DOPPLER_TIMEOUT must be at least ${CONFIG_POLICY.DOPPLER.MIN_TIMEOUT_MS}ms`);
+  }
+
+  if (config.doppler.baseDelayMs < CONFIG_POLICY.DOPPLER.MIN_BASE_DELAY_MS) {
+    errors.push(`DOPPLER_BASE_DELAY_MS must be at least ${CONFIG_POLICY.DOPPLER.MIN_BASE_DELAY_MS}ms`);
+  }
+
+  if (
+    config.doppler.backoffMultiplier < CONFIG_POLICY.DOPPLER.MIN_BACKOFF_MULTIPLIER
+    || config.doppler.backoffMultiplier > CONFIG_POLICY.DOPPLER.MAX_BACKOFF_MULTIPLIER
+  ) {
+    errors.push(
+      `DOPPLER_BACKOFF_MULTIPLIER must be between ${CONFIG_POLICY.DOPPLER.MIN_BACKOFF_MULTIPLIER} and ${CONFIG_POLICY.DOPPLER.MAX_BACKOFF_MULTIPLIER}`
+    );
+  }
+
+  if (config.doppler.maxBackoffMs < CONFIG_POLICY.DOPPLER.MIN_MAX_BACKOFF_MS) {
+    errors.push(`DOPPLER_MAX_BACKOFF_MS must be at least ${CONFIG_POLICY.DOPPLER.MIN_MAX_BACKOFF_MS}ms`);
   }
 
   // Database validation
-  if (config.database.saveIntervalMs < TIME_MS.SECOND) {
-    errors.push('DATABASE_SAVE_INTERVAL_MS must be at least 1000ms');
+  if (config.database.saveIntervalMs < CONFIG_POLICY.DATABASE.MIN_SAVE_INTERVAL_MS) {
+    errors.push(`DATABASE_SAVE_INTERVAL_MS must be at least ${CONFIG_POLICY.DATABASE.MIN_SAVE_INTERVAL_MS}ms`);
   }
 
   if (errors.length > 0) {
