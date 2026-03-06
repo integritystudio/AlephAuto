@@ -61,4 +61,10 @@ export default tseslint.config(
       }],
     },
   },
+  {
+    files: ['sidequest/core/constants.ts', 'sidequest/core/units.ts'],
+    rules: {
+      'no-magic-numbers': 'off',
+    },
+  },
 );
