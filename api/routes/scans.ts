@@ -22,7 +22,7 @@ import { JOB_STATUS } from '../types/job-status.ts';
 import { PAGINATION } from '#sidequest/core/constants.ts';
 import { type RepositoryConfig } from '#sidequest/pipeline-core/config/repository-config-loader.ts';
 import path from 'path';
-import { HttpStatus } from '../constants/http-status.ts';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 const router = express.Router();
 const logger = createComponentLogger('ScanRoutes');

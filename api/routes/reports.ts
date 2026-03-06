@@ -10,7 +10,7 @@ import { validateQuery } from '../middleware/validation.ts';
 import { ReportQuerySchema } from '../types/report-requests.ts';
 import fs from 'fs/promises';
 import path from 'path';
-import { HttpStatus } from '../constants/http-status.ts';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 const router = express.Router();
 const logger = createComponentLogger('ReportRoutes');

@@ -8,7 +8,7 @@ import type { Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import { createComponentLogger } from '#sidequest/utils/logger.ts';
 import { RATE_LIMIT } from '#sidequest/core/constants.ts';
-import { HttpStatus } from '../constants/http-status.ts';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 const logger = createComponentLogger('RateLimiter');
 

@@ -9,7 +9,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, '..');
 
 const sourcePath = path.join(rootDir, 'shared', 'constants', 'http-status.yaml');
-const tsTargetPath = path.join(rootDir, 'api', 'constants', 'http-status.ts');
+const tsTargetPath = path.join(rootDir, 'shared', 'constants', 'http-status.ts');
 const pyTargetPath = path.join(rootDir, 'sidequest', 'pipeline-core', 'constants.py');
 
 const pyStartMarker = '# BEGIN GENERATED HTTP STATUS CONSTANTS';

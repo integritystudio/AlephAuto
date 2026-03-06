@@ -7,7 +7,7 @@
 
 import type { Response } from 'express';
 import { createComponentLogger } from '#sidequest/utils/logger.ts';
-import { HttpStatus, type HttpStatusCode } from '../constants/http-status.ts';
+import { HttpStatus, type HttpStatusCode } from '../../shared/constants/http-status.ts';
 
 const logger = createComponentLogger('ApiError');
 

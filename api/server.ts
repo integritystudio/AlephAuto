@@ -29,7 +29,7 @@ import repositoryRoutes from './routes/repositories.ts';
 import reportRoutes from './routes/reports.ts';
 import pipelineRoutes from './routes/pipelines.ts';
 import jobsRoutes from './routes/jobs.ts';
-import { HttpStatus } from './constants/http-status.ts';
+import { HttpStatus } from '../shared/constants/http-status.ts';
 import * as Sentry from '@sentry/node';
 import { createServer } from 'http';
 import { createWebSocketServer } from './websocket.ts';

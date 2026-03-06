@@ -14,7 +14,7 @@ import { isValidJobStatus, JOB_STATUS } from '../types/job-status.ts';
 import { PAGINATION, VALIDATION, RETRY } from '#sidequest/core/constants.ts';
 import { sendError, sendNotFoundError, sendInternalError, ERROR_CODES } from '../utils/api-error.ts';
 import { bulkImportRateLimiter } from '../middleware/rate-limit.ts';
-import { HttpStatus } from '../constants/http-status.ts';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 /**
  * Timing safe equal.

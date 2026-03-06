@@ -4,7 +4,7 @@ import request from 'supertest';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { HttpStatus } from '../../api/constants/http-status.ts';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
 import { ApiRoutesTestConstants } from '../constants/api-routes-test-constants.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

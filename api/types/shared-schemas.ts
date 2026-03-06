@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import { HttpStatus, type HttpStatusCode } from '../constants/http-status.ts';
+import { HttpStatus, type HttpStatusCode } from '../../shared/constants/http-status.ts';
 
 export const ErrorResponseSchema = z.object({
   error: z.string(),

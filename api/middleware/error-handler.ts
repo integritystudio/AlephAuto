@@ -8,7 +8,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { createComponentLogger } from '#sidequest/utils/logger.ts';
 import { config } from '#sidequest/core/config.ts';
 import * as Sentry from '@sentry/node';
-import { HttpStatus } from '../constants/http-status.ts';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 const logger = createComponentLogger('ErrorHandler');
 

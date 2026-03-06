@@ -8,7 +8,7 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { authMiddleware } from '../../api/middleware/auth.ts';
 import { config } from '../../sidequest/core/config.ts';
-import { HttpStatus } from '../../api/constants/http-status.ts';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 function createRequest(overrides = {}) {
   return {

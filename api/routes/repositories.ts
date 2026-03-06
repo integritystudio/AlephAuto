@@ -11,7 +11,7 @@ import { createComponentLogger, logError } from '#sidequest/utils/logger.ts';
 import { strictRateLimiter } from '../middleware/rate-limit.ts';
 import { validateQuery } from '../middleware/validation.ts';
 import { RepositoryQuerySchema, RepositoryGroupQuerySchema } from '../types/repository-requests.ts';
-import { HttpStatus } from '../constants/http-status.ts';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 const router = express.Router();
 const logger = createComponentLogger('RepositoryRoutes');
