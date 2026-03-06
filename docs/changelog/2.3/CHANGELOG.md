@@ -6,6 +6,29 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.16] - 2026-03-06
+
+### Summary
+
+Migrated completed backlog item `CONST9` into changelog tracking after eliminating `no-magic-numbers` violations in the highest-volume test hotspots.
+
+### Changed
+
+- Resolved `CONST9` in test hotspots by replacing inline numeric literals with shared constants and named local test constants:
+  - `tests/unit/port-manager.test.ts`
+  - `tests/unit/activity-feed.test.ts`
+  - `tests/integration/port-manager.integration.test.ts`
+  - `tests/integration/error-recovery.integration.test.ts`
+- Closed and migrated `CONST9` in `docs/BACKLOG.md`.
+
+### Validation
+
+- `npx eslint tests/unit/port-manager.test.ts tests/unit/activity-feed.test.ts tests/integration/port-manager.integration.test.ts tests/integration/error-recovery.integration.test.ts -f json`
+  - `no-magic-numbers` violations in these files: `156 -> 0`
+- `npm run test:validate-backlog` (pass)
+
+---
+
 ## [2.3.15] - 2026-03-06
 
 ### Summary

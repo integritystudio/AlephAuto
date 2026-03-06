@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-06 | **Last Session:** 2026-03-06 (migrated CONST4/CONST6-CONST8 to changelog)
+**Last Updated:** 2026-03-06 | **Last Session:** 2026-03-06 (migrated CONST9 to changelog)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -13,6 +13,7 @@ Technical debt and planned improvements.
 No active deferred/blocked items.
 
 Closed items migrated to changelog:
+- [v2.3.16](changelog/2.3/CHANGELOG.md) (`CONST9`)
 - [v2.3.15](changelog/2.3/CHANGELOG.md) (`CONST4`, `CONST6`, `CONST7`, `CONST8`)
 - [v2.3.14](changelog/2.3/CHANGELOG.md) (`CONST5`)
 - [v2.3.10](changelog/2.3/CHANGELOG.md) (`SV1`)
@@ -44,14 +45,6 @@ Current lint snapshot (`no-magic-numbers`):
 
 Priority backlog:
 - No active magic-number hotspot backlog items.
-
-Completed:
-- `CONST9` (2026-03-06): replaced hotspot magic numbers with named constants and shared production constants in:
-  - `tests/unit/port-manager.test.ts`
-  - `tests/unit/activity-feed.test.ts`
-  - `tests/integration/port-manager.integration.test.ts`
-  - `tests/integration/error-recovery.integration.test.ts`
-  - Verification: `no-magic-numbers` violations in these files reduced from `156` to `0`.
 
 Tracking artifacts:
 - ESLint JSON snapshot: `/tmp/eslint_current.json`
