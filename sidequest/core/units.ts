@@ -43,8 +43,6 @@ export const EXPORT_MAX_BATCH_SIZE_LIMIT = 1_000;
 export const EXPORT_MIN_TIMEOUT_MS_LIMIT = 1_000;
 export const EXPORT_MAX_TIMEOUT_MS_LIMIT = 120_000;
 export const DEFAULT_EXPORT_TIMEOUT_MS = 30_000;
-export const MS = TIME_MS;
-export const ONE_MINUTE_MS = TIME_MS.MINUTE;
 
 // ---------- Bits / Bytes ----------
 const BIT_VALUE = 1 << 0; // 1 bit
