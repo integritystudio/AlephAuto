@@ -6,6 +6,35 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.15] - 2026-03-06
+
+### Summary
+
+Migrated completed constants backlog items `CONST4`, `CONST6`, `CONST7`, and `CONST8` from `docs/BACKLOG.md` into changelog tracking.
+
+### Changed
+
+- `CONST4`: Consolidated repeated duration literals through shared internal duration tokens in:
+  - `sidequest/core/constants.ts`
+- `CONST6`: Scoped lint policy for constants-definition modules by disabling `no-magic-numbers` in:
+  - `eslint.config.js`
+- `CONST7`: Centralized runtime configuration defaults/bounds in:
+  - `sidequest/core/constants.ts` (`CONFIG_POLICY`)
+  - `sidequest/core/config.ts`
+- `CONST8`: Centralized scan/report/rate-limit policy values in:
+  - `sidequest/core/constants.ts` (`INTER_PROJECT_SCAN`, `MARKDOWN_REPORT`, expanded `RATE_LIMIT`)
+  - `sidequest/pipeline-core/inter-project-scanner.ts`
+  - `sidequest/pipeline-core/reports/markdown-report-generator.ts`
+  - `api/middleware/rate-limit.ts`
+- Backlog migration updates in:
+  - `docs/BACKLOG.md`
+
+### Validation
+
+- `npm run test:validate-backlog` (pass)
+
+---
+
 ## [2.3.14] - 2026-03-05
 
 ### Summary

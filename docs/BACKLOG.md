@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-06 | **Last Session:** 2026-03-06 (magic-number remainder audit)
+**Last Updated:** 2026-03-06 | **Last Session:** 2026-03-06 (migrated CONST4/CONST6-CONST8 to changelog)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -13,6 +13,7 @@ Technical debt and planned improvements.
 No active deferred/blocked items.
 
 Closed items migrated to changelog:
+- [v2.3.15](changelog/2.3/CHANGELOG.md) (`CONST4`, `CONST6`, `CONST7`, `CONST8`)
 - [v2.3.14](changelog/2.3/CHANGELOG.md) (`CONST5`)
 - [v2.3.10](changelog/2.3/CHANGELOG.md) (`SV1`)
 - [v2.3.9](changelog/2.3/CHANGELOG.md) (`CX11`)
@@ -32,10 +33,6 @@ Closed items migrated to changelog:
 
 No active constants-dedup backlog items.
 
-> `CONST4` implemented in [sidequest/core/constants.ts](sidequest/core/constants.ts) via shared internal duration tokens with unchanged exported API.
->
-> `CONST5` completed and migrated to [v2.3.14 changelog](changelog/2.3/CHANGELOG.md).
-
 ---
 
 ## Open Findings — Remaining Magic Numbers (2026-03-06)
@@ -53,11 +50,6 @@ Priority backlog:
 Tracking artifacts:
 - ESLint JSON snapshot: `/tmp/eslint_current.json`
 - Grouping report: [docs/magic-number-categories.json](docs/magic-number-categories.json)
-
-Recently completed:
-- `CONST7` Runtime configuration defaults and bounds moved to [sidequest/core/constants.ts](sidequest/core/constants.ts) `CONFIG_POLICY`, and [sidequest/core/config.ts](sidequest/core/config.ts) now references those defaults and validation bounds directly.
-- `CONST8` Scoring and rate-limit policy values moved to [sidequest/core/constants.ts](sidequest/core/constants.ts) (`INTER_PROJECT_SCAN`, `MARKDOWN_REPORT`, expanded `RATE_LIMIT`), with hotspots updated in [sidequest/pipeline-core/inter-project-scanner.ts](sidequest/pipeline-core/inter-project-scanner.ts), [sidequest/pipeline-core/reports/markdown-report-generator.ts](sidequest/pipeline-core/reports/markdown-report-generator.ts), and [api/middleware/rate-limit.ts](api/middleware/rate-limit.ts).
-- `CONST6` `no-magic-numbers` is now disabled for constant-definition modules in [eslint.config.js](eslint.config.js) (`sidequest/core/constants.ts`, `sidequest/core/units.ts`) to keep lint actionable outside constants catalogs.
 
 ---
 
