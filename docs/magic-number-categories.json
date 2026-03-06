@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-03-06T10:56:39.606Z",
+  "generatedAt": "2026-03-06T14:18:07.171Z",
   "input": {
-    "eslintJson": "/tmp/eslint_post_overlap.json",
+    "eslintJson": "/tmp/eslint_current.json",
     "contextLines": 2,
     "maxCandidates": 5,
     "minSemanticScore": 0.2,
@@ -10,7 +10,7 @@
   "summary": {
     "totalOccurrences": 947,
     "uniqueLiterals": 135,
-    "constantsCatalogSize": 257,
+    "constantsCatalogSize": 256,
     "groupsWithExactConstantMatch": 51,
     "groupsWithSemanticConstantMatch": 32
   },
@@ -94,19 +94,19 @@
         },
         {
           "path": "sidequest/core/units.ts",
-          "line": 56,
+          "line": 54,
           "column": 13,
           "snippet": "B4 = 1 << 2, // 4"
         },
         {
           "path": "sidequest/core/units.ts",
-          "line": 79,
+          "line": 77,
           "column": 13,
           "snippet": "MB: KB ** 2,  // 1,048,576"
         },
         {
           "path": "sidequest/core/units.ts",
-          "line": 90,
+          "line": 88,
           "column": 21,
           "snippet": "MB: DECIMAL_KB ** 2,"
         },
@@ -163,10 +163,10 @@
           "valueMatch": true
         },
         {
-          "constantId": "cconstants.py_98",
+          "constantId": "cconstants.py_97",
           "name": "EFFORT_IMPLEMENTATION_DEFAULT_HOURS",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 194,
+          "line": 193,
           "literal": "2.0",
           "numericValue": 2,
           "semanticScore": 0.08571428571428572,
@@ -737,13 +737,13 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/units.ts",
-              "line": 79,
+              "line": 77,
               "column": 13,
               "snippet": "MB: KB ** 2,  // 1,048,576"
             },
             {
               "path": "sidequest/core/units.ts",
-              "line": 90,
+              "line": 88,
               "column": 21,
               "snippet": "MB: DECIMAL_KB ** 2,"
             }
@@ -1079,7 +1079,7 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/units.ts",
-              "line": 56,
+              "line": 54,
               "column": 13,
               "snippet": "B4 = 1 << 2, // 4"
             }
@@ -1535,19 +1535,19 @@
         },
         {
           "path": "sidequest/core/units.ts",
-          "line": 57,
+          "line": 55,
           "column": 15,
           "snippet": "BYTE = 1 << 3, // 8 bits per Byte"
         },
         {
           "path": "sidequest/core/units.ts",
-          "line": 80,
+          "line": 78,
           "column": 13,
           "snippet": "GB: KB ** 3, // 1,048,576"
         },
         {
           "path": "sidequest/core/units.ts",
-          "line": 91,
+          "line": 89,
           "column": 21,
           "snippet": "GB: DECIMAL_KB ** 3,"
         },
@@ -1647,37 +1647,37 @@
           "constantId": "cconstants.ts_37",
           "name": "MAX_WORKER_INITS",
           "path": "sidequest/core/constants.ts",
-          "line": 189,
+          "line": 186,
           "literal": "3",
           "numericValue": 3,
           "semanticScore": 0.12121212121212122,
           "valueMatch": true
         },
         {
-          "constantId": "cconstants.py_130",
+          "constantId": "cconstants.py_129",
           "name": "DEFAULT_LOCAL_MAX",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 243,
+          "line": 242,
           "literal": "3",
           "numericValue": 3,
           "semanticScore": 0.08823529411764706,
           "valueMatch": true
         },
         {
-          "constantId": "cconstants.py_128",
+          "constantId": "cconstants.py_127",
           "name": "API_LOCAL_MAX",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 241,
+          "line": 240,
           "literal": "3",
           "numericValue": 3,
           "semanticScore": 0.08571428571428572,
           "valueMatch": true
         },
         {
-          "constantId": "cconstants.py_132",
+          "constantId": "cconstants.py_131",
           "name": "DB_LOCAL_MAX",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 245,
+          "line": 244,
           "literal": "3",
           "numericValue": 3,
           "semanticScore": 0.08571428571428572,
@@ -2004,13 +2004,13 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/units.ts",
-              "line": 80,
+              "line": 78,
               "column": 13,
               "snippet": "GB: KB ** 3, // 1,048,576"
             },
             {
               "path": "sidequest/core/units.ts",
-              "line": 91,
+              "line": 89,
               "column": 21,
               "snippet": "GB: DECIMAL_KB ** 3,"
             }
@@ -2231,7 +2231,7 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/units.ts",
-              "line": 57,
+              "line": 55,
               "column": 15,
               "snippet": "BYTE = 1 << 3, // 8 bits per Byte"
             }
@@ -2635,25 +2635,25 @@
         },
         {
           "path": "sidequest/core/constants.ts",
-          "line": 52,
+          "line": 51,
           "column": 26,
           "snippet": "SERVER_ERROR_DELAY_MS: 10 * TIME_MS.SECOND,"
         },
         {
           "path": "sidequest/core/constants.ts",
-          "line": 59,
+          "line": 58,
           "column": 19,
           "snippet": "MAX_BACKOFF_MS: 10 * TIME_MS.SECOND,"
         },
         {
           "path": "sidequest/core/constants.ts",
-          "line": 74,
+          "line": 73,
           "column": 32,
           "snippet": "DEFAULT_SHUTDOWN_TIMEOUT_MS: 10 * TIME_MS.SECOND,"
         },
         {
           "path": "sidequest/core/constants.ts",
-          "line": 116,
+          "line": 115,
           "column": 11,
           "snippet": "MAX_MS: 10 * TIME_MS.MINUTE,"
         },
@@ -2665,7 +2665,7 @@
         },
         {
           "path": "sidequest/core/units.ts",
-          "line": 51,
+          "line": 49,
           "column": 17,
           "snippet": "const KB = 1 << 10; // 1024 Bits per KB"
         },
@@ -2681,7 +2681,7 @@
           "constantId": "cconstants.ts_31",
           "name": "MAX_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 116,
+          "line": 115,
           "literal": "10",
           "numericValue": 10,
           "semanticScore": 0.1875,
@@ -2691,7 +2691,7 @@
           "constantId": "cconstants.ts_20",
           "name": "SERVER_ERROR_DELAY_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 52,
+          "line": 51,
           "literal": "10",
           "numericValue": 10,
           "semanticScore": 0.18181818181818182,
@@ -2701,7 +2701,7 @@
           "constantId": "cconstants.ts_23",
           "name": "MAX_BACKOFF_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 59,
+          "line": 58,
           "literal": "10",
           "numericValue": 10,
           "semanticScore": 0.18181818181818182,
@@ -2733,7 +2733,7 @@
           "constantId": "cconstants.ts_25",
           "name": "DATABASE_RECOVERY_MAX_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 63,
+          "line": 62,
           "literal": "5",
           "numericValue": 5,
           "semanticScore": 0.21212121212121213,
@@ -2813,19 +2813,19 @@
             },
             {
               "path": "sidequest/core/constants.ts",
-              "line": 52,
+              "line": 51,
               "column": 26,
               "snippet": "SERVER_ERROR_DELAY_MS: 10 * TIME_MS.SECOND,"
             },
             {
               "path": "sidequest/core/constants.ts",
-              "line": 74,
+              "line": 73,
               "column": 32,
               "snippet": "DEFAULT_SHUTDOWN_TIMEOUT_MS: 10 * TIME_MS.SECOND,"
             },
             {
               "path": "sidequest/core/constants.ts",
-              "line": 116,
+              "line": 115,
               "column": 11,
               "snippet": "MAX_MS: 10 * TIME_MS.MINUTE,"
             }
@@ -3251,7 +3251,7 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/constants.ts",
-              "line": 59,
+              "line": 58,
               "column": 19,
               "snippet": "MAX_BACKOFF_MS: 10 * TIME_MS.SECOND,"
             }
@@ -3275,7 +3275,7 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/units.ts",
-              "line": 51,
+              "line": 49,
               "column": 17,
               "snippet": "const KB = 1 << 10; // 1024 Bits per KB"
             }
@@ -3685,61 +3685,61 @@
         },
         {
           "path": "sidequest/core/constants.ts",
-          "line": 31,
+          "line": 30,
           "column": 20,
           "snippet": "FIVE_MINUTES_MS: 5 * TIME_MS.MINUTE,"
         },
         {
           "path": "sidequest/core/constants.ts",
-          "line": 38,
+          "line": 37,
           "column": 21,
           "snippet": "VERSION_CHECK_MS: 5 * TIME_MS.SECOND,"
         },
         {
           "path": "sidequest/core/constants.ts",
-          "line": 51,
+          "line": 50,
           "column": 27,
           "snippet": "NETWORK_ERROR_DELAY_MS: 5 * TIME_MS.SECOND,"
         },
         {
           "path": "sidequest/core/constants.ts",
-          "line": 55,
+          "line": 54,
           "column": 21,
           "snippet": "DEFAULT_DELAY_MS: 5 * TIME_MS.SECOND,"
         },
         {
           "path": "sidequest/core/constants.ts",
-          "line": 62,
+          "line": 61,
           "column": 30,
           "snippet": "DATABASE_RECOVERY_BASE_MS: 5 * TIME_MS.SECOND,"
         },
         {
           "path": "sidequest/core/constants.ts",
-          "line": 63,
+          "line": 62,
           "column": 29,
           "snippet": "DATABASE_RECOVERY_MAX_MS: 5 * TIME_MS.MINUTE,"
         },
         {
           "path": "sidequest/core/constants.ts",
-          "line": 82,
+          "line": 81,
           "column": 23,
           "snippet": "STALE_THRESHOLD_MS: 5 * TIME_MS.MINUTE,"
         },
         {
           "path": "sidequest/core/units.ts",
-          "line": 59,
+          "line": 57,
           "column": 14,
           "snippet": "B32 = 1 << 5, // 32"
         },
         {
           "path": "sidequest/core/units.ts",
-          "line": 82,
+          "line": 80,
           "column": 13,
           "snippet": "PB: KB ** 5,"
         },
         {
           "path": "sidequest/core/units.ts",
-          "line": 93,
+          "line": 91,
           "column": 21,
           "snippet": "PB: DECIMAL_KB ** 5,"
         },
@@ -3773,7 +3773,7 @@
           "constantId": "cconstants.ts_25",
           "name": "DATABASE_RECOVERY_MAX_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 63,
+          "line": 62,
           "literal": "5",
           "numericValue": 5,
           "semanticScore": 0.21212121212121213,
@@ -3783,7 +3783,7 @@
           "constantId": "cconstants.ts_36",
           "name": "DEFAULT_MAX_JOBS",
           "path": "sidequest/core/constants.ts",
-          "line": 186,
+          "line": 183,
           "literal": "5",
           "numericValue": 5,
           "semanticScore": 0.2,
@@ -3803,7 +3803,7 @@
           "constantId": "cconstants.ts_22",
           "name": "DEFAULT_DELAY_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 55,
+          "line": 54,
           "literal": "5",
           "numericValue": 5,
           "semanticScore": 0.1875,
@@ -3825,7 +3825,7 @@
           "constantId": "cconstants.ts_25",
           "name": "DATABASE_RECOVERY_MAX_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 63,
+          "line": 62,
           "literal": "5",
           "numericValue": 5,
           "semanticScore": 0.21212121212121213,
@@ -3835,7 +3835,7 @@
           "constantId": "cconstants.ts_36",
           "name": "DEFAULT_MAX_JOBS",
           "path": "sidequest/core/constants.ts",
-          "line": 186,
+          "line": 183,
           "literal": "5",
           "numericValue": 5,
           "semanticScore": 0.2,
@@ -3845,7 +3845,7 @@
           "constantId": "cconstants.ts_31",
           "name": "MAX_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 116,
+          "line": 115,
           "literal": "10",
           "numericValue": 10,
           "semanticScore": 0.22580645161290322,
@@ -3865,7 +3865,7 @@
           "constantId": "cconstants.ts_20",
           "name": "SERVER_ERROR_DELAY_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 52,
+          "line": 51,
           "literal": "10",
           "numericValue": 10,
           "semanticScore": 0.21875,
@@ -3994,19 +3994,19 @@
             },
             {
               "path": "sidequest/core/constants.ts",
-              "line": 31,
+              "line": 30,
               "column": 20,
               "snippet": "FIVE_MINUTES_MS: 5 * TIME_MS.MINUTE,"
             },
             {
               "path": "sidequest/core/constants.ts",
-              "line": 38,
+              "line": 37,
               "column": 21,
               "snippet": "VERSION_CHECK_MS: 5 * TIME_MS.SECOND,"
             },
             {
               "path": "sidequest/core/constants.ts",
-              "line": 51,
+              "line": 50,
               "column": 27,
               "snippet": "NETWORK_ERROR_DELAY_MS: 5 * TIME_MS.SECOND,"
             }
@@ -4219,13 +4219,13 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/units.ts",
-              "line": 82,
+              "line": 80,
               "column": 13,
               "snippet": "PB: KB ** 5,"
             },
             {
               "path": "sidequest/core/units.ts",
-              "line": 93,
+              "line": 91,
               "column": 21,
               "snippet": "PB: DECIMAL_KB ** 5,"
             }
@@ -4327,7 +4327,7 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/units.ts",
-              "line": 59,
+              "line": 57,
               "column": 14,
               "snippet": "B32 = 1 << 5, // 32"
             }
@@ -4778,20 +4778,10 @@
           "constantId": "cconstants.ts_35",
           "name": "MAX_SCORE",
           "path": "sidequest/core/constants.ts",
-          "line": 178,
+          "line": 176,
           "literal": "100",
           "numericValue": 100,
           "semanticScore": 0.16129032258064516,
-          "valueMatch": true
-        },
-        {
-          "constantId": "cconstants.py_97",
-          "name": "MAX_SCORE",
-          "path": "sidequest/pipeline-core/constants.py",
-          "line": 184,
-          "literal": "100.0",
-          "numericValue": 100,
-          "semanticScore": 0.15625,
           "valueMatch": true
         },
         {
@@ -4815,13 +4805,23 @@
           "valueMatch": true
         },
         {
-          "constantId": "cconstants.py_122",
+          "constantId": "cconstants.py_121",
           "name": "RULE_ID_MAX",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 229,
+          "line": 228,
           "literal": "100",
           "numericValue": 100,
           "semanticScore": 0.11764705882352941,
+          "valueMatch": true
+        },
+        {
+          "constantId": "cconstants.py_66",
+          "name": "METHOD_CHAIN_MAX_GAP",
+          "path": "sidequest/pipeline-core/constants.py",
+          "line": 118,
+          "literal": "100",
+          "numericValue": 100,
+          "semanticScore": 0.11428571428571428,
           "valueMatch": true
         }
       ],
@@ -5660,7 +5660,7 @@
         },
         {
           "path": "sidequest/core/units.ts",
-          "line": 71,
+          "line": 69,
           "column": 9,
           "snippet": "P50 = 50,"
         },
@@ -5754,7 +5754,7 @@
           "constantId": "cconstants.ts_38",
           "name": "DEFAULT_LIMIT",
           "path": "sidequest/core/constants.ts",
-          "line": 197,
+          "line": 194,
           "literal": "50",
           "numericValue": 50,
           "semanticScore": 0.12903225806451613,
@@ -5774,17 +5774,17 @@
           "constantId": "cunits.ts_41",
           "name": "P50",
           "path": "sidequest/core/units.ts",
-          "line": 71,
+          "line": 69,
           "literal": "50",
           "numericValue": 50,
           "semanticScore": 0.09375,
           "valueMatch": true
         },
         {
-          "constantId": "cconstants.py_121",
+          "constantId": "cconstants.py_120",
           "name": "GIT_COMMIT_MAX",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 228,
+          "line": 227,
           "literal": "50",
           "numericValue": 50,
           "semanticScore": 0.08571428571428572,
@@ -6125,7 +6125,7 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/units.ts",
-              "line": 71,
+              "line": 69,
               "column": 9,
               "snippet": "P50 = 50,"
             }
@@ -6429,10 +6429,10 @@
       ],
       "exactConstantMatches": [
         {
-          "constantId": "cconstants.py_116",
+          "constantId": "cconstants.py_115",
           "name": "SEVERITY_MAX",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 223,
+          "line": 222,
           "literal": "20",
           "numericValue": 20,
           "semanticScore": 0.12121212121212122,
@@ -6459,10 +6459,10 @@
           "valueMatch": true
         },
         {
-          "constantId": "cconstants.py_124",
+          "constantId": "cconstants.py_123",
           "name": "FINALLY_LOOKAHEAD",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 234,
+          "line": 233,
           "literal": "20",
           "numericValue": 20,
           "semanticScore": 0.09090909090909091,
@@ -7109,7 +7109,7 @@
         {
           "constantId": "chttp-status.ts_0",
           "name": "OK",
-          "path": "api/constants/http-status.ts",
+          "path": "shared/constants/http-status.ts",
           "line": 7,
           "literal": "200",
           "numericValue": 200,
@@ -7137,20 +7137,20 @@
           "valueMatch": true
         },
         {
-          "constantId": "cconstants.py_118",
+          "constantId": "cconstants.py_117",
           "name": "REPO_NAME_MAX",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 225,
+          "line": 224,
           "literal": "200",
           "numericValue": 200,
           "semanticScore": 0,
           "valueMatch": true
         },
         {
-          "constantId": "cconstants.py_120",
+          "constantId": "cconstants.py_119",
           "name": "GIT_BRANCH_MAX",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 227,
+          "line": 226,
           "literal": "200",
           "numericValue": 200,
           "semanticScore": 0,
@@ -7536,17 +7536,17 @@
           "constantId": "cconstants.ts_40",
           "name": "MAX_LIMIT",
           "path": "sidequest/core/constants.ts",
-          "line": 203,
+          "line": 200,
           "literal": "1000",
           "numericValue": 1000,
           "semanticScore": 0.02857142857142857,
           "valueMatch": true
         },
         {
-          "constantId": "cconstants.py_117",
+          "constantId": "cconstants.py_116",
           "name": "REPO_PATH_MAX",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 224,
+          "line": 223,
           "literal": "1000",
           "numericValue": 1000,
           "semanticScore": 0.027777777777777776,
@@ -7556,7 +7556,7 @@
           "constantId": "cconstants.ts_41",
           "name": "MAX_OUTPUT_CHARS",
           "path": "sidequest/core/constants.ts",
-          "line": 219,
+          "line": 216,
           "literal": "1000",
           "numericValue": 1000,
           "semanticScore": 0.027777777777777776,
@@ -7898,31 +7898,31 @@
         },
         {
           "path": "sidequest/core/constants.ts",
-          "line": 36,
+          "line": 35,
           "column": 30,
           "snippet": "DATABASE_SAVE_INTERVAL_MS: 30 * TIME_MS.SECOND,"
         },
         {
           "path": "sidequest/core/constants.ts",
-          "line": 37,
+          "line": 36,
           "column": 24,
           "snippet": "DEPENDENCY_CHECK_MS: 30 * TIME_MS.SECOND,"
         },
         {
           "path": "sidequest/core/constants.ts",
-          "line": 54,
+          "line": 53,
           "column": 29,
           "snippet": "REQUEST_TIMEOUT_DELAY_MS: 30 * TIME_MS.SECOND,"
         },
         {
           "path": "sidequest/core/constants.ts",
-          "line": 99,
+          "line": 98,
           "column": 27,
           "snippet": "MAX_RECONNECT_DELAY_MS: 30 * TIME_MS.SECOND,"
         },
         {
           "path": "sidequest/core/constants.ts",
-          "line": 102,
+          "line": 101,
           "column": 26,
           "snippet": "HEARTBEAT_INTERVAL_MS: 30 * TIME_MS.SECOND,"
         },
@@ -7986,7 +7986,7 @@
           "constantId": "cconstants.ts_13",
           "name": "DATABASE_SAVE_INTERVAL_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 36,
+          "line": 35,
           "literal": "30",
           "numericValue": 30,
           "semanticScore": 0.3333333333333333,
@@ -7996,7 +7996,7 @@
           "constantId": "cconstants.ts_14",
           "name": "DEPENDENCY_CHECK_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 37,
+          "line": 36,
           "literal": "30",
           "numericValue": 30,
           "semanticScore": 0.25806451612903225,
@@ -8006,7 +8006,7 @@
           "constantId": "cconstants.ts_30",
           "name": "HEARTBEAT_INTERVAL_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 102,
+          "line": 101,
           "literal": "30",
           "numericValue": 30,
           "semanticScore": 0.25806451612903225,
@@ -8016,7 +8016,7 @@
           "constantId": "cconstants.ts_29",
           "name": "MAX_RECONNECT_DELAY_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 99,
+          "line": 98,
           "literal": "30",
           "numericValue": 30,
           "semanticScore": 0.25,
@@ -8038,7 +8038,7 @@
           "constantId": "cconstants.ts_13",
           "name": "DATABASE_SAVE_INTERVAL_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 36,
+          "line": 35,
           "literal": "30",
           "numericValue": 30,
           "semanticScore": 0.3333333333333333,
@@ -8048,7 +8048,7 @@
           "constantId": "cconstants.ts_14",
           "name": "DEPENDENCY_CHECK_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 37,
+          "line": 36,
           "literal": "30",
           "numericValue": 30,
           "semanticScore": 0.25806451612903225,
@@ -8058,7 +8058,7 @@
           "constantId": "cconstants.ts_30",
           "name": "HEARTBEAT_INTERVAL_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 102,
+          "line": 101,
           "literal": "30",
           "numericValue": 30,
           "semanticScore": 0.25806451612903225,
@@ -8068,7 +8068,7 @@
           "constantId": "cconstants.ts_29",
           "name": "MAX_RECONNECT_DELAY_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 99,
+          "line": 98,
           "literal": "30",
           "numericValue": 30,
           "semanticScore": 0.25,
@@ -8113,19 +8113,19 @@
             },
             {
               "path": "sidequest/core/constants.ts",
-              "line": 36,
+              "line": 35,
               "column": 30,
               "snippet": "DATABASE_SAVE_INTERVAL_MS: 30 * TIME_MS.SECOND,"
             },
             {
               "path": "sidequest/core/constants.ts",
-              "line": 37,
+              "line": 36,
               "column": 24,
               "snippet": "DEPENDENCY_CHECK_MS: 30 * TIME_MS.SECOND,"
             },
             {
               "path": "sidequest/core/constants.ts",
-              "line": 54,
+              "line": 53,
               "column": 29,
               "snippet": "REQUEST_TIMEOUT_DELAY_MS: 30 * TIME_MS.SECOND,"
             }
@@ -8320,7 +8320,7 @@
       "occurrences": [
         {
           "path": "sidequest/core/units.ts",
-          "line": 61,
+          "line": 59,
           "column": 15,
           "snippet": "B128 = 1 << 7, // 128"
         },
@@ -8430,17 +8430,17 @@
           "constantId": "cconstants.ts_45",
           "name": "WEEKLY_WINDOW_DAYS",
           "path": "sidequest/core/constants.ts",
-          "line": 247,
+          "line": 244,
           "literal": "7",
           "numericValue": 7,
           "semanticScore": 0.08823529411764706,
           "valueMatch": true
         },
         {
-          "constantId": "cconstants.py_108",
+          "constantId": "cconstants.py_107",
           "name": "WEEKLY_WINDOW_DAYS",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 210,
+          "line": 209,
           "literal": "7",
           "numericValue": 7,
           "semanticScore": 0.08571428571428572,
@@ -8572,7 +8572,7 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/units.ts",
-              "line": 61,
+              "line": 59,
               "column": 15,
               "snippet": "B128 = 1 << 7, // 128"
             }
@@ -8617,13 +8617,13 @@
         },
         {
           "path": "sidequest/core/units.ts",
-          "line": 62,
+          "line": 60,
           "column": 15,
           "snippet": "B256 = 1 << 8, // 256"
         },
         {
           "path": "sidequest/core/units.ts",
-          "line": 64,
+          "line": 62,
           "column": 21,
           "snippet": "QUARTER_KB = 1 << 8, // 256"
         },
@@ -8690,10 +8690,10 @@
       ],
       "exactConstantMatches": [
         {
-          "constantId": "cconstants.py_131",
+          "constantId": "cconstants.py_130",
           "name": "DEFAULT_SHARED_MAX",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 244,
+          "line": 243,
           "literal": "8",
           "numericValue": 8,
           "semanticScore": 0.05714285714285714,
@@ -8796,13 +8796,13 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/units.ts",
-              "line": 62,
+              "line": 60,
               "column": 15,
               "snippet": "B256 = 1 << 8, // 256"
             },
             {
               "path": "sidequest/core/units.ts",
-              "line": 64,
+              "line": 62,
               "column": 21,
               "snippet": "QUARTER_KB = 1 << 8, // 256"
             }
@@ -8901,19 +8901,19 @@
         },
         {
           "path": "sidequest/core/units.ts",
-          "line": 58,
+          "line": 56,
           "column": 14,
           "snippet": "B16 = 1 << 4, // 16"
         },
         {
           "path": "sidequest/core/units.ts",
-          "line": 81,
+          "line": 79,
           "column": 13,
           "snippet": "TB: KB ** 4, // 1,099,511,627,776"
         },
         {
           "path": "sidequest/core/units.ts",
-          "line": 92,
+          "line": 90,
           "column": 21,
           "snippet": "TB: DECIMAL_KB ** 4,"
         },
@@ -8998,13 +8998,13 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/units.ts",
-              "line": 81,
+              "line": 79,
               "column": 13,
               "snippet": "TB: KB ** 4, // 1,099,511,627,776"
             },
             {
               "path": "sidequest/core/units.ts",
-              "line": 92,
+              "line": 90,
               "column": 21,
               "snippet": "TB: DECIMAL_KB ** 4,"
             }
@@ -9082,7 +9082,7 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/units.ts",
-              "line": 58,
+              "line": 56,
               "column": 14,
               "snippet": "B16 = 1 << 4, // 16"
             }
@@ -9316,7 +9316,7 @@
         {
           "constantId": "chttp-status.ts_4",
           "name": "BAD_REQUEST",
-          "path": "api/constants/http-status.ts",
+          "path": "shared/constants/http-status.ts",
           "line": 11,
           "literal": "400",
           "numericValue": 400,
@@ -9811,7 +9811,7 @@
         {
           "constantId": "chttp-status.ts_10",
           "name": "INTERNAL_SERVER_ERROR",
-          "path": "api/constants/http-status.ts",
+          "path": "shared/constants/http-status.ts",
           "line": 17,
           "literal": "500",
           "numericValue": 500,
@@ -9829,20 +9829,20 @@
           "valueMatch": true
         },
         {
-          "constantId": "cconstants.py_112",
+          "constantId": "cconstants.py_111",
           "name": "FILE_PATH_MAX",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 219,
+          "line": 218,
           "literal": "500",
           "numericValue": 500,
           "semanticScore": 0,
           "valueMatch": true
         },
         {
-          "constantId": "cconstants.py_119",
+          "constantId": "cconstants.py_118",
           "name": "GIT_REMOTE_MAX",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 226,
+          "line": 225,
           "literal": "500",
           "numericValue": 500,
           "semanticScore": 0,
@@ -9984,7 +9984,7 @@
         },
         {
           "path": "sidequest/core/constants.ts",
-          "line": 124,
+          "line": 123,
           "column": 23,
           "snippet": "STANDARD_WINDOW_MS: 15 * TIME_MS.MINUTE,"
         },
@@ -10040,7 +10040,7 @@
           "constantId": "cconstants.ts_32",
           "name": "STANDARD_WINDOW_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 124,
+          "line": 123,
           "literal": "15",
           "numericValue": 15,
           "semanticScore": 0.18181818181818182,
@@ -10072,7 +10072,7 @@
           "constantId": "cconstants.ts_12",
           "name": "FIVE_MINUTES_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 31,
+          "line": 30,
           "literal": "5",
           "numericValue": 5,
           "semanticScore": 0.21875,
@@ -10186,7 +10186,7 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/constants.ts",
-              "line": 124,
+              "line": 123,
               "column": 23,
               "snippet": "STANDARD_WINDOW_MS: 15 * TIME_MS.MINUTE,"
             }
@@ -10297,7 +10297,7 @@
       "occurrences": [
         {
           "path": "sidequest/core/constants.ts",
-          "line": 85,
+          "line": 84,
           "column": 25,
           "snippet": "WARNING_THRESHOLD_MS: 12 * TIME_MS.HOUR,"
         },
@@ -10355,7 +10355,7 @@
           "constantId": "cconstants.ts_28",
           "name": "WARNING_THRESHOLD_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 85,
+          "line": 84,
           "literal": "12",
           "numericValue": 12,
           "semanticScore": 0.18181818181818182,
@@ -10372,10 +10372,10 @@
           "valueMatch": true
         },
         {
-          "constantId": "cconstants.py_133",
+          "constantId": "cconstants.py_132",
           "name": "BLOCK_HASH_LENGTH",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 250,
+          "line": 249,
           "literal": "12",
           "numericValue": 12,
           "semanticScore": 0.08571428571428572,
@@ -10482,7 +10482,7 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/constants.ts",
-              "line": 85,
+              "line": 84,
               "column": 25,
               "snippet": "WARNING_THRESHOLD_MS: 12 * TIME_MS.HOUR,"
             }
@@ -11743,17 +11743,17 @@
           "constantId": "cconstants.ts_42",
           "name": "MAX_WRITE_QUEUE_SIZE",
           "path": "sidequest/core/constants.ts",
-          "line": 222,
+          "line": 219,
           "literal": "10000",
           "numericValue": 10000,
           "semanticScore": 0.02702702702702703,
           "valueMatch": true
         },
         {
-          "constantId": "cconstants.py_115",
+          "constantId": "cconstants.py_114",
           "name": "COLUMN_MAX",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 222,
+          "line": 221,
           "literal": "10_000",
           "numericValue": 10000,
           "semanticScore": 0,
@@ -11934,7 +11934,7 @@
         {
           "constantId": "chttp-status.ts_7",
           "name": "NOT_FOUND",
-          "path": "api/constants/http-status.ts",
+          "path": "shared/constants/http-status.ts",
           "line": 14,
           "literal": "404",
           "numericValue": 404,
@@ -12212,20 +12212,20 @@
           "valueMatch": true
         },
         {
-          "constantId": "cconstants.py_111",
+          "constantId": "cconstants.py_110",
           "name": "SEPARATOR_LENGTH",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 213,
+          "line": 212,
           "literal": "60",
           "numericValue": 60,
           "semanticScore": 0.05714285714285714,
           "valueMatch": true
         },
         {
-          "constantId": "cconstants.py_104",
+          "constantId": "cconstants.py_103",
           "name": "QUICK_WIN_MIN_IMPACT",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 203,
+          "line": 202,
           "literal": "60",
           "numericValue": 60,
           "semanticScore": 0.05405405405405406,
@@ -12237,7 +12237,7 @@
           "constantId": "cconstants.ts_23",
           "name": "MAX_BACKOFF_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 59,
+          "line": 58,
           "literal": "10",
           "numericValue": 10,
           "semanticScore": 0.21875,
@@ -12247,7 +12247,7 @@
           "constantId": "cconstants.ts_26",
           "name": "DEFAULT_SHUTDOWN_TIMEOUT_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 74,
+          "line": 73,
           "literal": "10",
           "numericValue": 10,
           "semanticScore": 0.21875,
@@ -12257,7 +12257,7 @@
           "constantId": "cconstants.ts_21",
           "name": "REQUEST_TIMEOUT_DELAY_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 54,
+          "line": 53,
           "literal": "30",
           "numericValue": 30,
           "semanticScore": 0.21212121212121213,
@@ -12267,7 +12267,7 @@
           "constantId": "cconstants.ts_29",
           "name": "MAX_RECONNECT_DELAY_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 99,
+          "line": 98,
           "literal": "30",
           "numericValue": 30,
           "semanticScore": 0.21212121212121213,
@@ -12759,7 +12759,7 @@
       "occurrences": [
         {
           "path": "sidequest/core/units.ts",
-          "line": 60,
+          "line": 58,
           "column": 14,
           "snippet": "B64 = 1 << 6, // 64"
         },
@@ -12796,7 +12796,7 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/units.ts",
-              "line": 60,
+              "line": 58,
               "column": 14,
               "snippet": "B64 = 1 << 6, // 64"
             }
@@ -13608,13 +13608,13 @@
       "occurrences": [
         {
           "path": "sidequest/core/units.ts",
-          "line": 63,
+          "line": 61,
           "column": 15,
           "snippet": "B512 = 1 << 9, // 512"
         },
         {
           "path": "sidequest/core/units.ts",
-          "line": 65,
+          "line": 63,
           "column": 18,
           "snippet": "HALF_KB = 1 << 9, // 512"
         }
@@ -13625,7 +13625,7 @@
           "constantId": "cunits.ts_38",
           "name": "QUARTER_KB",
           "path": "sidequest/core/units.ts",
-          "line": 64,
+          "line": 62,
           "literal": "1",
           "numericValue": 1,
           "semanticScore": 0.6,
@@ -13635,7 +13635,7 @@
           "constantId": "cunits.ts_39",
           "name": "HALF_KB",
           "path": "sidequest/core/units.ts",
-          "line": 65,
+          "line": 63,
           "literal": "1",
           "numericValue": 1,
           "semanticScore": 0.6,
@@ -13645,7 +13645,7 @@
           "constantId": "cunits.ts_35",
           "name": "B128",
           "path": "sidequest/core/units.ts",
-          "line": 61,
+          "line": 59,
           "literal": "1",
           "numericValue": 1,
           "semanticScore": 0.5,
@@ -13655,7 +13655,7 @@
           "constantId": "cunits.ts_36",
           "name": "B256",
           "path": "sidequest/core/units.ts",
-          "line": 62,
+          "line": 60,
           "literal": "1",
           "numericValue": 1,
           "semanticScore": 0.5,
@@ -13665,7 +13665,7 @@
           "constantId": "cunits.ts_37",
           "name": "B512",
           "path": "sidequest/core/units.ts",
-          "line": 63,
+          "line": 61,
           "literal": "1",
           "numericValue": 1,
           "semanticScore": 0.5,
@@ -13689,13 +13689,13 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/units.ts",
-              "line": 63,
+              "line": 61,
               "column": 15,
               "snippet": "B512 = 1 << 9, // 512"
             },
             {
               "path": "sidequest/core/units.ts",
-              "line": 65,
+              "line": 63,
               "column": 18,
               "snippet": "HALF_KB = 1 << 9, // 512"
             }
@@ -14001,10 +14001,10 @@
       ],
       "exactConstantMatches": [
         {
-          "constantId": "cconstants.py_101",
+          "constantId": "cconstants.py_100",
           "name": "GROUPING_SIMILARITY_THRESHOLD",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 200,
+          "line": 199,
           "literal": "0.85",
           "numericValue": 0.85,
           "semanticScore": 0.038461538461538464,
@@ -14756,7 +14756,7 @@
           "constantId": "cconstants.ts_23",
           "name": "MAX_BACKOFF_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 59,
+          "line": 58,
           "literal": "10",
           "numericValue": 10,
           "semanticScore": 0.2413793103448276,
@@ -14766,7 +14766,7 @@
           "constantId": "cconstants.ts_26",
           "name": "DEFAULT_SHUTDOWN_TIMEOUT_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 74,
+          "line": 73,
           "literal": "10",
           "numericValue": 10,
           "semanticScore": 0.2413793103448276,
@@ -14776,7 +14776,7 @@
           "constantId": "cconstants.ts_21",
           "name": "REQUEST_TIMEOUT_DELAY_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 54,
+          "line": 53,
           "literal": "30",
           "numericValue": 30,
           "semanticScore": 0.23333333333333334,
@@ -14786,7 +14786,7 @@
           "constantId": "cconstants.ts_29",
           "name": "MAX_RECONNECT_DELAY_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 99,
+          "line": 98,
           "literal": "30",
           "numericValue": 30,
           "semanticScore": 0.23333333333333334,
@@ -14796,7 +14796,7 @@
           "constantId": "cconstants.ts_34",
           "name": "BYTES_PER_KB",
           "path": "sidequest/core/constants.ts",
-          "line": 172,
+          "line": 171,
           "literal": "1024",
           "numericValue": 1024,
           "semanticScore": 0.21428571428571427,
@@ -14889,7 +14889,7 @@
           "constantId": "cconstants.ts_20",
           "name": "SERVER_ERROR_DELAY_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 52,
+          "line": 51,
           "literal": "10",
           "numericValue": 10,
           "semanticScore": 0.3157894736842105,
@@ -14899,7 +14899,7 @@
           "constantId": "cconstants.ts_28",
           "name": "WARNING_THRESHOLD_MS",
           "path": "sidequest/core/constants.ts",
-          "line": 85,
+          "line": 84,
           "literal": "12",
           "numericValue": 12,
           "semanticScore": 0.3157894736842105,
@@ -14970,7 +14970,7 @@
       "occurrences": [
         {
           "path": "sidequest/core/units.ts",
-          "line": 70,
+          "line": 68,
           "column": 9,
           "snippet": "P88 = 0.88,"
         }
@@ -14980,7 +14980,7 @@
           "constantId": "cunits.ts_40",
           "name": "P88",
           "path": "sidequest/core/units.ts",
-          "line": 70,
+          "line": 68,
           "literal": "0.88",
           "numericValue": 0.88,
           "semanticScore": 0.5,
@@ -14992,7 +14992,7 @@
           "constantId": "cunits.ts_40",
           "name": "P88",
           "path": "sidequest/core/units.ts",
-          "line": 70,
+          "line": 68,
           "literal": "0.88",
           "numericValue": 0.88,
           "semanticScore": 0.5,
@@ -15002,7 +15002,7 @@
           "constantId": "cunits.ts_41",
           "name": "P50",
           "path": "sidequest/core/units.ts",
-          "line": 71,
+          "line": 69,
           "literal": "50",
           "numericValue": 50,
           "semanticScore": 0.5,
@@ -15012,7 +15012,7 @@
           "constantId": "cunits.ts_42",
           "name": "P95",
           "path": "sidequest/core/units.ts",
-          "line": 72,
+          "line": 70,
           "literal": "95",
           "numericValue": 95,
           "semanticScore": 0.5,
@@ -15058,7 +15058,7 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/units.ts",
-              "line": 70,
+              "line": 68,
               "column": 9,
               "snippet": "P88 = 0.88,"
             }
@@ -15073,7 +15073,7 @@
       "occurrences": [
         {
           "path": "sidequest/core/units.ts",
-          "line": 72,
+          "line": 70,
           "column": 9,
           "snippet": "P95 = 95,"
         }
@@ -15083,7 +15083,7 @@
           "constantId": "cunits.ts_42",
           "name": "P95",
           "path": "sidequest/core/units.ts",
-          "line": 72,
+          "line": 70,
           "literal": "95",
           "numericValue": 95,
           "semanticScore": 0.625,
@@ -15095,7 +15095,7 @@
           "constantId": "cunits.ts_42",
           "name": "P95",
           "path": "sidequest/core/units.ts",
-          "line": 72,
+          "line": 70,
           "literal": "95",
           "numericValue": 95,
           "semanticScore": 0.625,
@@ -15105,7 +15105,7 @@
           "constantId": "cunits.ts_40",
           "name": "P88",
           "path": "sidequest/core/units.ts",
-          "line": 70,
+          "line": 68,
           "literal": "0.88",
           "numericValue": 0.88,
           "semanticScore": 0.625,
@@ -15115,7 +15115,7 @@
           "constantId": "cunits.ts_41",
           "name": "P50",
           "path": "sidequest/core/units.ts",
-          "line": 71,
+          "line": 69,
           "literal": "50",
           "numericValue": 50,
           "semanticScore": 0.625,
@@ -15125,7 +15125,7 @@
           "constantId": "cunits.ts_43",
           "name": "P99",
           "path": "sidequest/core/units.ts",
-          "line": 73,
+          "line": 71,
           "literal": "99",
           "numericValue": 99,
           "semanticScore": 0.625,
@@ -15159,7 +15159,7 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/units.ts",
-              "line": 72,
+              "line": 70,
               "column": 9,
               "snippet": "P95 = 95,"
             }
@@ -15174,7 +15174,7 @@
       "occurrences": [
         {
           "path": "sidequest/core/units.ts",
-          "line": 73,
+          "line": 71,
           "column": 9,
           "snippet": "P99 = 99,"
         }
@@ -15184,7 +15184,7 @@
           "constantId": "cunits.ts_43",
           "name": "P99",
           "path": "sidequest/core/units.ts",
-          "line": 73,
+          "line": 71,
           "literal": "99",
           "numericValue": 99,
           "semanticScore": 0.7142857142857143,
@@ -15196,7 +15196,7 @@
           "constantId": "cunits.ts_43",
           "name": "P99",
           "path": "sidequest/core/units.ts",
-          "line": 73,
+          "line": 71,
           "literal": "99",
           "numericValue": 99,
           "semanticScore": 0.7142857142857143,
@@ -15206,7 +15206,7 @@
           "constantId": "cunits.ts_41",
           "name": "P50",
           "path": "sidequest/core/units.ts",
-          "line": 71,
+          "line": 69,
           "literal": "50",
           "numericValue": 50,
           "semanticScore": 0.7142857142857143,
@@ -15216,7 +15216,7 @@
           "constantId": "cunits.ts_42",
           "name": "P95",
           "path": "sidequest/core/units.ts",
-          "line": 72,
+          "line": 70,
           "literal": "95",
           "numericValue": 95,
           "semanticScore": 0.7142857142857143,
@@ -15259,7 +15259,7 @@
           "sampleOccurrences": [
             {
               "path": "sidequest/core/units.ts",
-              "line": 73,
+              "line": 71,
               "column": 9,
               "snippet": "P99 = 99,"
             }
@@ -15449,7 +15449,7 @@
           "constantId": "cconstants.ts_37",
           "name": "MAX_WORKER_INITS",
           "path": "sidequest/core/constants.ts",
-          "line": 189,
+          "line": 186,
           "literal": "3",
           "numericValue": 3,
           "semanticScore": 0.2,
@@ -15537,10 +15537,10 @@
           "valueMatch": true
         },
         {
-          "constantId": "cconstants.py_100",
+          "constantId": "cconstants.py_99",
           "name": "EFFORT_IMPLEMENTATION_TESTING_OVERHEAD_HOURS",
           "path": "sidequest/pipeline-core/constants.py",
-          "line": 196,
+          "line": 195,
           "literal": "0.5",
           "numericValue": 0.5,
           "semanticScore": 0,
@@ -16313,7 +16313,7 @@
           "constantId": "cconstants.ts_35",
           "name": "MAX_SCORE",
           "path": "sidequest/core/constants.ts",
-          "line": 178,
+          "line": 176,
           "literal": "100",
           "numericValue": 100,
           "semanticScore": 0.2222222222222222,
@@ -16421,7 +16421,7 @@
           "constantId": "cconstants.ts_35",
           "name": "MAX_SCORE",
           "path": "sidequest/core/constants.ts",
-          "line": 178,
+          "line": 176,
           "literal": "100",
           "numericValue": 100,
           "semanticScore": 0.2222222222222222,
@@ -16559,7 +16559,7 @@
           "constantId": "cconstants.ts_35",
           "name": "MAX_SCORE",
           "path": "sidequest/core/constants.ts",
-          "line": 178,
+          "line": 176,
           "literal": "100",
           "numericValue": 100,
           "semanticScore": 0.2222222222222222,
@@ -16646,7 +16646,7 @@
           "constantId": "cconstants.ts_35",
           "name": "MAX_SCORE",
           "path": "sidequest/core/constants.ts",
-          "line": 178,
+          "line": 176,
           "literal": "100",
           "numericValue": 100,
           "semanticScore": 0.2222222222222222,
@@ -17461,7 +17461,7 @@
         {
           "constantId": "chttp-status.ts_11",
           "name": "BAD_GATEWAY",
-          "path": "api/constants/http-status.ts",
+          "path": "shared/constants/http-status.ts",
           "line": 18,
           "literal": "502",
           "numericValue": 502,
