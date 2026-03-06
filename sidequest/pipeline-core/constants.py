@@ -181,7 +181,6 @@ class ROIMultipliers:
     RISK_LOW = 1.1
     RISK_MEDIUM = 0.9
     RISK_HIGH = 0.7
-    MAX_SCORE = 100.0
 
 
 # Refactor implementation model: concrete engineering effort (hours)

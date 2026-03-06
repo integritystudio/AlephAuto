@@ -17,6 +17,7 @@ from constants import (
     EFFORT_ROI_HOURS_BY_TIER,
     EffortTier,
     ROIMultipliers,
+    ScanDefaults,
     ScoringThresholds,
     SuggestionDefaults,
 )
@@ -252,10 +253,10 @@ class ConsolidationSuggestion(BaseModel):
 
         # ROI = impact / effort (normalized to 0-100)
         if effort == 0:
-            return ROIMultipliers.MAX_SCORE
+            return ScanDefaults.PERCENTAGE_MAX
 
         roi = (self.impact_score / effort) * SuggestionDefaults.ROI_NORMALIZER
-        return min(round(roi, 2), ROIMultipliers.MAX_SCORE)
+        return min(round(roi, 2), ScanDefaults.PERCENTAGE_MAX)
 
     @computed_field
     @property

@@ -30,7 +30,7 @@
 import { ClaudeHealthWorker } from '../workers/claude-health-worker.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
-import { BYTES_PER_KB, HEALTH, JOB_EVENTS } from '../core/constants.ts';
+import { BYTES_PER_KB, JOB_EVENTS, MAX_SCORE } from '../core/constants.ts';
 import { HEALTH_SCORE_THRESHOLDS } from '../core/score-thresholds.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 import path from 'path';
@@ -251,7 +251,7 @@ function printSummary(result: HealthCheckResult): void {
   logger.info('╚════════════════════════════════════════════════════════════════╝\n');
 
   logger.info(
-    `Health Score: ${getScoreColor(result.summary.healthScore)}${result.summary.healthScore}/${HEALTH.MAX_SCORE}\x1b[0m`
+    `Health Score: ${getScoreColor(result.summary.healthScore)}${result.summary.healthScore}/${MAX_SCORE}\x1b[0m`
   );
   logger.info(`Status:       ${result.summary.message}\n`);
 

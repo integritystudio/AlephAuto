@@ -7,7 +7,7 @@
 
 import { ScanOrchestrator, type ScanResult, type CodeBlock, type DuplicateGroup, type ConsolidationSuggestion } from './scan-orchestrator.ts';
 import { createComponentLogger, logError, logStart, logStage } from '../utils/logger.ts';
-import { HEALTH, NUMBER_BASE } from '../core/constants.ts';
+import { MAX_SCORE, NUMBER_BASE } from '../core/constants.ts';
 import { MONTHS_PER_YEAR, TIME_MS } from '../core/units.ts';
 import path from 'path';
 import fs from 'fs/promises';
@@ -393,7 +393,7 @@ export class InterProjectScanner {
 
     score += CATEGORY_BONUSES[group.category ?? ''] ?? 0;
 
-    return Math.min(score, HEALTH.MAX_SCORE);
+    return Math.min(score, MAX_SCORE);
   }
 
   /**
@@ -522,7 +522,7 @@ export class InterProjectScanner {
     roi *= COMPLEXITY_MULTIPLIERS[complexity];
     roi *= RISK_MULTIPLIERS[risk];
 
-    return Math.min(roi, HEALTH.MAX_SCORE);
+    return Math.min(roi, MAX_SCORE);
   }
 
   /**

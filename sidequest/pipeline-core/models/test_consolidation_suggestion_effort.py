@@ -14,7 +14,7 @@ from consolidation_suggestion import (
     ImplementationComplexity,
     MigrationRisk,
 )
-from constants import EFFORT_ROI_HOURS_BY_TIER, EffortTier, ROIMultipliers, SuggestionDefaults
+from constants import EFFORT_ROI_HOURS_BY_TIER, EffortTier, ScanDefaults, SuggestionDefaults
 
 DEFAULT_IMPACT_SCORE = 50.0
 EXPLICIT_IMPACT_SCORE = 40.0
@@ -65,7 +65,7 @@ def test_roi_score_uses_effort_tier_defaults(
 
     expected = min(
         round((DEFAULT_IMPACT_SCORE / expected_effort_hours) * SuggestionDefaults.ROI_NORMALIZER, 2),
-        ROIMultipliers.MAX_SCORE,
+        ScanDefaults.PERCENTAGE_MAX,
     )
     assert suggestion.roi_score == expected
 

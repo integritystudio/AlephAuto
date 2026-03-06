@@ -172,11 +172,9 @@ export const NUMBER_BASE = {
 export const BYTES_PER_KB = 1024;
 
 /**
- * Health scoring constants
+ * Shared upper bound for percentage/score-style metrics.
  */
-export const HEALTH = {
-  MAX_SCORE: 100,
-} as const;
+export const MAX_SCORE = 100;
 
 /**
  * Concurrency limits

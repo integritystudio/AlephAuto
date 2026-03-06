@@ -42,6 +42,7 @@ from constants import (
     EffortTier,
     ExtractionDefaults,
     ROIMultipliers,
+    ScanDefaults,
     ScoringThresholds,
     StrategyThresholds,
     SuggestionDefaults,
@@ -524,7 +525,7 @@ def generate_suggestions(groups: List[DuplicateGroup]) -> List[ConsolidationSugg
             target_location=_suggest_target_location(group, strategy),
             migration_steps=migration_steps,
             code_example=code_example,
-            impact_score=min(group.impact_score, ROIMultipliers.MAX_SCORE),
+            impact_score=min(group.impact_score, ScanDefaults.PERCENTAGE_MAX),
             complexity=complexity,
             migration_risk=risk,
             estimated_effort_hours=_estimate_effort(group, complexity),
@@ -883,7 +884,7 @@ def _calculate_roi(group: DuplicateGroup, complexity: str, risk: str) -> float:
     }
     roi *= risk_multipliers.get(risk, 1.0)
 
-    return min(roi, ROIMultipliers.MAX_SCORE)
+    return min(roi, ScanDefaults.PERCENTAGE_MAX)
 
 
 def _is_breaking_change(group: DuplicateGroup, strategy: str) -> bool:
