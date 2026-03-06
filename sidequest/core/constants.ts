@@ -6,7 +6,7 @@
  *
  * @module sidequest/core/constants
  */
-import { TIME_MS } from './units.ts';
+import { HOURS_PER_DAY, TIME_MS } from './units.ts';
 // -----------------------------------------------------------------------------
 // Timing and Resilience
 // -----------------------------------------------------------------------------
@@ -85,7 +85,7 @@ export const CACHE = {
   WARNING_THRESHOLD_MS: 12 * TIME_MS.HOUR,
 
   /** Maximum cache age before considered expired (24 hours) */
-  MAX_AGE_MS: 24 * TIME_MS.HOUR,
+  MAX_AGE_MS: HOURS_PER_DAY * TIME_MS.HOUR,
 } as const;
 
 /**

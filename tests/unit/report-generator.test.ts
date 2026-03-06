@@ -12,6 +12,8 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { generateReport, pruneOldReports } from '../../sidequest/utils/report-generator.ts';
+import { GIT_ACTIVITY } from '../../sidequest/core/constants.ts';
+import { TIME_MS } from '../../sidequest/core/units.ts';
 import { TestTiming } from '../constants/timing-test-constants.ts';
 
 describe('Report Generator', () => {
@@ -545,10 +547,10 @@ describe('Report Generator', () => {
       // Create a file and backdate its mtime
       const oldFile = path.join(tempDir, 'old-report.html');
       await fs.writeFile(oldFile, 'old content');
-      const pastTime = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
+      const pastTime = new Date(Date.now() - 40 * TIME_MS.DAY);
       await fs.utimes(oldFile, pastTime, pastTime);
 
-      await pruneOldReports(tempDir, 30 * 24 * 60 * 60 * 1000);
+      await pruneOldReports(tempDir, GIT_ACTIVITY.MONTHLY_WINDOW_DAYS * TIME_MS.DAY);
 
       const exists = await fs.access(oldFile).then(() => true).catch(() => false);
       assert.ok(!exists, 'Old file should be deleted');
@@ -558,7 +560,7 @@ describe('Report Generator', () => {
       const newFile = path.join(tempDir, 'new-report.html');
       await fs.writeFile(newFile, 'new content');
 
-      await pruneOldReports(tempDir, 30 * 24 * 60 * 60 * 1000);
+      await pruneOldReports(tempDir, GIT_ACTIVITY.MONTHLY_WINDOW_DAYS * TIME_MS.DAY);
 
       const exists = await fs.access(newFile).then(() => true).catch(() => false);
       assert.ok(exists, 'New file should be kept');
@@ -587,10 +589,10 @@ describe('Report Generator', () => {
       await fs.writeFile(oldFile, 'old');
       await fs.writeFile(newFile, 'new');
 
-      const pastTime = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
+      const pastTime = new Date(Date.now() - 40 * TIME_MS.DAY);
       await fs.utimes(oldFile, pastTime, pastTime);
 
-      await pruneOldReports(tempDir, 30 * 24 * 60 * 60 * 1000);
+      await pruneOldReports(tempDir, GIT_ACTIVITY.MONTHLY_WINDOW_DAYS * TIME_MS.DAY);
 
       const oldExists = await fs.access(oldFile).then(() => true).catch(() => false);
       const newExists = await fs.access(newFile).then(() => true).catch(() => false);

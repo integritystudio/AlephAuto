@@ -26,6 +26,7 @@ import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import * as Sentry from '@sentry/node';
 import { TIMEOUTS } from '../core/constants.ts';
+import { TIME_MS } from '../core/units.ts';
 
 const logger = createComponentLogger('ScanOrchestrator');
 
@@ -465,7 +466,7 @@ export class ScanOrchestrator {
         scan_config: scanConfig
       });
 
-      const duration = (Date.now() - startTime) / 1000;
+      const duration = (Date.now() - startTime) / TIME_MS.SECOND;
 
       logger.info({
         repoPath,

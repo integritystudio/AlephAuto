@@ -122,7 +122,7 @@ export class DopplerHealthMonitor {
 
       const cacheAge = Date.now() - newestMtime;
       const cacheAgeHours = Math.floor(cacheAge / TIME_MS.HOUR);
-      const cacheAgeMinutes = Math.floor((cacheAge % (60 * 60 * 1000)) / TIME_MS.MINUTE);
+      const cacheAgeMinutes = Math.floor((cacheAge % TIME_MS.HOUR) / TIME_MS.MINUTE);
 
       const status: CacheHealthStatus = {
         healthy: cacheAge <= this.maxCacheAge,

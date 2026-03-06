@@ -19,7 +19,8 @@ import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 import { createComponentLogger, logError, logStart } from '../sidequest/utils/logger.ts';
 import { config } from '../sidequest/core/config.ts';
-import { CONCURRENCY, HEALTH, PORT } from '../sidequest/core/constants.ts';
+import { CACHE, CONCURRENCY, HEALTH, PORT } from '../sidequest/core/constants.ts';
+import { TIME_MS } from '../sidequest/core/units.ts';
 import { authMiddleware } from './middleware/auth.ts';
 import { rateLimiter } from './middleware/rate-limit.ts';
 import { errorHandler } from './middleware/error-handler.ts';
@@ -125,8 +126,8 @@ app.get('/api/health/doppler', async (req: Request, res: Response) => {
       status: health.healthy ? 'healthy' : 'degraded',
       cacheAgeHours: health.cacheAgeHours,
       cacheAgeMinutes: health.cacheAgeMinutes,
-      maxCacheAgeHours: 24,
-      warningThresholdHours: 12,
+      maxCacheAgeHours: CACHE.MAX_AGE_MS / TIME_MS.HOUR,
+      warningThresholdHours: CACHE.WARNING_THRESHOLD_MS / TIME_MS.HOUR,
       usingFallback: health.usingFallback,
       severity: health.severity,
       lastModified: health.lastModified,

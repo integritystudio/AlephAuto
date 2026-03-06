@@ -10,6 +10,7 @@ import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
 import { createComponentLogger } from '../../utils/logger.ts';
+import { TIME_MS } from '../../core/units.ts';
 
 const execPromise = promisify(exec);
 const logger = createComponentLogger('GitCommitTracker');
@@ -181,7 +182,7 @@ export class GitCommitTracker {
         shortHash: hash.substring(0, 7),
         author,
         email,
-        date: new Date(parseInt(timestamp) * 1000).toISOString(),
+        date: new Date(parseInt(timestamp) * TIME_MS.SECOND).toISOString(),
         message
       };
 
@@ -382,7 +383,7 @@ export class GitCommitTracker {
             shortHash: hash.substring(0, 7),
             author,
             email,
-            date: new Date(parseInt(timestamp) * 1000).toISOString(),
+          date: new Date(parseInt(timestamp) * TIME_MS.SECOND).toISOString(),
             message
           };
         });

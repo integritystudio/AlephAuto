@@ -7,6 +7,8 @@
 
 import { ScanOrchestrator, type ScanResult, type CodeBlock, type DuplicateGroup, type ConsolidationSuggestion } from './scan-orchestrator.ts';
 import { createComponentLogger, logError, logStart, logStage } from '../utils/logger.ts';
+import { HEALTH, NUMBER_BASE } from '../core/constants.ts';
+import { MONTHS_PER_YEAR, TIME_MS } from '../core/units.ts';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -266,7 +268,7 @@ export class InterProjectScanner {
         crossRepoSuggestions
       );
 
-      const duration = (Date.now() - startTime) / 1000;
+      const duration = (Date.now() - startTime) / TIME_MS.SECOND;
 
       const result: InterProjectScanResult = {
         scan_type: 'inter-project',
@@ -391,7 +393,7 @@ export class InterProjectScanner {
 
     score += CATEGORY_BONUSES[group.category ?? ''] ?? 0;
 
-    return Math.min(score, 100);
+    return Math.min(score, HEALTH.MAX_SCORE);
   }
 
   /**
@@ -516,11 +518,11 @@ export class InterProjectScanner {
   ): number {
     let roi = group.impact_score;
 
-    roi *= 1.2;
+    roi *= MONTHS_PER_YEAR / NUMBER_BASE.DECIMAL;
     roi *= COMPLEXITY_MULTIPLIERS[complexity];
     roi *= RISK_MULTIPLIERS[risk];
 
-    return Math.min(roi, 100);
+    return Math.min(roi, HEALTH.MAX_SCORE);
   }
 
   /**

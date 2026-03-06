@@ -6,6 +6,8 @@ import { BYTES_PER_KB, GIT_ACTIVITY, JOB_RETENTION, NUMBER_BASE, RETRY, TIMEOUTS
 import { TIME_MS } from './units.ts';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const DOPPLER_BACKOFF_MULTIPLIER_DEFAULT = TIMEOUTS.TWO_SECONDS_MS / TIME_MS.SECOND;
+const DOPPLER_BACKOFF_MULTIPLIER_MAX = TIMEOUTS.SHORT_MS / TIME_MS.SECOND;
 
 /**
  * Safely parse an integer from environment variable with bounds checking
@@ -171,7 +173,12 @@ export const config = {
 
     // Exponential backoff settings
     baseDelayMs: safeParseInt(process.env.DOPPLER_BASE_DELAY_MS, RETRY.BASE_BACKOFF_MS, 100), // 1s
-    backoffMultiplier: safeParseFloat(process.env.DOPPLER_BACKOFF_MULTIPLIER, 2.0, 1.0, 5.0),
+    backoffMultiplier: safeParseFloat(
+      process.env.DOPPLER_BACKOFF_MULTIPLIER,
+      DOPPLER_BACKOFF_MULTIPLIER_DEFAULT,
+      1.0,
+      DOPPLER_BACKOFF_MULTIPLIER_MAX
+    ),
     maxBackoffMs: safeParseInt(process.env.DOPPLER_MAX_BACKOFF_MS, RETRY.MAX_BACKOFF_MS, TIME_MS.SECOND), // 10s
 
     // Cache settings - Doppler CLI uses a fallback directory, not a single file
@@ -244,7 +251,10 @@ function validateConfig(): void {
     errors.push('DOPPLER_BASE_DELAY_MS must be at least 100ms');
   }
 
-  if (config.doppler.backoffMultiplier < 1.0 || config.doppler.backoffMultiplier > 5.0) {
+  if (
+    config.doppler.backoffMultiplier < 1.0
+    || config.doppler.backoffMultiplier > DOPPLER_BACKOFF_MULTIPLIER_MAX
+  ) {
     errors.push('DOPPLER_BACKOFF_MULTIPLIER must be between 1.0 and 5.0');
   }
 

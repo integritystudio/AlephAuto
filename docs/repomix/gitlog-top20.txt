@@ -1,3 +1,9 @@
+9531c47 2026-03-05 (chore) repomix regen
+  docs/repomix/repo-compressed.xml
+  docs/repomix/repomix-docs.xml
+  docs/repomix/repomix-git-ranked.xml
+  docs/repomix/repomix.xml
+
 91373a0 2026-03-04 Replace stderr print calls with sys.stderr.write in extract_blocks
   sidequest/pipeline-core/extractors/extract_blocks.py
 

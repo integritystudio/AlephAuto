@@ -460,7 +460,7 @@ export class RepositoryConfigLoader {
       timestamp: scannedAtIso,
       ...historyEntry
     });
-    repo.scanHistory = repo.scanHistory.slice(0, 10);
+    repo.scanHistory = repo.scanHistory.slice(0, LIMITS.REPOSITORY_SCAN_HISTORY_ENTRIES);
 
     await this.save();
     logger.info({

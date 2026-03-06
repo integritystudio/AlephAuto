@@ -2,6 +2,7 @@
 import { BugfixAuditWorker } from '../workers/bugfix-audit-worker.ts';
 import { config } from '../core/config.ts';
 import { JOB_EVENTS } from '../core/constants.ts';
+import { TIME_MS } from '../core/units.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 import { realpathSync } from 'fs';
@@ -131,7 +132,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
     const stats = this.getStats();
 
     logger.info({
-      durationSeconds: Math.round(duration / 1000),
+      durationSeconds: Math.round(duration / TIME_MS.SECOND),
       totalJobs: stats.total,
       completed: stats.completed,
       failed: stats.failed,

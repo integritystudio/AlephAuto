@@ -1,6 +1,8 @@
 import { spawn, ChildProcess } from 'child_process';
 import { createComponentLogger, logStart } from '../../utils/logger.ts';
 import { createTimer, captureProcessOutput } from '../utils/index.ts';
+import { LIMITS } from '../../core/constants.ts';
+import { TIME_MS } from '../../core/units.ts';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -132,7 +134,7 @@ export class AstGrepPatternDetector {
         total_matches: normalized.length,
         rules_applied: rules.length,
         files_scanned: new Set(normalized.map(m => m.file_path)).size,
-        scan_duration_ms: duration * 1000
+        scan_duration_ms: duration * TIME_MS.SECOND
       };
 
       logger.info({
@@ -205,8 +207,8 @@ export class AstGrepPatternDetector {
             code,
             cwd: repoPath,
             args,
-            stdout: stdout.slice(-1000),
-            stderr: stderr.slice(-1000)
+            stdout: stdout.slice(-LIMITS.MAX_OUTPUT_CHARS),
+            stderr: stderr.slice(-LIMITS.MAX_OUTPUT_CHARS)
           }, `ast-grep exited with code ${code}`);
 
           const err: ProcessError = new Error(

@@ -15,7 +15,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createComponentLogger, logMetrics } from '../utils/logger.ts';
 import { isValidJobStatus } from '#api/types/job-status.ts';
-import { DATABASE, VALIDATION } from './constants.ts';
+import { DATABASE, PAGINATION, VALIDATION } from './constants.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logger = createComponentLogger('Database');
@@ -435,7 +435,7 @@ export function getJobCount(options: { status?: string } = {}): number {
  * @returns Matching parsed jobs.
  */
 export function getAllJobs(options: AllJobsQueryOptions = {}): ParsedJob[] {
-  const { status, limit = 100, offset = 0 } = options;
+  const { status, limit = PAGINATION.DEFAULT_ALL_LIMIT, offset = 0 } = options;
 
   let query = 'SELECT * FROM jobs';
   const params: (string | number)[] = [];

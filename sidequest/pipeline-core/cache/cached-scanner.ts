@@ -10,6 +10,7 @@ import { ScanResultCache, type ScanResultWithCache, type CacheStats, type RedisC
 import { ScanOrchestrator, type ScanResult, type ScanConfig } from '../scan-orchestrator.ts';
 import { createComponentLogger, logStart, logError, logWarn, logSkip } from '../../utils/logger.ts';
 import * as Sentry from '@sentry/node';
+import { TIME_MS } from '../../core/units.ts';
 
 const logger = createComponentLogger('CachedScanner');
 
@@ -133,7 +134,7 @@ export class CachedScanner {
         const cachedResult = await this._getCachedResult(repoPath, repoStatus.current_commit);
 
         if (cachedResult) {
-          const duration = (Date.now() - startTime) / 1000;
+          const duration = (Date.now() - startTime) / TIME_MS.SECOND;
 
           logger.info({
             repoPath,
@@ -163,7 +164,7 @@ export class CachedScanner {
         await this._cacheResult(repoPath, repoStatus.current_commit, scanResult);
       }
 
-      const duration = (Date.now() - startTime) / 1000;
+      const duration = (Date.now() - startTime) / TIME_MS.SECOND;
 
       logger.info({
         repoPath,
@@ -247,8 +248,8 @@ export class CachedScanner {
           cache_metadata: {
             ...cachedResult.cache_metadata,
             age: cacheAge,
-            age_hours: cacheAge !== null ? cacheAge / (60 * 60 * 1000) : null,
-            age_days: cacheAge !== null ? cacheAge / (24 * 60 * 60 * 1000) : null
+            age_hours: cacheAge !== null ? cacheAge / TIME_MS.HOUR : null,
+            age_days: cacheAge !== null ? cacheAge / TIME_MS.DAY : null
           }
         };
       }
@@ -338,8 +339,8 @@ export class CachedScanner {
       return {
         is_cached: isCached ?? false,
         cache_age_ms: cacheAge,
-        cache_age_hours: cacheAge != null ? cacheAge / (60 * 60 * 1000) : null,
-        cache_age_days: cacheAge != null ? cacheAge / (24 * 60 * 60 * 1000) : null,
+        cache_age_hours: cacheAge != null ? cacheAge / TIME_MS.HOUR : null,
+        cache_age_days: cacheAge != null ? cacheAge / TIME_MS.DAY : null,
         metadata,
         repository_status: repoStatus
       };

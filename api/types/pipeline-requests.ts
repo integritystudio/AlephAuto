@@ -8,6 +8,7 @@
  */
 
 import { z } from 'zod';
+import { PAGINATION } from '#sidequest/core/constants.ts';
 
 /**
  * Job Status Enum
@@ -29,7 +30,7 @@ export type TabFilter = z.infer<typeof TabFilterSchema>;
  */
 export const JobQueryParamsSchema = z.object({
   status: JobStatusSchema.optional(),
-  limit: z.coerce.number().int().positive().max(100).default(10),
+  limit: z.coerce.number().int().positive().max(PAGINATION.DEFAULT_ALL_LIMIT).default(10),
   offset: z.coerce.number().int().min(0).default(0),
   tab: TabFilterSchema.optional()
 }).strict();

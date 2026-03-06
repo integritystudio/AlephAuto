@@ -183,6 +183,7 @@ sidequest/
     server-actions.test.ts
     server-retention.test.ts
     server.ts
+    units.ts
   docs/
     gitlog-sidequest.txt
   pipeline-core/
@@ -3340,27 +3341,7 @@ name: &apos;&apos;,  // apex domain
 ⋮----
 async function createCNAMERecord()
 async function verifyRecords()
-async function main()</file><file path="scripts/analyze-duplicates.py">def get_file_path(location)
-def analyze_report(report_path)
-⋮----
-data = json.load(f)
-hash_to_blocks = defaultdict(list)
-⋮----
-exact_dups = [
-⋮----
-files = list(set(get_file_path(b[&quot;location&quot;]) for b in blocks))
-code = blocks[0][&quot;source_code&quot;]
-short_files = [Path(f).name for f in files[:4]]
-⋮----
-def find_latest_report()
-⋮----
-output_dir = Path(&quot;output/reports&quot;)
-⋮----
-reports = list(output_dir.glob(&quot;scan-*.json&quot;))
-⋮----
-report_path = sys.argv[1]
-⋮----
-report_path = find_latest_report()</file><file path="scripts/deploy-traditional-server.sh">set -e
+async function main()</file><file path="scripts/deploy-traditional-server.sh">set -e
 set -u
 OS=&quot;$(uname -s)&quot;
 IS_MACOS=false
@@ -12474,127 +12455,7 @@ import { HttpStatus } from &apos;../constants/http-status.ts&apos;;
 function isDevelopmentEnvironment(): boolean
 function getConfiguredApiKey(): string | null
 function validateApiKey(apiKey: string, configuredApiKey: string): boolean
-export function authMiddleware(req: Request, res: Response, next: NextFunction): void</file><file path="api/utils/worker-registry.ts">import type { SidequestServer } from &apos;#sidequest/core/server.ts&apos;;
-import { DuplicateDetectionWorker } from &apos;#sidequest/workers/duplicate-detection-worker.ts&apos;;
-import { SchemaEnhancementWorker } from &apos;#sidequest/workers/schema-enhancement-worker.ts&apos;;
-import { GitActivityWorker } from &apos;#sidequest/workers/git-activity-worker.ts&apos;;
-import { GitignoreWorker } from &apos;#sidequest/workers/gitignore-worker.ts&apos;;
-import { RepomixWorker } from &apos;#sidequest/workers/repomix-worker.ts&apos;;
-import { ClaudeHealthWorker } from &apos;#sidequest/workers/claude-health-worker.ts&apos;;
-import { RepoCleanupWorker } from &apos;#sidequest/workers/repo-cleanup-worker.ts&apos;;
-import { BugfixAuditWorker } from &apos;#sidequest/workers/bugfix-audit-worker.ts&apos;;
-import { DashboardPopulateWorker } from &apos;#sidequest/workers/dashboard-populate-worker.ts&apos;;
-import { PluginManagerWorker } from &apos;#sidequest/utils/plugin-manager.ts&apos;;
-import { config } from &apos;#sidequest/core/config.ts&apos;;
-import { createComponentLogger, logError } from &apos;#sidequest/utils/logger.ts&apos;;
-import { jobRepository } from &apos;#sidequest/core/job-repository.ts&apos;;
-import { CONCURRENCY, TIMEOUTS, TIME_MS, WORKER_COOLDOWN } from &apos;#sidequest/core/constants.ts&apos;;
-import type { ActivityFeedManager } from &apos;../activity-feed.ts&apos;;
-⋮----
-interface InitFailureInfo {
-  count: number;
-  lastAttempt: number;
-  cooldownAttempts?: number;
-}
-⋮----
-type WorkerConstructor = new (options: Record&lt;string, unknown&gt;) =&gt; SidequestServer;
-interface PipelineConfig {
-  WorkerClass: WorkerConstructor | null;
-  getOptions: () =&gt; Record&lt;string, unknown&gt;;
-  disabled?: boolean;
-  disabledReason?: string;
-}
-⋮----
-interface WorkerStats {
-  total: number;
-  queued: number;
-  active: number;
-  completed: number;
-  failed: number;
-  byPipeline: Record&lt;string, Record&lt;string, number&gt;&gt;;
-}
-type WorkerWithShutdown = SidequestServer &amp; { shutdown?: () =&gt; Promise&lt;void&gt; };
-type WorkerWithInit = SidequestServer &amp; { initialize?: () =&gt; Promise&lt;void&gt; };
-type WorkerWithScanMetrics = SidequestServer &amp; { getScanMetrics?: () =&gt; Record&lt;string, unknown&gt; };
-type WorkerStatsRecord = Record&lt;string, number&gt;;
-interface WorkerInitContext {
-  pipelineId: string;
-  workers: Map&lt;string, SidequestServer&gt;;
-  activityFeed: ActivityFeedManager | null;
-}
-function enforceInitCircuitBreaker(pipelineId: string): void
-function getPipelineConfigOrThrow(pipelineId: string): PipelineConfig
-function ensurePipelineEnabled(pipelineId: string, pipelineConfig: PipelineConfig): void
-async function shutdownWorkerSafely(
-  worker: SidequestServer | null | undefined,
-  pipelineId: string,
-  errorMessage: string
-): Promise&lt;void&gt;
-async function doWorkerInit(pipelineId: string, pipelineConfig: PipelineConfig): Promise&lt;SidequestServer&gt;
-async function initializeWorkerWithTimeout(pipelineId: string): Promise&lt;SidequestServer&gt;
-function recordInitFailure(pipelineId: string, error: unknown): void
-async function performWorkerInitialization({
-  pipelineId,
-  workers,
-  activityFeed
-}: WorkerInitContext): Promise&lt;SidequestServer&gt;
-function getWorkerStatsIfAvailable(worker: SidequestServer | undefined): WorkerStatsRecord | null
-function aggregateWorkerStats(workers: Map&lt;string, SidequestServer&gt;): WorkerStats
-function getScanMetricsIfAvailable(worker: SidequestServer | undefined): Record&lt;string, unknown&gt; | null
-async function shutdownRegistryWorkers(
-  workers: Map&lt;string, SidequestServer&gt;,
-  initializing: Map&lt;string, Promise&lt;SidequestServer&gt;&gt;
-): Promise&lt;void&gt;
-class WorkerRegistry
-⋮----
-constructor()
-setActivityFeed(activityFeed: ActivityFeedManager): void
-async getWorker(pipelineId: string): Promise&lt;SidequestServer&gt;
-private async _performWorkerInitialization(pipelineId: string): Promise&lt;SidequestServer&gt;
-isSupported(pipelineId: string): boolean
-getSupportedPipelines(): string[]
-getAllStats(): WorkerStats
-getWorkerStats(pipelineId: string): Record&lt;string, number&gt; | null
-getScanMetrics(pipelineId: string): Record&lt;string, unknown&gt; | null
-async shutdown(): Promise&lt;void&gt;</file><file path="api/activity-feed.ts">import type { SidequestServer, Job } from &apos;../sidequest/core/server.ts&apos;;
-import { createComponentLogger, logError } from &apos;../sidequest/utils/logger.ts&apos;;
-import { TIMEOUTS, TIME_MS } from &apos;../sidequest/core/constants.ts&apos;;
-⋮----
-import { safeErrorMessage, toErrorObject } from &apos;../sidequest/pipeline-core/utils/error-helpers.ts&apos;;
-import type { ScanEventBroadcaster } from &apos;./event-broadcaster.ts&apos;;
-⋮----
-interface ActivityEntry {
-  id: number;
-  timestamp: string;
-  type?: string;
-  [key: string]: unknown;
-}
-interface ActivityStats {
-  recentActivities: { lastHour: number; lastDay: number; total: number };
-  typeCount: Record&lt;string, number&gt;;
-  oldestActivity: string | null;
-  newestActivity: string | null;
-}
-interface RetryInfo {
-  attempt?: number;
-  maxAttempts?: number;
-  reason?: string;
-  delay?: number;
-}
-export class ActivityFeedManager
-⋮----
-constructor(broadcaster: ScanEventBroadcaster | null, options:
-addActivity(activity: Record&lt;string, unknown&gt;): ActivityEntry
-getRecentActivities(limit: number = 20): ActivityEntry[]
-clear(): void
-getStats(): ActivityStats
-listenToWorker(worker: SidequestServer): void
-private handleJobCreated(job: Job, worker: SidequestServer): void
-private handleJobStarted(job: Job, worker: SidequestServer): void
-private handleJobCompleted(job: Job, worker: SidequestServer): void
-private handleJobFailed(job: Job, error: unknown, worker: SidequestServer): void
-private handleRetryCreated(job: Job, retryInfo: RetryInfo, worker: SidequestServer): void
-private handleRetryMaxAttempts(jobId: string, attempts: number): void</file><file path="api/server.ts">import express, { type Request, type Response, type NextFunction } from &apos;express&apos;;
+export function authMiddleware(req: Request, res: Response, next: NextFunction): void</file><file path="api/server.ts">import express, { type Request, type Response, type NextFunction } from &apos;express&apos;;
 import cors from &apos;cors&apos;;
 import path from &apos;path&apos;;
 import { fileURLToPath } from &apos;url&apos;;
@@ -12705,7 +12566,27 @@ async function loadInitialData()
 async function pollForUpdates()
 export const useWebSocketConnection = () =&gt;
 function getPipelineIcon(pipelineId: string): string
-function getPipelineColor(pipelineId: string): &apos;purple&apos; | &apos;cyan&apos; | &apos;pink&apos; | &apos;teal&apos; | &apos;blue&apos; | &apos;green&apos; | &apos;amber&apos;</file><file path="scripts/cleanup-error-logs.ts">import fs from &apos;fs/promises&apos;;
+function getPipelineColor(pipelineId: string): &apos;purple&apos; | &apos;cyan&apos; | &apos;pink&apos; | &apos;teal&apos; | &apos;blue&apos; | &apos;green&apos; | &apos;amber&apos;</file><file path="scripts/analyze-duplicates.py">def get_file_path(location)
+def analyze_report(report_path)
+⋮----
+data = json.load(f)
+hash_to_blocks = defaultdict(list)
+⋮----
+exact_dups = [
+⋮----
+files = list(set(get_file_path(b[&quot;location&quot;]) for b in blocks))
+code = blocks[0][&quot;source_code&quot;]
+short_files = [Path(f).name for f in files[:4]]
+⋮----
+def find_latest_report()
+⋮----
+output_dir = Path(&quot;output/reports&quot;)
+⋮----
+reports = list(output_dir.glob(&quot;scan-*.json&quot;))
+⋮----
+report_path = sys.argv[1]
+⋮----
+report_path = find_latest_report()</file><file path="scripts/cleanup-error-logs.ts">import fs from &apos;fs/promises&apos;;
 import path from &apos;path&apos;;
 import { createGzip } from &apos;zlib&apos;;
 import { pipeline } from &apos;stream/promises&apos;;
@@ -12741,7 +12622,232 @@ function renderTs(statusMap: StatusMap): string
 function renderPythonGeneratedBlock(statusMap: StatusMap): string
 function writeTs(statusMap: StatusMap): void
 function updatePython(statusMap: StatusMap): void
-function main(): void</file><file path="scripts/repomix.config.json">{
+function main(): void</file><file path="scripts/generate-repomix-docs.sh">set -euo pipefail
+ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
+OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
+CONFIG_FILE=&quot;$ROOT/scripts/repomix-docs.config.json&quot;
+BASE_CONFIG_FILE=&quot;$ROOT/repomix.config.json&quot;
+TMP_CONFIG=&quot;$(mktemp &quot;${TMPDIR:-/tmp}/repomix-docs.XXXXXX.json&quot;)&quot;
+cleanup() {
+  rm -f &quot;$TMP_CONFIG&quot;
+}
+trap cleanup EXIT
+BUNDLE_IGNORE_PATTERNS_JSON=&quot;$(
+  jq -c &apos;
+    [
+      .ignore.customPatterns[]?
+      | select(
+          . == &quot;docs/repomix/**&quot;
+          or . == &quot;**/repomix-output.*&quot;
+          or . == &quot;**/repo-compressed.*&quot;
+          or . == &quot;**/repomix.xml&quot;
+          or . == &quot;**/repo-compressed.xml&quot;
+        )
+    ] | unique
+  &apos; &quot;$BASE_CONFIG_FILE&quot;
+)&quot;
+jq \
+  --argjson bundleIgnorePatterns &quot;$BUNDLE_IGNORE_PATTERNS_JSON&quot; \
+  &apos;
+    .ignore.customPatterns = ((.ignore.customPatterns // []) + $bundleIgnorePatterns | unique)
+  &apos; \
+  &quot;$CONFIG_FILE&quot; &gt; &quot;$TMP_CONFIG&quot;
+FORCE_COLOR=0 NO_COLOR=1 timeout 60 \
+npx repomix &quot;$ROOT&quot; -c &quot;$TMP_CONFIG&quot; -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/generate-repomix-git-ranked.sh">set -euo pipefail
+ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt; [include_logs_count]}&quot;
+OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt; [include_logs_count]}&quot;
+INCLUDE_LOGS_COUNT=&quot;${3:-200}&quot;
+INCLUDE_DIFFS=&quot;${REPOMIX_INCLUDE_DIFFS:-true}&quot;
+INCLUDE_LOGS=&quot;${REPOMIX_INCLUDE_LOGS:-true}&quot;
+SORT_BY_CHANGES_MAX_COMMITS=&quot;${REPOMIX_SORT_BY_CHANGES_MAX_COMMITS:-1000}&quot;
+TIMEOUT_SECONDS=&quot;${REPOMIX_TIMEOUT_SECONDS:-120}&quot;
+if ! [[ &quot;$INCLUDE_LOGS_COUNT&quot; =~ ^[0-9]+$ ]] || [[ &quot;$INCLUDE_LOGS_COUNT&quot; -lt 0 ]]; then
+  echo &quot;include_logs_count must be a non-negative integer: $INCLUDE_LOGS_COUNT&quot; &gt;&amp;2
+  exit 1
+fi
+if ! [[ &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot; =~ ^[0-9]+$ ]] || [[ &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot; -lt 1 ]]; then
+  echo &quot;REPOMIX_SORT_BY_CHANGES_MAX_COMMITS must be a positive integer: $SORT_BY_CHANGES_MAX_COMMITS&quot; &gt;&amp;2
+  exit 1
+fi
+if [[ &quot;$INCLUDE_DIFFS&quot; != &quot;true&quot; &amp;&amp; &quot;$INCLUDE_DIFFS&quot; != &quot;false&quot; ]]; then
+  echo &quot;REPOMIX_INCLUDE_DIFFS must be true|false: $INCLUDE_DIFFS&quot; &gt;&amp;2
+  exit 1
+fi
+if [[ &quot;$INCLUDE_LOGS&quot; != &quot;true&quot; &amp;&amp; &quot;$INCLUDE_LOGS&quot; != &quot;false&quot; ]]; then
+  echo &quot;REPOMIX_INCLUDE_LOGS must be true|false: $INCLUDE_LOGS&quot; &gt;&amp;2
+  exit 1
+fi
+TMP_CONFIG=&quot;$(mktemp &quot;${TMPDIR:-/tmp}/repomix-git-ranked.XXXXXX.json&quot;)&quot;
+cleanup() {
+  rm -f &quot;$TMP_CONFIG&quot;
+}
+trap cleanup EXIT
+BUNDLE_IGNORE_PATTERNS_FILE=&quot;$ROOT/repomix.config.json&quot;
+BUNDLE_IGNORE_PATTERNS_JSON=&quot;$(
+  jq -c &apos;
+    [
+      .ignore.customPatterns[]?
+      | select(
+          . == &quot;docs/repomix/**&quot;
+          or . == &quot;**/repomix-output.*&quot;
+          or . == &quot;**/repo-compressed.*&quot;
+          or . == &quot;**/repomix.xml&quot;
+          or . == &quot;**/repo-compressed.xml&quot;
+        )
+    ] | unique
+  &apos; &quot;$BUNDLE_IGNORE_PATTERNS_FILE&quot; 2&gt;/dev/null || echo &apos;[]&apos;
+)&quot;
+# Generated artifacts that should never be re-ingested into ranked bundles.
+is_generated_bundle_artifact() {
+  local rel_path=&quot;$1&quot;
+  case &quot;$rel_path&quot; in
+    sidequest/docs/gitlog-sidequest.txt)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+# Build include list from files touched in the selected commit window.
+declare -A seen=()
+include_files=()
+while IFS= read -r -d &apos;&apos; rel_path; do
+  [[ -z &quot;$rel_path&quot; ]] &amp;&amp; continue
+  if is_generated_bundle_artifact &quot;$rel_path&quot;; then
+    continue
+  fi
+  [[ -n &quot;${seen[$rel_path]:-}&quot; ]] &amp;&amp; continue
+  # Keep only files that still exist on disk so repomix can resolve them.
+  if [[ -f &quot;$ROOT/$rel_path&quot; ]]; then
+    seen[&quot;$rel_path&quot;]=1
+    include_files+=(&quot;$rel_path&quot;)
+  fi
+done &lt; &lt;(git -C &quot;$ROOT&quot; log --name-only --pretty=format: -z -n &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot;)
+if [[ &quot;${#include_files[@]}&quot; -eq 0 ]]; then
+  echo &quot;No existing files found in the selected commit window.&quot; &gt;&amp;2
+  exit 1
+fi
+include_files_json=&quot;$(printf &apos;%s\0&apos; &quot;${include_files[@]}&quot; | jq -Rs &apos;split(&quot;\u0000&quot;)[:-1]&apos;)&quot;
+jq -n \
+  --argjson includeFiles &quot;$include_files_json&quot; \
+  --argjson bundleIgnorePatterns &quot;$BUNDLE_IGNORE_PATTERNS_JSON&quot; \
+  --argjson includeLogsCount &quot;$INCLUDE_LOGS_COUNT&quot; \
+  --argjson sortByChangesMaxCommits &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot; \
+  --arg includeDiffs &quot;$INCLUDE_DIFFS&quot; \
+  --arg includeLogs &quot;$INCLUDE_LOGS&quot; &apos;
+{
+  &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
+  &quot;output&quot;: {
+    &quot;style&quot;: &quot;xml&quot;,
+    &quot;parsableStyle&quot;: true,
+    &quot;removeComments&quot;: true,
+    &quot;removeEmptyLines&quot;: true,
+    &quot;fileSummary&quot;: false,
+    &quot;directoryStructure&quot;: false,
+    &quot;files&quot;: true,
+    &quot;includeEmptyDirectories&quot;: false,
+    &quot;git&quot;: {
+      &quot;sortByChanges&quot;: true,
+      &quot;sortByChangesMaxCommits&quot;: $sortByChangesMaxCommits,
+      &quot;includeDiffs&quot;: ($includeDiffs == &quot;true&quot;),
+      &quot;includeLogs&quot;: ($includeLogs == &quot;true&quot;),
+      &quot;includeLogsCount&quot;: $includeLogsCount
+    }
+  },
+  &quot;ignore&quot;: {
+    &quot;useGitignore&quot;: true,
+    &quot;useDotIgnore&quot;: true,
+    &quot;useDefaultPatterns&quot;: true,
+    &quot;customPatterns&quot;: $bundleIgnorePatterns
+  },
+  &quot;include&quot;: $includeFiles
+}&apos; &gt; &quot;$TMP_CONFIG&quot;
+FORCE_COLOR=0 NO_COLOR=1 timeout &quot;$TIMEOUT_SECONDS&quot; \
+  npx repomix &quot;$ROOT&quot; -c &quot;$TMP_CONFIG&quot; -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/repomix-regen.sh">set -euo pipefail
+ROOT=&quot;$(cd &quot;$(dirname &quot;$0&quot;)/..&quot; &amp;&amp; pwd)&quot;
+TREE_FILE=&quot;token-tree&quot;
+COMPRESSED_FILE=&quot;repo-compressed&quot;
+LOSSLESS_FILE=&quot;repomix&quot;
+DOCS_ONLY_FILE=&quot;repomix-docs&quot;
+GIT_RANKED_FILE=&quot;repomix-git-ranked&quot;
+OUTPUT_PATH=&quot;docs/repomix&quot;
+OUT_DIR=&quot;$ROOT/$OUTPUT_PATH&quot;
+TOKEN_TREE_FILE=&quot;$OUT_DIR/$TREE_FILE.txt&quot;
+COMPRESSED_REPO_FILE=&quot;$OUT_DIR/$COMPRESSED_FILE.xml&quot;
+LOSSLESS_REPO_FILE=&quot;$OUT_DIR/$LOSSLESS_FILE.xml&quot;
+DOCS_ONLY_REPO_FILE=&quot;$OUT_DIR/$DOCS_ONLY_FILE.xml&quot;
+GIT_RANKED_REPO_FILE=&quot;$OUT_DIR/$GIT_RANKED_FILE.xml&quot;
+GITLOG_TOP_FILE=&quot;$OUT_DIR/gitlog-top20.txt&quot;
+TREE_FILE_NAME=&quot;$OUTPUT_PATH/$TREE_FILE.txt&quot;
+COMPRESSED_FILE_NAME=&quot;$OUTPUT_PATH/$COMPRESSED_FILE.xml&quot;
+LOSSLESS_FILE_NAME=&quot;$OUTPUT_PATH/$LOSSLESS_FILE.xml&quot;
+DOCS_ONLY_FILE_NAME=&quot;$OUTPUT_PATH/$DOCS_ONLY_FILE.xml&quot;
+GIT_RANKED_FILE_NAME=&quot;$OUTPUT_PATH/$GIT_RANKED_FILE.xml&quot;
+GITLOG_TOP_FILE_NAME=&quot;$OUTPUT_PATH/gitlog-top20.txt&quot;
+INPUT_DIR=&quot;$ROOT/scripts/generate-&quot;
+TOKEN_TREE_SCRIPT=&quot;$INPUT_DIR$TREE_FILE.sh&quot;
+COMPRESS_SCRIPT=&quot;$INPUT_DIR$COMPRESSED_FILE.sh&quot;
+LOSSLESS_SCRIPT=&quot;$INPUT_DIR$LOSSLESS_FILE.sh&quot;
+DOCS_ONLY_SCRIPT=&quot;$INPUT_DIR$DOCS_ONLY_FILE.sh&quot;
+GIT_RANKED_SCRIPT=&quot;$INPUT_DIR$GIT_RANKED_FILE.sh&quot;
+GITLOG_TOP_SCRIPT=&quot;$ROOT/scripts/generate-diff-summary.sh&quot;
+GIT_RANKED_INCLUDE_LOGS_COUNT=&quot;${REPOMIX_GIT_RANKED_INCLUDE_LOGS_COUNT:-200}&quot;
+echo &quot;File set up...&quot;
+mkdir -p &quot;$OUT_DIR&quot;
+rm -f \
+  &quot;$TOKEN_TREE_FILE&quot; \
+  &quot;$COMPRESSED_REPO_FILE&quot; \
+  &quot;$LOSSLESS_REPO_FILE&quot; \
+  &quot;$DOCS_ONLY_REPO_FILE&quot; \
+  &quot;$GIT_RANKED_REPO_FILE&quot; \
+  &quot;$GITLOG_TOP_FILE&quot;
+PROJECT_DIR=&quot;$(basename &quot;$ROOT&quot;)&quot;
+echo &quot;Generating token count tree for $PROJECT_DIR at $TREE_FILE_NAME&quot;
+bash &quot;$TOKEN_TREE_SCRIPT&quot; &quot;$ROOT&quot; &quot;$TOKEN_TREE_FILE&quot;
+echo &quot;Success!&quot;
+echo
+echo &quot;Generating compressed repomix file for $PROJECT_DIR at $COMPRESSED_FILE_NAME&quot;
+bash &quot;$COMPRESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$COMPRESSED_REPO_FILE&quot;
+echo &quot;Success!&quot;
+echo
+echo &quot;Generating repomix file for $PROJECT_DIR at $LOSSLESS_FILE_NAME&quot;
+bash &quot;$LOSSLESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$LOSSLESS_REPO_FILE&quot;
+echo &quot;Success!&quot;
+echo
+echo &quot;Generating docs-only repomix file for $PROJECT_DIR at $DOCS_ONLY_FILE_NAME&quot;
+bash &quot;$DOCS_ONLY_SCRIPT&quot; &quot;$ROOT&quot; &quot;$DOCS_ONLY_REPO_FILE&quot;
+echo &quot;Success!&quot;
+echo
+echo &quot;Generating git-ranked repomix file for $PROJECT_DIR at $GIT_RANKED_FILE_NAME&quot;
+bash &quot;$GIT_RANKED_SCRIPT&quot; &quot;$ROOT&quot; &quot;$GIT_RANKED_REPO_FILE&quot; &quot;$GIT_RANKED_INCLUDE_LOGS_COUNT&quot;
+echo &quot;Success!&quot;
+echo
+echo &quot;Generating top-file git history at $GITLOG_TOP_FILE_NAME&quot;
+(
+  cd &quot;$ROOT&quot;
+  bash &quot;$GITLOG_TOP_SCRIPT&quot;
+)
+echo &quot;Success!&quot;
+echo
+echo &quot;Artifacts:&quot;
+print_artifact() {
+  local file_path=&quot;$1&quot;
+  local display_name=&quot;$2&quot;
+  if [[ -f &quot;$file_path&quot; ]]; then
+    chars=$(wc -c &lt; &quot;$file_path&quot; | tr -d &apos; &apos;)
+    tokens=$((chars / 4))
+    echo &quot; - $display_name (~$tokens tokens, $chars chars)&quot;
+  else
+    echo &quot; - $display_name (missing)&quot;
+  fi
+}
+print_artifact &quot;$TOKEN_TREE_FILE&quot; &quot;$TREE_FILE_NAME&quot;
+print_artifact &quot;$COMPRESSED_REPO_FILE&quot; &quot;$COMPRESSED_FILE_NAME&quot;
+print_artifact &quot;$LOSSLESS_REPO_FILE&quot; &quot;$LOSSLESS_FILE_NAME&quot;
+print_artifact &quot;$DOCS_ONLY_REPO_FILE&quot; &quot;$DOCS_ONLY_FILE_NAME&quot;
+print_artifact &quot;$GIT_RANKED_REPO_FILE&quot; &quot;$GIT_RANKED_FILE_NAME&quot;
+print_artifact &quot;$GITLOG_TOP_FILE&quot; &quot;$GITLOG_TOP_FILE_NAME&quot;</file><file path="scripts/repomix.config.json">{
   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
 
   &quot;input&quot;: {
@@ -13052,172 +13158,34 @@ export async function importLogsToDatabase(logsDir: string): Promise&lt;number&g
 export function getHealthStatus(): HealthStatus
 export function closeDatabase(): void
 function isValidJobId(id: string): boolean
-export function bulkImportJobs(jobs: BulkImportJob[]): BulkImportResult</file><file path="sidequest/core/index.ts">import cron from &apos;node-cron&apos;;
-import { RepomixWorker } from &apos;../workers/repomix-worker.ts&apos;;
-import { DirectoryScanner } from &apos;../utils/directory-scanner.ts&apos;;
-import { config } from &apos;./config.ts&apos;;
-import { JOB_EVENTS, TIMEOUTS, TIME_MS } from &apos;./constants.ts&apos;;
-import path from &apos;path&apos;;
-import fs from &apos;fs/promises&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;
-import type { Job, JobStats } from &apos;./server.ts&apos;;
-⋮----
-interface ScanDirectory {
-  fullPath: string;
-  relativePath: string;
-}
-interface TypedDirectoryScanner {
-  baseDir: string;
-  scanDirectories(): Promise&lt;ScanDirectory[]&gt;;
-  generateAndSaveScanResults(dirs: ScanDirectory[]): Promise&lt;{
-    reportPath: string;
-    treePath: string;
-    summaryPath: string;
-    summary: {
-      maxDepth: number;
-      stats: { topDirectoryNames: Array&lt;{ name: string }&gt; };
-    };
-  }&gt;;
+export function bulkImportJobs(jobs: BulkImportJob[]): BulkImportResult</file><file path="sidequest/core/score-thresholds.ts"></file><file path="sidequest/core/units.ts">export enum SECONDS {
+  SECOND = TIME_MS.MS,
+  MINUTE = TIME_MS.MINUTE / TIME_MS.SECOND,
+  HOUR = TIME_MS.HOUR / TIME_MS.SECOND,
+  DAY = TIME_MS.DAY / TIME_MS.SECOND,
+  WEEK = TIME_MS.WEEK / TIME_MS.SECOND,
 }
 ⋮----
-scanDirectories(): Promise&lt;ScanDirectory[]&gt;;
-generateAndSaveScanResults(dirs: ScanDirectory[]): Promise&lt;
-⋮----
-interface TypedRepomixWorker {
-  logDir: string;
-  outputBaseDir: string;
-  createRepomixJob(fullPath: string, relativePath: string): void;
-  getStats(): JobStats;
-  on(event: string, listener: (job: Job) =&gt; void): this;
+export enum BITS {
+  BIT = BIT_VALUE,
+  B2 = 1 &lt;&lt; 1,
+  B4 = 1 &lt;&lt; 2,
+  BYTE = 1 &lt;&lt; 3,
+  B16 = 1 &lt;&lt; 4,
+  B32 = 1 &lt;&lt; 5,
+  B64 = 1 &lt;&lt; 6,
+  B128 = 1 &lt;&lt; 7,
+  B256 = 1 &lt;&lt; 8,
+  B512 = 1 &lt;&lt; 9,
+  QUARTER_KB = 1 &lt;&lt; 8,
+  HALF_KB = 1 &lt;&lt; 9,
 }
-⋮----
-createRepomixJob(fullPath: string, relativePath: string): void;
-getStats(): JobStats;
-on(event: string, listener: (job: Job)
-⋮----
-export function isWorkerIdle(stats: JobStats): boolean
-export class RepomixCronApp
-⋮----
-constructor()
-private setupEventListeners(): void
-async runRepomixOnAllDirectories(): Promise&lt;void&gt;
-private async waitForCompletion(): Promise&lt;void&gt;
-private async saveRunSummary(stats: JobStats, duration: number): Promise&lt;void&gt;
-private setupCronJob(schedule: string = &apos;0 2 * * *&apos;): void
-async start(): Promise&lt;void&gt;
-⋮----
-function isDirectExecution(): boolean
-// Entrypoint mode: run only when invoked directly, not when imported by tests/tools.</file><file path="sidequest/core/score-thresholds.ts"></file><file path="sidequest/core/server-retention.test.ts">import test from &apos;node:test&apos;;
-import assert from &apos;node:assert/strict&apos;;
-import type { Job } from &apos;./server.ts&apos;;
-import { SidequestServer } from &apos;./server.ts&apos;;
-import { config } from &apos;./config.ts&apos;;
-import { GIT_ACTIVITY, JOB_RETENTION, TIME_MS } from &apos;./constants.ts&apos;;
-import { jobRepository } from &apos;./job-repository.ts&apos;;
-import { JOB_STATUS } from &apos;#api/types/job-status.ts&apos;;
-function makeJob(
-  id: string,
-  status: Job[&apos;status&apos;],
-  createdAt: Date,
-  completedAt: Date | null
-): Job
-function stubRepositoryInit(t: test.TestContext): void</file><file path="sidequest/core/server.ts">import { EventEmitter } from &apos;events&apos;;
-⋮----
-import { config } from &apos;./config.ts&apos;;
-import fs from &apos;fs/promises&apos;;
-import path from &apos;path&apos;;
-import { createComponentLogger, logError, logWarn } from &apos;../utils/logger.ts&apos;;
-import { safeErrorMessage } from &apos;../pipeline-core/utils/error-helpers.ts&apos;;
-import { GitWorkflowManager } from &apos;./git-workflow-manager.ts&apos;;
-import { jobRepository } from &apos;./job-repository.ts&apos;;
-import { CONCURRENCY, JOB_EVENTS, RETRY, RETRY_EVENTS, TIME_MS } from &apos;./constants.ts&apos;;
-import { isRetryable, classifyError } from &apos;../pipeline-core/errors/error-classifier.ts&apos;;
-import { toISOString } from &apos;../utils/time-helpers.ts&apos;;
-import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from &apos;#api/types/job-status.ts&apos;;
-import type { JobStatus } from &apos;#api/types/job-status.ts&apos;;
-⋮----
-export interface JobGitMetadata {
-  branchName: string | null;
-  originalBranch: string | null;
-  commitSha: string | null;
-  prUrl: string | null;
-  changedFiles: string[];
-}
-export interface Job {
-  id: string;
-  status: JobStatus;
-  data: Record&lt;string, unknown&gt;;
-  createdAt: Date;
-  startedAt: Date | null;
-  completedAt: Date | null;
-  error: { message: string; stack?: string; code?: string; cancelled?: boolean } | null;
-  result: unknown;
-  retryCount: number;
-  retryPending?: boolean;
-  pausedAt?: Date;
-  resumedAt?: Date;
-  git: JobGitMetadata;
-}
-export interface JobStats {
-  total: number;
-  queued: number;
-  active: number;
-  pendingRetries: number;
-  completed: number;
-  failed: number;
-}
-export interface SidequestServerOptions {
-  maxConcurrent?: number;
-  maxRetries?: number;
-  logDir?: string;
-  autoStart?: boolean;
-  gitWorkflowEnabled?: boolean;
-  gitBranchPrefix?: string;
-  gitBaseBranch?: string;
-  gitDryRun?: boolean;
-  jobType?: string;
-  jobRetentionDays?: number;
-  sentryDsn?: string;
-}
-interface JobActionResult {
-  success: boolean;
-  message: string;
-  job?: Job;
-}
-export class SidequestServer extends EventEmitter
-⋮----
-constructor(options: SidequestServerOptions =
-createJob(jobId: string, jobData: Record&lt;string, unknown&gt;): Job
-private _resolveUniqueJobId(requestedJobId: string): string
-async processQueue(): Promise&lt;void&gt;
-async executeJob(jobId: string): Promise&lt;void&gt;
-private _persistJob(job: Job): void
-private _prepareJobForExecution(job: Job): boolean
-private async _setupGitBranchIfEnabled(job: Job): Promise&lt;boolean&gt;
-private async _finalizeJobSuccess(job: Job, result: unknown, branchCreated: boolean): Promise&lt;void&gt;
-private async _finalizeJobFailure(job: Job, error: unknown, branchCreated: boolean): Promise&lt;void&gt;
-private async _handleGitWorkflowSuccess(job: Job): Promise&lt;void&gt;
-public async _generateCommitMessage(job: Job): Promise&lt;
-public async _generatePRContext(job: Job, commitMessage?:
-async runJobHandler(_job: Job): Promise&lt;unknown&gt;
-async start(): Promise&lt;void&gt;
-stop(): void
-set handleJob(handler: (job: Job) =&gt; Promise&lt;unknown&gt;)
-private async _writeJobLog(job: Job, suffix: string, extra?: Record&lt;string, unknown&gt;): Promise&lt;void&gt;
-async logJobCompletion(job: Job): Promise&lt;void&gt;
-async logJobFailure(job: Job, error: Error): Promise&lt;void&gt;
-getJob(jobId: string): Job | undefined
-getAllJobs(): Job[]
-getStats(): JobStats
-private _isExpiredTerminalJob(job: Job, cutoffMs: number): boolean
-private _pruneExpiredJobs(referenceTimeMs: number = Date.now()): void
-private _executeJobAction(jobId: string, config: {
-    action: string;
-statusGuard: (status: JobStatus)
-cancelJob(jobId: string): JobActionResult
-pauseJob(jobId: string): JobActionResult
-resumeJob(jobId: string): JobActionResult</file><file path="sidequest/pipeline-core/git/pr-creator.ts">import { runCommand } from &apos;@shared/process-io&apos;;
+export enum PERCENTILE {
+  P88 = 0.88,
+  P50 = 50,
+  P95 = 95,
+  P99 = 99,
+}</file><file path="sidequest/pipeline-core/git/pr-creator.ts">import { runCommand } from &apos;@shared/process-io&apos;;
 import { runGitCommand } from &apos;../utils/process-helpers.ts&apos;;
 import fs from &apos;fs/promises&apos;;
 import path from &apos;path&apos;;
@@ -13637,48 +13605,7 @@ failed = 0
 ⋮----
 instance = test_class()
 ⋮----
-method = getattr(instance, name)</file><file path="sidequest/pipeline-core/utils/timing-helpers.ts">import { TIME_MS } from &apos;../../core/constants.ts&apos;;
-interface Timer {
-  elapsed: () =&gt; number;
-  elapsedMs: () =&gt; number;
-  elapsedFormatted: () =&gt; string;
-}
-export function createTimer(): Timer
-export async function withTiming&lt;T&gt;(fn: () =&gt; Promise&lt;T&gt;, _label?: string): Promise&lt;
-export function measureSync&lt;T&gt;(fn: () =&gt; T):</file><file path="sidequest/pipeline-core/doppler-health-monitor.ts">import { createComponentLogger, logError } from &apos;../utils/logger.ts&apos;;
-import { CACHE, TIME_MS } from &apos;../core/constants.ts&apos;;
-import Sentry from &apos;@sentry/node&apos;;
-import fs from &apos;fs/promises&apos;;
-import path from &apos;path&apos;;
-import os from &apos;os&apos;;
-⋮----
-export type CacheSeverity = &apos;healthy&apos; | &apos;warning&apos; | &apos;critical&apos; | &apos;error&apos;;
-export interface CacheHealthStatus {
-  healthy: boolean;
-  cacheAgeMs: number;
-  cacheAgeHours: number;
-  cacheAgeMinutes: number;
-  lastModified: string | null;
-  usingFallback: boolean;
-  fileCount: number;
-  severity: CacheSeverity;
-  newestFile?: string;
-  error?: string;
-  errorCode?: string;
-}
-export interface DopplerHealthMonitorOptions {
-  cacheDir?: string;
-  maxCacheAge?: number;
-  warningThreshold?: number;
-}
-export class DopplerHealthMonitor
-⋮----
-constructor(options: DopplerHealthMonitorOptions =
-async checkCacheHealth(): Promise&lt;CacheHealthStatus&gt;
-getSeverity(cacheAge: number): CacheSeverity
-async startMonitoring(intervalMinutes = 15): Promise&lt;CacheHealthStatus&gt;
-stopMonitoring(): void
-getCacheDirectoryPath(): string</file><file path="sidequest/pipeline-runners/collect_git_activity.py">def _load_git_report_config() -&gt; dict
+method = getattr(instance, name)</file><file path="sidequest/pipeline-runners/collect_git_activity.py">def _load_git_report_config() -&gt; dict
 ⋮----
 config_path = Path(__file__).parent.parent / &quot;git-report-config.json&quot;
 ⋮----
@@ -13943,74 +13870,7 @@ wants_json = args.output_format in (&quot;json&quot;, &quot;both&quot;) or bool(
 json_path = (
 ⋮----
 # Generate visualizations unless explicitly disabled.
-output_dir = _resolve_output_dir(args)</file><file path="sidequest/utils/report-generator.ts">import fs from &apos;fs/promises&apos;;
-import path from &apos;path&apos;;
-⋮----
-import { createComponentLogger, logError } from &apos;./logger.ts&apos;;
-import { TIME_MS } from &apos;../core/constants.ts&apos;;
-⋮----
-interface ReportOptions {
-  jobId: string;
-  jobType: string;
-  status: string;
-  result: unknown;
-  startTime: number;
-  endTime: number;
-  parameters?: Record&lt;string, unknown&gt;;
-  metadata?: Record&lt;string, unknown&gt;;
-  outputDir?: string;
-}
-interface ReportPaths {
-  timestamp: string;
-  html?: string;
-  json?: string;
-}
-interface ReportData {
-  jobId: string;
-  jobType: string;
-  status: string;
-  result: unknown;
-  startTime: number;
-  endTime: number;
-  parameters: Record&lt;string, unknown&gt;;
-  metadata: Record&lt;string, unknown&gt;;
-  timestamp: string;
-}
-export async function generateReport(options: ReportOptions): Promise&lt;ReportPaths&gt;
-function generateHTMLReport(data: ReportData): string
-function generateJSONReport(data: ReportData): object
-function generateHTMLHeader(title: string, jobId: string, status: string, statusClass: string, timestamp: string, duration: string): string
-function generateHTMLParameters(parameters: Record&lt;string, unknown&gt;): string
-/**
- * generateHTMLMetadata.
- */
-function generateHTMLMetadata(metadata: Record&lt;string, unknown&gt;): string
-/**
- * generateHTMLResults.
- */
-function generateHTMLResults(result: unknown): string
-/**
- * generateMetricsSection.
- */
-function generateMetricsSection(metrics: Record&lt;string, unknown&gt;): string
-/**
- * generateDetailsSection.
- */
-function generateDetailsSection(details: Record&lt;string, unknown&gt;): string
-/**
- * generateHTMLFooter.
- */
-function generateHTMLFooter(timestamp: string): string
-/**
- * extractMetrics.
- */
-function extractMetrics(result: Record&lt;string, unknown&gt;): Record&lt;string, unknown&gt; | null
-function extractDetails(result: Record&lt;string, unknown&gt;): Record&lt;string, unknown&gt; | null
-function getJobTypeTitle(jobType: string): string
-function formatValue(value: unknown): string
-export async function pruneOldReports(outputDir: string = DEFAULT_OUTPUT_DIR, maxAgeMs: number = 30 * TIME_MS.DAY): Promise&lt;void&gt;
-function escapeHtml(text: string): string
-function getHTMLStyles(): string</file><file path="sidequest/utils/schema-mcp-tools.ts">import { config } from &apos;../core/config.ts&apos;;
+output_dir = _resolve_output_dir(args)</file><file path="sidequest/utils/schema-mcp-tools.ts">import { config } from &apos;../core/config.ts&apos;;
 import { SCHEMA_RATING_THRESHOLDS } from &apos;../core/score-thresholds.ts&apos;;
 interface SchemaContext {
   hasPackageJson?: boolean;
@@ -14087,75 +13947,7 @@ async validateSchema(schema: SchemaObject): Promise&lt;ValidationResult&gt;
 async analyzeSchemaImpact(originalContent: string, enhancedContent: string, schema: SchemaObject): Promise&lt;SchemaImpact&gt;
 getRating(score: number): string
 createJSONLDScript(schema: SchemaObject): string
-injectSchema(content: string, schema: SchemaObject): string</file><file path="sidequest/workers/git-activity-worker.ts">import { SidequestServer, type Job, type SidequestServerOptions } from &apos;../core/server.ts&apos;;
-import { generateReport } from &apos;../utils/report-generator.ts&apos;;
-import { spawn } from &apos;child_process&apos;;
-import { captureProcessOutput } from &apos;@shared/process-io&apos;;
-import fs from &apos;fs/promises&apos;;
-import path from &apos;path&apos;;
-import os from &apos;os&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-⋮----
-import { createComponentLogger } from &apos;../utils/logger.ts&apos;;
-import { TIMEOUTS, TIME_MS, GIT_ACTIVITY, NUMBER_BASE } from &apos;../core/constants.ts&apos;;
-⋮----
-interface GitActivityWorkerOptions extends SidequestServerOptions {
-  codeBaseDir?: string;
-  pythonScript?: string;
-  personalSiteDir?: string;
-  outputDir?: string;
-}
-interface PythonArgs {
-  reportType?: string;
-  days?: number;
-  sinceDate?: string;
-  untilDate?: string;
-  outputFormat?: string;
-  generateVisualizations?: boolean;
-}
-interface PythonScriptResult {
-  stdout: string;
-  stderr: string;
-  outputFiles: string[];
-}
-export interface GitActivityStats {
-  totalCommits: number;
-  totalRepositories: number;
-  linesAdded: number;
-  linesDeleted: number;
-  filesChanged?: number;
-}
-interface VerifiedFile {
-  path: string;
-  size?: number;
-  exists: boolean;
-}
-interface ReportJobOptions {
-  jobId?: string;
-  reportType?: string;
-  days?: number;
-  sinceDate?: string;
-  untilDate?: string;
-  outputFormat?: string;
-  generateVisualizations?: boolean;
-}
-function toFiniteNumber(value: unknown): number
-export function buildGitActivityStatsFromData(data: Record&lt;string, unknown&gt;): GitActivityStats
-export async function parseGitActivityStatsFromJsonFiles(
-  outputFiles: string[],
-  scriptDir: string,
-  readFile: (path: string, encoding: BufferEncoding) =&gt; Promise&lt;string&gt; = fs.readFile
-): Promise&lt;GitActivityStats | null&gt;
-export function parseGitActivityStatsFromText(stdout: string): GitActivityStats
-export class GitActivityWorker extends SidequestServer
-⋮----
-constructor(options: GitActivityWorkerOptions =
-async runJobHandler(job: Job): Promise&lt;unknown&gt;
-⋮----
-createWeeklyReportJob(): Job
-createMonthlyReportJob(): Job
-createCustomReportJob(sinceDate: string, untilDate: string): Job
-createReportJob(options: ReportJobOptions =</file><file path="sidequest/workers/repo-cleanup-worker.ts">import { SidequestServer, type Job, type SidequestServerOptions } from &apos;../core/server.ts&apos;;
+injectSchema(content: string, schema: SchemaObject): string</file><file path="sidequest/workers/repo-cleanup-worker.ts">import { SidequestServer, type Job, type SidequestServerOptions } from &apos;../core/server.ts&apos;;
 import { generateReport } from &apos;../utils/report-generator.ts&apos;;
 import { createComponentLogger } from &apos;../utils/logger.ts&apos;;
 ⋮----
@@ -14458,232 +14250,343 @@ createDryRunJob(targetDir?: string, _options: CleanupJobOptions =</file><file pa
   &quot;tokenCount&quot;: {
     &quot;encoding&quot;: &quot;o200k_base&quot;
   }
-}</file><file path="scripts/generate-repomix-docs.sh">set -euo pipefail
-ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
-OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt;}&quot;
-CONFIG_FILE=&quot;$ROOT/scripts/repomix-docs.config.json&quot;
-BASE_CONFIG_FILE=&quot;$ROOT/repomix.config.json&quot;
-TMP_CONFIG=&quot;$(mktemp &quot;${TMPDIR:-/tmp}/repomix-docs.XXXXXX.json&quot;)&quot;
-cleanup() {
-  rm -f &quot;$TMP_CONFIG&quot;
+}</file><file path="api/utils/worker-registry.ts">import type { SidequestServer } from &apos;#sidequest/core/server.ts&apos;;
+import { DuplicateDetectionWorker } from &apos;#sidequest/workers/duplicate-detection-worker.ts&apos;;
+import { SchemaEnhancementWorker } from &apos;#sidequest/workers/schema-enhancement-worker.ts&apos;;
+import { GitActivityWorker } from &apos;#sidequest/workers/git-activity-worker.ts&apos;;
+import { GitignoreWorker } from &apos;#sidequest/workers/gitignore-worker.ts&apos;;
+import { RepomixWorker } from &apos;#sidequest/workers/repomix-worker.ts&apos;;
+import { ClaudeHealthWorker } from &apos;#sidequest/workers/claude-health-worker.ts&apos;;
+import { RepoCleanupWorker } from &apos;#sidequest/workers/repo-cleanup-worker.ts&apos;;
+import { BugfixAuditWorker } from &apos;#sidequest/workers/bugfix-audit-worker.ts&apos;;
+import { DashboardPopulateWorker } from &apos;#sidequest/workers/dashboard-populate-worker.ts&apos;;
+import { PluginManagerWorker } from &apos;#sidequest/utils/plugin-manager.ts&apos;;
+import { config } from &apos;#sidequest/core/config.ts&apos;;
+import { createComponentLogger, logError } from &apos;#sidequest/utils/logger.ts&apos;;
+import { jobRepository } from &apos;#sidequest/core/job-repository.ts&apos;;
+import { CONCURRENCY, TIMEOUTS, WORKER_COOLDOWN } from &apos;#sidequest/core/constants.ts&apos;;
+import { TIME_MS } from &apos;#sidequest/core/units.ts&apos;;
+import type { ActivityFeedManager } from &apos;../activity-feed.ts&apos;;
+⋮----
+interface InitFailureInfo {
+  count: number;
+  lastAttempt: number;
+  cooldownAttempts?: number;
 }
-trap cleanup EXIT
-BUNDLE_IGNORE_PATTERNS_JSON=&quot;$(
-  jq -c &apos;
-    [
-      .ignore.customPatterns[]?
-      | select(
-          . == &quot;docs/repomix/**&quot;
-          or . == &quot;**/repomix-output.*&quot;
-          or . == &quot;**/repo-compressed.*&quot;
-          or . == &quot;**/repomix.xml&quot;
-          or . == &quot;**/repo-compressed.xml&quot;
-        )
-    ] | unique
-  &apos; &quot;$BASE_CONFIG_FILE&quot;
-)&quot;
-jq \
-  --argjson bundleIgnorePatterns &quot;$BUNDLE_IGNORE_PATTERNS_JSON&quot; \
-  &apos;
-    .ignore.customPatterns = ((.ignore.customPatterns // []) + $bundleIgnorePatterns | unique)
-  &apos; \
-  &quot;$CONFIG_FILE&quot; &gt; &quot;$TMP_CONFIG&quot;
-FORCE_COLOR=0 NO_COLOR=1 timeout 60 \
-npx repomix &quot;$ROOT&quot; -c &quot;$TMP_CONFIG&quot; -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/generate-repomix-git-ranked.sh">set -euo pipefail
-ROOT=&quot;${1:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt; [include_logs_count]}&quot;
-OUTPUT_FILE=&quot;${2:?Usage: $0 &lt;root_dir&gt; &lt;output_file&gt; [include_logs_count]}&quot;
-INCLUDE_LOGS_COUNT=&quot;${3:-200}&quot;
-INCLUDE_DIFFS=&quot;${REPOMIX_INCLUDE_DIFFS:-true}&quot;
-INCLUDE_LOGS=&quot;${REPOMIX_INCLUDE_LOGS:-true}&quot;
-SORT_BY_CHANGES_MAX_COMMITS=&quot;${REPOMIX_SORT_BY_CHANGES_MAX_COMMITS:-1000}&quot;
-TIMEOUT_SECONDS=&quot;${REPOMIX_TIMEOUT_SECONDS:-120}&quot;
-if ! [[ &quot;$INCLUDE_LOGS_COUNT&quot; =~ ^[0-9]+$ ]] || [[ &quot;$INCLUDE_LOGS_COUNT&quot; -lt 0 ]]; then
-  echo &quot;include_logs_count must be a non-negative integer: $INCLUDE_LOGS_COUNT&quot; &gt;&amp;2
-  exit 1
-fi
-if ! [[ &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot; =~ ^[0-9]+$ ]] || [[ &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot; -lt 1 ]]; then
-  echo &quot;REPOMIX_SORT_BY_CHANGES_MAX_COMMITS must be a positive integer: $SORT_BY_CHANGES_MAX_COMMITS&quot; &gt;&amp;2
-  exit 1
-fi
-if [[ &quot;$INCLUDE_DIFFS&quot; != &quot;true&quot; &amp;&amp; &quot;$INCLUDE_DIFFS&quot; != &quot;false&quot; ]]; then
-  echo &quot;REPOMIX_INCLUDE_DIFFS must be true|false: $INCLUDE_DIFFS&quot; &gt;&amp;2
-  exit 1
-fi
-if [[ &quot;$INCLUDE_LOGS&quot; != &quot;true&quot; &amp;&amp; &quot;$INCLUDE_LOGS&quot; != &quot;false&quot; ]]; then
-  echo &quot;REPOMIX_INCLUDE_LOGS must be true|false: $INCLUDE_LOGS&quot; &gt;&amp;2
-  exit 1
-fi
-TMP_CONFIG=&quot;$(mktemp &quot;${TMPDIR:-/tmp}/repomix-git-ranked.XXXXXX.json&quot;)&quot;
-cleanup() {
-  rm -f &quot;$TMP_CONFIG&quot;
+⋮----
+type WorkerConstructor = new (options: Record&lt;string, unknown&gt;) =&gt; SidequestServer;
+interface PipelineConfig {
+  WorkerClass: WorkerConstructor | null;
+  getOptions: () =&gt; Record&lt;string, unknown&gt;;
+  disabled?: boolean;
+  disabledReason?: string;
 }
-trap cleanup EXIT
-BUNDLE_IGNORE_PATTERNS_FILE=&quot;$ROOT/repomix.config.json&quot;
-BUNDLE_IGNORE_PATTERNS_JSON=&quot;$(
-  jq -c &apos;
-    [
-      .ignore.customPatterns[]?
-      | select(
-          . == &quot;docs/repomix/**&quot;
-          or . == &quot;**/repomix-output.*&quot;
-          or . == &quot;**/repo-compressed.*&quot;
-          or . == &quot;**/repomix.xml&quot;
-          or . == &quot;**/repo-compressed.xml&quot;
-        )
-    ] | unique
-  &apos; &quot;$BUNDLE_IGNORE_PATTERNS_FILE&quot; 2&gt;/dev/null || echo &apos;[]&apos;
-)&quot;
-# Generated artifacts that should never be re-ingested into ranked bundles.
-is_generated_bundle_artifact() {
-  local rel_path=&quot;$1&quot;
-  case &quot;$rel_path&quot; in
-    sidequest/docs/gitlog-sidequest.txt)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
+⋮----
+interface WorkerStats {
+  total: number;
+  queued: number;
+  active: number;
+  completed: number;
+  failed: number;
+  byPipeline: Record&lt;string, Record&lt;string, number&gt;&gt;;
 }
-# Build include list from files touched in the selected commit window.
-declare -A seen=()
-include_files=()
-while IFS= read -r -d &apos;&apos; rel_path; do
-  [[ -z &quot;$rel_path&quot; ]] &amp;&amp; continue
-  if is_generated_bundle_artifact &quot;$rel_path&quot;; then
-    continue
-  fi
-  [[ -n &quot;${seen[$rel_path]:-}&quot; ]] &amp;&amp; continue
-  # Keep only files that still exist on disk so repomix can resolve them.
-  if [[ -f &quot;$ROOT/$rel_path&quot; ]]; then
-    seen[&quot;$rel_path&quot;]=1
-    include_files+=(&quot;$rel_path&quot;)
-  fi
-done &lt; &lt;(git -C &quot;$ROOT&quot; log --name-only --pretty=format: -z -n &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot;)
-if [[ &quot;${#include_files[@]}&quot; -eq 0 ]]; then
-  echo &quot;No existing files found in the selected commit window.&quot; &gt;&amp;2
-  exit 1
-fi
-include_files_json=&quot;$(printf &apos;%s\0&apos; &quot;${include_files[@]}&quot; | jq -Rs &apos;split(&quot;\u0000&quot;)[:-1]&apos;)&quot;
-jq -n \
-  --argjson includeFiles &quot;$include_files_json&quot; \
-  --argjson bundleIgnorePatterns &quot;$BUNDLE_IGNORE_PATTERNS_JSON&quot; \
-  --argjson includeLogsCount &quot;$INCLUDE_LOGS_COUNT&quot; \
-  --argjson sortByChangesMaxCommits &quot;$SORT_BY_CHANGES_MAX_COMMITS&quot; \
-  --arg includeDiffs &quot;$INCLUDE_DIFFS&quot; \
-  --arg includeLogs &quot;$INCLUDE_LOGS&quot; &apos;
-{
+type WorkerWithShutdown = SidequestServer &amp; { shutdown?: () =&gt; Promise&lt;void&gt; };
+type WorkerWithInit = SidequestServer &amp; { initialize?: () =&gt; Promise&lt;void&gt; };
+type WorkerWithScanMetrics = SidequestServer &amp; { getScanMetrics?: () =&gt; Record&lt;string, unknown&gt; };
+type WorkerStatsRecord = Record&lt;string, number&gt;;
+interface WorkerInitContext {
+  pipelineId: string;
+  workers: Map&lt;string, SidequestServer&gt;;
+  activityFeed: ActivityFeedManager | null;
+}
+function enforceInitCircuitBreaker(pipelineId: string): void
+function getPipelineConfigOrThrow(pipelineId: string): PipelineConfig
+function ensurePipelineEnabled(pipelineId: string, pipelineConfig: PipelineConfig): void
+async function shutdownWorkerSafely(
+  worker: SidequestServer | null | undefined,
+  pipelineId: string,
+  errorMessage: string
+): Promise&lt;void&gt;
+async function doWorkerInit(pipelineId: string, pipelineConfig: PipelineConfig): Promise&lt;SidequestServer&gt;
+async function initializeWorkerWithTimeout(pipelineId: string): Promise&lt;SidequestServer&gt;
+function recordInitFailure(pipelineId: string, error: unknown): void
+async function performWorkerInitialization({
+  pipelineId,
+  workers,
+  activityFeed
+}: WorkerInitContext): Promise&lt;SidequestServer&gt;
+function getWorkerStatsIfAvailable(worker: SidequestServer | undefined): WorkerStatsRecord | null
+function aggregateWorkerStats(workers: Map&lt;string, SidequestServer&gt;): WorkerStats
+function getScanMetricsIfAvailable(worker: SidequestServer | undefined): Record&lt;string, unknown&gt; | null
+async function shutdownRegistryWorkers(
+  workers: Map&lt;string, SidequestServer&gt;,
+  initializing: Map&lt;string, Promise&lt;SidequestServer&gt;&gt;
+): Promise&lt;void&gt;
+class WorkerRegistry
+⋮----
+constructor()
+setActivityFeed(activityFeed: ActivityFeedManager): void
+async getWorker(pipelineId: string): Promise&lt;SidequestServer&gt;
+private async _performWorkerInitialization(pipelineId: string): Promise&lt;SidequestServer&gt;
+isSupported(pipelineId: string): boolean
+getSupportedPipelines(): string[]
+getAllStats(): WorkerStats
+getWorkerStats(pipelineId: string): Record&lt;string, number&gt; | null
+getScanMetrics(pipelineId: string): Record&lt;string, unknown&gt; | null
+async shutdown(): Promise&lt;void&gt;</file><file path="api/activity-feed.ts">import type { SidequestServer, Job } from &apos;../sidequest/core/server.ts&apos;;
+import { createComponentLogger, logError } from &apos;../sidequest/utils/logger.ts&apos;;
+import { TIMEOUTS } from &apos;../sidequest/core/constants.ts&apos;;
+import { TIME_MS } from &apos;../sidequest/core/units.ts&apos;;
+⋮----
+import { safeErrorMessage, toErrorObject } from &apos;../sidequest/pipeline-core/utils/error-helpers.ts&apos;;
+import type { ScanEventBroadcaster } from &apos;./event-broadcaster.ts&apos;;
+⋮----
+interface ActivityEntry {
+  id: number;
+  timestamp: string;
+  type?: string;
+  [key: string]: unknown;
+}
+interface ActivityStats {
+  recentActivities: { lastHour: number; lastDay: number; total: number };
+  typeCount: Record&lt;string, number&gt;;
+  oldestActivity: string | null;
+  newestActivity: string | null;
+}
+interface RetryInfo {
+  attempt?: number;
+  maxAttempts?: number;
+  reason?: string;
+  delay?: number;
+}
+export class ActivityFeedManager
+⋮----
+constructor(broadcaster: ScanEventBroadcaster | null, options:
+addActivity(activity: Record&lt;string, unknown&gt;): ActivityEntry
+getRecentActivities(limit: number = 20): ActivityEntry[]
+clear(): void
+getStats(): ActivityStats
+listenToWorker(worker: SidequestServer): void
+private handleJobCreated(job: Job, worker: SidequestServer): void
+private handleJobStarted(job: Job, worker: SidequestServer): void
+private handleJobCompleted(job: Job, worker: SidequestServer): void
+private handleJobFailed(job: Job, error: unknown, worker: SidequestServer): void
+private handleRetryCreated(job: Job, retryInfo: RetryInfo, worker: SidequestServer): void
+private handleRetryMaxAttempts(jobId: string, attempts: number): void</file><file path="scripts/repomix-docs.config.json">{
   &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
+
   &quot;output&quot;: {
     &quot;style&quot;: &quot;xml&quot;,
     &quot;parsableStyle&quot;: true,
-    &quot;removeComments&quot;: true,
-    &quot;removeEmptyLines&quot;: true,
+    &quot;removeComments&quot;: false,
+    &quot;removeEmptyLines&quot;: false,
+    &quot;truncateBase64&quot;: false,
     &quot;fileSummary&quot;: false,
-    &quot;directoryStructure&quot;: false,
+    &quot;directoryStructure&quot;: true,
     &quot;files&quot;: true,
+    &quot;showLineNumbers&quot;: false,
     &quot;includeEmptyDirectories&quot;: false,
     &quot;git&quot;: {
-      &quot;sortByChanges&quot;: true,
-      &quot;sortByChangesMaxCommits&quot;: $sortByChangesMaxCommits,
-      &quot;includeDiffs&quot;: ($includeDiffs == &quot;true&quot;),
-      &quot;includeLogs&quot;: ($includeLogs == &quot;true&quot;),
-      &quot;includeLogsCount&quot;: $includeLogsCount
+      &quot;includeDiffs&quot;: false,
+      &quot;includeLogs&quot;: false,
+      &quot;includeLogsCount&quot;: 1
     }
   },
+
+  &quot;include&quot;: [
+    &quot;docs/**&quot;
+  ],
+
   &quot;ignore&quot;: {
     &quot;useGitignore&quot;: true,
     &quot;useDotIgnore&quot;: true,
     &quot;useDefaultPatterns&quot;: true,
-    &quot;customPatterns&quot;: $bundleIgnorePatterns
+    &quot;customPatterns&quot;: [
+      &quot;**/node_modules/**&quot;,
+      &quot;docs/repomix/**&quot;,
+      &quot;**/repomix-output.*&quot;,
+      &quot;**/repo-compressed.*&quot;,
+      &quot;**/repomix.xml&quot;,
+      &quot;**/repo-compressed.xml&quot;
+    ]
   },
-  &quot;include&quot;: $includeFiles
-}&apos; &gt; &quot;$TMP_CONFIG&quot;
-FORCE_COLOR=0 NO_COLOR=1 timeout &quot;$TIMEOUT_SECONDS&quot; \
-  npx repomix &quot;$ROOT&quot; -c &quot;$TMP_CONFIG&quot; -o &quot;$OUTPUT_FILE&quot; &gt;/dev/null 2&gt;&amp;1</file><file path="scripts/repomix-regen.sh">set -euo pipefail
-ROOT=&quot;$(cd &quot;$(dirname &quot;$0&quot;)/..&quot; &amp;&amp; pwd)&quot;
-TREE_FILE=&quot;token-tree&quot;
-COMPRESSED_FILE=&quot;repo-compressed&quot;
-LOSSLESS_FILE=&quot;repomix&quot;
-DOCS_ONLY_FILE=&quot;repomix-docs&quot;
-GIT_RANKED_FILE=&quot;repomix-git-ranked&quot;
-OUTPUT_PATH=&quot;docs/repomix&quot;
-OUT_DIR=&quot;$ROOT/$OUTPUT_PATH&quot;
-TOKEN_TREE_FILE=&quot;$OUT_DIR/$TREE_FILE.txt&quot;
-COMPRESSED_REPO_FILE=&quot;$OUT_DIR/$COMPRESSED_FILE.xml&quot;
-LOSSLESS_REPO_FILE=&quot;$OUT_DIR/$LOSSLESS_FILE.xml&quot;
-DOCS_ONLY_REPO_FILE=&quot;$OUT_DIR/$DOCS_ONLY_FILE.xml&quot;
-GIT_RANKED_REPO_FILE=&quot;$OUT_DIR/$GIT_RANKED_FILE.xml&quot;
-GITLOG_TOP_FILE=&quot;$OUT_DIR/gitlog-top20.txt&quot;
-TREE_FILE_NAME=&quot;$OUTPUT_PATH/$TREE_FILE.txt&quot;
-COMPRESSED_FILE_NAME=&quot;$OUTPUT_PATH/$COMPRESSED_FILE.xml&quot;
-LOSSLESS_FILE_NAME=&quot;$OUTPUT_PATH/$LOSSLESS_FILE.xml&quot;
-DOCS_ONLY_FILE_NAME=&quot;$OUTPUT_PATH/$DOCS_ONLY_FILE.xml&quot;
-GIT_RANKED_FILE_NAME=&quot;$OUTPUT_PATH/$GIT_RANKED_FILE.xml&quot;
-GITLOG_TOP_FILE_NAME=&quot;$OUTPUT_PATH/gitlog-top20.txt&quot;
-INPUT_DIR=&quot;$ROOT/scripts/generate-&quot;
-TOKEN_TREE_SCRIPT=&quot;$INPUT_DIR$TREE_FILE.sh&quot;
-COMPRESS_SCRIPT=&quot;$INPUT_DIR$COMPRESSED_FILE.sh&quot;
-LOSSLESS_SCRIPT=&quot;$INPUT_DIR$LOSSLESS_FILE.sh&quot;
-DOCS_ONLY_SCRIPT=&quot;$INPUT_DIR$DOCS_ONLY_FILE.sh&quot;
-GIT_RANKED_SCRIPT=&quot;$INPUT_DIR$GIT_RANKED_FILE.sh&quot;
-GITLOG_TOP_SCRIPT=&quot;$ROOT/scripts/generate-diff-summary.sh&quot;
-GIT_RANKED_INCLUDE_LOGS_COUNT=&quot;${REPOMIX_GIT_RANKED_INCLUDE_LOGS_COUNT:-200}&quot;
-echo &quot;File set up...&quot;
-mkdir -p &quot;$OUT_DIR&quot;
-rm -f \
-  &quot;$TOKEN_TREE_FILE&quot; \
-  &quot;$COMPRESSED_REPO_FILE&quot; \
-  &quot;$LOSSLESS_REPO_FILE&quot; \
-  &quot;$DOCS_ONLY_REPO_FILE&quot; \
-  &quot;$GIT_RANKED_REPO_FILE&quot; \
-  &quot;$GITLOG_TOP_FILE&quot;
-PROJECT_DIR=&quot;$(basename &quot;$ROOT&quot;)&quot;
-echo &quot;Generating token count tree for $PROJECT_DIR at $TREE_FILE_NAME&quot;
-bash &quot;$TOKEN_TREE_SCRIPT&quot; &quot;$ROOT&quot; &quot;$TOKEN_TREE_FILE&quot;
-echo &quot;Success!&quot;
-echo
-echo &quot;Generating compressed repomix file for $PROJECT_DIR at $COMPRESSED_FILE_NAME&quot;
-bash &quot;$COMPRESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$COMPRESSED_REPO_FILE&quot;
-echo &quot;Success!&quot;
-echo
-echo &quot;Generating repomix file for $PROJECT_DIR at $LOSSLESS_FILE_NAME&quot;
-bash &quot;$LOSSLESS_SCRIPT&quot; &quot;$ROOT&quot; &quot;$LOSSLESS_REPO_FILE&quot;
-echo &quot;Success!&quot;
-echo
-echo &quot;Generating docs-only repomix file for $PROJECT_DIR at $DOCS_ONLY_FILE_NAME&quot;
-bash &quot;$DOCS_ONLY_SCRIPT&quot; &quot;$ROOT&quot; &quot;$DOCS_ONLY_REPO_FILE&quot;
-echo &quot;Success!&quot;
-echo
-echo &quot;Generating git-ranked repomix file for $PROJECT_DIR at $GIT_RANKED_FILE_NAME&quot;
-bash &quot;$GIT_RANKED_SCRIPT&quot; &quot;$ROOT&quot; &quot;$GIT_RANKED_REPO_FILE&quot; &quot;$GIT_RANKED_INCLUDE_LOGS_COUNT&quot;
-echo &quot;Success!&quot;
-echo
-echo &quot;Generating top-file git history at $GITLOG_TOP_FILE_NAME&quot;
-(
-  cd &quot;$ROOT&quot;
-  bash &quot;$GITLOG_TOP_SCRIPT&quot;
-)
-echo &quot;Success!&quot;
-echo
-echo &quot;Artifacts:&quot;
-print_artifact() {
-  local file_path=&quot;$1&quot;
-  local display_name=&quot;$2&quot;
-  if [[ -f &quot;$file_path&quot; ]]; then
-    chars=$(wc -c &lt; &quot;$file_path&quot; | tr -d &apos; &apos;)
-    tokens=$((chars / 4))
-    echo &quot; - $display_name (~$tokens tokens, $chars chars)&quot;
-  else
-    echo &quot; - $display_name (missing)&quot;
-  fi
+
+  &quot;security&quot;: {
+    &quot;enableSecurityCheck&quot;: true
+  },
+
+  &quot;tokenCount&quot;: {
+    &quot;encoding&quot;: &quot;o200k_base&quot;
+  }
+}</file><file path="sidequest/core/index.ts">import cron from &apos;node-cron&apos;;
+import { RepomixWorker } from &apos;../workers/repomix-worker.ts&apos;;
+import { DirectoryScanner } from &apos;../utils/directory-scanner.ts&apos;;
+import { config } from &apos;./config.ts&apos;;
+import { JOB_EVENTS, TIMEOUTS } from &apos;./constants.ts&apos;;
+import { TIME_MS } from &apos;./units.ts&apos;;
+import path from &apos;path&apos;;
+import fs from &apos;fs/promises&apos;;
+import { fileURLToPath } from &apos;url&apos;;
+import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;
+import type { Job, JobStats } from &apos;./server.ts&apos;;
+⋮----
+interface ScanDirectory {
+  fullPath: string;
+  relativePath: string;
 }
-print_artifact &quot;$TOKEN_TREE_FILE&quot; &quot;$TREE_FILE_NAME&quot;
-print_artifact &quot;$COMPRESSED_REPO_FILE&quot; &quot;$COMPRESSED_FILE_NAME&quot;
-print_artifact &quot;$LOSSLESS_REPO_FILE&quot; &quot;$LOSSLESS_FILE_NAME&quot;
-print_artifact &quot;$DOCS_ONLY_REPO_FILE&quot; &quot;$DOCS_ONLY_FILE_NAME&quot;
-print_artifact &quot;$GIT_RANKED_REPO_FILE&quot; &quot;$GIT_RANKED_FILE_NAME&quot;
-print_artifact &quot;$GITLOG_TOP_FILE&quot; &quot;$GITLOG_TOP_FILE_NAME&quot;</file><file path="sidequest/pipeline-core/extractors/test_extract_blocks.py">@dataclass
+interface TypedDirectoryScanner {
+  baseDir: string;
+  scanDirectories(): Promise&lt;ScanDirectory[]&gt;;
+  generateAndSaveScanResults(dirs: ScanDirectory[]): Promise&lt;{
+    reportPath: string;
+    treePath: string;
+    summaryPath: string;
+    summary: {
+      maxDepth: number;
+      stats: { topDirectoryNames: Array&lt;{ name: string }&gt; };
+    };
+  }&gt;;
+}
+⋮----
+scanDirectories(): Promise&lt;ScanDirectory[]&gt;;
+generateAndSaveScanResults(dirs: ScanDirectory[]): Promise&lt;
+⋮----
+interface TypedRepomixWorker {
+  logDir: string;
+  outputBaseDir: string;
+  createRepomixJob(fullPath: string, relativePath: string): void;
+  getStats(): JobStats;
+  on(event: string, listener: (job: Job) =&gt; void): this;
+}
+⋮----
+createRepomixJob(fullPath: string, relativePath: string): void;
+getStats(): JobStats;
+on(event: string, listener: (job: Job)
+⋮----
+export function isWorkerIdle(stats: JobStats): boolean
+export class RepomixCronApp
+⋮----
+constructor()
+private setupEventListeners(): void
+async runRepomixOnAllDirectories(): Promise&lt;void&gt;
+private async waitForCompletion(): Promise&lt;void&gt;
+private async saveRunSummary(stats: JobStats, duration: number): Promise&lt;void&gt;
+private setupCronJob(schedule: string = &apos;0 2 * * *&apos;): void
+async start(): Promise&lt;void&gt;
+⋮----
+function isDirectExecution(): boolean
+// Entrypoint mode: run only when invoked directly, not when imported by tests/tools.</file><file path="sidequest/core/server-retention.test.ts">import test from &apos;node:test&apos;;
+import assert from &apos;node:assert/strict&apos;;
+import type { Job } from &apos;./server.ts&apos;;
+import { SidequestServer } from &apos;./server.ts&apos;;
+import { config } from &apos;./config.ts&apos;;
+import { GIT_ACTIVITY, JOB_RETENTION } from &apos;./constants.ts&apos;;
+import { TIME_MS } from &apos;./units.ts&apos;;
+import { jobRepository } from &apos;./job-repository.ts&apos;;
+import { JOB_STATUS } from &apos;#api/types/job-status.ts&apos;;
+function makeJob(
+  id: string,
+  status: Job[&apos;status&apos;],
+  createdAt: Date,
+  completedAt: Date | null
+): Job
+function stubRepositoryInit(t: test.TestContext): void</file><file path="sidequest/core/server.ts">import { EventEmitter } from &apos;events&apos;;
+⋮----
+import { config } from &apos;./config.ts&apos;;
+import fs from &apos;fs/promises&apos;;
+import path from &apos;path&apos;;
+import { createComponentLogger, logError, logWarn } from &apos;../utils/logger.ts&apos;;
+import { safeErrorMessage } from &apos;../pipeline-core/utils/error-helpers.ts&apos;;
+import { GitWorkflowManager } from &apos;./git-workflow-manager.ts&apos;;
+import { jobRepository } from &apos;./job-repository.ts&apos;;
+import { CONCURRENCY, JOB_EVENTS, RETRY, RETRY_EVENTS } from &apos;./constants.ts&apos;;
+import { TIME_MS } from &apos;./units.ts&apos;;
+import { isRetryable, classifyError } from &apos;../pipeline-core/errors/error-classifier.ts&apos;;
+import { toISOString } from &apos;../utils/time-helpers.ts&apos;;
+import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from &apos;#api/types/job-status.ts&apos;;
+import type { JobStatus } from &apos;#api/types/job-status.ts&apos;;
+⋮----
+export interface JobGitMetadata {
+  branchName: string | null;
+  originalBranch: string | null;
+  commitSha: string | null;
+  prUrl: string | null;
+  changedFiles: string[];
+}
+export interface Job {
+  id: string;
+  status: JobStatus;
+  data: Record&lt;string, unknown&gt;;
+  createdAt: Date;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  error: { message: string; stack?: string; code?: string; cancelled?: boolean } | null;
+  result: unknown;
+  retryCount: number;
+  retryPending?: boolean;
+  pausedAt?: Date;
+  resumedAt?: Date;
+  git: JobGitMetadata;
+}
+export interface JobStats {
+  total: number;
+  queued: number;
+  active: number;
+  pendingRetries: number;
+  completed: number;
+  failed: number;
+}
+export interface SidequestServerOptions {
+  maxConcurrent?: number;
+  maxRetries?: number;
+  logDir?: string;
+  autoStart?: boolean;
+  gitWorkflowEnabled?: boolean;
+  gitBranchPrefix?: string;
+  gitBaseBranch?: string;
+  gitDryRun?: boolean;
+  jobType?: string;
+  jobRetentionDays?: number;
+  sentryDsn?: string;
+}
+interface JobActionResult {
+  success: boolean;
+  message: string;
+  job?: Job;
+}
+export class SidequestServer extends EventEmitter
+⋮----
+constructor(options: SidequestServerOptions =
+createJob(jobId: string, jobData: Record&lt;string, unknown&gt;): Job
+private _resolveUniqueJobId(requestedJobId: string): string
+async processQueue(): Promise&lt;void&gt;
+async executeJob(jobId: string): Promise&lt;void&gt;
+private _persistJob(job: Job): void
+private _prepareJobForExecution(job: Job): boolean
+private async _setupGitBranchIfEnabled(job: Job): Promise&lt;boolean&gt;
+private async _finalizeJobSuccess(job: Job, result: unknown, branchCreated: boolean): Promise&lt;void&gt;
+private async _finalizeJobFailure(job: Job, error: unknown, branchCreated: boolean): Promise&lt;void&gt;
+private async _handleGitWorkflowSuccess(job: Job): Promise&lt;void&gt;
+public async _generateCommitMessage(job: Job): Promise&lt;
+public async _generatePRContext(job: Job, commitMessage?:
+async runJobHandler(_job: Job): Promise&lt;unknown&gt;
+async start(): Promise&lt;void&gt;
+stop(): void
+set handleJob(handler: (job: Job) =&gt; Promise&lt;unknown&gt;)
+private async _writeJobLog(job: Job, suffix: string, extra?: Record&lt;string, unknown&gt;): Promise&lt;void&gt;
+async logJobCompletion(job: Job): Promise&lt;void&gt;
+async logJobFailure(job: Job, error: Error): Promise&lt;void&gt;
+getJob(jobId: string): Job | undefined
+getAllJobs(): Job[]
+getStats(): JobStats
+private _isExpiredTerminalJob(job: Job, cutoffMs: number): boolean
+private _pruneExpiredJobs(referenceTimeMs: number = Date.now()): void
+private _executeJobAction(jobId: string, config: {
+    action: string;
+statusGuard: (status: JobStatus)
+cancelJob(jobId: string): JobActionResult
+pauseJob(jobId: string): JobActionResult
+resumeJob(jobId: string): JobActionResult</file><file path="sidequest/pipeline-core/extractors/test_extract_blocks.py">@dataclass
 class MockLocation
 ⋮----
 file_path: str = &quot;/test/file.js&quot;
@@ -15192,7 +15095,15 @@ ann1 = annotations.get(block1.block_id)
 ⋮----
 ann2 = annotations.get(block2.block_id)
 ⋮----
-similarity = _calculate_semantic_similarity(ann1, ann2)</file><file path="sidequest/pipeline-core/constants.py">class HTTPCodes(IntEnum)
+similarity = _calculate_semantic_similarity(ann1, ann2)</file><file path="sidequest/pipeline-core/utils/timing-helpers.ts">import { TIME_MS } from &apos;../../core/units.ts&apos;;
+interface Timer {
+  elapsed: () =&gt; number;
+  elapsedMs: () =&gt; number;
+  elapsedFormatted: () =&gt; string;
+}
+export function createTimer(): Timer
+export async function withTiming&lt;T&gt;(fn: () =&gt; Promise&lt;T&gt;, _label?: string): Promise&lt;
+export function measureSync&lt;T&gt;(fn: () =&gt; T):</file><file path="sidequest/pipeline-core/constants.py">class HTTPCodes(IntEnum)
 ⋮----
 OK = 200
 CREATED = 201
@@ -15381,7 +15292,41 @@ class BlockExtraction
 FUNCTION_TAG_PREFIX = &quot;function:&quot;
 BLOCK_HASH_LENGTH = 12
 DEBUG_LOG_DEDUP_LIMIT = 10
-DEBUG_LOG_BLOCK_LIMIT = 3</file><file path="sidequest/pipeline-runners/claude-health-pipeline.ts">import { ClaudeHealthWorker } from &apos;../workers/claude-health-worker.ts&apos;;
+DEBUG_LOG_BLOCK_LIMIT = 3</file><file path="sidequest/pipeline-core/doppler-health-monitor.ts">import { createComponentLogger, logError } from &apos;../utils/logger.ts&apos;;
+import { CACHE } from &apos;../core/constants.ts&apos;;
+import { TIME_MS } from &apos;../core/units.js&apos;;
+import Sentry from &apos;@sentry/node&apos;;
+import fs from &apos;fs/promises&apos;;
+import path from &apos;path&apos;;
+import os from &apos;os&apos;;
+⋮----
+export type CacheSeverity = &apos;healthy&apos; | &apos;warning&apos; | &apos;critical&apos; | &apos;error&apos;;
+export interface CacheHealthStatus {
+  healthy: boolean;
+  cacheAgeMs: number;
+  cacheAgeHours: number;
+  cacheAgeMinutes: number;
+  lastModified: string | null;
+  usingFallback: boolean;
+  fileCount: number;
+  severity: CacheSeverity;
+  newestFile?: string;
+  error?: string;
+  errorCode?: string;
+}
+export interface DopplerHealthMonitorOptions {
+  cacheDir?: string;
+  maxCacheAge?: number;
+  warningThreshold?: number;
+}
+export class DopplerHealthMonitor
+⋮----
+constructor(options: DopplerHealthMonitorOptions =
+async checkCacheHealth(): Promise&lt;CacheHealthStatus&gt;
+getSeverity(cacheAge: number): CacheSeverity
+async startMonitoring(intervalMinutes = 15): Promise&lt;CacheHealthStatus&gt;
+stopMonitoring(): void
+getCacheDirectoryPath(): string</file><file path="sidequest/pipeline-runners/claude-health-pipeline.ts">import { ClaudeHealthWorker } from &apos;../workers/claude-health-worker.ts&apos;;
 import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;
 import { config } from &apos;../core/config.ts&apos;;
 import { BYTES_PER_KB, HEALTH, JOB_EVENTS } from &apos;../core/constants.ts&apos;;
@@ -15597,10 +15542,74 @@ json_report = report_dir / f&quot;{report_date}-git-activity-report.json&quot;
 ⋮----
 def test_main_e2e_31_day_range_generates_monthly_report_title(monkeypatch, tmp_path)
 ⋮----
-report_path = tmp_path / &quot;site&quot; / &quot;work&quot; / f&quot;{_frozen_report_date()}-git-activity-report.md&quot;</file><file path="sidequest/utils/time-helpers.ts">import { TIME_MS } from &apos;../core/constants.ts&apos;;
-export function toISOString(val: Date | string | null | undefined): string | null
-export function calculateDurationSeconds(startTime: Date | string | null, endTime: Date | string | null): number | null
-export function formatDuration(seconds: number | null | undefined): string</file><file path="sidequest/workers/claude-health-worker.ts">import { SidequestServer, type Job, type SidequestServerOptions } from &apos;../core/server.ts&apos;;
+report_path = tmp_path / &quot;site&quot; / &quot;work&quot; / f&quot;{_frozen_report_date()}-git-activity-report.md&quot;</file><file path="sidequest/utils/report-generator.ts">import fs from &apos;fs/promises&apos;;
+import path from &apos;path&apos;;
+⋮----
+import { createComponentLogger, logError } from &apos;./logger.ts&apos;;
+import { TIME_MS } from &apos;../core/units.js&apos;;
+⋮----
+interface ReportOptions {
+  jobId: string;
+  jobType: string;
+  status: string;
+  result: unknown;
+  startTime: number;
+  endTime: number;
+  parameters?: Record&lt;string, unknown&gt;;
+  metadata?: Record&lt;string, unknown&gt;;
+  outputDir?: string;
+}
+interface ReportPaths {
+  timestamp: string;
+  html?: string;
+  json?: string;
+}
+interface ReportData {
+  jobId: string;
+  jobType: string;
+  status: string;
+  result: unknown;
+  startTime: number;
+  endTime: number;
+  parameters: Record&lt;string, unknown&gt;;
+  metadata: Record&lt;string, unknown&gt;;
+  timestamp: string;
+}
+export async function generateReport(options: ReportOptions): Promise&lt;ReportPaths&gt;
+function generateHTMLReport(data: ReportData): string
+function generateJSONReport(data: ReportData): object
+function generateHTMLHeader(title: string, jobId: string, status: string, statusClass: string, timestamp: string, duration: string): string
+function generateHTMLParameters(parameters: Record&lt;string, unknown&gt;): string
+/**
+ * generateHTMLMetadata.
+ */
+function generateHTMLMetadata(metadata: Record&lt;string, unknown&gt;): string
+/**
+ * generateHTMLResults.
+ */
+function generateHTMLResults(result: unknown): string
+/**
+ * generateMetricsSection.
+ */
+function generateMetricsSection(metrics: Record&lt;string, unknown&gt;): string
+/**
+ * generateDetailsSection.
+ */
+function generateDetailsSection(details: Record&lt;string, unknown&gt;): string
+/**
+ * generateHTMLFooter.
+ */
+function generateHTMLFooter(timestamp: string): string
+/**
+ * extractMetrics.
+ */
+function extractMetrics(result: Record&lt;string, unknown&gt;): Record&lt;string, unknown&gt; | null
+function extractDetails(result: Record&lt;string, unknown&gt;): Record&lt;string, unknown&gt; | null
+function getJobTypeTitle(jobType: string): string
+function formatValue(value: unknown): string
+export async function pruneOldReports(outputDir: string = DEFAULT_OUTPUT_DIR, maxAgeMs: number = 30 * TIME_MS.DAY): Promise&lt;void&gt;
+function escapeHtml(text: string): string
+function getHTMLStyles(): string</file><file path="sidequest/workers/claude-health-worker.ts">import { SidequestServer, type Job, type SidequestServerOptions } from &apos;../core/server.ts&apos;;
 import { config } from &apos;../core/config.ts&apos;;
 import { BYTES_PER_KB, TIMEOUTS } from &apos;../core/constants.ts&apos;;
 import { HEALTH_SCORE_THRESHOLDS } from &apos;../core/score-thresholds.ts&apos;;
@@ -15752,7 +15761,76 @@ calculateHealthScore(issues: Issue[], warnings: Issue[], successes: Issue[]): nu
 generateRecommendations(analysis: Analysis): Recommendation[]
 generateSummary(analysis: Analysis, recommendations: Recommendation[]): Summary
 getStatusMessage(healthScore: number, critical: number, warnings: number): string
-addJob(options: CheckOptions =</file><file path="package.json">{
+addJob(options: CheckOptions =</file><file path="sidequest/workers/git-activity-worker.ts">import { SidequestServer, type Job, type SidequestServerOptions } from &apos;../core/server.ts&apos;;
+import { generateReport } from &apos;../utils/report-generator.ts&apos;;
+import { spawn } from &apos;child_process&apos;;
+import { captureProcessOutput } from &apos;@shared/process-io&apos;;
+import fs from &apos;fs/promises&apos;;
+import path from &apos;path&apos;;
+import os from &apos;os&apos;;
+import { fileURLToPath } from &apos;url&apos;;
+⋮----
+import { createComponentLogger } from &apos;../utils/logger.ts&apos;;
+import { TIMEOUTS, GIT_ACTIVITY, NUMBER_BASE } from &apos;../core/constants.ts&apos;;
+import { TIME_MS } from &apos;../core/units.js&apos;;
+⋮----
+interface GitActivityWorkerOptions extends SidequestServerOptions {
+  codeBaseDir?: string;
+  pythonScript?: string;
+  personalSiteDir?: string;
+  outputDir?: string;
+}
+interface PythonArgs {
+  reportType?: string;
+  days?: number;
+  sinceDate?: string;
+  untilDate?: string;
+  outputFormat?: string;
+  generateVisualizations?: boolean;
+}
+interface PythonScriptResult {
+  stdout: string;
+  stderr: string;
+  outputFiles: string[];
+}
+export interface GitActivityStats {
+  totalCommits: number;
+  totalRepositories: number;
+  linesAdded: number;
+  linesDeleted: number;
+  filesChanged?: number;
+}
+interface VerifiedFile {
+  path: string;
+  size?: number;
+  exists: boolean;
+}
+interface ReportJobOptions {
+  jobId?: string;
+  reportType?: string;
+  days?: number;
+  sinceDate?: string;
+  untilDate?: string;
+  outputFormat?: string;
+  generateVisualizations?: boolean;
+}
+function toFiniteNumber(value: unknown): number
+export function buildGitActivityStatsFromData(data: Record&lt;string, unknown&gt;): GitActivityStats
+export async function parseGitActivityStatsFromJsonFiles(
+  outputFiles: string[],
+  scriptDir: string,
+  readFile: (path: string, encoding: BufferEncoding) =&gt; Promise&lt;string&gt; = fs.readFile
+): Promise&lt;GitActivityStats | null&gt;
+export function parseGitActivityStatsFromText(stdout: string): GitActivityStats
+export class GitActivityWorker extends SidequestServer
+⋮----
+constructor(options: GitActivityWorkerOptions =
+async runJobHandler(job: Job): Promise&lt;unknown&gt;
+⋮----
+createWeeklyReportJob(): Job
+createMonthlyReportJob(): Job
+createCustomReportJob(sinceDate: string, untilDate: string): Job
+createReportJob(options: ReportJobOptions =</file><file path="package.json">{
   &quot;name&quot;: &quot;repomix-cron-sidequest&quot;,
   &quot;version&quot;: &quot;1.0.0&quot;,
   &quot;description&quot;: &quot;Automated job management with sidequest server - repomix runner and documentation enhancement pipeline&quot;,
@@ -15914,63 +15992,7 @@ addJob(options: CheckOptions =</file><file path="package.json">{
       &quot;@sentry/cli&quot;
     ]
   }
-}</file><file path="scripts/repomix-docs.config.json">{
-  &quot;$schema&quot;: &quot;https://repomix.com/schemas/latest/schema.json&quot;,
-
-  &quot;output&quot;: {
-    &quot;style&quot;: &quot;xml&quot;,
-    &quot;parsableStyle&quot;: true,
-    &quot;removeComments&quot;: false,
-    &quot;removeEmptyLines&quot;: false,
-    &quot;truncateBase64&quot;: false,
-    &quot;fileSummary&quot;: false,
-    &quot;directoryStructure&quot;: true,
-    &quot;files&quot;: true,
-    &quot;showLineNumbers&quot;: false,
-    &quot;includeEmptyDirectories&quot;: false,
-    &quot;git&quot;: {
-      &quot;includeDiffs&quot;: false,
-      &quot;includeLogs&quot;: false,
-      &quot;includeLogsCount&quot;: 1
-    }
-  },
-
-  &quot;include&quot;: [
-    &quot;docs/**&quot;
-  ],
-
-  &quot;ignore&quot;: {
-    &quot;useGitignore&quot;: true,
-    &quot;useDotIgnore&quot;: true,
-    &quot;useDefaultPatterns&quot;: true,
-    &quot;customPatterns&quot;: [
-      &quot;**/node_modules/**&quot;,
-      &quot;docs/repomix/**&quot;,
-      &quot;**/repomix-output.*&quot;,
-      &quot;**/repo-compressed.*&quot;,
-      &quot;**/repomix.xml&quot;,
-      &quot;**/repo-compressed.xml&quot;
-    ]
-  },
-
-  &quot;security&quot;: {
-    &quot;enableSecurityCheck&quot;: true
-  },
-
-  &quot;tokenCount&quot;: {
-    &quot;encoding&quot;: &quot;o200k_base&quot;
-  }
-}</file><file path="sidequest/core/config.ts">import path from &apos;path&apos;;
-import os from &apos;os&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-import { dirname } from &apos;path&apos;;
-import { BYTES_PER_KB, GIT_ACTIVITY, JOB_RETENTION, NUMBER_BASE, RETRY, TIME_MS, TIMEOUTS } from &apos;./constants.ts&apos;;
-⋮----
-function safeParseInt(value: string | undefined, defaultValue: number, min?: number, max?: number): number
-function safeParseFloat(value: string | undefined, defaultValue: number, min?: number, max?: number): number
-function safeParseRetentionByType(value: string | undefined): Record&lt;string, number&gt;
-⋮----
-function validateConfig(): void</file><file path="sidequest/pipeline-core/extractors/extract_blocks.py">class PatternMatchInput(BaseModel)
+}</file><file path="sidequest/pipeline-core/extractors/extract_blocks.py">class PatternMatchInput(BaseModel)
 ⋮----
 file_path: str = Field(
 rule_id: str = Field(
@@ -16248,7 +16270,21 @@ metrics = calculate_metrics(blocks, groups, suggestions)
 result = {
 ⋮----
 repo_path = (
-match_count = len(pattern_matches) if &quot;pattern_matches&quot; in dir() else 0</file><file path="sidequest/core/constants.ts"></file></files><instruction># Repomix Repository Analysis Instructions
+match_count = len(pattern_matches) if &quot;pattern_matches&quot; in dir() else 0</file><file path="sidequest/utils/time-helpers.ts">import { TIME_MS } from &apos;../core/units.js&apos;;
+export function toISOString(val: Date | string | null | undefined): string | null
+export function calculateDurationSeconds(startTime: Date | string | null, endTime: Date | string | null): number | null
+export function formatDuration(seconds: number | null | undefined): string</file><file path="sidequest/core/config.ts">import path from &apos;path&apos;;
+import os from &apos;os&apos;;
+import { fileURLToPath } from &apos;url&apos;;
+import { dirname } from &apos;path&apos;;
+import { BYTES_PER_KB, GIT_ACTIVITY, JOB_RETENTION, NUMBER_BASE, RETRY, TIMEOUTS } from &apos;./constants.ts&apos;;
+import { TIME_MS } from &apos;./units.ts&apos;;
+⋮----
+function safeParseInt(value: string | undefined, defaultValue: number, min?: number, max?: number): number
+function safeParseFloat(value: string | undefined, defaultValue: number, min?: number, max?: number): number
+function safeParseRetentionByType(value: string | undefined): Record&lt;string, number&gt;
+⋮----
+function validateConfig(): void</file><file path="sidequest/core/constants.ts">import { TIME_MS } from &apos;./units.ts&apos;;</file></files><instruction># Repomix Repository Analysis Instructions
 
 This repository bundle is generated by Repomix for AI-assisted code review and architecture analysis.
 
