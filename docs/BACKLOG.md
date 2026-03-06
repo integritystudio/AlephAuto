@@ -43,9 +43,15 @@ Current lint snapshot (`no-magic-numbers`):
 - Tests: `665`
 
 Priority backlog:
-- `CONST9` Test suite still has large unresolved magic-number volume.
-  - Hotspots: `tests/unit/port-manager.test.ts`, `tests/unit/activity-feed.test.ts`, `tests/integration/port-manager.integration.test.ts`, `tests/integration/error-recovery.integration.test.ts`.
-  - Scope: expand/reuse `tests/constants/*` fixtures and add local test helper constants for repeated numbers (ports, retries, timeouts, expected status codes).
+- No active magic-number hotspot backlog items.
+
+Completed:
+- `CONST9` (2026-03-06): replaced hotspot magic numbers with named constants and shared production constants in:
+  - `tests/unit/port-manager.test.ts`
+  - `tests/unit/activity-feed.test.ts`
+  - `tests/integration/port-manager.integration.test.ts`
+  - `tests/integration/error-recovery.integration.test.ts`
+  - Verification: `no-magic-numbers` violations in these files reduced from `156` to `0`.
 
 Tracking artifacts:
 - ESLint JSON snapshot: `/tmp/eslint_current.json`

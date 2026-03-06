@@ -9,6 +9,33 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { EventEmitter } from 'node:events';
 import { ActivityFeedManager } from '../../api/activity-feed.ts';
+import { RETRY, TIMEOUTS } from '../../sidequest/core/constants.ts';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
+
+const DEFAULT_MAX_ACTIVITIES = 50;
+const ERROR_HANDLING_MAX_ACTIVITIES = RETRY.MAX_MANUAL_RETRIES;
+const CORE_TEST_MAX_ACTIVITIES = RETRY.MAX_ABSOLUTE_ATTEMPTS;
+const LARGE_MAX_ACTIVITIES = 100;
+const RAPID_ERROR_COUNT = 20;
+const JOB_BATCH_SIZE = 30;
+const RECENT_ACTIVITY_DEFAULT_LIMIT = 20;
+const RETRY_DELAY_MS = TIMEOUTS.TEN_SECONDS_MS;
+const RETRY_MAX_ATTEMPTS = RETRY.MAX_ABSOLUTE_ATTEMPTS;
+const DEFAULT_RETRY_ATTEMPT = 2;
+const FIRST_ACTIVITY_ID = 1;
+const SECOND_ACTIVITY_ID = 2;
+const THIRD_ACTIVITY_ID = 3;
+const SEVENTH_ACTIVITY_ID = 7;
+const TRIM_TEST_ACTIVITY_LIMIT = 10;
+const TRIM_TEST_RETAINED_COUNT = CORE_TEST_MAX_ACTIVITIES;
+const JOB_DURATION_FROM_RESULT_SECONDS = 5.25;
+const JOB_DURATION_FROM_RESULT_LABEL = '5.25s';
+const JOB_DURATION_FROM_TIMESTAMPS_MS = TIMEOUTS.TWO_SECONDS_MS + TIMEOUTS.POLL_INTERVAL_MS;
+const JOB_DURATION_FROM_TIMESTAMPS_SECONDS = THIRD_ACTIVITY_ID;
+const JOB_DURATION_FROM_TIMESTAMPS_LABEL = '3.00s';
+const JOB_DURATION_FROM_STRING_SECONDS = 5.5;
+const WORKFLOW_DURATION_SECONDS = 10.5;
+const RETRY_WORKFLOW_EVENT_COUNT = 8;
 
 interface TestContext {
   feed: ActivityFeedManager;
@@ -20,7 +47,7 @@ interface TestContext {
 /**
  * makeActivityFeedCtx.
  */
-function makeActivityFeedCtx(maxActivities = 50): TestContext {
+function makeActivityFeedCtx(maxActivities = DEFAULT_MAX_ACTIVITIES): TestContext {
   const broadcastCalls: Array<{ message: unknown; channel: string }> = [];
   const broadcaster = {
     broadcast: (message: unknown, channel: string) => {
@@ -38,7 +65,7 @@ describe('ActivityFeedManager - Error Handling', () => {
   let mockWorker: EventEmitter;
 
   beforeEach(() => {
-    const ctx = makeActivityFeedCtx(10);
+    const ctx = makeActivityFeedCtx(ERROR_HANDLING_MAX_ACTIVITIES);
     activityFeed = ctx.feed;
     mockWorker = ctx.worker;
   });
@@ -205,9 +232,9 @@ describe('ActivityFeedManager - Error Handling', () => {
       const job = { id: 'retry-job-1', data: { type: 'test' } };
       const retryInfo = {
         attempt: 1,
-        maxAttempts: 5,
+        maxAttempts: RETRY_MAX_ATTEMPTS,
         reason: 'Connection timed out',
-        delay: 10000
+        delay: RETRY_DELAY_MS
       };
 
       assert.doesNotThrow(() => {
@@ -218,7 +245,7 @@ describe('ActivityFeedManager - Error Handling', () => {
       assert.strictEqual(activities.length, 1);
       assert.strictEqual(activities[0].type, 'retry:created');
       assert.strictEqual(activities[0].attempt, 1);
-      assert.strictEqual(activities[0].maxAttempts, 5);
+      assert.strictEqual(activities[0].maxAttempts, RETRY_MAX_ATTEMPTS);
       assert.strictEqual(activities[0].reason, 'Connection timed out');
     });
 
@@ -250,7 +277,7 @@ describe('ActivityFeedManager - Error Handling', () => {
 
     it('should handle retry with partial retryInfo', () => {
       const job = { id: 'retry-job-4', data: { type: 'test' } };
-      const retryInfo = { attempt: 2 }; // Only attempt, missing other fields
+      const retryInfo = { attempt: DEFAULT_RETRY_ATTEMPT }; // Only attempt, missing other fields
 
       assert.doesNotThrow(() => {
         mockWorker.emit('retry:created', job, retryInfo);
@@ -258,7 +285,7 @@ describe('ActivityFeedManager - Error Handling', () => {
 
       const activities = activityFeed.getRecentActivities(1);
       assert.strictEqual(activities.length, 1);
-      assert.strictEqual(activities[0].attempt, 2);
+      assert.strictEqual(activities[0].attempt, DEFAULT_RETRY_ATTEMPT);
       assert.strictEqual(activities[0].maxAttempts, undefined);
     });
 
@@ -266,9 +293,9 @@ describe('ActivityFeedManager - Error Handling', () => {
       const job = { id: 'retry-job-5', data: { type: 'test' } };
       const retryInfo = {
         attempt: 1,
-        maxAttempts: 5,
+        maxAttempts: RETRY_MAX_ATTEMPTS,
         reason: 'ETIMEDOUT',
-        delay: 10000
+        delay: RETRY_DELAY_MS
       };
 
       assert.doesNotThrow(() => {
@@ -277,13 +304,13 @@ describe('ActivityFeedManager - Error Handling', () => {
 
       const activities = activityFeed.getRecentActivities(1);
       assert.strictEqual(activities.length, 1);
-      assert.strictEqual(activities[0].delay, 10000);
+      assert.strictEqual(activities[0].delay, RETRY_DELAY_MS);
       assert.strictEqual(activities[0].reason, 'ETIMEDOUT');
     });
 
     it('should handle missing job gracefully', () => {
       const job = null;
-      const retryInfo = { attempt: 1, maxAttempts: 5 };
+      const retryInfo = { attempt: 1, maxAttempts: RETRY_MAX_ATTEMPTS };
 
       assert.doesNotThrow(() => {
         mockWorker.emit('retry:created', job, retryInfo);
@@ -296,7 +323,7 @@ describe('ActivityFeedManager - Error Handling', () => {
 
     it('should handle job without id gracefully', () => {
       const job = { data: { type: 'test' } }; // Missing id
-      const retryInfo = { attempt: 1, maxAttempts: 5 };
+      const retryInfo = { attempt: 1, maxAttempts: RETRY_MAX_ATTEMPTS };
 
       assert.doesNotThrow(() => {
         mockWorker.emit('retry:created', job, retryInfo);
@@ -315,16 +342,16 @@ describe('ActivityFeedManager - Error Handling', () => {
         data: { type: 'test' }
       };
 
-      // Emit 20 rapid errors
-      for (let i = 0; i < 20; i++) {
+      // Emit rapid errors
+      for (let i = 0; i < RAPID_ERROR_COUNT; i++) {
         assert.doesNotThrow(() => {
           mockWorker.emit('job:failed', job, new Error(`Error ${i}`));
         });
       }
 
-      const activities = activityFeed.getRecentActivities(20);
+      const activities = activityFeed.getRecentActivities(RAPID_ERROR_COUNT);
       // Should respect maxActivities limit (10)
-      assert.strictEqual(activities.length, 10);
+      assert.strictEqual(activities.length, ERROR_HANDLING_MAX_ACTIVITIES);
     });
 
     it('should handle complex error objects', () => {
@@ -409,7 +436,7 @@ describe('ActivityFeedManager - Error Handling', () => {
         id: 'number-error-job',
         data: { type: 'test' }
       };
-      const error = 404;
+      const error = HttpStatus.NOT_FOUND;
 
       assert.doesNotThrow(() => {
         mockWorker.emit('job:failed', job, error);
@@ -417,7 +444,7 @@ describe('ActivityFeedManager - Error Handling', () => {
 
       const activities = activityFeed.getRecentActivities(1);
       assert.strictEqual(activities.length, 1);
-      assert.strictEqual(activities[0].error.message, '404');
+      assert.strictEqual(activities[0].error.message, String(HttpStatus.NOT_FOUND));
     });
 
     it('should handle boolean as error', () => {
@@ -449,8 +476,8 @@ describe('ActivityFeedManager - Error Handling', () => {
       mockWorker.emit('job:failed', job, 'Error 2');
       mockWorker.emit('job:failed', job, undefined);
 
-      const activities = activityFeed.getRecentActivities(3);
-      assert.strictEqual(activities.length, 3);
+      const activities = activityFeed.getRecentActivities(THIRD_ACTIVITY_ID);
+      assert.strictEqual(activities.length, THIRD_ACTIVITY_ID);
       // Should be in reverse chronological order (newest first)
       assert.strictEqual(activities[0].error.message, 'Job failed with no error details');
       assert.strictEqual(activities[1].error.message, 'Error 2');
@@ -490,7 +517,7 @@ describe('ActivityFeedManager - Core Functionality', () => {
   let broadcastCalls: TestContext['broadcastCalls'];
 
   beforeEach(() => {
-    const ctx = makeActivityFeedCtx(5);
+    const ctx = makeActivityFeedCtx(CORE_TEST_MAX_ACTIVITIES);
     activityFeed = ctx.feed;
     broadcastCalls = ctx.broadcastCalls;
   });
@@ -502,14 +529,14 @@ describe('ActivityFeedManager - Core Functionality', () => {
   describe('Constructor', () => {
     it('should initialize with default options', () => {
       const feed = new ActivityFeedManager(null);
-      assert.strictEqual(feed.maxActivities, 50);
+      assert.strictEqual(feed.maxActivities, DEFAULT_MAX_ACTIVITIES);
       assert.deepStrictEqual(feed.activities, []);
       assert.strictEqual(feed.activityId, 0);
     });
 
     it('should initialize with custom maxActivities', () => {
-      const feed = new ActivityFeedManager(null, { maxActivities: 100 });
-      assert.strictEqual(feed.maxActivities, 100);
+      const feed = new ActivityFeedManager(null, { maxActivities: LARGE_MAX_ACTIVITIES });
+      assert.strictEqual(feed.maxActivities, LARGE_MAX_ACTIVITIES);
     });
 
     it('should work without broadcaster', () => {
@@ -529,8 +556,8 @@ describe('ActivityFeedManager - Core Functionality', () => {
       const activity1 = activityFeed.addActivity({ type: 'test1', message: 'First' });
       const activity2 = activityFeed.addActivity({ type: 'test2', message: 'Second' });
 
-      assert.strictEqual(activity1.id, 1);
-      assert.strictEqual(activity2.id, 2);
+      assert.strictEqual(activity1.id, FIRST_ACTIVITY_ID);
+      assert.strictEqual(activity2.id, SECOND_ACTIVITY_ID);
       assert.ok(activity1.timestamp);
       assert.ok(activity2.timestamp);
     });
@@ -545,17 +572,17 @@ describe('ActivityFeedManager - Core Functionality', () => {
     });
 
     it('should trim activities when exceeding maxActivities', () => {
-      // Add 7 activities (max is 5)
-      for (let i = 0; i < 7; i++) {
+      // Add more activities than the configured max.
+      for (let i = 0; i < SEVENTH_ACTIVITY_ID; i++) {
         activityFeed.addActivity({ type: 'test', message: `Activity ${i}` });
       }
 
-      const activities = activityFeed.getRecentActivities(10);
-      assert.strictEqual(activities.length, 5);
+      const activities = activityFeed.getRecentActivities(TRIM_TEST_ACTIVITY_LIMIT);
+      assert.strictEqual(activities.length, TRIM_TEST_RETAINED_COUNT);
 
       // Should have newest activities (5, 6, 7 newest = ids 5, 6, 7)
-      assert.strictEqual(activities[0].id, 7);
-      assert.strictEqual(activities[4].id, 3);
+      assert.strictEqual(activities[0].id, SEVENTH_ACTIVITY_ID);
+      assert.strictEqual(activities[4].id, THIRD_ACTIVITY_ID);
     });
 
     it('should add Sentry breadcrumb for job:failed type', () => {
@@ -574,29 +601,29 @@ describe('ActivityFeedManager - Core Functionality', () => {
 
   describe('getRecentActivities', () => {
     it('should return activities up to limit', () => {
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < CORE_TEST_MAX_ACTIVITIES; i++) {
         activityFeed.addActivity({ type: 'test', message: `Activity ${i}` });
       }
 
-      const activities = activityFeed.getRecentActivities(3);
-      assert.strictEqual(activities.length, 3);
+      const activities = activityFeed.getRecentActivities(THIRD_ACTIVITY_ID);
+      assert.strictEqual(activities.length, THIRD_ACTIVITY_ID);
     });
 
     it('should return all activities if less than limit', () => {
       activityFeed.addActivity({ type: 'test', message: 'Only one' });
 
-      const activities = activityFeed.getRecentActivities(10);
+      const activities = activityFeed.getRecentActivities(TRIM_TEST_ACTIVITY_LIMIT);
       assert.strictEqual(activities.length, 1);
     });
 
     it('should use default limit of 20', () => {
-      const feed = new ActivityFeedManager(null, { maxActivities: 50 });
-      for (let i = 0; i < 30; i++) {
+      const feed = new ActivityFeedManager(null, { maxActivities: DEFAULT_MAX_ACTIVITIES });
+      for (let i = 0; i < JOB_BATCH_SIZE; i++) {
         feed.addActivity({ type: 'test', message: `Activity ${i}` });
       }
 
       const activities = feed.getRecentActivities();
-      assert.strictEqual(activities.length, 20);
+      assert.strictEqual(activities.length, RECENT_ACTIVITY_DEFAULT_LIMIT);
     });
   });
 
@@ -605,7 +632,7 @@ describe('ActivityFeedManager - Core Functionality', () => {
       activityFeed.addActivity({ type: 'test', message: 'Activity 1' });
       activityFeed.addActivity({ type: 'test', message: 'Activity 2' });
 
-      assert.strictEqual(activityFeed.activities.length, 2);
+      assert.strictEqual(activityFeed.activities.length, SECOND_ACTIVITY_ID);
 
       activityFeed.clear();
 
@@ -635,7 +662,7 @@ describe('ActivityFeedManager - Core Functionality', () => {
 
       const stats = activityFeed.getStats();
 
-      assert.strictEqual(stats.typeCount['job:created'], 2);
+      assert.strictEqual(stats.typeCount['job:created'], SECOND_ACTIVITY_ID);
       assert.strictEqual(stats.typeCount['job:failed'], 1);
     });
 
@@ -677,7 +704,7 @@ describe('ActivityFeedManager - Worker Events', () => {
   let mockWorker: EventEmitter;
 
   beforeEach(() => {
-    const ctx = makeActivityFeedCtx(50);
+    const ctx = makeActivityFeedCtx(DEFAULT_MAX_ACTIVITIES);
     activityFeed = ctx.feed;
     mockWorker = ctx.worker;
   });
@@ -740,7 +767,7 @@ describe('ActivityFeedManager - Worker Events', () => {
       const job = {
         id: 'completed-job-1',
         data: { type: 'test' },
-        result: { duration_seconds: 5.25 }
+        result: { duration_seconds: JOB_DURATION_FROM_RESULT_SECONDS }
       };
 
       mockWorker.emit('job:completed', job);
@@ -750,14 +777,14 @@ describe('ActivityFeedManager - Worker Events', () => {
       assert.strictEqual(activities[0].type, 'job:completed');
       assert.strictEqual(activities[0].event, 'Job Completed');
       assert.strictEqual(activities[0].status, 'completed');
-      assert.strictEqual(activities[0].duration, 5.25);
+      assert.strictEqual(activities[0].duration, JOB_DURATION_FROM_RESULT_SECONDS);
       assert.strictEqual(activities[0].icon, '✅');
-      assert.ok(activities[0].message.includes('5.25s'));
+      assert.ok(activities[0].message.includes(JOB_DURATION_FROM_RESULT_LABEL));
     });
 
     it('should calculate duration from timestamps when result.duration_seconds missing', () => {
       const startTime = new Date();
-      const endTime = new Date(startTime.getTime() + 3000); // 3 seconds later
+      const endTime = new Date(startTime.getTime() + JOB_DURATION_FROM_TIMESTAMPS_MS); // 3 seconds later
 
       const job = {
         id: 'completed-job-2',
@@ -769,8 +796,8 @@ describe('ActivityFeedManager - Worker Events', () => {
       mockWorker.emit('job:completed', job);
 
       const activities = activityFeed.getRecentActivities(1);
-      assert.strictEqual(activities[0].duration, 3);
-      assert.ok(activities[0].message.includes('3.00s'));
+      assert.strictEqual(activities[0].duration, JOB_DURATION_FROM_TIMESTAMPS_SECONDS);
+      assert.ok(activities[0].message.includes(JOB_DURATION_FROM_TIMESTAMPS_LABEL));
     });
 
     it('should calculate duration from string timestamps', () => {
@@ -787,7 +814,7 @@ describe('ActivityFeedManager - Worker Events', () => {
       mockWorker.emit('job:completed', job);
 
       const activities = activityFeed.getRecentActivities(1);
-      assert.strictEqual(activities[0].duration, 5.5);
+      assert.strictEqual(activities[0].duration, JOB_DURATION_FROM_STRING_SECONDS);
     });
 
     it('should show unknown duration when no timing info available', () => {
@@ -806,18 +833,18 @@ describe('ActivityFeedManager - Worker Events', () => {
 
   describe('retry:max-attempts event', () => {
     it('should add activity for retry:max-attempts', () => {
-      mockWorker.emit('retry:max-attempts', 'max-retry-job', 5);
+      mockWorker.emit('retry:max-attempts', 'max-retry-job', RETRY_MAX_ATTEMPTS);
 
       const activities = activityFeed.getRecentActivities(1);
       assert.strictEqual(activities.length, 1);
       assert.strictEqual(activities[0].type, 'retry:max-attempts');
       assert.strictEqual(activities[0].event, 'Max Retries Reached');
       assert.strictEqual(activities[0].jobId, 'max-retry-job');
-      assert.strictEqual(activities[0].attempts, 5);
+      assert.strictEqual(activities[0].attempts, RETRY_MAX_ATTEMPTS);
       assert.strictEqual(activities[0].status, 'failed');
       assert.strictEqual(activities[0].icon, '⛔');
       assert.ok(activities[0].message.includes('exceeded max retry attempts'));
-      assert.ok(activities[0].message.includes('5'));
+      assert.ok(activities[0].message.includes(String(RETRY_MAX_ATTEMPTS)));
     });
   });
 
@@ -835,12 +862,12 @@ describe('ActivityFeedManager - Worker Events', () => {
       // Simulate completion with duration
       const completedJob = {
         ...job,
-        result: { duration_seconds: 10.5 }
+        result: { duration_seconds: WORKFLOW_DURATION_SECONDS }
       };
       mockWorker.emit('job:completed', completedJob);
 
-      const activities = activityFeed.getRecentActivities(3);
-      assert.strictEqual(activities.length, 3);
+      const activities = activityFeed.getRecentActivities(THIRD_ACTIVITY_ID);
+      assert.strictEqual(activities.length, THIRD_ACTIVITY_ID);
 
       // Most recent first
       assert.strictEqual(activities[0].type, 'job:completed');
@@ -857,14 +884,14 @@ describe('ActivityFeedManager - Worker Events', () => {
       mockWorker.emit('job:created', job);
       mockWorker.emit('job:started', job);
       mockWorker.emit('job:failed', job, new Error('First attempt failed'));
-      mockWorker.emit('retry:created', job, { attempt: 1, maxAttempts: 5, reason: 'Retrying' });
+      mockWorker.emit('retry:created', job, { attempt: 1, maxAttempts: RETRY_MAX_ATTEMPTS, reason: 'Retrying' });
       mockWorker.emit('job:started', job);
       mockWorker.emit('job:failed', job, new Error('Second attempt failed'));
-      mockWorker.emit('retry:created', job, { attempt: 2, maxAttempts: 5, reason: 'Retrying again' });
-      mockWorker.emit('retry:max-attempts', job.id, 2);
+      mockWorker.emit('retry:created', job, { attempt: DEFAULT_RETRY_ATTEMPT, maxAttempts: RETRY_MAX_ATTEMPTS, reason: 'Retrying again' });
+      mockWorker.emit('retry:max-attempts', job.id, DEFAULT_RETRY_ATTEMPT);
 
-      const activities = activityFeed.getRecentActivities(10);
-      assert.strictEqual(activities.length, 8);
+      const activities = activityFeed.getRecentActivities(TRIM_TEST_ACTIVITY_LIMIT);
+      assert.strictEqual(activities.length, RETRY_WORKFLOW_EVENT_COUNT);
 
       // Verify we have all event types
       const types = activities.map(a => a.type);

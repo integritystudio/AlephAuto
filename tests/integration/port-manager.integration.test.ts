@@ -23,6 +23,31 @@ import {
   setupServerWithPortFallback,
   setupGracefulShutdown
 } from '../../api/utils/port-manager.ts';
+import { CONFIG_POLICY, RETRY, TIMEOUTS } from '../../sidequest/core/constants.ts';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
+
+const DEFAULT_API_PORT = CONFIG_POLICY.PORTS.DEFAULT_API_PORT;
+const FIRST_PORT_OFFSET = CONFIG_POLICY.PORTS.MIN_PORT;
+const SECOND_PORT_OFFSET = CONFIG_POLICY.DOPPLER.DEFAULT_SUCCESS_THRESHOLD;
+const THIRD_PORT_OFFSET = CONFIG_POLICY.DOPPLER.DEFAULT_FAILURE_THRESHOLD;
+const FOURTH_PORT_OFFSET = 4;
+const FALLBACK_SMALL_RANGE_SIZE = RETRY.MAX_ABSOLUTE_ATTEMPTS;
+const FALLBACK_STANDARD_RANGE_SIZE = RETRY.MAX_MANUAL_RETRIES;
+const SERVER_COUNT_THREE = CONFIG_POLICY.DOPPLER.DEFAULT_FAILURE_THRESHOLD;
+const SHUTDOWN_FETCH_TIMEOUT_MS = CONFIG_POLICY.DOPPLER.MIN_BASE_DELAY_MS;
+const CUSTOM_SHUTDOWN_TIMEOUT_MS = TIMEOUTS.TEN_SECONDS_MS;
+const SCENARIO_THREE_RANGE_START = 9000;
+const SCENARIO_THREE_RANGE_END = 9100;
+const SCENARIO_FOUR_RANGE_START = 9200;
+const SCENARIO_FOUR_RANGE_END = 9300;
+const SCENARIO_FIVE_RANGE_START = 9400;
+const SCENARIO_FIVE_RANGE_END = 9500;
+const SCENARIO_SIX_RANGE_START = 9600;
+const SCENARIO_SIX_RANGE_END = 9700;
+const SCENARIO_SEVEN_RANGE_START = 9800;
+const SCENARIO_SEVEN_RANGE_END = 9900;
+const SCENARIO_EIGHT_RANGE_START = 9900;
+const SCENARIO_EIGHT_RANGE_END = 9950;
 
 describe('Port Manager - Integration Tests', () => {
   let servers = [];
@@ -39,42 +64,42 @@ describe('Port Manager - Integration Tests', () => {
 
   it('Scenario 1: Server binds to port 8080 successfully', async () => {
     const server = http.createServer((req, res) => {
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.writeHead(HttpStatus.OK, { 'Content-Type': 'text/plain' });
       res.end('OK');
     });
     servers.push(server);
 
     // Check if port 8080 is available
-    const available = await isPortAvailable(8080);
+    const available = await isPortAvailable(DEFAULT_API_PORT);
 
     if (available) {
       // Bind to port 8080
       const actualPort = await setupServerWithPortFallback(server, {
-        preferredPort: 8080,
+        preferredPort: DEFAULT_API_PORT,
         host: '0.0.0.0'
       });
 
-      assert.equal(actualPort, 8080, 'Server should bind to preferred port 8080');
+      assert.equal(actualPort, DEFAULT_API_PORT, 'Server should bind to preferred port 8080');
 
       // Verify server is listening
       const address = server.address();
-      assert.equal(address.port, 8080);
+      assert.equal(address.port, DEFAULT_API_PORT);
       assert.equal(server.listening, true);
 
       // Verify we can make HTTP request
-      const response = await fetch('http://localhost:8080');
+      const response = await fetch(`http://localhost:${DEFAULT_API_PORT}`);
       const text = await response.text();
       assert.equal(text, 'OK');
-      assert.equal(response.status, 200);
+      assert.equal(response.status, HttpStatus.OK);
     } else {
       // Port 8080 occupied, should fallback
       const actualPort = await setupServerWithPortFallback(server, {
-        preferredPort: 8080,
-        maxPort: 8090,
+        preferredPort: DEFAULT_API_PORT,
+        maxPort: DEFAULT_API_PORT + FALLBACK_STANDARD_RANGE_SIZE,
         host: '0.0.0.0'
       });
 
-      assert(actualPort > 8080, 'Should use fallback port');
+      assert(actualPort > DEFAULT_API_PORT, 'Should use fallback port');
       assert(server.listening, 'Server should be listening on fallback port');
     }
   });
@@ -82,16 +107,16 @@ describe('Port Manager - Integration Tests', () => {
   it('Scenario 2: Port 8080 occupied → automatic fallback to 8081', async () => {
     // Create first server on port 8080
     const server1 = http.createServer((req, res) => {
-      res.writeHead(200);
+      res.writeHead(HttpStatus.OK);
       res.end('Server 1');
     });
     servers.push(server1);
 
     // Try to find available port starting from 8080
-    let port1 = 8080;
+    let port1 = DEFAULT_API_PORT;
     const isAvailable = await isPortAvailable(port1);
     if (!isAvailable) {
-      port1 = await findAvailablePort(8080, 8100);
+      port1 = await findAvailablePort(DEFAULT_API_PORT, DEFAULT_API_PORT + (SECOND_PORT_OFFSET * FALLBACK_STANDARD_RANGE_SIZE));
     }
 
     await new Promise((resolve, reject) => {
@@ -103,14 +128,14 @@ describe('Port Manager - Integration Tests', () => {
 
     // Create second server - should fallback because port1 is occupied
     const server2 = http.createServer((req, res) => {
-      res.writeHead(200);
+      res.writeHead(HttpStatus.OK);
       res.end('Server 2');
     });
     servers.push(server2);
 
     const port2 = await setupServerWithPortFallback(server2, {
       preferredPort: port1,
-      maxPort: port1 + 10,
+      maxPort: port1 + FALLBACK_STANDARD_RANGE_SIZE,
       host: '0.0.0.0'
     });
 
@@ -134,7 +159,7 @@ describe('Port Manager - Integration Tests', () => {
     // Start sequentially so each server exercises the port-fallback mechanism:
     // server N+1 finds port N occupied and falls back to the next available port.
     // Sequential startup eliminates the ECONNRESET race from concurrent binding.
-    const startPort = await findAvailablePort(9000, 9100);
+    const startPort = await findAvailablePort(SCENARIO_THREE_RANGE_START, SCENARIO_THREE_RANGE_END);
     assert(startPort, 'Should find available starting port');
 
     const responses = ['A', 'B', 'C'];
@@ -142,7 +167,7 @@ describe('Port Manager - Integration Tests', () => {
 
     for (const response of responses) {
       const server = http.createServer((req, res) => {
-        res.writeHead(200);
+        res.writeHead(HttpStatus.OK);
         res.end(response);
       });
       servers.push(server);
@@ -150,7 +175,7 @@ describe('Port Manager - Integration Tests', () => {
       // All servers prefer the same startPort; each falls back past already-bound ports
       const port = await setupServerWithPortFallback(server, {
         preferredPort: startPort,
-        maxPort: startPort + 20,
+        maxPort: startPort + (SECOND_PORT_OFFSET * FALLBACK_STANDARD_RANGE_SIZE),
         host: '0.0.0.0'
       });
 
@@ -160,7 +185,7 @@ describe('Port Manager - Integration Tests', () => {
     // Verify all servers got unique ports
     const ports = results.map(r => r.port);
     const uniquePorts = new Set(ports);
-    assert.equal(uniquePorts.size, 3, 'All servers should have unique ports');
+    assert.equal(uniquePorts.size, SERVER_COUNT_THREE, 'All servers should have unique ports');
 
     // Verify all servers are listening (Scenario 2 already covers HTTP accessibility)
     results.forEach(result => {
@@ -170,12 +195,12 @@ describe('Port Manager - Integration Tests', () => {
 
   it('Scenario 4: Graceful shutdown closes ports properly', async () => {
     const server = http.createServer((req, res) => {
-      res.writeHead(200);
+      res.writeHead(HttpStatus.OK);
       res.end('OK');
     });
     servers.push(server);
 
-    const startPort = await findAvailablePort(9200, 9300);
+    const startPort = await findAvailablePort(SCENARIO_FOUR_RANGE_START, SCENARIO_FOUR_RANGE_END);
     await new Promise((resolve, reject) => {
       server.listen(startPort, '0.0.0.0', () => resolve());
       server.on('error', reject);
@@ -185,7 +210,7 @@ describe('Port Manager - Integration Tests', () => {
 
     // Verify server is accessible
     const response1 = await fetch(`http://localhost:${startPort}`);
-    assert.equal(response1.status, 200);
+    assert.equal(response1.status, HttpStatus.OK);
 
     // Close server gracefully
     await new Promise(resolve => server.close(resolve));
@@ -199,7 +224,7 @@ describe('Port Manager - Integration Tests', () => {
     // Verify server is not accessible
     await assert.rejects(
       async () => await fetch(`http://localhost:${startPort}`, {
-        signal: AbortSignal.timeout(100)
+        signal: AbortSignal.timeout(SHUTDOWN_FETCH_TIMEOUT_MS)
       }),
       /fetch failed/i,
       'Server should not be accessible after shutdown'
@@ -208,7 +233,7 @@ describe('Port Manager - Integration Tests', () => {
 
   it('Scenario 5: findAvailablePort with range', async () => {
     // Start servers on consecutive ports
-    const basePort = await findAvailablePort(9400, 9500);
+    const basePort = await findAvailablePort(SCENARIO_FIVE_RANGE_START, SCENARIO_FIVE_RANGE_END);
     assert(basePort, 'Should find base port');
 
     const server1 = http.createServer();
@@ -218,14 +243,14 @@ describe('Port Manager - Integration Tests', () => {
 
     // Occupy 3 consecutive ports
     await new Promise(resolve => server1.listen(basePort, resolve));
-    await new Promise(resolve => server2.listen(basePort + 1, resolve));
-    await new Promise(resolve => server3.listen(basePort + 2, resolve));
+    await new Promise(resolve => server2.listen(basePort + FIRST_PORT_OFFSET, resolve));
+    await new Promise(resolve => server3.listen(basePort + SECOND_PORT_OFFSET, resolve));
 
     // Find next available port
-    const nextPort = await findAvailablePort(basePort, basePort + 10);
+    const nextPort = await findAvailablePort(basePort, basePort + FALLBACK_STANDARD_RANGE_SIZE);
 
-    assert(nextPort >= basePort + 3, `Should find port after occupied ones (got ${nextPort})`);
-    assert(nextPort <= basePort + 10, 'Should be within range');
+    assert(nextPort >= basePort + THIRD_PORT_OFFSET, `Should find port after occupied ones (got ${nextPort})`);
+    assert(nextPort <= basePort + FALLBACK_STANDARD_RANGE_SIZE, 'Should be within range');
 
     // Verify it's actually available
     const available = await isPortAvailable(nextPort);
@@ -234,12 +259,12 @@ describe('Port Manager - Integration Tests', () => {
 
   it('Scenario 6: No available ports in range', async () => {
     // This test creates many servers to exhaust a small port range
-    const basePort = await findAvailablePort(9600, 9700);
+    const basePort = await findAvailablePort(SCENARIO_SIX_RANGE_START, SCENARIO_SIX_RANGE_END);
     assert(basePort, 'Should find base port');
 
     // Occupy 5 consecutive ports
     const occupyServers = [];
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < FALLBACK_SMALL_RANGE_SIZE; i++) {
       const server = http.createServer();
       occupyServers.push(server);
       servers.push(server);
@@ -247,7 +272,7 @@ describe('Port Manager - Integration Tests', () => {
     }
 
     // Try to find port in exhausted range
-    const unavailablePort = await findAvailablePort(basePort, basePort + 4);
+    const unavailablePort = await findAvailablePort(basePort, basePort + FOURTH_PORT_OFFSET);
 
     assert.equal(unavailablePort, null, 'Should return null when no ports available');
 
@@ -258,7 +283,7 @@ describe('Port Manager - Integration Tests', () => {
     await assert.rejects(
       async () => await setupServerWithPortFallback(server, {
         preferredPort: basePort,
-        maxPort: basePort + 4
+        maxPort: basePort + FOURTH_PORT_OFFSET
       }),
       /No available ports found/i,
       'Should throw error when no ports available'
@@ -267,12 +292,12 @@ describe('Port Manager - Integration Tests', () => {
 
   it('Scenario 7: Graceful shutdown with custom handler', async () => {
     const server = http.createServer((req, res) => {
-      res.writeHead(200);
+      res.writeHead(HttpStatus.OK);
       res.end('OK');
     });
     servers.push(server);
 
-    const startPort = await findAvailablePort(9800, 9900);
+    const startPort = await findAvailablePort(SCENARIO_SEVEN_RANGE_START, SCENARIO_SEVEN_RANGE_END);
     await new Promise(resolve => server.listen(startPort, resolve));
 
     let _customShutdownCalled = false;
@@ -287,7 +312,7 @@ describe('Port Manager - Integration Tests', () => {
     // Setup graceful shutdown (note: we won't trigger actual process signals in test)
     setupGracefulShutdown(server, {
       onShutdown: customHandler,
-      timeout: 1000
+      timeout: CUSTOM_SHUTDOWN_TIMEOUT_MS
     });
 
     // Manually close server to verify cleanup
@@ -297,7 +322,7 @@ describe('Port Manager - Integration Tests', () => {
   });
 
   it('Scenario 8: isPortAvailable on specific host', async () => {
-    const testPort = await findAvailablePort(9900, 9950);
+    const testPort = await findAvailablePort(SCENARIO_EIGHT_RANGE_START, SCENARIO_EIGHT_RANGE_END);
 
     // Check availability on localhost
     const availableLocalhost = await isPortAvailable(testPort, '127.0.0.1');

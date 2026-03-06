@@ -29,6 +29,26 @@ import {
 import { ActivityFeedManager } from '../../api/activity-feed.ts';
 import { SidequestServer } from '../../sidequest/core/server.ts';
 import { initDatabase } from '../../sidequest/core/database.ts';
+import { CONFIG_POLICY, INTER_PROJECT_SCAN, RETRY } from '../../sidequest/core/constants.ts';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
+
+const JSON_INDENT_SPACES = INTER_PROJECT_SCAN.RESULTS_JSON_INDENT_SPACES;
+const DEFAULT_API_PORT = CONFIG_POLICY.PORTS.DEFAULT_API_PORT;
+const FIRST_PORT_OFFSET = CONFIG_POLICY.PORTS.MIN_PORT;
+const SECOND_PORT_OFFSET = CONFIG_POLICY.DOPPLER.DEFAULT_SUCCESS_THRESHOLD;
+const FALLBACK_RANGE_SIZE = RETRY.MAX_MANUAL_RETRIES;
+const DOUBLE_FALLBACK_RANGE_SIZE = SECOND_PORT_OFFSET * FALLBACK_RANGE_SIZE;
+const MIN_DOPPLER_TIMEOUT_MS = CONFIG_POLICY.DOPPLER.MIN_BASE_DELAY_MS;
+const ACTIVITY_FEED_MAX_ACTIVITIES = 50;
+const RECENT_ACTIVITY_LIMIT = RETRY.MAX_MANUAL_RETRIES;
+const INITIAL_BROADCAST_FAILURES = SECOND_PORT_OFFSET;
+const JOB_PROCESSING_WAIT_MS = 800;
+const DOPPLER_RECOVERY_WAIT_MS = 150;
+const SCENARIO_TWO_RANGE_START = 9100;
+const SCENARIO_TWO_RANGE_END = 9200;
+const SCENARIO_THREE_PRIMARY_PORT = 9300;
+const SCENARIO_FIVE_PRIMARY_PORT = 9500;
+const SCENARIO_SIX_PRIMARY_PORT = 9600;
 
 describe('Error Recovery - End-to-End Integration Tests', () => {
   let testCacheDir;
@@ -48,7 +68,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
       JOBS_API_PORT: '8080',
       REDIS_HOST: 'localhost'
     };
-    await fs.writeFile(testCacheFile, JSON.stringify(testSecrets, null, 2));
+    await fs.writeFile(testCacheFile, JSON.stringify(testSecrets, null, JSON_INDENT_SPACES));
   });
 
   afterEach(async () => {
@@ -73,7 +93,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     const doppler = new DopplerResilience({
       cacheFile: testCacheFile,
       failureThreshold: 1,
-      timeout: 100
+      timeout: MIN_DOPPLER_TIMEOUT_MS
     });
 
     doppler.fetchFromDoppler = async () => {
@@ -86,7 +106,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     assert.equal(doppler.getState(), 'OPEN', 'Circuit should be open');
 
     // Try to start server on port 8080
-    const preferredPort = 8080;
+    const preferredPort = DEFAULT_API_PORT;
 
     // First, occupy port 8080
     const blockingServer = http.createServer();
@@ -100,14 +120,14 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
 
     // Now start main server - should fallback to next port
     const mainServer = http.createServer((req, res) => {
-      res.writeHead(200);
+      res.writeHead(HttpStatus.OK);
       res.end(JSON.stringify({ status: 'ok', dopplerState: doppler.getState() }));
     });
     servers.push(mainServer);
 
     const actualPort = await setupServerWithPortFallback(mainServer, {
       preferredPort,
-      maxPort: preferredPort + 10
+      maxPort: preferredPort + FALLBACK_RANGE_SIZE
     });
 
     // Server should start on fallback port
@@ -130,14 +150,14 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     const faultyBroadcaster = {
       broadcast: (_message, _channel) => {
         broadcastCallCount++;
-        if (broadcastCallCount <= 2) {
+        if (broadcastCallCount <= INITIAL_BROADCAST_FAILURES) {
           throw new Error('WebSocket broadcast failed');
         }
         // Recover after 2 failures
       }
     };
 
-    const activityFeed = new ActivityFeedManager(faultyBroadcaster, { maxActivities: 50 });
+    const activityFeed = new ActivityFeedManager(faultyBroadcaster, { maxActivities: ACTIVITY_FEED_MAX_ACTIVITIES });
 
     // Create worker
     const worker = new SidequestServer({
@@ -148,18 +168,20 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     activityFeed.listenToWorker(worker);
 
     // Start server with port fallback
-    const basePort = await isPortAvailable(9100) ? 9100 : await findAvailablePort(9100, 9200);
+    const basePort = await isPortAvailable(SCENARIO_TWO_RANGE_START)
+      ? SCENARIO_TWO_RANGE_START
+      : await findAvailablePort(SCENARIO_TWO_RANGE_START, SCENARIO_TWO_RANGE_END);
     if (basePort === null) {
       throw new Error('No available port found in range 9100-9200 for test setup');
     }
 
     const server = http.createServer((req, res) => {
       if (req.url === '/api/activities') {
-        const activities = activityFeed.getRecentActivities(10);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        const activities = activityFeed.getRecentActivities(RECENT_ACTIVITY_LIMIT);
+        res.writeHead(HttpStatus.OK, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ activities }));
       } else {
-        res.writeHead(404);
+        res.writeHead(HttpStatus.NOT_FOUND);
         res.end();
       }
     });
@@ -167,7 +189,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
 
     const actualPort = await setupServerWithPortFallback(server, {
       preferredPort: basePort,
-      maxPort: basePort + 10
+      maxPort: basePort + FALLBACK_RANGE_SIZE
     });
 
     assert.equal(server.listening, true);
@@ -183,10 +205,10 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     worker.start();
 
     // Wait for job processing
-    await new Promise(resolve => setTimeout(resolve, 800));
+    await new Promise(resolve => setTimeout(resolve, JOB_PROCESSING_WAIT_MS));
 
     // Despite broadcaster errors, activities should still be tracked internally
-    const activities = activityFeed.getRecentActivities(10);
+    const activities = activityFeed.getRecentActivities(RECENT_ACTIVITY_LIMIT);
     const _failedJobs = activities.filter(a => a.type === 'job:failed');
 
     // Activities are added even if broadcast fails (errors are caught)
@@ -195,7 +217,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
 
     // Verify server is still accessible
     const response = await fetch(`http://localhost:${actualPort}/api/activities`);
-    assert.equal(response.status, 200, 'Server should still respond');
+    assert.equal(response.status, HttpStatus.OK, 'Server should still respond');
 
     await worker.stop();
   });
@@ -211,7 +233,9 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     };
 
     // 2. Port conflicts
-    const preferredPort = await isPortAvailable(9300) ? 9300 : 9301;
+    const preferredPort = await isPortAvailable(SCENARIO_THREE_PRIMARY_PORT)
+      ? SCENARIO_THREE_PRIMARY_PORT
+      : SCENARIO_THREE_PRIMARY_PORT + FIRST_PORT_OFFSET;
     const blockingServer = http.createServer();
     servers.push(blockingServer);
 
@@ -233,7 +257,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
 
     // Start server (will use fallback port)
     const server = http.createServer((req, res) => {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.writeHead(HttpStatus.OK, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         dopplerHealth: doppler.getHealth(),
         status: 'degraded'
@@ -243,7 +267,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
 
     const actualPort = await setupServerWithPortFallback(server, {
       preferredPort,
-      maxPort: preferredPort + 10
+      maxPort: preferredPort + FALLBACK_RANGE_SIZE
     });
 
     assert(server.listening, 'Server should start despite all errors');
@@ -266,13 +290,13 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
       cacheFile: testCacheFile,
       failureThreshold: 2,
       successThreshold: 2,
-      timeout: 100
+      timeout: MIN_DOPPLER_TIMEOUT_MS
     });
 
     let dopplerCallCount = 0;
     doppler.fetchFromDoppler = async () => {
       dopplerCallCount++;
-      if (dopplerCallCount <= 2) {
+      if (dopplerCallCount <= SECOND_PORT_OFFSET) {
         throw new Error('Doppler down');
       }
       // Recover after 2 failures
@@ -288,7 +312,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     assert.equal(doppler.getState(), 'OPEN');
 
     // Wait for timeout
-    await new Promise(resolve => setTimeout(resolve, 150));
+    await new Promise(resolve => setTimeout(resolve, DOPPLER_RECOVERY_WAIT_MS));
 
     // Next call should attempt recovery - enters HALF_OPEN
     const secrets = await doppler.getSecrets();
@@ -311,23 +335,25 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     });
     doppler.fetchFromDoppler = async () => ({
       NODE_ENV: 'production',
-      JOBS_API_PORT: '9500'
+      JOBS_API_PORT: String(SCENARIO_FIVE_PRIMARY_PORT)
     });
 
     const _secrets = await doppler.getSecrets();
     assert.equal(doppler.getState(), 'CLOSED', 'Doppler should work');
 
     // Port manager works (finds available port)
-    const startPort = await isPortAvailable(9500) ? 9500 : 9501;
+    const startPort = await isPortAvailable(SCENARIO_FIVE_PRIMARY_PORT)
+      ? SCENARIO_FIVE_PRIMARY_PORT
+      : SCENARIO_FIVE_PRIMARY_PORT + FIRST_PORT_OFFSET;
     const server = http.createServer((req, res) => {
-      res.writeHead(200);
+      res.writeHead(HttpStatus.OK);
       res.end('OK');
     });
     servers.push(server);
 
     const actualPort = await setupServerWithPortFallback(server, {
       preferredPort: startPort,
-      maxPort: startPort + 10
+      maxPort: startPort + FALLBACK_RANGE_SIZE
     });
 
     assert.equal(server.listening, true, 'Server should start');
@@ -353,7 +379,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
 
     // Verify server still works
     const response = await fetch(`http://localhost:${actualPort}`);
-    assert.equal(response.status, 200, 'Server should still work');
+    assert.equal(response.status, HttpStatus.OK, 'Server should still work');
 
     // Verify Doppler still works
     const secrets2 = await doppler.getSecrets();
@@ -368,15 +394,17 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     doppler1.fetchFromDoppler = async () => ({ status: 'ok' });
 
     const server1 = http.createServer((req, res) => {
-      res.writeHead(200);
+      res.writeHead(HttpStatus.OK);
       res.end('Server 1');
     });
     servers.push(server1);
 
-    const basePort = await isPortAvailable(9600) ? 9600 : 9610;
+    const basePort = await isPortAvailable(SCENARIO_SIX_PRIMARY_PORT)
+      ? SCENARIO_SIX_PRIMARY_PORT
+      : SCENARIO_SIX_PRIMARY_PORT + FALLBACK_RANGE_SIZE;
     const port1 = await setupServerWithPortFallback(server1, {
       preferredPort: basePort,
-      maxPort: basePort + 20
+      maxPort: basePort + DOUBLE_FALLBACK_RANGE_SIZE
     });
 
     // Server 2: Failing Doppler, fallback port
@@ -391,14 +419,14 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     await doppler2.getSecrets(); // Opens circuit
 
     const server2 = http.createServer((req, res) => {
-      res.writeHead(200);
+      res.writeHead(HttpStatus.OK);
       res.end('Server 2');
     });
     servers.push(server2);
 
     const port2 = await setupServerWithPortFallback(server2, {
       preferredPort: port1, // Will conflict
-      maxPort: port1 + 20
+      maxPort: port1 + DOUBLE_FALLBACK_RANGE_SIZE
     });
 
     // Both servers should work
@@ -418,4 +446,3 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     assert.equal(doppler2.getState(), 'OPEN', 'Doppler 2 should have open circuit');
   });
 });
-
