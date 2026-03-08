@@ -187,7 +187,24 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 - [Deployment](docs/DEPLOYMENT.md) - Production deployment
 - [Installation](docs/INSTALL.md) - Setup instructions
 - [Changelog](docs/CHANGELOG.md) - Legacy/cross-project history
-- [Release Changelogs](docs/changelog/README.md) - v2.x release history (latest: v2.3.12)
+- [Release Changelogs](docs/changelog/README.md) - v2.x release history (latest: v2.3.17)
+
+## Known Issues
+
+### PM2 6.x + Node `--strip-types` + `.ts` entry points
+
+**Problem:** PM2 6.x loads `.ts` scripts via `import()` (ESM dynamic import), which causes `process.argv[1]` to point to PM2's `ProcessContainerFork.js` instead of the actual script. Pipeline runners that use `isDirectExecution()` to guard `main()` will see a mismatch and never start, causing the process to exit immediately with code 0. PM2 then enters a crash-restart loop.
+
+Additionally, `--strip-types` does not support TypeScript `enum` syntax — use `as const` objects instead. Import paths must use `.ts` extensions (Node v24 does not rewrite `.js` to `.ts`).
+
+**Solution:**
+- Add `process.env.pm_id !== undefined` as a fallback condition alongside `isDirectExecution()` in any pipeline runner managed by PM2
+- Convert `enum` declarations to `const ... as const` objects
+- Use `.ts` import extensions, not `.js`
+- Rebuild native modules (`npm rebuild better-sqlite3`) after Node version changes
+- Disable `wait_ready` in PM2 config — PM2 6.x sends premature SIGINT with `.ts` files
+
+**Affected versions:** Node v24.x, PM2 6.x. Not observed on Node v25.x.
 
 ## License
 

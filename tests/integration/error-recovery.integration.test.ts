@@ -279,8 +279,6 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     assert.equal(data.status, 'degraded');
     assert.equal(data.dopplerHealth.healthy, false, 'Doppler should be unhealthy');
     assert.equal(data.dopplerHealth.usingFallback, true, 'Should use fallback');
-
-    // Verify Sentry captured all errors
   });
 
   it('Scenario 4: Recovery after all components fail', async () => {

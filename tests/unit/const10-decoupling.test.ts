@@ -39,6 +39,8 @@ const BANNED_ALIASES = [
 ] as const;
 
 describe('CONST10 — test constant decoupling', () => {
+  // Note: this loop generates 10 tests at runtime (one per BANNED_ALIASES entry).
+  // Total test count: 10 (loop) + 2 + 3 + 6 = 21.
   describe('banned production aliases do not appear', () => {
     for (const { pattern, file } of BANNED_ALIASES) {
       it(`${file} must not use ${pattern}`, async () => {
