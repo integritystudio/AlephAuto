@@ -11,7 +11,7 @@ export const TIME_MS = {
 } as const;
 // ---------- Time (seconds) ----------
 export const SECONDS = {
-  SECOND: TIME_MS.MS,
+  SECOND: TIME_MS.SECOND / TIME_MS.SECOND,
   MINUTE: TIME_MS.MINUTE / TIME_MS.SECOND,
   HOUR: TIME_MS.HOUR / TIME_MS.SECOND,
   DAY: TIME_MS.DAY / TIME_MS.SECOND,
