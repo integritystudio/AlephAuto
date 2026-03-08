@@ -432,13 +432,14 @@ router.get('/:jobId/logs', (req, res) => {
     if (jobData.retryCount) logs.push(`[${job.startedAt || job.createdAt}] Retry attempt: ${jobData.retryCount}`);
 
     const jobResult = (job.result ?? {}) as Record<string, unknown>;
-    if (jobResult.duration_seconds) logs.push(`[${job.completedAt || ''}] Duration: ${jobResult.duration_seconds}s`);
-    if (jobResult.summary) logs.push(`[${job.completedAt || ''}] ${jobResult.summary}`);
-    if (jobResult.filesProcessed) logs.push(`[${job.completedAt || ''}] Files processed: ${jobResult.filesProcessed}`);
+    const endTs = job.completedAt || job.startedAt || job.createdAt;
+    if (jobResult.duration_seconds) logs.push(`[${endTs}] Duration: ${jobResult.duration_seconds}s`);
+    if (jobResult.summary) logs.push(`[${endTs}] ${jobResult.summary}`);
+    if (jobResult.filesProcessed) logs.push(`[${endTs}] Files processed: ${jobResult.filesProcessed}`);
 
     if (job.error) {
       const errorObj = (typeof job.error === 'object' ? job.error : { message: job.error }) as unknown as Record<string, unknown>;
-      logs.push(`[${job.completedAt || ''}] ERROR: ${errorObj.message || String(job.error)}`);
+      logs.push(`[${endTs}] ERROR: ${errorObj.message || String(job.error)}`);
     }
 
     if (job.completedAt && job.status === 'completed') logs.push(`[${job.completedAt}] Job completed successfully`);

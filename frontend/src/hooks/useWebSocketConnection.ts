@@ -11,8 +11,18 @@
 import { useEffect, useRef } from 'react';
 import { wsService } from '../services/websocket';
 import { useDashboardStore } from '../store/dashboard';
-import { PipelineType } from '../types';
+import { PipelineType, ActivityType } from '../types';
 import type { Pipeline, SystemHealth } from '../types';
+
+const ACTIVITY_TYPE_MAP: Record<string, ActivityType> = {
+  'job:created': ActivityType.QUEUED,
+  'job:started': ActivityType.STARTED,
+  'job:completed': ActivityType.COMPLETED,
+  'job:failed': ActivityType.FAILED,
+  'job:cancelled': ActivityType.CANCELLED,
+  'retry:created': ActivityType.RETRY,
+  'retry:max-attempts': ActivityType.FAILED,
+};
 import { DASHBOARD_TIMING } from '../constants/timing';
 
 const POLL_INTERVAL_MS = DASHBOARD_TIMING.STATUS_POLL_INTERVAL_MS;
@@ -139,11 +149,12 @@ async function loadInitialData() {
         store.addActivityItem({
           '@type': 'https://schema.org/Event',
           id: activity.id || `activity-${Date.now()}`,
-          type: activity.type || 'info',
+          type: ACTIVITY_TYPE_MAP[activity.type] ?? ActivityType.PROGRESS,
           pipelineId,
           pipelineName: activity.pipelineName || pipelineId || 'Unknown',
           message: activity.message || '',
           timestamp: activity.timestamp || new Date().toISOString(),
+          jobId: activity.jobId,
         });
       });
     }
@@ -193,11 +204,12 @@ async function pollForUpdates() {
         store.addActivityItem({
           '@type': 'https://schema.org/Event',
           id: activity.id || `activity-${Date.now()}`,
-          type: activity.type || 'info',
+          type: ACTIVITY_TYPE_MAP[activity.type] ?? ActivityType.PROGRESS,
           pipelineId,
           pipelineName: activity.pipelineName || pipelineId || 'Unknown',
           message: activity.message || '',
           timestamp: activity.timestamp || new Date().toISOString(),
+          jobId: activity.jobId,
         });
       });
     }
