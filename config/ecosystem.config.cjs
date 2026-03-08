@@ -137,9 +137,10 @@ module.exports = {
       max_restarts: 5,
       restart_delay: 10000,
 
-      // Wait for ready signal from process
-      wait_ready: true,
-      listen_timeout: 10000,  // Wait up to 10s for ready signal
+      // Disabled wait_ready — PM2 6.x sends SIGINT before listen_timeout
+      // when using --strip-types with .ts files. The cron scheduler keeps
+      // the event loop alive, so ready signal is unnecessary.
+      wait_ready: false,
       kill_timeout: 15000  // Allow 15s for graceful shutdown to prevent SQLite lock contention
     }
   ],

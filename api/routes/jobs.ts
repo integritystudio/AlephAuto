@@ -403,4 +403,61 @@ router.post('/:jobId/retry', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/jobs/:jobId/logs
+ * Get logs for a specific job (synthesized from job data)
+ */
+router.get('/:jobId/logs', (req, res) => {
+  try {
+    const { jobId } = req.params;
+
+    const validation = validateJobId(jobId);
+    if (!validation.valid) {
+      return sendError(res, ERROR_CODES.INVALID_REQUEST, validation.error!, HttpStatus.BAD_REQUEST);
+    }
+
+    const job = jobRepository.getJob(validation.sanitized!);
+
+    if (!job) {
+      return sendNotFoundError(res, 'Job', validation.sanitized!);
+    }
+
+    // Build log lines from job lifecycle data
+    const logs: string[] = [];
+    if (job.createdAt) logs.push(`[${job.createdAt}] Job created (pipeline: ${job.pipelineId})`);
+    if (job.startedAt) logs.push(`[${job.startedAt}] Job started`);
+
+    const jobData = (job.data ?? {}) as Record<string, unknown>;
+    if (jobData.repositoryPath) logs.push(`[${job.startedAt || job.createdAt}] Repository: ${jobData.repositoryPath}`);
+    if (jobData.retryCount) logs.push(`[${job.startedAt || job.createdAt}] Retry attempt: ${jobData.retryCount}`);
+
+    const jobResult = (job.result ?? {}) as Record<string, unknown>;
+    if (jobResult.duration_seconds) logs.push(`[${job.completedAt || ''}] Duration: ${jobResult.duration_seconds}s`);
+    if (jobResult.summary) logs.push(`[${job.completedAt || ''}] ${jobResult.summary}`);
+    if (jobResult.filesProcessed) logs.push(`[${job.completedAt || ''}] Files processed: ${jobResult.filesProcessed}`);
+
+    if (job.error) {
+      const errorObj = (typeof job.error === 'object' ? job.error : { message: job.error }) as unknown as Record<string, unknown>;
+      logs.push(`[${job.completedAt || ''}] ERROR: ${errorObj.message || String(job.error)}`);
+    }
+
+    if (job.completedAt && job.status === 'completed') logs.push(`[${job.completedAt}] Job completed successfully`);
+    if (job.completedAt && job.status === 'failed') logs.push(`[${job.completedAt}] Job failed`);
+
+    res.json({
+      success: true,
+      data: {
+        jobId: job.id,
+        logs,
+        totalLines: logs.length
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logError(logger, error, 'Failed to get job logs', { jobId: req.params.jobId });
+    return sendInternalError(res, 'Failed to retrieve job logs');
+  }
+});
+
 export default router;

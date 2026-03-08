@@ -122,7 +122,9 @@ async function main(): Promise<void> {
 
 function isDirectExecution(): boolean {
   const currentModulePath = fileURLToPath(import.meta.url);
-  const entryPath = process.argv[1];
+  // PM2 uses dynamic import() so process.argv[1] points to PM2's fork container,
+  // not the actual script. Check pm_exec_path env var as fallback.
+  const entryPath = process.argv[1] || process.env.pm_exec_path;
   if (!entryPath) return false;
   try {
     return realpathSync(path.resolve(entryPath)) === realpathSync(currentModulePath);
@@ -131,7 +133,9 @@ function isDirectExecution(): boolean {
   }
 }
 
-if (isDirectExecution()) {
+// PM2 loads this file via dynamic import(), so process.argv[1] points to
+// PM2's ProcessContainerFork, not this script. Detect PM2 via pm_id env var.
+if (isDirectExecution() || process.env.pm_id !== undefined) {
   main().catch((error) => {
     logger.error({ error }, 'Fatal error in duplicate detection pipeline');
     process.exit(1);

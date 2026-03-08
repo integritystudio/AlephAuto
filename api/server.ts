@@ -334,6 +334,32 @@ const activityFeed = new ActivityFeedManager(broadcaster, { maxActivities: 50 })
 // This also connects to all existing registered workers
 workerRegistry.setActivityFeed(activityFeed);
 
+// Seed activity feed from recent DB jobs so dashboard isn't empty on restart
+try {
+  const recentJobs = jobRepository.getAllJobs({ limit: 20 });
+  for (const job of recentJobs.reverse()) {
+    const eventType = job.status === 'completed' ? 'job:completed'
+      : job.status === 'failed' ? 'job:failed'
+      : job.status === 'running' ? 'job:started'
+      : 'job:created';
+    const timestamp = job.completedAt || job.startedAt || job.createdAt;
+    activityFeed.addActivity({
+      type: eventType,
+      event: `Job ${job.status.charAt(0).toUpperCase() + job.status.slice(1)}`,
+      message: `Job ${job.id} ${job.status}`,
+      jobId: job.id,
+      jobType: job.pipelineId,
+      pipelineId: job.pipelineId,
+      pipelineName: getPipelineName(job.pipelineId),
+      status: job.status,
+      timestamp,
+    });
+  }
+  logger.info({ seeded: recentJobs.length }, 'Activity feed seeded from database');
+} catch (error) {
+  logError(logger, error, 'Failed to seed activity feed from database');
+}
+
 // Make broadcaster and activity feed available to routes
 app.set('broadcaster', broadcaster);
 app.set('activityFeed', activityFeed);

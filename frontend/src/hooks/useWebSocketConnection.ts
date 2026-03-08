@@ -185,6 +185,22 @@ async function pollForUpdates() {
     if (statusData.queuedJobs) {
       store.setQueuedJobs(statusData.queuedJobs.map(mapQueuedJob));
     }
+
+    // Refresh activity feed during polling (WS disconnected)
+    if (statusData.recentActivity?.length > 0 && store.activity.length === 0) {
+      statusData.recentActivity.forEach((activity: any) => {
+        const pipelineId = activity.pipelineId || activity.jobType || 'unknown';
+        store.addActivityItem({
+          '@type': 'https://schema.org/Event',
+          id: activity.id || `activity-${Date.now()}`,
+          type: activity.type || 'info',
+          pipelineId,
+          pipelineName: activity.pipelineName || pipelineId || 'Unknown',
+          message: activity.message || '',
+          timestamp: activity.timestamp || new Date().toISOString(),
+        });
+      });
+    }
   } catch (error) {
     console.error('[Dashboard] Polling failed:', error);
   }
