@@ -10,14 +10,10 @@ Technical debt and planned improvements.
 
 ## Deferred / Blocked Items
 
-### CONST10 — Semantic constant misuse in CONST9 test changes
-- **Files:** `tests/integration/error-recovery.integration.test.ts`, `tests/integration/port-manager.integration.test.ts`
-- **Issue:** Test constants alias production policy values for coincidental numeric matches rather than declaring intent-specific values. `SECOND_PORT_OFFSET` and `INITIAL_BROADCAST_FAILURES` reuse `CONFIG_POLICY.DOPPLER.DEFAULT_SUCCESS_THRESHOLD` (value `2`); `RECENT_ACTIVITY_LIMIT` reuses `RETRY.MAX_MANUAL_RETRIES` (value `10`). If those policy values change for legitimate reasons, unrelated tests silently break.
-- **Fix:** Replace with independent test-local constants: `PORT_STEP = 2`, `BROADCAST_FAILURE_COUNT = 2`, `RECENT_ACTIVITY_FETCH_LIMIT = 10`.
-- **Priority:** Low (tests only, no runtime impact)
-- **Source:** Code review of CONST9 commits (2026-03-08)
+No active deferred items.
 
 Closed items migrated to changelog:
+- [v2.3.17](changelog/2.3/CHANGELOG.md) (`CONST10`)
 - [v2.3.16](changelog/2.3/CHANGELOG.md) (`CONST9`)
 - [v2.3.15](changelog/2.3/CHANGELOG.md) (`CONST4`, `CONST6`, `CONST7`, `CONST8`)
 - [v2.3.14](changelog/2.3/CHANGELOG.md) (`CONST5`)

@@ -6,6 +6,25 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.17] - 2026-03-08
+
+### Summary
+
+Fixed semantic constant misuse (`CONST10`) where test constants aliased production policy values (`CONFIG_POLICY`, `RETRY`, `TIMEOUTS`) for coincidental numeric matches instead of declaring intent-specific values.
+
+### Changed
+
+- `tests/integration/error-recovery.integration.test.ts`: replaced 6 aliased production constants with test-local literals (`PORT_STEP`, `BROADCAST_FAILURE_COUNT`, `DOPPLER_FAILURE_COUNT`, `RECENT_ACTIVITY_FETCH_LIMIT`, `FALLBACK_RANGE_SIZE = 10`); removed `RETRY` import
+- `tests/integration/port-manager.integration.test.ts`: replaced 7 aliased production constants with test-local literals (`PORT_STEP`, `PORT_STEP_TWO`, `PORT_STEP_THREE`, `SERVER_COUNT`, `FALLBACK_SMALL_RANGE_SIZE = 5`, `FALLBACK_STANDARD_RANGE_SIZE = 10`, `SHUTDOWN_FETCH_TIMEOUT_MS = 100`, `CUSTOM_SHUTDOWN_TIMEOUT_MS = 10_000`); removed `RETRY` and `TIMEOUTS` imports
+- Closed and migrated `CONST10` in `docs/BACKLOG.md`
+
+### Validation
+
+- `npm run typecheck` (pass)
+- `npm run test:integration` — 53/53 pass
+
+---
+
 ## [2.3.16] - 2026-03-06
 
 ### Summary

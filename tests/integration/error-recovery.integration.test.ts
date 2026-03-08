@@ -29,19 +29,19 @@ import {
 import { ActivityFeedManager } from '../../api/activity-feed.ts';
 import { SidequestServer } from '../../sidequest/core/server.ts';
 import { initDatabase } from '../../sidequest/core/database.ts';
-import { CONFIG_POLICY, INTER_PROJECT_SCAN, RETRY } from '../../sidequest/core/constants.ts';
+import { CONFIG_POLICY, INTER_PROJECT_SCAN } from '../../sidequest/core/constants.ts';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 const JSON_INDENT_SPACES = INTER_PROJECT_SCAN.RESULTS_JSON_INDENT_SPACES;
 const DEFAULT_API_PORT = CONFIG_POLICY.PORTS.DEFAULT_API_PORT;
-const FIRST_PORT_OFFSET = CONFIG_POLICY.PORTS.MIN_PORT;
-const SECOND_PORT_OFFSET = CONFIG_POLICY.DOPPLER.DEFAULT_SUCCESS_THRESHOLD;
-const FALLBACK_RANGE_SIZE = RETRY.MAX_MANUAL_RETRIES;
-const DOUBLE_FALLBACK_RANGE_SIZE = SECOND_PORT_OFFSET * FALLBACK_RANGE_SIZE;
+const PORT_STEP = 1;
+const FALLBACK_RANGE_SIZE = 10;
+const DOUBLE_FALLBACK_RANGE_SIZE = 2 * FALLBACK_RANGE_SIZE;
 const MIN_DOPPLER_TIMEOUT_MS = CONFIG_POLICY.DOPPLER.MIN_BASE_DELAY_MS;
 const ACTIVITY_FEED_MAX_ACTIVITIES = 50;
-const RECENT_ACTIVITY_LIMIT = RETRY.MAX_MANUAL_RETRIES;
-const INITIAL_BROADCAST_FAILURES = SECOND_PORT_OFFSET;
+const RECENT_ACTIVITY_FETCH_LIMIT = 10;
+const BROADCAST_FAILURE_COUNT = 2;
+const DOPPLER_FAILURE_COUNT = 2;
 const JOB_PROCESSING_WAIT_MS = 800;
 const DOPPLER_RECOVERY_WAIT_MS = 150;
 const SCENARIO_TWO_RANGE_START = 9100;
@@ -150,7 +150,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     const faultyBroadcaster = {
       broadcast: (_message, _channel) => {
         broadcastCallCount++;
-        if (broadcastCallCount <= INITIAL_BROADCAST_FAILURES) {
+        if (broadcastCallCount <= BROADCAST_FAILURE_COUNT) {
           throw new Error('WebSocket broadcast failed');
         }
         // Recover after 2 failures
@@ -177,7 +177,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
 
     const server = http.createServer((req, res) => {
       if (req.url === '/api/activities') {
-        const activities = activityFeed.getRecentActivities(RECENT_ACTIVITY_LIMIT);
+        const activities = activityFeed.getRecentActivities(RECENT_ACTIVITY_FETCH_LIMIT);
         res.writeHead(HttpStatus.OK, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ activities }));
       } else {
@@ -208,7 +208,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     await new Promise(resolve => setTimeout(resolve, JOB_PROCESSING_WAIT_MS));
 
     // Despite broadcaster errors, activities should still be tracked internally
-    const activities = activityFeed.getRecentActivities(RECENT_ACTIVITY_LIMIT);
+    const activities = activityFeed.getRecentActivities(RECENT_ACTIVITY_FETCH_LIMIT);
     const _failedJobs = activities.filter(a => a.type === 'job:failed');
 
     // Activities are added even if broadcast fails (errors are caught)
@@ -235,7 +235,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     // 2. Port conflicts
     const preferredPort = await isPortAvailable(SCENARIO_THREE_PRIMARY_PORT)
       ? SCENARIO_THREE_PRIMARY_PORT
-      : SCENARIO_THREE_PRIMARY_PORT + FIRST_PORT_OFFSET;
+      : SCENARIO_THREE_PRIMARY_PORT + PORT_STEP;
     const blockingServer = http.createServer();
     servers.push(blockingServer);
 
@@ -296,7 +296,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     let dopplerCallCount = 0;
     doppler.fetchFromDoppler = async () => {
       dopplerCallCount++;
-      if (dopplerCallCount <= SECOND_PORT_OFFSET) {
+      if (dopplerCallCount <= DOPPLER_FAILURE_COUNT) {
         throw new Error('Doppler down');
       }
       // Recover after 2 failures
@@ -344,7 +344,7 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     // Port manager works (finds available port)
     const startPort = await isPortAvailable(SCENARIO_FIVE_PRIMARY_PORT)
       ? SCENARIO_FIVE_PRIMARY_PORT
-      : SCENARIO_FIVE_PRIMARY_PORT + FIRST_PORT_OFFSET;
+      : SCENARIO_FIVE_PRIMARY_PORT + PORT_STEP;
     const server = http.createServer((req, res) => {
       res.writeHead(HttpStatus.OK);
       res.end('OK');

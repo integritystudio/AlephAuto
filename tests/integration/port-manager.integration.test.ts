@@ -23,19 +23,19 @@ import {
   setupServerWithPortFallback,
   setupGracefulShutdown
 } from '../../api/utils/port-manager.ts';
-import { CONFIG_POLICY, RETRY, TIMEOUTS } from '../../sidequest/core/constants.ts';
+import { CONFIG_POLICY } from '../../sidequest/core/constants.ts';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 const DEFAULT_API_PORT = CONFIG_POLICY.PORTS.DEFAULT_API_PORT;
-const FIRST_PORT_OFFSET = CONFIG_POLICY.PORTS.MIN_PORT;
-const SECOND_PORT_OFFSET = CONFIG_POLICY.DOPPLER.DEFAULT_SUCCESS_THRESHOLD;
-const THIRD_PORT_OFFSET = CONFIG_POLICY.DOPPLER.DEFAULT_FAILURE_THRESHOLD;
-const FOURTH_PORT_OFFSET = 4;
-const FALLBACK_SMALL_RANGE_SIZE = RETRY.MAX_ABSOLUTE_ATTEMPTS;
-const FALLBACK_STANDARD_RANGE_SIZE = RETRY.MAX_MANUAL_RETRIES;
-const SERVER_COUNT_THREE = CONFIG_POLICY.DOPPLER.DEFAULT_FAILURE_THRESHOLD;
-const SHUTDOWN_FETCH_TIMEOUT_MS = CONFIG_POLICY.DOPPLER.MIN_BASE_DELAY_MS;
-const CUSTOM_SHUTDOWN_TIMEOUT_MS = TIMEOUTS.TEN_SECONDS_MS;
+const PORT_STEP = 1;
+const PORT_STEP_TWO = 2;
+const PORT_STEP_THREE = 3;
+const PORT_STEP_FOUR = 4;
+const FALLBACK_SMALL_RANGE_SIZE = 5;
+const FALLBACK_STANDARD_RANGE_SIZE = 10;
+const SERVER_COUNT = 3;
+const SHUTDOWN_FETCH_TIMEOUT_MS = 100;
+const CUSTOM_SHUTDOWN_TIMEOUT_MS = 10_000;
 const SCENARIO_THREE_RANGE_START = 9000;
 const SCENARIO_THREE_RANGE_END = 9100;
 const SCENARIO_FOUR_RANGE_START = 9200;
@@ -116,7 +116,7 @@ describe('Port Manager - Integration Tests', () => {
     let port1 = DEFAULT_API_PORT;
     const isAvailable = await isPortAvailable(port1);
     if (!isAvailable) {
-      port1 = await findAvailablePort(DEFAULT_API_PORT, DEFAULT_API_PORT + (SECOND_PORT_OFFSET * FALLBACK_STANDARD_RANGE_SIZE));
+      port1 = await findAvailablePort(DEFAULT_API_PORT, DEFAULT_API_PORT + (PORT_STEP_TWO * FALLBACK_STANDARD_RANGE_SIZE));
     }
 
     await new Promise((resolve, reject) => {
@@ -175,7 +175,7 @@ describe('Port Manager - Integration Tests', () => {
       // All servers prefer the same startPort; each falls back past already-bound ports
       const port = await setupServerWithPortFallback(server, {
         preferredPort: startPort,
-        maxPort: startPort + (SECOND_PORT_OFFSET * FALLBACK_STANDARD_RANGE_SIZE),
+        maxPort: startPort + (PORT_STEP_TWO * FALLBACK_STANDARD_RANGE_SIZE),
         host: '0.0.0.0'
       });
 
@@ -185,7 +185,7 @@ describe('Port Manager - Integration Tests', () => {
     // Verify all servers got unique ports
     const ports = results.map(r => r.port);
     const uniquePorts = new Set(ports);
-    assert.equal(uniquePorts.size, SERVER_COUNT_THREE, 'All servers should have unique ports');
+    assert.equal(uniquePorts.size, SERVER_COUNT, 'All servers should have unique ports');
 
     // Verify all servers are listening (Scenario 2 already covers HTTP accessibility)
     results.forEach(result => {
@@ -243,13 +243,13 @@ describe('Port Manager - Integration Tests', () => {
 
     // Occupy 3 consecutive ports
     await new Promise(resolve => server1.listen(basePort, resolve));
-    await new Promise(resolve => server2.listen(basePort + FIRST_PORT_OFFSET, resolve));
-    await new Promise(resolve => server3.listen(basePort + SECOND_PORT_OFFSET, resolve));
+    await new Promise(resolve => server2.listen(basePort + PORT_STEP, resolve));
+    await new Promise(resolve => server3.listen(basePort + PORT_STEP_TWO, resolve));
 
     // Find next available port
     const nextPort = await findAvailablePort(basePort, basePort + FALLBACK_STANDARD_RANGE_SIZE);
 
-    assert(nextPort >= basePort + THIRD_PORT_OFFSET, `Should find port after occupied ones (got ${nextPort})`);
+    assert(nextPort >= basePort + PORT_STEP_THREE, `Should find port after occupied ones (got ${nextPort})`);
     assert(nextPort <= basePort + FALLBACK_STANDARD_RANGE_SIZE, 'Should be within range');
 
     // Verify it's actually available
@@ -272,7 +272,7 @@ describe('Port Manager - Integration Tests', () => {
     }
 
     // Try to find port in exhausted range
-    const unavailablePort = await findAvailablePort(basePort, basePort + FOURTH_PORT_OFFSET);
+    const unavailablePort = await findAvailablePort(basePort, basePort + PORT_STEP_FOUR);
 
     assert.equal(unavailablePort, null, 'Should return null when no ports available');
 
@@ -283,7 +283,7 @@ describe('Port Manager - Integration Tests', () => {
     await assert.rejects(
       async () => await setupServerWithPortFallback(server, {
         preferredPort: basePort,
-        maxPort: basePort + FOURTH_PORT_OFFSET
+        maxPort: basePort + PORT_STEP_FOUR
       }),
       /No available ports found/i,
       'Should throw error when no ports available'
