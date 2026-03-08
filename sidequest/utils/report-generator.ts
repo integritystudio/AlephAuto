@@ -9,7 +9,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import * as Sentry from '@sentry/node';
 import { createComponentLogger, logError } from './logger.ts';
-import { TIME_MS } from '../core/units.js';
+import { TIME_MS } from '../core/units.ts';
 
 const logger = createComponentLogger('ReportGenerator');
 

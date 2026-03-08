@@ -6,7 +6,7 @@
  * @module sidequest/utils/time-helpers
  */
 
-import { TIME_MS } from '../core/units.js';
+import { TIME_MS } from '../core/units.ts';
 
 /**
  * Normalize a value to ISO string format

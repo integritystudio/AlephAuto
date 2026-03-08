@@ -10,13 +10,13 @@ export const TIME_MS = {
   WEEK: 604_800_000,
 } as const;
 // ---------- Time (seconds) ----------
-export enum SECONDS {
-  SECOND = TIME_MS.MS,
-  MINUTE = TIME_MS.MINUTE / TIME_MS.SECOND,
-  HOUR = TIME_MS.HOUR / TIME_MS.SECOND,
-  DAY = TIME_MS.DAY / TIME_MS.SECOND,
-  WEEK = TIME_MS.WEEK / TIME_MS.SECOND,
-}
+export const SECONDS = {
+  SECOND: TIME_MS.MS,
+  MINUTE: TIME_MS.MINUTE / TIME_MS.SECOND,
+  HOUR: TIME_MS.HOUR / TIME_MS.SECOND,
+  DAY: TIME_MS.DAY / TIME_MS.SECOND,
+  WEEK: TIME_MS.WEEK / TIME_MS.SECOND,
+} as const;
 // ------- Time (constants) --------------
 export const MINUTES_PER_HOUR = 60;
 export const HOURS_PER_DAY = 24;
@@ -48,28 +48,28 @@ export const DEFAULT_EXPORT_TIMEOUT_MS = 30_000;
 const BIT_VALUE = 1 << 0; // 1 bit
 const KB = 1 << 10; // 1024 Bits per KB
 
-export enum BITS {
-  BIT = BIT_VALUE,
-  B2 = 1 << 1, // 2
-  B4 = 1 << 2, // 4
-  BYTE = 1 << 3, // 8 bits per Byte
-  B16 = 1 << 4, // 16
-  B32 = 1 << 5, // 32
-  B64 = 1 << 6, // 64
-  B128 = 1 << 7, // 128
-  B256 = 1 << 8, // 256
-  B512 = 1 << 9, // 512
-  QUARTER_KB = 1 << 8, // 256
-  HALF_KB = 1 << 9, // 512
-}
+export const BITS = {
+  BIT: BIT_VALUE,
+  B2: 1 << 1, // 2
+  B4: 1 << 2, // 4
+  BYTE: 1 << 3, // 8 bits per Byte
+  B16: 1 << 4, // 16
+  B32: 1 << 5, // 32
+  B64: 1 << 6, // 64
+  B128: 1 << 7, // 128
+  B256: 1 << 8, // 256
+  B512: 1 << 9, // 512
+  QUARTER_KB: 1 << 8, // 256
+  HALF_KB: 1 << 9, // 512
+} as const;
 
 // ---------- Canonical percentile values -----------
-export enum PERCENTILE {
-  P88 = 0.88,
-  P50 = 50,
-  P95 = 95,
-  P99 = 99,
-}
+export const PERCENTILE = {
+  P88: 0.88,
+  P50: 50,
+  P95: 95,
+  P99: 99,
+} as const;
 
 export const BYTES = {
   B: 1,

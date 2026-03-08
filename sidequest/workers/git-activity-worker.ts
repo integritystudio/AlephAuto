@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 import * as Sentry from '@sentry/node';
 import { createComponentLogger } from '../utils/logger.ts';
 import { TIMEOUTS, GIT_ACTIVITY, NUMBER_BASE } from '../core/constants.ts';
-import { TIME_MS } from '../core/units.js';
+import { TIME_MS } from '../core/units.ts';
 
 const logger = createComponentLogger('GitActivityWorker');
 

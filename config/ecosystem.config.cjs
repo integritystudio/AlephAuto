@@ -140,9 +140,7 @@ module.exports = {
       // Wait for ready signal from process
       wait_ready: true,
       listen_timeout: 10000,  // Wait up to 10s for ready signal
-
-      // Cron-based restart (optional - restart daily at 2 AM)
-      cron_restart: '0 2 * * *'
+      kill_timeout: 15000  // Allow 15s for graceful shutdown to prevent SQLite lock contention
     }
   ],
 
