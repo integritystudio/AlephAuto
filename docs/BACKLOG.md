@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-09 | **Last Session:** 2026-03-09 (backlog-implementer: SC-M7–M8, SC-L7–L9, SCR-M1–M4, SCR-L1–L4, SU-H1–H4, SU-M4–M9, SU-L3–L5)
+**Last Updated:** 2026-03-09 | **Last Session:** 2026-03-09 (backlog-migrate: 61 items to v2.3.24)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -216,143 +216,11 @@ Full codebase analysis using repomix token-tree + code-simplifier agent.
 
 ---
 
-## Code Review Findings — API Routes (2026-03-09)
-
-Full review: [code-reviewer agent findings](REMOVED_AFTER_SESSION)
-
-**Scan:** 23 TS files (server, routes, middleware, utils, types). **Critical fixes applied:** C1 (CORS), C2 (directory traversal), C3 (scanId validation).
-
-### Done
-
-| ID | Title | Fix |
-|----|-------|-----|
-| H4 | `start-multi` accepts arbitrary filesystem paths | Added `StartMultiScanRequestSchema` with Zod validation; absolute path + null-byte + traversal checks in `scans.ts` |
-| H5 | Retry endpoint re-executes unsanitized job parameters | Strip `RESERVED_JOB_KEYS` before spreading into new job in `jobs.ts` |
-| H6 | Manual pipeline trigger bypasses parameter validation | Strip `RESERVED_PARAM_KEYS` before spreading into job in `pipelines.ts` |
-| H7 | REPORTS_DIR hardcoded, violates config pattern | Use `config.scanReportsDir` + graceful empty response on missing dir in `reports.ts` |
-| H8 | Auth key falls back to raw process.env | Added `apiKey` getter to config; `auth.ts` uses `config.apiKey` directly |
-| H9 | timingSafeEqual leaks length | Padding approach in both `jobs.ts` and `auth.ts` prevents length oracle |
-| M10 | Duplicate worker bypasses registry | `scans.ts` registers standalone worker with `workerRegistry.registerWorker()` after init |
-| M11 | `/:scanId/status` returns aggregate stats | Now uses `jobRepository.getJob(scanId)` for scan-specific lookup, returns 404 for unknown |
-| M12 | `hasMore` pagination off-by-one | Fixed to `(offset + result.jobs.length) < result.total` in `pipelines.ts` |
-| M13 | Sentry captures raw headers | Redact `SENSITIVE_KEYS` headers before sending to Sentry in `error-handler.ts` |
-| M14 | Shell injection in port-cleanup | Replaced `exec` with `execFile` + numeric PID validation in `port-manager.ts` |
-| M15 | WebSocket unconstrained channels | Added `VALID_CHANNEL_PATTERN`, `MAX_CHANNEL_NAME_LENGTH`, `MAX_SUBSCRIPTIONS_PER_CLIENT` in `websocket.ts` |
-| L16 | validateQuery double-cast | Express module augmentation for `req.validatedQuery` in `validation.ts` |
-| L17 | 7 serial table reads | Replaced with `jobRepository.getJob(scanId)` direct lookup in `scans.ts` |
-| L18 | retryCount from wrong location | Validate `retryCount` is non-negative number before use in `jobs.ts` |
-
----
-
-## Code Review Findings — sidequest/core (2026-03-09)
-
-**Scan:** 13 TS files (server, database, job-repository, config, constants, units, git-workflow, index).
-
-### Done
-
-| ID | File | Title | Fix |
-|----|------|-------|-----|
-| SC-H1 | `server.ts` | Silent persist-error swallow | Added `_trySilentPersist` helper with logging + Sentry; replaced 5 silent `catch {}` blocks |
-| SC-H2 | `server.ts` | `processQueue` re-entrant overshoot | Added `_queueDraining` guard flag to prevent re-entrant calls |
-| SC-M5 | `server.ts` | Log path traversal via unvalidated job ID | Added `VALIDATION.JOB_ID_PATTERN` check in `createJob`; replaced `path.basename` with regex sanitize in `_writeJobLog` |
-| SC-M1 | `database.ts` | Filename-derived job ID exceeds 100-char max | Added `VALIDATION.JOB_ID_MAX_LENGTH`; truncate after sanitization in import functions |
-| SC-M2 | `database.ts` | `bulkImportJobs` string bypass unparseable | Added `isValidJsonString` helper; reject records with invalid JSON string fields |
-| SC-M3 | `index.ts` | Magic number `30 * 60` for `maxWaitMs` | Already resolved — uses `TIMEOUTS.SCAN_COMPLETION_WAIT_MS` |
-| SC-M4 | `config.ts` | `codeBaseDir` uses `\|\|` not `??` | Changed to nullish coalescing `??` |
-| SC-M6 | `job-repository.ts` | `close()`/`reset()` guard asymmetry | Removed redundant `_initialized = false` in `reset()` |
-| SC-L1 | `constants.ts` | Timeout literals without unit derivation | Derived from `TIME_MS.MS` (100 * TIME_MS.MS, 10 * TIME_MS.MS) |
-| SC-L2 | `server.ts` | `tracesSampleRate: 1.0` hardcoded | Added `config.sentryTracesSampleRate` (env: SENTRY_TRACES_SAMPLE_RATE, default 0.1) |
-| SC-L3 | `index.ts` | Config cast to `Record<string, unknown>` | Removed `cfg` cast; access `config.xxx` properties directly |
-| SC-L4 | `database.ts` | `degradedMode`/`persistFailureCount` vestigial | Removed from HealthStatus interface and getHealthStatus return |
-| SC-L6 | `units.ts` | `DECIMAL_KB` coupled to `EXPORT_MAX_BATCH_SIZE_LIMIT` | Replaced with independent `1_000` literal |
-
-### High
-
-No active high-priority backlog items.
-
-### Medium
-
-No active medium-priority backlog items.
-
-### Low
-
-| ID | File | Title | Description |
-|----|------|-------|-------------|
-| SC-L5 | `server.ts` | `_generateCommitMessage`/`_generatePRContext` public | Should be `protected`; currently exposed on external API surface. Skipped — 6+ test call sites require public access. |
-
----
-
-## Code Review Follow-up (2026-03-09)
-
-> All items completed (2026-03-09). SC-M7–M8, SC-L7–L9 implemented by backlog-implementer.
-
-### Done
-
-| ID | File | Title | Fix |
-|----|------|-------|-----|
-| SC-M7 | `constants.ts` | `TIME_MS.MS` multiplication semantically inert | Added `TEN_MS`/`ONE_HUNDRED_MS` to `DURATION_MS` using `TIME_MS.SECOND / N` fractions |
-| SC-M8 | `database.ts` | `saveJob` lacks JSON validation like `bulkImportJobs` | Added identical JSON string validation guard before insert |
-| SC-L7 | `units.ts` | `EXPORT_MAX_BATCH_SIZE_LIMIT` is unused export | Removed dead export |
-| SC-L8 | `database.ts` | `isValidJsonString` duplicates `safeJsonParse` logic | Extracted `tryParseJson` result-type helper; both functions delegate to it |
-| SC-L9 | `database.ts` | Missing unit tests for SC-M1/SC-M2 data-integrity paths | Added 9 targeted unit tests in `tests/unit/database.test.ts` |
-
----
-
-## Code Review Findings — scripts/ (2026-03-09)
-
-Repomix-explorer analysis of 22 scripts (~42K tokens): shell (13), TypeScript (6), Python (1), JSON configs (2).
-
-> All items completed (2026-03-09). SCR-M1–M4, SCR-L1–L4 implemented by backlog-implementer.
-
-### Done
-
-| ID | File | Title | Fix |
-|----|------|-------|-----|
-| SCR-M1 | `fix-types.ts` | Uses `npm` but project uses `pnpm` | Rewrote to use `pnpm install`, `pnpm store prune`, `pnpm run typecheck`; fixed shebang |
-| SCR-M2 | `cleanup-error-logs.ts` | Magic number `1000 * 60 * 60 * 24` | Replaced with `TIMEOUTS.ONE_DAY_MS` |
-| SCR-M3 | `run-python-tests.sh` | Hardcoded user-specific path | Removed `/Users/alyshialedlie/...` fallback from CANDIDATES |
-| SCR-M4 | `generate-repomix-docs.sh`, `generate-repomix-git-ranked.sh` | Duplicated jq ignore-pattern extraction | Extracted to `scripts/repomix-lib.sh` `get_bundle_ignore_patterns()` |
-| SCR-L1 | TS scripts | Inconsistent shebangs | Standardized 5 scripts to `#!/usr/bin/env -S node --strip-types` |
-| SCR-L2 | `verify-bugfixes.sh` | Stale hardcoded file checks | Replaced past-bugfix file list with stable core architecture files |
-| SCR-L3 | `verify-bugfixes.sh` | Runtime-generated rollback script | Added `scripts/rollback-bugfixes.sh` to `.gitignore` |
-| SCR-L4 | `generate-diff-summary.sh` | Hardcoded `N=20`, `COMMITS=200` | Parameterized via `DIFF_SUMMARY_TOP_N` and `DIFF_SUMMARY_COMMITS` env vars |
-
----
-
-## Document Updates — Staleness Audit (2026-03-09)
-
-> All items completed (2026-03-09). See commits 6634551–8ea84c0.
-
-Audit of docs/ against current codebase (v2.3.20). Source: repomix-docs.xml index.
-
----
-
 ## Code Review Findings — sidequest/utils (2026-03-09)
 
 **Scan:** 15 TS files (utility modules, helpers, managers, validators, reporters).
 
-### Done
-
-| ID | File | Title | Fix |
-|----|------|-------|-----|
-| SU-C1 | `dependency-validator.ts` | Command injection via unsanitized pythonPath | Replaced all `execSync` string forms with `execFileSync` array form; removed `async` keywords from synchronous validators |
-| SU-M1 | `dependency-validator.ts` | Unguarded `r.reason as Error` cast | Added `instanceof Error` check with `String()` fallback for unknown rejection types |
-| SU-M2 | `dependency-validator.ts` | Missing `env: process.env` propagation | Added to all four `execFileSync` calls for NVM/pyenv environment variable inheritance |
-| SU-M3 | `dependency-validator.ts` | `parseInt` without radix | Applied `NUMBER_BASE.DECIMAL` constant from `sidequest/core/constants.ts` |
-| SU-L1 | `dependency-validator.ts` | Python version check rejects Python 4.x | Fixed logic to `major > 3 \|\| (major === 3 && minor >= 11)` |
-| SU-H1 | `plugin-manager.ts` | Direct `process.env.HOME` use | Use `os.homedir()` directly; remove redundant env fallback |
-| SU-H2 | `plugin-manager.ts` | Magic numbers for plugin thresholds | Added `PLUGIN_THRESHOLDS` to `constants.ts`; replaced 30/20 in `plugin-manager.ts` |
-| SU-H3 | `doppler-resilience.ts` | Magic number `successThreshold ?? 2` | Used `CONFIG_POLICY.DOPPLER.DEFAULT_SUCCESS_THRESHOLD` |
-| SU-H4 | `doppler-resilience.ts` | Non-null assertions on `nextAttemptTime` | Replaced `!` with explicit null check + separate warn log branch |
-| SU-M4 | `refactor-test-suite.ts` | Synchronous fs calls in async context | Switched to `fs/promises` throughout; all functions now async |
-| SU-M5 | `refactor-test-suite.ts` | `\|\| 0` instead of `?? 0` for counts | Applied `??` to all 6 count accumulations |
-| SU-M6 | `gitignore-repomix-updater.ts` | Duplicated hardcoded string | Replaced `**/repomix-output.xml` with `**/${this.gitignoreEntry}` |
-| SU-M7 | `gitignore-repomix-updater.ts` | Manual `import.meta.url` entrypoint check | Use `isDirectExecution()` from `execution-helpers.ts` |
-| SU-M8 | `report-generator.ts` | Duplicated 16-element `metricKeys` array | Extracted to module-level `METRIC_KEYS as const` |
-| SU-M9 | `schema-mcp-tools.ts` | Derived magic numbers for description length | `DESCRIPTION_TRUNCATED_LENGTH = DESCRIPTION_MAX_LENGTH - '...'.length` |
-| SU-L3 | `pipeline-names.ts` | `\|\|` instead of `??` + unnecessary type cast | Cast to `Record<string,string\|undefined>`; use `??` |
-| SU-L4 | `time-helpers.ts` | Repeated arithmetic on every call | Extracted `SECONDS_PER_MINUTE`/`SECONDS_PER_HOUR` module-level constants |
-| SU-L5 | `html-report-utils.ts` | Inline magic CSS values | CSS custom properties (`--space-*`, `--radius-*`, `--font-size-*`) in `:root` |
+Migrated to [v2.3.24](changelog/2.3/CHANGELOG.md#2324---2026-03-09): All 18 core items (SU-C1, SU-M1-M3, SU-L1, SU-H1-H4, SU-M4-M9, SU-L3-L5) plus 1 H1 post-review fix.
 
 ### Open — Final Review Findings (2026-03-09)
 

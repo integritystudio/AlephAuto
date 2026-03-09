@@ -6,6 +6,53 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.24] - 2026-03-09
+
+### Summary
+
+Comprehensive code review fixes across 4 major sections (API routes, sidequest/core, scripts, utilities) and 1 follow-up. 61 items closed (14 High, 25 Medium, 20 Low, 2 Critical). Security hardening (injection prevention, validation), error handling improvements, DRY refactoring, and nullish coalescing conversions throughout. One H1 logic fix post-review.
+
+### Changed
+
+**API Routes (23 items)** — Routes, middleware, utilities, WebSocket handling.
+- **H4-H9, M10-M15, L16-L18** — Security & validation fixes: directory traversal prevention via Zod, RESERVED_KEYS stripping, auth config module usage, timingSafeEqual padding, worker registry deduplication, pagination correctness, Sentry header redaction, WebSocket channel constraints, shell injection prevention, query validation patterns.
+
+**sidequest/core (13 items)** — Server, database, config, constants, units.
+- **SC-H1, SC-H2, SC-M1-M6, SC-L1-L4, SC-L6** — Error handling (Sentry tracing, re-entrancy guard), job ID validation, JSON string safety, magic number elimination, nullish coalescing conversions, config deprecations (removed vestigial health fields).
+
+**Code Review Follow-up (5 items)** — Constants, database, tests.
+- **SC-M7, SC-M8, SC-L7-L9** — Timeout constant derivation, JSON validation consistency, dead-export cleanup, DRY helper extraction, targeted unit tests for data-integrity paths.
+
+**scripts/ (8 items)** — Shell and TypeScript deployment/test utilities.
+- **SCR-M1-M4, SCR-L1-L4** — Package manager standardization (npm→pnpm), magic number elimination, hardcoded-path removal, DRY function extraction, consistent shebangs, stale config cleanup, parameterization.
+
+**sidequest/utils (18 items + 1 post-review fix)** — Utilities, helpers, validators, reporters.
+- **SU-C1, SU-M1-M3, SU-L1** — Security hardening: command injection prevention (execFileSync array form), error type safety, environment propagation, radix specification, Python version check logic.
+- **SU-H1-H4, SU-M4-M9, SU-L3-L5** — Plugin manager config consolidation, doppler-resilience null-guard logic fix, refactor-test-suite async fs migration, gitignore entry deduplication, METRIC_KEYS extraction, nullish coalescing conversions, CSS custom properties (--space-*, --radius-*, --font-size-*).
+- **H1 (post-review)** — Moved `cachedSecrets` null guard from inside try-block to after catch-block to ensure invariant-violation errors surface correctly.
+
+### Validation
+
+- `npm run typecheck` (pass)
+- `npm test` — 1234/1234 pass
+
+### Related
+
+- Backlog sections migrated: 6 Done sections (API Routes, sidequest/core, Follow-up, scripts/, sidequest/utils)
+- Open findings: 7 items remain in SU-FR (M1-M4, L1-L3) for future sprint
+- Deferred: SU-L2 (DopplerResilience abstract class blast radius)
+
+### Commits
+
+61 items across ~8-10 consolidated commits:
+- Initial implementation batch (c785e09..609ea4b)
+- BACKLOG.md updates (657ed0e)
+- OTEL session fixes (9ad7a81)
+- Final-review fixes H1 + M1-M3 (c9b4e07)
+- H1 logic fix (post-migration, current)
+
+---
+
 ## [2.3.23] - 2026-03-09
 
 ### Summary
