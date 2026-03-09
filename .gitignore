@@ -20,9 +20,10 @@ document-enhancement-impact-measurement/
 directory-scan-reports/
 output/
 condense/
-repomix-output.xml
-repomix-output.txt
+**repomix-output.xml**
+**repomix-output.txt**
 docs/repomix/*
+docs/output/*
 
 # Python
 venv/
@@ -61,3 +62,6 @@ coverage/
 # Schema cache (generated)
 .schema_cache/
 .claude/tsc-cache/
+
+# Runtime-generated scripts (produced by verify-bugfixes.sh --rollback)
+scripts/rollback-bugfixes.sh
