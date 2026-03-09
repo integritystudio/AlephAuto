@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-09 | **Last Session:** 2026-03-09 (backlog-implementer: SC-M1–M4, SC-M6, SC-L1–L4, SC-L6; follow-up: SC-M7–M8, SC-L7–L9)
+**Last Updated:** 2026-03-09 | **Last Session:** 2026-03-09 (backlog-implementer: SC-M7–M8, SC-L7–L9, SCR-M1–M4, SCR-L1–L4)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -31,6 +31,49 @@ Closed items migrated to changelog:
 - [v2.3.2](changelog/2.3/CHANGELOG.md) (`CX6`)
 - [v2.3.1](changelog/2.3/CHANGELOG.md) (`LOG8`, `LOG9`)
 - [v2.2.0](changelog/2.2/CHANGELOG.md) (`CX1-CX5`, `CX8-CX10`, `CS5`, `SV2`, `SV3`)
+
+---
+
+## Test Coverage Gaps (2026-03-09)
+
+Full implementation plan: [docs/TEST_COVERAGE_GAPS.md](TEST_COVERAGE_GAPS.md)
+
+| ID | Priority | Title | File |
+|----|----------|-------|------|
+| TC-C1 | Critical | `_trySilentPersist` Sentry capture untested | `server.ts` |
+| TC-C2 | Critical | `_queueDraining` re-entrancy guard untested | `server.ts` |
+| TC-H1 | High | `createJob` ID validation + `_writeJobLog` sanitize untested | `server.ts` |
+| TC-H2 | High | `timingSafeEqual` untested (needs extraction first) | `api/routes/jobs.ts` |
+| TC-H3 | High | `filterReservedJobKeys` untested (needs extraction first) | `api/routes/jobs.ts` |
+| TC-M1 | Medium | `getFileAgeDays` constant path untested | `scripts/cleanup-error-logs.ts` |
+| TC-M2 | Medium | `bulkImportJobs` `git` field edge case missing | `sidequest/core/database.ts` |
+| TC-M3 | Medium | `scanErrorLogs` file-filter + recursion untested | `scripts/cleanup-error-logs.ts` |
+| TC-M4 | Medium | Pagination route wiring not unit-tested | `api/routes/jobs.ts` |
+
+---
+
+## Known Issues (2026-03-09)
+
+<a id="known-issues"></a>
+
+### PM2 6.x + Node `--strip-types` + `.ts` entry points
+
+**Problem:** PM2 6.x loads `.ts` scripts via `import()` (ESM dynamic import), which causes
+`process.argv[1]` to point to PM2's `ProcessContainerFork.js` instead of the actual script.
+Pipeline runners using `isDirectExecution()` to guard `main()` will see a mismatch and never
+start — the process exits immediately with code 0 and PM2 enters a crash-restart loop.
+
+Additionally, `--strip-types` does not support TypeScript `enum` syntax — use `as const`
+objects instead. Import paths must use `.ts` extensions (Node v24 does not rewrite `.js`).
+
+**Solution:**
+- Add `process.env.pm_id !== undefined` as a fallback condition alongside `isDirectExecution()`
+- Convert `enum` declarations to `const ... as const` objects
+- Use `.ts` import extensions, not `.js`
+- Rebuild native modules (`npm rebuild better-sqlite3`) after Node version changes
+- Disable `wait_ready` in PM2 config — PM2 6.x sends premature SIGINT with `.ts` files
+
+**Affected versions:** Node v24.x, PM2 6.x. Not observed on Node v25.x.
 
 ---
 
@@ -226,22 +269,17 @@ No active medium-priority backlog items.
 
 ## Code Review Follow-up (2026-03-09)
 
-Session code-reviewer findings from SC backlog implementation batch. Medium/Low items deferred for future refactoring.
+> All items completed (2026-03-09). SC-M7–M8, SC-L7–L9 implemented by backlog-implementer.
 
-### Medium
+### Done
 
-| ID | File | Title | Description |
-|----|------|-------|-------------|
-| SC-M7 | `constants.ts:32-33` | `TIME_MS.MS` multiplication semantically inert | `100 * TIME_MS.MS` and `10 * TIME_MS.MS` evaluate to plain numbers since `TIME_MS.MS = 1`. Looks like unit derivation but carries no semantic weight. Impacts readability and future refactorings. |
-| SC-M8 | `database.ts:307` | `saveJob` lacks JSON validation like `bulkImportJobs` | `saveJob` uses same `typeof x === 'string' ? x : serialize` pattern as `bulkImportJobs`, but lacks the new JSON string validation guard. Inconsistent error handling for pre-serialized fields. |
-
-### Low
-
-| ID | File | Title | Description |
-|----|------|-------|-------------|
-| SC-L7 | `units.ts:42` | `EXPORT_MAX_BATCH_SIZE_LIMIT` is unused export | After SC-L6 decoupling, `EXPORT_MAX_BATCH_SIZE_LIMIT` has zero consumers (confirmed by grep). Should either be removed as dead export or documented as intentional public API constant. |
-| SC-L8 | `database.ts:180-187` | `isValidJsonString` duplicates `safeJsonParse` logic | New helper duplicates try/catch pattern from existing `safeJsonParse`. Could refactor `safeJsonParse` to return boolean or extend with overload instead of duplicating implementation. |
-| SC-L9 | `database.ts` | Missing unit tests for SC-M1/SC-M2 data-integrity paths | No dedicated unit tests for: (1) filename truncation to 100-char max + isValidJobId pass, (2) rejected record error messages for invalid JSON strings. Existing integration tests cover indirectly; targeted unit tests would harden regressions. |
+| ID | File | Title | Fix |
+|----|------|-------|-----|
+| SC-M7 | `constants.ts` | `TIME_MS.MS` multiplication semantically inert | Added `TEN_MS`/`ONE_HUNDRED_MS` to `DURATION_MS` using `TIME_MS.SECOND / N` fractions |
+| SC-M8 | `database.ts` | `saveJob` lacks JSON validation like `bulkImportJobs` | Added identical JSON string validation guard before insert |
+| SC-L7 | `units.ts` | `EXPORT_MAX_BATCH_SIZE_LIMIT` is unused export | Removed dead export |
+| SC-L8 | `database.ts` | `isValidJsonString` duplicates `safeJsonParse` logic | Extracted `tryParseJson` result-type helper; both functions delegate to it |
+| SC-L9 | `database.ts` | Missing unit tests for SC-M1/SC-M2 data-integrity paths | Added 9 targeted unit tests in `tests/unit/database.test.ts` |
 
 ---
 
@@ -249,23 +287,20 @@ Session code-reviewer findings from SC backlog implementation batch. Medium/Low 
 
 Repomix-explorer analysis of 22 scripts (~42K tokens): shell (13), TypeScript (6), Python (1), JSON configs (2).
 
-### Medium
+> All items completed (2026-03-09). SCR-M1–M4, SCR-L1–L4 implemented by backlog-implementer.
 
-| ID | File | Title | Description |
-|----|------|-------|-------------|
-| SCR-M1 | `fix-types.ts` | Uses `npm` but project uses `pnpm` | Deletes `node_modules` + `package-lock.json` as first resort, calls `npm install`/`npm cache clean`. Inconsistent with pnpm-based project. Rewrite to use pnpm or remove if issue is resolved. |
-| SCR-M2 | `cleanup-error-logs.ts:59` | Magic number `1000 * 60 * 60 * 24` | Should use `TIME` constants from `sidequest/core/constants.ts` (already imports `BYTES_PER_KB` from constants). |
-| SCR-M3 | `run-python-tests.sh:32` | Hardcoded user-specific path | `/Users/alyshialedlie/code-env/python/pyenv/versions/3.13.7/bin/python` — breaks on other machines. Should rely solely on `PYTEST_PYTHON` env var and standard discovery. |
-| SCR-M4 | `generate-repomix-docs.sh`, `generate-repomix-git-ranked.sh` | Duplicated jq ignore-pattern extraction | Both scripts contain identical jq expressions to extract bundle-ignore patterns from `repomix.config.json`. Extract to shared shell function. |
+### Done
 
-### Low
-
-| ID | File | Title | Description |
-|----|------|-------|-------------|
-| SCR-L1 | TS scripts | Inconsistent shebangs | `categorize-magic-numbers.ts` uses `node --strip-types`, `cleanup-error-logs.ts` uses plain `node`. Plain `node` shebang fails on `.ts` without a loader. Standardize to `--strip-types`. |
-| SCR-L2 | `verify-bugfixes.sh:66-77` | Stale hardcoded file checks | Pre-deployment checks verify specific files from a past bugfix deployment. Generalize or move file list to config. |
-| SCR-L3 | `verify-bugfixes.sh` | Runtime-generated rollback script | `create_rollback_script()` writes `scripts/rollback-bugfixes.sh` dynamically — side-effect that leaves uncommitted files. Not in `.gitignore`. |
-| SCR-L4 | `generate-diff-summary.sh` | Hardcoded `N=20`, `COMMITS=200` | Should be parameterized or extracted as constants for consistency with other generate scripts. |
+| ID | File | Title | Fix |
+|----|------|-------|-----|
+| SCR-M1 | `fix-types.ts` | Uses `npm` but project uses `pnpm` | Rewrote to use `pnpm install`, `pnpm store prune`, `pnpm run typecheck`; fixed shebang |
+| SCR-M2 | `cleanup-error-logs.ts` | Magic number `1000 * 60 * 60 * 24` | Replaced with `TIMEOUTS.ONE_DAY_MS` |
+| SCR-M3 | `run-python-tests.sh` | Hardcoded user-specific path | Removed `/Users/alyshialedlie/...` fallback from CANDIDATES |
+| SCR-M4 | `generate-repomix-docs.sh`, `generate-repomix-git-ranked.sh` | Duplicated jq ignore-pattern extraction | Extracted to `scripts/repomix-lib.sh` `get_bundle_ignore_patterns()` |
+| SCR-L1 | TS scripts | Inconsistent shebangs | Standardized 5 scripts to `#!/usr/bin/env -S node --strip-types` |
+| SCR-L2 | `verify-bugfixes.sh` | Stale hardcoded file checks | Replaced past-bugfix file list with stable core architecture files |
+| SCR-L3 | `verify-bugfixes.sh` | Runtime-generated rollback script | Added `scripts/rollback-bugfixes.sh` to `.gitignore` |
+| SCR-L4 | `generate-diff-summary.sh` | Hardcoded `N=20`, `COMMITS=200` | Parameterized via `DIFF_SUMMARY_TOP_N` and `DIFF_SUMMARY_COMMITS` env vars |
 
 ---
 
