@@ -5,19 +5,16 @@
  */
 
 import Sentry from '@sentry/node';
-import dotenv from 'dotenv';
-
-// Load environment variables
-dotenv.config();
+import { config } from '../../sidequest/core/config.ts';
 
 function checkSentryDsn() {
-  if (!process.env.SENTRY_DSN || process.env.SENTRY_DSN === 'your_sentry_dsn_here') {
-    console.error('❌ SENTRY_DSN not configured in .env file');
+  if (!config.sentryDsn || config.sentryDsn === 'your_sentry_dsn_here') {
+    console.error('❌ SENTRY_DSN not configured in environment');
     console.error('   Please run: npm run setup:sentry');
     process.exit(1);
   }
   console.log('✅ SENTRY_DSN found in environment');
-  console.log(`   DSN: ${process.env.SENTRY_DSN.substring(0, 50)}...\n`);
+  console.log(`   DSN: ${config.sentryDsn.substring(0, 50)}...\n`);
 }
 
 async function sendTestEvents() {
@@ -56,7 +53,7 @@ async function testSentryConnection() {
 
   checkSentryDsn();
 
-  Sentry.init({ dsn: process.env.SENTRY_DSN, environment: 'test', tracesSampleRate: 1.0 });
+  Sentry.init({ dsn: config.sentryDsn, environment: 'test', tracesSampleRate: 1.0 });
   console.log('✅ Sentry initialized\n');
 
   console.log('📤 Sending test message to Sentry...');

@@ -3,6 +3,7 @@ import path from 'path';
 import os from 'os';
 import { BYTES_PER_KB } from '../../sidequest/core/constants.ts';
 import { waitForJobCompletion } from '../utils/test-utilities.ts';
+import { config } from '../../sidequest/core/config.ts';
 
 /**
  * Test script to run a single repomix job
@@ -62,7 +63,7 @@ async function testSingleJob() {
     outputBaseDir: './sidequest/output/condense',
     codeBaseDir: codeBase,
     logDir: './logs',
-    sentryDsn: process.env.SENTRY_DSN,
+    sentryDsn: config.sentryDsn,
   });
 
   setupWorkerEventListeners(worker);
