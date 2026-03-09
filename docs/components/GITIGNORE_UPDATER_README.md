@@ -28,7 +28,7 @@ This will scan the default directory (`~/code`) and update all found repositorie
 ### Dry Run (Recommended First)
 
 ```bash
-doppler run -- DRY_RUN=true node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts
+doppler run -- GITIGNORE_DRY_RUN=true node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts
 ```
 
 This will show what changes would be made without actually modifying any files.
@@ -36,13 +36,13 @@ This will show what changes would be made without actually modifying any files.
 ### Custom Base Directory
 
 ```bash
-doppler run -- CODE_BASE_DIR=/path/to/your/projects node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts
+doppler run -- GITIGNORE_BASE_DIR=/path/to/your/projects node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts
 ```
 
 ### Dry Run with Custom Directory
 
 ```bash
-doppler run -- DRY_RUN=true CODE_BASE_DIR=/path/to/your/projects node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts
+doppler run -- GITIGNORE_DRY_RUN=true GITIGNORE_BASE_DIR=/path/to/your/projects node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts
 ```
 
 ## Output
@@ -107,8 +107,10 @@ Configure via environment variables (Doppler):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CODE_BASE_DIR` | `~/code` | Base directory to scan |
-| `DRY_RUN` | `false` | Preview changes without modifying files |
+| `GITIGNORE_BASE_DIR` | `~/code` | Base directory to scan |
+| `GITIGNORE_DRY_RUN` | `false` | Preview changes without modifying files |
+| `GITIGNORE_MAX_DEPTH` | `10` | Maximum directory scan depth |
+| `GITIGNORE_CRON_SCHEDULE` | `0 4 * * *` | Cron schedule (daily at 4 AM) |
 
 ## Programmatic Usage
 

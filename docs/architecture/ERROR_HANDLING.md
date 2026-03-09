@@ -1415,7 +1415,7 @@ const health = getHealthStatus();
 ### Persistence Failure Handling
 
 Persistence failures surface via the `_trySilentPersist` helper in `server.ts`:
-- Logs the error with Pino at `warn` level
+- Logs the error with Pino at `error` level
 - Captures to Sentry at `error` level with job context
 - Does not halt job execution (non-blocking write path)
 
