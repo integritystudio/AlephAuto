@@ -197,6 +197,16 @@ Full review: [code-reviewer agent findings](REMOVED_AFTER_SESSION)
 | SC-H1 | `server.ts` | Silent persist-error swallow | Added `_trySilentPersist` helper with logging + Sentry; replaced 5 silent `catch {}` blocks |
 | SC-H2 | `server.ts` | `processQueue` re-entrant overshoot | Added `_queueDraining` guard flag to prevent re-entrant calls |
 | SC-M5 | `server.ts` | Log path traversal via unvalidated job ID | Added `VALIDATION.JOB_ID_PATTERN` check in `createJob`; replaced `path.basename` with regex sanitize in `_writeJobLog` |
+| SC-M1 | `database.ts` | Filename-derived job ID exceeds 100-char max | Added `VALIDATION.JOB_ID_MAX_LENGTH`; truncate after sanitization in import functions |
+| SC-M2 | `database.ts` | `bulkImportJobs` string bypass unparseable | Added `isValidJsonString` helper; reject records with invalid JSON string fields |
+| SC-M3 | `index.ts` | Magic number `30 * 60` for `maxWaitMs` | Already resolved — uses `TIMEOUTS.SCAN_COMPLETION_WAIT_MS` |
+| SC-M4 | `config.ts` | `codeBaseDir` uses `\|\|` not `??` | Changed to nullish coalescing `??` |
+| SC-M6 | `job-repository.ts` | `close()`/`reset()` guard asymmetry | Removed redundant `_initialized = false` in `reset()` |
+| SC-L1 | `constants.ts` | Timeout literals without unit derivation | Derived from `TIME_MS.MS` (100 * TIME_MS.MS, 10 * TIME_MS.MS) |
+| SC-L2 | `server.ts` | `tracesSampleRate: 1.0` hardcoded | Added `config.sentryTracesSampleRate` (env: SENTRY_TRACES_SAMPLE_RATE, default 0.1) |
+| SC-L3 | `index.ts` | Config cast to `Record<string, unknown>` | Removed `cfg` cast; access `config.xxx` properties directly |
+| SC-L4 | `database.ts` | `degradedMode`/`persistFailureCount` vestigial | Removed from HealthStatus interface and getHealthStatus return |
+| SC-L6 | `units.ts` | `DECIMAL_KB` coupled to `EXPORT_MAX_BATCH_SIZE_LIMIT` | Replaced with independent `1_000` literal |
 
 ### High
 
@@ -204,21 +214,10 @@ No active high-priority backlog items.
 
 ### Medium
 
-| ID | File | Title | Description |
-|----|------|-------|-------------|
-| SC-M1 | `database.ts:929` | Filename-derived job ID exceeds 100-char max | `isValidJobId` enforces 100 chars but filename sanitization has no length check; truncate or skip. |
-| SC-M2 | `database.ts:1083` | `bulkImportJobs` string bypass unparseable | Raw JSON string bypass of `serializeJsonForStorage` — unparseable string silently returns null on read. Validate or document. |
-| SC-M3 | `index.ts:1432` | Magic number `30 * 60` for `maxWaitMs` | Should use named constant (e.g., `TIMEOUTS.THIRTY_MINUTES_MS`). |
-| SC-M4 | `config.ts:58` | `codeBaseDir` uses `\|\|` not `??` | Inconsistent with nullish coalescing standard; empty string falls through to default. |
-| SC-M6 | `job-repository.ts:1570` | `close()`/`reset()` guard asymmetry | Readability concern — asymmetric guard logic between close and reset. |
+No active medium-priority backlog items.
 
 ### Low
 
 | ID | File | Title | Description |
 |----|------|-------|-------------|
-| SC-L1 | `constants.ts:279` | Timeout literals without unit derivation | `PER_PATTERN_MS` and `PER_FILE_MS` are plain numbers, not derived from `DURATION_MS`. |
-| SC-L2 | `server.ts:1959` | `tracesSampleRate: 1.0` hardcoded | 100% trace sampling; should come from config with lower production default. |
-| SC-L3 | `index.ts:13` | Config cast to `Record<string, unknown>` | Defeats type safety; access config properties directly. |
-| SC-L4 | `database.ts:1025` | `degradedMode`/`persistFailureCount` vestigial | Always return healthy; remove from interface or implement tracking. |
-| SC-L5 | `server.ts:2314` | `_generateCommitMessage`/`_generatePRContext` public | Should be `protected`; currently exposed on external API surface. |
-| SC-L6 | `units.ts:2561` | `DECIMAL_KB` coupled to `EXPORT_MAX_BATCH_SIZE_LIMIT` | Accidental coupling; use independent `1_000` literal. |
+| SC-L5 | `server.ts` | `_generateCommitMessage`/`_generatePRContext` public | Should be `protected`; currently exposed on external API surface. Skipped — 6+ test call sites require public access. |
