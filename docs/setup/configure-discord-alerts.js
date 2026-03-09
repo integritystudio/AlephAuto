@@ -77,15 +77,11 @@ async function addWebhookIntegration() {
     const result = await sentryRequest(
       'POST',
       `/api/0/projects/${ORG_SLUG}/${PROJECT_SLUG}/plugins/webhooks/`,
-      {
-        urls: [DISCORD_WEBHOOK]
-      }
+      { urls: [DISCORD_WEBHOOK] }
     );
-
     console.log('   ✅ Webhook integration configured\n');
     return result;
   } catch (error) {
-    // May already exist, that's OK
     if (error.message.includes('400')) {
       console.log('   ℹ️  Webhook integration already exists\n');
     } else {
@@ -94,54 +90,39 @@ async function addWebhookIntegration() {
   }
 }
 
+const WEBHOOK_ACTION_ID = 'sentry.rules.actions.notify_event_service.NotifyEventServiceAction';
+
+function ruleHasWebhook(rule) {
+  return rule.actions.some(action => action.id === WEBHOOK_ACTION_ID);
+}
+
 /**
  * Update alert rule to include Discord webhook action
  */
 async function updateAlertRule(rule) {
   console.log(`   Updating: ${rule.name} (ID: ${rule.id})`);
 
-  // Check if webhook action already exists
-  const hasWebhook = rule.actions.some(action =>
-    action.id === 'sentry.rules.actions.notify_event_service.NotifyEventServiceAction'
-  );
-
-  if (hasWebhook) {
+  if (ruleHasWebhook(rule)) {
     console.log('     ℹ️  Already has webhook action, skipping');
-    return rule;
+    return { updated: false };
   }
 
-  // Add webhook action
   const updatedActions = [
     ...rule.actions,
-    {
-      id: 'sentry.rules.actions.notify_event_service.NotifyEventServiceAction',
-      service: 'webhooks'
-    }
+    { id: WEBHOOK_ACTION_ID, service: 'webhooks' }
   ];
 
-  // Update the rule
-  const updatedRule = await sentryRequest(
+  await sentryRequest(
     'PUT',
     `/api/0/projects/${ORG_SLUG}/${PROJECT_SLUG}/rules/${rule.id}/`,
-    {
-      ...rule,
-      actions: updatedActions
-    }
+    { ...rule, actions: updatedActions }
   );
 
   console.log('     ✅ Added Discord notification');
-  return updatedRule;
+  return { updated: true };
 }
 
-/**
- * Main execution
- */
-async function main() {
-  console.log('╔════════════════════════════════════════════════════════════════╗');
-  console.log('║         Configure Discord Integration for Sentry              ║');
-  console.log('╚════════════════════════════════════════════════════════════════╝\n');
-
-  // Verify environment variables
+function validateEnvironment() {
   if (!SENTRY_TOKEN) {
     console.error('❌ SENTRY_TOKEN not found in environment');
     console.error('   Get it from: doppler secrets get SENTRY_TOKEN -p analyticsbot -c dev --plain');
@@ -158,52 +139,57 @@ async function main() {
   console.log(`   Organization: ${ORG_SLUG}`);
   console.log(`   Project: ${PROJECT_SLUG}`);
   console.log(`   Discord webhook: ${DISCORD_WEBHOOK.substring(0, 50)}...\n`);
+}
+
+async function updateAllRules(rules) {
+  console.log('🔄 Updating alert rules to include Discord notifications...\n');
+
+  let updated = 0;
+  let skipped = 0;
+
+  for (const rule of rules) {
+    try {
+      const result = await updateAlertRule(rule);
+      if (result.updated) {
+        updated++;
+      } else {
+        skipped++;
+      }
+    } catch (error) {
+      console.log(`     ❌ Error: ${error.message}`);
+    }
+  }
+
+  return { total: rules.length, updated, skipped };
+}
+
+function printSummary({ total, updated, skipped }) {
+  console.log('\n╔════════════════════════════════════════════════════════════════╗');
+  console.log('║              Discord Integration Complete! ✅                 ║');
+  console.log('╚════════════════════════════════════════════════════════════════╝\n');
+  console.log(`📊 Summary:`);
+  console.log(`   • Total alert rules: ${total}`);
+  console.log(`   • Updated with Discord: ${updated}`);
+  console.log(`   • Already had Discord: ${skipped}\n`);
+  console.log('🎯 Next steps:');
+  console.log('   1. Test the integration: node test/test-discord-webhook.js');
+  console.log('   2. Trigger a test error: node test/test-sentry-connection.js');
+  console.log('   3. Check your Discord channel for alerts');
+  console.log('   4. View alerts in Sentry: https://sentry.io/organizations/integrity-studio/alerts/rules/\n');
+}
+
+async function main() {
+  console.log('╔════════════════════════════════════════════════════════════════╗');
+  console.log('║         Configure Discord Integration for Sentry              ║');
+  console.log('╚════════════════════════════════════════════════════════════════╝\n');
+
+  validateEnvironment();
 
   try {
-    // Step 1: Add webhook integration
     await addWebhookIntegration();
-
-    // Step 2: Get all alert rules
     const rules = await getAlertRules();
-
-    // Step 3: Update each rule to include Discord
-    console.log('🔄 Updating alert rules to include Discord notifications...\n');
-
-    let updated = 0;
-    let skipped = 0;
-
-    for (const rule of rules) {
-      try {
-        const result = await updateAlertRule(rule);
-
-        // Check if it was actually updated
-        const hasWebhook = rule.actions.some(action =>
-          action.id === 'sentry.rules.actions.notify_event_service.NotifyEventServiceAction'
-        );
-
-        if (hasWebhook) {
-          skipped++;
-        } else {
-          updated++;
-        }
-      } catch (error) {
-        console.log(`     ❌ Error: ${error.message}`);
-      }
-    }
-
-    console.log('\n╔════════════════════════════════════════════════════════════════╗');
-    console.log('║              Discord Integration Complete! ✅                 ║');
-    console.log('╚════════════════════════════════════════════════════════════════╝\n');
-    console.log(`📊 Summary:`);
-    console.log(`   • Total alert rules: ${rules.length}`);
-    console.log(`   • Updated with Discord: ${updated}`);
-    console.log(`   • Already had Discord: ${skipped}\n`);
-    console.log('🎯 Next steps:');
-    console.log('   1. Test the integration: node test/test-discord-webhook.js');
-    console.log('   2. Trigger a test error: node test/test-sentry-connection.js');
-    console.log('   3. Check your Discord channel for alerts');
-    console.log('   4. View alerts in Sentry: https://sentry.io/organizations/integrity-studio/alerts/rules/\n');
-
+    const stats = await updateAllRules(rules);
+    printSummary(stats);
   } catch (error) {
     console.error('\n❌ Configuration failed:', error.message);
     process.exit(1);

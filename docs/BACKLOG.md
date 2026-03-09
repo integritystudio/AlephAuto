@@ -121,11 +121,11 @@ No active critical-complexity backlog items.
 
 #### CX15: Break up long integration test runners
 **Priority**: P2 | **Source**: ast-grep `analyze_complexity`
-22 test functions exceed 50-line length threshold. Top 3 offenders fixed (v2.3.19): `main` in `test-automated-pipeline.ts` (133→28), `testGitignoreRespect` in `test-gitignore-respect.ts` (121→26), `main` in `test-report-generation.ts` (120→30). Remaining 19 functions still exceed threshold. Consider splitting into smaller focused functions or adopting a test framework with `describe`/`it` blocks.
+22 test functions exceed 50-line length threshold. Top 3 offenders fixed (v2.3.19): `main` in `test-automated-pipeline.ts` (133→28), `testGitignoreRespect` in `test-gitignore-respect.ts` (121→26), `main` in `test-report-generation.ts` (120→30). Also replaced hand-rolled poll in `test-single-job.ts` with existing `waitForJobCompletion()` utility (DRY). Remaining 19 functions still exceed threshold.
 
 #### CX16: Shorten setup scripts
-**Priority**: P2 | **Source**: ast-grep `analyze_complexity`
-`setupDopplerSentry` (136 lines, cyc=14), `setupSentry` (128 lines, cyc=12), and `main` in `configure-discord-alerts.js` (73 lines, cyc=10) exceed both length and cyclomatic thresholds. Extract step functions from these procedural setup scripts.
+**Priority**: P2 | **Source**: ast-grep `analyze_complexity` | **Status**: Done (v2.3.19)
+`setupDopplerSentry` (136→18 lines), `setupSentry` (128→16 lines), and `main` in `configure-discord-alerts.js` (73→14 lines). Extracted step functions: check/validate/prompt/update/test/print helpers from each procedural script. Also extracted `WEBHOOK_ACTION_ID` constant, `ruleHasWebhook()` helper, `validateEnvironment()`, `updateAllRules()`, and `printSummary()` in discord-alerts.
 
 ### Low
 
