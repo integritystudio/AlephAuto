@@ -30,9 +30,6 @@ class WebSocketService {
   /**
    * Connect to WebSocket server
    */
-  /**
-   * Connect to.
-   */
   connect(): void {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = import.meta.env.VITE_WS_HOST || window.location.host;
@@ -385,11 +382,6 @@ class WebSocketService {
   /**
    * Send message to server
    */
-  /**
-   * Send.
-   *
-   * @param {any} message - The message
-   */
   send(message: any): void {
     if (this.socket?.readyState === WebSocket.OPEN) {
       this.socket.send(JSON.stringify(message));
@@ -398,9 +390,6 @@ class WebSocketService {
 
   /**
    * Disconnect from WebSocket server
-   */
-  /**
-   * Disconnect from.
    */
   disconnect(): void {
     this.stopHeartbeat();
@@ -412,11 +401,6 @@ class WebSocketService {
 
   /**
    * Check if connected
-   */
-  /**
-   * Check if connected.
-   *
-   * @returns {boolean} True if connected, False otherwise
    */
   isConnected(): boolean {
     return this.socket?.readyState === WebSocket.OPEN;
