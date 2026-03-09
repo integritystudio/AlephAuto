@@ -28,7 +28,7 @@ import path from 'path';
 import { createGzip } from 'zlib';
 import { pipeline } from 'stream/promises';
 import { createReadStream, createWriteStream } from 'fs';
-import { BYTES_PER_KB } from '../sidequest/core/constants.ts';
+import { BYTES_PER_KB, TIMEOUTS } from '../sidequest/core/constants.ts';
 import { createComponentLogger, logError } from '../sidequest/utils/logger.ts';
 
 const logger = createComponentLogger('ErrorLogCleanup');
@@ -102,7 +102,7 @@ Cron Setup (weekly, Sunday 3 AM):
 async function getFileAgeDays(filePath) {
   const stats = await fs.stat(filePath);
   const ageMs = Date.now() - stats.mtimeMs;
-  return ageMs / (1000 * 60 * 60 * 24);
+  return ageMs / TIMEOUTS.ONE_DAY_MS;
 }
 
 /**
