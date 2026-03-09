@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-08 | **Last Session:** 2026-03-08 (migrated CS9, DUP1 to v2.3.20)
+**Last Updated:** 2026-03-08 | **Last Session:** 2026-03-08 (CX15 complete v2.3.22, added SV4-SV6)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -112,7 +112,7 @@ No active backlog items.
 
 Full report: [complexity-report-2026-03-08.md](complexity-report-2026-03-08.md)
 
-**Scan:** 234 TS files, 165 functions extracted, 24 exceeding thresholds (14.5%). 0 security issues, 95 `prefer-const` info violations, 1 duplication group.
+**Scan:** 234 TS files, 165 functions extracted, 24 exceeding thresholds → **0** (all resolved). 0 security issues, 95 `prefer-const` info violations, ~~1~~ 0 duplication groups.
 
 ### Critical
 
@@ -132,4 +132,16 @@ No active critical-complexity backlog items.
 
 ### Low
 
-No active low-priority backlog items.
+#### SV4: Migrate test-discord-webhook.ts from CommonJS to ESM
+**Priority**: P3 | **Source**: code-reviewer (CX15 final review) | **Status**: Open
+`tests/scripts/test-discord-webhook.ts` uses `require('https')` and `require('dotenv').config()` — only CJS test file in the codebase. Should migrate to ES module imports to match project convention.
+
+#### SV5: Replace direct process.env access in test scripts
+**Priority**: P3 | **Source**: code-reviewer (CX15 final review) | **Status**: Open
+Violates Critical Pattern #2 (use `config` module, not `process.env` directly):
+- `tests/scripts/test-sentry-connection.ts` — reads `process.env.SENTRY_DSN` in `checkSentryDsn()` and `Sentry.init()`
+- `tests/scripts/test-single-job.ts` — reads `process.env.SENTRY_DSN` in worker options
+
+#### SV6: Replace dynamic imports with static imports in test-repomix-fix.ts
+**Priority**: P3 | **Source**: code-reviewer (CX15 final review) | **Status**: Open
+`tests/scripts/test-repomix-fix.ts` uses `await import('child_process')` and `await import('fs/promises')` inside extracted helpers `checkNpxRepomix()` and `checkErrorLogs()`. These should be static top-level imports since the file is not a lazy-loading module.
