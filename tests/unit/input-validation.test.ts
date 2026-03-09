@@ -6,6 +6,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { VALIDATION, PAGINATION } from '../../sidequest/core/constants.ts';
+import { timingSafeEqual } from '../../api/utils/crypto-helpers.ts';
 
 /**
  * Validate and sanitize job ID from URL parameter
@@ -187,5 +188,28 @@ describe('Input Sanitization - M7: Pagination Parameters', () => {
     const result = sanitizePaginationParams(50, Number.MAX_SAFE_INTEGER);
     assert.strictEqual(result.offset, Number.MAX_SAFE_INTEGER);
     assert.ok(Number.isSafeInteger(result.offset));
+  });
+});
+
+describe('timingSafeEqual - TC-H2', () => {
+  it('returns true for identical strings', () => {
+    assert.ok(timingSafeEqual('abc', 'abc'));
+  });
+
+  it('returns false for same-length strings with different content', () => {
+    assert.ok(!timingSafeEqual('key-aaa', 'key-bbb'));
+  });
+
+  it('returns false for different-length strings', () => {
+    assert.ok(!timingSafeEqual('short', 'longer-key'));
+  });
+
+  it('returns false for non-string inputs', () => {
+    assert.ok(!timingSafeEqual(null as unknown as string, 'key'));
+    assert.ok(!timingSafeEqual(123 as unknown as string, '123'));
+  });
+
+  it('returns false for empty string vs non-empty', () => {
+    assert.ok(!timingSafeEqual('', 'key'));
   });
 });

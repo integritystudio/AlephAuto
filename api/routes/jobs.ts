@@ -4,8 +4,8 @@
  */
 
 import express from 'express';
-import crypto from 'crypto';
 import { createComponentLogger, logError, logStart } from '#sidequest/utils/logger.ts';
+import { timingSafeEqual } from '../utils/crypto-helpers.ts';
 import { jobRepository } from '#sidequest/core/job-repository.ts';
 import { workerRegistry } from '../utils/worker-registry.ts';
 import { config } from '#sidequest/core/config.ts';
@@ -15,24 +15,6 @@ import { PAGINATION, VALIDATION, RETRY } from '#sidequest/core/constants.ts';
 import { sendError, sendNotFoundError, sendInternalError, ERROR_CODES } from '../utils/api-error.ts';
 import { bulkImportRateLimiter } from '../middleware/rate-limit.ts';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
-
-/**
- * Constant-time string comparison that does not leak length information.
- */
-function timingSafeEqual(a: unknown, b: unknown): boolean {
-  if (typeof a !== 'string' || typeof b !== 'string') return false;
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  const maxLen = Math.max(bufA.length, bufB.length);
-  const paddedA = Buffer.alloc(maxLen, 0);
-  const paddedB = Buffer.alloc(maxLen, 0);
-  bufA.copy(paddedA);
-  bufB.copy(paddedB);
-  const equal = crypto.timingSafeEqual(paddedA, paddedB);
-  const sameLength = bufA.length === bufB.length;
-  // Bitwise AND prevents short-circuit evaluation that could leak length info
-  return (equal && sameLength);
-}
 
 const RESERVED_JOB_KEYS = new Set(['retriedFrom', 'triggeredBy', 'triggeredAt', 'retryCount']);
 
