@@ -8,7 +8,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import * as Sentry from '@sentry/node';
-import { FORMATTING } from '../core/constants.ts';
+import { FORMATTING, GIT_ACTIVITY } from '../core/constants.ts';
 import { createComponentLogger, logError } from './logger.ts';
 import { TIME_MS } from '../core/units.ts';
 import { formatDuration } from './time-helpers.ts';
@@ -414,7 +414,7 @@ function formatValue(value: unknown): string {
 /**
  * Remove reports older than the retention period (30 days).
  */
-export async function pruneOldReports(outputDir: string = DEFAULT_OUTPUT_DIR, maxAgeMs: number = 30 * TIME_MS.DAY): Promise<void> {
+export async function pruneOldReports(outputDir: string = DEFAULT_OUTPUT_DIR, maxAgeMs: number = GIT_ACTIVITY.MONTHLY_WINDOW_DAYS * TIME_MS.DAY): Promise<void> {
   const cutoff = Date.now() - maxAgeMs;
   let entries;
   try {

@@ -18,6 +18,7 @@ const DURATION_MS = {
   FIVE_MINUTES: 5 * TIME_MS.MINUTE,
   TEN_MINUTES: 10 * TIME_MS.MINUTE,
   FIFTEEN_MINUTES: 15 * TIME_MS.MINUTE,
+  THIRTY_MINUTES: 30 * TIME_MS.MINUTE,
   HOUR: TIME_MS.HOUR,
   TWELVE_HOURS: 12 * TIME_MS.HOUR,
   DAY: HOURS_PER_DAY * TIME_MS.HOUR,
@@ -50,6 +51,12 @@ export const TIMEOUTS = {
   DATABASE_SAVE_INTERVAL_MS: DURATION_MS.THIRTY_SECONDS,
   DEPENDENCY_CHECK_MS: DURATION_MS.THIRTY_SECONDS,
   VERSION_CHECK_MS: DURATION_MS.FIVE_SECONDS,
+
+  /** Maximum wait time for async pipeline completion */
+  SCAN_COMPLETION_WAIT_MS: DURATION_MS.THIRTY_MINUTES,
+
+  /** Doppler health monitor polling interval in minutes */
+  DOPPLER_MONITOR_INTERVAL_MIN: 15,
 } as const;
 
 /**
@@ -340,6 +347,21 @@ export const LIMITS = {
 
   /** Number of trailing stderr characters for inline error message snippets */
   STDERR_SHORT_TAIL_CHARS: 200,
+
+  /** Maximum number of recent activities to buffer in the activity feed */
+  ACTIVITY_BUFFER_SIZE: 50,
+
+  /** Maximum unique strings to include when generating a constants file */
+  UNIQUE_STRINGS_LIMIT: 50,
+
+  /** Length of the path hash prefix used in cache keys */
+  CACHE_PATH_HASH_LENGTH: 16,
+
+  /** Number of random bytes used to generate WebSocket client IDs */
+  CLIENT_ID_BYTES: 16,
+
+  /** Characters of API key to include in log prefixes */
+  API_KEY_LOG_PREFIX: 8,
 } as const;
 
 /**
@@ -348,6 +370,9 @@ export const LIMITS = {
 export const GIT = {
   /** Standard short hash character length (git log --short default) */
   SHORT_HASH_LENGTH: 7,
+
+  /** Maximum characters from branch description slug */
+  BRANCH_DESCRIPTION_MAX_CHARS: 30,
 } as const;
 
 /**

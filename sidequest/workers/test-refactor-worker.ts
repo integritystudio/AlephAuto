@@ -701,7 +701,7 @@ export async function waitForForm() {
    * Generate test-constants.ts content
    */
   generateConstantsContent(hardcodedStrings: string[]): string {
-    const uniqueStrings = [...new Set(hardcodedStrings)].slice(0, 50);
+    const uniqueStrings = [...new Set(hardcodedStrings)].slice(0, LIMITS.UNIQUE_STRINGS_LIMIT);
     const categories = this.categorizeStrings(uniqueStrings);
 
     const sections: string[] = [];

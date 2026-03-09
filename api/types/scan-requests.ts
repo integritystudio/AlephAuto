@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod';
+import { INTER_PROJECT_SCAN } from '#sidequest/core/constants.ts';
 
 /**
  * Scan Options Schema
@@ -91,7 +92,7 @@ export type ScanResults = z.infer<typeof ScanResultsSchema>;
  * Start Multi Scan Request Schema
  */
 export const StartMultiScanRequestSchema = z.object({
-  repositoryPaths: z.array(z.string().min(1)).min(2, 'At least 2 repository paths required'),
+  repositoryPaths: z.array(z.string().min(1)).min(INTER_PROJECT_SCAN.MIN_REPOSITORIES_PER_GROUP, `At least ${INTER_PROJECT_SCAN.MIN_REPOSITORIES_PER_GROUP} repository paths required`),
   groupName: z.string().optional()
 }).strict();
 

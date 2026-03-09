@@ -104,7 +104,7 @@ export class ScanResultCache {
       .createHash('sha256')
       .update(repoPath)
       .digest('hex')
-      .substring(0, 16);
+      .substring(0, LIMITS.CACHE_PATH_HASH_LENGTH);
 
     const shortCommit = commitHash ? commitHash.substring(0, GIT.SHORT_HASH_LENGTH) : 'no-git';
 
@@ -288,7 +288,7 @@ export class ScanResultCache {
         .createHash('sha256')
         .update(repoPath)
         .digest('hex')
-        .substring(0, 16);
+        .substring(0, LIMITS.CACHE_PATH_HASH_LENGTH);
 
       const pattern = `${this.keyPrefix}${pathHash}:*`;
 

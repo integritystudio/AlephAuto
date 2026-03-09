@@ -7,7 +7,7 @@
 import type { Server as HttpServer } from 'http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { createComponentLogger, logError } from '../sidequest/utils/logger.ts';
-import { WEBSOCKET } from '../sidequest/core/constants.ts';
+import { LIMITS, WEBSOCKET } from '../sidequest/core/constants.ts';
 import crypto from 'crypto';
 
 const logger = createComponentLogger('WebSocketServer');
@@ -189,7 +189,7 @@ export function createWebSocketServer(httpServer: HttpServer): ExtendedWebSocket
  * @returns {string} Generated client id.
  */
 function generateClientId(): string {
-  return crypto.randomBytes(16).toString('hex');
+  return crypto.randomBytes(LIMITS.CLIENT_ID_BYTES).toString('hex');
 }
 
 /**

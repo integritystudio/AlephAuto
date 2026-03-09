@@ -161,7 +161,7 @@ export class RepomixCronApp {
   }
 
   private async waitForCompletion(): Promise<void> {
-    const maxWaitMs = 30 * 60 * TIME_MS.SECOND;
+    const maxWaitMs = TIMEOUTS.SCAN_COMPLETION_WAIT_MS;
     return new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
         clearInterval(checkInterval);

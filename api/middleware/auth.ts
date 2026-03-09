@@ -9,6 +9,7 @@ import { createComponentLogger } from '#sidequest/utils/logger.ts';
 import { config } from '#sidequest/core/config.ts';
 import crypto from 'crypto';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
+import { LIMITS } from '#sidequest/core/constants.ts';
 
 const logger = createComponentLogger('AuthMiddleware');
 
@@ -118,7 +119,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     logger.warn({
       path: req.path,
       ip: req.ip,
-      apiKeyPrefix: apiKey.substring(0, 8) + '...'
+      apiKeyPrefix: apiKey.substring(0, LIMITS.API_KEY_LOG_PREFIX) + '...'
     }, 'Invalid API key');
 
     res.status(HttpStatus.FORBIDDEN).json({

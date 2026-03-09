@@ -19,7 +19,7 @@ import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 import { createComponentLogger, logError, logStart } from '../sidequest/utils/logger.ts';
 import { config } from '../sidequest/core/config.ts';
-import { CACHE, CONCURRENCY, MAX_SCORE, PAGINATION, PORT, PROCESS } from '../sidequest/core/constants.ts';
+import { CACHE, CONCURRENCY, MAX_SCORE, PAGINATION, PORT, PROCESS, TIMEOUTS } from '../sidequest/core/constants.ts';
 import { TIME_MS } from '../sidequest/core/units.ts';
 import { authMiddleware } from './middleware/auth.ts';
 import { rateLimiter } from './middleware/rate-limit.ts';
@@ -456,7 +456,7 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
     }, 'Service endpoints');
 
     // Start Doppler health monitoring (check every 15 minutes)
-    await dopplerMonitor.startMonitoring(15);
+    await dopplerMonitor.startMonitoring(TIMEOUTS.DOPPLER_MONITOR_INTERVAL_MIN);
 
     // Setup graceful shutdown handlers
     setupGracefulShutdown(httpServer, {

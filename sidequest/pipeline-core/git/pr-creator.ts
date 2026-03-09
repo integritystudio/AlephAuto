@@ -12,7 +12,7 @@ import path from 'path';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import { MigrationTransformer } from './migration-transformer.ts';
-import { LIMITS } from '../../core/constants.ts';
+import { LIMITS, MARKDOWN_REPORT } from '../../core/constants.ts';
 import type { MigrationStep } from '../types/migration-types.ts';
 
 const logger = createComponentLogger('PRCreator');
@@ -106,7 +106,7 @@ export class PRCreator {
 
     // Filter suggestions that can be automated
     const automatableSuggestions = scanResult.suggestions.filter(
-      s => s.automated_refactor_possible && s.impact_score >= 50
+      s => s.automated_refactor_possible && s.impact_score >= MARKDOWN_REPORT.MEDIUM_SCORE_MIN
     );
 
     logger.info({
