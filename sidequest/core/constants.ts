@@ -295,6 +295,8 @@ export const PAGINATION = {
 export const VALIDATION = {
   /** Job ID pattern - alphanumeric, hyphens, underscores, max 100 chars */
   JOB_ID_PATTERN: /^[a-zA-Z0-9_-]{1,100}$/,
+  /** Maximum allowed length for job IDs */
+  JOB_ID_MAX_LENGTH: 100,
   /** Replaces characters not allowed in job IDs (for log filename sanitization) */
   JOB_ID_SANITIZE_PATTERN: /[^a-zA-Z0-9_-]/g,
 } as const;
@@ -362,6 +364,12 @@ export const LIMITS = {
 
   /** Characters of API key to include in log prefixes */
   API_KEY_LOG_PREFIX: 8,
+
+  /** Number of recent performance log entries to analyze */
+  PERF_LOG_RECENT_ENTRIES: 100,
+
+  /** Minimum health score to consider a system healthy (no recommendations) */
+  HIGH_HEALTH_SCORE: 90,
 } as const;
 
 /**

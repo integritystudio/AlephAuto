@@ -643,7 +643,7 @@ class ClaudeHealthWorker extends SidequestServer {
       // Read recent entries
       const data = await fs.readFile(perfLogPath, 'utf-8');
       const lines = data.split('\n').filter(l => l.trim());
-      const recentEntries = lines.slice(-100); // Last 100 entries
+      const recentEntries = lines.slice(-LIMITS.PERF_LOG_RECENT_ENTRIES);
 
       // Parse slow hooks
       const slowHooks: SlowHookDetail[] = recentEntries
@@ -827,7 +827,7 @@ class ClaudeHealthWorker extends SidequestServer {
     }
 
     // Success message if health score is high
-    if (analysis.healthScore >= 90 && recommendations.length === 0) {
+    if (analysis.healthScore >= LIMITS.HIGH_HEALTH_SCORE && recommendations.length === 0) {
       recommendations.push({
         priority: 'info',
         type: 'healthy',
