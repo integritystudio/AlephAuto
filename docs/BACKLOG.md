@@ -49,6 +49,7 @@ Full implementation plan: [docs/TEST_COVERAGE_GAPS.md](TEST_COVERAGE_GAPS.md)
 | TC-M2 | Medium | `bulkImportJobs` `git` field edge case missing | `sidequest/core/database.ts` |
 | TC-M3 | Medium | `scanErrorLogs` file-filter + recursion untested | `scripts/cleanup-error-logs.ts` |
 | TC-M4 | Medium | Pagination route wiring not unit-tested | `api/routes/jobs.ts` |
+| TC-M5 | Medium | TypeScript type annotations missing on helper functions | `scripts/cleanup-error-logs.ts` (getFileAgeDays, compressFile, archiveOldLogs, deleteOldArchives, cleanup; see code-reviewer 6c80aff) |
 
 ---
 
