@@ -376,7 +376,7 @@ async function main() {
     process.exit(0);
   } catch (error) {
     logError(logger, error, 'Cleanup failed');
-    console.error('\n❌ Cleanup failed:', error.message);
+    console.error('\n❌ Cleanup failed:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }
