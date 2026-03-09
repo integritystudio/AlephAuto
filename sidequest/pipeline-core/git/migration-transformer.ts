@@ -7,6 +7,8 @@
  * - MigrationGitManager: stash/unstash pre-existing changes, rollback on failure
  */
 
+import { join } from 'path';
+import { access } from 'fs/promises';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import { parseMigrationStep, MigrationAstTransformer } from './migration-ast-transformer.ts';
@@ -24,7 +26,7 @@ const logger = createComponentLogger('MigrationTransformer');
 export type { MigrationTransformerOptions };
 
 export class MigrationTransformer {
-  dryRun: boolean;
+  readonly dryRun: boolean;
   private readonly astTransformer: MigrationAstTransformer;
   private readonly fileResolver: MigrationFileResolver;
   private readonly gitManager: MigrationGitManager;
@@ -112,8 +114,6 @@ export class MigrationTransformer {
     repositoryPath: string,
     results: MigrationResult
   ): Promise<void> {
-    const { join } = await import('path');
-    const { access } = await import('fs/promises');
     const absolutePath = join(repositoryPath, filePath);
 
     try {
