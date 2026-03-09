@@ -1,5 +1,7 @@
-const https = require('https');
-require('dotenv').config();
+import https from 'https';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_SENTRY_WEBHOOK;
 
