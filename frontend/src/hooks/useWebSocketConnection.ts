@@ -47,6 +47,16 @@ interface ApiActivity {
   jobId?: string;
 }
 
+interface ApiStatusData {
+  pipelines?: ApiPipeline[];
+  activeJobs?: ApiJob[];
+  queuedJobs?: ApiJob[];
+  recentActivity?: ApiActivity[];
+  queue?: { active: number; queued: number; capacity: number };
+  timestamp?: string;
+  retryMetrics?: { activeRetries: number };
+}
+
 const ACTIVITY_TYPE_MAP: Record<string, ActivityType> = {
   'job:created': ActivityType.QUEUED,
   'job:started': ActivityType.STARTED,
@@ -74,12 +84,12 @@ const PIPELINE_TYPE_MAP: Record<string, PipelineType> = {
 /**
  * fetchStatus.
  */
-async function fetchStatus() {
+async function fetchStatus(): Promise<ApiStatusData> {
   const response = await fetch('/api/status');
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`);
   }
-  return response.json();
+  return response.json() as Promise<ApiStatusData>;
 }
 
 /**
@@ -140,7 +150,7 @@ function mapPipeline(p: ApiPipeline): Pipeline {
 /**
  * applyJobsToStore.
  */
-function applyJobsToStore(store: ReturnType<typeof useDashboardStore.getState>, statusData: any) {
+function applyJobsToStore(store: ReturnType<typeof useDashboardStore.getState>, statusData: ApiStatusData) {
   if (statusData.activeJobs !== undefined) {
     store.setActiveJobs(statusData.activeJobs.map(mapActiveJob));
   }

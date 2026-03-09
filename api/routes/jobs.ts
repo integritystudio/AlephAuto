@@ -443,7 +443,7 @@ router.get('/:jobId/logs', (req, res) => {
 
     if (job.error) {
       const errorObj = (typeof job.error === 'object' ? job.error : { message: job.error }) as unknown as Record<string, unknown>;
-      logs.push(`[${endTs}] ERROR: ${errorObj.message || String(job.error)}`);
+      logs.push(`[${endTs}] ERROR: ${sanitizeLogField(errorObj.message || String(job.error))}`);
     }
 
     if (job.completedAt && job.status === 'completed') logs.push(`[${job.completedAt}] Job completed successfully`);
