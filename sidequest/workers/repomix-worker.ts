@@ -243,7 +243,7 @@ export class RepomixWorker extends SidequestServer {
 
           const error = new Error(
             `repomix exited with code ${code}\n` +
-            `stderr: ${stderr.slice(-200)}\n` +
+            `stderr: ${stderr.slice(-LIMITS.STDERR_SHORT_TAIL_CHARS)}\n` +
             `Reproduce: cd ${cwd} && npx repomix ${args.slice(1).join(' ')}`
           ) as Error & { code: number | null; stdout: string; stderr: string };
           error.code = code;

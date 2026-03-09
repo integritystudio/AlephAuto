@@ -334,6 +334,12 @@ export const LIMITS = {
 
   /** Default maximum number of root files before flagging for cleanup */
   DEFAULT_MAX_ROOT_FILES: 20,
+
+  /** Number of trailing stderr/stdout characters to include in error logs */
+  STDERR_TAIL_CHARS: 500,
+
+  /** Number of trailing stderr characters for inline error message snippets */
+  STDERR_SHORT_TAIL_CHARS: 200,
 } as const;
 
 /**
