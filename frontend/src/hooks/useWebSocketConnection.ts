@@ -148,15 +148,57 @@ function mapPipeline(p: ApiPipeline): Pipeline {
 }
 
 /**
- * applyJobsToStore.
+ * Map an API activity item to the store activity format.
  */
-function applyJobsToStore(store: ReturnType<typeof useDashboardStore.getState>, statusData: ApiStatusData) {
+function mapApiActivity(activity: ApiActivity) {
+  const pipelineId = activity.pipelineId || activity.jobType || 'unknown';
+  return {
+    '@type': 'https://schema.org/Event' as const,
+    id: activity.id || crypto.randomUUID(),
+    type: ACTIVITY_TYPE_MAP[activity.type] ?? ActivityType.PROGRESS,
+    pipelineId,
+    pipelineName: activity.pipelineName || pipelineId || 'Unknown',
+    message: activity.message || '',
+    timestamp: activity.timestamp || new Date().toISOString(),
+    jobId: activity.jobId,
+  };
+}
+
+/**
+ * Build system status object from API status data.
+ */
+function buildSystemStatus(statusData: ApiStatusData): Parameters<ReturnType<typeof useDashboardStore.getState>['setSystemStatus']>[0] {
+  return {
+    '@type': 'https://schema.org/Report',
+    health: 'healthy' as SystemHealth,
+    activeJobs: statusData.queue?.active || 0,
+    queuedJobs: statusData.queue?.queued || 0,
+    totalCapacity: statusData.queue?.capacity || 5,
+    websocketConnected: false,
+    lastUpdate: statusData.timestamp || new Date().toISOString(),
+    retryQueueSize: statusData.retryMetrics?.activeRetries || 0,
+  };
+}
+
+/**
+ * Apply jobs and activity feed from API status data to store.
+ */
+function applyStatusToStore(store: ReturnType<typeof useDashboardStore.getState>, statusData: ApiStatusData) {
   if (statusData.activeJobs !== undefined) {
     store.setActiveJobs(statusData.activeJobs.map(mapActiveJob));
   }
   if (statusData.queuedJobs !== undefined) {
     store.setQueuedJobs(statusData.queuedJobs.map(mapQueuedJob));
   }
+}
+
+/**
+ * Apply recent activity items to store (skips if activity feed already populated).
+ */
+function applyActivityFeed(store: ReturnType<typeof useDashboardStore.getState>, activities: ApiActivity[] | undefined, onlyIfEmpty = false) {
+  if (!activities || activities.length === 0) return;
+  if (onlyIfEmpty && store.activity.length > 0) return;
+  activities.forEach(a => store.addActivityItem(mapApiActivity(a)));
 }
 
 /**
@@ -172,35 +214,9 @@ async function loadInitialData() {
     const statusData = await fetchStatus();
 
     store.setPipelines((statusData.pipelines || []).map(mapPipeline));
-
-    applyJobsToStore(store, statusData);
-
-    store.setSystemStatus({
-      '@type': 'https://schema.org/Report',
-      health: 'healthy' as SystemHealth,
-      activeJobs: statusData.queue?.active || 0,
-      queuedJobs: statusData.queue?.queued || 0,
-      totalCapacity: statusData.queue?.capacity || 5,
-      websocketConnected: false,
-      lastUpdate: statusData.timestamp || new Date().toISOString(),
-      retryQueueSize: statusData.retryMetrics?.activeRetries || 0,
-    });
-
-    if (statusData.recentActivity && statusData.recentActivity.length > 0) {
-      statusData.recentActivity.forEach((activity: ApiActivity) => {
-        const pipelineId = activity.pipelineId || activity.jobType || 'unknown';
-        store.addActivityItem({
-          '@type': 'https://schema.org/Event',
-          id: activity.id || crypto.randomUUID(),
-          type: ACTIVITY_TYPE_MAP[activity.type] ?? ActivityType.PROGRESS,
-          pipelineId,
-          pipelineName: activity.pipelineName || pipelineId || 'Unknown',
-          message: activity.message || '',
-          timestamp: activity.timestamp || new Date().toISOString(),
-          jobId: activity.jobId,
-        });
-      });
-    }
+    applyStatusToStore(store, statusData);
+    store.setSystemStatus(buildSystemStatus(statusData));
+    applyActivityFeed(store, statusData.recentActivity);
 
     console.log('[Dashboard] Initial data loaded:', (statusData.pipelines || []).length, 'pipelines');
     store.setLoading(false);
@@ -233,29 +249,8 @@ async function pollForUpdates() {
       lastUpdate: new Date().toISOString(),
     });
 
-    if (statusData.activeJobs) {
-      store.setActiveJobs(statusData.activeJobs.map(mapActiveJob));
-    }
-    if (statusData.queuedJobs) {
-      store.setQueuedJobs(statusData.queuedJobs.map(mapQueuedJob));
-    }
-
-    // Refresh activity feed during polling (WS disconnected)
-    if (statusData.recentActivity && statusData.recentActivity.length > 0 && store.activity.length === 0) {
-      statusData.recentActivity.forEach((activity: ApiActivity) => {
-        const pipelineId = activity.pipelineId || activity.jobType || 'unknown';
-        store.addActivityItem({
-          '@type': 'https://schema.org/Event',
-          id: activity.id || crypto.randomUUID(),
-          type: ACTIVITY_TYPE_MAP[activity.type] ?? ActivityType.PROGRESS,
-          pipelineId,
-          pipelineName: activity.pipelineName || pipelineId || 'Unknown',
-          message: activity.message || '',
-          timestamp: activity.timestamp || new Date().toISOString(),
-          jobId: activity.jobId,
-        });
-      });
-    }
+    applyStatusToStore(store, statusData);
+    applyActivityFeed(store, statusData.recentActivity, true);
   } catch (error) {
     console.error('[Dashboard] Polling failed:', error);
   }

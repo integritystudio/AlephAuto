@@ -1,6 +1,6 @@
 # AlephAuto Dashboard
 
-**Version**: 1.3.0 | **Status**: Production Ready | **Updated**: 2026-02-25
+**Version**: 1.4.0 | **Status**: Production Ready | **Updated**: 2026-03-09
 
 Real-time monitoring and management dashboard for the AlephAuto job queue framework.
 
@@ -9,13 +9,13 @@ Real-time monitoring and management dashboard for the AlephAuto job queue framew
 ```
 Browser (Client)
   Dashboard UI (React + TypeScript + Vite)
-    Pipeline status cards, Job queue, Activity feed, Docs tabs
+    Pipeline status cards, Job queue, Activity feed, Pipeline detail panel, Job logs modal, Docs tabs
         |
         | WebSocket + REST API
         v
 Express Server (api/server.ts)
   WebSocket Server (ws) - Event broadcasting, auto-reconnect
-  REST API - /health, /api/status, /api/jobs, /api/pipelines, /api/scans
+  REST API - /health, /api/status, /api/jobs, /api/jobs/:id/logs, /api/pipelines, /api/scans
   Static File Serving - public/
         |
         | Event Emitters
@@ -31,6 +31,7 @@ AlephAuto Framework (sidequest/)
 2. Server broadcasts to WebSocket -> All connected clients receive event
 3. Dashboard updates UI -> Real-time status change without refresh
 4. Activity logged -> Event added to chronological feed
+5. Initial load: `/api/status` returns `activeJobs` and `queuedJobs` arrays so the dashboard renders immediately without waiting for WebSocket events
 
 ### Event Types
 
@@ -71,6 +72,8 @@ pm2 monit
 | Pipeline status cards | All pipelines displayed |
 | Job queue monitoring | Active/queued jobs with capacity gauge |
 | Activity feed | Chronological event log, filterable |
+| Pipeline detail panel | View Details drawer with job history per pipeline |
+| Job logs modal | View Logs modal with synthesized lifecycle logs |
 | Documentation tabs | 4 tabs with content |
 | WCAG AA compliance | Contrast ratios 6.8:1+ |
 

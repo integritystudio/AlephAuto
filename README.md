@@ -187,7 +187,7 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 - [Deployment](docs/DEPLOYMENT.md) - Production deployment
 - [Installation](docs/INSTALL.md) - Setup instructions
 - [Changelog](docs/CHANGELOG.md) - Legacy/cross-project history
-- [Release Changelogs](docs/changelog/README.md) - v2.x release history (latest: v2.3.17)
+- [Release Changelogs](docs/changelog/README.md) - v2.x release history (latest: v2.3.18)
 
 ## Known Issues
 

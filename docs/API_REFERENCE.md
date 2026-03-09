@@ -2,7 +2,7 @@
 
 **Base URL:** `http://localhost:8080`
 **WebSocket:** `ws://localhost:8080/ws`
-**Version:** 1.8.2
+**Version:** 1.9.0
 
 ## Table of Contents
 
@@ -129,6 +129,19 @@ System status with pipeline metrics and activity feed.
     "queued": 3,
     "capacity": 0
   },
+  "activeJobs": [
+    {
+      "@type": "https://schema.org/Action",
+      "id": "duplicate-detection-1705312200000",
+      "pipelineId": "duplicate-detection",
+      "pipelineName": "Duplicate Detection",
+      "status": "running",
+      "createdAt": "2024-01-15T10:00:00.000Z",
+      "startedAt": "2024-01-15T10:00:01.000Z",
+      "completedAt": null
+    }
+  ],
+  "queuedJobs": [],
   "retryMetrics": {
     "totalRetries": 5,
     "successfulRetries": 4,
@@ -377,6 +390,72 @@ Retry a failed job by creating a new retry job.
   "timestamp": "2024-01-15T10:30:00.000Z"
 }
 ```
+
+---
+
+### GET /api/jobs/:jobId/logs
+
+Get synthesized logs for a specific job (built from job lifecycle data).
+
+**Parameters:**
+- `jobId` (path): Job identifier
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "jobId": "duplicate-detection-1705312200000",
+    "logs": [
+      "[2024-01-15T10:00:00.000Z] Job created (pipeline: duplicate-detection)",
+      "[2024-01-15T10:00:01.000Z] Job started",
+      "[2024-01-15T10:00:45.000Z] Job completed successfully"
+    ],
+    "totalLines": 3
+  },
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+**Errors:**
+- `400`: Invalid job ID format
+- `404`: Job not found
+
+---
+
+### POST /api/jobs/bulk-import
+
+Bulk import jobs (for database migration). Requires `MIGRATION_API_KEY` environment variable.
+
+**Rate Limited:** Yes (bulk import limiter)
+
+**Request Body:**
+```json
+{
+  "jobs": [
+    { "id": "job-1", "status": "completed", "pipeline_id": "duplicate-detection" }
+  ],
+  "apiKey": "migration-key-from-env"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "imported": 10,
+    "skipped": 2,
+    "errors": []
+  },
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+**Errors:**
+- `400`: Invalid request (missing jobs array or required fields)
+- `401`: Invalid migration API key
+- `503`: Migration API not configured
 
 ---
 
@@ -867,6 +946,9 @@ curl -X POST http://localhost:8080/api/scans/start \
 # Get pipeline jobs
 curl "http://localhost:8080/api/pipelines/duplicate-detection/jobs?limit=5"
 
+# Get job logs
+curl http://localhost:8080/api/jobs/duplicate-detection-1705312200000/logs
+
 # List reports
 curl "http://localhost:8080/api/reports?format=html&limit=10"
 
@@ -878,5 +960,5 @@ curl -X POST http://localhost:8080/api/pipelines/duplicate-detection/trigger \
 
 ---
 
-**Last Updated:** 2026-03-04
-**Version:** 1.8.2
+**Last Updated:** 2026-03-09
+**Version:** 1.9.0

@@ -113,9 +113,9 @@ Full report: [complexity-report-2026-03-08.md](complexity-report-2026-03-08.md)
 
 ### Critical
 
-#### CX14: Refactor `loadInitialData` (cyclomatic = 19)
-**Priority**: P1 | **Source**: ast-grep `analyze_complexity`
-Highest cyclomatic complexity in the codebase (nearly 2x threshold). Extract activity-feed mapping and system-status construction into separate functions. -- `frontend/src/hooks/useWebSocketConnection.ts:112-161`
+No active critical-complexity backlog items.
+
+> CX14 completed in v2.3.19 (extracted `mapApiActivity`, `buildSystemStatus`, `applyActivityFeed` helpers).
 
 ### Medium
 

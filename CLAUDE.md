@@ -206,4 +206,4 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 
 ---
 
-**Version:** 2.3.17 | **Updated:** 2026-03-08 | **Status:** Production Ready
+**Version:** 2.3.18 | **Updated:** 2026-03-09 | **Status:** Production Ready
