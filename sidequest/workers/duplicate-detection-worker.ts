@@ -24,7 +24,7 @@ import path from 'path';
 import * as Sentry from '@sentry/node';
 import type { RetryMetrics, WorkerScanMetrics as ScanMetrics, DuplicateDetectionWorkerOptions } from '../pipeline-core/types/duplicate-detection-types.ts';
 import { config } from '../core/config.ts';
-import { RETRY, WORKER_EVENTS } from '../core/constants.ts';
+import { LIMITS, RETRY, WORKER_EVENTS } from '../core/constants.ts';
 
 const logger = createComponentLogger('DuplicateDetectionWorker');
 
@@ -138,7 +138,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
       baseBranch: options.baseBranch ?? 'main',
       branchPrefix: options.branchPrefix ?? 'consolidate',
       dryRun: options.dryRun ?? config.prDryRun,
-      maxSuggestionsPerPR: options.maxSuggestionsPerPR ?? 5
+      maxSuggestionsPerPR: options.maxSuggestionsPerPR ?? LIMITS.DEFAULT_MAX_SUGGESTIONS_PER_PR
     });
 
     this.scanMetrics = {

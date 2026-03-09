@@ -8,7 +8,7 @@ import { saveGeneratedReport } from '../utils/index.ts';
 import { REPORT_SCORE_CLASS_THRESHOLDS } from '../../core/score-thresholds.ts';
 import { formatDuration } from '../../utils/time-helpers.ts';
 import { escapeHtml, getBaseStyles } from '../../utils/html-report-utils.ts';
-import { LIMITS } from '../../core/constants.ts';
+import { LIMITS, MARKDOWN_REPORT } from '../../core/constants.ts';
 import type { ScanResult } from './json-report-generator.ts';
 
 export interface HTMLReportOptions {
@@ -297,10 +297,10 @@ export class HTMLReportGenerator {
                 <div class="duplicate-files">
                     <strong>Affected files:</strong>
                     <ul>
-                        ${(group.affected_files ?? []).slice(0, 5).map(file => `
+                        ${(group.affected_files ?? []).slice(0, MARKDOWN_REPORT.MAX_AFFECTED_FILES).map(file => `
                         <li><code>${escapeHtml(file)}</code></li>
                         `).join('')}
-                        ${(group.affected_files?.length ?? 0) > 5 ? `<li><em>... and ${(group.affected_files?.length ?? 0) - 5} more</em></li>` : ''}
+                        ${(group.affected_files?.length ?? 0) > MARKDOWN_REPORT.MAX_AFFECTED_FILES ? `<li><em>... and ${(group.affected_files?.length ?? 0) - MARKDOWN_REPORT.MAX_AFFECTED_FILES} more</em></li>` : ''}
                     </ul>
                 </div>
             </div>

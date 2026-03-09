@@ -5,6 +5,7 @@
  */
 
 import type { ExtendedError } from '../sidequest/pipeline-core/errors/error-classifier.ts';
+import { MARKDOWN_REPORT } from '../sidequest/core/constants.ts';
 import { createComponentLogger } from '../sidequest/utils/logger.ts';
 import type { ExtendedWebSocketServer, WsClientInfo } from './websocket.ts';
 
@@ -77,7 +78,7 @@ export class ScanEventBroadcaster {
         occurrence_count: duplicate.occurrence_count,
         impact_score: duplicate.impact_score,
         similarity_score: duplicate.similarity_score,
-        affected_files: (duplicate.affected_files as unknown[])?.slice(0, 5) // Limit to 5 files
+        affected_files: (duplicate.affected_files as unknown[])?.slice(0, MARKDOWN_REPORT.MAX_AFFECTED_FILES) // Limit displayed files
       },
       timestamp: new Date().toISOString()
     }, 'scans');

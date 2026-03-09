@@ -19,7 +19,7 @@ import { glob } from 'glob';
 import path from 'path';
 import fs from 'fs/promises';
 import { readFileSync } from 'fs';
-import { LIMITS } from '../core/constants.ts';
+import { LIMITS, TEST_REFACTOR } from '../core/constants.ts';
 const logger = createComponentLogger('TestRefactorWorker');
 
 // Type definitions
@@ -307,7 +307,7 @@ export class TestRefactorWorker extends SidequestServer {
 
     // Find duplicated strings (3+ occurrences)
     for (const [str, count] of stringCounts) {
-      if (count >= 3 && str.length > 5) {
+      if (count >= 3 && str.length > TEST_REFACTOR.MIN_HARDCODED_STRING_LENGTH) {
         result.patterns.hardcodedStrings.push(str);
       }
     }
@@ -320,16 +320,16 @@ export class TestRefactorWorker extends SidequestServer {
     }
 
     // Generate recommendations
-    if (result.patterns.renderWaitFor > 5) {
+    if (result.patterns.renderWaitFor > TEST_REFACTOR.PATTERN_RECOMMENDATION_THRESHOLD) {
       result.recommendations.push('Create renderAndWait helper to reduce render + waitFor boilerplate');
     }
-    if (result.patterns.linkValidation > 5) {
+    if (result.patterns.linkValidation > TEST_REFACTOR.PATTERN_RECOMMENDATION_THRESHOLD) {
       result.recommendations.push('Create link assertion helpers (expectExternalLink, expectInternalLink, etc.)');
     }
-    if (result.patterns.semanticChecks > 5) {
+    if (result.patterns.semanticChecks > TEST_REFACTOR.PATTERN_RECOMMENDATION_THRESHOLD) {
       result.recommendations.push('Create semantic validators (expectSectionWithId, expectHeadingLevel, etc.)');
     }
-    if (result.patterns.formInteractions > 5) {
+    if (result.patterns.formInteractions > TEST_REFACTOR.PATTERN_RECOMMENDATION_THRESHOLD) {
       result.recommendations.push('Create form helpers (fillContactForm, expectFormAccessibility, etc.)');
     }
     if (result.patterns.hardcodedStrings.length > LIMITS.DISPLAY_TOP_N) {

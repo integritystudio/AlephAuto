@@ -298,6 +298,12 @@ export const LIMITS = {
 
   /** Maximum child process buffer size in megabytes */
   MAX_BUFFER_MB: 10,
+
+  /** Maximum slow hook entries to display in health reports */
+  MAX_SLOW_HOOKS_DISPLAY: 5,
+
+  /** Default maximum suggestions grouped per PR */
+  DEFAULT_MAX_SUGGESTIONS_PER_PR: 5,
 } as const;
 
 /**
@@ -384,6 +390,17 @@ export const MARKDOWN_REPORT = {
 
   HIGH_SCORE_MIN: 75,
   MEDIUM_SCORE_MIN: 50,
+} as const;
+
+/**
+ * Test refactor analysis thresholds
+ */
+export const TEST_REFACTOR = {
+  /** Minimum hardcoded string length to flag for extraction */
+  MIN_HARDCODED_STRING_LENGTH: 5,
+
+  /** Minimum pattern count before generating a recommendation */
+  PATTERN_RECOMMENDATION_THRESHOLD: 5,
 } as const;
 
 /**

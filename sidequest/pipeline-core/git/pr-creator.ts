@@ -12,6 +12,7 @@ import path from 'path';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import { MigrationTransformer } from './migration-transformer.ts';
+import { LIMITS } from '../../core/constants.ts';
 import type { MigrationStep } from '../types/migration-types.ts';
 
 const logger = createComponentLogger('PRCreator');
@@ -70,7 +71,7 @@ export class PRCreator {
     this.baseBranch = options.baseBranch || 'main';
     this.branchPrefix = options.branchPrefix || 'consolidate';
     this.dryRun = options.dryRun ?? false;
-    this.maxSuggestionsPerPR = options.maxSuggestionsPerPR || 5;
+    this.maxSuggestionsPerPR = options.maxSuggestionsPerPR || LIMITS.DEFAULT_MAX_SUGGESTIONS_PER_PR;
     this.migrationTransformer = new MigrationTransformer({
       dryRun: this.dryRun
     });

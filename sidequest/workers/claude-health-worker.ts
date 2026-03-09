@@ -664,7 +664,7 @@ class ClaudeHealthWorker extends SidequestServer {
         recentEntries: recentEntries.length,
         slowHooks: slowHooks.length,
         failures,
-        slowHookDetails: slowHooks.slice(0, 5) // Top 5 slowest
+        slowHookDetails: slowHooks.slice(0, LIMITS.MAX_SLOW_HOOKS_DISPLAY) // Top slowest
       };
     } catch (error) {
       const err = error as NodeJS.ErrnoException;
