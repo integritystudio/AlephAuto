@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-09 | **Last Session:** 2026-03-09 (sidequest/core review SC-H2, SC-M1–M6, SC-L1–L6)
+**Last Updated:** 2026-03-09 | **Last Session:** 2026-03-09 (backlog-implementer: SC-M1–M4, SC-M6, SC-L1–L4, SC-L6; follow-up: SC-M7–M8, SC-L7–L9)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -221,3 +221,24 @@ No active medium-priority backlog items.
 | ID | File | Title | Description |
 |----|------|-------|-------------|
 | SC-L5 | `server.ts` | `_generateCommitMessage`/`_generatePRContext` public | Should be `protected`; currently exposed on external API surface. Skipped — 6+ test call sites require public access. |
+
+---
+
+## Code Review Follow-up (2026-03-09)
+
+Session code-reviewer findings from SC backlog implementation batch. Medium/Low items deferred for future refactoring.
+
+### Medium
+
+| ID | File | Title | Description |
+|----|------|-------|-------------|
+| SC-M7 | `constants.ts:32-33` | `TIME_MS.MS` multiplication semantically inert | `100 * TIME_MS.MS` and `10 * TIME_MS.MS` evaluate to plain numbers since `TIME_MS.MS = 1`. Looks like unit derivation but carries no semantic weight. Impacts readability and future refactorings. |
+| SC-M8 | `database.ts:307` | `saveJob` lacks JSON validation like `bulkImportJobs` | `saveJob` uses same `typeof x === 'string' ? x : serialize` pattern as `bulkImportJobs`, but lacks the new JSON string validation guard. Inconsistent error handling for pre-serialized fields. |
+
+### Low
+
+| ID | File | Title | Description |
+|----|------|-------|-------------|
+| SC-L7 | `units.ts:42` | `EXPORT_MAX_BATCH_SIZE_LIMIT` is unused export | After SC-L6 decoupling, `EXPORT_MAX_BATCH_SIZE_LIMIT` has zero consumers (confirmed by grep). Should either be removed as dead export or documented as intentional public API constant. |
+| SC-L8 | `database.ts:180-187` | `isValidJsonString` duplicates `safeJsonParse` logic | New helper duplicates try/catch pattern from existing `safeJsonParse`. Could refactor `safeJsonParse` to return boolean or extend with overload instead of duplicating implementation. |
+| SC-L9 | `database.ts` | Missing unit tests for SC-M1/SC-M2 data-integrity paths | No dedicated unit tests for: (1) filename truncation to 100-char max + isValidJobId pass, (2) rejected record error messages for invalid JSON strings. Existing integration tests cover indirectly; targeted unit tests would harden regressions. |
