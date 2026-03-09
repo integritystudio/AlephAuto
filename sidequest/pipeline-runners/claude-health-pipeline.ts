@@ -30,9 +30,9 @@
 import { ClaudeHealthWorker } from '../workers/claude-health-worker.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
-import { BYTES_PER_KB, JOB_EVENTS, MAX_SCORE } from '../core/constants.ts';
+import { BYTES_PER_KB, MAX_SCORE } from '../core/constants.ts';
 import { HEALTH_SCORE_THRESHOLDS } from '../core/score-thresholds.ts';
-import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
+import { BasePipeline, type JobStats } from './base-pipeline.ts';
 import { isDirectExecution } from '../utils/execution-helpers.ts';
 
 const logger = createComponentLogger('ClaudeHealthPipeline');
@@ -144,39 +144,17 @@ class ClaudeHealthPipeline extends BasePipeline<ClaudeHealthWorker> {
       skipPlugins: process.env.SKIP_PLUGINS === 'true'
     };
 
-    this.setupEventListeners();
-  }
-
-  /**
-   * Setup event listeners for job events
-   */
-  private setupEventListeners(): void {
-    this.worker.on(JOB_EVENTS.CREATED, (job: Job) => {
-      logger.info({ jobId: job.id }, 'Health check job created');
-    });
-
-    this.worker.on(JOB_EVENTS.STARTED, (job: Job) => {
-      logger.info({ jobId: job.id }, 'Health check job started');
-    });
-
-    this.worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
-      const result = job.result as unknown as HealthCheckResult;
-
-      logger.info({
-        jobId: job.id,
-        healthScore: result.summary.healthScore,
-        status: result.summary.status,
-        criticalIssues: result.summary.criticalIssues,
-        warnings: result.summary.warnings,
-        duration: result.duration
-      }, 'Health check job completed');
-
-      // Display results
-      this.displayResults(result);
-    });
-
-    this.worker.on(JOB_EVENTS.FAILED, (job: Job) => {
-      logError(logger, job.error, 'Health check job failed', { jobId: job.id });
+    this.setupDefaultEventListeners(logger, {
+      onCompleted: (job) => {
+        const result = job.result as unknown as HealthCheckResult;
+        this.displayResults(result);
+        return {
+          healthScore: result.summary.healthScore,
+          status: result.summary.status,
+          criticalIssues: result.summary.criticalIssues,
+          warnings: result.summary.warnings,
+        };
+      },
     });
   }
 

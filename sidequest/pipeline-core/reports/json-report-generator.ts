@@ -3,6 +3,11 @@
  *
  * Generates structured JSON exports of duplicate detection scan results.
  * Suitable for programmatic consumption, API integration, and data analysis.
+ *
+ * NOTE: The types defined here (ScanResult, DuplicateGroup, Suggestion, etc.)
+ * represent the Python pipeline's raw JSON output shape. They differ from the
+ * similarly named types in types/duplicate-detection-types.ts which model the
+ * TypeScript worker's job lifecycle and internal scan metadata.
  */
 
 import { saveGeneratedReport } from '../utils/index.ts';

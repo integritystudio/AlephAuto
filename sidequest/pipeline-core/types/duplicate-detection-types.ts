@@ -93,7 +93,11 @@ export const DuplicateDetectionJobDataSchema = z.object({
 export type DuplicateDetectionJobData = z.infer<typeof DuplicateDetectionJobDataSchema>;
 
 // ============================================================================
-// Scan Result Types
+// Scan Result Types (TypeScript worker lifecycle)
+//
+// NOTE: These differ from the types in reports/json-report-generator.ts which
+// represent the Python pipeline's raw JSON output shape. These types model the
+// worker's internal scan lifecycle and job results.
 // ============================================================================
 
 /**

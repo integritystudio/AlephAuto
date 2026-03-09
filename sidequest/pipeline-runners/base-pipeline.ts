@@ -88,6 +88,41 @@ export abstract class BasePipeline<TWorker extends SidequestServer = SidequestSe
   }
 
   /**
+   * Register standard event listeners for CREATED, STARTED, COMPLETED, FAILED.
+   *
+   * @param logger Pipeline-specific logger instance.
+   * @param handlers Optional per-event data extractors. Each returns extra fields to log.
+   */
+  protected setupDefaultEventListeners(
+    logger: Logger,
+    handlers?: {
+      onCreated?: (job: Job) => Record<string, unknown>;
+      onStarted?: (job: Job) => Record<string, unknown>;
+      onCompleted?: (job: Job) => Record<string, unknown>;
+      onFailed?: (job: Job) => Record<string, unknown>;
+    }
+  ): void {
+    this.worker.on(JOB_EVENTS.CREATED, (job: Job) => {
+      logger.info({ jobId: job.id, ...handlers?.onCreated?.(job) }, 'Job created');
+    });
+
+    this.worker.on(JOB_EVENTS.STARTED, (job: Job) => {
+      logger.info({ jobId: job.id, ...handlers?.onStarted?.(job) }, 'Job started');
+    });
+
+    this.worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
+      const duration = job.completedAt && job.startedAt
+        ? job.completedAt.getTime() - job.startedAt.getTime()
+        : undefined;
+      logger.info({ jobId: job.id, duration, ...handlers?.onCompleted?.(job) }, 'Job completed');
+    });
+
+    this.worker.on(JOB_EVENTS.FAILED, (job: Job) => {
+      logError(logger, job.error, 'Job failed', { jobId: job.id, ...handlers?.onFailed?.(job) });
+    });
+  }
+
+  /**
    * getStats.
    */
   getStats(): JobStats {

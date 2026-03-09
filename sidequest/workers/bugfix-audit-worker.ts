@@ -1,5 +1,5 @@
 import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
-import { GitWorkflowManager } from '../core/git-workflow-manager.ts';
+import { BranchManager } from '../pipeline-core/git/branch-manager.ts';
 import { execCommand } from '@shared/process-io';
 import { createComponentLogger, logError, logStage } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
@@ -49,14 +49,14 @@ interface RepositoryInfo {
  * - Commits after each stage
  * - Pushes branch and creates PR when complete
  *
- * Uses GitWorkflowManager directly (not gitWorkflowEnabled) because
+ * Uses BranchManager directly (not gitWorkflowEnabled) because
  * this pipeline makes multiple intermediate commits rather than the
  * base class's single commit-at-end pattern.
  */
 export class BugfixAuditWorker extends SidequestServer {
   activeDocsDir: string;
   outputBaseDir: string;
-  declare gitWorkflowManager: GitWorkflowManager;
+  declare branchManager: BranchManager;
 
   /**
    * constructor.
@@ -72,7 +72,7 @@ export class BugfixAuditWorker extends SidequestServer {
     this.activeDocsDir = options.activeDocsDir ?? path.join(config.homeDir, 'dev', 'active');
     this.outputBaseDir = options.outputBaseDir ?? path.join(config.homeDir, 'code', 'jobs', 'sidequest', 'bug-fixes', 'output');
 
-    this.gitWorkflowManager = new GitWorkflowManager({
+    this.branchManager = new BranchManager({
       baseBranch: options.gitBaseBranch ?? config.gitBaseBranch,
       branchPrefix: options.gitBranchPrefix ?? 'bugfix',
       dryRun: options.gitDryRun ?? config.gitDryRun,
@@ -185,7 +185,7 @@ export class BugfixAuditWorker extends SidequestServer {
     }, 'Starting bug fix audit workflow');
 
     // Create feature branch at job start
-    const branchInfo = await this.gitWorkflowManager.createJobBranch(repoPath, {
+    const branchInfo = await this.branchManager.createJobBranch(repoPath, {
       jobId: job.id,
       jobType: 'bugfix-audit',
       description: `automated-audit-${projectName}`,
@@ -232,7 +232,7 @@ export class BugfixAuditWorker extends SidequestServer {
       await fs.writeFile(path.join(outputDir, '03-security-audit.md'), auditResult.stdout);
 
       // Commit audit results
-      await this.gitWorkflowManager.commitChanges(repoPath, {
+      await this.branchManager.commitChanges(repoPath, {
         message: 'chore(audit): automated bugfix plan, detective report, security audit',
         description: 'Generated with Claude Code AlephAuto',
         jobId: job.id,
@@ -246,7 +246,7 @@ export class BugfixAuditWorker extends SidequestServer {
       await fs.writeFile(path.join(outputDir, '04-quality-control.md'), qualityResult.stdout);
 
       // Commit quality control
-      await this.gitWorkflowManager.commitChanges(repoPath, {
+      await this.branchManager.commitChanges(repoPath, {
         message: 'chore(audit): quality control validation complete',
         description: 'Generated with Claude Code AlephAuto',
         jobId: job.id,
@@ -259,14 +259,14 @@ export class BugfixAuditWorker extends SidequestServer {
       await fs.writeFile(path.join(outputDir, '05-refactor-implementation.md'), refractorResult.stdout);
 
       // Commit refactored code
-      await this.gitWorkflowManager.commitChanges(repoPath, {
+      await this.branchManager.commitChanges(repoPath, {
         message: 'fix: automated refactoring and bug fixes implemented',
         description: 'Generated with Claude Code AlephAuto',
         jobId: job.id,
       });
 
       // Push branch + create PR
-      await this.gitWorkflowManager.pushBranch(repoPath, branchName);
+      await this.branchManager.pushBranch(repoPath, branchName);
 
       const prBody = [
         '## Automated Bug Fix Workflow',
@@ -293,7 +293,7 @@ export class BugfixAuditWorker extends SidequestServer {
         'Generated with [Claude Code](https://claude.com/claude-code) AlephAuto',
       ].join('\n');
 
-      const prUrl = await this.gitWorkflowManager.createPullRequest(repoPath, {
+      const prUrl = await this.branchManager.createPullRequest(repoPath, {
         branchName,
         title: `fix: automated bug fixes for ${projectName}`,
         body: prBody,

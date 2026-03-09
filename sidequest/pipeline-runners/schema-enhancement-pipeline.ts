@@ -1,9 +1,8 @@
 #!/usr/bin/env -S node --strip-types
 import { SchemaEnhancementWorker } from '../workers/schema-enhancement-worker.ts';
 import { config } from '../core/config.ts';
-import { JOB_EVENTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
-import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
+import { BasePipeline, type JobStats } from './base-pipeline.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import { isDirectExecution } from '../utils/execution-helpers.ts';
@@ -85,47 +84,15 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
     ]);
 
     this.baseDir = options.baseDir || config.codeBaseDir || config.homeDir;
-    this.setupEventListeners();
-  }
-
-  /**
-   * Setup event listeners for job events
-   */
-  private setupEventListeners(): void {
-    this.worker.on(JOB_EVENTS.CREATED, (job: Job) => {
-      logger.info({
-        jobId: job.id,
-        readmePath: (job.data as Record<string, unknown>).relativePath
-      }, 'Schema enhancement job created');
-    });
-
-    this.worker.on(JOB_EVENTS.STARTED, (job: Job) => {
-      logger.info({
-        jobId: job.id,
-        readmePath: (job.data as Record<string, unknown>).relativePath
-      }, 'Schema enhancement job started');
-    });
-
-    this.worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
-      const result = job.result as Record<string, unknown>;
-      const impact = result.impact as Record<string, unknown> | undefined;
-      const duration = job.completedAt && job.startedAt
-        ? job.completedAt.getTime() - job.startedAt.getTime()
-        : undefined;
-      logger.info({
-        jobId: job.id,
-        duration,
-        status: result.status,
-        schemaType: result.schemaType,
-        impactScore: impact?.impactScore
-      }, 'Schema enhancement job completed');
-    });
-
-    this.worker.on(JOB_EVENTS.FAILED, (job: Job) => {
-      logError(logger, job.error, 'Schema enhancement job failed', {
-        jobId: job.id,
-        readmePath: (job.data as Record<string, unknown>).relativePath
-      });
+    this.setupDefaultEventListeners(logger, {
+      onCreated: (job) => ({ readmePath: (job.data as Record<string, unknown>).relativePath }),
+      onStarted: (job) => ({ readmePath: (job.data as Record<string, unknown>).relativePath }),
+      onCompleted: (job) => {
+        const result = job.result as Record<string, unknown>;
+        const impact = result.impact as Record<string, unknown> | undefined;
+        return { status: result.status, schemaType: result.schemaType, impactScore: impact?.impactScore };
+      },
+      onFailed: (job) => ({ readmePath: (job.data as Record<string, unknown>).relativePath }),
     });
   }
 

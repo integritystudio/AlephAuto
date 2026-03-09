@@ -1,7 +1,6 @@
 #!/usr/bin/env -S node --strip-types
 import { BugfixAuditWorker } from '../workers/bugfix-audit-worker.ts';
 import { config } from '../core/config.ts';
-import { JOB_EVENTS } from '../core/constants.ts';
 import { TIME_MS } from '../core/units.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
@@ -64,47 +63,20 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
       gitDryRun: options.gitDryRun ?? config.gitDryRun,
     }));
 
-    this.setupEventListeners();
-  }
-
-  private setupEventListeners(): void {
-    this.worker.on(JOB_EVENTS.CREATED, (job: Job) => {
-      const data = job.data as unknown as JobData;
-      logger.info({
-        jobId: job.id,
-        projectName: data.projectName,
-        markdownFile: data.markdownFile,
-      }, 'Bugfix audit job created');
-    });
-
-    this.worker.on(JOB_EVENTS.STARTED, (job: Job) => {
-      const data = job.data as unknown as JobData;
-      logger.info({
-        jobId: job.id,
-        projectName: data.projectName,
-      }, 'Bugfix audit job started');
-    });
-
-    this.worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
-      const data = job.data as unknown as JobData;
-      const result = job.result as unknown as JobResult | undefined;
-      const duration = job.completedAt && job.startedAt
-        ? job.completedAt.getTime() - job.startedAt.getTime()
-        : undefined;
-      logger.info({
-        jobId: job.id,
-        projectName: data.projectName,
-        pullRequestUrl: result?.pullRequestUrl,
-        duration,
-      }, 'Bugfix audit job completed');
-    });
-
-    this.worker.on(JOB_EVENTS.FAILED, (job: Job) => {
-      const data = job.data as unknown as JobData;
-      logError(logger, job.error, 'Bugfix audit job failed', {
-        jobId: job.id,
-        projectName: data.projectName,
-      });
+    this.setupDefaultEventListeners(logger, {
+      onCreated: (job) => {
+        const data = job.data as unknown as JobData;
+        return { projectName: data.projectName, markdownFile: data.markdownFile };
+      },
+      onStarted: (job) => ({ projectName: (job.data as unknown as JobData).projectName }),
+      onCompleted: (job) => {
+        const result = job.result as unknown as JobResult | undefined;
+        return {
+          projectName: (job.data as unknown as JobData).projectName,
+          pullRequestUrl: result?.pullRequestUrl,
+        };
+      },
+      onFailed: (job) => ({ projectName: (job.data as unknown as JobData).projectName }),
     });
   }
 

@@ -103,10 +103,9 @@ const oneDay = TIME.DAY;                          // Correct
 
 Available groups: `TIMEOUTS`, `RETRY`, `CONCURRENCY`, `PAGINATION`, `VALIDATION`, `PORT`, `CACHE`, `WEBSOCKET`, `WORKER_COOLDOWN`, `RATE_LIMIT`, `LIMITS`, `TIME`
 
-### 9. Git Operations: Use GitWorkflowManager
+### 9. Git Operations: Use BranchManager
 ```javascript
-this.gitWorkflowManager.createJobBranch(repoPath, jobInfo);  // Correct
-this.branchManager.createJobBranch(repoPath, jobInfo);       // Wrong
+this.branchManager.createJobBranch(repoPath, jobInfo);  // Correct
 ```
 
 ### 10. API Error Responses: Use ApiError Utilities
@@ -198,7 +197,7 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 | Base job queue | `sidequest/core/server.ts` |
 | Base pipeline runner | `sidequest/pipeline-runners/base-pipeline.ts` |
 | Job repository | `sidequest/core/job-repository.ts` |
-| Git workflow manager | `sidequest/core/git-workflow-manager.ts` |
+| Branch manager | `sidequest/pipeline-core/git/branch-manager.ts` |
 | Constants | `sidequest/core/constants.ts` |
 | Job status types | `api/types/job-status.ts` |
 | Error classifier | `sidequest/pipeline-core/errors/error-classifier.ts` |

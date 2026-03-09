@@ -7,6 +7,7 @@
 import { saveGeneratedReport } from '../utils/index.ts';
 import { REPORT_SCORE_CLASS_THRESHOLDS } from '../../core/score-thresholds.ts';
 import { formatDuration } from '../../utils/time-helpers.ts';
+import { escapeHtml, getBaseStyles } from '../../utils/html-report-utils.ts';
 import type { ScanResult } from './json-report-generator.ts';
 
 export interface HTMLReportOptions {
@@ -26,7 +27,7 @@ export class HTMLReportGenerator {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${this._escapeHtml(title)}</title>
+    <title>${escapeHtml(title)}</title>
     <style>
         ${this._getStyles()}
     </style>
@@ -67,7 +68,7 @@ export class HTMLReportGenerator {
 
     return `
     <header>
-        <h1>🔍 ${this._escapeHtml(title)}</h1>
+        <h1>🔍 ${escapeHtml(title)}</h1>
         <div class="header-meta">
             <span class="meta-item">
                 <strong>Scan Type:</strong> ${isInterProject ? 'Inter-Project' : 'Intra-Project'}
@@ -224,9 +225,9 @@ export class HTMLReportGenerator {
         <div class="repo-grid">
             ${repos.map(repo => `
             <div class="repo-card ${repo.error ? 'error' : ''}">
-                <div class="repo-name">${this._escapeHtml(repo.name)}</div>
+                <div class="repo-name">${escapeHtml(repo.name)}</div>
                 ${repo.error ? `
-                <div class="repo-error">❌ ${this._escapeHtml(repo.error)}</div>
+                <div class="repo-error">❌ ${escapeHtml(repo.error)}</div>
                 ` : `
                 <div class="repo-stats">
                     <span>${repo.code_blocks ?? 0} blocks</span>
@@ -269,8 +270,8 @@ export class HTMLReportGenerator {
                 <div class="duplicate-header">
                     <div class="duplicate-rank">#${index + 1}</div>
                     <div class="duplicate-title">
-                        <strong>${this._escapeHtml(group.group_id)}</strong>
-                        <span class="duplicate-pattern">${this._escapeHtml(group.pattern_id)}</span>
+                        <strong>${escapeHtml(group.group_id)}</strong>
+                        <span class="duplicate-pattern">${escapeHtml(group.pattern_id)}</span>
                     </div>
                     <div class="duplicate-impact ${this._getImpactClass(group.impact_score)}">
                         ${group.impact_score.toFixed(0)}% impact
@@ -296,7 +297,7 @@ export class HTMLReportGenerator {
                     <strong>Affected files:</strong>
                     <ul>
                         ${(group.affected_files ?? []).slice(0, 5).map(file => `
-                        <li><code>${this._escapeHtml(file)}</code></li>
+                        <li><code>${escapeHtml(file)}</code></li>
                         `).join('')}
                         ${(group.affected_files?.length ?? 0) > 5 ? `<li><em>... and ${(group.affected_files?.length ?? 0) - 5} more</em></li>` : ''}
                     </ul>
@@ -337,9 +338,9 @@ export class HTMLReportGenerator {
                 <div class="suggestion-header">
                     <div class="suggestion-rank">#${index + 1}</div>
                     <div class="suggestion-title">
-                        <strong>${this._escapeHtml(suggestion.suggestion_id)}</strong>
+                        <strong>${escapeHtml(suggestion.suggestion_id)}</strong>
                         <span class="suggestion-strategy strategy-${suggestion.strategy}">
-                            ${this._escapeHtml(suggestion.strategy.replace('_', ' '))}
+                            ${escapeHtml(suggestion.strategy.replace('_', ' '))}
                         </span>
                     </div>
                     <div class="suggestion-roi ${this._getROIClass(suggestion.roi_score)}">
@@ -347,10 +348,10 @@ export class HTMLReportGenerator {
                     </div>
                 </div>
                 <div class="suggestion-body">
-                    <p class="suggestion-rationale">${this._escapeHtml(suggestion.strategy_rationale ?? '')}</p>
+                    <p class="suggestion-rationale">${escapeHtml(suggestion.strategy_rationale ?? '')}</p>
                     ${suggestion.target_location ? `
                     <p class="suggestion-target">
-                        <strong>Target:</strong> <code>${this._escapeHtml(suggestion.target_location)}</code>
+                        <strong>Target:</strong> <code>${escapeHtml(suggestion.target_location)}</code>
                     </p>
                     ` : ''}
                     <div class="suggestion-metrics">
@@ -393,66 +394,16 @@ export class HTMLReportGenerator {
   }
 
   /**
-   * Get CSS styles
+   * Get CSS styles — extends base styles with scan-report-specific additions.
    * @private
    */
   private static _getStyles(): string {
     return `
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: #f5f7fa;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        header h1 { margin-bottom: 15px; font-size: 2em; }
-        .header-meta {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-        .meta-item {
-            background: rgba(255,255,255,0.2);
-            padding: 8px 15px;
-            border-radius: 5px;
-        }
-        section {
-            background: white;
-            padding: 25px;
-            margin-bottom: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        section h2 {
-            margin-bottom: 20px;
-            color: #2d3748;
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 10px;
-        }
-        .metrics-grid, .charts-grid, .repo-grid {
+        ${getBaseStyles()}
+        .charts-grid, .repo-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
-        }
-        .metric-card {
-            padding: 20px;
-            text-align: center;
-            border-radius: 8px;
-            background: #f7fafc;
-            border: 2px solid #e2e8f0;
         }
         .metric-card.highlight {
             background: #ebf8ff;
@@ -461,16 +412,6 @@ export class HTMLReportGenerator {
         .metric-card.success {
             background: #f0fff4;
             border-color: #48bb78;
-        }
-        .metric-value {
-            font-size: 2.5em;
-            font-weight: bold;
-            color: #2d3748;
-        }
-        .metric-label {
-            color: #718096;
-            margin-top: 5px;
-            font-size: 0.9em;
         }
         .chart-card {
             padding: 20px;
@@ -646,18 +587,6 @@ export class HTMLReportGenerator {
             font-family: 'Courier New', monospace;
             font-size: 0.9em;
         }
-        .empty-state {
-            text-align: center;
-            color: #a0aec0;
-            padding: 40px;
-            font-style: italic;
-        }
-        footer {
-            text-align: center;
-            color: #a0aec0;
-            padding: 30px;
-            font-size: 0.9em;
-        }
     `;
   }
 
@@ -691,17 +620,4 @@ export class HTMLReportGenerator {
     return 'roi-low';
   }
 
-  /**
-   * Escape HTML
-   * @private
-   */
-  private static _escapeHtml(text: string): string {
-    if (!text) return '';
-    return String(text)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
 }

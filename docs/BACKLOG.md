@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-08 | **Last Session:** 2026-03-08 (CX15 complete v2.3.22, added SV4-SV6)
+**Last Updated:** 2026-03-09 | **Last Session:** 2026-03-09 (consolidation fixes CD1-CD5)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -132,3 +132,26 @@ No active medium-priority backlog items.
 No active low-priority backlog items.
 
 > SV4-SV6 migrated to [v2.3.23](changelog/2.3/CHANGELOG.md#2323---2026-03-09).
+
+---
+
+## Consolidation / Deduplication Audit (2026-03-09)
+
+Full codebase analysis using repomix token-tree + code-simplifier agent.
+
+### Done
+
+| ID | Area | Description | Savings |
+|----|------|-------------|---------|
+| CD1 | `isDirectExecution` x10 | Extracted to `sidequest/utils/execution-helpers.ts`, replaced 10 inline copies | ~900 tok |
+| CD2 | HTML report CSS + `escapeHtml` | Extracted to `sidequest/utils/html-report-utils.ts`, shared by `report-generator.ts` and `html-report-generator.ts` | ~2700 tok |
+| CD3 | `GitWorkflowManager` wrapper | Eliminated; `server.ts` and `bugfix-audit-worker.ts` now use `BranchManager` directly | ~1100 tok |
+| CD4 | `setupEventListeners` boilerplate | Added `setupDefaultEventListeners` to `BasePipeline`; 5 subclasses consolidated | ~700 tok |
+| CD5 | Scan result type shapes | Documented intentional divergence between `duplicate-detection-types.ts` (worker lifecycle) and `json-report-generator.ts` (Python output shape) | 0 (docs only) |
+
+### Not actionable (confirmed no duplication)
+
+- TS vs Python constants (`constants.ts` / `constants.py`) — different runtimes, no overlap
+- `error-classifier.ts` vs `error-helpers.ts` — complementary, not duplicated
+- `timing-helpers.ts` vs `time-helpers.ts` — already properly layered
+- `sidequest/utils/time-helpers.ts` uses `TIME_MS` divisions instead of `SECONDS` constants from `units.ts` — minor (~100 tok), low priority
