@@ -8,6 +8,9 @@ import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('MigrationGitManager');
 
+const STASH_MESSAGE = 'migration-transformer-backup';
+const DEFAULT_STASH_REF = 'stash@{0}';
+
 export class MigrationGitManager {
   private readonly dryRun: boolean;
   constructor(dryRun: boolean) { this.dryRun = dryRun; }
@@ -22,11 +25,11 @@ export class MigrationGitManager {
       const status = await runCommand(repositoryPath, 'git', ['status', '--porcelain']);
       if (!status.trim()) return null;
 
-      await runCommand(repositoryPath, 'git', ['stash', 'push', '-u', '-m', 'migration-transformer-backup']);
+      await runCommand(repositoryPath, 'git', ['stash', 'push', '-u', '-m', STASH_MESSAGE]);
       // Note: stash@{N} is positional — assumes exclusive git access while running.
       const stashRef = (await runCommand(repositoryPath, 'git', ['stash', 'list', '--format=%gd', '-n1'])).trim();
       logger.info({ repositoryPath, stashRef }, 'Stashed pre-existing changes');
-      return stashRef || 'stash@{0}';
+      return stashRef || DEFAULT_STASH_REF;
     } catch (error) {
       logger.warn({ error, repositoryPath }, 'Failed to stash changes, continuing without backup');
       return null;

@@ -23,6 +23,8 @@ import type {
 
 const logger = createComponentLogger('MigrationTransformer');
 
+const BACKUP_PATH_STASH = 'git-stash';
+
 export type { MigrationTransformerOptions };
 
 export class MigrationTransformer {
@@ -53,7 +55,7 @@ export class MigrationTransformer {
     const results: MigrationResult = { filesModified: [], transformations: [], errors: [], backupPath: null };
 
     const stashRef = await this.gitManager.stashChanges(repositoryPath);
-    results.backupPath = stashRef ? 'git-stash' : null;
+    results.backupPath = stashRef ? BACKUP_PATH_STASH : null;
 
     try {
       const parsedSteps: ParsedStep[] = suggestion.migration_steps

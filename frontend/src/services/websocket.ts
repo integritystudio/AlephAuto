@@ -10,6 +10,7 @@ import { ActivityType } from '../types';
 import type { Job, Pipeline, ActivityItem } from '../types';
 import { ACTIVITY_TYPE_MAP } from '../hooks/useWebSocketConnection';
 import { createLogger } from '../utils/logger';
+import { DASHBOARD_WEBSOCKET } from '../constants/timing';
 
 const logger = createLogger('WebSocket');
 
@@ -22,8 +23,8 @@ const logger = createLogger('WebSocket');
 class WebSocketService {
   private socket: WebSocket | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 10;
-  private reconnectDelay = 1000;
+  private maxReconnectAttempts = DASHBOARD_WEBSOCKET.MAX_RECONNECT_ATTEMPTS;
+  private reconnectDelay = DASHBOARD_WEBSOCKET.INITIAL_RECONNECT_DELAY_MS;
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
   /**
@@ -164,7 +165,7 @@ class WebSocketService {
       if (this.socket?.readyState === WebSocket.OPEN) {
         this.send({ type: 'ping' });
       }
-    }, 25000); // 25 seconds
+    }, DASHBOARD_WEBSOCKET.HEARTBEAT_INTERVAL_MS);
   }
 
   /**
@@ -187,7 +188,7 @@ class WebSocketService {
     }
 
     this.reconnectAttempts++;
-    const delay = Math.min(this.reconnectDelay * this.reconnectAttempts, 10000);
+    const delay = Math.min(this.reconnectDelay * this.reconnectAttempts, DASHBOARD_WEBSOCKET.MAX_RECONNECT_DELAY_MS);
 
     logger.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
