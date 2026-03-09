@@ -34,25 +34,6 @@ Closed items migrated to changelog:
 
 ---
 
-## Test Coverage Gaps (2026-03-09)
-
-Full implementation plan: [docs/TEST_COVERAGE_GAPS.md](TEST_COVERAGE_GAPS.md)
-
-| ID | Priority | Title | File |
-|----|----------|-------|------|
-| ~~TC-C1~~ | ~~Critical~~ | ~~`_trySilentPersist` Sentry capture untested~~ | ~~Done (pre-existing in server-unit.test.ts)~~ |
-| ~~TC-C2~~ | ~~Critical~~ | ~~`_queueDraining` re-entrancy guard untested~~ | ~~Done (pre-existing in server-unit.test.ts)~~ |
-| ~~TC-H1~~ | ~~High~~ | ~~`createJob` ID validation + `_writeJobLog` sanitize untested~~ | ~~Done (pre-existing in server-unit.test.ts)~~ |
-| ~~TC-H2~~ | ~~High~~ | ~~`timingSafeEqual` untested (needs extraction first)~~ | ~~Done (extracted + tested in input-validation.test.ts)~~ |
-| ~~TC-H3~~ | ~~High~~ | ~~`filterReservedJobKeys` untested (needs extraction first)~~ | ~~Done (extracted + tested in input-validation.test.ts)~~ |
-| ~~TC-M1~~ | ~~Medium~~ | ~~`getFileAgeDays` constant path untested~~ | ~~Done (pre-existing in cleanup-error-logs.test.ts)~~ |
-| ~~TC-M2~~ | ~~Medium~~ | ~~`bulkImportJobs` `git` field edge case missing~~ | ~~Done (pre-existing in database.test.ts)~~ |
-| ~~TC-M3~~ | ~~Medium~~ | ~~`scanErrorLogs` file-filter + recursion untested~~ | ~~Done (pre-existing in cleanup-error-logs.test.ts)~~ |
-| ~~TC-M4~~ | ~~Medium~~ | ~~Pagination route wiring not unit-tested~~ | ~~Done (pre-existing in input-validation.test.ts)~~ |
-| ~~TC-M5~~ | ~~Medium~~ | ~~TypeScript type annotations missing on helper functions~~ | ~~Done 43acd05~~ |
-
----
-
 ## Known Issues (2026-03-09)
 
 <a id="known-issues"></a>
@@ -226,13 +207,7 @@ Migrated to [v2.3.24](changelog/2.3/CHANGELOG.md#2324---2026-03-09): All 18 core
 
 | ID | Priority | File | Title | Description |
 |----|----------|------|-------|-------------|
-| ~~SU-FR-M1~~ | ~~Medium~~ | ~~`refactor-test-suite.ts:957`~~ | ~~`render-helpers.ts` always overwritten~~ | ~~Done fd8b213~~ |
-| ~~SU-FR-M2~~ | ~~Medium~~ | ~~`refactor-test-suite.ts:694`~~ | ~~Empty `ALL_STRINGS` export when no strings extracted~~ | ~~Done fd8b213 (comment added)~~ |
-| ~~SU-FR-M3~~ | ~~Medium~~ | ~~`html-report-utils.ts:86`~~ | ~~`section h2` padding-bottom silently halved~~ | ~~Done 7841f16 (restored to --space-sm / 8px)~~ |
 | SU-FR-M4 | Low | `report-generator.ts:361` | Unnecessary `as readonly string[]` cast on `METRIC_KEYS` | Reverted by linter; cast required by project lint rules. Accepted as-is. |
-| ~~SU-FR-L1~~ | ~~Low~~ | ~~`crypto-helpers.ts:19`~~ | ~~Comment on `&&` short-circuit could be more precise~~ | ~~Done c398db3~~ |
-| ~~SU-FR-L2~~ | ~~Low~~ | ~~`refactor-test-suite.ts:948`~~ | ~~TOCTOU in `fsPromises.access` existence checks~~ | ~~Done fd8b213 (TOCTOU note added; acceptable for single-threaded CLI)~~ |
-| ~~SU-FR-L3~~ | ~~Low~~ | ~~`tests/unit/input-validation.test.ts:188`~~ | ~~Assertion removed without explanation~~ | ~~Done c398db3~~ |
 
 ### Deferred
 
@@ -240,13 +215,3 @@ Migrated to [v2.3.24](changelog/2.3/CHANGELOG.md#2324---2026-03-09): All 18 core
 |----|------|-------|--------|
 | SU-L2 | `doppler-resilience.ts` | Class uses runtime throw instead of abstract method | `DopplerResilience` is instantiated directly in 16+ test files; making it `abstract` would require broad test refactoring. Deferred. |
 
----
-
-## Code Review Findings — ast-grep Implementation Session (2026-03-09)
-
-**Session:** Completed AG-W1 (console.log→logger), AG-CS1 (MigrationTransformer decomposition), AG-CS2 (HTML CSS extraction). Code review identified actionable items to carry forward.
-
-| ID | Priority | File | Title | Description |
-|----|----------|------|-------|-------------|
-| ~~AG-W1-L1~~ | ~~Low~~ | ~~`frontend/src/services/websocket.ts`~~ | ~~Remove 3 duplicate JSDoc comment blocks~~ | ~~Done 175ba38~~ |
-| ~~AG-CS1-M1~~ | ~~Medium~~ | ~~`sidequest/pipeline-core/git/migration-file-resolver.ts`~~ | ~~Decouple MigrationFileResolver from MigrationAstTransformer instantiation~~ | ~~Done ff6faee (optional injection, MigrationTransformer passes shared instance)~~ |

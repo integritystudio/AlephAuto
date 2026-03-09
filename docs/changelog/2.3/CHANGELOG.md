@@ -6,6 +6,60 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.25] - 2026-03-09
+
+### Summary
+
+Resolved 19 open backlog items across test coverage gaps and code review findings from prior sessions. All tests passing; typecheck clean. Includes TypeScript type annotations for helper functions, file guards, CSS fixes, and documentation improvements. No breaking changes.
+
+### Added
+
+**Test Coverage** (TC-C1, TC-C2, TC-H1-H3, TC-M1-M5)
+- Pre-existing test implementations already present in test suites (TC-C1, TC-C2, TC-H1 in server-unit.test.ts; TC-H2, TC-H3 in input-validation.test.ts; TC-M1, TC-M3 in cleanup-error-logs.test.ts; TC-M2 in database.test.ts; TC-M4 in input-validation.test.ts)
+- **TC-M5:** TypeScript type annotations on cleanup-error-logs helpers — ErrorLogEntry, ArchivedLogEntry, CleanupOptions interfaces; function signature types for getFileAgeDays, compressFile, scanErrorLogs, scanArchivedLogs, formatBytes, archiveOldLogs, deleteOldArchives, cleanup, parseArgs
+
+### Fixed
+
+**File Generation & CSS** (SU-FR-M1, SU-FR-M3)
+- **SU-FR-M1:** Added fsPromises.access guard before writing render-helpers.ts (was unconditionally overwritten; now skips if exists)
+- **SU-FR-M3:** Restored `section h2` padding-bottom from var(--space-xs) (5px) to var(--space-sm) (8px) to approximate original 10px visual intent
+
+**Errors & Type Safety** (SU-FR-L1, SU-FR-L3)
+- **SU-FR-L1:** Clarified crypto-helpers.ts `&&` short-circuit comment — sameLength intentionally distinguishes wrong-length from wrong-content inputs
+- **SU-FR-L3:** Documented removed isSafeInteger assertion in input-validation.test.ts (was vacuously true on MAX_SAFE_INTEGER)
+- Guard error.message access with instanceof check in cleanup-error-logs.ts main() (unknown catch type)
+
+### Changed
+
+**Documentation & Code Quality** (SU-FR-M2, SU-FR-L2, AG-W1-L1, AG-CS1-M1)
+- **SU-FR-M2:** Added comment explaining empty ALL_STRINGS export behavior when no strings extracted
+- **SU-FR-L2:** Added TOCTOU note to fsPromises.access pattern — acceptable for single-threaded CLI
+- **AG-W1-L1:** Removed 4 duplicate JSDoc stub blocks in websocket.ts (connect, send, disconnect, isConnected)
+- **AG-CS1-M1:** Added optional astTransformer constructor injection to MigrationFileResolver; MigrationTransformer passes shared instance (eliminates duplicate instantiation)
+
+### Validation
+
+- `npm run typecheck` (pass)
+- `npm test` — 1234/1234 pass
+
+### Commits
+
+- 43acd05 — test(TC-M5): TypeScript type annotations on cleanup-error-logs helpers
+- fd8b213 — fix(SU-FR-M1): fsPromises.access guard + SU-FR-M2 comment + SU-FR-L2 TOCTOU note
+- 7841f16 — fix(SU-FR-M3): section h2 padding-bottom to --space-sm
+- 1160b0e — refactor(SU-FR-M4): METRIC_KEYS cast (lint reverted; accepted as-is)
+- c398db3 — docs(SU-FR-L1, SU-FR-L3): comment improvements
+- 175ba38 — docs(AG-W1-L1): remove duplicate JSDoc stubs in websocket.ts
+- ff6faee — refactor(AG-CS1-M1): optional astTransformer injection
+- 7621b86 — fix: guard error.message access in cleanup main()
+
+### Related
+
+- Items migrated from: Test Coverage Gaps, Code Review Findings — sidequest/utils (Final Review), Code Review Findings — ast-grep Implementation Session
+- Deferred: SU-L2 (DopplerResilience abstract refactor; broad test changes needed), SU-FR-M4 (lint rule requires cast; functionally equivalent)
+
+---
+
 ## [2.3.24] - 2026-03-09
 
 ### Summary
