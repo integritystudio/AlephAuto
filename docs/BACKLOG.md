@@ -160,9 +160,9 @@ Full report: [ast-grep-analysis-2026-03-09.md](ast-grep-analysis-2026-03-09.md)
 
 | ID | Priority | Title | File | Detail |
 |----|----------|-------|------|--------|
-| AG-W1 | Medium | Replace 14 `console.log` with structured logger | `frontend/src/services/websocket.ts`, `useWebSocketConnection.ts` | 9 + 5 occurrences |
-| AG-CS1 | Medium | Decompose `MigrationTransformer` (627 lines, 44 methods) | `sidequest/pipeline-core/git/migration-transformer.ts:163` | Split by migration phase |
-| AG-CS2 | Low | Extract HTML templates from `HtmlReportGenerator` (607 lines) | `sidequest/pipeline-core/reports/html-report-generator.ts:18` | 3 methods, large inline templates |
+| ~~AG-W1~~ | ~~Medium~~ | ~~Replace 14 `console.log` with structured logger~~ | ~~Done v2.3.25~~ | ~~`createLogger` factory; App.tsx + websocket.ts + useWebSocketConnection.ts~~ |
+| ~~AG-CS1~~ | ~~Medium~~ | ~~Decompose `MigrationTransformer` (627 lines, 44 methods)~~ | ~~Done v2.3.25~~ | ~~Extracted `migration-ast-transformer.ts`, `migration-file-resolver.ts`, `migration-git-manager.ts`~~ |
+| ~~AG-CS2~~ | ~~Low~~ | ~~Extract HTML templates from `HtmlReportGenerator` (607 lines)~~ | ~~Done v2.3.25~~ | ~~CSS extracted to `getScanReportStyles()` in html-report-utils.ts; 625→435 lines~~ |
 
 ---
 
