@@ -98,14 +98,16 @@ print_summary() {
 pre_deployment_checks() {
   print_header "Pre-Deployment Checks"
 
-  # 1. Verify new files exist
-  print_section "Verifying New Files"
+  # 1. Verify core required files exist
+  print_section "Verifying Core Files"
 
   local files=(
-    "sidequest/pipeline-core/doppler-health-monitor.ts"
+    "sidequest/core/server.ts"
+    "sidequest/core/database.ts"
+    "sidequest/core/config.ts"
     "api/utils/port-manager.ts"
-    "api/activity-feed.ts"
-    "api/event-broadcaster.ts"
+    "api/server.ts"
+    "config/ecosystem.config.cjs"
   )
 
   for file in "${files[@]}"; do
