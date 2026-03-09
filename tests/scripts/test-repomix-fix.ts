@@ -5,9 +5,12 @@
  * Tests that RepomixWorker can instantiate and verify repomix is available
  */
 
+import { execSync } from 'child_process';
+import { readdir } from 'fs/promises';
+import path from 'path';
 import { RepomixWorker } from '../../sidequest/workers/repomix-worker.ts';
+
 async function checkNpxRepomix() {
-  const { execSync } = await import('child_process');
   const version = execSync('npx repomix --version', {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'ignore'],
@@ -16,10 +19,8 @@ async function checkNpxRepomix() {
 }
 
 async function checkErrorLogs() {
-  const fs = await import('fs/promises');
-  const path = await import('path');
   try {
-    const files = await fs.readdir(path.join(process.cwd(), 'logs'));
+    const files = await readdir(path.join(process.cwd(), 'logs'));
     const errorFiles = files.filter(f => f.endsWith('.error.json'));
     if (errorFiles.length === 0) {
       console.log('✅ No error log files found\n');
