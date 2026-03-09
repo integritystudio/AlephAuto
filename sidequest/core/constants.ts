@@ -85,6 +85,7 @@ export const RETRY = {
   /** Database-specific recovery delays */
   DATABASE_RECOVERY_BASE_MS: DURATION_MS.FIVE_SECONDS,
   DATABASE_RECOVERY_MAX_MS: DURATION_MS.FIVE_MINUTES,
+
 } as const;
 
 /**
@@ -204,6 +205,14 @@ export const PERSIST_CONTEXT = {
   RETRY_QUEUED: 'retry_queued',
   FAILED: 'failed',
 } as const;
+
+/** System-controlled job metadata keys stripped on retry to prevent injection */
+export const RESERVED_JOB_KEYS = new Set([
+  'retriedFrom',
+  'triggeredBy',
+  'triggeredAt',
+  'retryCount',
+] as const);
 
 export const WORKER_EVENTS = {
   METRICS_UPDATED: 'metrics:updated',
@@ -555,4 +564,15 @@ export const CONFIG_POLICY = {
   DATABASE: {
     MIN_SAVE_INTERVAL_MS: DURATION_MS.SECOND,
   },
+} as const;
+
+/**
+ * Plugin management thresholds
+ */
+export const PLUGIN_THRESHOLDS = {
+  /** Hard maximum number of plugins before audit flags as critical */
+  MAX_PLUGINS: 30,
+
+  /** Soft warning threshold for plugin count */
+  WARN_PLUGINS: 20,
 } as const;

@@ -88,7 +88,7 @@ export class DopplerResilience {
    */
   constructor(options: DopplerResilienceOptions = {}) {
     this.failureThreshold = options.failureThreshold ?? CONFIG_POLICY.DOPPLER.DEFAULT_FAILURE_THRESHOLD;
-    this.successThreshold = options.successThreshold ?? 2;
+    this.successThreshold = options.successThreshold ?? CONFIG_POLICY.DOPPLER.DEFAULT_SUCCESS_THRESHOLD;
     this.timeout = options.timeout ?? TIMEOUTS.SHORT_MS;
     this.maxBackoffMs = options.maxBackoffMs ?? RETRY.MAX_BACKOFF_MS;
 
@@ -124,12 +124,12 @@ export class DopplerResilience {
     this.metrics.totalRequests++;
 
     if (this.state === CircuitState.OPEN) {
-      if (Date.now() >= this.nextAttemptTime!) {
+      if (this.nextAttemptTime === null || Date.now() >= this.nextAttemptTime) {
         logger.info('Circuit breaker timeout elapsed, attempting HALF_OPEN state');
         this.state = CircuitState.HALF_OPEN;
         this.successCount = 0;
       } else {
-        const waitMs = this.nextAttemptTime! - Date.now();
+        const waitMs = this.nextAttemptTime - Date.now();
         logger.warn({
           state: this.state,
           waitMs,

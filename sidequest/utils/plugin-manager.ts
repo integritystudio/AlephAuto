@@ -6,6 +6,7 @@
  */
 
 import { SidequestServer } from '../core/server.ts';
+import { PLUGIN_THRESHOLDS } from '../core/constants.ts';
 import { createComponentLogger, logStart, logError, logWarn } from './logger.ts';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
@@ -86,10 +87,10 @@ class PluginManagerWorker extends SidequestServer {
     });
 
     this.auditScriptPath = resolvePluginAuditScriptPath();
-    this.configPath = path.join(process.env.HOME ?? os.homedir(), '.claude', 'settings.json');
+    this.configPath = path.join(os.homedir(), '.claude', 'settings.json');
     this.thresholds = {
-      maxPlugins: 30,
-      warnPlugins: 20
+      maxPlugins: PLUGIN_THRESHOLDS.MAX_PLUGINS,
+      warnPlugins: PLUGIN_THRESHOLDS.WARN_PLUGINS
     };
 
     logger.info({ auditScriptPath: this.auditScriptPath }, 'Plugin Manager Worker initialized');
