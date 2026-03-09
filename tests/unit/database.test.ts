@@ -188,6 +188,14 @@ describe('Database Module', () => {
       assert.ok(result.errors[0].includes("'result'"));
     });
 
+    it('should include field name in error for invalid JSON git field', () => {
+      const id = `bulk-git-json-${Date.now()}`;
+      const result = bulkImportJobs([{ id, status: 'completed', git: '{bad' }]);
+      assert.strictEqual(result.imported, 0);
+      assert.ok(result.errors.length > 0);
+      assert.ok(result.errors[0].includes("'git'"));
+    });
+
     it('should import valid jobs and skip invalid ones', () => {
       const validId = `bulk-valid-${Date.now()}`;
       const result = bulkImportJobs([
