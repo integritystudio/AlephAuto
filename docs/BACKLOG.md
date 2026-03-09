@@ -130,15 +130,15 @@ No active medium-priority backlog items.
 ### Low
 
 #### SV4: Migrate test-discord-webhook.ts from CommonJS to ESM
-**Priority**: P3 | **Source**: code-reviewer (CX15 final review) | **Status**: Open
+**Priority**: P3 | **Source**: code-reviewer (CX15 final review) | **Status**: Done (commit 9893fcf)
 `tests/scripts/test-discord-webhook.ts` uses `require('https')` and `require('dotenv').config()` — only CJS test file in the codebase. Should migrate to ES module imports to match project convention.
 
 #### SV5: Replace direct process.env access in test scripts
-**Priority**: P3 | **Source**: code-reviewer (CX15 final review) | **Status**: Open
+**Priority**: P3 | **Source**: code-reviewer (CX15 final review) | **Status**: Done (commit 031c9ff)
 Violates Critical Pattern #2 (use `config` module, not `process.env` directly):
 - `tests/scripts/test-sentry-connection.ts` — reads `process.env.SENTRY_DSN` in `checkSentryDsn()` and `Sentry.init()`
 - `tests/scripts/test-single-job.ts` — reads `process.env.SENTRY_DSN` in worker options
 
 #### SV6: Replace dynamic imports with static imports in test-repomix-fix.ts
-**Priority**: P3 | **Source**: code-reviewer (CX15 final review) | **Status**: Open
+**Priority**: P3 | **Source**: code-reviewer (CX15 final review) | **Status**: Done (commit 6439fb9)
 `tests/scripts/test-repomix-fix.ts` uses `await import('child_process')` and `await import('fs/promises')` inside extracted helpers `checkNpxRepomix()` and `checkErrorLogs()`. These should be static top-level imports since the file is not a lazy-loading module.
