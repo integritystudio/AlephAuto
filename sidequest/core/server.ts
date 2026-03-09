@@ -8,7 +8,7 @@ import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.ts';
 import { BranchManager } from '../pipeline-core/git/branch-manager.ts';
 import type { BranchManagerOptions, JobBranchContext, PRContext } from '../pipeline-core/git/branch-manager.ts';
 import { jobRepository } from './job-repository.ts';
-import { CONCURRENCY, FORMATTING, JOB_EVENTS, RETRY, RETRY_EVENTS } from './constants.ts';
+import { CONCURRENCY, FORMATTING, JOB_EVENTS, PERSIST_CONTEXT, RETRY, RETRY_EVENTS, VALIDATION } from './constants.ts';
 import { TIME_MS } from './units.ts';
 import { isRetryable, classifyError } from '../pipeline-core/errors/error-classifier.ts';
 import { toISOString } from '../utils/time-helpers.ts';
@@ -103,6 +103,7 @@ export class SidequestServer extends EventEmitter {
   jobRetentionDays: number;
   branchManager: BranchManager | undefined;
   private _dbReady: Promise<void>;
+  private _queueDraining = false;
 
   /**
    * Creates a Sidequest worker instance.
@@ -180,6 +181,9 @@ export class SidequestServer extends EventEmitter {
    * @returns Created in-memory job object.
    */
   createJob(jobId: string, jobData: Record<string, unknown>): Job {
+    if (!VALIDATION.JOB_ID_PATTERN.test(jobId)) {
+      throw new Error(`Invalid job ID: must match ${VALIDATION.JOB_ID_PATTERN}`);
+    }
     const resolvedJobId = this._resolveUniqueJobId(jobId);
     const job: Job = {
       id: resolvedJobId,
@@ -204,11 +208,7 @@ export class SidequestServer extends EventEmitter {
     this.queue.push(resolvedJobId);
 
     // Persist to SQLite immediately so job is visible in dashboard
-    try {
-      this._persistJob(job);
-    } catch {
-      // Non-critical: job exists in-memory and will be persisted on next state change
-    }
+    this._trySilentPersist(job, PERSIST_CONTEXT.CREATE);
 
     Sentry.addBreadcrumb({
       category: 'job',
@@ -247,21 +247,26 @@ export class SidequestServer extends EventEmitter {
    * Drains queued jobs up to configured concurrency.
    */
   async processQueue(): Promise<void> {
-    if (this.isRunning === false) {
+    if (!this.isRunning || this._queueDraining) {
       return;
     }
 
-    while (this.queue.length > 0 && this.activeJobs < this.maxConcurrent) {
-      const jobId = this.queue.shift();
-      if (!jobId) continue;
-      const job = this.jobs.get(jobId);
+    this._queueDraining = true;
+    try {
+      while (this.queue.length > 0 && this.activeJobs < this.maxConcurrent) {
+        const jobId = this.queue.shift();
+        if (!jobId) continue;
+        const job = this.jobs.get(jobId);
 
-      if (!job) continue;
+        if (!job) continue;
 
-      this.activeJobs++;
-      this.executeJob(jobId).catch(error => {
-        logError(logger, error, 'Error executing job', { jobId });
-      });
+        this.activeJobs++;
+        this.executeJob(jobId).catch(error => {
+          logError(logger, error, 'Error executing job', { jobId });
+        });
+      }
+    } finally {
+      this._queueDraining = false;
     }
   }
 
@@ -334,6 +339,17 @@ export class SidequestServer extends EventEmitter {
     }
   }
 
+  private _trySilentPersist(job: Job, context: string): void {
+    try {
+      this._persistJob(job);
+    } catch (err) {
+      logError(logger, err, `Failed to persist job (${context})`, { jobId: job.id, status: job.status });
+      Sentry.captureException(err, {
+        tags: { jobId: job.id, operation: `persist_${context}` }
+      });
+    }
+  }
+
   private _prepareJobForExecution(job: Job): boolean {
     if (job.status !== JOB_STATUS.QUEUED) {
       logger.debug({
@@ -347,11 +363,7 @@ export class SidequestServer extends EventEmitter {
     job.startedAt = new Date();
     job.retryPending = false;
     this.emit(JOB_EVENTS.STARTED, job);
-    try {
-      this._persistJob(job);
-    } catch {
-      // Non-critical: will be persisted on completion/failure
-    }
+    this._trySilentPersist(job, PERSIST_CONTEXT.STARTED);
 
     Sentry.addBreadcrumb({
       category: 'job',
@@ -454,11 +466,7 @@ export class SidequestServer extends EventEmitter {
         delay: retryDelay
       });
 
-      try {
-        this._persistJob(job);
-      } catch {
-        // Non-critical
-      }
+      this._trySilentPersist(job, PERSIST_CONTEXT.RETRY_QUEUED);
 
       const jobId = job.id;
       setTimeout(() => {
@@ -509,11 +517,7 @@ export class SidequestServer extends EventEmitter {
     this.emit(JOB_EVENTS.FAILED, job, error);
     this.jobHistory.push({ ...job });
     this._pruneExpiredJobs();
-    try {
-      this._persistJob(job);
-    } catch {
-      // Guard: already in catch block
-    }
+    this._trySilentPersist(job, PERSIST_CONTEXT.FAILED);
 
     Sentry.captureException(error, {
       tags: { jobId: job.id, jobType: this.jobType },
@@ -691,7 +695,7 @@ export class SidequestServer extends EventEmitter {
   private async _writeJobLog(job: Job, suffix: string, extra?: Record<string, unknown>): Promise<void> {
     try {
       await fs.mkdir(this.logDir, { recursive: true });
-      const sanitizedId = path.basename(job.id);
+      const sanitizedId = job.id.replace(VALIDATION.JOB_ID_SANITIZE_PATTERN, '_');
       const logPath = path.join(this.logDir, `${sanitizedId}${suffix}`);
       await fs.writeFile(logPath, JSON.stringify(extra ? { ...job, ...extra } : job, null, FORMATTING.JSON_INDENT));
     } catch (writeError) {
@@ -815,7 +819,7 @@ export class SidequestServer extends EventEmitter {
       this._pruneExpiredJobs();
     }
 
-    try { this._persistJob(job); } catch { /* Non-critical */ }
+    this._trySilentPersist(job, config.action);
 
     this.emit(`job:${config.action}`, job);
 

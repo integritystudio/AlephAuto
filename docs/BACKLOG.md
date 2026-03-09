@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-09 | **Last Session:** 2026-03-09 (consolidation fixes CD1-CD5)
+**Last Updated:** 2026-03-09 | **Last Session:** 2026-03-09 (sidequest/core review SC-H2, SC-M1–M6, SC-L1–L6)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -183,3 +183,42 @@ Full review: [code-reviewer agent findings](REMOVED_AFTER_SESSION)
 | L16 | validateQuery double-cast | Express module augmentation for `req.validatedQuery` in `validation.ts` |
 | L17 | 7 serial table reads | Replaced with `jobRepository.getJob(scanId)` direct lookup in `scans.ts` |
 | L18 | retryCount from wrong location | Validate `retryCount` is non-negative number before use in `jobs.ts` |
+
+---
+
+## Code Review Findings — sidequest/core (2026-03-09)
+
+**Scan:** 13 TS files (server, database, job-repository, config, constants, units, git-workflow, index).
+
+### Done
+
+| ID | File | Title | Fix |
+|----|------|-------|-----|
+| SC-H1 | `server.ts` | Silent persist-error swallow | Added `_trySilentPersist` helper with logging + Sentry; replaced 5 silent `catch {}` blocks |
+| SC-H2 | `server.ts` | `processQueue` re-entrant overshoot | Added `_queueDraining` guard flag to prevent re-entrant calls |
+| SC-M5 | `server.ts` | Log path traversal via unvalidated job ID | Added `VALIDATION.JOB_ID_PATTERN` check in `createJob`; replaced `path.basename` with regex sanitize in `_writeJobLog` |
+
+### High
+
+No active high-priority backlog items.
+
+### Medium
+
+| ID | File | Title | Description |
+|----|------|-------|-------------|
+| SC-M1 | `database.ts:929` | Filename-derived job ID exceeds 100-char max | `isValidJobId` enforces 100 chars but filename sanitization has no length check; truncate or skip. |
+| SC-M2 | `database.ts:1083` | `bulkImportJobs` string bypass unparseable | Raw JSON string bypass of `serializeJsonForStorage` — unparseable string silently returns null on read. Validate or document. |
+| SC-M3 | `index.ts:1432` | Magic number `30 * 60` for `maxWaitMs` | Should use named constant (e.g., `TIMEOUTS.THIRTY_MINUTES_MS`). |
+| SC-M4 | `config.ts:58` | `codeBaseDir` uses `\|\|` not `??` | Inconsistent with nullish coalescing standard; empty string falls through to default. |
+| SC-M6 | `job-repository.ts:1570` | `close()`/`reset()` guard asymmetry | Readability concern — asymmetric guard logic between close and reset. |
+
+### Low
+
+| ID | File | Title | Description |
+|----|------|-------|-------------|
+| SC-L1 | `constants.ts:279` | Timeout literals without unit derivation | `PER_PATTERN_MS` and `PER_FILE_MS` are plain numbers, not derived from `DURATION_MS`. |
+| SC-L2 | `server.ts:1959` | `tracesSampleRate: 1.0` hardcoded | 100% trace sampling; should come from config with lower production default. |
+| SC-L3 | `index.ts:13` | Config cast to `Record<string, unknown>` | Defeats type safety; access config properties directly. |
+| SC-L4 | `database.ts:1025` | `degradedMode`/`persistFailureCount` vestigial | Always return healthy; remove from interface or implement tracking. |
+| SC-L5 | `server.ts:2314` | `_generateCommitMessage`/`_generatePRContext` public | Should be `protected`; currently exposed on external API surface. |
+| SC-L6 | `units.ts:2561` | `DECIMAL_KB` coupled to `EXPORT_MAX_BATCH_SIZE_LIMIT` | Accidental coupling; use independent `1_000` literal. |

@@ -136,13 +136,13 @@ JavaScript (Stages 1-2)          Python (Stages 3-7)
 
 ### Job Queue Framework
 ```
-SidequestServer (Base — sidequest/core/server.ts)
+SidequestServer extends EventEmitter (sidequest/core/server.ts)
 ├── Event-driven lifecycle: created → queued → running → completed/failed
 ├── Concurrency control (default: 5, via CONCURRENCY.DEFAULT_MAX_JOBS)
 ├── Auto-retry with error classification (retryable: ETIMEDOUT, 5xx; non-retryable: ENOENT, 4xx)
-├── Sentry integration
-├── GitWorkflowManager for branch/commit/PR operations
-├── JobRepository for SQLite persistence
+├── Sentry tracing wraps every executeJob
+├── Git branch setup before execution, commit/PR on success (non-blocking)
+├── JobRepository for SQLite persistence (lazy-init singleton)
 └── Centralized config via sidequest/core/config.ts
 
 BasePipeline<TWorker> (sidequest/pipeline-runners/base-pipeline.ts)
@@ -150,6 +150,20 @@ BasePipeline<TWorker> (sidequest/pipeline-runners/base-pipeline.ts)
 ├── waitForCompletion() — polls worker stats until queue drains
 ├── scheduleCron() — validate + schedule + log + error-wrap
 └── getStats() — delegates to worker.getStats(): JobStats
+```
+
+### Constants Hierarchy
+```
+units.ts (primitives: TIME_MS, SECONDS, BYTES, PERCENTILE)
+  └→ constants.ts (domain: TIMEOUTS, RETRY, CONCURRENCY, VALIDATION, DATABASE, JOB_EVENTS, ...)
+       └→ config.ts (runtime: env parsing with safeParseInt clamping, validateConfig() at startup)
+```
+
+### Core Dependency Flow
+```
+units.ts → constants.ts → config.ts ← server.ts → job-repository.ts → database.ts (better-sqlite3)
+                                          ↓
+                                   git-workflow-manager.ts → BranchManager
 ```
 
 ### Type System Flow
@@ -173,7 +187,7 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 │   └── utils/             # Port manager, worker registry, API error helpers
 ├── frontend/              # React dashboard (Vite + TypeScript)
 ├── sidequest/             # Job queue framework
-│   ├── core/              # server.ts, job-repository, git-workflow, constants, config
+│   ├── core/              # server.ts, database, job-repository, config, constants, units
 │   ├── pipeline-core/     # Scan orchestrator, similarity (Python)
 │   ├── pipeline-runners/  # 11 pipeline entry points + base-pipeline.ts
 │   └── workers/           # 10 worker implementations (all extend SidequestServer)
@@ -196,9 +210,13 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 | Feature extraction | `sidequest/pipeline-core/similarity/structural.py:29` |
 | Base job queue | `sidequest/core/server.ts` |
 | Base pipeline runner | `sidequest/pipeline-runners/base-pipeline.ts` |
-| Job repository | `sidequest/core/job-repository.ts` |
+| SQLite persistence | `sidequest/core/database.ts` |
+| Job repository (facade) | `sidequest/core/job-repository.ts` |
+| Centralized config | `sidequest/core/config.ts` |
+| Domain constants | `sidequest/core/constants.ts` |
+| Primitive units | `sidequest/core/units.ts` |
+| Score thresholds | `sidequest/core/score-thresholds.ts` |
 | Branch manager | `sidequest/pipeline-core/git/branch-manager.ts` |
-| Constants | `sidequest/core/constants.ts` |
 | Job status types | `api/types/job-status.ts` |
 | Error classifier | `sidequest/pipeline-core/errors/error-classifier.ts` |
 | Worker registry | `api/utils/worker-registry.ts` |
@@ -213,4 +231,4 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 
 ---
 
-**Version:** 2.3.20 | **Updated:** 2026-03-08 | **Status:** Production Ready
+**Version:** 2.3.20 | **Updated:** 2026-03-09 | **Status:** Production Ready
