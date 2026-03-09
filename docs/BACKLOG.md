@@ -13,6 +13,7 @@ Technical debt and planned improvements.
 No active deferred items.
 
 Closed items migrated to changelog:
+- [v2.3.20](changelog/2.3/CHANGELOG.md) (`CS9`, `DUP1`)
 - [v2.3.19](changelog/2.3/CHANGELOG.md) (`CX14`, `CX15` partial, `CX16`)
 - [v2.3.18](changelog/2.3/CHANGELOG.md) (`UI review: M43-M44, L19-L22`)
 - [v2.3.17](changelog/2.3/CHANGELOG.md) (`CONST10`)
@@ -122,8 +123,11 @@ No active critical-complexity backlog items.
 ### Medium
 
 #### CX15: Break up long integration test runners
-**Priority**: P2 | **Source**: ast-grep `analyze_complexity` | **Status**: Partial (v2.3.19)
-22 test functions exceed 50-line length threshold. Top 3 offenders fixed (v2.3.19): `main` in `test-automated-pipeline.ts` (133→28), `testGitignoreRespect` in `test-gitignore-respect.ts` (121→26), `main` in `test-report-generation.ts` (120→30). Also replaced hand-rolled poll in `test-single-job.ts` with existing `waitForJobCompletion()` utility (DRY). Remaining 19 functions still exceed threshold. Deferred for future sprint.
+**Priority**: P2 | **Source**: ast-grep `analyze_complexity` | **Status**: Partial (v2.3.20)
+22 test functions exceed 50-line length threshold. 5 fixed across v2.3.19–v2.3.20:
+- v2.3.19: `main` in `test-automated-pipeline.ts` (133→28), `testGitignoreRespect` in `test-gitignore-respect.ts` (121→26), `main` in `test-report-generation.ts` (120→30). Also replaced hand-rolled poll in `test-single-job.ts` with existing `waitForJobCompletion()` utility (DRY).
+- v2.3.20: `testErrorMessages` in `test-error-classification-ui.ts` (67→13), `testActivityFeed` in `test-error-classification-ui.ts` (68→36). Extracted `evaluateErrorScenario()`, `validateActivityStructure()` helpers plus `ErrorScenario` interface and `ERROR_SCENARIOS` constant.
+- Remaining **17** functions still exceed threshold. Deferred for future sprint.
 
 ### Low
 

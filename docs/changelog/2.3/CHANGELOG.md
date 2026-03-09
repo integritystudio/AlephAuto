@@ -10,9 +10,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Summary
 
-DRY improvements: replaced inline duration formatting and calculation across 5 files with shared `formatDuration()` and `calculateDurationSeconds()` from `time-helpers.ts`. Confirmed prefer-const violations already resolved.
+CX15 continued: extracted helpers from `test-error-classification-ui.ts` (2 more functions below threshold, 17 remaining). DRY improvements: replaced inline duration formatting across 5 files with shared `time-helpers.ts` utilities. Confirmed prefer-const violations already resolved.
 
 ### Changed
+
+- **CX15** (partial) — Extracted helpers from `test-error-classification-ui.ts`:
+  - `testErrorMessages` (67→13 lines): extracted `evaluateErrorScenario()` helper, `ErrorScenario` interface, and `ERROR_SCENARIOS` constant.
+  - `testActivityFeed` (68→36 lines): extracted `validateActivityStructure()` helper.
+  - CX15 progress: 5 of 22 fixed (17 remaining).
 
 - **CS9** — Code Standards — Verified 0 `prefer-const` violations remain (previously reported 95). Already resolved in prior sessions.
 
