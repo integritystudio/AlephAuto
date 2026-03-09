@@ -422,20 +422,24 @@ router.get('/:jobId/logs', (req, res) => {
       return sendNotFoundError(res, 'Job', validation.sanitized!);
     }
 
+    // Sanitize a log field value: strip newlines, limit length to prevent log injection
+    const sanitizeLogField = (value: unknown, maxLen = 200): string =>
+      String(value).replace(/[\r\n\t]/g, ' ').substring(0, maxLen);
+
     // Build log lines from job lifecycle data
     const logs: string[] = [];
     if (job.createdAt) logs.push(`[${job.createdAt}] Job created (pipeline: ${job.pipelineId})`);
     if (job.startedAt) logs.push(`[${job.startedAt}] Job started`);
 
     const jobData = (job.data ?? {}) as Record<string, unknown>;
-    if (jobData.repositoryPath) logs.push(`[${job.startedAt || job.createdAt}] Repository: ${jobData.repositoryPath}`);
-    if (jobData.retryCount) logs.push(`[${job.startedAt || job.createdAt}] Retry attempt: ${jobData.retryCount}`);
+    if (jobData.repositoryPath) logs.push(`[${job.startedAt || job.createdAt}] Repository: ${sanitizeLogField(jobData.repositoryPath)}`);
+    if (jobData.retryCount) logs.push(`[${job.startedAt || job.createdAt}] Retry attempt: ${sanitizeLogField(jobData.retryCount)}`);
 
     const jobResult = (job.result ?? {}) as Record<string, unknown>;
     const endTs = job.completedAt || job.startedAt || job.createdAt;
-    if (jobResult.duration_seconds) logs.push(`[${endTs}] Duration: ${jobResult.duration_seconds}s`);
-    if (jobResult.summary) logs.push(`[${endTs}] ${jobResult.summary}`);
-    if (jobResult.filesProcessed) logs.push(`[${endTs}] Files processed: ${jobResult.filesProcessed}`);
+    if (jobResult.duration_seconds) logs.push(`[${endTs}] Duration: ${sanitizeLogField(jobResult.duration_seconds)}s`);
+    if (jobResult.summary) logs.push(`[${endTs}] ${sanitizeLogField(jobResult.summary)}`);
+    if (jobResult.filesProcessed) logs.push(`[${endTs}] Files processed: ${sanitizeLogField(jobResult.filesProcessed)}`);
 
     if (job.error) {
       const errorObj = (typeof job.error === 'object' ? job.error : { message: job.error }) as unknown as Record<string, unknown>;
