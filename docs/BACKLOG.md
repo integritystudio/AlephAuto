@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-09 | **Last Session:** 2026-03-09 (backlog-implementer: SC-M7–M8, SC-L7–L9, SCR-M1–M4, SCR-L1–L4)
+**Last Updated:** 2026-03-09 | **Last Session:** 2026-03-09 (backlog-implementer: SC-M7–M8, SC-L7–L9, SCR-M1–M4, SCR-L1–L4, SU-H1–H4, SU-M4–M9, SU-L3–L5)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -340,32 +340,22 @@ Audit of docs/ against current codebase (v2.3.20). Source: repomix-docs.xml inde
 | SU-M2 | `dependency-validator.ts` | Missing `env: process.env` propagation | Added to all four `execFileSync` calls for NVM/pyenv environment variable inheritance |
 | SU-M3 | `dependency-validator.ts` | `parseInt` without radix | Applied `NUMBER_BASE.DECIMAL` constant from `sidequest/core/constants.ts` |
 | SU-L1 | `dependency-validator.ts` | Python version check rejects Python 4.x | Fixed logic to `major > 3 \|\| (major === 3 && minor >= 11)` |
+| SU-H1 | `plugin-manager.ts` | Direct `process.env.HOME` use | Use `os.homedir()` directly; remove redundant env fallback |
+| SU-H2 | `plugin-manager.ts` | Magic numbers for plugin thresholds | Added `PLUGIN_THRESHOLDS` to `constants.ts`; replaced 30/20 in `plugin-manager.ts` |
+| SU-H3 | `doppler-resilience.ts` | Magic number `successThreshold ?? 2` | Used `CONFIG_POLICY.DOPPLER.DEFAULT_SUCCESS_THRESHOLD` |
+| SU-H4 | `doppler-resilience.ts` | Non-null assertions on `nextAttemptTime` | Replaced `!` with explicit null check + separate warn log branch |
+| SU-M4 | `refactor-test-suite.ts` | Synchronous fs calls in async context | Switched to `fs/promises` throughout; all functions now async |
+| SU-M5 | `refactor-test-suite.ts` | `\|\| 0` instead of `?? 0` for counts | Applied `??` to all 6 count accumulations |
+| SU-M6 | `gitignore-repomix-updater.ts` | Duplicated hardcoded string | Replaced `**/repomix-output.xml` with `**/${this.gitignoreEntry}` |
+| SU-M7 | `gitignore-repomix-updater.ts` | Manual `import.meta.url` entrypoint check | Use `isDirectExecution()` from `execution-helpers.ts` |
+| SU-M8 | `report-generator.ts` | Duplicated 16-element `metricKeys` array | Extracted to module-level `METRIC_KEYS as const` |
+| SU-M9 | `schema-mcp-tools.ts` | Derived magic numbers for description length | `DESCRIPTION_TRUNCATED_LENGTH = DESCRIPTION_MAX_LENGTH - '...'.length` |
+| SU-L3 | `pipeline-names.ts` | `\|\|` instead of `??` + unnecessary type cast | Cast to `Record<string,string\|undefined>`; use `??` |
+| SU-L4 | `time-helpers.ts` | Repeated arithmetic on every call | Extracted `SECONDS_PER_MINUTE`/`SECONDS_PER_HOUR` module-level constants |
+| SU-L5 | `html-report-utils.ts` | Inline magic CSS values | CSS custom properties (`--space-*`, `--radius-*`, `--font-size-*`) in `:root` |
 
-### High
+### Deferred
 
-| ID | File | Title | Description |
-|----|------|-------|-------------|
-| SU-H1 | `plugin-manager.ts:67` | Direct `process.env.HOME` use | Violates config convention. Already has `os.homedir()` imported as fallback — remove the direct env read. |
-| SU-H2 | `plugin-manager.ts:68-71` | Magic numbers for plugin thresholds | `maxPlugins: 30`, `warnPlugins: 20` should be constants. Create `PLUGIN_THRESHOLDS` in `sidequest/core/constants.ts` or read from config. |
-| SU-H3 | `doppler-resilience.ts:73` | Magic number `successThreshold ?? 2` | `2` should be a constant in `RETRY` or new `CIRCUIT_BREAKER` group in `constants.ts`. |
-| SU-H4 | `doppler-resilience.ts:100-101` | Non-null assertions on `nextAttemptTime` | Typed as `number \| null`. Replace `!` assertions with explicit `nextAttemptTime !== null` check. |
-
-### Medium
-
-| ID | File | Title | Description |
-|----|------|-------|-------------|
-| SU-M4 | `refactor-test-suite.ts` | Synchronous fs calls in async context | Uses `fs.readFileSync`, `fs.writeFileSync`, etc. in `main()` (async). Switch to `fs/promises` for non-blocking I/O. |
-| SU-M5 | `refactor-test-suite.ts:1394-1404` | `\|\| 0` instead of `?? 0` for counts | Per project convention, `??` must be used for numeric options to preserve `0` values. |
-| SU-M6 | `gitignore-repomix-updater.ts:780` | Duplicated hardcoded string | `**/repomix-output.xml` duplicates `this.gitignoreEntry`. Use `**/${this.gitignoreEntry}` or remove dead line. |
-| SU-M7 | `gitignore-repomix-updater.ts:920` | Manual `import.meta.url` entrypoint check | Should use existing `isDirectExecution()` from `execution-helpers.ts` instead of inline pattern. |
-| SU-M8 | `report-generator.ts:2307-2333` | Duplicated 16-element `metricKeys` array | Appears in both `extractMetrics` and `extractDetails`. Extract to module-level constant. |
-| SU-M9 | `schema-mcp-tools.ts:2488-2491` | Derived magic numbers for description length | `DESCRIPTION_TRUNCATED_LENGTH = 197 = MAX_LENGTH - 3`. Derive from constant: `MAX_LENGTH - '...'.length`. |
-
-### Low
-
-| ID | File | Title | Description |
-|----|------|-------|-------------|
-| SU-L2 | `doppler-resilience.ts` | Class uses runtime throw instead of abstract method | Template-method pattern via `throw new Error()` should use `abstract class` + `abstract method` for compile-time safety. |
-| SU-L3 | `pipeline-names.ts` | `\|\|` instead of `??` + unnecessary type cast | `getPipelineName` uses `as Record<string, string>` cast and `\|\|`. Apply `??` and avoid cast. |
-| SU-L4 | `time-helpers.ts` | Repeated arithmetic on every call | `TIME_MS.MINUTE / TIME_MS.SECOND` (= 60) computed repeatedly in `formatDuration`. Move to module-level constant. |
-| SU-L5 | `html-report-utils.ts` | Inline magic CSS values | All numeric CSS values (`1200px`, `20px`, `30px`, etc.) hardcoded in style template. Extract to CSS constants or custom properties. |
+| ID | File | Title | Reason |
+|----|------|-------|--------|
+| SU-L2 | `doppler-resilience.ts` | Class uses runtime throw instead of abstract method | `DopplerResilience` is instantiated directly in 16+ test files; making it `abstract` would require broad test refactoring. Deferred. |
