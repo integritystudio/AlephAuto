@@ -680,6 +680,8 @@ function generateConstantsTemplate(hardcodedStrings: string[]): string {
 
   const nonEmpty = sections.join('\n');
   const allStringsSpread = emittedNames.map(n => `  ...${n},`).join('\n');
+  // When no string constants are extracted, ALL_STRINGS is an empty readonly tuple.
+  // This is intentional: callers should check the array length before iterating.
 
   return `/**
  * Test Constants
@@ -690,7 +692,7 @@ function generateConstantsTemplate(hardcodedStrings: string[]): string {
  */
 
 ${nonEmpty}
-// Combined export for convenience
+// Combined export for convenience (empty when no strings are extracted)
 export const ALL_STRINGS = [
 ${allStringsSpread}
 ] as const;
@@ -945,6 +947,8 @@ async function generateUtilityFiles(config: RefactorConfig, analysis: Awaited<Re
 
   for (const file of filesToGenerate) {
     const filePath = path.join(utilsPath, file.name);
+    // Note: access + writeFile has a TOCTOU race window, but this CLI runs
+    // single-threaded against a user-owned directory, so the risk is negligible.
     try {
       await fsPromises.access(filePath);
       logger.info(`  ⊘ Skipped ${config.utilsDir}/${file.name} (already exists)`);
@@ -955,8 +959,13 @@ async function generateUtilityFiles(config: RefactorConfig, analysis: Awaited<Re
   }
 
   const renderHelpersPath = path.join(utilsPath, 'render-helpers.ts');
-  await fsPromises.writeFile(renderHelpersPath, generateRenderHelpers());
-  logger.info(`  ✓ Created ${config.utilsDir}/render-helpers.ts (add to test-utils.tsx)`);
+  try {
+    await fsPromises.access(renderHelpersPath);
+    logger.info(`  ⊘ Skipped ${config.utilsDir}/render-helpers.ts (already exists)`);
+  } catch {
+    await fsPromises.writeFile(renderHelpersPath, generateRenderHelpers());
+    logger.info(`  ✓ Created ${config.utilsDir}/render-helpers.ts (add to test-utils.tsx)`);
+  }
 }
 
 /**
