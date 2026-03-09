@@ -1,5 +1,5 @@
 import { config } from '../core/config.ts';
-import { FORMATTING, MAX_SCORE } from '../core/constants.ts';
+import { FORMATTING, MAX_SCORE, SCHEMA_SCORING } from '../core/constants.ts';
 import { SCHEMA_RATING_THRESHOLDS } from '../core/score-thresholds.ts';
 
 interface SchemaContext {
@@ -313,10 +313,10 @@ function collectRichResultsEligibility(schemaType: string): string[] {
  */
 function computeImpactScore(impact: SchemaImpact, schema: SchemaObject): number {
   let score = 0;
-  score += impact.seoImprovements.length * 15;
-  score += impact.richResultsEligibility.length * 20;
-  score += schema.description ? 20 : 0;
-  score += schema.codeRepository ? 15 : 0;
+  score += impact.seoImprovements.length * SCHEMA_SCORING.SEO_IMPROVEMENTS_WEIGHT;
+  score += impact.richResultsEligibility.length * SCHEMA_SCORING.RICH_RESULTS_WEIGHT;
+  score += schema.description ? SCHEMA_SCORING.DESCRIPTION_BONUS : 0;
+  score += schema.codeRepository ? SCHEMA_SCORING.CODE_REPO_BONUS : 0;
   return Math.min(MAX_SCORE, score);
 }
 

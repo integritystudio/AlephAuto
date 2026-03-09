@@ -2,7 +2,7 @@
 
 // MUST be first: Increase EventEmitter listener limit before any imports
 // Multiple components (Sentry, WebSocket, ActivityFeed, Workers, etc.) add listeners during import
-process.setMaxListeners(20);
+process.setMaxListeners(PROCESS.MAX_LISTENERS);
 
 /**
  * REST API Server for Duplicate Detection
@@ -19,7 +19,7 @@ import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 import { createComponentLogger, logError, logStart } from '../sidequest/utils/logger.ts';
 import { config } from '../sidequest/core/config.ts';
-import { CACHE, CONCURRENCY, MAX_SCORE, PORT } from '../sidequest/core/constants.ts';
+import { CACHE, CONCURRENCY, MAX_SCORE, PAGINATION, PORT, PROCESS } from '../sidequest/core/constants.ts';
 import { TIME_MS } from '../sidequest/core/units.ts';
 import { authMiddleware } from './middleware/auth.ts';
 import { rateLimiter } from './middleware/rate-limit.ts';
@@ -159,7 +159,7 @@ app.get('/api/status', (req: Request, res: Response) => {
 
     // Get activity feed
     const activityFeed = req.app.get('activityFeed');
-    const recentActivity = activityFeed ? activityFeed.getRecentActivities(20) : [];
+    const recentActivity = activityFeed ? activityFeed.getRecentActivities(PAGINATION.ACTIVITY_FEED_LIMIT) : [];
 
     // Create a map of database stats by pipelineId
     const statsMap = new Map(pipelineStats.map(s => [s.pipelineId, s]));

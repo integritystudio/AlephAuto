@@ -115,7 +115,7 @@ export class RootDirectoryAnalyzer {
    */
   constructor(options: RootDirectoryAnalyzerOptions = {}) {
     this.logger = options.logger ?? console;
-    this.maxRootFiles = options.maxRootFiles ?? 20;
+    this.maxRootFiles = options.maxRootFiles ?? LIMITS.DEFAULT_MAX_ROOT_FILES;
     this.thresholds = {
       pythonFiles: 3,
       shellScripts: 3,

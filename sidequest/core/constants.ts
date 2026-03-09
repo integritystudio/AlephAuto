@@ -220,6 +220,9 @@ export const PROCESS = {
 
   /** File descriptor number for stderr */
   STDERR_FD: 2,
+
+  /** Maximum EventEmitter listeners to register before Node.js warns */
+  MAX_LISTENERS: 20,
 } as const;
 
 /**
@@ -274,6 +277,9 @@ export const PAGINATION = {
 
   /** Maximum allowed page size to prevent memory issues */
   MAX_LIMIT: 1000,
+
+  /** Number of recent activities to show in the activity feed */
+  ACTIVITY_FEED_LIMIT: 20,
 } as const;
 
 /**
@@ -325,6 +331,9 @@ export const LIMITS = {
 
   /** Minimum required disk space in megabytes */
   MIN_DISK_SPACE_MB: 100,
+
+  /** Default maximum number of root files before flagging for cleanup */
+  DEFAULT_MAX_ROOT_FILES: 20,
 } as const;
 
 /**
@@ -419,6 +428,29 @@ export const MARKDOWN_REPORT = {
 
   HIGH_SCORE_MIN: 75,
   MEDIUM_SCORE_MIN: 50,
+
+  /** Default max duplicates when coordinating across report formats */
+  COORDINATOR_MAX_DUPLICATES: 20,
+
+  /** Default max suggestions when coordinating across report formats */
+  COORDINATOR_MAX_SUGGESTIONS: 20,
+} as const;
+
+/**
+ * Schema scoring point weights
+ */
+export const SCHEMA_SCORING = {
+  /** Points per SEO improvement */
+  SEO_IMPROVEMENTS_WEIGHT: 15,
+
+  /** Points per rich results eligibility entry */
+  RICH_RESULTS_WEIGHT: 20,
+
+  /** Bonus for schema having a description field */
+  DESCRIPTION_BONUS: 20,
+
+  /** Bonus for schema having a code repository field */
+  CODE_REPO_BONUS: 15,
 } as const;
 
 /**
