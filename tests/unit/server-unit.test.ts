@@ -11,6 +11,7 @@ import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { SidequestServer } from '../../sidequest/core/server.ts';
 import { initDatabase, closeDatabase } from '../../sidequest/core/database.ts';
+import { PERSIST_CONTEXT } from '../../sidequest/core/constants.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -867,5 +868,119 @@ describe('SidequestServer - Integration Scenarios', () => {
     assert.strictEqual(server.getJob('job-1').status, 'cancelled');
     assert.strictEqual(server.getJob('job-2').status, 'paused');
     assert.strictEqual(server.getJob('job-3').status, 'queued');
+  });
+});
+
+describe('SidequestServer - _queueDraining guard', () => {
+  it('should return early when _queueDraining is already true', async () => {
+    const server = new TestSidequestServer({ autoStart: false });
+    server.createJob('guard-job-1', {});
+    server.isRunning = true;
+    server._queueDraining = true;
+    await server.processQueue();
+    // Queue not drained because guard blocked re-entry
+    assert.strictEqual(server.queue.length, 1);
+  });
+
+  it('should release _queueDraining in finally after normal completion', async () => {
+    const server = new TestSidequestServer({ autoStart: false });
+    server.isRunning = true;
+    await server.processQueue();
+    assert.strictEqual(server._queueDraining, false);
+  });
+
+  it('should allow subsequent processQueue calls after guard is released', async () => {
+    const server = new TestSidequestServer({ autoStart: false, maxConcurrent: 2 });
+    server.isRunning = true;
+    server.createJob('seq-job-1', {});
+    await server.processQueue();
+    assert.strictEqual(server._queueDraining, false);
+    // Second call proceeds normally
+    server.createJob('seq-job-2', {});
+    await server.processQueue();
+    assert.ok(server.activeJobs <= 2);
+  });
+});
+
+describe('SidequestServer - _trySilentPersist', () => {
+  it('should not rethrow when _persistJob throws', () => {
+    const server = new TestSidequestServer({ autoStart: false });
+    const job = server.createJob('persist-silent-1', {});
+    server._persistJob = () => { throw new Error('db write failed'); };
+    assert.doesNotThrow(() => server._trySilentPersist(job, PERSIST_CONTEXT.CREATE));
+  });
+
+  it('should swallow errors for all PERSIST_CONTEXT values', () => {
+    const server = new TestSidequestServer({ autoStart: false });
+    const job = server.createJob('persist-contexts-1', {});
+    server._persistJob = () => { throw new Error('db error'); };
+    for (const ctx of Object.values(PERSIST_CONTEXT)) {
+      assert.doesNotThrow(() => server._trySilentPersist(job, ctx));
+    }
+  });
+
+  it('should not interrupt job:created event when persist fails during createJob', () => {
+    const server = new TestSidequestServer({ autoStart: false });
+    server._persistJob = () => { throw new Error('persist failure'); };
+    const events = [];
+    server.on('job:created', (j) => events.push(j.id));
+    // createJob calls _trySilentPersist internally — event must still fire
+    assert.doesNotThrow(() => server.createJob('persist-event-1', {}));
+    assert.ok(events.includes('persist-event-1'));
+  });
+
+  it('should add job to queue even when persist fails', () => {
+    const server = new TestSidequestServer({ autoStart: false });
+    server._persistJob = () => { throw new Error('persist failure'); };
+    assert.doesNotThrow(() => server.createJob('persist-queue-1', {}));
+    assert.ok(server.jobs.has('persist-queue-1'));
+  });
+});
+
+describe('SidequestServer - createJob ID validation', () => {
+  it('should throw for job IDs with path traversal', () => {
+    const server = new TestSidequestServer({ autoStart: false });
+    assert.throws(() => server.createJob('../bad-id', {}), /Invalid job ID/);
+  });
+
+  it('should throw for job IDs with spaces', () => {
+    const server = new TestSidequestServer({ autoStart: false });
+    assert.throws(() => server.createJob('id with spaces', {}), /Invalid job ID/);
+  });
+
+  it('should accept job ID at exactly 100 chars', () => {
+    const server = new TestSidequestServer({ autoStart: false });
+    assert.doesNotThrow(() => server.createJob('a'.repeat(100), {}));
+  });
+});
+
+describe('SidequestServer - _writeJobLog sanitizes filename', () => {
+  let tempLogDir;
+
+  beforeEach(async () => {
+    tempLogDir = path.join(os.tmpdir(), 'test-writejoblog-' + Date.now());
+    await fs.mkdir(tempLogDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    if (tempLogDir) {
+      await fs.rm(tempLogDir, { recursive: true, force: true });
+    }
+  });
+
+  it('should replace unsafe chars in job ID with underscore in log filename', async () => {
+    const server = new TestSidequestServer({ autoStart: false, logDir: tempLogDir });
+    const job = { id: 'job/with/slashes', status: 'completed' };
+    await server._writeJobLog(job, '.json');
+    const files = await fs.readdir(tempLogDir);
+    assert.ok(files.some(f => f === 'job_with_slashes.json'));
+  });
+
+  it('should keep safe chars unchanged in log filename', async () => {
+    const server = new TestSidequestServer({ autoStart: false, logDir: tempLogDir });
+    const job = { id: 'safe-job_123', status: 'completed' };
+    await server._writeJobLog(job, '.json');
+    const files = await fs.readdir(tempLogDir);
+    assert.ok(files.some(f => f === 'safe-job_123.json'));
   });
 });
