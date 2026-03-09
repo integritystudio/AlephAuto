@@ -22,7 +22,7 @@ output/
 condense/
 repomix-output.xml
 repomix-output.txt
-docs/repomix/*.xml
+docs/repomix/*
 
 # Python
 venv/
