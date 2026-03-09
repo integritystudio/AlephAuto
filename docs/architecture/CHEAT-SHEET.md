@@ -1,6 +1,6 @@
 # AlephAuto - Quick Reference Cheat Sheet
 
-**Version**: 2.0 | **Last Updated**: 2025-12-02 | **Print This Page for Quick Reference**
+**Version**: 2.3.20 | **Last Updated**: 2026-03-09 | **Print This Page for Quick Reference**
 
 ---
 
@@ -34,7 +34,7 @@
 | **Frontend** | React + Vite + Zustand | Real-time dashboard UI |
 | **API** | Express 5 + WebSocket | REST API + real-time events |
 | **Queue** | SidequestServer | Job lifecycle management |
-| **Workers** | 10 specialized workers | Pipeline execution |
+| **Workers** | 10 workers (bugfix-audit, claude-health, dashboard-populate, duplicate-detection, git-activity, gitignore, repo-cleanup, repomix, schema-enhancement, test-refactor) | Pipeline execution |
 | **Database** | SQLite (WAL) | Job persistence |
 | **Config** | Doppler | Secrets management |
 | **Monitoring** | Sentry v8 | Error tracking |

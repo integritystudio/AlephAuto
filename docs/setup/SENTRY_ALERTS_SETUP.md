@@ -14,7 +14,7 @@ This guide helps you set up error rate alerts in Sentry to get notified when:
 ## Prerequisites
 
 - ✅ Sentry account with access to the project
-- ✅ Sentry DSN configured in `.env`
+- ✅ Sentry DSN configured in Doppler (`SENTRY_DSN` — see `docs/setup/SENTRY_SETUP.md`)
 - ✅ Organization: `o4510332694495232`
 - ✅ Project: `4510332704260096`
 - ✅ Region: US (`ingest.us.sentry.io`)

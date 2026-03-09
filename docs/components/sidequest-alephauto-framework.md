@@ -196,6 +196,55 @@ DRY_RUN=true node --strip-types sidequest/pipeline-runners/test-refactor-pipelin
 └───────────────┘  └─────────────────────┘  └──────────────────┘
 ```
 
+### BasePipeline Pattern
+
+Five pipeline runners extend `BasePipeline<TWorker>` (`sidequest/pipeline-runners/base-pipeline.ts`) for shared scheduling and stats:
+
+```typescript
+import { BasePipeline } from './base-pipeline.ts';
+import { RepomixWorker } from '../workers/repomix-worker.ts';
+
+class RepomixPipeline extends BasePipeline<RepomixWorker> {
+  constructor() {
+    super(new RepomixWorker());
+  }
+}
+```
+
+`BasePipeline` provides:
+- `scheduleCron(schedule, handler)` — validate + schedule + error-wrap
+- `waitForCompletion()` — polls `worker.getStats()` until queue drains
+- `getStats()` — delegates to `worker.getStats(): JobStats`
+
+### JobRepository
+
+All database access goes through `jobRepository` (singleton facade), never `database.ts` directly:
+
+```typescript
+import { jobRepository } from '../sidequest/core/job-repository.ts';
+
+await jobRepository.saveJob(job);                      // persist
+const job = jobRepository.getJob(id);                  // returns camelCase
+const count = jobRepository.getJobCount({ status });   // COUNT(*) query
+```
+
+Returns camelCase objects (`job.pipelineId`, `job.createdAt`). Never access `job.pipeline_id`.
+
+### Constants Hierarchy
+
+```
+units.ts (primitives: TIME_MS, SECONDS, BYTES, PERCENTILE)
+  └→ constants.ts (domain: TIMEOUTS, RETRY, CONCURRENCY, VALIDATION, ...)
+       └→ config.ts (runtime: env parsing, validateConfig() at startup)
+```
+
+Import from `constants.ts` for all timeout/limit/retry values:
+
+```typescript
+import { TIMEOUTS, RETRY, CONCURRENCY } from '../sidequest/core/constants.ts';
+const timeout = TIMEOUTS.PYTHON_PIPELINE_BASE_MS;
+```
+
 ### Component Overview
 
 **`sidequest/core/server.ts`** - Base job execution engine
