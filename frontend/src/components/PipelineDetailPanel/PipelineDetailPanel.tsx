@@ -121,7 +121,7 @@ export const PipelineDetailPanel: React.FC<PipelineDetailPanelProps> = ({ pipeli
             <div key={job.id} className={`panel-job panel-job-${job.status}`}>
               <span className="job-status-icon">{STATUS_ICONS[job.status] || '?'}</span>
               <div className="job-info">
-                <span className="job-id" title={job.id}>{job.id.substring(0, 20)}...</span>
+                <span className="job-id" title={job.id}>{job.id.length > 20 ? job.id.substring(0, 20) + '...' : job.id}</span>
                 <span className="job-time">{formatDate(job.createdAt)}</span>
               </div>
               {job.duration != null && (
