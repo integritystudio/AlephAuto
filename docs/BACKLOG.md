@@ -242,3 +242,35 @@ Session code-reviewer findings from SC backlog implementation batch. Medium/Low 
 | SC-L7 | `units.ts:42` | `EXPORT_MAX_BATCH_SIZE_LIMIT` is unused export | After SC-L6 decoupling, `EXPORT_MAX_BATCH_SIZE_LIMIT` has zero consumers (confirmed by grep). Should either be removed as dead export or documented as intentional public API constant. |
 | SC-L8 | `database.ts:180-187` | `isValidJsonString` duplicates `safeJsonParse` logic | New helper duplicates try/catch pattern from existing `safeJsonParse`. Could refactor `safeJsonParse` to return boolean or extend with overload instead of duplicating implementation. |
 | SC-L9 | `database.ts` | Missing unit tests for SC-M1/SC-M2 data-integrity paths | No dedicated unit tests for: (1) filename truncation to 100-char max + isValidJobId pass, (2) rejected record error messages for invalid JSON strings. Existing integration tests cover indirectly; targeted unit tests would harden regressions. |
+
+---
+
+## Code Review Findings — scripts/ (2026-03-09)
+
+Repomix-explorer analysis of 22 scripts (~42K tokens): shell (13), TypeScript (6), Python (1), JSON configs (2).
+
+### Medium
+
+| ID | File | Title | Description |
+|----|------|-------|-------------|
+| SCR-M1 | `fix-types.ts` | Uses `npm` but project uses `pnpm` | Deletes `node_modules` + `package-lock.json` as first resort, calls `npm install`/`npm cache clean`. Inconsistent with pnpm-based project. Rewrite to use pnpm or remove if issue is resolved. |
+| SCR-M2 | `cleanup-error-logs.ts:59` | Magic number `1000 * 60 * 60 * 24` | Should use `TIME` constants from `sidequest/core/constants.ts` (already imports `BYTES_PER_KB` from constants). |
+| SCR-M3 | `run-python-tests.sh:32` | Hardcoded user-specific path | `/Users/alyshialedlie/code-env/python/pyenv/versions/3.13.7/bin/python` — breaks on other machines. Should rely solely on `PYTEST_PYTHON` env var and standard discovery. |
+| SCR-M4 | `generate-repomix-docs.sh`, `generate-repomix-git-ranked.sh` | Duplicated jq ignore-pattern extraction | Both scripts contain identical jq expressions to extract bundle-ignore patterns from `repomix.config.json`. Extract to shared shell function. |
+
+### Low
+
+| ID | File | Title | Description |
+|----|------|-------|-------------|
+| SCR-L1 | TS scripts | Inconsistent shebangs | `categorize-magic-numbers.ts` uses `node --strip-types`, `cleanup-error-logs.ts` uses plain `node`. Plain `node` shebang fails on `.ts` without a loader. Standardize to `--strip-types`. |
+| SCR-L2 | `verify-bugfixes.sh:66-77` | Stale hardcoded file checks | Pre-deployment checks verify specific files from a past bugfix deployment. Generalize or move file list to config. |
+| SCR-L3 | `verify-bugfixes.sh` | Runtime-generated rollback script | `create_rollback_script()` writes `scripts/rollback-bugfixes.sh` dynamically — side-effect that leaves uncommitted files. Not in `.gitignore`. |
+| SCR-L4 | `generate-diff-summary.sh` | Hardcoded `N=20`, `COMMITS=200` | Should be parameterized or extracted as constants for consistency with other generate scripts. |
+
+---
+
+## Document Updates — Staleness Audit (2026-03-09)
+
+> All items completed and migrated to [v2.3.24](changelog/2.3/CHANGELOG.md).
+
+Audit of docs/ against current codebase (v2.3.20). Source: repomix-docs.xml index.
