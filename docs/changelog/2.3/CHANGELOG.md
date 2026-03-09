@@ -6,6 +6,28 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.18] - 2026-03-09
+
+### Summary
+
+Addressed dashboard UI code review findings (M43–M44, L19–L22): log injection prevention, React key collision fix, type safety improvements, and minor correctness fixes.
+
+### Fixed
+
+- **M43** `api/routes/jobs.ts`: Added `sanitizeLogField()` helper; strips `\r\n\t` and caps at 200 chars. Applied to all 6 user-influenced fields in synthesized log output (`repositoryPath`, `retryCount`, `duration_seconds`, `summary`, `filesProcessed`, `error.message`)
+- **M44** `frontend/src/hooks/useWebSocketConnection.ts`: Replaced `activity-${Date.now()}` fallback IDs with `crypto.randomUUID()` in both `loadInitialData` and `pollForUpdates` — prevents React key collisions when multiple activity items lack server-provided IDs in the same tick
+- **L19** `frontend/src/App.tsx`: Replaced `'cancelled' as any` and `'queued' as any` with `JobStatus.CANCELLED` and `JobStatus.QUEUED` enum members; added `JobStatus` import
+- **L20** `frontend/src/hooks/useWebSocketConnection.ts`: Added `ApiJob`, `ApiPipeline`, `ApiActivity`, `ApiStatusData` interfaces replacing all `any` parameters in `mapActiveJob`, `mapQueuedJob`, `mapPipeline`, `applyJobsToStore`, and `fetchStatus()`
+- **L21** `frontend/src/hooks/useWebSocketConnection.ts`: Removed `isInitialized.current = false` from cleanup; guard now remains effective across component lifetime. Updated comment to reflect actual behavior
+- **L22** `frontend/src/components/PipelineDetailPanel/PipelineDetailPanel.tsx`: Conditional ellipsis — only appended when `job.id.length > 20`
+
+### Validation
+
+- `npm run typecheck` (pass)
+- `npm test` — 1169/1169 pass
+
+---
+
 ## [2.3.17] - 2026-03-08
 
 ### Summary

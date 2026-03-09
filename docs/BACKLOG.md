@@ -101,30 +101,38 @@ No active backlog items.
 
 ## Code Review Findings — Dashboard UI (2026-03-08)
 
-### Medium Priority
+> All items completed and migrated to [v2.3.18](changelog/2.3/CHANGELOG.md).
 
-#### M43: Sanitize log strings to prevent log injection
-**Priority**: P2 | **Source**: `feat(dashboard)` code review
-Unsanitized `repositoryPath`, `summary`, and `filesProcessed` fields from job data are embedded directly into synthesized log output. Strip newlines and limit field length to prevent log injection attacks. -- `api/routes/jobs.ts:431-437`
+---
 
-#### M44: Use crypto.randomUUID() instead of Date.now() for synthetic activity IDs
-**Priority**: P2 | **Source**: `feat(dashboard)` code review
-Activity items lacking server-provided IDs use `Date.now()` as fallback inside forEach loops, causing ID collisions if multiple items lack IDs in the same tick. React key collisions result in stale rendering. -- `frontend/src/hooks/useWebSocketConnection.ts:141, 195`
+## Complexity Analysis — Full Repo (2026-03-08)
 
-### Low Priority
+Full report: [complexity-report-2026-03-08.md](complexity-report-2026-03-08.md)
 
-#### L19: Verify JobStatus enum includes 'cancelled' instead of using `as any`
-**Priority**: P3 | **Source**: `feat(dashboard)` code review
-`updateJob(jobId, { status: 'cancelled' as any })` suppresses type error. Check if `Job.status` type includes `'cancelled'` — if not, add it instead of using type assertion. -- `frontend/src/App.tsx:122`
+**Scan:** 234 TS files, 165 functions extracted, 24 exceeding thresholds (14.5%). 0 security issues, 95 `prefer-const` info violations, 1 duplication group.
 
-#### L20: Add type safety to activity map helper functions
-**Priority**: P3 | **Source**: `feat(dashboard)` code review
-`mapActiveJob(j: any)` and `mapQueuedJob(j: any)` accept untyped parameters. Define minimal interface for `/api/status` response shape to catch field name drift at compile time. -- `frontend/src/hooks/useWebSocketConnection.ts:45, 62`
+### Critical
 
-#### L21: Fix misleading StrictMode comment on isInitialized ref
-**Priority**: P4 | **Source**: `feat(dashboard)` code review
-Comment says ref prevents double-init in StrictMode, but cleanup resets the flag, making the guard ineffective. Either remove the ref or don't reset it in cleanup. -- `frontend/src/hooks/useWebSocketConnection.ts:242`
+#### CX14: Refactor `loadInitialData` (cyclomatic = 19)
+**Priority**: P1 | **Source**: ast-grep `analyze_complexity`
+Highest cyclomatic complexity in the codebase (nearly 2x threshold). Extract activity-feed mapping and system-status construction into separate functions. -- `frontend/src/hooks/useWebSocketConnection.ts:112-161`
 
-#### L22: Conditionally append ellipsis in PipelineDetailPanel job IDs
-**Priority**: P4 | **Source**: `feat(dashboard)` code review
-`substring(0, 20) + '...'` always appends ellipsis even for IDs shorter than 20 characters. Use CSS `text-overflow: ellipsis` or conditional append. -- `frontend/src/components/PipelineDetailPanel/PipelineDetailPanel.tsx:124`
+### Medium
+
+#### CX15: Break up long integration test runners
+**Priority**: P2 | **Source**: ast-grep `analyze_complexity`
+22 test functions exceed 50-line length threshold. Worst offenders: `main` in `test-automated-pipeline.ts` (133 lines), `testGitignoreRespect` (121 lines), `main` in `test-report-generation.ts` (120 lines). Consider splitting into smaller focused functions or adopting a test framework with `describe`/`it` blocks.
+
+#### CX16: Shorten setup scripts
+**Priority**: P2 | **Source**: ast-grep `analyze_complexity`
+`setupDopplerSentry` (136 lines, cyc=14), `setupSentry` (128 lines, cyc=12), and `main` in `configure-discord-alerts.js` (73 lines, cyc=10) exceed both length and cyclomatic thresholds. Extract step functions from these procedural setup scripts.
+
+### Low
+
+#### CS9: Replace 95 `let` declarations with `const`
+**Priority**: P3 | **Source**: ast-grep `enforce_standards`
+95 `prefer-const` violations across 30 files. Top offenders: `markdown-report-generator.ts` (9), `categorize-magic-numbers.ts` (12), `validate-backlog.ts` (8). Bulk-fixable with `eslint --fix`.
+
+#### DUP1: Deduplicate destructuring in report-generator
+**Priority**: P3 | **Source**: ast-grep `find_duplication`
+Identical 11-line destructuring block at `sidequest/utils/report-generator.ts:127-137` and `169-179`. Extract into a shared helper.
