@@ -124,7 +124,11 @@ export class DopplerResilience {
     this.metrics.totalRequests++;
 
     if (this.state === CircuitState.OPEN) {
-      if (this.nextAttemptTime === null || Date.now() >= this.nextAttemptTime) {
+      if (this.nextAttemptTime === null) {
+        logger.warn('Circuit OPEN with null nextAttemptTime — resetting to HALF_OPEN');
+        this.state = CircuitState.HALF_OPEN;
+        this.successCount = 0;
+      } else if (Date.now() >= this.nextAttemptTime) {
         logger.info('Circuit breaker timeout elapsed, attempting HALF_OPEN state');
         this.state = CircuitState.HALF_OPEN;
         this.successCount = 0;

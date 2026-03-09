@@ -7,9 +7,9 @@
  * @module dependency-validator
  */
 
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { createComponentLogger } from './logger.ts';
-import { TIMEOUTS } from '../core/constants.ts';
+import { NUMBER_BASE, TIMEOUTS } from '../core/constants.ts';
 
 const logger = createComponentLogger('DependencyValidator');
 
@@ -50,7 +50,7 @@ export class DependencyValidator {
 
     const failures = results
       .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-      .map(r => (r.reason as Error).message);
+      .map(r => (r.reason instanceof Error ? r.reason.message : String(r.reason)));
 
     if (failures.length > 0) {
       logger.error({ failures }, 'Dependency validation failed');
@@ -63,9 +63,9 @@ export class DependencyValidator {
   /**
    * Validate repomix is available
    */
-  static async validateRepomix(): Promise<void> {
+  static validateRepomix(): void {
     try {
-      execSync('npx repomix --version', {
+      execFileSync('npx', ['repomix', '--version'], {
         stdio: 'ignore',
         timeout: TIMEOUTS.DEPENDENCY_CHECK_MS,
         env: process.env
@@ -82,12 +82,13 @@ export class DependencyValidator {
   /**
    * Validate ast-grep is available
    */
-  static async validateAstGrep(): Promise<void> {
+  static validateAstGrep(): void {
     // Try global binary first
     try {
-      execSync('sg --version', {
+      execFileSync('sg', ['--version'], {
         stdio: 'ignore',
-        timeout: TIMEOUTS.VERSION_CHECK_MS
+        timeout: TIMEOUTS.VERSION_CHECK_MS,
+        env: process.env
       });
       logger.debug('ast-grep validation passed (global binary)');
       return;
@@ -97,7 +98,7 @@ export class DependencyValidator {
 
     // Fallback to npx (slower but works)
     try {
-      execSync('npx @ast-grep/cli --version', {
+      execFileSync('npx', ['@ast-grep/cli', '--version'], {
         stdio: 'ignore',
         timeout: TIMEOUTS.DEPENDENCY_CHECK_MS,
         env: process.env
@@ -115,7 +116,7 @@ export class DependencyValidator {
   /**
    * Validate Python 3.11+ is available
    */
-  static async validatePython(): Promise<string> {
+  static validatePython(): string {
     const pythonPaths = [
       { path: 'venv/bin/python3', name: 'venv' },
       { path: 'python3', name: 'system' }
@@ -123,17 +124,18 @@ export class DependencyValidator {
 
     for (const { path: pythonPath, name } of pythonPaths) {
       try {
-        const version = execSync(`${pythonPath} --version`, {
+        const version = execFileSync(pythonPath, ['--version'], {
           encoding: 'utf-8',
-          timeout: TIMEOUTS.VERSION_CHECK_MS
+          timeout: TIMEOUTS.VERSION_CHECK_MS,
+          env: process.env
         });
 
         const match = version.match(/Python (\d+)\.(\d+)/);
         if (match) {
-          const major = parseInt(match[1]);
-          const minor = parseInt(match[2]);
+          const major = parseInt(match[1], NUMBER_BASE.DECIMAL);
+          const minor = parseInt(match[2], NUMBER_BASE.DECIMAL);
 
-          if (major >= 3 && minor >= 11) {
+          if (major > 3 || (major === 3 && minor >= 11)) {
             logger.debug({ pythonPath, version: `${major}.${minor}`, name }, 'Python validation passed');
             return pythonPath;
           }

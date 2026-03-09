@@ -30,6 +30,9 @@
     "customPatterns": [
       "**/node_modules/**",
       "docs/repomix/**",
+      "docs/output/**",
+      "docs/magic-number*",
+      "docs/no-magic-numbers*",
       "**/repomix-output.*",
       "**/repo-compressed.*",
       "**/repomix.xml",

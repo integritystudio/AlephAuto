@@ -152,6 +152,20 @@ No active backlog items.
 
 ---
 
+## ast-grep Full Analysis (2026-03-09)
+
+Full report: [ast-grep-analysis-2026-03-09.md](ast-grep-analysis-2026-03-09.md)
+
+**Scan:** 239 TS files, 205 functions, 25 API routes. 6 tools: complexity, code smells, security, standards, duplication, API docs.
+
+| ID | Priority | Title | File | Detail |
+|----|----------|-------|------|--------|
+| AG-W1 | Medium | Replace 14 `console.log` with structured logger | `frontend/src/services/websocket.ts`, `useWebSocketConnection.ts` | 9 + 5 occurrences |
+| AG-CS1 | Medium | Decompose `MigrationTransformer` (627 lines, 44 methods) | `sidequest/pipeline-core/git/migration-transformer.ts:163` | Split by migration phase |
+| AG-CS2 | Low | Extract HTML templates from `HtmlReportGenerator` (607 lines) | `sidequest/pipeline-core/reports/html-report-generator.ts:18` | 3 methods, large inline templates |
+
+---
+
 ## Complexity Analysis — Full Repo (2026-03-08)
 
 Full report: [complexity-report-2026-03-08.md](complexity-report-2026-03-08.md)
@@ -310,3 +324,48 @@ Repomix-explorer analysis of 22 scripts (~42K tokens): shell (13), TypeScript (6
 > All items completed (2026-03-09). See commits 6634551–8ea84c0.
 
 Audit of docs/ against current codebase (v2.3.20). Source: repomix-docs.xml index.
+
+---
+
+## Code Review Findings — sidequest/utils (2026-03-09)
+
+**Scan:** 15 TS files (utility modules, helpers, managers, validators, reporters).
+
+### Done
+
+| ID | File | Title | Fix |
+|----|------|-------|-----|
+| SU-C1 | `dependency-validator.ts` | Command injection via unsanitized pythonPath | Replaced all `execSync` string forms with `execFileSync` array form; removed `async` keywords from synchronous validators |
+| SU-M1 | `dependency-validator.ts` | Unguarded `r.reason as Error` cast | Added `instanceof Error` check with `String()` fallback for unknown rejection types |
+| SU-M2 | `dependency-validator.ts` | Missing `env: process.env` propagation | Added to all four `execFileSync` calls for NVM/pyenv environment variable inheritance |
+| SU-M3 | `dependency-validator.ts` | `parseInt` without radix | Applied `NUMBER_BASE.DECIMAL` constant from `sidequest/core/constants.ts` |
+| SU-L1 | `dependency-validator.ts` | Python version check rejects Python 4.x | Fixed logic to `major > 3 \|\| (major === 3 && minor >= 11)` |
+
+### High
+
+| ID | File | Title | Description |
+|----|------|-------|-------------|
+| SU-H1 | `plugin-manager.ts:67` | Direct `process.env.HOME` use | Violates config convention. Already has `os.homedir()` imported as fallback — remove the direct env read. |
+| SU-H2 | `plugin-manager.ts:68-71` | Magic numbers for plugin thresholds | `maxPlugins: 30`, `warnPlugins: 20` should be constants. Create `PLUGIN_THRESHOLDS` in `sidequest/core/constants.ts` or read from config. |
+| SU-H3 | `doppler-resilience.ts:73` | Magic number `successThreshold ?? 2` | `2` should be a constant in `RETRY` or new `CIRCUIT_BREAKER` group in `constants.ts`. |
+| SU-H4 | `doppler-resilience.ts:100-101` | Non-null assertions on `nextAttemptTime` | Typed as `number \| null`. Replace `!` assertions with explicit `nextAttemptTime !== null` check. |
+
+### Medium
+
+| ID | File | Title | Description |
+|----|------|-------|-------------|
+| SU-M4 | `refactor-test-suite.ts` | Synchronous fs calls in async context | Uses `fs.readFileSync`, `fs.writeFileSync`, etc. in `main()` (async). Switch to `fs/promises` for non-blocking I/O. |
+| SU-M5 | `refactor-test-suite.ts:1394-1404` | `\|\| 0` instead of `?? 0` for counts | Per project convention, `??` must be used for numeric options to preserve `0` values. |
+| SU-M6 | `gitignore-repomix-updater.ts:780` | Duplicated hardcoded string | `**/repomix-output.xml` duplicates `this.gitignoreEntry`. Use `**/${this.gitignoreEntry}` or remove dead line. |
+| SU-M7 | `gitignore-repomix-updater.ts:920` | Manual `import.meta.url` entrypoint check | Should use existing `isDirectExecution()` from `execution-helpers.ts` instead of inline pattern. |
+| SU-M8 | `report-generator.ts:2307-2333` | Duplicated 16-element `metricKeys` array | Appears in both `extractMetrics` and `extractDetails`. Extract to module-level constant. |
+| SU-M9 | `schema-mcp-tools.ts:2488-2491` | Derived magic numbers for description length | `DESCRIPTION_TRUNCATED_LENGTH = 197 = MAX_LENGTH - 3`. Derive from constant: `MAX_LENGTH - '...'.length`. |
+
+### Low
+
+| ID | File | Title | Description |
+|----|------|-------|-------------|
+| SU-L2 | `doppler-resilience.ts` | Class uses runtime throw instead of abstract method | Template-method pattern via `throw new Error()` should use `abstract class` + `abstract method` for compile-time safety. |
+| SU-L3 | `pipeline-names.ts` | `\|\|` instead of `??` + unnecessary type cast | `getPipelineName` uses `as Record<string, string>` cast and `\|\|`. Apply `??` and avoid cast. |
+| SU-L4 | `time-helpers.ts` | Repeated arithmetic on every call | `TIME_MS.MINUTE / TIME_MS.SECOND` (= 60) computed repeatedly in `formatDuration`. Move to module-level constant. |
+| SU-L5 | `html-report-utils.ts` | Inline magic CSS values | All numeric CSS values (`1200px`, `20px`, `30px`, etc.) hardcoded in style template. Extract to CSS constants or custom properties. |

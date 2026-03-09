@@ -88,7 +88,7 @@ import { setupServerWithPortFallback } from './api/utils/port-manager.ts';
 ### 7. Database Access: Use JobRepository
 ```javascript
 import { jobRepository } from './sidequest/core/job-repository.ts';
-await jobRepository.saveJob(job);           // Correct - never import from database.js directly
+await jobRepository.saveJob(job);           // Correct - never import from database.ts directly
 const job = jobRepository.getJob(id);       // Returns parsed camelCase: { pipelineId, createdAt, ... }
 const count = jobRepository.getJobCount({ status });  // Efficient COUNT(*) query
 ```
@@ -163,7 +163,7 @@ units.ts (primitives: TIME_MS, SECONDS, BYTES, PERCENTILE)
 ```
 units.ts → constants.ts → config.ts ← server.ts → job-repository.ts → database.ts (better-sqlite3)
                                           ↓
-                                   git-workflow-manager.ts → BranchManager
+                                   BranchManager (pipeline-core/git/branch-manager.ts)
 ```
 
 ### Type System Flow
