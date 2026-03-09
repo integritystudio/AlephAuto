@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node --strip-types
 
 /**
  * Error Log Cleanup Script

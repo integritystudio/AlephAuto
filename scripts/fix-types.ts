@@ -1,4 +1,4 @@
-#!/usr/bin/env node --strip-types
+#!/usr/bin/env -S node --strip-types
 
 /**
  * Fix missing @types/node installation issue

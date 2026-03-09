@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node --strip-types
 
 import fs from 'fs';
 import path from 'path';
