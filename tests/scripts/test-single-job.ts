@@ -9,39 +9,14 @@ import { waitForJobCompletion } from '../utils/test-utilities.ts';
  * Usage: node --strip-types test-single-job.ts [directory-path]
  */
 
-async function testSingleJob() {
-  console.log('=== Single Job Test ===\n');
-
-  // Get target directory from command line or use current directory
-  const targetDir = process.argv[2] || process.cwd();
-  const absolutePath = path.resolve(targetDir);
-
-  console.log(`Target directory: ${absolutePath}`);
-
-  // Calculate relative path from ~/code
-  const codeBase = path.join(os.homedir(), 'code');
-  let relativePath;
-
+function resolveRelativePath(absolutePath: string, codeBase: string): string {
   if (absolutePath.startsWith(codeBase)) {
-    relativePath = path.relative(codeBase, absolutePath);
-  } else {
-    // If not under ~/code, use the directory name
-    relativePath = path.basename(absolutePath);
+    return path.relative(codeBase, absolutePath);
   }
+  return path.basename(absolutePath);
+}
 
-  console.log(`Relative path: ${relativePath}`);
-  console.log(`Output will be saved to: ./sidequest/output/condense/${relativePath}/repomix-output.txt\n`);
-
-  // Create worker
-  const worker = new RepomixWorker({
-    maxConcurrent: 1,
-    outputBaseDir: './sidequest/output/condense',
-    codeBaseDir: codeBase,
-    logDir: './logs',
-    sentryDsn: process.env.SENTRY_DSN,
-  });
-
-  // Setup event listeners
+function setupWorkerEventListeners(worker: RepomixWorker) {
   worker.on('job:created', (job) => {
     console.log(`✓ Job created: ${job.id}`);
   });
@@ -68,12 +43,33 @@ async function testSingleJob() {
     console.error(`  Log file: ./logs/${job.id}.error.json`);
     process.exit(1);
   });
+}
 
-  // Create and run the job
+async function testSingleJob() {
+  console.log('=== Single Job Test ===\n');
+
+  const targetDir = process.argv[2] || process.cwd();
+  const absolutePath = path.resolve(targetDir);
+  const codeBase = path.join(os.homedir(), 'code');
+  const relativePath = resolveRelativePath(absolutePath, codeBase);
+
+  console.log(`Target directory: ${absolutePath}`);
+  console.log(`Relative path: ${relativePath}`);
+  console.log(`Output will be saved to: ./sidequest/output/condense/${relativePath}/repomix-output.txt\n`);
+
+  const worker = new RepomixWorker({
+    maxConcurrent: 1,
+    outputBaseDir: './sidequest/output/condense',
+    codeBaseDir: codeBase,
+    logDir: './logs',
+    sentryDsn: process.env.SENTRY_DSN,
+  });
+
+  setupWorkerEventListeners(worker);
+
   console.log('Creating job...\n');
   const job = worker.createRepomixJob(absolutePath, relativePath);
 
-  // Wait for job to complete (event listeners handle process.exit)
   await waitForJobCompletion(worker, job.id);
 }
 
