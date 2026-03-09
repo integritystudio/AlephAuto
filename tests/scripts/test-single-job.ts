@@ -2,6 +2,7 @@ import { RepomixWorker } from '../../sidequest/workers/repomix-worker.ts';
 import path from 'path';
 import os from 'os';
 import { BYTES_PER_KB } from '../../sidequest/core/constants.ts';
+import { waitForJobCompletion } from '../utils/test-utilities.ts';
 
 /**
  * Test script to run a single repomix job
@@ -72,15 +73,8 @@ async function testSingleJob() {
   console.log('Creating job...\n');
   const job = worker.createRepomixJob(absolutePath, relativePath);
 
-  // Wait for job to complete
-  await new Promise((resolve) => {
-    const checkInterval = setInterval(() => {
-      if (job.status === 'completed' || job.status === 'failed') {
-        clearInterval(checkInterval);
-        resolve();
-      }
-    }, 100);
-  });
+  // Wait for job to complete (event listeners handle process.exit)
+  await waitForJobCompletion(worker, job.id);
 }
 
 // Run the test

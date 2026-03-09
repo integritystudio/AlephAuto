@@ -121,7 +121,7 @@ No active critical-complexity backlog items.
 
 #### CX15: Break up long integration test runners
 **Priority**: P2 | **Source**: ast-grep `analyze_complexity`
-22 test functions exceed 50-line length threshold. Worst offenders: `main` in `test-automated-pipeline.ts` (133 lines), `testGitignoreRespect` (121 lines), `main` in `test-report-generation.ts` (120 lines). Consider splitting into smaller focused functions or adopting a test framework with `describe`/`it` blocks.
+22 test functions exceed 50-line length threshold. Top 3 offenders fixed (v2.3.19): `main` in `test-automated-pipeline.ts` (133→28), `testGitignoreRespect` in `test-gitignore-respect.ts` (121→26), `main` in `test-report-generation.ts` (120→30). Remaining 19 functions still exceed threshold. Consider splitting into smaller focused functions or adopting a test framework with `describe`/`it` blocks.
 
 #### CX16: Shorten setup scripts
 **Priority**: P2 | **Source**: ast-grep `analyze_complexity`
