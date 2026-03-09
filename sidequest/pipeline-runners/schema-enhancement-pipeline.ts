@@ -4,10 +4,9 @@ import { config } from '../core/config.ts';
 import { JOB_EVENTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
-import { realpathSync } from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { isDirectExecution } from '../utils/execution-helpers.ts';
 
 const logger = createComponentLogger('SchemaEnhancementPipeline');
 
@@ -264,19 +263,8 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
   }
 }
 
-function isDirectExecution(): boolean {
-  const currentModulePath = fileURLToPath(import.meta.url);
-  const entryPath = process.argv[1];
-  if (!entryPath) return false;
-  try {
-    return realpathSync(path.resolve(entryPath)) === realpathSync(currentModulePath);
-  } catch {
-    return false;
-  }
-}
-
 // Run if executed directly
-if (isDirectExecution()) {
+if (isDirectExecution(import.meta.url)) {
   const cronSchedule = process.env.SCHEMA_ENHANCEMENT_CRON_SCHEDULE || '0 3 * * 0'; // Sunday 3 AM
 
   // Parse command line arguments

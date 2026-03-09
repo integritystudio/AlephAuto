@@ -29102,205 +29102,7 @@ pm2 logs
 
 **Version:** 2.0.0
 **Last Updated:** 2026-03-04
-**Maintained By:** DevOps Team</file><file path="docs/setup/configure-discord-alerts.js">#!/usr/bin/env node
-
-/**
- * Configure Discord Integration for Sentry Alerts
- *
- * This script adds Discord webhook integration to Sentry and updates
- * all existing alert rules to include Discord notifications.
- *
- * Usage:
- *   doppler run -- node setup-files/configure-discord-alerts.js
- */
-
-import https from &apos;https&apos;;
-import &apos;dotenv/config&apos;;
-
-const SENTRY_TOKEN = process.env.SENTRY_TOKEN;
-const DISCORD_WEBHOOK = process.env.DISCORD_SENTRY_WEBHOOK;
-const ORG_SLUG = &apos;integrity-studio&apos;;
-const PROJECT_SLUG = &apos;node&apos;;
-
-/**
- * Make Sentry API request
- */
-function sentryRequest(method, path, body = null) {
-  return new Promise((resolve, reject) =&gt; {
-    const options = {
-      hostname: &apos;sentry.io&apos;,
-      path: path,
-      method: method,
-      headers: {
-        &apos;Authorization&apos;: `Bearer ${SENTRY_TOKEN}`,
-        &apos;Content-Type&apos;: &apos;application/json&apos;
-      }
-    };
-
-    const req = https.request(options, (res) =&gt; {
-      let data = &apos;&apos;;
-      res.on(&apos;data&apos;, (chunk) =&gt; data += chunk);
-      res.on(&apos;end&apos;, () =&gt; {
-        if (res.statusCode &gt;= 200 &amp;&amp; res.statusCode &lt; 300) {
-          try {
-            resolve(JSON.parse(data || &apos;{}&apos;));
-          } catch {
-            resolve(data);
-          }
-        } else {
-          reject(new Error(`Sentry API error: ${res.statusCode} ${data}`));
-        }
-      });
-    });
-
-    req.on(&apos;error&apos;, reject);
-    if (body) {
-      req.write(JSON.stringify(body));
-    }
-    req.end();
-  });
-}
-
-/**
- * Get all alert rules for the project
- */
-async function getAlertRules() {
-  console.log(&apos;📋 Fetching existing alert rules...&apos;);
-  const rules = await sentryRequest(&apos;GET&apos;, `/api/0/projects/${ORG_SLUG}/${PROJECT_SLUG}/rules/`);
-  console.log(`   Found ${rules.length} alert rules\n`);
-  return rules;
-}
-
-/**
- * Add webhook integration to Sentry project
- */
-async function addWebhookIntegration() {
-  console.log(&apos;🔗 Configuring Discord webhook integration...&apos;);
-
-  try {
-    const result = await sentryRequest(
-      &apos;POST&apos;,
-      `/api/0/projects/${ORG_SLUG}/${PROJECT_SLUG}/plugins/webhooks/`,
-      { urls: [DISCORD_WEBHOOK] }
-    );
-    console.log(&apos;   ✅ Webhook integration configured\n&apos;);
-    return result;
-  } catch (error) {
-    if (error.message.includes(&apos;400&apos;)) {
-      console.log(&apos;   ℹ️  Webhook integration already exists\n&apos;);
-    } else {
-      throw error;
-    }
-  }
-}
-
-const WEBHOOK_ACTION_ID = &apos;sentry.rules.actions.notify_event_service.NotifyEventServiceAction&apos;;
-
-function ruleHasWebhook(rule) {
-  return rule.actions.some(action =&gt; action.id === WEBHOOK_ACTION_ID);
-}
-
-/**
- * Update alert rule to include Discord webhook action
- */
-async function updateAlertRule(rule) {
-  console.log(`   Updating: ${rule.name} (ID: ${rule.id})`);
-
-  if (ruleHasWebhook(rule)) {
-    console.log(&apos;     ℹ️  Already has webhook action, skipping&apos;);
-    return { updated: false };
-  }
-
-  const updatedActions = [
-    ...rule.actions,
-    { id: WEBHOOK_ACTION_ID, service: &apos;webhooks&apos; }
-  ];
-
-  await sentryRequest(
-    &apos;PUT&apos;,
-    `/api/0/projects/${ORG_SLUG}/${PROJECT_SLUG}/rules/${rule.id}/`,
-    { ...rule, actions: updatedActions }
-  );
-
-  console.log(&apos;     ✅ Added Discord notification&apos;);
-  return { updated: true };
-}
-
-function validateEnvironment() {
-  if (!SENTRY_TOKEN) {
-    console.error(&apos;❌ SENTRY_TOKEN not found in environment&apos;);
-    console.error(&apos;   Get it from: doppler secrets get SENTRY_TOKEN -p analyticsbot -c dev --plain&apos;);
-    process.exit(1);
-  }
-
-  if (!DISCORD_WEBHOOK) {
-    console.error(&apos;❌ DISCORD_SENTRY_WEBHOOK not found in environment&apos;);
-    console.error(&apos;   Set it with: doppler secrets set DISCORD_SENTRY_WEBHOOK=&quot;your-webhook-url&quot;&apos;);
-    process.exit(1);
-  }
-
-  console.log(&apos;✅ Environment variables found&apos;);
-  console.log(`   Organization: ${ORG_SLUG}`);
-  console.log(`   Project: ${PROJECT_SLUG}`);
-  console.log(`   Discord webhook: ${DISCORD_WEBHOOK.substring(0, 50)}...\n`);
-}
-
-async function updateAllRules(rules) {
-  console.log(&apos;🔄 Updating alert rules to include Discord notifications...\n&apos;);
-
-  let updated = 0;
-  let skipped = 0;
-
-  for (const rule of rules) {
-    try {
-      const result = await updateAlertRule(rule);
-      if (result.updated) {
-        updated++;
-      } else {
-        skipped++;
-      }
-    } catch (error) {
-      console.log(`     ❌ Error: ${error.message}`);
-    }
-  }
-
-  return { total: rules.length, updated, skipped };
-}
-
-function printSummary({ total, updated, skipped }) {
-  console.log(&apos;\n╔════════════════════════════════════════════════════════════════╗&apos;);
-  console.log(&apos;║              Discord Integration Complete! ✅                 ║&apos;);
-  console.log(&apos;╚════════════════════════════════════════════════════════════════╝\n&apos;);
-  console.log(`📊 Summary:`);
-  console.log(`   • Total alert rules: ${total}`);
-  console.log(`   • Updated with Discord: ${updated}`);
-  console.log(`   • Already had Discord: ${skipped}\n`);
-  console.log(&apos;🎯 Next steps:&apos;);
-  console.log(&apos;   1. Test the integration: node test/test-discord-webhook.js&apos;);
-  console.log(&apos;   2. Trigger a test error: node test/test-sentry-connection.js&apos;);
-  console.log(&apos;   3. Check your Discord channel for alerts&apos;);
-  console.log(&apos;   4. View alerts in Sentry: https://sentry.io/organizations/integrity-studio/alerts/rules/\n&apos;);
-}
-
-async function main() {
-  console.log(&apos;╔════════════════════════════════════════════════════════════════╗&apos;);
-  console.log(&apos;║         Configure Discord Integration for Sentry              ║&apos;);
-  console.log(&apos;╚════════════════════════════════════════════════════════════════╝\n&apos;);
-
-  validateEnvironment();
-
-  try {
-    await addWebhookIntegration();
-    const rules = await getAlertRules();
-    const stats = await updateAllRules(rules);
-    printSummary(stats);
-  } catch (error) {
-    console.error(&apos;\n❌ Configuration failed:&apos;, error.message);
-    process.exit(1);
-  }
-}
-
-main().catch(console.error);</file><file path="docs/setup/SENTRY_SETUP.md"># Sentry Error Monitoring Setup Guide
+**Maintained By:** DevOps Team</file><file path="docs/setup/SENTRY_SETUP.md"># Sentry Error Monitoring Setup Guide
 
 Complete guide for setting up Sentry error monitoring and alerting for your automated job system.
 
@@ -30532,549 +30334,7 @@ All test files (`.test.ts`, `test-*.ts`, `validate-*.ts`) are listed in the full
 1. **P0** -- Normalize analyzer scope/config (include/exclude patterns and orphan verification mode) and run a strict apples-to-apples baseline pass
 2. **P1** -- Run focused standards scans with uncapped output to produce complete post-fix inventories per rule (metrics refresh only; no active standards backlog)
 3. **P1** -- Re-run orphan detection with `verify_with_grep=true` in a bounded target scope to reduce false positives
-4. **P2** -- Track documentation drift from the latest `sync_documentation` baseline (**100.0%**: 913/913 documented, 0 undocumented, 0 stale docstrings) with periodic reruns</file><file path="docs/CHANGELOG.md"># Changelog
-
-All notable changes to AlephAuto are documented in this file.
-
-Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-
----
-
-## [2.3.20] - 2026-03-09
-
-See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2320---2026-03-09)
-
----
-
-## [2.3.19] - 2026-03-09
-
-See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2319---2026-03-09)
-
----
-
-## [2.3.18] - 2026-03-09
-
-See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2318---2026-03-09)
-
----
-
-## [1.9.0] - 2026-02-25
-
-### Summary
-Cross-repo test suite cleanup across AlephAuto and tcad-scraper. Deleted zero-value tests, fixed correctness issues, removed duplication, and improved e2e reliability. Net -1,243 lines.
-
-### Removed (tcad-scraper)
-- `claude-mock-repro.test.ts` — 5 tests asserting `expect(true).toBe(true)` (TST-C1)
-- `token-refresh-mock-repro.test.ts` — documented broken pattern, working tests elsewhere (TST-C2)
-- `ci-fixes.test.ts` — tested compile-time invariants at runtime (TST-C3)
-- `scraper.queue.database-tracking.test.ts` — tested `Array.filter`, not production code (TST-C4)
-- Flaky `Date.now()` rate limiting test from `enqueue.test.ts` (TST-H5)
-- 3 redundant fallback tests from `claude.service.json-parsing.test.ts` (TST-H2)
-- 5 redundant structural tests from `api-config.test.ts` (TST-H9)
-
-### Fixed (tcad-scraper)
-- Consolidated 8 `isRedisAvailable()` calls to 1 via `describe.skipIf` in auth-database tests (TST-H3)
-- Tightened `expect([200, 500])` to `expect(200)` for database read endpoints (TST-H3)
-- Fixed vacuous CSP assertion (`if (csp)` → unconditional) in integration tests (TST-H6)
-- Removed `property.routes.claude.test.ts` from vitest exclude — file is fully mocked (TST-H7)
-- Fixed analytics mock in PropertyCard tests — now asserts `logPropertyView` called on expand (TST-H8)
-- Added `vi.resetModules()` to api-config tests to prevent module caching (TST-H9)
-- Fixed e2e loading state timing race with `page.route` interception (TST-H11)
-- Replaced fragile `h3` locators with `.results-grid h3` in 4 e2e files (TST-H12)
-
-### Changed (tcad-scraper)
-- Extracted shared prisma mock to `helpers/claude-mock.ts` (TST-H1)
-- Extracted repeated `resetModules+import` to `beforeEach` in queue event listener tests (TST-H4)
-- Converted `if (!hasFrontend) return` to `test.skipIf` in integration tests (TST-H6)
-- Increased Playwright CI workers from 1 to 2 (TST-H10)
-
-### Fixed (AlephAuto)
-- `retry-logic.test.js` — imported production function instead of local shadow copy (TST-C5)
-- `mcp-server.test.js` — moved 420 fully-skipped lines to `tests/future/` (TST-C6)
-- `rate-limit.test.js` — rewrote mock theater to use supertest (TST-C7)
-- `websocket-unit.test.js` — removed 270 lines asserting hand-crafted literals (TST-C8)
-- `database.test.js` — replaced `assert.ok(true)` with real assertions (TST-C9)
-- Activity feed integration tests — replaced bare `setTimeout` with event-based waits (TST-H13)
-- Worker registry tests — fixed module re-import without cache reset (TST-H14)
-- Database tests — fixed teardown ordering on shared singleton (TST-H15)
-- Port manager tests — switched from hardcoded ports to OS-assigned (TST-H16)
-- Error classifier tests — deduplicated 3x ENOENT, 3x ETIMEDOUT assertions (TST-M8)
-- Directory scanner tests — migrated to `createTempRepository` fixture (TST-M9)
-- Scan orchestrator tests — parameterized 9 constructor-option tests (TST-M10)
-- Activity feed unit tests — extracted shared factory helper (TST-M11)
-- API routes tests — replaced hardcoded 100ms sleep with `waitForQueueDrain` (TST-M12)
-- Pipeline execution tests — removed Scenario 3 subsumed by Scenario 9 (TST-M13)
-- WebSocket tests — fixed `afterEach` race with `Promise.all` (TST-M14)
-- Port manager integration — fixed flaky concurrent allocation test (TST-M15)
-- Repository scanner — added TODO marker for placeholder test (TST-L2)
-- Database tests — isolated `beforeEach` job insertion (TST-L3)
-- Error recovery tests — imported `findAvailablePort` from port-manager (TST-L4)
-- Pipeline triggering tests — removed `console.log` noise (TST-L5)
-- Zod schema consolidation — extracted shared schemas to `api/types/shared-schemas.ts` (LOG13)
-
----
-
-## [1.8.9] - 2026-02-23
-
-### Summary
-Import path migration and test cleanup. Migrated 41 deep relative imports to Node `#imports` subpath aliases. Fixed websocket test suite.
-
-### Changed
-- Migrated 41 imports across 12 files in `api/` and `sidequest/core/` to Node `#imports` subpath aliases (LOG11)
-- `websocket.test.js` — cleanup + API alignment fix (LOG8 partial)
-
-### Removed
-- `doppler-resilience.example.js` (290 lines) — moved to `docs/quickstart/doppler-circuit-breaker.md` (LOG12)
-
----
-
-## [1.8.8] - 2026-02-20
-
-### Summary
-Resolved all 15 deferred review findings from TS Migration Phase 4-6 code review. Addressed type safety, validation gaps, broken rollback, and documentation.
-
-### Fixed
-- `saveJob` now validates job ID format with `isValidJobId` guard (TS46-M1)
-- Added `@deprecated` markers on `BulkImportJob` snake_case fields (TS46-M2)
-- Narrowed `ParsedJob.error` type with `isParsedJobError` runtime guard (TS46-M3)
-- Sanitized `jobType` in `_generateBranchName` to prevent git branch creation failures (TS46-M4)
-- Replaced empty backup with `git checkout` rollback in MigrationTransformer (TS46-M5)
-- Replaced non-null assertion with null-safe `Map.get` in file resolution (TS46-M6)
-- Derived namespace import alias from module source instead of hardcoded `&apos;imported&apos;` (TS46-M9)
-- Added Node 22.6+ version guard for `--strip-types` integration test (TS46-M10)
-- Fixed relative log path in `saveRunSummary` — uses `this.worker.logDir` (TS46-L1)
-- Fixed error message &quot;max 255 chars&quot; → &quot;max 100 chars&quot; to match regex (TS46-L2)
-- Fixed `getChangedFiles` rename parsing for `git status --porcelain` (TS46-L4)
-
-### Removed
-- Deleted 8 stale `.js` dual files superseded by `.ts` — 5 type schemas, 2 route handlers, 1 middleware (JS/TS Migration)
-
-### Changed
-- Marked `GitWorkflowManager` config properties `readonly` (TS46-M7)
-- Changed `gitWorkflowManager!` to optional with narrowing guards (TS46-M8)
-- Documented `_dbReady` graceful degradation intent (TS46-L3)
-- Documented auto-executing entry point in `core/index.ts` (TS46-L5)
-
----
-
-## [1.8.7] - 2026-02-16
-
-### Summary
-Production bugfix for jobs not populating in dashboard. Root cause: sql.js single-process limitation, missing pipeline registrations, and silent DB error swallowing.
-
-### Fixed
-- **PROD-H1:** Replaced sql.js with better-sqlite3 (WAL mode) for multi-process PM2 concurrency
-- **PROD-H2:** Registered `dashboard-populate` and `plugin-manager` pipelines in worker registry (8/11 → 11/11)
-- **PROD-H3:** `_persistJob()` now propagates DB errors instead of silently swallowing them
-- **PROD-M1:** Fixed DB init race condition — `jobRepository.initialize()` now awaited in `start()`
-- **PROD-L1:** Fixed `getAllPipelineStats()` snake_case inconsistency — returns camelCase like all other queries
-
-### Changed
-- **PROD-L2:** Tests use `:memory:` databases for cross-file isolation; `initDatabase()` accepts optional path
-
----
-
-## [1.8.6] - 2026-02-15
-
-### Summary
-Codebase cleanup sweep clearing 8 of 12 backlog items from analyzer scan. Net -2,170 lines across 23 files. Review score: 8.5/10.
-
-### Removed
-- Duplicate documentation files: 4 docs with canonical copies elsewhere (LOG1)
-- `api/routes/routes/` and `api/routes/middleware/` duplicate directories (LOG2)
-- `scripts/sync-cloudflare-tunnel-files.js` and Cloudflare tunnel sync infrastructure (LOG2)
-- `sync:cloudflare` and `sync:cloudflare:check` package.json scripts (LOG2)
-- Pre-commit Cloudflare sync step from `.husky/pre-commit` and `.git/hooks/pre-commit` (LOG2)
-- `tsconfig.json` exclusions for removed directories (LOG2)
-
-### Fixed
-- Hardcoded `/Users/alyshialedlie/code/jobs` paths in 3 integration tests replaced with `process.cwd()` (LOG3)
-- `docs/README.md` link to `INSTALL.md` updated to canonical location (LOG1)
-
-### Changed
-- `codebase-health-scanner.js` - replaced custom logger shim with `createComponentLogger` + `logError` (LOG4)
-- `report-coordinator.js` - replaced `console.log` with `logger.info` (LOG4)
-- `ecosystem.config.cjs` - added `max_size: &apos;10M&apos;` to both PM2 apps for log rotation (LOG5)
-- `report-generator.js` - added `pruneOldReports()` with 30-day retention, runs after each report generation (LOG6)
-- 4 migration scripts moved to `scripts/archive/` (LOG7)
-
-### Commits
-```
-85ae6aa chore: remove duplicate documentation files
-58561e5 chore: remove duplicate route files and Cloudflare tunnel sync
-6820988 fix: replace hardcoded paths with process.cwd() in integration tests
-a536810 refactor(logging): replace console.log with structured logger
-c4b40c8 chore: configure PM2 log rotation with max_size 10M
-895a3ed feat: add 30-day report retention policy
-5417d87 chore: archive one-time migration scripts
-3ca9b8a docs: update CLEANUP.md backlog with completion status
-```
-
----
-
-## [1.8.5] - 2026-02-08
-
-### Summary
-Pattern-based file detection for MigrationTransformer. Steps without `code_example` hints now automatically find affected files by scanning the repository. Also fixes Babel ESM/CJS interop bug that prevented AST transformations from executing.
-
-### Added
-- `_findRepositoryFiles()` - Glob scan for JS/TS files respecting `config.excludeDirs`
-- `_contentMatchesStep()` - Regex matching per step type (update-import, replace-call, remove-declaration)
-- `_resolveAffectedFiles()` - Single-pass file scanning: reads N files once, tests M steps against each
-- `add-import` association logic: inherits files from sibling steps in the same suggestion
-
-### Fixed
-- Babel `@babel/traverse` and `@babel/generator` ESM/CJS interop (`.default` unwrapping)
-- `_groupStepsByFile()` no longer falls back to sentinel keys (`__inferred_importers__`, etc.) that never resolve
-
-### Changed
-- `_groupStepsByFile()` now async with 2-pass approach (pass 1: code_example, pass 2: file detection)
-- 6 previously-skipped migration transformer tests now active
-
----
-
-## [1.8.4] - 2026-02-03
-
-### Summary
-Magic string to enum migration using Ralph Wiggum iterative loop. Created 6 new enums to centralize status values, eliminating scattered string literals across 13 files.
-
-### Added
-- `api/types/scan-result-status.ts` - `SCAN_RESULT_STATUS` enum (success, failure)
-- `api/types/activity-status.ts` - `ACTIVITY_STATUS` and `ACTIVITY_ICONS` enums
-- `HEALTH_STATUS` enum in `sidequest/core/constants.js` (healthy, warning, critical, degraded, not_initialized)
-- `PIPELINE_PHASES` enum in `sidequest/core/constants.js` (startup, cron, manual, scheduled)
-- `SCAN_STAGES` enum in `sidequest/core/constants.js` (scanning, extraction, analysis, comparison)
-- `JOB_STATUS_VALUES` array export in `api/types/job-status.ts` for SQL/Zod usage
-- `ACTIVE_STATUSES` constant for filtering non-terminal jobs
-- `docs/SESSION_HISTORY.md` - Development session log
-
-### Changed
-- `api/types/scan-requests.ts` - Import `JOB_STATUS` from job-status.ts instead of duplicating z.enum
-- `sidequest/workers/duplicate-detection-worker.js` - Use `SCAN_RESULT_STATUS`, `PIPELINE_PHASES`, `SCAN_STAGES`
-- `sidequest/workers/claude-health-worker.js` - Use `HEALTH_STATUS` enum
-- `sidequest/core/database.js` - Use `HEALTH_STATUS` for health status reporting
-- `sidequest/pipeline-core/doppler-health-monitor.js` - Use `HEALTH_STATUS` for severity levels
-- `sidequest/pipeline-runners/gitignore-pipeline.js` - Use `PIPELINE_PHASES` for logging tags
-- `sidequest/pipeline-runners/repo-cleanup-pipeline.js` - Use `PIPELINE_PHASES` for logging tags
-- `api/server.js` - Use `HEALTH_STATUS` and `PIPELINE_PHASES` enums
-- `api/activity-feed.js` - Use `ACTIVITY_STATUS` and `ACTIVITY_ICONS` enums
-
-### Fixed
-- Duplicate z.enum definitions in scan-requests.ts (DRY violation)
-
-### Commits
-```
-85c119f chore: remove ralph-prompt.md after enum migration complete
-48d1c37 refactor(constants): add SCAN_STAGES enum for progress tracking
-f68d1c7 refactor(types): add ACTIVITY_STATUS and ACTIVITY_ICONS enums
-7cfdbdf refactor(constants): add PIPELINE_PHASES enum for execution context
-ee03652 refactor(constants): add HEALTH_STATUS enum for system monitoring
-312a9e8 refactor(types): add SCAN_RESULT_STATUS enum for pipeline outcomes
-c529fc4 refactor(types): deduplicate job status enums in scan-requests
-```
-
----
-
-## [1.8.3] - 2026-02-02
-
-### Summary
-Major DRY refactoring introducing BasePipeline class for pipeline runners. Improved DRY score from 72 → 97.
-
-### Added
-- `sidequest/core/base-pipeline.js` - Abstract base class for pipeline runners
-  - `setupEventListeners()` - Standardized job lifecycle event handling
-  - `waitForCompletion()` - Polling for job queue completion
-  - `scheduleCron()` - Centralized cron scheduling with validation
-  - `runWithTiming()` - Consistent operation timing and logging
-  - `calculateDuration()` - Duration calculation helper
-
-### Changed
-- **GitActivityPipeline** - Now extends BasePipeline (was standalone class)
-- **PluginManagementPipeline** - Now extends BasePipeline
-- **SchemaEnhancementPipeline** - Now extends BasePipeline
-- **ClaudeHealthPipeline** - Now extends BasePipeline (with 100ms polling)
-- Eliminated ~600 lines of duplicate code across 4 pipeline files
-- Standardized event listener patterns using `EVENT_TYPES` constants
-- Centralized cron schedule validation
-
-### Patterns Established
-```javascript
-// Creating a new pipeline
-import { BasePipeline } from &apos;../core/base-pipeline.js&apos;;
-import { createComponentLogger } from &apos;../utils/logger.js&apos;;
-
-const logger = createComponentLogger(&apos;MyPipeline&apos;);
-
-class MyPipeline extends BasePipeline {
-  constructor(options = {}) {
-    const worker = new MyWorker({ ...options });
-    super(worker, { logger });
-  }
-
-  // Override for custom event handling
-  onJobCompleted(job) {
-    const duration = this.calculateDuration(job);
-    this.logger.info({ jobId: job.id, duration }, &apos;Job completed&apos;);
-  }
-
-  // Use runWithTiming for consistent timing
-  async runTask(options = {}) {
-    return this.runWithTiming(&apos;my task&apos;, async () =&gt; {
-      const job = this.worker.createJob(options);
-      this.logger.info({ jobId: job.id }, &apos;Task started&apos;);
-    });
-  }
-
-  // Use scheduleCron for consistent scheduling
-  scheduleTask(cronSchedule = &apos;0 * * * *&apos;) {
-    return this.scheduleCron(cronSchedule, () =&gt; this.runTask(), &apos;tasks&apos;);
-  }
-}
-```
-
-### Migration Notes
-Pipelines extending BasePipeline no longer need to implement:
-- `setupEventListeners()` - Provided by base class (override for custom)
-- `waitForCompletion()` - Provided by base class
-- Cron validation - Handled by `scheduleCron()`
-- Duration calculation - Use `this.calculateDuration(job)`
-
----
-
-## [1.8.2] - 2026-02-02
-
-### Summary
-Two rounds of code review fixes addressing code quality, performance, and consistency issues.
-
-### Fixed (2026-02-01 Code Review)
-- **M1:** Renamed `annotate()` → `extract_annotation()` for naming consistency in semantic_annotator.py
-- **M2:** Added docstrings to grouping.py helpers (`_extract_function_names`, `_run_semantic_checks`, `_create_duplicate_group`)
-- **M3:** Added Q2-2026 timeline markers to skipped tests in migration-transformer.test.js
-- **M4:** Consolidated duplicate auth patterns in semantic_annotator.py
-- **M5:** Added semantic annotation coverage metrics (% blocks with tags, avg tags/block)
-- **M6:** Added file:line context to error messages in extract_blocks.py
-- **L1:** Removed redundant DEBUG checks in verbose logging
-- **L2:** Added 14 `.pyi` type stubs + `py.typed` marker for IDE support
-- **L3:** Added timing metrics to Layer 3 (SemanticAnnotator + grouping.py)
-- **L4:** Pre-compiled regex patterns in semantic_annotator.py (was recompiling on every call)
-
-### Fixed (2026-02-02 Code Review)
-- **H1:** Memory leak in `_consolidateSuggestionsByTarget` - removed unnecessary `member_suggestions` storage
-- **H2:** DRY violation in database.js - extracted `buildStatusFilter()` helper
-- **H3:** Integration test failures - Activity Feed used undefined error codes, getJobCounts returned null
-- **M1:** Added dev-only console.warn logging to silent catch in extractComponentName
-- **M2:** Used SHA256 hash for suggestion IDs to prevent path collision
-- **M3:** Added `validate_report_path()` with size/type checks in Python scripts
-- **M4:** Added timeout validation in execCommand (positive finite number)
-- **M5:** Created custom error class for CommandError (replaced JSDoc casting)
-- **M6:** Centralized CI detection - added `config.isCI`, updated 6 files to use it
-- **L1:** Module-level import with fallback in semantic_annotator.py
-- **L3:** Consistent stdout/stderr truncation (both 500 chars) in error messages
-- **L4:** Extracted suggestion ID prefixes to constants
-- **L5:** Optimized Set operations - internal `_affectedReposSet` converted to array only in finalize step
-- **L6:** Activity Feed test now uses known non-retryable error codes (ENOENT, EINVAL, etc.)
-- **L7:** `getJobCounts()` returns 0 instead of null for empty result sets
-
-### Changed
-- Refactored consolidation into 4 smaller methods (cyclomatic complexity ≤5 each)
-- Logic bug fix: `category in [array]` → `.includes()` in inter-project-scanner
-- Type safety: `code` → `exitCode` in CommandError
-- URL validation: try-catch in extractComponentName
-- Input validation: status param validated in getJobs
-
-### Tests
-- **T1:** TestWorker now disables retries by default (`maxRetries: 0`) - [#7](https://github.com/aledlie/AlephAuto/issues/7)
-
----
-
-## [1.8.1] - 2026-01-30
-
-### Summary
-Expert code review using code-reviewer agent. Identified and fixed 28 issues across 4 categories. Implemented fixes in parallel using 10 concurrent agents.
-
-### Added
-- `api/utils/api-error.js` - Standardized error response utilities (`sendError`, `sendNotFoundError`)
-- `tests/unit/input-validation.test.js` - 15 input validation tests
-- `tests/unit/database-degraded-mode.test.js` - 12 degraded mode tests
-- `tests/unit/job-repository-factory.test.js` - 15 factory function tests
-- `getHealthStatus()` function in database.js for monitoring
-- Database degraded mode with automatic recovery mechanism
-- Emergency shutdown handler with proper resource cleanup
-- Dynamic Python pipeline timeouts based on workload
-
-### Changed
-- Standardized API error format: `{ success, error: { code, message, details }, timestamp }`
-- All routes now use `sendError()` utilities for consistent responses
-- `sidequest/core/config.js` - Added `prDryRun`, `enablePRCreation`, `homeDir`
-- `sidequest/core/constants.js` - Added `PAGINATION.MAX_LIMIT`, `VALIDATION.JOB_ID_PATTERN`, `PORT`
-- Centralized `process.env` access through config module (H8)
-- Standardized logging patterns with pino &apos;err&apos; convention (H9)
-- Added JobRepository factory function for testability (M1)
-- Replaced magic numbers with named constants (M4)
-
-### Fixed
-- **C3:** Reduced `executeJob` complexity with cleaner state flow
-- **C4:** Extracted deeply nested Python process handler into 4 focused methods
-- **C5:** Database persistence failure handling - degraded mode with recovery
-- **C6:** Worker registry race condition with atomic check-and-set
-
-### Security
-- **H5:** Job ID validation prevents path traversal and injection attacks
-  - Added `VALIDATION.JOB_ID_PATTERN`: `/^[a-zA-Z0-9_-]{1,100}$/`
-  - Blocks: `../etc/passwd`, `job;rm -rf /`, `&lt;script&gt;` injection
-  - Applied to: `GET /api/jobs/:jobId`, `POST /api/jobs/:jobId/cancel`, `POST /api/jobs/:jobId/retry`
-- **M7:** Pagination sanitization prevents memory exhaustion
-  - `PAGINATION.MAX_LIMIT = 1000`
-  - Handles NaN, negative values, Infinity
-
-### Technical Details
-
-#### Database Degraded Mode (C5)
-When persistence fails 5 times consecutively:
-1. Enters degraded mode - continues accepting writes to in-memory database
-2. Alerts Sentry with error context
-3. Attempts recovery with exponential backoff (5s, 10s, 20s... capped at 5 min)
-4. After 10 failed recovery attempts, alerts Sentry and remains degraded
-5. Provides `getHealthStatus()` for monitoring
-
-#### Input Validation (H5, M7)
-```javascript
-// Job ID validation
-function validateJobId(jobId) {
-  if (!VALIDATION.JOB_ID_PATTERN.test(jobId)) {
-    return { valid: false, error: &apos;Invalid job ID format&apos; };
-  }
-  return { valid: true, sanitized: jobId };
-}
-
-// Pagination sanitization
-function sanitizePaginationParams(limit, offset) {
-  const limitNum = Math.min(Math.max(1, parsedLimit), PAGINATION.MAX_LIMIT);
-  const offsetNum = Math.max(0, parsedOffset);
-  return { limit: limitNum, offset: offsetNum };
-}
-```
-
----
-
-## [1.8.0] - 2026-01-29
-
-### Summary
-Comprehensive code quality refactoring across 5 phases (11 tasks). Introduced new abstraction layers to improve modularity, reduce coupling, and establish patterns for future development.
-
-### Added
-- `sidequest/core/constants.js` - Centralized constants (TIMEOUTS, RETRY, CONCURRENCY)
-- `sidequest/core/job-repository.js` - Database abstraction layer
-- `sidequest/core/git-workflow-manager.js` - Git operations wrapper
-- `api/types/job-status.ts` - Type-safe job status enum with validators
-- `WorkerRegistry.getAllStats()` method for aggregated stats
-
-### Changed
-- **God Class Refactor:** `SidequestServer.executeJob` reduced from 190 → 31 lines
-- Extracted `GitWorkflowManager` from SidequestServer
-- Added helper methods: `_prepareJobExecution`, `_executeJobLogic`, `_handleJobSuccess`, `_handleJobFailure`
-- Migrated core files from direct database.js imports to JobRepository
-- Concurrency default changed 3 → 5 to match `CONCURRENCY.DEFAULT_MAX_JOBS`
-- `tsconfig.json` - Exclude Cloudflare tunnel sync directories
-
-### Fixed
-- Orphaned `worker` reference in api/server.js after refactor
-- Mismatched function signatures in job-repository.js and git-workflow-manager.js
-- `api/routes/routes/pipelines.js` excluded from typecheck (Cloudflare tunnel sync file)
-
-### Technical Decisions
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Database abstraction | Repository pattern | Clean interface, future DB swap, testability |
-| SidequestServer extraction | Helper methods over full JobExecutor class | Preserves inheritance for workers |
-| GitWorkflowManager scope | Operations only, not message generation | Allows workers to customize messages |
-| Constants organization | Single file with grouped exports | Simple, discoverable, low overhead |
-
-### Patterns Established
-```javascript
-// Database Access
-import { jobRepository } from &apos;./sidequest/core/job-repository.js&apos;;
-await jobRepository.saveJob(job);
-
-// Constants
-import { TIMEOUTS } from &apos;./sidequest/core/constants.js&apos;;
-const timeout = TIMEOUTS.PYTHON_PIPELINE_MS;
-
-// Git Operations (in SidequestServer subclasses)
-this.gitWorkflowManager.createJobBranch(repoPath, jobInfo);
-
-// Worker Stats
-workerRegistry.getAllStats();
-```
-
-### Commits
-```
-56d6e09 - Remove duplicate getPipelineFriendlyName
-32a5674 - Remove dead code from worker-registry
-178583d - Create constants module
-cdaed2e - Create JobStatus type
-9976810 - Create JobRepository
-88518fe - Migrate core files to JobRepository
-891e9b0 - Extract GitWorkflowManager
-858e576 - Break executeJob into helper methods
-0c3b0be - Add WorkerRegistry stats methods
-9b7533d - Fix TypeScript errors from refactoring
-68b1e87 - Exclude Cloudflare tunnel sync files from typecheck
-```
-
----
-
-## Migration Notes
-
-### From &lt; 1.8.0
-
-**Database Access:**
-```javascript
-// Before
-import { saveJob } from &apos;./sidequest/core/database.js&apos;;
-
-// After
-import { jobRepository } from &apos;./sidequest/core/job-repository.js&apos;;
-await jobRepository.saveJob(job);
-```
-
-**Magic Numbers:**
-```javascript
-// Before
-const timeout = 600000;
-
-// After
-import { TIMEOUTS } from &apos;./sidequest/core/constants.js&apos;;
-const timeout = TIMEOUTS.PYTHON_PIPELINE_MS;
-```
-
-**Git Operations:**
-```javascript
-// Before (in SidequestServer subclass)
-this.branchManager.createJobBranch(repoPath, jobInfo);
-
-// After
-this.gitWorkflowManager.createJobBranch(repoPath, jobInfo);
-```
-
-### From &lt; 1.8.1
-
-**API Error Responses:**
-```javascript
-// Before
-res.status(400).json({ error: &apos;Missing field&apos; });
-
-// After
-import { sendError } from &apos;../utils/api-error.js&apos;;
-sendError(res, &apos;INVALID_REQUEST&apos;, &apos;Missing field&apos;, 400);
-```
-
-**Health Monitoring:**
-```javascript
-import { getHealthStatus } from &apos;./sidequest/core/database.js&apos;;
-const health = getHealthStatus();
-// Returns: { status, degradedMode, persistFailureCount, queuedWrites, ... }
-```</file><file path="docs/DEPLOYMENT.md"># Dashboard Deployment Guide
+4. **P2** -- Track documentation drift from the latest `sync_documentation` baseline (**100.0%**: 913/913 documented, 0 undocumented, 0 stale docstrings) with periodic reruns</file><file path="docs/DEPLOYMENT.md"># Dashboard Deployment Guide
 
 ## GitHub Pages Deployment
 
@@ -57120,7 +56380,205 @@ Sentry integration captures unhandled errors with context: request URL, user age
 - [Dashboard Design System](./DASHBOARD_DESIGN.md) - UI/UX spec, design tokens, mockups
 - [System Data Flow](./DATAFLOW_DIAGRAMS.md) - Architecture diagrams
 - [Error Handling](../architecture/ERROR_HANDLING.md) - Retry logic, circuit breaker
-- [Deployment Guide](../deployment/TRADITIONAL_SERVER_DEPLOYMENT.md) - PM2 setup</file><file path="docs/API_REFERENCE.md"># AlephAuto API Reference
+- [Deployment Guide](../deployment/TRADITIONAL_SERVER_DEPLOYMENT.md) - PM2 setup</file><file path="docs/setup/configure-discord-alerts.js">#!/usr/bin/env node
+
+/**
+ * Configure Discord Integration for Sentry Alerts
+ *
+ * This script adds Discord webhook integration to Sentry and updates
+ * all existing alert rules to include Discord notifications.
+ *
+ * Usage:
+ *   doppler run -- node setup-files/configure-discord-alerts.js
+ */
+
+import https from &apos;https&apos;;
+import &apos;dotenv/config&apos;;
+
+const SENTRY_TOKEN = process.env.SENTRY_TOKEN;
+const DISCORD_WEBHOOK = process.env.DISCORD_SENTRY_WEBHOOK;
+const ORG_SLUG = &apos;integrity-studio&apos;;
+const PROJECT_SLUG = &apos;node&apos;;
+
+/**
+ * Make Sentry API request
+ */
+function sentryRequest(method, path, body = null) {
+  return new Promise((resolve, reject) =&gt; {
+    const options = {
+      hostname: &apos;sentry.io&apos;,
+      path: path,
+      method: method,
+      headers: {
+        &apos;Authorization&apos;: `Bearer ${SENTRY_TOKEN}`,
+        &apos;Content-Type&apos;: &apos;application/json&apos;
+      }
+    };
+
+    const req = https.request(options, (res) =&gt; {
+      let data = &apos;&apos;;
+      res.on(&apos;data&apos;, (chunk) =&gt; data += chunk);
+      res.on(&apos;end&apos;, () =&gt; {
+        if (res.statusCode &gt;= 200 &amp;&amp; res.statusCode &lt; 300) {
+          try {
+            resolve(JSON.parse(data || &apos;{}&apos;));
+          } catch {
+            resolve(data);
+          }
+        } else {
+          reject(new Error(`Sentry API error: ${res.statusCode} ${data}`));
+        }
+      });
+    });
+
+    req.on(&apos;error&apos;, reject);
+    if (body) {
+      req.write(JSON.stringify(body));
+    }
+    req.end();
+  });
+}
+
+/**
+ * Get all alert rules for the project
+ */
+async function getAlertRules() {
+  console.log(&apos;📋 Fetching existing alert rules...&apos;);
+  const rules = await sentryRequest(&apos;GET&apos;, `/api/0/projects/${ORG_SLUG}/${PROJECT_SLUG}/rules/`);
+  console.log(`   Found ${rules.length} alert rules\n`);
+  return rules;
+}
+
+/**
+ * Add webhook integration to Sentry project
+ */
+async function addWebhookIntegration() {
+  console.log(&apos;🔗 Configuring Discord webhook integration...&apos;);
+
+  try {
+    const result = await sentryRequest(
+      &apos;POST&apos;,
+      `/api/0/projects/${ORG_SLUG}/${PROJECT_SLUG}/plugins/webhooks/`,
+      { urls: [DISCORD_WEBHOOK] }
+    );
+    console.log(&apos;   ✅ Webhook integration configured\n&apos;);
+    return result;
+  } catch (error) {
+    if (error.message.includes(&apos;400&apos;)) {
+      console.log(&apos;   ℹ️  Webhook integration already exists\n&apos;);
+    } else {
+      throw error;
+    }
+  }
+}
+
+const WEBHOOK_ACTION_ID = &apos;sentry.rules.actions.notify_event_service.NotifyEventServiceAction&apos;;
+
+function ruleHasWebhook(rule) {
+  return rule.actions.some(action =&gt; action.id === WEBHOOK_ACTION_ID);
+}
+
+/**
+ * Update alert rule to include Discord webhook action
+ */
+async function updateAlertRule(rule) {
+  console.log(`   Updating: ${rule.name} (ID: ${rule.id})`);
+
+  if (ruleHasWebhook(rule)) {
+    console.log(&apos;     ℹ️  Already has webhook action, skipping&apos;);
+    return { updated: false };
+  }
+
+  const updatedActions = [
+    ...rule.actions,
+    { id: WEBHOOK_ACTION_ID, service: &apos;webhooks&apos; }
+  ];
+
+  await sentryRequest(
+    &apos;PUT&apos;,
+    `/api/0/projects/${ORG_SLUG}/${PROJECT_SLUG}/rules/${rule.id}/`,
+    { ...rule, actions: updatedActions }
+  );
+
+  console.log(&apos;     ✅ Added Discord notification&apos;);
+  return { updated: true };
+}
+
+function validateEnvironment() {
+  if (!SENTRY_TOKEN) {
+    console.error(&apos;❌ SENTRY_TOKEN not found in environment&apos;);
+    console.error(&apos;   Get it from: doppler secrets get SENTRY_TOKEN -p analyticsbot -c dev --plain&apos;);
+    process.exit(1);
+  }
+
+  if (!DISCORD_WEBHOOK) {
+    console.error(&apos;❌ DISCORD_SENTRY_WEBHOOK not found in environment&apos;);
+    console.error(&apos;   Set it with: doppler secrets set DISCORD_SENTRY_WEBHOOK=&quot;your-webhook-url&quot;&apos;);
+    process.exit(1);
+  }
+
+  console.log(&apos;✅ Environment variables found&apos;);
+  console.log(`   Organization: ${ORG_SLUG}`);
+  console.log(`   Project: ${PROJECT_SLUG}`);
+  console.log(`   Discord webhook: ${DISCORD_WEBHOOK.substring(0, 50)}...\n`);
+}
+
+async function updateAllRules(rules) {
+  console.log(&apos;🔄 Updating alert rules to include Discord notifications...\n&apos;);
+
+  let updated = 0;
+  let skipped = 0;
+
+  for (const rule of rules) {
+    try {
+      const result = await updateAlertRule(rule);
+      if (result.updated) {
+        updated++;
+      } else {
+        skipped++;
+      }
+    } catch (error) {
+      console.log(`     ❌ Error: ${error.message}`);
+    }
+  }
+
+  return { total: rules.length, updated, skipped };
+}
+
+function printSummary({ total, updated, skipped }) {
+  console.log(&apos;\n╔════════════════════════════════════════════════════════════════╗&apos;);
+  console.log(&apos;║              Discord Integration Complete! ✅                 ║&apos;);
+  console.log(&apos;╚════════════════════════════════════════════════════════════════╝\n&apos;);
+  console.log(`📊 Summary:`);
+  console.log(`   • Total alert rules: ${total}`);
+  console.log(`   • Updated with Discord: ${updated}`);
+  console.log(`   • Already had Discord: ${skipped}\n`);
+  console.log(&apos;🎯 Next steps:&apos;);
+  console.log(&apos;   1. Test the integration: node test/test-discord-webhook.js&apos;);
+  console.log(&apos;   2. Trigger a test error: node test/test-sentry-connection.js&apos;);
+  console.log(&apos;   3. Check your Discord channel for alerts&apos;);
+  console.log(&apos;   4. View alerts in Sentry: https://sentry.io/organizations/integrity-studio/alerts/rules/\n&apos;);
+}
+
+async function main() {
+  console.log(&apos;╔════════════════════════════════════════════════════════════════╗&apos;);
+  console.log(&apos;║         Configure Discord Integration for Sentry              ║&apos;);
+  console.log(&apos;╚════════════════════════════════════════════════════════════════╝\n&apos;);
+
+  validateEnvironment();
+
+  try {
+    await addWebhookIntegration();
+    const rules = await getAlertRules();
+    const stats = await updateAllRules(rules);
+    printSummary(stats);
+  } catch (error) {
+    console.error(&apos;\n❌ Configuration failed:&apos;, error.message);
+    process.exit(1);
+  }
+}
+
+main().catch(console.error);</file><file path="docs/API_REFERENCE.md"># AlephAuto API Reference
 
 **Base URL:** `http://localhost:8080`
 **WebSocket:** `ws://localhost:8080/ws`
@@ -77122,7 +76580,567 @@ curl -X POST http://localhost:8080/api/pipelines/duplicate-detection/trigger \
       ]
     }
   ]
-}</file><file path="docs/complexity-report-2026-03-08.md"># Complexity Analysis Report
+}</file><file path="docs/CHANGELOG.md"># Changelog
+
+All notable changes to AlephAuto are documented in this file.
+
+Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+---
+
+## [2.3.23] - 2026-03-09
+
+See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2323---2026-03-09)
+
+---
+
+## [2.3.22] - 2026-03-08
+
+See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2322---2026-03-08)
+
+---
+
+## [2.3.21] - 2026-03-08
+
+See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2321---2026-03-08)
+
+---
+
+## [2.3.20] - 2026-03-09
+
+See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2320---2026-03-09)
+
+---
+
+## [2.3.19] - 2026-03-09
+
+See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2319---2026-03-09)
+
+---
+
+## [2.3.18] - 2026-03-09
+
+See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2318---2026-03-09)
+
+---
+
+## [1.9.0] - 2026-02-25
+
+### Summary
+Cross-repo test suite cleanup across AlephAuto and tcad-scraper. Deleted zero-value tests, fixed correctness issues, removed duplication, and improved e2e reliability. Net -1,243 lines.
+
+### Removed (tcad-scraper)
+- `claude-mock-repro.test.ts` — 5 tests asserting `expect(true).toBe(true)` (TST-C1)
+- `token-refresh-mock-repro.test.ts` — documented broken pattern, working tests elsewhere (TST-C2)
+- `ci-fixes.test.ts` — tested compile-time invariants at runtime (TST-C3)
+- `scraper.queue.database-tracking.test.ts` — tested `Array.filter`, not production code (TST-C4)
+- Flaky `Date.now()` rate limiting test from `enqueue.test.ts` (TST-H5)
+- 3 redundant fallback tests from `claude.service.json-parsing.test.ts` (TST-H2)
+- 5 redundant structural tests from `api-config.test.ts` (TST-H9)
+
+### Fixed (tcad-scraper)
+- Consolidated 8 `isRedisAvailable()` calls to 1 via `describe.skipIf` in auth-database tests (TST-H3)
+- Tightened `expect([200, 500])` to `expect(200)` for database read endpoints (TST-H3)
+- Fixed vacuous CSP assertion (`if (csp)` → unconditional) in integration tests (TST-H6)
+- Removed `property.routes.claude.test.ts` from vitest exclude — file is fully mocked (TST-H7)
+- Fixed analytics mock in PropertyCard tests — now asserts `logPropertyView` called on expand (TST-H8)
+- Added `vi.resetModules()` to api-config tests to prevent module caching (TST-H9)
+- Fixed e2e loading state timing race with `page.route` interception (TST-H11)
+- Replaced fragile `h3` locators with `.results-grid h3` in 4 e2e files (TST-H12)
+
+### Changed (tcad-scraper)
+- Extracted shared prisma mock to `helpers/claude-mock.ts` (TST-H1)
+- Extracted repeated `resetModules+import` to `beforeEach` in queue event listener tests (TST-H4)
+- Converted `if (!hasFrontend) return` to `test.skipIf` in integration tests (TST-H6)
+- Increased Playwright CI workers from 1 to 2 (TST-H10)
+
+### Fixed (AlephAuto)
+- `retry-logic.test.js` — imported production function instead of local shadow copy (TST-C5)
+- `mcp-server.test.js` — moved 420 fully-skipped lines to `tests/future/` (TST-C6)
+- `rate-limit.test.js` — rewrote mock theater to use supertest (TST-C7)
+- `websocket-unit.test.js` — removed 270 lines asserting hand-crafted literals (TST-C8)
+- `database.test.js` — replaced `assert.ok(true)` with real assertions (TST-C9)
+- Activity feed integration tests — replaced bare `setTimeout` with event-based waits (TST-H13)
+- Worker registry tests — fixed module re-import without cache reset (TST-H14)
+- Database tests — fixed teardown ordering on shared singleton (TST-H15)
+- Port manager tests — switched from hardcoded ports to OS-assigned (TST-H16)
+- Error classifier tests — deduplicated 3x ENOENT, 3x ETIMEDOUT assertions (TST-M8)
+- Directory scanner tests — migrated to `createTempRepository` fixture (TST-M9)
+- Scan orchestrator tests — parameterized 9 constructor-option tests (TST-M10)
+- Activity feed unit tests — extracted shared factory helper (TST-M11)
+- API routes tests — replaced hardcoded 100ms sleep with `waitForQueueDrain` (TST-M12)
+- Pipeline execution tests — removed Scenario 3 subsumed by Scenario 9 (TST-M13)
+- WebSocket tests — fixed `afterEach` race with `Promise.all` (TST-M14)
+- Port manager integration — fixed flaky concurrent allocation test (TST-M15)
+- Repository scanner — added TODO marker for placeholder test (TST-L2)
+- Database tests — isolated `beforeEach` job insertion (TST-L3)
+- Error recovery tests — imported `findAvailablePort` from port-manager (TST-L4)
+- Pipeline triggering tests — removed `console.log` noise (TST-L5)
+- Zod schema consolidation — extracted shared schemas to `api/types/shared-schemas.ts` (LOG13)
+
+---
+
+## [1.8.9] - 2026-02-23
+
+### Summary
+Import path migration and test cleanup. Migrated 41 deep relative imports to Node `#imports` subpath aliases. Fixed websocket test suite.
+
+### Changed
+- Migrated 41 imports across 12 files in `api/` and `sidequest/core/` to Node `#imports` subpath aliases (LOG11)
+- `websocket.test.js` — cleanup + API alignment fix (LOG8 partial)
+
+### Removed
+- `doppler-resilience.example.js` (290 lines) — moved to `docs/quickstart/doppler-circuit-breaker.md` (LOG12)
+
+---
+
+## [1.8.8] - 2026-02-20
+
+### Summary
+Resolved all 15 deferred review findings from TS Migration Phase 4-6 code review. Addressed type safety, validation gaps, broken rollback, and documentation.
+
+### Fixed
+- `saveJob` now validates job ID format with `isValidJobId` guard (TS46-M1)
+- Added `@deprecated` markers on `BulkImportJob` snake_case fields (TS46-M2)
+- Narrowed `ParsedJob.error` type with `isParsedJobError` runtime guard (TS46-M3)
+- Sanitized `jobType` in `_generateBranchName` to prevent git branch creation failures (TS46-M4)
+- Replaced empty backup with `git checkout` rollback in MigrationTransformer (TS46-M5)
+- Replaced non-null assertion with null-safe `Map.get` in file resolution (TS46-M6)
+- Derived namespace import alias from module source instead of hardcoded `&apos;imported&apos;` (TS46-M9)
+- Added Node 22.6+ version guard for `--strip-types` integration test (TS46-M10)
+- Fixed relative log path in `saveRunSummary` — uses `this.worker.logDir` (TS46-L1)
+- Fixed error message &quot;max 255 chars&quot; → &quot;max 100 chars&quot; to match regex (TS46-L2)
+- Fixed `getChangedFiles` rename parsing for `git status --porcelain` (TS46-L4)
+
+### Removed
+- Deleted 8 stale `.js` dual files superseded by `.ts` — 5 type schemas, 2 route handlers, 1 middleware (JS/TS Migration)
+
+### Changed
+- Marked `GitWorkflowManager` config properties `readonly` (TS46-M7)
+- Changed `gitWorkflowManager!` to optional with narrowing guards (TS46-M8)
+- Documented `_dbReady` graceful degradation intent (TS46-L3)
+- Documented auto-executing entry point in `core/index.ts` (TS46-L5)
+
+---
+
+## [1.8.7] - 2026-02-16
+
+### Summary
+Production bugfix for jobs not populating in dashboard. Root cause: sql.js single-process limitation, missing pipeline registrations, and silent DB error swallowing.
+
+### Fixed
+- **PROD-H1:** Replaced sql.js with better-sqlite3 (WAL mode) for multi-process PM2 concurrency
+- **PROD-H2:** Registered `dashboard-populate` and `plugin-manager` pipelines in worker registry (8/11 → 11/11)
+- **PROD-H3:** `_persistJob()` now propagates DB errors instead of silently swallowing them
+- **PROD-M1:** Fixed DB init race condition — `jobRepository.initialize()` now awaited in `start()`
+- **PROD-L1:** Fixed `getAllPipelineStats()` snake_case inconsistency — returns camelCase like all other queries
+
+### Changed
+- **PROD-L2:** Tests use `:memory:` databases for cross-file isolation; `initDatabase()` accepts optional path
+
+---
+
+## [1.8.6] - 2026-02-15
+
+### Summary
+Codebase cleanup sweep clearing 8 of 12 backlog items from analyzer scan. Net -2,170 lines across 23 files. Review score: 8.5/10.
+
+### Removed
+- Duplicate documentation files: 4 docs with canonical copies elsewhere (LOG1)
+- `api/routes/routes/` and `api/routes/middleware/` duplicate directories (LOG2)
+- `scripts/sync-cloudflare-tunnel-files.js` and Cloudflare tunnel sync infrastructure (LOG2)
+- `sync:cloudflare` and `sync:cloudflare:check` package.json scripts (LOG2)
+- Pre-commit Cloudflare sync step from `.husky/pre-commit` and `.git/hooks/pre-commit` (LOG2)
+- `tsconfig.json` exclusions for removed directories (LOG2)
+
+### Fixed
+- Hardcoded `/Users/alyshialedlie/code/jobs` paths in 3 integration tests replaced with `process.cwd()` (LOG3)
+- `docs/README.md` link to `INSTALL.md` updated to canonical location (LOG1)
+
+### Changed
+- `codebase-health-scanner.js` - replaced custom logger shim with `createComponentLogger` + `logError` (LOG4)
+- `report-coordinator.js` - replaced `console.log` with `logger.info` (LOG4)
+- `ecosystem.config.cjs` - added `max_size: &apos;10M&apos;` to both PM2 apps for log rotation (LOG5)
+- `report-generator.js` - added `pruneOldReports()` with 30-day retention, runs after each report generation (LOG6)
+- 4 migration scripts moved to `scripts/archive/` (LOG7)
+
+### Commits
+```
+85ae6aa chore: remove duplicate documentation files
+58561e5 chore: remove duplicate route files and Cloudflare tunnel sync
+6820988 fix: replace hardcoded paths with process.cwd() in integration tests
+a536810 refactor(logging): replace console.log with structured logger
+c4b40c8 chore: configure PM2 log rotation with max_size 10M
+895a3ed feat: add 30-day report retention policy
+5417d87 chore: archive one-time migration scripts
+3ca9b8a docs: update CLEANUP.md backlog with completion status
+```
+
+---
+
+## [1.8.5] - 2026-02-08
+
+### Summary
+Pattern-based file detection for MigrationTransformer. Steps without `code_example` hints now automatically find affected files by scanning the repository. Also fixes Babel ESM/CJS interop bug that prevented AST transformations from executing.
+
+### Added
+- `_findRepositoryFiles()` - Glob scan for JS/TS files respecting `config.excludeDirs`
+- `_contentMatchesStep()` - Regex matching per step type (update-import, replace-call, remove-declaration)
+- `_resolveAffectedFiles()` - Single-pass file scanning: reads N files once, tests M steps against each
+- `add-import` association logic: inherits files from sibling steps in the same suggestion
+
+### Fixed
+- Babel `@babel/traverse` and `@babel/generator` ESM/CJS interop (`.default` unwrapping)
+- `_groupStepsByFile()` no longer falls back to sentinel keys (`__inferred_importers__`, etc.) that never resolve
+
+### Changed
+- `_groupStepsByFile()` now async with 2-pass approach (pass 1: code_example, pass 2: file detection)
+- 6 previously-skipped migration transformer tests now active
+
+---
+
+## [1.8.4] - 2026-02-03
+
+### Summary
+Magic string to enum migration using Ralph Wiggum iterative loop. Created 6 new enums to centralize status values, eliminating scattered string literals across 13 files.
+
+### Added
+- `api/types/scan-result-status.ts` - `SCAN_RESULT_STATUS` enum (success, failure)
+- `api/types/activity-status.ts` - `ACTIVITY_STATUS` and `ACTIVITY_ICONS` enums
+- `HEALTH_STATUS` enum in `sidequest/core/constants.js` (healthy, warning, critical, degraded, not_initialized)
+- `PIPELINE_PHASES` enum in `sidequest/core/constants.js` (startup, cron, manual, scheduled)
+- `SCAN_STAGES` enum in `sidequest/core/constants.js` (scanning, extraction, analysis, comparison)
+- `JOB_STATUS_VALUES` array export in `api/types/job-status.ts` for SQL/Zod usage
+- `ACTIVE_STATUSES` constant for filtering non-terminal jobs
+- `docs/SESSION_HISTORY.md` - Development session log
+
+### Changed
+- `api/types/scan-requests.ts` - Import `JOB_STATUS` from job-status.ts instead of duplicating z.enum
+- `sidequest/workers/duplicate-detection-worker.js` - Use `SCAN_RESULT_STATUS`, `PIPELINE_PHASES`, `SCAN_STAGES`
+- `sidequest/workers/claude-health-worker.js` - Use `HEALTH_STATUS` enum
+- `sidequest/core/database.js` - Use `HEALTH_STATUS` for health status reporting
+- `sidequest/pipeline-core/doppler-health-monitor.js` - Use `HEALTH_STATUS` for severity levels
+- `sidequest/pipeline-runners/gitignore-pipeline.js` - Use `PIPELINE_PHASES` for logging tags
+- `sidequest/pipeline-runners/repo-cleanup-pipeline.js` - Use `PIPELINE_PHASES` for logging tags
+- `api/server.js` - Use `HEALTH_STATUS` and `PIPELINE_PHASES` enums
+- `api/activity-feed.js` - Use `ACTIVITY_STATUS` and `ACTIVITY_ICONS` enums
+
+### Fixed
+- Duplicate z.enum definitions in scan-requests.ts (DRY violation)
+
+### Commits
+```
+85c119f chore: remove ralph-prompt.md after enum migration complete
+48d1c37 refactor(constants): add SCAN_STAGES enum for progress tracking
+f68d1c7 refactor(types): add ACTIVITY_STATUS and ACTIVITY_ICONS enums
+7cfdbdf refactor(constants): add PIPELINE_PHASES enum for execution context
+ee03652 refactor(constants): add HEALTH_STATUS enum for system monitoring
+312a9e8 refactor(types): add SCAN_RESULT_STATUS enum for pipeline outcomes
+c529fc4 refactor(types): deduplicate job status enums in scan-requests
+```
+
+---
+
+## [1.8.3] - 2026-02-02
+
+### Summary
+Major DRY refactoring introducing BasePipeline class for pipeline runners. Improved DRY score from 72 → 97.
+
+### Added
+- `sidequest/core/base-pipeline.js` - Abstract base class for pipeline runners
+  - `setupEventListeners()` - Standardized job lifecycle event handling
+  - `waitForCompletion()` - Polling for job queue completion
+  - `scheduleCron()` - Centralized cron scheduling with validation
+  - `runWithTiming()` - Consistent operation timing and logging
+  - `calculateDuration()` - Duration calculation helper
+
+### Changed
+- **GitActivityPipeline** - Now extends BasePipeline (was standalone class)
+- **PluginManagementPipeline** - Now extends BasePipeline
+- **SchemaEnhancementPipeline** - Now extends BasePipeline
+- **ClaudeHealthPipeline** - Now extends BasePipeline (with 100ms polling)
+- Eliminated ~600 lines of duplicate code across 4 pipeline files
+- Standardized event listener patterns using `EVENT_TYPES` constants
+- Centralized cron schedule validation
+
+### Patterns Established
+```javascript
+// Creating a new pipeline
+import { BasePipeline } from &apos;../core/base-pipeline.js&apos;;
+import { createComponentLogger } from &apos;../utils/logger.js&apos;;
+
+const logger = createComponentLogger(&apos;MyPipeline&apos;);
+
+class MyPipeline extends BasePipeline {
+  constructor(options = {}) {
+    const worker = new MyWorker({ ...options });
+    super(worker, { logger });
+  }
+
+  // Override for custom event handling
+  onJobCompleted(job) {
+    const duration = this.calculateDuration(job);
+    this.logger.info({ jobId: job.id, duration }, &apos;Job completed&apos;);
+  }
+
+  // Use runWithTiming for consistent timing
+  async runTask(options = {}) {
+    return this.runWithTiming(&apos;my task&apos;, async () =&gt; {
+      const job = this.worker.createJob(options);
+      this.logger.info({ jobId: job.id }, &apos;Task started&apos;);
+    });
+  }
+
+  // Use scheduleCron for consistent scheduling
+  scheduleTask(cronSchedule = &apos;0 * * * *&apos;) {
+    return this.scheduleCron(cronSchedule, () =&gt; this.runTask(), &apos;tasks&apos;);
+  }
+}
+```
+
+### Migration Notes
+Pipelines extending BasePipeline no longer need to implement:
+- `setupEventListeners()` - Provided by base class (override for custom)
+- `waitForCompletion()` - Provided by base class
+- Cron validation - Handled by `scheduleCron()`
+- Duration calculation - Use `this.calculateDuration(job)`
+
+---
+
+## [1.8.2] - 2026-02-02
+
+### Summary
+Two rounds of code review fixes addressing code quality, performance, and consistency issues.
+
+### Fixed (2026-02-01 Code Review)
+- **M1:** Renamed `annotate()` → `extract_annotation()` for naming consistency in semantic_annotator.py
+- **M2:** Added docstrings to grouping.py helpers (`_extract_function_names`, `_run_semantic_checks`, `_create_duplicate_group`)
+- **M3:** Added Q2-2026 timeline markers to skipped tests in migration-transformer.test.js
+- **M4:** Consolidated duplicate auth patterns in semantic_annotator.py
+- **M5:** Added semantic annotation coverage metrics (% blocks with tags, avg tags/block)
+- **M6:** Added file:line context to error messages in extract_blocks.py
+- **L1:** Removed redundant DEBUG checks in verbose logging
+- **L2:** Added 14 `.pyi` type stubs + `py.typed` marker for IDE support
+- **L3:** Added timing metrics to Layer 3 (SemanticAnnotator + grouping.py)
+- **L4:** Pre-compiled regex patterns in semantic_annotator.py (was recompiling on every call)
+
+### Fixed (2026-02-02 Code Review)
+- **H1:** Memory leak in `_consolidateSuggestionsByTarget` - removed unnecessary `member_suggestions` storage
+- **H2:** DRY violation in database.js - extracted `buildStatusFilter()` helper
+- **H3:** Integration test failures - Activity Feed used undefined error codes, getJobCounts returned null
+- **M1:** Added dev-only console.warn logging to silent catch in extractComponentName
+- **M2:** Used SHA256 hash for suggestion IDs to prevent path collision
+- **M3:** Added `validate_report_path()` with size/type checks in Python scripts
+- **M4:** Added timeout validation in execCommand (positive finite number)
+- **M5:** Created custom error class for CommandError (replaced JSDoc casting)
+- **M6:** Centralized CI detection - added `config.isCI`, updated 6 files to use it
+- **L1:** Module-level import with fallback in semantic_annotator.py
+- **L3:** Consistent stdout/stderr truncation (both 500 chars) in error messages
+- **L4:** Extracted suggestion ID prefixes to constants
+- **L5:** Optimized Set operations - internal `_affectedReposSet` converted to array only in finalize step
+- **L6:** Activity Feed test now uses known non-retryable error codes (ENOENT, EINVAL, etc.)
+- **L7:** `getJobCounts()` returns 0 instead of null for empty result sets
+
+### Changed
+- Refactored consolidation into 4 smaller methods (cyclomatic complexity ≤5 each)
+- Logic bug fix: `category in [array]` → `.includes()` in inter-project-scanner
+- Type safety: `code` → `exitCode` in CommandError
+- URL validation: try-catch in extractComponentName
+- Input validation: status param validated in getJobs
+
+### Tests
+- **T1:** TestWorker now disables retries by default (`maxRetries: 0`) - [#7](https://github.com/aledlie/AlephAuto/issues/7)
+
+---
+
+## [1.8.1] - 2026-01-30
+
+### Summary
+Expert code review using code-reviewer agent. Identified and fixed 28 issues across 4 categories. Implemented fixes in parallel using 10 concurrent agents.
+
+### Added
+- `api/utils/api-error.js` - Standardized error response utilities (`sendError`, `sendNotFoundError`)
+- `tests/unit/input-validation.test.js` - 15 input validation tests
+- `tests/unit/database-degraded-mode.test.js` - 12 degraded mode tests
+- `tests/unit/job-repository-factory.test.js` - 15 factory function tests
+- `getHealthStatus()` function in database.js for monitoring
+- Database degraded mode with automatic recovery mechanism
+- Emergency shutdown handler with proper resource cleanup
+- Dynamic Python pipeline timeouts based on workload
+
+### Changed
+- Standardized API error format: `{ success, error: { code, message, details }, timestamp }`
+- All routes now use `sendError()` utilities for consistent responses
+- `sidequest/core/config.js` - Added `prDryRun`, `enablePRCreation`, `homeDir`
+- `sidequest/core/constants.js` - Added `PAGINATION.MAX_LIMIT`, `VALIDATION.JOB_ID_PATTERN`, `PORT`
+- Centralized `process.env` access through config module (H8)
+- Standardized logging patterns with pino &apos;err&apos; convention (H9)
+- Added JobRepository factory function for testability (M1)
+- Replaced magic numbers with named constants (M4)
+
+### Fixed
+- **C3:** Reduced `executeJob` complexity with cleaner state flow
+- **C4:** Extracted deeply nested Python process handler into 4 focused methods
+- **C5:** Database persistence failure handling - degraded mode with recovery
+- **C6:** Worker registry race condition with atomic check-and-set
+
+### Security
+- **H5:** Job ID validation prevents path traversal and injection attacks
+  - Added `VALIDATION.JOB_ID_PATTERN`: `/^[a-zA-Z0-9_-]{1,100}$/`
+  - Blocks: `../etc/passwd`, `job;rm -rf /`, `&lt;script&gt;` injection
+  - Applied to: `GET /api/jobs/:jobId`, `POST /api/jobs/:jobId/cancel`, `POST /api/jobs/:jobId/retry`
+- **M7:** Pagination sanitization prevents memory exhaustion
+  - `PAGINATION.MAX_LIMIT = 1000`
+  - Handles NaN, negative values, Infinity
+
+### Technical Details
+
+#### Database Degraded Mode (C5)
+When persistence fails 5 times consecutively:
+1. Enters degraded mode - continues accepting writes to in-memory database
+2. Alerts Sentry with error context
+3. Attempts recovery with exponential backoff (5s, 10s, 20s... capped at 5 min)
+4. After 10 failed recovery attempts, alerts Sentry and remains degraded
+5. Provides `getHealthStatus()` for monitoring
+
+#### Input Validation (H5, M7)
+```javascript
+// Job ID validation
+function validateJobId(jobId) {
+  if (!VALIDATION.JOB_ID_PATTERN.test(jobId)) {
+    return { valid: false, error: &apos;Invalid job ID format&apos; };
+  }
+  return { valid: true, sanitized: jobId };
+}
+
+// Pagination sanitization
+function sanitizePaginationParams(limit, offset) {
+  const limitNum = Math.min(Math.max(1, parsedLimit), PAGINATION.MAX_LIMIT);
+  const offsetNum = Math.max(0, parsedOffset);
+  return { limit: limitNum, offset: offsetNum };
+}
+```
+
+---
+
+## [1.8.0] - 2026-01-29
+
+### Summary
+Comprehensive code quality refactoring across 5 phases (11 tasks). Introduced new abstraction layers to improve modularity, reduce coupling, and establish patterns for future development.
+
+### Added
+- `sidequest/core/constants.js` - Centralized constants (TIMEOUTS, RETRY, CONCURRENCY)
+- `sidequest/core/job-repository.js` - Database abstraction layer
+- `sidequest/core/git-workflow-manager.js` - Git operations wrapper
+- `api/types/job-status.ts` - Type-safe job status enum with validators
+- `WorkerRegistry.getAllStats()` method for aggregated stats
+
+### Changed
+- **God Class Refactor:** `SidequestServer.executeJob` reduced from 190 → 31 lines
+- Extracted `GitWorkflowManager` from SidequestServer
+- Added helper methods: `_prepareJobExecution`, `_executeJobLogic`, `_handleJobSuccess`, `_handleJobFailure`
+- Migrated core files from direct database.js imports to JobRepository
+- Concurrency default changed 3 → 5 to match `CONCURRENCY.DEFAULT_MAX_JOBS`
+- `tsconfig.json` - Exclude Cloudflare tunnel sync directories
+
+### Fixed
+- Orphaned `worker` reference in api/server.js after refactor
+- Mismatched function signatures in job-repository.js and git-workflow-manager.js
+- `api/routes/routes/pipelines.js` excluded from typecheck (Cloudflare tunnel sync file)
+
+### Technical Decisions
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Database abstraction | Repository pattern | Clean interface, future DB swap, testability |
+| SidequestServer extraction | Helper methods over full JobExecutor class | Preserves inheritance for workers |
+| GitWorkflowManager scope | Operations only, not message generation | Allows workers to customize messages |
+| Constants organization | Single file with grouped exports | Simple, discoverable, low overhead |
+
+### Patterns Established
+```javascript
+// Database Access
+import { jobRepository } from &apos;./sidequest/core/job-repository.js&apos;;
+await jobRepository.saveJob(job);
+
+// Constants
+import { TIMEOUTS } from &apos;./sidequest/core/constants.js&apos;;
+const timeout = TIMEOUTS.PYTHON_PIPELINE_MS;
+
+// Git Operations (in SidequestServer subclasses)
+this.gitWorkflowManager.createJobBranch(repoPath, jobInfo);
+
+// Worker Stats
+workerRegistry.getAllStats();
+```
+
+### Commits
+```
+56d6e09 - Remove duplicate getPipelineFriendlyName
+32a5674 - Remove dead code from worker-registry
+178583d - Create constants module
+cdaed2e - Create JobStatus type
+9976810 - Create JobRepository
+88518fe - Migrate core files to JobRepository
+891e9b0 - Extract GitWorkflowManager
+858e576 - Break executeJob into helper methods
+0c3b0be - Add WorkerRegistry stats methods
+9b7533d - Fix TypeScript errors from refactoring
+68b1e87 - Exclude Cloudflare tunnel sync files from typecheck
+```
+
+---
+
+## Migration Notes
+
+### From &lt; 1.8.0
+
+**Database Access:**
+```javascript
+// Before
+import { saveJob } from &apos;./sidequest/core/database.js&apos;;
+
+// After
+import { jobRepository } from &apos;./sidequest/core/job-repository.js&apos;;
+await jobRepository.saveJob(job);
+```
+
+**Magic Numbers:**
+```javascript
+// Before
+const timeout = 600000;
+
+// After
+import { TIMEOUTS } from &apos;./sidequest/core/constants.js&apos;;
+const timeout = TIMEOUTS.PYTHON_PIPELINE_MS;
+```
+
+**Git Operations:**
+```javascript
+// Before (in SidequestServer subclass)
+this.branchManager.createJobBranch(repoPath, jobInfo);
+
+// After
+this.gitWorkflowManager.createJobBranch(repoPath, jobInfo);
+```
+
+### From &lt; 1.8.1
+
+**API Error Responses:**
+```javascript
+// Before
+res.status(400).json({ error: &apos;Missing field&apos; });
+
+// After
+import { sendError } from &apos;../utils/api-error.js&apos;;
+sendError(res, &apos;INVALID_REQUEST&apos;, &apos;Missing field&apos;, 400);
+```
+
+**Health Monitoring:**
+```javascript
+import { getHealthStatus } from &apos;./sidequest/core/database.js&apos;;
+const health = getHealthStatus();
+// Returns: { status, degradedMode, persistFailureCount, queuedWrites, ... }
+```</file><file path="docs/complexity-report-2026-03-08.md"># Complexity Analysis Report
 
 **Project:** jobs
 **Date:** 2026-03-08 | **Last Updated:** 2026-03-08 (post-CX14/CX15/CX16 fixes, CX15 fully complete v2.3.22)
@@ -77254,6 +77272,117 @@ Resolved in commit `2f1b2f6` — destructuring blocks collapsed, duration format
 All notable changes for the v2.3 release cycle.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+---
+
+## [2.3.23] - 2026-03-09
+
+### Summary
+
+Standards &amp; conventions fixes from CX15 code review. Migrated CommonJS test file to ESM, replaced direct `process.env` access with config module, and consolidated dynamic imports to static imports for consistency with project conventions.
+
+### Changed
+
+- **SV4** — Migrate `test-discord-webhook.ts` from CommonJS to ESM
+  - `tests/scripts/test-discord-webhook.ts`: Converted `require(&apos;https&apos;)` and `require(&apos;dotenv&apos;).config()` to ES module imports.
+  - Aligns with project convention (all other files use ESM).
+
+- **SV5** — Replace direct `process.env` access in test scripts
+  - `tests/scripts/test-sentry-connection.ts`: Replaced `process.env.SENTRY_DSN` with `config.sentryDsn` in `checkSentryDsn()` and `Sentry.init()`.
+  - `tests/scripts/test-single-job.ts`: Updated worker initialization to use config module.
+  - Resolves Critical Pattern #2 violation (use `config` module, not raw `process.env`).
+
+- **SV6** — Replace dynamic imports with static imports in `test-repomix-fix.ts`
+  - `tests/scripts/test-repomix-fix.ts`: Converted `await import(&apos;child_process&apos;)` and `await import(&apos;fs/promises&apos;)` to top-level static imports.
+  - File is not a lazy-loading module; static imports improve clarity and performance.
+
+### Validation
+
+- `npm run typecheck` (pass)
+- `npm test` — 1169/1169 pass
+
+### Commits
+
+```
+3211c80 chore(backlog): mark SV4, SV5, SV6 as Done
+6439fb9 fix(tests): replace dynamic imports with static imports in test-repomix-fix.ts (SV6)
+031c9ff fix(tests): replace direct process.env access with config module (SV5)
+9893fcf fix(tests): migrate test-discord-webhook.ts from CommonJS to ESM (SV4)
+```
+
+---
+
+## [2.3.22] - 2026-03-08
+
+### Summary
+
+Completed CX15 refactoring: resolved all 22 long test functions (≤50 lines) by extracting per-test helpers, constants, and print utilities. All complexity thresholds now met across 234 analyzed TypeScript files.
+
+### Changed
+
+- **CX15** (complete) — Extracted helpers from 16 remaining long test functions across 9 files:
+  - `tests/integration/test-pr-creator.ts`: Extracted `verifyDryRunBranches()`, `printResult()` helpers (runTests 76→32, testDryRunMode 60→35 lines).
+  - `tests/integration/test-retry-metrics.ts`: Extracted `checkApiHealth()`, `printFinalMetrics()` helpers (runTests 69→34 lines).
+  - `tests/integration/test-gitignore-manager.ts`: Extracted `createTestRepos()`, `createGitignoreWorker()`, `countGitignoreMatches()`, `readGitignoreContains()`, `printResult()` shared helpers (6 functions: 61-80→27-35 lines).
+  - `tests/scripts/test-discord-webhook.ts`: Extracted `INFO_EMBED`, `ERROR_EMBED`, `WARNING_EMBED`, `RATE_LIMIT_DELAY_MS` constants and `printSuccess()`, `printTroubleshooting()` helpers (testDiscordIntegration 93→30 lines).
+  - `tests/scripts/test-single-job.ts`: Extracted `resolveRelativePath()`, `setupWorkerEventListeners()` helpers (testSingleJob 74→24 lines).
+  - `tests/scripts/test-sentry-connection.ts`: Extracted `checkSentryDsn()`, `sendTestEvents()`, `printSentryResults()` helpers (testSentryConnection 63→19 lines).
+  - `tests/scripts/test-repomix-fix.ts`: Extracted `checkNpxRepomix()`, `checkErrorLogs()` helpers (testRepomixFix 60→27 lines).
+  - `tests/integration/test-git-repo-scanner.ts`: Extracted `printRepoList()`, `printScanStats()` helpers with module-level `PREVIEW_COUNT` constant (testGitRepoScanner 57→26 lines).
+  - `tests/scripts/test-repo-cleanup.ts`: Extracted `setupCleanupEventListeners()`, `TEST_TIMEOUT_MS` constant (main 52→29 lines).
+  - `tests/integration/test-cache-layer.ts`: Extracted `MOCK_SCAN_RESULT`, `CACHE_CONFIG` constants and `printCacheStats()`, `printCacheStatus()`, `printScannerStats()` helpers (testScanCache 61→41, testCachedScanner 51→33 lines).
+  - CX15 progress: All 22 of 22 fixed. Functions exceeding thresholds: 24 → 0.
+
+### Validation
+
+- `npm run typecheck` (pass)
+- `npm test` — 1169/1169 pass
+- Complexity thresholds met: cyclomatic ≤10, cognitive ≤15, length ≤50 lines (0 violations)
+
+### Commits
+
+```
+8cf5dca fix(tests): address final review findings in CX15 refactor
+6a7fd3d docs(backlog): add SV4-SV6 findings from CX15 code reviews
+b51fc67 docs(backlog): complete CX15 — all 22 long test functions resolved (v2.3.22)
+6909a21 refactor(tests): fix CX15 — extract helpers from test-cache-layer
+7b643f2 refactor(tests): fix CX15 — extract helpers from 4 test scripts
+52149bf refactor(tests): fix CX15 — extract embed constants from test-discord-webhook
+99567dc refactor(tests): fix CX15 — extract helpers from test-single-job
+1115042 refactor(tests): fix CX15 — extract helpers from test-gitignore-manager
+3d0a16a fix(tests): address review findings in test-gitignore-manager
+2497fea refactor(tests): fix CX15 — extract helpers from test-retry-metrics
+f79ca11 refactor(tests): fix CX15 — extract helpers from test-pr-creator
+```
+
+---
+
+## [2.3.21] - 2026-03-08
+
+### Summary
+
+Continued CX15 progress: extracted helpers from `test-directory-scanner.ts`, improving function length from 86 to 30 lines. Improved code organization by extracting factory and utility functions.
+
+### Changed
+
+- **CX15** (partial) — Extracted helpers from `tests/scripts/test-directory-scanner.ts`:
+  - Extracted `createScanner()` factory function to consolidate DirectoryScanner instantiation.
+  - Extracted `logStats()` helper to format and print scan statistics.
+  - Extracted `logTreePreview()` helper to display directory tree with configurable line count.
+  - Extracted `EXCLUDED_DIRS` and `TREE_PREVIEW_LINES` constants.
+  - `testDirectoryScanner()` reduced from 86 → 30 lines.
+  - CX15 progress: 7 of 22 fixed (15 remaining).
+
+### Validation
+
+- `npm run typecheck` (pass)
+- `npm test` — 1169/1169 pass
+
+### Commits
+
+```
+48e1fab refactor(tests): extract helpers from test-error-classification-ui to fix CX15
+```
 
 ---
 
@@ -77788,7 +77917,7 @@ Pipeline-core cleanup focused on magic-number reduction and constants consolidat
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-08 | **Last Session:** 2026-03-08 (migrated CS9, DUP1 to v2.3.20)
+**Last Updated:** 2026-03-08 | **Last Session:** 2026-03-08 (CX15 complete v2.3.22, added SV4-SV6)
 
 &gt; Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -77898,7 +78027,7 @@ No active backlog items.
 
 Full report: [complexity-report-2026-03-08.md](complexity-report-2026-03-08.md)
 
-**Scan:** 234 TS files, 165 functions extracted, 24 exceeding thresholds (14.5%). 0 security issues, 95 `prefer-const` info violations, 1 duplication group.
+**Scan:** 234 TS files, 165 functions extracted, 24 exceeding thresholds → **0** (all resolved). 0 security issues, 95 `prefer-const` info violations, ~~1~~ 0 duplication groups.
 
 ### Critical
 
@@ -77908,14 +78037,13 @@ No active critical-complexity backlog items.
 
 ### Medium
 
-#### CX15: Break up long integration test runners
-**Priority**: P2 | **Source**: ast-grep `analyze_complexity` | **Status**: **Complete** (v2.3.22)
-22 test functions exceeded 50-line length threshold. All 22 fixed across v2.3.19–v2.3.22:
-- v2.3.19: `main` in `test-automated-pipeline.ts` (133→28), `testGitignoreRespect` in `test-gitignore-respect.ts` (121→26), `main` in `test-report-generation.ts` (120→30). Also replaced hand-rolled poll in `test-single-job.ts` with existing `waitForJobCompletion()` utility (DRY).
-- v2.3.20: `testErrorMessages` in `test-error-classification-ui.ts` (67→13), `testActivityFeed` in `test-error-classification-ui.ts` (68→36). Extracted `evaluateErrorScenario()`, `validateActivityStructure()` helpers plus `ErrorScenario` interface and `ERROR_SCENARIOS` constant.
-- v2.3.21: `testDirectoryScanner` in `test-directory-scanner.ts` (86→30). Extracted `createScanner()`, `logStats()`, `logTreePreview()` helpers plus `EXCLUDED_DIRS` and `TREE_PREVIEW_LINES` constants.
-- v2.3.22: Remaining 16 functions across 9 files. Extracted per-file helpers (verifyDryRunBranches, printResult, checkApiHealth, printFinalMetrics, createTestRepos, createGitignoreWorker, countGitignoreMatches, readGitignoreContains, embed constants, resolveRelativePath, setupWorkerEventListeners, printRepoList, printScanStats, setupCleanupEventListeners, printCacheStats, printCacheStatus, printScannerStats, MOCK_SCAN_RESULT, CACHE_CONFIG, etc.).
+No active medium-priority backlog items.
+
+&gt; CX15 completed and migrated to [v2.3.22](changelog/2.3/CHANGELOG.md).
+
 
 ### Low
 
-No active low-priority backlog items.</file></files></repomix>
+No active low-priority backlog items.
+
+&gt; SV4-SV6 migrated to [v2.3.23](changelog/2.3/CHANGELOG.md#2323---2026-03-09).</file></files></repomix>

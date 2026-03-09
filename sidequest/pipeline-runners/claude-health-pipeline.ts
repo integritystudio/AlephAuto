@@ -33,8 +33,7 @@ import { config } from '../core/config.ts';
 import { BYTES_PER_KB, JOB_EVENTS, MAX_SCORE } from '../core/constants.ts';
 import { HEALTH_SCORE_THRESHOLDS } from '../core/score-thresholds.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { isDirectExecution } from '../utils/execution-helpers.ts';
 
 const logger = createComponentLogger('ClaudeHealthPipeline');
 
@@ -400,12 +399,6 @@ function formatBytes(bytes: number): string {
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
-function isDirectExecution(): boolean {
-  const currentModulePath = fileURLToPath(import.meta.url);
-  const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
-  return entryPath === currentModulePath;
-}
-
 async function runCli(): Promise<void> {
   const pipeline = new ClaudeHealthPipeline();
 
@@ -460,7 +453,7 @@ async function runCli(): Promise<void> {
   });
 }
 
-if (isDirectExecution()) {
+if (isDirectExecution(import.meta.url)) {
   runCli().catch((error) => {
     logError(logger, error, 'Pipeline execution failed');
     process.exit(1);

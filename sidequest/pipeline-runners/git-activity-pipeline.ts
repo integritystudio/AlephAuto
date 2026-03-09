@@ -4,9 +4,7 @@ import { config } from '../core/config.ts';
 import { GIT_ACTIVITY, JOB_EVENTS, NUMBER_BASE } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
-import { realpathSync } from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { isDirectExecution } from '../utils/execution-helpers.ts';
 
 const logger = createComponentLogger('GitActivityPipeline');
 
@@ -306,19 +304,8 @@ export function parseGitActivityCliArgs(args: string[], runOnStartup: boolean): 
   return { options, runNow, errors };
 }
 
-function isDirectExecution(): boolean {
-  const currentModulePath = fileURLToPath(import.meta.url);
-  const entryPath = process.argv[1];
-  if (!entryPath) return false;
-  try {
-    return realpathSync(path.resolve(entryPath)) === realpathSync(currentModulePath);
-  } catch {
-    return false;
-  }
-}
-
 // Run if executed directly
-if (isDirectExecution()) {
+if (isDirectExecution(import.meta.url)) {
   const pipeline = new GitActivityPipeline();
 
   const weeklyCronSchedule = process.env.GIT_CRON_SCHEDULE || GIT_ACTIVITY.DEFAULT_WEEKLY_CRON; // Sunday 8 PM

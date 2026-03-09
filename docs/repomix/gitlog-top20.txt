@@ -1,3 +1,12 @@
+a7589b8 2026-03-09 fix(tests): correct duration assertions and extract DURATION_UNKNOWN_LABEL constant
+  tests/unit/activity-feed.test.ts
+
+5634c36 2026-03-09 chore(docs): update CLAUDE.md, README, and repomix artifacts
+  docs/repomix/repo-compressed.xml
+  docs/repomix/repomix-docs.xml
+  docs/repomix/repomix-git-ranked.xml
+  docs/repomix/repomix.xml
+
 c75496c 2026-03-06 Address CONST9 magic numbers in hotspot tests
   tests/unit/activity-feed.test.ts
 
