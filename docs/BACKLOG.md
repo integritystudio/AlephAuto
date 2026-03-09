@@ -354,6 +354,18 @@ Audit of docs/ against current codebase (v2.3.20). Source: repomix-docs.xml inde
 | SU-L4 | `time-helpers.ts` | Repeated arithmetic on every call | Extracted `SECONDS_PER_MINUTE`/`SECONDS_PER_HOUR` module-level constants |
 | SU-L5 | `html-report-utils.ts` | Inline magic CSS values | CSS custom properties (`--space-*`, `--radius-*`, `--font-size-*`) in `:root` |
 
+### Open — Final Review Findings (2026-03-09)
+
+| ID | Priority | File | Title | Description |
+|----|----------|------|-------|-------------|
+| SU-FR-M1 | Medium | `refactor-test-suite.ts:957` | `render-helpers.ts` always overwritten | Unlike other generated files that skip-if-exists, `render-helpers.ts` is overwritten unconditionally. Apply same `fsPromises.access` guard. |
+| SU-FR-M2 | Medium | `refactor-test-suite.ts:694` | Empty `ALL_STRINGS` export when no strings extracted | `emittedNames` is `[]` when input is empty, producing `readonly []` type. Add guard or comment for empty case. |
+| SU-FR-M3 | Medium | `html-report-utils.ts:86` | `section h2` padding-bottom silently halved | Changed from `10px` to `var(--space-xs)` (5px). Verify visual intent or add a `--space-sm` (10px) token. |
+| SU-FR-M4 | Low | `report-generator.ts:361` | Unnecessary `as readonly string[]` cast on `METRIC_KEYS` | `as const` array is already assignable to `readonly string[]`. Cast can be removed or replaced with `Set` for O(1) lookup. |
+| SU-FR-L1 | Low | `crypto-helpers.ts:19` | Comment on `&&` short-circuit could be more precise | Note that `sameLength` intentionally leaks length info to distinguish wrong-length from wrong-content inputs. |
+| SU-FR-L2 | Low | `refactor-test-suite.ts:948` | TOCTOU in `fsPromises.access` existence checks | `access` + `writeFile` has a race window; acceptable for single-threaded CLI but inconsistent with `mkdir({ recursive: true })` pattern used elsewhere. |
+| SU-FR-L3 | Low | `tests/unit/input-validation.test.ts:188` | Assertion removed without explanation | `isSafeInteger` assertion was vacuously true on `MAX_SAFE_INTEGER`. Removal is correct but undocumented. |
+
 ### Deferred
 
 | ID | File | Title | Reason |
