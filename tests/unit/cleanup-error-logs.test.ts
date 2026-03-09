@@ -10,7 +10,16 @@ import path from 'path';
 import os from 'os';
 import { TIMEOUTS } from '../../sidequest/core/constants.ts';
 import { TIME_MS } from '../../sidequest/core/units.ts';
-import { getFileAgeDays, scanErrorLogs } from '../../scripts/cleanup-error-logs.ts';
+import { DEFAULT_RETENTION_DAYS, getFileAgeDays, scanErrorLogs } from '../../scripts/cleanup-error-logs.ts';
+
+/** Days offset beyond retention threshold for "old file" tests */
+const DAYS_BEYOND_RETENTION = DEFAULT_RETENTION_DAYS + 1;
+
+/** Days offset for proportional-age test */
+const PROPORTIONAL_TEST_DAYS = 3;
+
+/** Tolerance for float age comparison (accounts for sub-second test execution) */
+const AGE_TOLERANCE = 0.1;
 
 describe('getFileAgeDays - TC-M1', () => {
   let tempDir: string;
@@ -32,13 +41,13 @@ describe('getFileAgeDays - TC-M1', () => {
     assert.ok(age < 1, `Expected age < 1, got ${age}`);
   });
 
-  it('should return age greater than 7 for a file with mtime 8 days ago', async () => {
+  it('should return age greater than retention for a file beyond retention days', async () => {
     const file = path.join(tempDir, 'old.error.json');
     fs.writeFileSync(file, '{}');
-    const eightDaysAgo = new Date(Date.now() - 8 * TIME_MS.DAY);
-    fs.utimesSync(file, eightDaysAgo, eightDaysAgo);
+    const pastDate = new Date(Date.now() - DAYS_BEYOND_RETENTION * TIME_MS.DAY);
+    fs.utimesSync(file, pastDate, pastDate);
     const age = await getFileAgeDays(file);
-    assert.ok(age > 7, `Expected age > 7, got ${age}`);
+    assert.ok(age > DEFAULT_RETENTION_DAYS, `Expected age > ${DEFAULT_RETENTION_DAYS}, got ${age}`);
   });
 
   it('TIMEOUTS.ONE_DAY_MS equals TIME_MS.DAY (regression guard)', () => {
@@ -48,10 +57,13 @@ describe('getFileAgeDays - TC-M1', () => {
   it('should return age proportional to mtime offset', async () => {
     const file = path.join(tempDir, 'mid.error.json');
     fs.writeFileSync(file, '{}');
-    const threeDaysAgo = new Date(Date.now() - 3 * TIME_MS.DAY);
-    fs.utimesSync(file, threeDaysAgo, threeDaysAgo);
+    const pastDate = new Date(Date.now() - PROPORTIONAL_TEST_DAYS * TIME_MS.DAY);
+    fs.utimesSync(file, pastDate, pastDate);
     const age = await getFileAgeDays(file);
-    assert.ok(age >= 2.9 && age <= 3.1, `Expected age ~3, got ${age}`);
+    assert.ok(
+      age >= PROPORTIONAL_TEST_DAYS - AGE_TOLERANCE && age <= PROPORTIONAL_TEST_DAYS + AGE_TOLERANCE,
+      `Expected age ~${PROPORTIONAL_TEST_DAYS}, got ${age}`
+    );
   });
 });
 

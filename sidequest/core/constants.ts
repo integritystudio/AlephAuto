@@ -207,12 +207,12 @@ export const PERSIST_CONTEXT = {
 } as const;
 
 /** System-controlled job metadata keys stripped on retry to prevent injection */
-export const RESERVED_JOB_KEYS = new Set([
+export const RESERVED_JOB_KEYS: ReadonlySet<string> = new Set([
   'retriedFrom',
   'triggeredBy',
   'triggeredAt',
   'retryCount',
-] as const);
+]);
 
 export const WORKER_EVENTS = {
   METRICS_UPDATED: 'metrics:updated',

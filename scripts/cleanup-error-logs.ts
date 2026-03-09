@@ -364,4 +364,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   main();
 }
 
-export { cleanup, getFileAgeDays, scanErrorLogs };
+export { cleanup, DEFAULT_RETENTION_DAYS, getFileAgeDays, scanErrorLogs };

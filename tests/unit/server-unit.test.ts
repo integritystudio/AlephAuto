@@ -11,7 +11,7 @@ import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { SidequestServer } from '../../sidequest/core/server.ts';
 import { initDatabase, closeDatabase } from '../../sidequest/core/database.ts';
-import { PERSIST_CONTEXT } from '../../sidequest/core/constants.ts';
+import { PERSIST_CONTEXT, VALIDATION } from '../../sidequest/core/constants.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -948,9 +948,9 @@ describe('SidequestServer - createJob ID validation', () => {
     assert.throws(() => server.createJob('id with spaces', {}), /Invalid job ID/);
   });
 
-  it('should accept job ID at exactly 100 chars', () => {
+  it('should accept job ID at exactly max length', () => {
     const server = new TestSidequestServer({ autoStart: false });
-    assert.doesNotThrow(() => server.createJob('a'.repeat(100), {}));
+    assert.doesNotThrow(() => server.createJob('a'.repeat(VALIDATION.JOB_ID_MAX_LENGTH), {}));
   });
 });
 

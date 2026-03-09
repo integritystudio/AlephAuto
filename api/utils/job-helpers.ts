@@ -1,4 +1,4 @@
-const RESERVED_JOB_KEYS = new Set(['retriedFrom', 'triggeredBy', 'triggeredAt', 'retryCount']);
+import { RESERVED_JOB_KEYS } from '#sidequest/core/constants.ts';
 
 /**
  * Returns a copy of jobData with all reserved system keys removed.
