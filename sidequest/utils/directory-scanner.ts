@@ -61,6 +61,9 @@ export class DirectoryScanner {
   excludeDirs: Set<string>;
   maxDepth: number;
 
+  /**
+   * constructor.
+   */
   constructor(options: DirectoryScannerOptions = {}) {
     this.baseDir = options.baseDir ?? path.join(os.homedir(), 'code');
     this.outputDir = options.outputDir ?? './directory-scan-reports';
@@ -291,7 +294,7 @@ export class DirectoryScanner {
       timestamp: new Date().toISOString(),
       baseDir: this.baseDir,
       totalDirectories: directories.length,
-      maxDepth: Math.max(...directories.map(d => d.depth)),
+      maxDepth: directories.length > 0 ? Math.max(...directories.map(d => d.depth)) : 0,
       reportPath,
       treePath,
       stats,

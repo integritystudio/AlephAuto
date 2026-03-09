@@ -6,6 +6,8 @@
  */
 
 import { saveGeneratedReport } from '../utils/index.ts';
+import { MARKDOWN_REPORT } from '../../core/constants.ts';
+import { formatDuration } from '../../utils/time-helpers.ts';
 import type { ScanResult } from './json-report-generator.ts';
 
 export interface MarkdownReportOptions {
@@ -23,8 +25,8 @@ export class MarkdownReportGenerator {
    */
   static generateReport(scanResult: ScanResult, options: MarkdownReportOptions = {}): string {
     const includeDetails = options.includeDetails !== false;
-    const maxDuplicates = options.maxDuplicates ?? 10;
-    const maxSuggestions = options.maxSuggestions ?? 10;
+    const maxDuplicates = options.maxDuplicates ?? MARKDOWN_REPORT.DEFAULT_MAX_DUPLICATES;
+    const maxSuggestions = options.maxSuggestions ?? MARKDOWN_REPORT.DEFAULT_MAX_SUGGESTIONS;
     const isInterProject = scanResult.scan_type === 'inter-project';
 
     let markdown = '';
@@ -119,7 +121,7 @@ export class MarkdownReportGenerator {
     }
 
     header += `**Scanned:** ${new Date(metadata.scanned_at ?? Date.now()).toLocaleString()}\n`;
-    header += `**Duration:** ${metadata.duration_seconds?.toFixed(2) ?? 0}s\n`;
+    header += `**Duration:** ${formatDuration(metadata.duration_seconds ?? null)}\n`;
 
     return header;
   }
@@ -154,7 +156,7 @@ export class MarkdownReportGenerator {
       markdown += `| Exact Duplicates | ${metrics.exact_duplicates ?? 0} |\n`;
       markdown += `| Total Duplicated Lines | ${metrics.total_duplicated_lines ?? 0} |\n`;
       markdown += `| Potential LOC Reduction | ${metrics.potential_loc_reduction ?? 0} |\n`;
-      markdown += `| Duplication Percentage | ${metrics.duplication_percentage?.toFixed(2) ?? 0}% |\n`;
+      markdown += `| Duplication Percentage | ${metrics.duplication_percentage?.toFixed(MARKDOWN_REPORT.PERCENTAGE_DECIMAL_PLACES) ?? 0}% |\n`;
       markdown += `| Total Suggestions | ${metrics.total_suggestions ?? 0} |\n`;
       markdown += `| Quick Wins | ${metrics.quick_wins ?? 0} |\n`;
       markdown += `| High Priority Suggestions | ${metrics.high_priority_suggestions ?? 0} |\n`;
@@ -223,12 +225,12 @@ export class MarkdownReportGenerator {
 
       markdown += `- **Total Lines:** ${group.total_lines}\n`;
       markdown += `- **Impact Score:** ${this._formatScore(group.impact_score)}\n`;
-      markdown += `- **Similarity:** ${(group.similarity_score * 100).toFixed(0)}% (${group.similarity_method})\n`;
+      markdown += `- **Similarity:** ${(group.similarity_score * MARKDOWN_REPORT.PERCENTAGE_MULTIPLIER).toFixed(0)}% (${group.similarity_method})\n`;
 
       if (includeDetails) {
         markdown += `- **Affected Files:**\n`;
         const files = group.affected_files ?? [];
-        const maxFiles = 5;
+        const maxFiles = MARKDOWN_REPORT.MAX_AFFECTED_FILES;
         for (let i = 0; i < Math.min(files.length, maxFiles); i++) {
           markdown += `  - \`${files[i]}\`\n`;
         }
@@ -301,12 +303,12 @@ export class MarkdownReportGenerator {
 
       if (includeDetails && suggestion.migration_steps && suggestion.migration_steps.length > 0) {
         markdown += '\n**Migration Steps:**\n';
-        for (const step of suggestion.migration_steps.slice(0, 5)) {
+        for (const step of suggestion.migration_steps.slice(0, MARKDOWN_REPORT.MAX_MIGRATION_STEPS)) {
           const automated = step.automated ? '🤖' : '👤';
           markdown += `${step.step_number}. ${automated} ${step.description} *(${step.estimated_time})*\n`;
         }
-        if (suggestion.migration_steps.length > 5) {
-          markdown += `*... and ${suggestion.migration_steps.length - 5} more steps*\n`;
+        if (suggestion.migration_steps.length > MARKDOWN_REPORT.MAX_MIGRATION_STEPS) {
+          markdown += `*... and ${suggestion.migration_steps.length - MARKDOWN_REPORT.MAX_MIGRATION_STEPS} more steps*\n`;
         }
       }
 
@@ -338,9 +340,9 @@ export class MarkdownReportGenerator {
    * @private
    */
   private static _formatScore(score: number): string {
-    if (score >= 75) {
+    if (score >= MARKDOWN_REPORT.HIGH_SCORE_MIN) {
       return `🔴 ${score.toFixed(1)}/100 (High)`;
-    } else if (score >= 50) {
+    } else if (score >= MARKDOWN_REPORT.MEDIUM_SCORE_MIN) {
       return `🟡 ${score.toFixed(1)}/100 (Medium)`;
     } else {
       return `🟢 ${score.toFixed(1)}/100 (Low)`;

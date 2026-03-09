@@ -310,13 +310,13 @@ Output: List of DuplicateGroup objects → Stage 6
 │         JavaScript (Node.js) ↔ Python 3.14              │
 └──────────────────────────────────────────────────────────┘
 
-JavaScript Side (lib/scan-orchestrator.js):
+JavaScript Side (sidequest/pipeline-core/scan-orchestrator.ts):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const { spawn } = require('child_process');
 
 const pythonProcess = spawn('python3', [
-  'lib/extract_blocks.py'
+  'sidequest/pipeline-core/extractors/extract_blocks.py'
 ], {
   stdio: ['pipe', 'pipe', 'pipe']  // stdin, stdout, stderr
 });
@@ -332,7 +332,7 @@ const input = {
   pattern_matches: [
     {
       pattern_id: "express-route-handler",
-      file_path: "api/routes/users.js",
+      file_path: "api/routes/repositories.ts",
       line_start: 15,
       line_end: 25,
       code_snippet: "router.post('/users', ...)"
@@ -364,7 +364,7 @@ pythonProcess.on('close', (code) => {
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Python Side (lib/extract_blocks.py):
+Python Side (sidequest/pipeline-core/extractors/extract_blocks.py):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 import sys
@@ -514,7 +514,7 @@ erDiagram
 ### CodeBlock Model Detail
 
 ```python
-# Pydantic v2 Model: lib/models/code_block.py
+# Pydantic v2 Model: sidequest/pipeline-core/models/code_block.py
 
 class SourceLocation(BaseModel):
     """Location of code within a file"""
@@ -572,7 +572,7 @@ class SemanticCategory(str, Enum):
 ### DuplicateGroup Model Detail
 
 ```python
-# lib/models/duplicate_group.py
+# sidequest/pipeline-core/models/duplicate_group.py
 
 class ImpactMetrics(BaseModel):
     """Metrics showing the impact of this duplicate group"""
@@ -616,7 +616,7 @@ class SimilarityMethod(str, Enum):
 ### ConsolidationSuggestion Model Detail
 
 ```python
-# lib/models/consolidation_suggestion.py
+# sidequest/pipeline-core/models/consolidation_suggestion.py
 
 class MigrationStep(BaseModel):
     """A single step in the consolidation migration"""
@@ -811,7 +811,7 @@ sequenceDiagram
 ```
 ┌──────────────────────────────────────────────────────────┐
 │           AlephAuto Job Queue Architecture               │
-│              (sidequest/server.js)                       │
+│              (sidequest/core/server.ts)                       │
 └──────────────────────────────────────────────────────────┘
 
 Configuration:
@@ -955,7 +955,7 @@ flowchart TB
 ### Cache Invalidation Strategy
 
 ```python
-# lib/cached-scanner.js
+# sidequest/pipeline-core/cache/cached-scanner.ts
 
 class CachedScanner {
     constructor(options = {}) {
@@ -1126,7 +1126,7 @@ sequenceDiagram
 ### Sentry Integration Code
 
 ```javascript
-// sidequest/logger.js
+// sidequest/utils/logger.ts
 
 import * as Sentry from '@sentry/node';
 import { config } from './config.js';
@@ -1269,7 +1269,7 @@ Input: Repository path from Stage 1
 │   "matches": [                                        │
 │     {                                                 │
 │       "rule_id": "express-route-handler",             │
-│       "file": "api/routes/users.js",                  │
+│       "file": "api/routes/repositories.ts",                  │
 │       "start_line": 15,                               │
 │       "end_line": 25,                                 │
 │       "start_column": 0,                              │

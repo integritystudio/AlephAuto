@@ -79,7 +79,7 @@ function getWebhooks() {
  * Check webhook configuration and log status
  * @returns {{ configured: string[], missing: string[] }}
  */
-function checkWebhookConfiguration(webhooks) {
+function checkWebhookConfiguration(webhooks): { configured: string[]; missing: string[] } {
   const configured = [];
   const missing = [];
 
@@ -216,7 +216,7 @@ function sendDiscordMessage(webhookUrl, embed, channelName) {
  * Test a single channel
  * @returns {Promise<{ success: boolean, channel: string, error?: string }>}
  */
-async function testSingleChannel(channelKey, webhookUrl, testNumber) {
+async function testSingleChannel(channelKey, webhookUrl, testNumber): Promise<{ success: boolean; channel: string; error?: string }> {
   const config = CHANNEL_CONFIG[channelKey];
   console.log(`\n\uD83D\uDCE4 Test ${testNumber}: ${channelKey.toUpperCase()} channel (${config.displayName})`);
 

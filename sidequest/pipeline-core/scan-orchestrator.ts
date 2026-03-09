@@ -23,8 +23,10 @@ import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
+import { fileURLToPath } from 'url';
 import * as Sentry from '@sentry/node';
 import { TIMEOUTS } from '../core/constants.ts';
+import { TIME_MS } from '../core/units.ts';
 
 const logger = createComponentLogger('ScanOrchestrator');
 
@@ -351,7 +353,8 @@ export class ScanOrchestrator {
       this._pythonValidated = false;
     }
 
-    this.extractorScript = options.extractorScript || path.join(process.cwd(), 'sidequest/pipeline-core/extractors/extract_blocks.py');
+    const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+    this.extractorScript = options.extractorScript || path.resolve(moduleDir, 'extractors', 'extract_blocks.py');
 
     // Report generation configuration
     this.reportConfig = options.reports || {};
@@ -463,7 +466,7 @@ export class ScanOrchestrator {
         scan_config: scanConfig
       });
 
-      const duration = (Date.now() - startTime) / 1000;
+      const duration = (Date.now() - startTime) / TIME_MS.SECOND;
 
       logger.info({
         repoPath,

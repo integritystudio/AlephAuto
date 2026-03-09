@@ -28,6 +28,7 @@ import path from 'path';
 import { createGzip } from 'zlib';
 import { pipeline } from 'stream/promises';
 import { createReadStream, createWriteStream } from 'fs';
+import { BYTES_PER_KB } from '../sidequest/core/constants.ts';
 import { createComponentLogger, logError } from '../sidequest/utils/logger.ts';
 
 const logger = createComponentLogger('ErrorLogCleanup');
@@ -36,6 +37,7 @@ const logger = createComponentLogger('ErrorLogCleanup');
 const DEFAULT_RETENTION_DAYS = 7;      // Keep error logs for 7 days
 const ARCHIVE_RETENTION_DAYS = 30;     // Keep archives for 30 days
 const LOGS_BASE_DIR = path.join(process.cwd(), 'logs');
+const DECIMAL_RADIX = 10;
 
 /**
  * Parse command line arguments
@@ -54,7 +56,7 @@ function parseArgs() {
     if (arg === '--dry-run' || arg === '-d') {
       args.dryRun = true;
     } else if (arg === '--retention' || arg === '-r') {
-      args.retentionDays = parseInt(process.argv[++i], 10);
+      args.retentionDays = parseInt(process.argv[++i], DECIMAL_RADIX);
     } else if (arg === '--verbose' || arg === '-v') {
       args.verbose = true;
     } else if (arg === '--help' || arg === '-h') {
@@ -120,6 +122,9 @@ async function compressFile(inputPath, outputPath) {
 async function scanErrorLogs(baseDir) {
   const errorLogs = [];
 
+  /**
+   * scanDir.
+   */
   async function scanDir(dir) {
     const entries = await fs.readdir(dir, { withFileTypes: true });
 
@@ -183,7 +188,7 @@ async function scanArchivedLogs(archiveDir) {
  */
 function formatBytes(bytes) {
   if (bytes === 0) return '0 B';
-  const k = 1024;
+  const k = BYTES_PER_KB;
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
@@ -281,6 +286,9 @@ async function deleteOldArchives(archivedLogs, retentionDays, dryRun, verbose) {
   return { deleted: deletedCount, totalSize };
 }
 
+/**
+ * printCleanupSummary.
+ */
 function printCleanupSummary(archiveResult: { archived: number; totalSize: number }, deleteResult: { deleted: number; totalSize: number }, dryRun: boolean) {
   console.log('\n' + '='.repeat(50));
   console.log('📊 Summary');

@@ -8,6 +8,7 @@
 import { useDashboardStore } from '../store/dashboard';
 import { ActivityType } from '../types';
 import type { Job, Pipeline, ActivityItem } from '../types';
+import { ACTIVITY_TYPE_MAP } from '../hooks/useWebSocketConnection';
 
 /**
  * WebSocket Service
@@ -352,18 +353,7 @@ class WebSocketService {
    * Handle activity event from backend ActivityFeed
    */
   private handleActivityEvent(activity: any): void {
-    // Map backend activity types to frontend ActivityType
-    const typeMapping: Record<string, ActivityType> = {
-      'job:created': ActivityType.QUEUED,
-      'job:started': ActivityType.STARTED,
-      'job:completed': ActivityType.COMPLETED,
-      'job:failed': ActivityType.FAILED,
-      'job:cancelled': ActivityType.CANCELLED,
-      'retry:created': ActivityType.STARTED,
-      'retry:max-attempts': ActivityType.FAILED,
-    };
-
-    const activityType = typeMapping[activity.type] || ActivityType.PROGRESS;
+    const activityType = ACTIVITY_TYPE_MAP[activity.type] ?? ActivityType.PROGRESS;
 
     // Add activity to the feed
     this.addActivity({

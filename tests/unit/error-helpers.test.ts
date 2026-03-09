@@ -27,6 +27,9 @@ describe('Error Helper Utilities', () => {
 
     test('should handle custom Error subclasses', () => {
       class CustomError extends Error {
+        /**
+         * constructor.
+         */
         constructor(message) {
           super(message);
           this.name = 'CustomError';
@@ -174,6 +177,9 @@ describe('Error Helper Utilities', () => {
 
     test('should handle custom Error subclasses', () => {
       class ValidationError extends Error {
+        /**
+         * constructor.
+         */
         constructor(message) {
           super(message);
           this.name = 'ValidationError';

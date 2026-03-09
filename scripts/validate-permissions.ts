@@ -32,14 +32,16 @@ const ROOT = path.resolve(__dirname, '..');
 
 // Files that must NOT be executable (invoked with 'node', not './')
 const CRITICAL_FILES = [
-  'api/server.js',
+  'api/server.ts',
   'sidequest/pipeline-runners/duplicate-detection-pipeline.ts',
   'sidequest/pipeline-runners/claude-health-pipeline.ts',
   'sidequest/pipeline-runners/git-activity-pipeline.ts',
   'sidequest/pipeline-runners/plugin-management-pipeline.ts',
   'sidequest/pipeline-runners/gitignore-pipeline.ts',
-  'sidequest/server.js',
-  'sidequest/gitignore-worker.js',
+  'sidequest/pipeline-runners/repo-cleanup-pipeline.ts',
+  'sidequest/pipeline-runners/schema-enhancement-pipeline.ts',
+  'sidequest/pipeline-runners/bugfix-audit-pipeline.ts',
+  'sidequest/pipeline-runners/dashboard-populate-pipeline.ts',
 ];
 
 // Parse CLI arguments
@@ -47,6 +49,9 @@ const args = process.argv.slice(2);
 const FIX_MODE = args.includes('--fix');
 const CHECK_ONLY = args.includes('--check-only');
 
+/**
+ * checkFilePermissions.
+ */
 async function checkFilePermissions(filePath) {
   const fullPath = path.join(ROOT, filePath);
 
@@ -77,6 +82,9 @@ async function checkFilePermissions(filePath) {
   }
 }
 
+/**
+ * fixFilePermissions.
+ */
 async function fixFilePermissions(filePath) {
   const fullPath = path.join(ROOT, filePath);
 
@@ -89,6 +97,9 @@ async function fixFilePermissions(filePath) {
   }
 }
 
+/**
+ * reportInvalidFiles.
+ */
 function reportInvalidFiles(invalid: Awaited<ReturnType<typeof checkFilePermissions>>[]) {
   console.log(`⚠️  Found ${invalid.length} files with incorrect permissions:\n`);
   for (const result of invalid) {
@@ -103,6 +114,9 @@ function reportInvalidFiles(invalid: Awaited<ReturnType<typeof checkFilePermissi
   }
 }
 
+/**
+ * applyPermissionFixes.
+ */
 async function applyPermissionFixes(executable: Awaited<ReturnType<typeof checkFilePermissions>>[]) {
   console.log('🔧 Fixing permissions...\n');
 
@@ -127,6 +141,9 @@ async function applyPermissionFixes(executable: Awaited<ReturnType<typeof checkF
   process.exit(0);
 }
 
+/**
+ * main.
+ */
 async function main() {
   console.log('🔍 Validating file permissions...\n');
 

@@ -2,10 +2,9 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from pydantic import BaseModel
-
 
 class ConsolidationStrategy(str, Enum):
     LOCAL_UTIL = ...
@@ -14,14 +13,12 @@ class ConsolidationStrategy(str, Enum):
     AUTONOMOUS_AGENT = ...
     NO_ACTION = ...
 
-
 class ImplementationComplexity(str, Enum):
     TRIVIAL = ...
     SIMPLE = ...
     MODERATE = ...
     COMPLEX = ...
     VERY_COMPLEX = ...
-
 
 class MigrationRisk(str, Enum):
     MINIMAL = ...
@@ -30,14 +27,12 @@ class MigrationRisk(str, Enum):
     HIGH = ...
     CRITICAL = ...
 
-
 class MigrationStep(BaseModel):
     step_number: int
     description: str
     code_example: Optional[str]
     automated: bool
     estimated_time: Optional[str]
-
 
 class ConsolidationSuggestion(BaseModel):
     suggestion_id: str
@@ -75,7 +70,6 @@ class ConsolidationSuggestion(BaseModel):
     def roi_score(self) -> float: ...
     @property
     def is_quick_win(self) -> bool: ...
-
     def add_migration_step(
         self,
         description: str,

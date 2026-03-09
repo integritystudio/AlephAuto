@@ -6,7 +6,7 @@
   "@type": "HowTo",
   "name": "AlephAuto",
   "description": "Node.js automation toolkit for managing code repositories at scale.",
-  "dateModified": "2026-01-19T02:09:57.627Z",
+  "dateModified": "2026-03-04T00:00:00.000Z",
   "inLanguage": "en-US"
 }
 </script>
@@ -39,7 +39,7 @@ Built on a robust job queue architecture with Sentry error tracking, event-drive
 
 ## Prerequisites
 
-- **Node.js** >= 18.0.0
+- **Node.js** >= 22.0.0
 - **repomix** CLI tool - [Installation guide](https://github.com/yamadashy/repomix)
 - **Sentry account** (optional) - For error tracking
 
@@ -78,7 +78,7 @@ MAX_CONCURRENT=5
 
 # Cron schedules
 CRON_SCHEDULE="0 2 * * *"  # 2 AM daily
-DOC_CRON_SCHEDULE="0 3 * * *"  # 3 AM daily
+SCHEMA_ENHANCEMENT_CRON_SCHEDULE="0 3 * * 0"  # Sunday 3 AM
 
 # Sentry error tracking
 SENTRY_DSN=https://your-sentry-dsn@sentry.io/project-id
@@ -91,22 +91,17 @@ LOG_LEVEL=info
 
 ### Repomix Pipeline (Automated Code Condensation)
 
-Scans all repositories in your code directory and generates condensed versions using repomix.
+Generates repomix bundles and scan artifacts used by Sidequest pipelines and docs.
 
 ```bash
-# Run once immediately
-node index.js
+# Regenerate repository repomix artifacts
+bash scripts/repomix-regen.sh
 
-# Run on schedule (configured via CRON_SCHEDULE)
-RUN_ON_STARTUP=false node index.js
-
-# Run with custom configuration
-CODE_BASE_DIR=/custom/path MAX_CONCURRENT=3 node index.js
+# Generate docs XML bundle directly
+npx repomix . -c repomix.config.json -o docs/repomix/docs.xml
 ```
 
-**Scheduled execution**: By default, runs at 2 AM daily. Configure via `CRON_SCHEDULE` environment variable.
-
-**Output location**: `./sidequest/output/condense/` (configurable via `OUTPUT_BASE_DIR`)
+**Output location**: `docs/repomix/` and Sidequest job outputs under `output/`
 
 ### Documentation Enhancement Pipeline
 
@@ -114,13 +109,13 @@ Scans README files and adds Schema.org JSON-LD markup for better SEO.
 
 ```bash
 # Run the documentation enhancement pipeline
-node data-discovery-report-pipeline.js
+node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts --run-now
 
 # Run with custom target directory
-CODE_BASE_DIR=/path/to/repos node data-discovery-report-pipeline.js
+node --strip-types sidequest/pipeline-runners/schema-enhancement-pipeline.ts --run-now --dir /path/to/repos
 ```
 
-**Scheduled execution**: By default, runs at 3 AM daily. Configure via `DOC_CRON_SCHEDULE`.
+**Scheduled execution**: Sunday 3 AM by default. Configure via `SCHEMA_ENHANCEMENT_CRON_SCHEDULE`.
 
 **Features**:
 - Automatic schema type detection (HowTo, APIReference, SoftwareApplication, etc.)
@@ -133,13 +128,13 @@ Batch update `.gitignore` files across all git repositories.
 
 ```bash
 # Preview changes (dry-run mode)
-node gitignore-repomix-updater.js ~/code --dry-run
+GITIGNORE_DRY_RUN=true node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts --run-now
 
 # Apply changes
-node gitignore-repomix-updater.js ~/code
+node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts --run-now
 
 # Custom path
-node gitignore-repomix-updater.js /path/to/repos
+GITIGNORE_BASE_DIR=/path/to/repos node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts --run-now
 ```
 
 **What it does**:
@@ -178,33 +173,33 @@ See [GITIGNORE_UPDATER_README.md](./GITIGNORE_UPDATER_README.md) for detailed do
 
 ### Component Overview
 
-**`server.js`** - Base job execution engine
+**`sidequest/core/server.ts`** - Base job execution engine
 - Event-driven job lifecycle: `created` → `queued` → `running` → `completed/failed`
 - Configurable concurrency limits
 - Sentry error tracking and performance monitoring
 - JSON logging to `./logs/` directory
 
-**`repomix-worker.js`** - Repomix job executor
+**`sidequest/workers/repomix-worker.ts`** - Repomix job executor
 - Executes repomix CLI securely (command injection protected)
 - Manages output directory structure
 - 10-minute timeout, 50MB buffer for large outputs
 
-**`directory-scanner.js`** - Directory traversal
+**`sidequest/utils/directory-scanner.ts`** - Directory traversal
 - Recursive scanning with depth limits
 - Configurable exclusion patterns
 - Statistical reporting
 
-**`index.js`** - Main repomix pipeline application
-- Cron scheduling for automated execution
-- Scans and processes all repositories
-- Event-driven console logging
+**`sidequest/pipeline-runners/duplicate-detection-pipeline.ts`** - Main duplicate detection runner
+- Schedules and runs the 7-stage duplicate detection pipeline
+- Orchestrates scanning, extraction, similarity, and report generation
+- Event-driven job lifecycle logging
 
-**`data-discovery-report-pipeline.js`** - Documentation enhancement
+**`sidequest/pipeline-runners/schema-enhancement-pipeline.ts`** - Documentation enhancement
 - README file discovery
 - Schema.org markup generation
 - MCP tools integration
 
-**`gitignore-repomix-updater.js`** - Batch gitignore management
+**`sidequest/pipeline-runners/gitignore-pipeline.ts`** - Batch gitignore management
 - Git repository detection
 - Safe file modification
 - Detailed reporting
@@ -217,8 +212,8 @@ See [GITIGNORE_UPDATER_README.md](./GITIGNORE_UPDATER_README.md) for detailed do
 # Run all tests
 npm test
 
-# Run with UI
-npm run test:ui
+# Run integration tests
+npm run test:integration
 
 # Generate coverage report
 npm run test:coverage
@@ -238,7 +233,7 @@ npm run lint:fix
 
 ```bash
 # Run TypeScript type checking
-npm run type-check
+npm run typecheck
 ```
 
 ### Logging
@@ -249,10 +244,10 @@ AlephAuto uses structured logging with Pino. Logs are JSON-formatted and written
 
 ```bash
 # Enable debug logging
-LOG_LEVEL=debug node index.js
+LOG_LEVEL=debug node --strip-types api/server.ts
 
 # Log to custom location
-LOG_DIR=/var/log/alephauto node index.js
+LOG_DIR=/var/log/alephauto node --strip-types api/server.ts
 ```
 
 ## Monitoring
@@ -276,7 +271,7 @@ Set up Sentry for error tracking:
 Listen to job events programmatically:
 
 ```javascript
-import { RepomixWorker } from './repomix-worker.js';
+import { RepomixWorker } from './sidequest/workers/repomix-worker.ts';
 
 const worker = new RepomixWorker();
 
@@ -285,7 +280,10 @@ worker.on('job:created', (job) => {
 });
 
 worker.on('job:completed', (job) => {
-  console.log(`Job ${job.id} completed in ${job.completedAt - job.startedAt}ms`);
+  const durationMs = job.completedAt && job.startedAt
+    ? job.completedAt.getTime() - job.startedAt.getTime()
+    : 0;
+  console.log(`Job ${job.id} completed in ${durationMs}ms`);
 });
 
 worker.on('job:failed', (job) => {

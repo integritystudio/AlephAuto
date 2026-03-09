@@ -122,7 +122,7 @@ This directory contains comprehensive architectural documentation for the Code C
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │                    Scan Orchestrator                              │
-│                  (lib/scan-orchestrator.js)                       │
+│                  (sidequest/pipeline-core/scan-orchestrator.ts)                       │
 └──────────────────────────────────────────────────────────────────┘
                               │
         ┌─────────────────────┴─────────────────────┐
@@ -170,24 +170,24 @@ PHASE 3: Apply Penalties (using ORIGINAL features)
 
 | File | Purpose | Lines | Documentation |
 |------|---------|-------|---------------|
-| `lib/scan-orchestrator.js` | Pipeline coordinator | 302 | [Pipeline Data Flow](./pipeline-data-flow.md#stage-by-stage-data-flow) |
-| `lib/scanners/repository-scanner.js` | Repository validation & metadata | 344 | [Pipeline Data Flow](./pipeline-data-flow.md#stage-1-repository-scanner) |
-| `lib/scanners/ast-grep-detector.js` | Pattern detection | 218 | [Pipeline Data Flow](./pipeline-data-flow.md#stage-2-ast-grep-pattern-detector) |
+| `sidequest/pipeline-core/scan-orchestrator.ts` | Pipeline coordinator | 302 | [Pipeline Data Flow](./pipeline-data-flow.md#stage-by-stage-data-flow) |
+| `sidequest/pipeline-core/scanners/repository-scanner.ts` | Repository validation & metadata | 344 | [Pipeline Data Flow](./pipeline-data-flow.md#stage-1-repository-scanner) |
+| `sidequest/pipeline-core/scanners/ast-grep-detector.ts` | Pattern detection | 218 | [Pipeline Data Flow](./pipeline-data-flow.md#stage-2-ast-grep-pattern-detector) |
 
 ### Python Components
 
 | File | Purpose | Lines | Documentation |
 |------|---------|-------|---------------|
-| `lib/extractors/extract_blocks.py` | Block extraction, dedup, suggestions | 671 | [Pipeline Data Flow](./pipeline-data-flow.md#stage-3-code-block-extraction) |
-| `lib/similarity/structural.py` | Two-phase similarity algorithm | 493 | [Similarity Algorithm](./similarity-algorithm.md#two-phase-similarity-calculation) |
-| `lib/similarity/grouping.py` | Multi-layer grouping | 431 | [Pipeline Data Flow](./pipeline-data-flow.md#stage-5-duplicate-grouping) |
+| `sidequest/pipeline-core/extractors/extract_blocks.py` | Block extraction, dedup, suggestions | 671 | [Pipeline Data Flow](./pipeline-data-flow.md#stage-3-code-block-extraction) |
+| `sidequest/pipeline-core/similarity/structural.py` | Two-phase similarity algorithm | 493 | [Similarity Algorithm](./similarity-algorithm.md#two-phase-similarity-calculation) |
+| `sidequest/pipeline-core/similarity/grouping.py` | Multi-layer grouping | 431 | [Pipeline Data Flow](./pipeline-data-flow.md#stage-5-duplicate-grouping) |
 
 ### Configuration
 
 | File | Purpose | Documentation |
 |------|---------|---------------|
 | `.ast-grep/rules/*` | 18 pattern detection rules | [Pipeline Data Flow](./pipeline-data-flow.md#pattern-detection-rules) |
-| `lib/models/*.py` | Pydantic data models | [Pipeline Data Flow](./pipeline-data-flow.md#data-format-specifications) |
+| `sidequest/pipeline-core/models/*.py` | Pydantic data models | [Pipeline Data Flow](./pipeline-data-flow.md#data-format-specifications) |
 
 ---
 
@@ -352,15 +352,12 @@ CodeBlock(
 
 ## Testing & Validation
 
-### Accuracy Metrics
+### Similarity Validation
 
-**Test Suite:** `test/accuracy/accuracy-test.js`
+**Primary automated test:** `sidequest/pipeline-core/similarity/test_grouping_layer3.py`
 
-```
-Precision: 100.00% (0 false positives)
-Recall: 87.50% (7/8 true duplicates detected)
-F1 Score: 93.33%
-False Positive Rate: 0.00%
+```bash
+PYTHONNOUSERSITE=1 python -m pytest -q sidequest/pipeline-core/similarity/test_grouping_layer3.py
 ```
 
 **Interpretation:**
@@ -442,7 +439,7 @@ False Positive Rate: 0.00%
 3. Monitor memory usage (should be < 500MB)
 
 **Solution:**
-- Increase timeout in `scan-orchestrator.js` (default: 600s)
+- Increase timeout in `scan-orchestrator.ts` (default: 600s)
 - Disable unused AST-grep rules
 - Process smaller subdirectories separately
 
@@ -475,7 +472,7 @@ When updating this documentation:
 
 ### Test Documentation
 - [Test Suite Overview](../../tests/README.md) - Test coverage and results
-- [Accuracy Tests](../../tests/accuracy/README.md) - Ground truth validation
+- [Layer 3 Grouping Test](../../sidequest/pipeline-core/similarity/test_grouping_layer3.py) - Similarity grouping validation
 
 ---
 

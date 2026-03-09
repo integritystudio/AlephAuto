@@ -1,6 +1,7 @@
 import { RepomixWorker } from '../../workers/repomix-worker.ts';
 import { createComponentLogger, logStart } from '../../utils/logger.ts';
 import { config } from '../../core/config.ts';
+import { TIME_MS } from '../../core/units.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import { execSync } from 'child_process';
@@ -126,7 +127,7 @@ export class RepositoryScanner {
       // Get file metadata
       const fileMetadata = await this.getFileMetadata(repoPath, scanConfig);
 
-      const duration = (Date.now() - startTime) / 1000;
+      const duration = (Date.now() - startTime) / TIME_MS.SECOND;
 
       logger.info({
         repoPath,

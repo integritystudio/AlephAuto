@@ -1,7 +1,7 @@
 """
 Semantic Similarity Validation
 
-Layer 3 of the multi-layer similarity algorithm.
+Third layer of the multi-layer similarity algorithm.
 Validates that structurally similar code blocks are also semantically equivalent.
 """
 
@@ -10,23 +10,24 @@ from pathlib import Path
 import sys
 
 # Import models from correct path (relative to pipeline-core)
-sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
+sys.path.insert(0, str(Path(__file__).parent.parent / "models"))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from code_block import CodeBlock, SemanticCategory
+from code_block import CodeBlock
+from constants import BlockExtraction, SemanticWeights
 
 
-def are_semantically_compatible(block1: 'CodeBlock', block2: 'CodeBlock') -> bool:
+def are_semantically_compatible(block1: "CodeBlock", block2: "CodeBlock") -> bool:
     """
     Check if two code blocks are semantically compatible for grouping.
 
     Returns True if blocks can be considered semantic duplicates.
 
     Validation checks:
-    1. Same pattern_id (ast-grep rule)
-    2. Same category (semantic categorization)
-    3. Compatible tags (if present)
-    4. Similar complexity (line count within 50%)
+    - Same pattern_id (ast-grep rule)
+    - Same category (semantic categorization)
+    - Compatible tags (if present)
+    - Similar complexity (line count ratio check)
     """
 
     # Check 1: Must match same ast-grep pattern
@@ -54,15 +55,17 @@ def are_semantically_compatible(block1: 'CodeBlock', block2: 'CodeBlock') -> boo
 
     # Check 4: Complexity similarity
     # Blocks should have similar size (within 50% difference)
-    line_ratio = min(block1.line_count, block2.line_count) / max(block1.line_count, block2.line_count)
-    if line_ratio < 0.5:
+    line_ratio = min(block1.line_count, block2.line_count) / max(
+        block1.line_count, block2.line_count
+    )
+    if line_ratio < SemanticWeights.LINE_RATIO_THRESHOLD:
         # One block is more than 2x the size of the other
         return False
 
     return True
 
 
-def calculate_tag_overlap(block1: 'CodeBlock', block2: 'CodeBlock') -> float:
+def calculate_tag_overlap(block1: "CodeBlock", block2: "CodeBlock") -> float:
     """
     Calculate semantic tag overlap between two blocks.
 
@@ -76,7 +79,7 @@ def calculate_tag_overlap(block1: 'CodeBlock', block2: 'CodeBlock') -> float:
         return 1.0  # No tags on either
 
     if not tags1 or not tags2:
-        return 0.5  # One has tags, other doesn't
+        return SemanticWeights.PARTIAL_TAG_OVERLAP  # One has tags, other doesn't
 
     # Calculate Jaccard similarity
     intersection = tags1 & tags2
@@ -88,12 +91,12 @@ def calculate_tag_overlap(block1: 'CodeBlock', block2: 'CodeBlock') -> float:
 def _extract_function_tag(tags: set) -> Optional[str]:
     """Extract function name from tag set."""
     for tag in tags:
-        if tag.startswith('function:'):
-            return tag[9:]  # Remove 'function:' prefix
+        if tag.startswith(BlockExtraction.FUNCTION_TAG_PREFIX):
+            return tag[len(BlockExtraction.FUNCTION_TAG_PREFIX) :]
     return None
 
 
-def validate_duplicate_group(blocks: List['CodeBlock']) -> bool:
+def validate_duplicate_group(blocks: List["CodeBlock"]) -> bool:
     """
     Validate that a group of blocks are truly semantic duplicates.
 
@@ -117,7 +120,7 @@ def validate_duplicate_group(blocks: List['CodeBlock']) -> bool:
 
     # Pairwise semantic compatibility
     for i, block1 in enumerate(blocks):
-        for block2 in blocks[i+1:]:
+        for block2 in blocks[i + 1 :]:
             if not are_semantically_compatible(block1, block2):
                 return False
 

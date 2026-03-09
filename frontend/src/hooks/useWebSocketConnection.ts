@@ -11,10 +11,64 @@
 import { useEffect, useRef } from 'react';
 import { wsService } from '../services/websocket';
 import { useDashboardStore } from '../store/dashboard';
-import { PipelineType } from '../types';
+import { PipelineType, ActivityType, JobStatus, PipelineStatus } from '../types';
 import type { Pipeline, SystemHealth } from '../types';
 
-const POLL_INTERVAL_MS = 5000;
+interface ApiJob {
+  id: string;
+  pipelineId: string;
+  pipelineName: string;
+  status: string;
+  createdAt: string;
+  startedAt?: string;
+  progress?: number;
+  currentOperation?: string;
+}
+
+interface ApiPipeline {
+  id: string;
+  name: string;
+  description?: string;
+  status?: string;
+  completedJobs?: number;
+  failedJobs?: number;
+  lastRun?: string;
+  nextRun?: string;
+}
+
+interface ApiActivity {
+  id?: string;
+  type: string;
+  pipelineId?: string;
+  jobType?: string;
+  pipelineName?: string;
+  message?: string;
+  timestamp?: string;
+  jobId?: string;
+}
+
+interface ApiStatusData {
+  pipelines?: ApiPipeline[];
+  activeJobs?: ApiJob[];
+  queuedJobs?: ApiJob[];
+  recentActivity?: ApiActivity[];
+  queue?: { active: number; queued: number; capacity: number };
+  timestamp?: string;
+  retryMetrics?: { activeRetries: number };
+}
+
+export const ACTIVITY_TYPE_MAP: Record<string, ActivityType> = {
+  'job:created': ActivityType.QUEUED,
+  'job:started': ActivityType.STARTED,
+  'job:completed': ActivityType.COMPLETED,
+  'job:failed': ActivityType.FAILED,
+  'job:cancelled': ActivityType.CANCELLED,
+  'retry:created': ActivityType.RETRY,
+  'retry:max-attempts': ActivityType.FAILED,
+};
+import { DASHBOARD_TIMING } from '../constants/timing';
+
+const POLL_INTERVAL_MS = DASHBOARD_TIMING.STATUS_POLL_INTERVAL_MS;
 
 const PIPELINE_TYPE_MAP: Record<string, PipelineType> = {
   'duplicate-detection': PipelineType.DUPLICATE_DETECTION,
@@ -27,21 +81,27 @@ const PIPELINE_TYPE_MAP: Record<string, PipelineType> = {
   'test-refactor': PipelineType.TEST_REFACTOR,
 };
 
-async function fetchStatus() {
+/**
+ * fetchStatus.
+ */
+async function fetchStatus(): Promise<ApiStatusData> {
   const response = await fetch('/api/status');
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`);
   }
-  return response.json();
+  return response.json() as Promise<ApiStatusData>;
 }
 
-function mapActiveJob(j: any) {
+/**
+ * mapActiveJob.
+ */
+function mapActiveJob(j: ApiJob) {
   return {
     '@type': 'https://schema.org/Action' as const,
     id: j.id,
     pipelineId: j.pipelineId,
     pipelineName: j.pipelineName,
-    status: j.status,
+    status: j.status as JobStatus,
     createdAt: j.createdAt,
     startedAt: j.startedAt,
     progress: j.progress,
@@ -49,18 +109,24 @@ function mapActiveJob(j: any) {
   };
 }
 
-function mapQueuedJob(j: any) {
+/**
+ * mapQueuedJob.
+ */
+function mapQueuedJob(j: ApiJob) {
   return {
     '@type': 'https://schema.org/Action' as const,
     id: j.id,
     pipelineId: j.pipelineId,
     pipelineName: j.pipelineName,
-    status: j.status,
+    status: j.status as JobStatus,
     createdAt: j.createdAt,
   };
 }
 
-function mapPipeline(p: any): Pipeline {
+/**
+ * mapPipeline.
+ */
+function mapPipeline(p: ApiPipeline): Pipeline {
   return {
     '@type': 'https://schema.org/SoftwareApplication' as const,
     id: p.id,
@@ -68,11 +134,11 @@ function mapPipeline(p: any): Pipeline {
     description: p.description,
     icon: getPipelineIcon(p.id),
     color: getPipelineColor(p.id),
-    status: p.status || 'idle',
+    status: (p.status ?? 'idle') as PipelineStatus,
     type: PIPELINE_TYPE_MAP[p.id] ?? PipelineType.DUPLICATE_DETECTION,
-    totalJobs: (p.completedJobs || 0) + (p.failedJobs || 0),
-    successRate: p.completedJobs > 0
-      ? p.completedJobs / ((p.completedJobs || 0) + (p.failedJobs || 0))
+    totalJobs: (p.completedJobs ?? 0) + (p.failedJobs ?? 0),
+    successRate: (p.completedJobs ?? 0) > 0
+      ? (p.completedJobs ?? 0) / ((p.completedJobs ?? 0) + (p.failedJobs ?? 0))
       : 1,
     lastRunAt: p.lastRun,
     nextRun: p.nextRun,
@@ -81,7 +147,43 @@ function mapPipeline(p: any): Pipeline {
   };
 }
 
-function applyJobsToStore(store: ReturnType<typeof useDashboardStore.getState>, statusData: any) {
+/**
+ * Map an API activity item to the store activity format.
+ */
+function mapApiActivity(activity: ApiActivity) {
+  const pipelineId = activity.pipelineId || activity.jobType || 'unknown';
+  return {
+    '@type': 'https://schema.org/Event' as const,
+    id: activity.id || crypto.randomUUID(),
+    type: ACTIVITY_TYPE_MAP[activity.type] ?? ActivityType.PROGRESS,
+    pipelineId,
+    pipelineName: activity.pipelineName || pipelineId || 'Unknown',
+    message: activity.message || '',
+    timestamp: activity.timestamp || new Date().toISOString(),
+    jobId: activity.jobId,
+  };
+}
+
+/**
+ * Build system status object from API status data.
+ */
+function buildSystemStatus(statusData: ApiStatusData): Parameters<ReturnType<typeof useDashboardStore.getState>['setSystemStatus']>[0] {
+  return {
+    '@type': 'https://schema.org/Report',
+    health: 'healthy' as SystemHealth,
+    activeJobs: statusData.queue?.active || 0,
+    queuedJobs: statusData.queue?.queued || 0,
+    totalCapacity: statusData.queue?.capacity || 5,
+    websocketConnected: false,
+    lastUpdate: statusData.timestamp || new Date().toISOString(),
+    retryQueueSize: statusData.retryMetrics?.activeRetries || 0,
+  };
+}
+
+/**
+ * Apply jobs and activity feed from API status data to store.
+ */
+function applyStatusToStore(store: ReturnType<typeof useDashboardStore.getState>, statusData: ApiStatusData) {
   if (statusData.activeJobs !== undefined) {
     store.setActiveJobs(statusData.activeJobs.map(mapActiveJob));
   }
@@ -90,6 +192,18 @@ function applyJobsToStore(store: ReturnType<typeof useDashboardStore.getState>, 
   }
 }
 
+/**
+ * Apply recent activity items to store (skips if activity feed already populated).
+ */
+function applyActivityFeed(store: ReturnType<typeof useDashboardStore.getState>, activities: ApiActivity[] | undefined, onlyIfEmpty = false) {
+  if (!activities || activities.length === 0) return;
+  if (onlyIfEmpty && store.activity.length > 0) return;
+  activities.forEach(a => store.addActivityItem(mapApiActivity(a)));
+}
+
+/**
+ * loadInitialData.
+ */
 async function loadInitialData() {
   const store = useDashboardStore.getState();
   store.setLoading(true);
@@ -100,34 +214,9 @@ async function loadInitialData() {
     const statusData = await fetchStatus();
 
     store.setPipelines((statusData.pipelines || []).map(mapPipeline));
-
-    applyJobsToStore(store, statusData);
-
-    store.setSystemStatus({
-      '@type': 'https://schema.org/Report',
-      health: 'healthy' as SystemHealth,
-      activeJobs: statusData.queue?.active || 0,
-      queuedJobs: statusData.queue?.queued || 0,
-      totalCapacity: statusData.queue?.capacity || 5,
-      websocketConnected: false,
-      lastUpdate: statusData.timestamp || new Date().toISOString(),
-      retryQueueSize: statusData.retryMetrics?.activeRetries || 0,
-    });
-
-    if (statusData.recentActivity?.length > 0) {
-      statusData.recentActivity.forEach((activity: any) => {
-        const pipelineId = activity.pipelineId || activity.jobType || 'unknown';
-        store.addActivityItem({
-          '@type': 'https://schema.org/Event',
-          id: activity.id || `activity-${Date.now()}`,
-          type: activity.type || 'info',
-          pipelineId,
-          pipelineName: activity.pipelineName || pipelineId || 'Unknown',
-          message: activity.message || '',
-          timestamp: activity.timestamp || new Date().toISOString(),
-        });
-      });
-    }
+    applyStatusToStore(store, statusData);
+    store.setSystemStatus(buildSystemStatus(statusData));
+    applyActivityFeed(store, statusData.recentActivity);
 
     console.log('[Dashboard] Initial data loaded:', (statusData.pipelines || []).length, 'pipelines');
     store.setLoading(false);
@@ -141,6 +230,9 @@ async function loadInitialData() {
   }
 }
 
+/**
+ * pollForUpdates.
+ */
 async function pollForUpdates() {
   const systemStatus = useDashboardStore.getState().systemStatus;
   if (systemStatus.websocketConnected) return;
@@ -157,12 +249,8 @@ async function pollForUpdates() {
       lastUpdate: new Date().toISOString(),
     });
 
-    if (statusData.activeJobs) {
-      store.setActiveJobs(statusData.activeJobs.map(mapActiveJob));
-    }
-    if (statusData.queuedJobs) {
-      store.setQueuedJobs(statusData.queuedJobs.map(mapQueuedJob));
-    }
+    applyStatusToStore(store, statusData);
+    applyActivityFeed(store, statusData.recentActivity, true);
   } catch (error) {
     console.error('[Dashboard] Polling failed:', error);
   }
@@ -186,7 +274,8 @@ export const useWebSocketConnection = () => {
   const isInitialized = useRef(false);
 
   useEffect(() => {
-    // Prevent double initialization in React StrictMode
+    // Guard against double initialization (e.g. strict mode dev double-invoke)
+    // Note: ref is intentionally NOT reset in cleanup so the guard remains effective
     if (isInitialized.current) return;
     isInitialized.current = true;
 
@@ -201,11 +290,13 @@ export const useWebSocketConnection = () => {
       console.log('[Dashboard] Cleaning up...');
       clearInterval(pollInterval);
       wsService.disconnect();
-      isInitialized.current = false;
     };
   }, []);
 };
 
+/**
+ * getPipelineIcon.
+ */
 function getPipelineIcon(pipelineId: string): string {
   const icons: Record<string, string> = {
     'duplicate-detection': '🔍',
@@ -221,6 +312,9 @@ function getPipelineIcon(pipelineId: string): string {
   return icons[pipelineId] || '⚙️';
 }
 
+/**
+ * getPipelineColor.
+ */
 function getPipelineColor(pipelineId: string): 'purple' | 'cyan' | 'pink' | 'teal' | 'blue' | 'green' | 'amber' {
   const colors: Record<string, 'purple' | 'cyan' | 'pink' | 'teal' | 'blue' | 'green' | 'amber'> = {
     'duplicate-detection': 'purple',

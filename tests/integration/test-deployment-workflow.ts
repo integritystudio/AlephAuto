@@ -149,24 +149,12 @@ describe('Deployment Workflow Tests', () => {
 
       const validationScript = validateStep.run;
       assert.ok(
-        validationScript.includes('test -f api/server.js'),
+        validationScript.includes('test -f api/server.ts || test -f api/server.js'),
         'Should validate API server exists'
       );
       assert.ok(
-        validationScript.includes('test -d public'),
-        'Should validate public directory exists'
-      );
-      assert.ok(
-        validationScript.includes('test -f public/index.html'),
-        'Should validate dashboard HTML exists'
-      );
-      assert.ok(
-        validationScript.includes('test -f public/dashboard.css'),
-        'Should validate dashboard CSS exists'
-      );
-      assert.ok(
-        validationScript.includes('test -f public/dashboard.js'),
-        'Should validate dashboard JS exists'
+        validationScript.includes('grep -q \'"dashboard"\' package.json'),
+        'Should validate dashboard script exists in package.json'
       );
     });
 

@@ -8,6 +8,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { createComponentLogger } from '#sidequest/utils/logger.ts';
 import { config } from '#sidequest/core/config.ts';
 import crypto from 'crypto';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 const logger = createComponentLogger('AuthMiddleware');
 
@@ -27,30 +28,42 @@ const PUBLIC_PATHS = [
 ];
 
 /**
- * Validate API key
+ * Returns true only for explicit development environments.
  */
+function isDevelopmentEnvironment(): boolean {
+  return config.nodeEnv.toLowerCase() === 'development';
+}
+
 /**
- * Validate api key.
- *
- * @param {string} apiKey - The apiKey
- *
- * @returns {boolean} True if successful, False otherwise
+ * Returns the configured API key when present.
  */
-function validateApiKey(apiKey: string): boolean {
+function getConfiguredApiKey(): string | null {
+  const configuredValue =
+    ((config as Record<string, unknown>).apiKey as string | undefined)
+    || process.env.API_KEY;
+
+  if (!configuredValue) {
+    return null;
+  }
+
+  const trimmed = configuredValue.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/**
+ * Validates an API key using constant-time comparison against configured key.
+ *
+ * @param apiKey API key from request headers.
+ * @param configuredApiKey API key from configuration.
+ * @returns `true` when the key is valid.
+ */
+function validateApiKey(apiKey: string, configuredApiKey: string): boolean {
   if (!apiKey) {
     return false;
   }
 
-  // Get configured API key from environment
-  const validApiKey = (config as Record<string, unknown>).apiKey as string | undefined || process.env.API_KEY;
-
-  if (!validApiKey) {
-    logger.warn('No API key configured, authentication disabled');
-    return true; // Allow if no key configured (development mode)
-  }
-
   // Constant-time comparison to prevent timing attacks
-  const expectedBuffer = Buffer.from(validApiKey);
+  const expectedBuffer = Buffer.from(configuredApiKey);
   const actualBuffer = Buffer.from(apiKey);
 
   if (expectedBuffer.length !== actualBuffer.length) {
@@ -61,14 +74,11 @@ function validateApiKey(apiKey: string): boolean {
 }
 
 /**
- * Authentication middleware
- */
-/**
- * Auth middleware.
+ * Enforces API key authentication for protected routes.
  *
- * @param {Request} req - The request
- * @param {Response} res - The response
- * @param {NextFunction} next - The next
+ * @param req Express request.
+ * @param res Express response.
+ * @param next Express next callback.
  */
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   // Skip authentication for public paths (prefix match)
@@ -77,12 +87,32 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     return;
   }
 
+  const configuredApiKey = getConfiguredApiKey();
+  if (!configuredApiKey) {
+    if (isDevelopmentEnvironment()) {
+      logger.warn('No API key configured; allowing protected API access in development mode');
+      next();
+      return;
+    }
+
+    logger.error({
+      path: req.path,
+      nodeEnv: config.nodeEnv
+    }, 'API_KEY is not configured; denying protected API request');
+    res.status(HttpStatus.SERVICE_UNAVAILABLE).json({
+      error: 'Service Unavailable',
+      message: 'API authentication is not configured',
+      timestamp: new Date().toISOString()
+    });
+    return;
+  }
+
   // Extract API key from header
   const apiKey = (req.headers['x-api-key'] as string | undefined) || req.headers['authorization']?.replace('Bearer ', '');
 
   if (!apiKey) {
     logger.warn({ path: req.path, ip: req.ip }, 'API request without API key');
-    res.status(401).json({
+    res.status(HttpStatus.UNAUTHORIZED).json({
       error: 'Unauthorized',
       message: 'API key required. Provide via X-API-Key header or Authorization: Bearer token',
       timestamp: new Date().toISOString()
@@ -91,14 +121,14 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
   }
 
   // Validate API key
-  if (!validateApiKey(apiKey)) {
+  if (!validateApiKey(apiKey, configuredApiKey)) {
     logger.warn({
       path: req.path,
       ip: req.ip,
       apiKeyPrefix: apiKey.substring(0, 8) + '...'
     }, 'Invalid API key');
 
-    res.status(403).json({
+    res.status(HttpStatus.FORBIDDEN).json({
       error: 'Forbidden',
       message: 'Invalid API key',
       timestamp: new Date().toISOString()

@@ -1,0 +1,26 @@
+{
+  "id": "repomix-jobs-sidequest-1772594002034",
+  "status": "failed",
+  "data": {
+    "sourceDir": "/Users/alyshialedlie/code/jobs/sidequest",
+    "relativePath": "jobs/sidequest",
+    "type": "repomix"
+  },
+  "createdAt": "2026-03-04T03:13:22.034Z",
+  "startedAt": "2026-03-04T03:13:51.504Z",
+  "completedAt": "2026-03-04T03:13:52.356Z",
+  "error": {
+    "message": "repomix exited with code 1\nstderr: ✖ Unexpected error: EPERM: operation not permitted, open '/Users/alyshialedlie/code/jobs/sidequest/repomix-output.xml'\n\nReproduce: cd /Users/alyshialedlie/code/jobs/sidequest && npx repomix --ignore **/README.md,**/README.MD,**/*.md",
+    "stack": "Error: repomix exited with code 1\nstderr: ✖ Unexpected error: EPERM: operation not permitted, open '/Users/alyshialedlie/code/jobs/sidequest/repomix-output.xml'\n\nReproduce: cd /Users/alyshialedlie/code/jobs/sidequest && npx repomix --ignore **/README.md,**/README.MD,**/*.md\n    at ChildProcess.<anonymous> (file:///Users/alyshialedlie/code/jobs/sidequest/workers/repomix-worker.ts:241:25)\n    at ChildProcess.emit (node:events:508:20)\n    at ChildProcess.emit (node:domain:489:12)\n    at maybeClose (node:internal/child_process:1084:16)\n    at ChildProcess._handle.onexit (node:internal/child_process:304:5)"
+  },
+  "result": null,
+  "retryCount": 5,
+  "git": {
+    "branchName": null,
+    "originalBranch": null,
+    "commitSha": null,
+    "prUrl": null,
+    "changedFiles": []
+  },
+  "retryPending": false
+}

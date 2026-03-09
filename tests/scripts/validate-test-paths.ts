@@ -19,6 +19,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { TestOutputFormat } from '../constants/output-format-constants.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -107,6 +108,9 @@ async function scanFile(filePath) {
 async function scanAllTests(dir = TESTS_DIR) {
   const issues = [];
 
+  /**
+   * scanDir.
+   */
   async function scanDir(currentDir) {
     const entries = await fs.readdir(currentDir, { withFileTypes: true });
 
@@ -158,13 +162,13 @@ async function validate(_options = {}) {
   }
 
   console.log(`❌ Found ${issues.length} hardcoded path(s):\n`);
-  console.log('='.repeat(70));
+  console.log('='.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
 
   issues.forEach((issue, index) => {
     console.log(formatIssue(issue, index));
   });
 
-  console.log('='.repeat(70));
+  console.log('='.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
   console.log('\n📝 Recommended Actions:\n');
   console.log('1. Import test fixtures:');
   console.log('   import { createTempRepository } from \'../fixtures/test-helpers.ts\';\n');

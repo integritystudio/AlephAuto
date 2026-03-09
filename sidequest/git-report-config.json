@@ -190,7 +190,7 @@
     "Edit the values above to customize the behavior for your workflow.",
     "The git activity reporter is now integrated with AlephAuto job queue framework.",
     "Usage: npm run git:weekly (weekly), npm run git:monthly (monthly), npm run git:schedule (scheduled mode)",
-    "For production: pm2 start git-activity-pipeline.js --name git-activity",
+    "For production: pm2 start git-activity-pipeline.ts --name git-activity --interpreter node --node-args '--strip-types'",
     "Environment variable: GIT_CRON_SCHEDULE='0 20 * * 0' for custom schedule"
   ]
 }

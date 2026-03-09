@@ -10,7 +10,7 @@ graph TB
     end
 
     subgraph API["API Layer (Express)"]
-        Server["api/server.js<br/>Port 8080"]
+        Server["api/server.ts<br/>Port 8080"]
         WS_Server["WebSocket Server"]
         Routes["REST Routes"]
         Middleware["Middleware<br/>Auth, Validation, Rate-limit"]

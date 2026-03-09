@@ -12,6 +12,7 @@
 // @ts-nocheck
 import { createTempRepository } from '../fixtures/test-helpers.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
+import { TestTiming } from '../constants/timing-test-constants.ts';
 // Using Node.js built-in fetch (v18+)
 
 const logger = createComponentLogger('RetryMetricsTest');
@@ -23,20 +24,6 @@ const TESTS_TO_RUN = {
   circuitBreaker: true,
   retryMetricsAPI: true
 };
-
-/**
- * Wait for a condition to be true
- */
-async function _waitFor(conditionFn, timeout = 30000, interval = 500) {
-  const startTime = Date.now();
-  while (Date.now() - startTime < timeout) {
-    if (await conditionFn()) {
-      return true;
-    }
-    await new Promise(resolve => setTimeout(resolve, interval));
-  }
-  throw new Error(`Timeout waiting for condition after ${timeout}ms`);
-}
 
 /**
  * Get current retry metrics from API
@@ -169,7 +156,7 @@ async function testCircuitBreaker() {
   }
 
   // Wait for retries to accumulate
-  await new Promise(resolve => setTimeout(resolve, 5000));
+  await new Promise(resolve => setTimeout(resolve, TestTiming.DEFAULT_WAIT_TIMEOUT_MS));
 
   // Check metrics
   const metrics = await getRetryMetrics();
@@ -230,6 +217,24 @@ async function testRetryMetricsAPI() {
   };
 }
 
+async function checkApiHealth() {
+  logger.info('Checking API health...');
+  const response = await fetch(`${API_BASE_URL}/health`);
+  if (!response.ok) throw new Error('API server is not healthy');
+  logger.info('API server is healthy ✓');
+}
+
+async function printFinalMetrics() {
+  const metrics = await getRetryMetrics();
+  logger.info('\n=== FINAL RETRY METRICS ===');
+  logger.info({
+    activeRetries: metrics.activeRetries,
+    totalRetryAttempts: metrics.totalRetryAttempts,
+    jobsBeingRetried: metrics.jobsBeingRetried.length,
+    distribution: metrics.retryDistribution
+  }, 'Final state');
+}
+
 /**
  * Main test runner
  */
@@ -237,65 +242,27 @@ async function runTests() {
   logger.info('Starting Phase 4.1.1 - Retry Metrics Validation Tests');
   logger.info(`API Base URL: ${API_BASE_URL}`);
 
-  const results = [];
-
   try {
-    // Check API health first
-    logger.info('Checking API health...');
-    const healthResponse = await fetch(`${API_BASE_URL}/health`);
-    if (!healthResponse.ok) {
-      throw new Error('API server is not healthy');
-    }
-    logger.info('API server is healthy ✓');
+    await checkApiHealth();
 
-    // Run tests
-    if (TESTS_TO_RUN.retryMetricsAPI) {
-      results.push(await testRetryMetricsAPI());
-    }
+    const results = [];
+    if (TESTS_TO_RUN.retryMetricsAPI) results.push(await testRetryMetricsAPI());
+    if (TESTS_TO_RUN.retryableError) results.push(await testRetryableError());
+    if (TESTS_TO_RUN.nonRetryableError) results.push(await testNonRetryableError());
+    if (TESTS_TO_RUN.circuitBreaker) results.push(await testCircuitBreaker());
 
-    if (TESTS_TO_RUN.retryableError) {
-      results.push(await testRetryableError());
-    }
-
-    if (TESTS_TO_RUN.nonRetryableError) {
-      results.push(await testNonRetryableError());
-    }
-
-    if (TESTS_TO_RUN.circuitBreaker) {
-      results.push(await testCircuitBreaker());
-    }
-
-    // Summary
     logger.info('\n=== TEST SUMMARY ===');
     const passed = results.filter(r => r.passed).length;
-    const total = results.length;
-
     results.forEach((result, index) => {
-      const status = result.passed ? '✓ PASS' : '✗ FAIL';
-      logger.info(`${index + 1}. ${result.test}: ${status}`);
+      logger.info(`${index + 1}. ${result.test}: ${result.passed ? '✓ PASS' : '✗ FAIL'}`);
       if (result.metrics) {
-        logger.info({
-          activeRetries: result.metrics.activeRetries,
-          totalAttempts: result.metrics.totalRetryAttempts,
-          distribution: result.metrics.retryDistribution
-        }, '   Metrics');
+        logger.info({ activeRetries: result.metrics.activeRetries, totalAttempts: result.metrics.totalRetryAttempts, distribution: result.metrics.retryDistribution }, '   Metrics');
       }
     });
+    logger.info(`\n${passed}/${results.length} tests passed`);
 
-    logger.info(`\n${passed}/${total} tests passed`);
-
-    // Final metrics check
-    const finalMetrics = await getRetryMetrics();
-    logger.info('\n=== FINAL RETRY METRICS ===');
-    logger.info({
-      activeRetries: finalMetrics.activeRetries,
-      totalRetryAttempts: finalMetrics.totalRetryAttempts,
-      jobsBeingRetried: finalMetrics.jobsBeingRetried.length,
-      distribution: finalMetrics.retryDistribution
-    }, 'Final state');
-
-    // Exit with appropriate code
-    process.exit(passed === total ? 0 : 1);
+    await printFinalMetrics();
+    process.exit(passed === results.length ? 0 : 1);
 
   } catch (error) {
     logger.error({ error: error.message, stack: error.stack }, 'Test runner failed');

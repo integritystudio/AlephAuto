@@ -15,6 +15,7 @@ import { MigrationTransformer } from './migration-transformer.ts';
 import type { MigrationStep } from '../types/migration-types.ts';
 
 const logger = createComponentLogger('PRCreator');
+const STRATEGY_RATIONALE_PREVIEW_CHARS = 80;
 
 
 interface Suggestion {
@@ -199,7 +200,18 @@ export class PRCreator {
         return null;
       }
 
-      await runGitCommand(repositoryPath, ['add', '.']);
+      const filesToStage = Array.from(new Set(
+        filesModified
+          .map((filePath) => path.isAbsolute(filePath) ? path.relative(repositoryPath, filePath) : filePath)
+          .filter((filePath) => filePath.length > 0 && !filePath.startsWith('..'))
+      ));
+      if (filesToStage.length === 0) {
+        logger.warn({ branchName }, 'No in-repository files to stage, skipping PR creation');
+        await runGitCommand(repositoryPath, ['checkout', this.baseBranch]);
+        await runGitCommand(repositoryPath, ['branch', '-D', branchName]);
+        return null;
+      }
+      await runGitCommand(repositoryPath, ['add', '--', ...filesToStage]);
 
       const commitMessage = this._generateCommitMessage(suggestions, filesModified);
       await runGitCommand(repositoryPath, ['commit', '-m', commitMessage]);
@@ -343,7 +355,7 @@ export class PRCreator {
       `This commit consolidates ${consolidationCount} identified duplicate code pattern${consolidationCount > 1 ? 's' : ''} across ${fileCount} file${fileCount > 1 ? 's' : ''}.`,
       '',
       'Consolidations:',
-      ...suggestions.map((s, i) => `${i + 1}. ${s.target_name || s.suggestion_id}: ${s.strategy_rationale.substring(0, 80)}...`),
+      ...suggestions.map((s, i) => `${i + 1}. ${s.target_name || s.suggestion_id}: ${s.strategy_rationale.substring(0, STRATEGY_RATIONALE_PREVIEW_CHARS)}...`),
       '',
       'Files created:',
       ...filesModified.map(f => `- ${f}`),

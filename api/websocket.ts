@@ -109,9 +109,16 @@ export function createWebSocketServer(httpServer: HttpServer): ExtendedWebSocket
       }
     }, WEBSOCKET.HEARTBEAT_INTERVAL_MS);
 
+    const clearHeartbeat = () => {
+      clearInterval(heartbeat);
+    };
+
     ws.on('pong', () => {
       logger.debug({ clientId }, 'Heartbeat received');
     });
+
+    ws.on('close', clearHeartbeat);
+    ws.on('error', clearHeartbeat);
   });
 
   wss.on('error', (error) => {
@@ -177,28 +184,20 @@ export function createWebSocketServer(httpServer: HttpServer): ExtendedWebSocket
 }
 
 /**
- * Generate unique client ID
- */
-/**
- * Generate the client id.
+ * Generates a unique client id.
  *
- * @returns {string} The created client id
+ * @returns {string} Generated client id.
  */
 function generateClientId(): string {
   return crypto.randomBytes(16).toString('hex');
 }
 
 /**
- * Handle client message
- */
-/**
- * Handle client message.
+ * Handles an incoming message for a connected client.
  *
- * @param {string} clientId - The clientId
- * @param {Record<string} message - The message
- * @param {*} unknown> - The unknown>
- * @param {Map<string} clients - The clients
- * @param {*} WsClient> - The WsClient>
+ * @param {string} clientId - Client id.
+ * @param {Record<string, unknown>} message - Parsed message payload.
+ * @param {Map<string, WsClient>} clients - Connected clients map.
  */
 function handleClientMessage(clientId: string, message: Record<string, unknown>, clients: Map<string, WsClient>): void {
   const client = clients.get(clientId);
@@ -244,15 +243,11 @@ function handleClientMessage(clientId: string, message: Record<string, unknown>,
 }
 
 /**
- * Handle subscribe message
- */
-/**
- * Handle subscribe.
+ * Handles a subscribe message.
  *
- * @param {string} clientId - The clientId
- * @param {Record<string} message - The message
- * @param {*} unknown> - The unknown>
- * @param {WsClient} client - The client
+ * @param {string} clientId - Client id.
+ * @param {Record<string, unknown>} message - Parsed message payload.
+ * @param {WsClient} client - Connected client metadata.
  */
 function handleSubscribe(clientId: string, message: Record<string, unknown>, client: WsClient): void {
   const channels = (message.channels as string[]) ?? [];
@@ -276,15 +271,11 @@ function handleSubscribe(clientId: string, message: Record<string, unknown>, cli
 }
 
 /**
- * Handle unsubscribe message
- */
-/**
- * Handle unsubscribe.
+ * Handles an unsubscribe message.
  *
- * @param {string} clientId - The clientId
- * @param {Record<string} message - The message
- * @param {*} unknown> - The unknown>
- * @param {WsClient} client - The client
+ * @param {string} clientId - Client id.
+ * @param {Record<string, unknown>} message - Parsed message payload.
+ * @param {WsClient} client - Connected client metadata.
  */
 function handleUnsubscribe(clientId: string, message: Record<string, unknown>, client: WsClient): void {
   const channels = (message.channels as string[]) ?? [];

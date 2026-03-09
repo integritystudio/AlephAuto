@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import { SidequestServer } from '../../sidequest/core/server.ts';
+import { TestTiming } from '../constants/timing-test-constants.ts';
 
 interface TestWorkerOptions {
   jobType?: string;
@@ -19,6 +20,7 @@ export class TestWorker extends SidequestServer {
   private _testHandler: ((job: unknown) => Promise<unknown>) | null;
   private _eventLog: EventLogEntry[];
 
+  /** Create a test worker with deterministic defaults for unit tests. */
   constructor(options: TestWorkerOptions = {}) {
     super({
       jobType: options.jobType ?? 'test-worker',
@@ -33,6 +35,7 @@ export class TestWorker extends SidequestServer {
     this._trackEvents();
   }
 
+  /** Register a job handler used by runJobHandler in tests. */
   setHandler(handler: (job: unknown) => Promise<unknown>): void {
     if (typeof handler !== 'function') {
       throw new TypeError('Handler must be a function');
@@ -40,6 +43,7 @@ export class TestWorker extends SidequestServer {
     this._testHandler = handler;
   }
 
+  /** Execute the configured test job handler. */
   async runJobHandler(job: unknown): Promise<unknown> {
     if (!this._testHandler) {
       throw new Error(
@@ -67,14 +71,17 @@ export class TestWorker extends SidequestServer {
     });
   }
 
+  /** Return captured events filtered by event type. */
   getEvents(type: string): EventLogEntry[] {
     return this._eventLog.filter(e => e.event === type);
   }
 
+  /** Clear captured event history. */
   clearEvents(): void {
     this._eventLog = [];
   }
 
+  /** Reset listeners and queue/job state between tests. */
   async cleanup(): Promise<void> {
     this.removeAllListeners();
     this.jobs.clear();
@@ -83,7 +90,12 @@ export class TestWorker extends SidequestServer {
   }
 }
 
-export function waitForEvent(emitter: EventEmitter, eventName: string, timeout = 5000): Promise<unknown[]> {
+/** Wait for one event emission and resolve with emitted arguments. */
+export function waitForEvent(
+  emitter: EventEmitter,
+  eventName: string,
+  timeout = TestTiming.DEFAULT_WAIT_TIMEOUT_MS
+): Promise<unknown[]> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error(`Timeout waiting for event: ${eventName} (waited ${timeout}ms)`));
@@ -102,12 +114,18 @@ interface JobCompletionResult {
   error?: unknown;
 }
 
-export async function waitForJobCompletion(worker: EventEmitter, jobId: string, timeout = 5000): Promise<JobCompletionResult> {
+/** Wait until a specific job reaches completed or failed status. */
+export async function waitForJobCompletion(
+  worker: EventEmitter,
+  jobId: string,
+  timeout = TestTiming.DEFAULT_WAIT_TIMEOUT_MS
+): Promise<JobCompletionResult> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error(`Job ${jobId} did not complete within ${timeout}ms`));
     }, timeout);
 
+    /** Resolve when the target job completes successfully. */
     const checkCompletion = (job: { id: string }) => {
       if (job.id === jobId) {
         clearTimeout(timer);
@@ -117,6 +135,7 @@ export async function waitForJobCompletion(worker: EventEmitter, jobId: string, 
       }
     };
 
+    /** Resolve when the target job fails. */
     const checkFailed = (job: { id: string }, error: unknown) => {
       if (job.id === jobId) {
         clearTimeout(timer);
@@ -145,6 +164,7 @@ interface SentryMock {
   clear: () => void;
 }
 
+/** Create an in-memory Sentry mock with captured events/breadcrumbs/spans. */
 export function createSentryMock(): SentryMock {
   const mock: SentryMock = {
     events: [],
@@ -226,20 +246,24 @@ interface BroadcasterMock {
   clear: () => void;
 }
 
+/** Create a broadcaster mock that records sent messages by channel. */
 export function createBroadcasterMock(): BroadcasterMock {
   return {
     messages: [],
 
+    /** Record a broadcast payload for assertions. */
     broadcast(message, channel) {
       this.messages.push({ message, channel, timestamp: Date.now() });
     },
 
+    /** Return all messages or only those for a specific channel. */
     getMessages(channel) {
       return channel
         ? this.messages.filter(m => m.channel === channel)
         : this.messages;
     },
 
+    /** Clear recorded broadcast messages. */
     clear() {
       this.messages = [];
     }
@@ -250,6 +274,7 @@ interface WorkerWithCreateJob {
   createJob: (id: string, data: unknown) => unknown;
 }
 
+/** Create a batch of test jobs with predictable ids and payloads. */
 export function createTestJobs(worker: WorkerWithCreateJob, count: number, baseId = 'test-job'): unknown[] {
   const jobs: unknown[] = [];
   for (let i = 0; i < count; i++) {
@@ -267,7 +292,7 @@ export async function waitForMultipleEvents(
   worker: EventEmitter,
   eventName: string,
   count: number,
-  timeout = 5000
+  timeout = TestTiming.DEFAULT_WAIT_TIMEOUT_MS
 ): Promise<unknown[][]> {
   const events: unknown[][] = [];
 
@@ -276,6 +301,7 @@ export async function waitForMultipleEvents(
       reject(new Error(`Only received ${events.length}/${count} ${eventName} events within ${timeout}ms`));
     }, timeout);
 
+    /** Collect emitted events and resolve once expected count is reached. */
     const handler = (...args: unknown[]) => {
       events.push(args);
       if (events.length >= count) {
@@ -301,6 +327,7 @@ interface JobAssertion {
   message: string;
 }
 
+/** Build assertion descriptors for expected job state fields. */
 export function assertJobState(job: Record<string, unknown>, expected: JobAssertionInput): JobAssertion[] {
   const assertions: JobAssertion[] = [];
 
@@ -351,6 +378,7 @@ interface TestContext {
   cleanup: () => Promise<void>;
 }
 
+/** Create a complete test context with worker, mocks, and cleanup helper. */
 export function createTestContext(options: TestContextOptions = {}): TestContext {
   const sentryMock = createSentryMock();
   const broadcasterMock = createBroadcasterMock();
@@ -361,6 +389,7 @@ export function createTestContext(options: TestContextOptions = {}): TestContext
     sentryMock,
     broadcasterMock,
 
+    /** Clean up all test context resources. */
     async cleanup() {
       await worker.cleanup();
       sentryMock.clear();

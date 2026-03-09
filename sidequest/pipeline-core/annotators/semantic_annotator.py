@@ -1,8 +1,8 @@
 """
-Semantic Annotator - Stage 4 of the Duplicate Detection Pipeline
+Semantic Annotator - Fourth stage of the Duplicate Detection Pipeline
 
-Extracts rich semantic metadata from code blocks to enable Layer 3
-(semantic similarity) grouping.
+Extracts rich semantic metadata from code blocks to enable
+semantic similarity layer grouping.
 
 Semantic tags are organized into four categories:
 - Operations: What the code does (filter, map, validate, fetch, etc.)
@@ -49,12 +49,12 @@ class SemanticAnnotation:
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization."""
         return {
-            'category': self.category,
-            'operations': sorted(self.operations),
-            'domains': sorted(self.domains),
-            'patterns': sorted(self.patterns),
-            'data_types': sorted(self.data_types),
-            'intent': self.intent,
+            "category": self.category,
+            "operations": sorted(self.operations),
+            "domains": sorted(self.domains),
+            "patterns": sorted(self.patterns),
+            "data_types": sorted(self.data_types),
+            "intent": self.intent,
         }
 
 
@@ -67,217 +67,196 @@ class SemanticAnnotation:
 
 # Array/collection operations
 ARRAY_OPERATION_PATTERNS: dict[str, str] = {
-    r'\.filter\s{0,20}\(': 'filter',
-    r'\.map\s{0,20}\(': 'map',
-    r'\.reduce\s{0,20}\(': 'reduce',
-    r'\.find\s{0,20}\(': 'find',
-    r'\.findIndex\s{0,20}\(': 'find',
-    r'\.some\s{0,20}\(': 'some',
-    r'\.every\s{0,20}\(': 'every',
-    r'\.sort\s{0,20}\(': 'sort',
-    r'\.includes\s{0,20}\(': 'includes',
-    r'\.indexOf\s{0,20}\(': 'find',
-    r'\.forEach\s{0,20}\(': 'iterate',
-    r'for\s{0,20}\(\s{0,20}(?:const|let|var)\s{1,20}\w+\s{1,20}(?:of|in)': 'iterate',
-    r'for\s{0,20}\(\s{0,20}(?:let|var)\s{1,20}\w+\s{0,20}=': 'iterate',
-    r'while\s{0,20}\(': 'iterate',
-    r'\.flat\s{0,20}\(': 'flatten',
-    r'\.flatMap\s{0,20}\(': 'flatten',
-    r'\.concat\s{0,20}\(': 'concat',
-    r'\.slice\s{0,20}\(': 'slice',
-    r'\.splice\s{0,20}\(': 'splice',
-    r'\.push\s{0,20}\(': 'append',
-    r'\.pop\s{0,20}\(': 'remove',
-    r'\.shift\s{0,20}\(': 'remove',
-    r'\.unshift\s{0,20}\(': 'prepend',
+    r"\.filter\s{0,20}\(": "filter",
+    r"\.map\s{0,20}\(": "map",
+    r"\.reduce\s{0,20}\(": "reduce",
+    r"\.find\s{0,20}\(": "find",
+    r"\.findIndex\s{0,20}\(": "find",
+    r"\.some\s{0,20}\(": "some",
+    r"\.every\s{0,20}\(": "every",
+    r"\.sort\s{0,20}\(": "sort",
+    r"\.includes\s{0,20}\(": "includes",
+    r"\.indexOf\s{0,20}\(": "find",
+    r"\.forEach\s{0,20}\(": "iterate",
+    r"for\s{0,20}\(\s{0,20}(?:const|let|var)\s{1,20}\w+\s{1,20}(?:of|in)": "iterate",
+    r"for\s{0,20}\(\s{0,20}(?:let|var)\s{1,20}\w+\s{0,20}=": "iterate",
+    r"while\s{0,20}\(": "iterate",
+    r"\.flat\s{0,20}\(": "flatten",
+    r"\.flatMap\s{0,20}\(": "flatten",
+    r"\.concat\s{0,20}\(": "concat",
+    r"\.slice\s{0,20}\(": "slice",
+    r"\.splice\s{0,20}\(": "splice",
+    r"\.push\s{0,20}\(": "append",
+    r"\.pop\s{0,20}\(": "remove",
+    r"\.shift\s{0,20}\(": "remove",
+    r"\.unshift\s{0,20}\(": "prepend",
 }
 
 # CRUD/data operations
 CRUD_OPERATION_PATTERNS: dict[str, str] = {
-    r'\.(get|fetch|read|load|retrieve)\s{0,20}\(': 'read',
-    r'\.(post|create|insert|add|save|write)\s{0,20}\(': 'create',
-    r'\.(put|update|patch|modify|set)\s{0,20}\(': 'update',
-    r'\.(delete|remove|destroy|clear)\s{0,20}\(': 'delete',
-    r'fetch\s{0,20}\(': 'fetch',
-    r'axios\.(get|post|put|patch|delete)\s{0,20}\(': 'fetch',
-    r'http\.(get|post|put|patch|delete)\s{0,20}\(': 'fetch',
+    r"\.(get|fetch|read|load|retrieve)\s{0,20}\(": "read",
+    r"\.(post|create|insert|add|save|write)\s{0,20}\(": "create",
+    r"\.(put|update|patch|modify|set)\s{0,20}\(": "update",
+    r"\.(delete|remove|destroy|clear)\s{0,20}\(": "delete",
+    r"fetch\s{0,20}\(": "fetch",
+    r"axios\.(get|post|put|patch|delete)\s{0,20}\(": "fetch",
+    r"http\.(get|post|put|patch|delete)\s{0,20}\(": "fetch",
 }
 
 # Transformation operations
 TRANSFORM_OPERATION_PATTERNS: dict[str, str] = {
-    r'JSON\.parse\s{0,20}\(': 'parse',
-    r'JSON\.stringify\s{0,20}\(': 'serialize',
-    r'\.toString\s{0,20}\(': 'transform',
-    r'\.toUpperCase\s{0,20}\(': 'transform',
-    r'\.toLowerCase\s{0,20}\(': 'transform',
-    r'\.trim\s{0,20}\(': 'transform',
-    r'\.split\s{0,20}\(': 'split',
-    r'\.join\s{0,20}\(': 'join',
-    r'\.replace\s{0,20}\(': 'replace',
-    r'parseInt\s{0,20}\(': 'parse',
-    r'parseFloat\s{0,20}\(': 'parse',
-    r'Number\s{0,20}\(': 'transform',
-    r'String\s{0,20}\(': 'transform',
-    r'Boolean\s{0,20}\(': 'transform',
-    r'Object\.keys\s{0,20}\(': 'extract',
-    r'Object\.values\s{0,20}\(': 'extract',
-    r'Object\.entries\s{0,20}\(': 'extract',
-    r'Object\.assign\s{0,20}\(': 'merge',
-    r'\.\.\.\w+': 'spread',
+    r"JSON\.parse\s{0,20}\(": "parse",
+    r"JSON\.stringify\s{0,20}\(": "serialize",
+    r"\.toString\s{0,20}\(": "transform",
+    r"\.toUpperCase\s{0,20}\(": "transform",
+    r"\.toLowerCase\s{0,20}\(": "transform",
+    r"\.trim\s{0,20}\(": "transform",
+    r"\.split\s{0,20}\(": "split",
+    r"\.join\s{0,20}\(": "join",
+    r"\.replace\s{0,20}\(": "replace",
+    r"parseInt\s{0,20}\(": "parse",
+    r"parseFloat\s{0,20}\(": "parse",
+    r"Number\s{0,20}\(": "transform",
+    r"String\s{0,20}\(": "transform",
+    r"Boolean\s{0,20}\(": "transform",
+    r"Object\.keys\s{0,20}\(": "extract",
+    r"Object\.values\s{0,20}\(": "extract",
+    r"Object\.entries\s{0,20}\(": "extract",
+    r"Object\.assign\s{0,20}\(": "merge",
+    r"\.\.\.\w+": "spread",
 }
 
 # Validation operations
 VALIDATION_OPERATION_PATTERNS: dict[str, str] = {
-    r'(validate|isValid|check|verify|assert)\s{0,20}\(': 'validate',
-    r'\.test\s{0,20}\(': 'validate',
-    r'\.match\s{0,20}\(': 'validate',
-    r'schema\.(validate|parse|safeParse)\s{0,20}\(': 'validate',
-    r'z\.\w+\s{0,20}\(': 'validate',
-    r'joi\.\w+': 'validate',
-    r'yup\.\w+': 'validate',
+    r"(validate|isValid|check|verify|assert)\s{0,20}\(": "validate",
+    r"\.test\s{0,20}\(": "validate",
+    r"\.match\s{0,20}\(": "validate",
+    r"schema\.(validate|parse|safeParse)\s{0,20}\(": "validate",
+    r"z\.\w+\s{0,20}\(": "validate",
+    r"joi\.\w+": "validate",
+    r"yup\.\w+": "validate",
 }
 
 # Domain patterns
 DOMAIN_PATTERNS: dict[str, str] = {
-    r'\b(user|users|account|accounts|profile|profiles|member)\b': 'user',
-    r'\b(auth|authentication|login|logout|signin|signout|token|session|jwt|oauth|password|credential|secret|apikey|api_key)\b': 'auth',
-    r'\b(payment|charge|invoice|billing|subscription|stripe|paypal)\b': 'payment',
-    r'\b(order|orders|cart|checkout|purchase)\b': 'commerce',
-    r'\b(email|mail|notification|alert|notify|message|sms)\b': 'notification',
-    r'\b(file|files|upload|download|attachment|blob|storage)\b': 'file',
-    r'\b(database|db|query|record|table|collection|document)\b': 'database',
-    r'\b(prisma|mongoose|sequelize|typeorm|knex)\b': 'database',
-    r'\b(cache|redis|memcached|cached)\b': 'cache',
-    r'\b(queue|job|jobs|worker|task|tasks|bull|rabbitmq)\b': 'queue',
-    r'\b(api|endpoint|route|routes|request|response|req|res)\b': 'api',
-    r'\b(webhook|webhooks|callback|hook)\b': 'webhook',
-    r'\b(event|events|emit|publish|subscribe|listener)\b': 'event',
-    r'\b(log|logs|logger|logging|trace|debug|info|warn|error)\b': 'logging',
-    r'\b(config|configuration|settings|options|env|environment)\b': 'config',
-    r'\b(test|tests|spec|describe|it\s{0,20}\(|expect\s{0,20}\()\b': 'test',
+    r"\b(user|users|account|accounts|profile|profiles|member)\b": "user",
+    r"\b(auth|authentication|login|logout|signin|signout|token|session|jwt|oauth|password|credential|secret|apikey|api_key)\b": "auth",
+    r"\b(payment|charge|invoice|billing|subscription|stripe|paypal)\b": "payment",
+    r"\b(order|orders|cart|checkout|purchase)\b": "commerce",
+    r"\b(email|mail|notification|alert|notify|message|sms)\b": "notification",
+    r"\b(file|files|upload|download|attachment|blob|storage)\b": "file",
+    r"\b(database|db|query|record|table|collection|document)\b": "database",
+    r"\b(prisma|mongoose|sequelize|typeorm|knex)\b": "database",
+    r"\b(cache|redis|memcached|cached)\b": "cache",
+    r"\b(queue|job|jobs|worker|task|tasks|bull|rabbitmq)\b": "queue",
+    r"\b(api|endpoint|route|routes|request|response|req|res)\b": "api",
+    r"\b(webhook|webhooks|callback|hook)\b": "webhook",
+    r"\b(event|events|emit|publish|subscribe|listener)\b": "event",
+    r"\b(log|logs|logger|logging|trace|debug|info|warn|error)\b": "logging",
+    r"\b(config|configuration|settings|options|env|environment)\b": "config",
+    r"\b(test|tests|spec|describe|it\s{0,20}\(|expect\s{0,20}\()\b": "test",
 }
 
 # Code patterns
 CODE_PATTERN_PATTERNS: dict[str, str] = {
     # Guard clause / early return
-    r'if\s{0,20}\([^)]+\)\s{0,20}(?:return|throw)': 'guard_clause',
-    r'if\s{0,20}\(\s{0,20}!\s{0,20}\w+\s{0,20}\)\s{0,20}(?:return|throw)': 'guard_clause',
-
+    r"if\s{0,20}\([^)]+\)\s{0,20}(?:return|throw)": "guard_clause",
+    r"if\s{0,20}\(\s{0,20}!\s{0,20}\w+\s{0,20}\)\s{0,20}(?:return|throw)": "guard_clause",
     # Null/undefined checks
-    r'===?\s{0,20}null\b': 'null_check',
-    r'!==?\s{0,20}null\b': 'null_check',
-    r'===?\s{0,20}undefined\b': 'null_check',
-    r'!==?\s{0,20}undefined\b': 'null_check',
-    r'\?\?': 'null_check',
-    r'\?\s{0,20}\.': 'null_check',
-    r'typeof\s{1,20}\w+\s{0,20}[!=]==?\s{0,20}["\']undefined["\']': 'null_check',
-
+    r"===?\s{0,20}null\b": "null_check",
+    r"!==?\s{0,20}null\b": "null_check",
+    r"===?\s{0,20}undefined\b": "null_check",
+    r"!==?\s{0,20}undefined\b": "null_check",
+    r"\?\?": "null_check",
+    r"\?\s{0,20}\.": "null_check",
+    r'typeof\s{1,20}\w+\s{0,20}[!=]==?\s{0,20}["\']undefined["\']': "null_check",
     # Error handling
-    r'try\s{0,20}\{': 'error_handling',
-    r'catch\s{0,20}\(': 'error_handling',
-    r'\.catch\s{0,20}\(': 'error_handling',
-    r'finally\s{0,20}\{': 'error_handling',
-    r'throw\s{1,20}new\s{1,20}\w*Error': 'error_handling',
-
+    r"try\s{0,20}\{": "error_handling",
+    r"catch\s{0,20}\(": "error_handling",
+    r"\.catch\s{0,20}\(": "error_handling",
+    r"finally\s{0,20}\{": "error_handling",
+    r"throw\s{1,20}new\s{1,20}\w*Error": "error_handling",
     # Retry logic
-    r'retry|retries|attempts|maxAttempts|backoff': 'retry_logic',
-
+    r"retry|retries|attempts|maxAttempts|backoff": "retry_logic",
     # Timeout handling
-    r'timeout|setTimeout|setInterval|clearTimeout|clearInterval': 'timeout',
-
+    r"timeout|setTimeout|setInterval|clearTimeout|clearInterval": "timeout",
     # Async patterns
-    r'async\s{1,20}': 'async_await',
-    r'await\s{1,20}': 'async_await',
-    r'\.then\s{0,20}\(': 'promise_chain',
-    r'Promise\.(all|race|allSettled|any)\s{0,20}\(': 'promise_composition',
-    r'new\s{1,20}Promise\s{0,20}\(': 'promise_creation',
-
+    r"async\s{1,20}": "async_await",
+    r"await\s{1,20}": "async_await",
+    r"\.then\s{0,20}\(": "promise_chain",
+    r"Promise\.(all|race|allSettled|any)\s{0,20}\(": "promise_composition",
+    r"new\s{1,20}Promise\s{0,20}\(": "promise_creation",
     # Caching patterns
-    r'cache\.(get|set|has|delete)': 'caching',
-    r'memoize|memo|cached': 'caching',
-
+    r"cache\.(get|set|has|delete)": "caching",
+    r"memoize|memo|cached": "caching",
     # Pagination
-    r'\b(page|pages|offset|limit|cursor|skip|take)\b': 'pagination',
-
+    r"\b(page|pages|offset|limit|cursor|skip|take)\b": "pagination",
     # Batching
-    r'\b(batch|batches|chunk|chunks)\b': 'batching',
-
+    r"\b(batch|batches|chunk|chunks)\b": "batching",
     # Streaming
-    r'\b(stream|streams|pipe|readable|writable)\b': 'streaming',
-
+    r"\b(stream|streams|pipe|readable|writable)\b": "streaming",
     # Locking/mutex
-    r'\b(lock|unlock|mutex|semaphore)\b': 'locking',
-
+    r"\b(lock|unlock|mutex|semaphore)\b": "locking",
     # Rate limiting
-    r'\b(rateLimit|throttle|debounce)\b': 'rate_limiting',
+    r"\b(rateLimit|throttle|debounce)\b": "rate_limiting",
 }
 
 # Data type patterns
 DATA_TYPE_PATTERNS: dict[str, str] = {
     # Array
-    r'\[\s{0,20}\]': 'array',
-    r'\bArray\b': 'array',
-    r'\.length\b': 'array',
-    r'Array\.isArray\s{0,20}\(': 'array',
-    r'\.push\s{0,20}\(': 'array',
-
+    r"\[\s{0,20}\]": "array",
+    r"\bArray\b": "array",
+    r"\.length\b": "array",
+    r"Array\.isArray\s{0,20}\(": "array",
+    r"\.push\s{0,20}\(": "array",
     # Object
-    r'\{\s{0,20}\}': 'object',
-    r'\bObject\b': 'object',
-    r'\.keys\s{0,20}\(': 'object',
-    r'\.values\s{0,20}\(': 'object',
-    r'\.entries\s{0,20}\(': 'object',
-    r'\.hasOwnProperty\s{0,20}\(': 'object',
-
+    r"\{\s{0,20}\}": "object",
+    r"\bObject\b": "object",
+    r"\.keys\s{0,20}\(": "object",
+    r"\.values\s{0,20}\(": "object",
+    r"\.entries\s{0,20}\(": "object",
+    r"\.hasOwnProperty\s{0,20}\(": "object",
     # String
-    r'["\'][^"\']*["\']': 'string',
-    r'`[^`]*`': 'string',
-    r'\.toString\s{0,20}\(': 'string',
-    r'\.trim\s{0,20}\(': 'string',
-    r'\.substring\s{0,20}\(': 'string',
-    r'\.substr\s{0,20}\(': 'string',
-
+    r'["\'][^"\']*["\']': "string",
+    r"`[^`]*`": "string",
+    r"\.toString\s{0,20}\(": "string",
+    r"\.trim\s{0,20}\(": "string",
+    r"\.substring\s{0,20}\(": "string",
+    r"\.substr\s{0,20}\(": "string",
     # Number
-    r'\b\d+\.?\d*\b': 'number',
-    r'Number\s{0,20}\(': 'number',
-    r'parseInt\s{0,20}\(': 'number',
-    r'parseFloat\s{0,20}\(': 'number',
-    r'Math\.\w+': 'number',
-
+    r"\b\d+\.?\d*\b": "number",
+    r"Number\s{0,20}\(": "number",
+    r"parseInt\s{0,20}\(": "number",
+    r"parseFloat\s{0,20}\(": "number",
+    r"Math\.\w+": "number",
     # Boolean
-    r'\b(true|false)\b': 'boolean',
-    r'Boolean\s{0,20}\(': 'boolean',
-
+    r"\b(true|false)\b": "boolean",
+    r"Boolean\s{0,20}\(": "boolean",
     # Date
-    r'new\s{1,20}Date\s{0,20}\(': 'date',
-    r'Date\.(now|parse)\s{0,20}\(': 'date',
-    r'\.toISOString\s{0,20}\(': 'date',
-    r'moment\s{0,20}\(': 'date',
-    r'dayjs\s{0,20}\(': 'date',
-
+    r"new\s{1,20}Date\s{0,20}\(": "date",
+    r"Date\.(now|parse)\s{0,20}\(": "date",
+    r"\.toISOString\s{0,20}\(": "date",
+    r"moment\s{0,20}\(": "date",
+    r"dayjs\s{0,20}\(": "date",
     # Promise/async
-    r'\bPromise\b': 'promise',
-    r'\.then\s{0,20}\(': 'promise',
-    r'async\s{1,20}': 'promise',
-    r'await\s{1,20}': 'promise',
-
+    r"\bPromise\b": "promise",
+    r"\.then\s{0,20}\(": "promise",
+    r"async\s{1,20}": "promise",
+    r"await\s{1,20}": "promise",
     # Null/undefined
-    r'\bnull\b': 'null',
-    r'\bundefined\b': 'undefined',
-
+    r"\bnull\b": "null",
+    r"\bundefined\b": "undefined",
     # Map/Set
-    r'new\s{1,20}Map\s{0,20}\(': 'map',
-    r'new\s{1,20}Set\s{0,20}\(': 'set',
-    r'\.has\s{0,20}\(': 'collection',
-
+    r"new\s{1,20}Map\s{0,20}\(": "map",
+    r"new\s{1,20}Set\s{0,20}\(": "set",
+    r"\.has\s{0,20}\(": "collection",
     # Buffer/Binary
-    r'\bBuffer\b': 'buffer',
-    r'ArrayBuffer': 'buffer',
-    r'Uint8Array': 'buffer',
-
+    r"\bBuffer\b": "buffer",
+    r"ArrayBuffer": "buffer",
+    r"Uint8Array": "buffer",
     # Regex
-    r'/[^/]+/[gim]*': 'regex',
-    r'new\s{1,20}RegExp\s{0,20}\(': 'regex',
+    r"/[^/]+/[gim]*": "regex",
+    r"new\s{1,20}RegExp\s{0,20}\(": "regex",
 }
 
 # ---------------------------------------------------------------------------
@@ -296,7 +275,9 @@ def _compile_patterns(
 _COMPILED_ARRAY_OPS = _compile_patterns(ARRAY_OPERATION_PATTERNS, re.IGNORECASE)
 _COMPILED_CRUD_OPS = _compile_patterns(CRUD_OPERATION_PATTERNS, re.IGNORECASE)
 _COMPILED_TRANSFORM_OPS = _compile_patterns(TRANSFORM_OPERATION_PATTERNS, re.IGNORECASE)
-_COMPILED_VALIDATION_OPS = _compile_patterns(VALIDATION_OPERATION_PATTERNS, re.IGNORECASE)
+_COMPILED_VALIDATION_OPS = _compile_patterns(
+    VALIDATION_OPERATION_PATTERNS, re.IGNORECASE
+)
 _COMPILED_DOMAIN = _compile_patterns(DOMAIN_PATTERNS, re.IGNORECASE)
 _COMPILED_CODE_PATTERNS = _compile_patterns(CODE_PATTERN_PATTERNS, re.IGNORECASE)
 _COMPILED_DATA_TYPES = _compile_patterns(DATA_TYPE_PATTERNS)
@@ -311,10 +292,10 @@ _COMPILED_ALL_OPERATIONS = (
 
 
 class SemanticAnnotator:
-    """Stage 4: Full semantic annotation of code blocks.
+    """Full semantic annotation of code blocks (fourth stage).
 
     Analyzes code blocks and extracts rich semantic metadata for use in
-    Layer 3 (semantic similarity) grouping.
+    semantic similarity layer grouping.
 
     Usage:
         annotator = SemanticAnnotator()
@@ -346,11 +327,11 @@ class SemanticAnnotator:
             except ImportError:
                 from utils.timing import TimingMetrics as TM
             self.timing = {
-                'operations': TM('operations'),
-                'domains': TM('domains'),
-                'patterns': TM('patterns'),
-                'data_types': TM('data_types'),
-                'intent': TM('intent'),
+                "operations": TM("operations"),
+                "domains": TM("domains"),
+                "patterns": TM("patterns"),
+                "data_types": TM("data_types"),
+                "intent": TM("intent"),
             }
 
     def get_timing_report(self) -> dict[str, dict]:
@@ -377,11 +358,11 @@ class SemanticAnnotator:
             SemanticAnnotation with extracted metadata
         """
         code = block.source_code
-        tags = block.tags if hasattr(block, 'tags') else []
-        category = block.category if hasattr(block, 'category') else 'unknown'
+        tags = block.tags if hasattr(block, "tags") else []
+        category = block.category if hasattr(block, "category") else "unknown"
 
         # Handle enum values
-        if hasattr(category, 'value'):
+        if hasattr(category, "value"):
             category = category.value
 
         if self.collect_timing:
@@ -390,15 +371,15 @@ class SemanticAnnotator:
             except ImportError:
                 from utils.timing import Timer
 
-            with Timer(self.timing['operations']):
+            with Timer(self.timing["operations"]):
                 operations = self._extract_operations(code)
-            with Timer(self.timing['domains']):
+            with Timer(self.timing["domains"]):
                 domains = self._extract_domains(code, tags)
-            with Timer(self.timing['patterns']):
+            with Timer(self.timing["patterns"]):
                 patterns = self._extract_patterns(code)
-            with Timer(self.timing['data_types']):
+            with Timer(self.timing["data_types"]):
                 data_types = self._extract_data_types(code)
-            with Timer(self.timing['intent']):
+            with Timer(self.timing["intent"]):
                 intent = self._infer_intent(operations, domains, patterns)
         else:
             operations = self._extract_operations(code)
@@ -438,7 +419,7 @@ class SemanticAnnotator:
         domains: set[str] = set()
 
         # Combine code and tags for analysis
-        text = code + ' ' + ' '.join(tags)
+        text = code + " " + " ".join(tags)
 
         for compiled_pattern, domain in _COMPILED_DOMAIN:
             if compiled_pattern.search(text):
@@ -492,12 +473,12 @@ class SemanticAnnotator:
         parts: list[str] = []
 
         if operations:
-            parts.append('+'.join(sorted(operations)))
+            parts.append("+".join(sorted(operations)))
 
         if domains:
-            parts.append('on:' + '+'.join(sorted(domains)))
+            parts.append("on:" + "+".join(sorted(domains)))
 
         if patterns:
-            parts.append('with:' + '+'.join(sorted(patterns)))
+            parts.append("with:" + "+".join(sorted(patterns)))
 
-        return '|'.join(parts) if parts else 'unknown'
+        return "|".join(parts) if parts else "unknown"

@@ -19,7 +19,8 @@ import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 import { createComponentLogger, logError, logStart } from '../sidequest/utils/logger.ts';
 import { config } from '../sidequest/core/config.ts';
-import { CONCURRENCY, PORT } from '../sidequest/core/constants.ts';
+import { CACHE, CONCURRENCY, MAX_SCORE, PORT } from '../sidequest/core/constants.ts';
+import { TIME_MS } from '../sidequest/core/units.ts';
 import { authMiddleware } from './middleware/auth.ts';
 import { rateLimiter } from './middleware/rate-limit.ts';
 import { errorHandler } from './middleware/error-handler.ts';
@@ -28,6 +29,7 @@ import repositoryRoutes from './routes/repositories.ts';
 import reportRoutes from './routes/reports.ts';
 import pipelineRoutes from './routes/pipelines.ts';
 import jobsRoutes from './routes/jobs.ts';
+import { HttpStatus } from '../shared/constants/http-status.ts';
 import * as Sentry from '@sentry/node';
 import { createServer } from 'http';
 import { createWebSocketServer } from './websocket.ts';
@@ -124,8 +126,8 @@ app.get('/api/health/doppler', async (req: Request, res: Response) => {
       status: health.healthy ? 'healthy' : 'degraded',
       cacheAgeHours: health.cacheAgeHours,
       cacheAgeMinutes: health.cacheAgeMinutes,
-      maxCacheAgeHours: 24,
-      warningThresholdHours: 12,
+      maxCacheAgeHours: CACHE.MAX_AGE_MS / TIME_MS.HOUR,
+      warningThresholdHours: CACHE.WARNING_THRESHOLD_MS / TIME_MS.HOUR,
       usingFallback: health.usingFallback,
       severity: health.severity,
       lastModified: health.lastModified,
@@ -133,7 +135,7 @@ app.get('/api/health/doppler', async (req: Request, res: Response) => {
     });
   } catch (error) {
     logError(logger, error, 'Failed to check Doppler health');
-    res.status(500).json({
+    res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       success: false,
       error: {
         code: 'INTERNAL_ERROR',
@@ -190,7 +192,7 @@ app.get('/api/status', (req: Request, res: Response) => {
       active: workerStats.active || 0,
       queued: workerStats.queued || 0,
       capacity: workerStats.active > 0
-        ? Math.min(100, (workerStats.active / CONCURRENCY.DEFAULT_MAX_JOBS) * 100)
+        ? Math.min(MAX_SCORE, (workerStats.active / CONCURRENCY.DEFAULT_MAX_JOBS) * MAX_SCORE)
         : 0
     };
 
@@ -229,7 +231,7 @@ app.get('/api/status', (req: Request, res: Response) => {
     Sentry.captureException(error, {
       tags: { component: 'APIServer', endpoint: '/api/status' }
     });
-    res.status(500).json({
+    res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       success: false,
       error: {
         code: 'INTERNAL_ERROR',
@@ -278,7 +280,7 @@ app.get('/api/pipeline-data-flow', async (req: Request, res: Response) => {
     Sentry.captureException(error, {
       tags: { component: 'APIServer', endpoint: '/api/pipeline-data-flow' }
     });
-    res.status(500).json({
+    res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       success: false,
       error: {
         code: 'INTERNAL_ERROR',
@@ -308,7 +310,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 // 404 handler
 app.use((req: Request, res: Response) => {
-  res.status(404).json({
+  res.status(HttpStatus.NOT_FOUND).json({
     success: false,
     error: {
       code: 'NOT_FOUND',
@@ -332,6 +334,32 @@ const activityFeed = new ActivityFeedManager(broadcaster, { maxActivities: 50 })
 // This also connects to all existing registered workers
 workerRegistry.setActivityFeed(activityFeed);
 
+// Seed activity feed from recent DB jobs so dashboard isn't empty on restart
+try {
+  const recentJobs = jobRepository.getAllJobs({ limit: 20 });
+  for (const job of recentJobs.reverse()) {
+    const eventType = job.status === 'completed' ? 'job:completed'
+      : job.status === 'failed' ? 'job:failed'
+      : job.status === 'running' ? 'job:started'
+      : 'job:created';
+    const timestamp = job.completedAt || job.startedAt || job.createdAt;
+    activityFeed.addActivity({
+      type: eventType,
+      event: `Job ${job.status.charAt(0).toUpperCase() + job.status.slice(1)}`,
+      message: `Job ${job.id} ${job.status}`,
+      jobId: job.id,
+      jobType: job.pipelineId,
+      pipelineId: job.pipelineId,
+      pipelineName: getPipelineName(job.pipelineId),
+      status: job.status,
+      timestamp,
+    });
+  }
+  logger.info({ seeded: recentJobs.length }, 'Activity feed seeded from database');
+} catch (error) {
+  logError(logger, error, 'Failed to seed activity feed from database');
+}
+
 // Make broadcaster and activity feed available to routes
 app.set('broadcaster', broadcaster);
 app.set('activityFeed', activityFeed);
@@ -353,7 +381,7 @@ app.get('/ws/status', (req: Request, res: Response) => {
  * Cleans up partially initialized resources to prevent resource leaks
  * @private
  */
-async function _emergencyShutdown() {
+async function emergencyShutdown() {
   logStart(logger, 'emergency shutdown');
 
   try {
@@ -412,15 +440,20 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
     });
 
     logger.info({ port: actualPort }, 'API server started');
-    console.log(`\n🚀 AlephAuto API Server & Dashboard running on port ${actualPort}`);
+    logger.info({ port: actualPort }, 'AlephAuto API Server & Dashboard running');
     if (actualPort !== PREFERRED_PORT) {
-      console.log(`   ⚠️  Using fallback port ${actualPort} (preferred ${PREFERRED_PORT} was in use)`);
+      logger.warn({
+        actualPort,
+        preferredPort: PREFERRED_PORT
+      }, 'Using fallback API port because preferred port was in use');
     }
-    console.log(`   📊 Dashboard: http://localhost:${actualPort}/`);
-    console.log(`   ❤️  Health check: http://localhost:${actualPort}/health`);
-    console.log(`   🩺 Doppler health: http://localhost:${actualPort}/api/health/doppler`);
-    console.log(`   🔌 WebSocket: ws://localhost:${actualPort}/ws`);
-    console.log(`   📡 API: http://localhost:${actualPort}/api/\n`);
+    logger.info({
+      dashboardUrl: `http://localhost:${actualPort}/`,
+      healthUrl: `http://localhost:${actualPort}/health`,
+      dopplerHealthUrl: `http://localhost:${actualPort}/api/health/doppler`,
+      websocketUrl: `ws://localhost:${actualPort}/ws`,
+      apiBaseUrl: `http://localhost:${actualPort}/api/`
+    }, 'Service endpoints');
 
     // Start Doppler health monitoring (check every 15 minutes)
     await dopplerMonitor.startMonitoring(15);
@@ -456,7 +489,7 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
     });
 
     // Emergency shutdown: cleanup partially initialized resources
-    await _emergencyShutdown();
+    await emergencyShutdown();
 
     process.exit(1);
   }

@@ -43,10 +43,10 @@ npm run verify:bugfixes:smoke    # Smoke tests
 
 **Critical Files:**
 ```
-✓ File exists: sidequest/pipeline-core/doppler-health-monitor.js
-✓ File exists: api/utils/port-manager.js
-✓ File exists: api/activity-feed.js
-✓ File exists: api/event-broadcaster.js
+✓ File exists: sidequest/pipeline-core/doppler-health-monitor.ts
+✓ File exists: api/utils/port-manager.ts
+✓ File exists: api/activity-feed.ts
+✓ File exists: api/event-broadcaster.ts
 ```
 
 **PM2 Configuration:**
@@ -91,7 +91,7 @@ npm run verify:bugfixes:smoke    # Smoke tests
 **Server:**
 ```
 ✓ Server listening on port 8080
-✓ Script can be executed with node: duplicate-detection-pipeline.js
+✓ Script can be executed with node: sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 ```
 
 **Activity Feed:**
@@ -128,7 +128,7 @@ npm run verify:bugfixes:smoke    # Smoke tests
 ## Common Warnings (OK to Ignore)
 
 ```
-⚠ No shebang in: git-activity-pipeline.js (OK if using node interpreter in PM2)
+⚠ No shebang in: sidequest/pipeline-runners/git-activity-pipeline.ts (OK if using node interpreter in PM2)
 ⚠ Doppler cache is 15h old (run 'doppler run --command=echo' to refresh)
 ⚠ aleph-worker process not online (status: stopped)  # OK if not using cron worker
 ⚠ wscat not installed (skip WebSocket test)
@@ -138,7 +138,7 @@ npm run verify:bugfixes:smoke    # Smoke tests
 ## Critical Failures (Must Fix)
 
 ```
-✗ Missing file: sidequest/pipeline-core/doppler-health-monitor.js
+✗ Missing file: sidequest/pipeline-core/doppler-health-monitor.ts
 ✗ PM2 config has syntax errors
 ✗ TypeScript type checks failed
 ✗ Unit tests failed
@@ -184,11 +184,11 @@ pm2 logs aleph-dashboard --lines 100
 doppler secrets
 
 # Check node version
-node --version  # Should be v18+
+node --version  # Should be v22+
 
 # Try manual start
 cd /Users/alyshialedlie/code/jobs
-doppler run -- node api/server.js
+doppler run -- node --strip-types api/server.ts
 ```
 
 ## Exit Codes
@@ -294,7 +294,7 @@ Running `--rollback` creates:
 ## Dependencies
 
 **Required:**
-- Node.js v18+
+- Node.js v22+
 - npm
 - Doppler CLI
 - jq

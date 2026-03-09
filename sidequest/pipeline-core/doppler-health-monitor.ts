@@ -14,7 +14,8 @@
  */
 
 import { createComponentLogger, logError } from '../utils/logger.ts';
-import { CACHE, TIME } from '../core/constants.ts';
+import { CACHE } from '../core/constants.ts';
+import { TIME_MS } from '../core/units.ts';
 import Sentry from '@sentry/node';
 import fs from 'fs/promises';
 import path from 'path';
@@ -120,8 +121,8 @@ export class DopplerHealthMonitor {
       }
 
       const cacheAge = Date.now() - newestMtime;
-      const cacheAgeHours = Math.floor(cacheAge / TIME.HOUR);
-      const cacheAgeMinutes = Math.floor((cacheAge % (60 * 60 * 1000)) / TIME.MINUTE);
+      const cacheAgeHours = Math.floor(cacheAge / TIME_MS.HOUR);
+      const cacheAgeMinutes = Math.floor((cacheAge % TIME_MS.HOUR) / TIME_MS.MINUTE);
 
       const status: CacheHealthStatus = {
         healthy: cacheAge <= this.maxCacheAge,
@@ -149,7 +150,7 @@ export class DopplerHealthMonitor {
             cacheAgeHours,
             cacheAgeMinutes,
             lastModified: new Date(newestMtime).toISOString(),
-            threshold: this.maxCacheAge / TIME.HOUR,
+            threshold: this.maxCacheAge / TIME_MS.HOUR,
             newestFile,
             fileCount: secretFiles.length
           },
@@ -171,7 +172,7 @@ export class DopplerHealthMonitor {
             cacheAgeHours,
             cacheAgeMinutes,
             lastModified: new Date(newestMtime).toISOString(),
-            threshold: this.warningThreshold / TIME.HOUR,
+            threshold: this.warningThreshold / TIME_MS.HOUR,
             newestFile,
             fileCount: secretFiles.length
           },
@@ -264,8 +265,8 @@ export class DopplerHealthMonitor {
 
     logger.info({
       intervalMinutes,
-      maxCacheAgeHours: this.maxCacheAge / TIME.HOUR,
-      warningThresholdHours: this.warningThreshold / TIME.HOUR
+      maxCacheAgeHours: this.maxCacheAge / TIME_MS.HOUR,
+      warningThresholdHours: this.warningThreshold / TIME_MS.HOUR
     }, 'Starting Doppler health monitoring');
 
     // Initial check
@@ -275,7 +276,7 @@ export class DopplerHealthMonitor {
     // Periodic checks
     this.monitoringInterval = setInterval(async () => {
       await this.checkCacheHealth();
-    }, intervalMinutes * TIME.MINUTE);
+    }, intervalMinutes * TIME_MS.MINUTE);
 
     return initialHealth;
   }

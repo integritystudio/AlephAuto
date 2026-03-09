@@ -322,7 +322,7 @@ Options:
 
 ### Configure Sampling
 
-Edit `sidequest/server.js`:
+Edit `sidequest/core/server.ts`:
 
 ```javascript
 Sentry.init({

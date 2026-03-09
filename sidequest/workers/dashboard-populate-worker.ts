@@ -6,6 +6,7 @@ import { execCommandOrThrow } from '@shared/process-io';
 import path from 'path';
 import os from 'os';
 import type { Job } from '../core/server.ts';
+import { LIMITS, NUMBER_BASE, TIMEOUTS } from '../core/constants.ts';
 
 const logger = createComponentLogger('DashboardPopulateWorker');
 
@@ -53,6 +54,9 @@ export class DashboardPopulateWorker extends SidequestServer {
   dashboardDir: string;
   toolkitDir: string;
 
+  /**
+   * constructor.
+   */
   constructor(options: PopulateWorkerOptions = {}) {
     super({
       ...options,
@@ -122,7 +126,7 @@ export class DashboardPopulateWorker extends SidequestServer {
 
       const { stdout, stderr } = await execCommandOrThrow('npm', populateArgs, {
         cwd: this.dashboardDir,
-        timeout: 5 * 60 * 1000,
+        timeout: TIMEOUTS.FIVE_MINUTES_MS,
         env: { ...process.env, FORCE_COLOR: '0' },
       });
 
@@ -137,8 +141,8 @@ export class DashboardPopulateWorker extends SidequestServer {
         limit,
         steps: stepTimings,
         durationMs: endTime - startTime,
-        stdout: stdout.slice(-2000),
-        stderr: stderr.slice(-1000),
+        stdout: stdout.slice(-(2 * LIMITS.MAX_OUTPUT_CHARS)),
+        stderr: stderr.slice(-LIMITS.MAX_OUTPUT_CHARS),
         timestamp: new Date().toISOString(),
       };
 
@@ -165,7 +169,7 @@ export class DashboardPopulateWorker extends SidequestServer {
       logger.error({
         jobId: job.id,
         error: (error as Error).message,
-        stderr: (error as { stderr?: string }).stderr?.slice(-1000),
+        stderr: (error as { stderr?: string }).stderr?.slice(-LIMITS.MAX_OUTPUT_CHARS),
       }, 'Dashboard populate job failed');
 
       Sentry.captureException(error, {
@@ -189,7 +193,7 @@ export class DashboardPopulateWorker extends SidequestServer {
     for (const line of lines) {
       const match = line.match(/^\s{2}(\S+)\s+(\d+)ms$/);
       if (match && match[1] !== 'total') {
-        timings.push({ name: match[1], ms: parseInt(match[2], 10) });
+        timings.push({ name: match[1], ms: parseInt(match[2], NUMBER_BASE.DECIMAL) });
       }
     }
     return timings;

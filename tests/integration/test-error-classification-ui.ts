@@ -24,20 +24,6 @@ const TESTS_TO_RUN = {
 };
 
 /**
- * Wait for a condition to be true
- */
-async function _waitFor(conditionFn, timeout = 30000, interval = 500) {
-  const startTime = Date.now();
-  while (Date.now() - startTime < timeout) {
-    if (await conditionFn()) {
-      return true;
-    }
-    await new Promise(resolve => setTimeout(resolve, interval));
-  }
-  throw new Error(`Timeout waiting for condition after ${timeout}ms`);
-}
-
-/**
  * Get system status including activity feed
  */
 async function getSystemStatus() {
@@ -155,6 +141,56 @@ async function testNonRetryableErrors() {
   };
 }
 
+interface ErrorScenario {
+  name: string;
+  payload: Record<string, unknown>;
+  expectedStatus: number;
+  expectedMessagePattern: RegExp;
+}
+
+const ERROR_SCENARIOS: ErrorScenario[] = [
+  {
+    name: 'Empty repositoryPath',
+    payload: { repositoryPath: '' },
+    expectedStatus: 400,
+    expectedMessagePattern: /required|missing|empty/i
+  },
+  {
+    name: 'Invalid repositoryPath type',
+    payload: { repositoryPath: 123 },
+    expectedStatus: 400,
+    expectedMessagePattern: /invalid|string|type/i
+  },
+  {
+    name: 'Missing repositoryPath',
+    payload: {},
+    expectedStatus: 400,
+    expectedMessagePattern: /required|missing/i
+  }
+];
+
+async function evaluateErrorScenario(scenario: ErrorScenario) {
+  const response = await fetch(`${API_BASE_URL}/api/scans/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(scenario.payload)
+  });
+
+  const errorData = await response.json();
+  const statusMatches = response.status === scenario.expectedStatus;
+  const messageExists = errorData.message && typeof errorData.message === 'string';
+  const messageMatches = messageExists && scenario.expectedMessagePattern.test(errorData.message);
+  const passed = statusMatches && messageExists && messageMatches && !!errorData.timestamp;
+
+  logger.info({
+    scenario: scenario.name, passed,
+    status: response.status, message: errorData.message,
+    hasTimestamp: !!errorData.timestamp
+  }, `Error message test: ${scenario.name}`);
+
+  return { scenario: scenario.name, passed, status: response.status, message: errorData.message };
+}
+
 /**
  * Test 3: Error Message Clarity
  * Verify error messages are actionable and clear
@@ -162,69 +198,24 @@ async function testNonRetryableErrors() {
 async function testErrorMessages() {
   logger.info('TEST 3: Error Message Clarity');
 
-  const errorScenarios = [
-    {
-      name: 'Empty repositoryPath',
-      payload: { repositoryPath: '' },
-      expectedStatus: 400,
-      expectedMessagePattern: /required|missing|empty/i
-    },
-    {
-      name: 'Invalid repositoryPath type',
-      payload: { repositoryPath: 123 },
-      expectedStatus: 400,
-      expectedMessagePattern: /invalid|string|type/i
-    },
-    {
-      name: 'Missing repositoryPath',
-      payload: {},
-      expectedStatus: 400,
-      expectedMessagePattern: /required|missing/i
-    }
-  ];
-
   const results = [];
-
-  for (const scenario of errorScenarios) {
-    const response = await fetch(`${API_BASE_URL}/api/scans/start`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(scenario.payload)
-    });
-
-    const errorData = await response.json();
-
-    const statusMatches = response.status === scenario.expectedStatus;
-    const messageExists = errorData.message && typeof errorData.message === 'string';
-    const messageMatches = messageExists && scenario.expectedMessagePattern.test(errorData.message);
-    const hasTimestamp = !!errorData.timestamp;
-
-    const passed = statusMatches && messageExists && messageMatches && hasTimestamp;
-
-    logger.info({
-      scenario: scenario.name,
-      passed,
-      status: response.status,
-      message: errorData.message,
-      hasTimestamp
-    }, `Error message test: ${scenario.name}`);
-
-    results.push({
-      scenario: scenario.name,
-      passed,
-      status: response.status,
-      message: errorData.message
-    });
+  for (const scenario of ERROR_SCENARIOS) {
+    results.push(await evaluateErrorScenario(scenario));
   }
 
   const allPassed = results.every(r => r.passed);
   logger.info({ allPassed }, 'TEST 3 Result');
 
-  return {
-    test: 'Error Message Clarity',
-    passed: allPassed,
-    scenarios: results
-  };
+  return { test: 'Error Message Clarity', passed: allPassed, scenarios: results };
+}
+
+function validateActivityStructure(activities: any[]) {
+  if (activities.length === 0) return { structureValid: false, hasJobEvents: false };
+
+  const first = activities[0];
+  const structureValid = !!(first.timestamp && first.type && first.message && first.icon);
+  const hasJobEvents = activities.some(a => a.type?.startsWith('job:'));
+  return { structureValid, hasJobEvents };
 }
 
 /**
@@ -234,72 +225,43 @@ async function testErrorMessages() {
 async function testActivityFeed() {
   logger.info('TEST 4: Activity Feed Error Display');
 
-  // Get initial activity count
   const initialStatus = await getSystemStatus();
   const initialActivityCount = initialStatus.recentActivity?.length || 0;
-
   logger.info({ initialActivityCount }, 'Initial activity feed state');
 
-  // Trigger an actual scan job (not validation error) to populate activity feed
-  // Use a valid path format but non-existent path to trigger a job failure
-  const _result = await triggerScan('/tmp/non-existent-repo-12345');
-
-  // Wait for job to be created and fail
+  await triggerScan('/tmp/non-existent-repo-12345');
   await new Promise(resolve => setTimeout(resolve, 2000));
 
-  // Get updated activity
   const updatedStatus = await getSystemStatus();
-  const updatedActivityCount = updatedStatus.recentActivity?.length || 0;
+  const recentActivity = updatedStatus.recentActivity ?? [];
+  const hasActivityFeed = Array.isArray(recentActivity);
 
   logger.info({
     initialActivityCount,
-    updatedActivityCount,
-    activityDelta: updatedActivityCount - initialActivityCount
+    updatedActivityCount: recentActivity.length,
+    activityDelta: recentActivity.length - initialActivityCount
   }, 'Activity feed after scan job');
 
-  // Activity feed should exist and be an array
-  const hasActivityFeed = Array.isArray(updatedStatus.recentActivity);
+  const { structureValid, hasJobEvents } = validateActivityStructure(recentActivity);
 
-  // Check if activity feed structure is correct and has new entries
-  let activityStructureValid = false;
-  let hasJobEvents = false;
-
-  if (hasActivityFeed && updatedStatus.recentActivity.length > 0) {
-    const recentActivity = updatedStatus.recentActivity[0];
-    activityStructureValid =
-      recentActivity.timestamp &&
-      recentActivity.type &&
-      recentActivity.message &&
-      recentActivity.icon;
-
-    // Check for job-related events (created, started, failed, etc.)
-    hasJobEvents = updatedStatus.recentActivity.some(activity =>
-      activity.type && activity.type.startsWith('job:')
-    );
+  if (recentActivity.length > 0) {
+    logger.info({ activityCount: recentActivity.length, latestActivity: recentActivity.slice(0, 3) }, 'Activity feed sample');
   }
 
-  // Log activity feed for debugging
-  if (hasActivityFeed && updatedStatus.recentActivity.length > 0) {
-    logger.info({
-      activityCount: updatedStatus.recentActivity.length,
-      latestActivity: updatedStatus.recentActivity.slice(0, 3)
-    }, 'Activity feed sample');
-  }
-
-  const success = hasActivityFeed && activityStructureValid && hasJobEvents;
-  logger.info({ success, hasActivityFeed, activityStructureValid, hasJobEvents }, 'TEST 4 Result');
+  const success = hasActivityFeed && structureValid && hasJobEvents;
+  logger.info({ success, hasActivityFeed, activityStructureValid: structureValid, hasJobEvents }, 'TEST 4 Result');
 
   return {
-    test: 'Activity Feed Job Events Display',
-    passed: success,
-    hasActivityFeed,
-    activityStructureValid,
-    hasJobEvents,
-    activityCount: updatedActivityCount,
-    sampleActivity: hasActivityFeed && updatedStatus.recentActivity.length > 0 ? updatedStatus.recentActivity[0] : null
+    test: 'Activity Feed Job Events Display', passed: success,
+    hasActivityFeed, activityStructureValid: structureValid, hasJobEvents,
+    activityCount: recentActivity.length,
+    sampleActivity: recentActivity[0] ?? null
   };
 }
 
+/**
+ * logTestResult.
+ */
 function logTestResult(result: any, index: number) {
   const status = result.passed ? '✓ PASS' : '✗ FAIL';
   logger.info(`${index + 1}. ${result.test}: ${status}`);

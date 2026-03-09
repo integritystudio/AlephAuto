@@ -4,6 +4,11 @@ import { createServer } from 'http';
 import { WebSocket } from 'ws';
 import { createWebSocketServer } from '../../api/websocket.ts';
 import { ScanEventBroadcaster } from '../../api/event-broadcaster.ts';
+import { TestTiming } from '../constants/timing-test-constants.ts';
+
+const describeEnvSensitive = process.env.SKIP_ENV_SENSITIVE_TESTS === '1'
+  ? describe.skip
+  : describe;
 
 /**
  * WebSocket Server Integration Tests
@@ -16,9 +21,8 @@ import { ScanEventBroadcaster } from '../../api/event-broadcaster.ts';
  * 3. Added connectAndSubscribe helper to handle welcome message + subscription
  *    handshake before testing channel-filtered broadcasts.
  *
- * Related: mcp-server.test.js (still skipped — mcp-servers/ binary not present)
  */
-describe('WebSocket Server', () => {
+describeEnvSensitive('WebSocket Server', () => {
   let httpServer;
   let wss;
   let broadcaster;
@@ -28,9 +32,16 @@ describe('WebSocket Server', () => {
   beforeEach(async () => {
     httpServer = createServer();
 
-    await new Promise((resolve) => {
+    await new Promise<void>((resolve, reject) => {
+      httpServer.once('error', reject);
       httpServer.listen(0, () => {
-        port = httpServer.address().port;
+        const address = httpServer.address();
+        if (address === null || typeof address === 'string') {
+          reject(new Error('Unable to resolve WebSocket test server address'));
+          return;
+        }
+
+        port = address.port;
         baseUrl = `ws://localhost:${port}`;
         wss = createWebSocketServer(httpServer);
         broadcaster = new ScanEventBroadcaster(wss);
@@ -57,19 +68,68 @@ describe('WebSocket Server', () => {
    * @param {string} url - Base ws:// URL (without path)
    * @returns {Promise<WebSocket>}
    */
-  function connectClient(url) {
+  function connectClient(url): Promise<WebSocket> {
     return new Promise((resolve, reject) => {
       const ws = new WebSocket(`${url}/ws`);
-      ws.once('error', reject);
-      ws.once('open', () => {
-        ws.removeListener('error', reject);
-        ws.once('message', (data) => {
-          const msg = JSON.parse(data.toString());
-          if (msg.type === 'connected') resolve(ws);
-          else reject(new Error(`Expected connected, got: ${msg.type}`));
-        });
+      const timeout = setTimeout(() => {
+        ws.terminate();
+        reject(new Error('Timed out waiting for WebSocket connection handshake'));
+      }, TestTiming.DEFAULT_WAIT_TIMEOUT_MS);
+
+      const onError = (error: Error) => {
+        clearTimeout(timeout);
+        reject(error);
+      };
+
+      ws.once('error', onError);
+      ws.once('message', (data) => {
+        clearTimeout(timeout);
+        ws.removeListener('error', onError);
+        const msg = JSON.parse(data.toString());
+        if (msg.type === 'connected') {
+          resolve(ws);
+          return;
+        }
+
+        reject(new Error(`Expected connected, got: ${msg.type}`));
       });
     });
+  }
+
+  async function closeClient(ws: WebSocket): Promise<void> {
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(() => {
+        ws.terminate();
+      }, TestTiming.DEFAULT_WAIT_TIMEOUT_MS);
+
+      ws.once('close', () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+
+      if (ws.readyState === ws.OPEN) {
+        ws.close();
+        return;
+      }
+
+      if (ws.readyState === ws.CONNECTING) {
+        ws.once('open', () => ws.close());
+        return;
+      }
+
+      clearTimeout(timeout);
+      resolve();
+    });
+  }
+
+  async function waitForClientCount(expected: number): Promise<void> {
+    const start = Date.now();
+    while (wss.getClientInfo().total_clients !== expected) {
+      if (Date.now() - start >= TestTiming.DEFAULT_WAIT_TIMEOUT_MS) {
+        throw new Error(`Timed out waiting for client count ${expected}`);
+      }
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
   }
 
   /**
@@ -79,7 +139,7 @@ describe('WebSocket Server', () => {
    * @param {string[]} channels - Channels to subscribe to
    * @returns {Promise<WebSocket>}
    */
-  async function connectAndSubscribe(url, channels = ['scans']) {
+  async function connectAndSubscribe(url, channels = ['scans']): Promise<WebSocket> {
     const ws = await connectClient(url);
     await new Promise((resolve, reject) => {
       ws.once('error', reject);
@@ -95,64 +155,29 @@ describe('WebSocket Server', () => {
   }
 
   describe('Connection Handling', () => {
-    test('should accept WebSocket connections', () => {
-      return new Promise((resolve, reject) => {
-        const ws = new WebSocket(`${baseUrl}/ws`);
-        ws.on('open', () => {
-          assert.ok(true, 'Connection established');
-          ws.close();
-        });
-        ws.on('close', () => resolve());
-        ws.on('error', reject);
-      });
+    test('should accept WebSocket connections', async () => {
+      const ws = await connectClient(baseUrl);
+      assert.ok(ws.readyState === ws.OPEN, 'Connection established');
+      await closeClient(ws);
     });
 
-    test('should handle multiple concurrent connections', () => {
-      return new Promise((resolve, reject) => {
-        const numConnections = 5;
-        let openCount = 0;
-        let closeCount = 0;
-        const connections = [];
+    test('should handle multiple concurrent connections', async () => {
+      const numConnections = 5;
+      const connections = await Promise.all(
+        Array.from({ length: numConnections }, () => connectClient(baseUrl))
+      );
 
-        for (let i = 0; i < numConnections; i++) {
-          const ws = new WebSocket(`${baseUrl}/ws`);
-          connections.push(ws);
-
-          ws.on('open', () => {
-            openCount++;
-            if (openCount === numConnections) {
-              assert.strictEqual(openCount, numConnections);
-              connections.forEach(conn => conn.close());
-            }
-          });
-
-          ws.on('close', () => {
-            closeCount++;
-            if (closeCount === numConnections) resolve();
-          });
-
-          ws.on('error', reject);
-        }
-      });
+      assert.strictEqual(wss.getClientInfo().total_clients, numConnections);
+      await Promise.all(connections.map(ws => closeClient(ws)));
+      await waitForClientCount(0);
     });
 
-    test('should track connected clients', () => {
-      return new Promise((resolve, reject) => {
-        const ws = new WebSocket(`${baseUrl}/ws`);
-        ws.on('open', () => {
-          try {
-            const info = wss.getClientInfo();
-            assert.ok(info.total_clients >= 1, 'Should have at least 1 client');
-            assert.strictEqual(typeof info.total_clients, 'number');
-          } catch (e) {
-            reject(e);
-            return;
-          }
-          ws.close();
-        });
-        ws.on('close', () => resolve());
-        ws.on('error', reject);
-      });
+    test('should track connected clients', async () => {
+      const ws = await connectClient(baseUrl);
+      const info = wss.getClientInfo();
+      assert.ok(info.total_clients >= 1, 'Should have at least 1 client');
+      assert.strictEqual(typeof info.total_clients, 'number');
+      await closeClient(ws);
     });
   });
 
@@ -254,7 +279,7 @@ describe('WebSocket Server', () => {
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(
           () => reject(new Error('Timeout: not all clients received broadcast')),
-          5000
+          TestTiming.DEFAULT_WAIT_TIMEOUT_MS
         );
 
         for (const ws of clients) {

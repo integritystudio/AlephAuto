@@ -303,7 +303,7 @@ lsof -ti:8080 | xargs kill -9
 
 # Or use port-manager utility
 doppler run -- node -e "
-  import { killProcessOnPort } from './api/utils/port-manager.js';
+  import { killProcessOnPort } from './api/utils/port-manager.ts';
   await killProcessOnPort(8080);
 "
 
@@ -351,7 +351,7 @@ grep -i "fallback port" logs/api-server.log
 **If you want to force specific port:**
 
 ```javascript
-// Disable automatic fallback in api/server.js
+// Disable automatic fallback in api/server.ts
 httpServer.listen(PORT, () => {
   logger.info({ port: PORT }, 'Server listening on preferred port');
 });
@@ -382,7 +382,7 @@ pm2 save
 ### Prevention
 
 1. **Use port manager utility**
-   - Import `setupServerWithPortFallback` in server.js
+   - Import `setupServerWithPortFallback` in server.ts
    - Enable automatic port fallback (ports +1 to +10)
    - Log port conflicts for visibility
 
@@ -404,7 +404,7 @@ pm2 save
 ### Related Documentation
 
 - [Port Conflict Resolution Strategy](../architecture/ERROR_HANDLING.md#port-conflict-resolution-strategy)
-- [Port Manager Utility](../../api/utils/port-manager.js)
+- [Port Manager Utility](../../api/utils/port-manager.ts)
 
 ---
 
@@ -501,11 +501,11 @@ tail -f logs/api-server.log | grep "job:created\|job:completed\|job:failed"
 
 #### Scenario 1: Activity Feed Not Initialized
 
-**Check api/server.js:**
+**Check api/server.ts:**
 
 ```javascript
 // Ensure ActivityFeedManager is created
-import { ActivityFeedManager } from './activity-feed.js';
+import { ActivityFeedManager } from './activity-feed.ts';
 
 const activityFeed = new ActivityFeedManager(broadcaster, {
   maxActivities: 50
@@ -532,7 +532,7 @@ grep "Activity feed manager initialized" logs/api-server.log
 **Apply null-safe error handling:**
 
 ```javascript
-// In api/activity-feed.js
+// In api/activity-feed.ts
 worker.on('job:failed', (job, error) => {
   try {
     // Safe error extraction
@@ -657,7 +657,7 @@ tail -f logs/api-server.log | grep ActivityFeed
 ### Related Documentation
 
 - [Null-Safe Error Handling Patterns](../architecture/ERROR_HANDLING.md#null-safe-error-handling-patterns)
-- [Activity Feed Manager](../../api/activity-feed.js)
+- [Activity Feed Manager](../../api/activity-feed.ts)
 
 ---
 
@@ -815,5 +815,5 @@ sqlite3 data/jobs.db "SELECT * FROM jobs ORDER BY createdAt DESC LIMIT 10;"
 
 ---
 
-**Last Updated:** 2025-11-30
-**Version:** 1.6.4
+**Last Updated:** 2026-03-04
+**Version:** 1.6.5

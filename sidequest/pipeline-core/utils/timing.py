@@ -29,7 +29,7 @@ class TimingMetrics:
     stage_name: str
     total_ms: float = 0.0
     count: int = 0
-    min_ms: float = field(default=float('inf'))
+    min_ms: float = field(default=float("inf"))
     max_ms: float = 0.0
 
     def record(self, duration_ms: float) -> None:
@@ -53,12 +53,12 @@ class TimingMetrics:
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization."""
         return {
-            'stage_name': self.stage_name,
-            'total_ms': round(self.total_ms, 2),
-            'count': self.count,
-            'avg_ms': round(self.avg_ms, 2),
-            'min_ms': round(self.min_ms, 2) if self.count > 0 else 0.0,
-            'max_ms': round(self.max_ms, 2),
+            "stage_name": self.stage_name,
+            "total_ms": round(self.total_ms, 2),
+            "count": self.count,
+            "avg_ms": round(self.avg_ms, 2),
+            "min_ms": round(self.min_ms, 2) if self.count > 0 else 0.0,
+            "max_ms": round(self.max_ms, 2),
         }
 
 

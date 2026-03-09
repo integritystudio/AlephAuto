@@ -1,6 +1,6 @@
 # AlephAuto Pipeline Data Flow Documentation
 
-**Last Updated:** 2026-02-26
+**Last Updated:** 2026-03-04
 **Version:** 2.3
 **Author:** System Architecture Documentation
 
@@ -31,6 +31,14 @@
 
 The AlephAuto automation system consists of 11 specialized pipelines built on a unified job queue framework. Each pipeline follows event-driven architecture with automatic retry logic, Sentry error tracking, and real-time dashboard updates via WebSocket.
 
+### Maintenance Notes (2026-03-04)
+
+- Retry orchestration is owned by `SidequestServer` (`sidequest/core/server.ts`), including retry scheduling and `pendingRetries` accounting. Individual workers should not create ad-hoc retry jobs.
+- `GitActivityPipeline` default report-type selection is constrained to valid defaults (`weekly` / `monthly`) before fallback to configured default; this is a type-safety hardening and does not change pipeline data flow.
+- `collect_git_activity.py` and related tests were formatting-only updates; input/output contract remains unchanged.
+- Startup-once runner behavior is verified for `repo-cleanup`, `gitignore`, and `dashboard-populate`: `--run-now`/`--run` creates one startup job, waits for terminal status, and exits when `--cron` is not set.
+- Aggregate test execution is split into `test:all:core` (default, env-sensitive suites skipped via `SKIP_ENV_SENSITIVE_TESTS=1`) and `test:all:full` (includes env-sensitive suites requiring socket bind and writable report/database paths).
+
 ### System Characteristics
 
 - **Framework:** AlephAuto (SidequestServer base class)
@@ -44,12 +52,12 @@ The AlephAuto automation system consists of 11 specialized pipelines built on a 
 
 | Category | Pipelines | Language Stack |
 |----------|-----------|----------------|
-| **Code Analysis** | Duplicate Detection, Test Refactor | JavaScript + Python + TypeScript |
-| **Code Quality** | Bugfix Audit | JavaScript + Shell |
-| **Documentation** | Schema Enhancement | JavaScript |
-| **Operations** | Repomix, Gitignore, Repository Cleanup | JavaScript + Shell |
+| **Code Analysis** | Duplicate Detection, Test Refactor | TypeScript + Python |
+| **Code Quality** | Bugfix Audit | TypeScript + Shell |
+| **Documentation** | Schema Enhancement | TypeScript |
+| **Operations** | Repomix, Gitignore, Repository Cleanup | TypeScript + Shell |
 | **Observability** | Dashboard Populate | TypeScript (external) |
-| **Reporting** | Git Activity, Plugin Manager, Claude Health | JavaScript + Python + Shell |
+| **Reporting** | Git Activity, Plugin Manager, Claude Health | TypeScript + Python + Shell |
 
 ---
 
@@ -199,16 +207,16 @@ graph LR
 
 | # | Pipeline | Job Type | Runner File | Worker File | Base Class | Git Workflow | Languages |
 |---|----------|----------|-------------|-------------|------------|--------------|-----------|
-| 1 | Duplicate Detection | `duplicate-detection` | `duplicate-detection-pipeline.ts` | `workers/duplicate-detection-worker.ts` (API/registry) · inline class in pipeline file (CLI runner) | functional | ⚠️ Custom | JS + Python |
-| 2 | Schema Enhancement | `schema-enhancement` | `schema-enhancement-pipeline.ts` | `schema-enhancement-worker.ts` | BasePipeline | ✅ Yes | JavaScript |
-| 3 | Git Activity | `git-activity` | `git-activity-pipeline.ts` | `git-activity-worker.ts` | BasePipeline | ❌ No | JS + Python |
-| 4 | Gitignore Manager | `gitignore-manager` | `gitignore-pipeline.ts` | `gitignore-worker.ts` | functional | ⚠️ Batch N/A | JavaScript |
-| 5 | Repomix | `repomix` | N/A (cron server) | `repomix-worker.ts` | — | ❌ No | JavaScript |
-| 6 | Plugin Manager | `plugin-manager` | `plugin-management-pipeline.ts` | (embedded in utils) | BasePipeline | ❌ No | JavaScript |
-| 7 | Claude Health | `claude-health` | `claude-health-pipeline.ts` | `claude-health-worker.ts` | BasePipeline | ❌ No | JS + Shell |
+| 1 | Duplicate Detection | `duplicate-detection` | `duplicate-detection-pipeline.ts` | `workers/duplicate-detection-worker.ts` (API/registry) · inline class in pipeline file (CLI runner) | functional | ⚠️ Custom | TS + Python |
+| 2 | Schema Enhancement | `schema-enhancement` | `schema-enhancement-pipeline.ts` | `schema-enhancement-worker.ts` | BasePipeline | ✅ Yes | TypeScript |
+| 3 | Git Activity | `git-activity` | `git-activity-pipeline.ts` | `git-activity-worker.ts` | BasePipeline | ❌ No | TS + Python |
+| 4 | Gitignore Manager | `gitignore-manager` | `gitignore-pipeline.ts` | `gitignore-worker.ts` | functional | ⚠️ Batch N/A | TypeScript |
+| 5 | Repomix | `repomix` | N/A (cron server) | `repomix-worker.ts` | — | ❌ No | TypeScript |
+| 6 | Plugin Manager | `plugin-manager` | `plugin-management-pipeline.ts` | (embedded in utils) | BasePipeline | ❌ No | TypeScript |
+| 7 | Claude Health | `claude-health` | `claude-health-pipeline.ts` | `claude-health-worker.ts` | BasePipeline | ❌ No | TS + Shell |
 | 8 | Test Refactor | `test-refactor` | `test-refactor-pipeline.ts` | `test-refactor-worker.ts` | functional | ✅ Optional | TypeScript |
-| 9 | Repository Cleanup | `repo-cleanup` | `repo-cleanup-pipeline.ts` | `repo-cleanup-worker.ts` | functional | ❌ No | JS + Shell |
-| 10 | Bugfix Audit | `bugfix-audit` | `bugfix-audit-pipeline.ts` | `bugfix-audit-worker.ts` | BasePipeline | ✅ Multi-commit | JS + Shell |
+| 9 | Repository Cleanup | `repo-cleanup` | `repo-cleanup-pipeline.ts` | `repo-cleanup-worker.ts` | functional | ❌ No | TS + Shell |
+| 10 | Bugfix Audit | `bugfix-audit` | `bugfix-audit-pipeline.ts` | `bugfix-audit-worker.ts` | BasePipeline | ✅ Multi-commit | TS + Shell |
 | 11 | Dashboard Populate | `dashboard-populate` | `dashboard-populate-pipeline.ts` | `dashboard-populate-worker.ts` | functional | ❌ No | TypeScript |
 
 ---
@@ -479,7 +487,7 @@ graph TB
 ### 3. Git Activity Reporter Pipeline
 
 **Purpose:** Generate weekly/monthly git activity reports with visualizations
-**Job Type:** `git-activity-report`
+**Job Type:** Worker `git-activity` (payload type: `git-activity-report`)
 **Languages:** JavaScript → Python
 **Git Workflow:** ❌ No (generates reports only)
 
@@ -492,29 +500,40 @@ graph TB
     C --> D{Report Type?}
     D -->|Weekly| E[--weekly flag]
     D -->|Monthly| F[--monthly flag]
-    D -->|Custom| G[--since/--until dates]
+    D -->|Custom| G[--start-date [--end-date]]
     E --> H[Execute Python Script]
     F --> H
     G --> H
     H --> I[collect_git_activity.py]
-    I --> J[Scan ~/code for git repos]
+    I --> J[Scan configured repos + dotfiles]
     J --> K[Collect commit data]
     K --> L[Calculate statistics]
-    L --> M[Generate JSON report]
-    M --> N{Visualizations?}
-    N -->|Yes| O[Generate SVG charts]
-    N -->|No| P[Skip visualizations]
-    O --> Q[Save output files]
+    L --> M{Output format?}
+    M -->|markdown| N[Generate Jekyll markdown]
+    M -->|json| O[Generate JSON]
+    M -->|both| P[Generate markdown + JSON]
+    N --> Q{Visualizations?}
+    O --> Q
     P --> Q
-    Q --> R[Parse stats from stdout]
-    R --> S[Verify files exist]
-    S --> T[Return job result]
+    Q -->|Yes| R[Generate SVG charts]
+    Q -->|No| S[Skip visualizations]
+    R --> T[Save output files]
+    S --> T
+    T --> U[Parse stats from stdout]
+    U --> V[Verify files exist]
+    V --> W[Return job result]
 
     style I fill:#bfb,stroke:#333
     style J fill:#bfb,stroke:#333
     style K fill:#bfb,stroke:#333
-    style O fill:#bbf,stroke:#333
+    style R fill:#bbf,stroke:#333
 ```
+
+#### Scheduling Behavior
+
+- Scheduled mode registers **both** weekly and monthly jobs.
+- Weekly cron: `GIT_CRON_SCHEDULE` (default `0 20 * * 0`).
+- Monthly cron: `GIT_MONTHLY_CRON_SCHEDULE` (default `0 8 1 * *`).
 
 #### Python Script Flow
 
@@ -522,14 +541,14 @@ graph TB
 
 ```python
 # 1. Parse command-line arguments
-args = parse_args()  # --weekly, --monthly, --since, --until
+args = parse_args()  # --weekly, --monthly, --start-date [--end-date], --output-format, --no-visualizations
 
 # 2. Find git repositories
-repos = find_git_repositories(base_dir="~/code")
+repos = find_git_repositories(config)  # CODE_DIR, REPORTS_DIR, additional_repositories, include_dotfiles
 
 # 3. Collect commit data per repository
 for repo in repos:
-    commits = git log --since={date} --until={date} --all
+    commits = git log --since={date} [--until={date}] --all
     parse_commit_data(commits)
 
 # 4. Aggregate statistics
@@ -537,17 +556,18 @@ total_commits = sum(repo.commits for repo in repos)
 total_additions = sum(repo.additions for repo in repos)
 total_deletions = sum(repo.deletions for repo in repos)
 
-# 5. Generate visualizations (optional)
-if --no-visualizations not set:
-    generate_commit_timeline_svg()
-    generate_repository_heatmap_svg()
+# 5. Save report outputs based on output format
+if args.output_format in ("markdown", "both"):
+    generate_jekyll_report(...)
+if args.output_format in ("json", "both") or args.json_output:
+    save_json_report(...)
 
-# 6. Save JSON report
-save_json_report({
-    "total_commits": total_commits,
-    "repositories": [...],
-    "time_period": {...}
-})
+# 6. Generate visualizations (optional)
+if not args.no_visualizations:
+    generate_svg_charts(...)
+
+# 7. Print summary + return
+print_summary(...)
 ```
 
 #### Job Data Format
@@ -558,8 +578,8 @@ save_json_report({
   reportType: "weekly" | "monthly" | "custom",
   days: 7 | 30 | null,
   sinceDate: "2025-11-17" | null,
-  untilDate: "2025-11-24" | null,
-  outputFormat: "json",
+  untilDate: "2025-11-24" | null, // optional when sinceDate is provided
+  outputFormat: "json" | "markdown" | "both",
   generateVisualizations: true
 }
 
@@ -576,20 +596,20 @@ save_json_report({
     linesDeleted: 1876
   },
   outputFiles: [
-    { path: "/tmp/git-activity-report.json", size: 45678, exists: true },
-    { path: "/tmp/commit-timeline.svg", size: 12345, exists: true }
+    { path: "/Users/<user>/code/PersonalSite/_reports/2026-03-04-git-activity-report.json", size: 45678, exists: true },
+    { path: "/Users/<user>/code/PersonalSite/assets/images/git-activity-2026/top-10-repos.svg", size: 12345, exists: true }
   ],
-  timestamp: "2025-11-24T12:00:00.000Z"
+  timestamp: "2026-03-04T12:00:00.000Z"
 }
 ```
 
 #### Output Files
 
-| File Type | Description | Format |
-|-----------|-------------|--------|
-| JSON Report | Aggregated statistics | `/tmp/git-activity-report.json` |
-| Timeline SVG | Commit timeline visualization | `/tmp/commit-timeline.svg` |
-| Heatmap SVG | Repository activity heatmap | `/tmp/repository-heatmap.svg` |
+| File Type | Description | Default Location |
+|-----------|-------------|------------------|
+| Markdown Report | Jekyll-formatted git activity report | `~/code/PersonalSite/_reports/{date}-git-activity-report.md` |
+| JSON Report | Aggregated statistics (when `--output-format json|both` or `--json-output`) | `~/code/PersonalSite/_reports/{date}-git-activity-report.json` or custom `--json-output` path |
+| SVG Charts | Repository/language/category visualizations | `~/code/PersonalSite/assets/images/git-activity-{year}/` |
 
 ---
 
@@ -696,6 +716,18 @@ async addToGitignore(repoPath) {
   gitignoreEntry: "repomix-output.xml"
 }
 ```
+
+#### Scheduling & Startup Modes
+
+**Cron Schedule (Doppler):**
+```bash
+GITIGNORE_CRON_SCHEDULE="0 4 * * *"  # Daily at 4 AM
+```
+
+**Startup-once behavior:**
+
+- `--run-now` / `--run` and no `--cron`: create startup job, wait for terminal status, then exit.
+- `--run-now` / `--run` with `--cron`: run startup job first, then continue as a scheduler process.
 
 ---
 
@@ -1440,6 +1472,11 @@ find $TARGET_DIR -maxdepth 2 -type d \( \
 CLEANUP_CRON_SCHEDULE="0 3 * * 0"  # Weekly, Sunday 3 AM
 ```
 
+**Startup-once behavior:**
+
+- `--run-now` / `--run` and no `--cron`: create startup job, wait for terminal status, then exit.
+- `--run-now` / `--run` with `--cron`: run startup job first, then continue as a scheduler process.
+
 **Manual Execution:**
 ```bash
 npm run cleanup:once      # Run now
@@ -1674,6 +1711,8 @@ npm run dashboard:populate:dry    # Dry run preview
 npm run dashboard:populate:schedule  # Start cron scheduler
 ```
 
+**Startup-once behavior:** when invoked with `--run-now` / `--run` and without `--cron`, the runner waits for the startup job to finish and exits.
+
 #### File Locations
 
 | Component | Path |
@@ -1879,14 +1918,14 @@ this.worker.on('job:failed', (job: Job) => {
 
 ### 3. Configuration via Doppler
 
-**All pipelines use centralized config (`sidequest/core/config.ts`):**
+**Pipelines use centralized config (`sidequest/core/config.ts`) plus runner-local env/CLI overrides where needed:**
 ```typescript
 import { config } from './sidequest/core/config.ts';
 const port = config.jobsApiPort;    // Correct — typed access
-// NEVER use process.env directly (see CLAUDE.md)
-// Exception: test-refactor-pipeline and dashboard-populate-pipeline read
-// RUN_ON_STARTUP directly — intentional opt-out/opt-in defaults that differ
-// from config.runOnStartup (documented inline with comments in those files)
+// Preferred: typed config values from config.ts.
+// Runner-local scheduling/operation settings may read process.env directly
+// (for example, *_CRON_SCHEDULE, *_DRY_RUN, *_BASE_DIR/TARGET_DIR) and parse
+// CLI flags (--run-now/--run/--cron) to control one-shot vs scheduler mode.
 ```
 
 ### 4. Retry Logic with Error Classification
@@ -2047,7 +2086,7 @@ export async function setupServerWithPortFallback(httpServer, options) {
 
 **Cleanup on process termination:**
 ```javascript
-// api/server.js
+// api/server.ts
 const signals = ['SIGTERM', 'SIGINT', 'SIGHUP'];
 
 signals.forEach((signal) => {
@@ -2086,6 +2125,6 @@ signals.forEach((signal) => {
 
 ---
 
-**Document Version:** 2.2
-**Last Updated:** 2026-02-26
+**Document Version:** 2.3
+**Last Updated:** 2026-03-04
 **Maintainer:** Architecture Team

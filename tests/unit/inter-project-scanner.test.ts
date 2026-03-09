@@ -7,6 +7,7 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert';
 import { InterProjectScanner } from '../../sidequest/pipeline-core/inter-project-scanner.ts';
+import { TestScoreFixtures } from '../constants/test-score-constants.ts';
 
 describe('InterProjectScanner', () => {
   let scanner;
@@ -347,7 +348,7 @@ describe('InterProjectScanner', () => {
           category: 'api_handler',
           affected_repositories: ['repo1', 'repo2', 'repo3', 'repo4'],
           affected_files: ['repo1/a.js', 'repo2/b.js', 'repo3/c.js', 'repo4/d.js'],
-          impact_score: 80
+          impact_score: TestScoreFixtures.HIGH_IMPACT_SCORE
         }
       ];
 

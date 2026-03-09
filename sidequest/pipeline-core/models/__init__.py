@@ -41,28 +41,25 @@ from .scan_report import (
 
 __all__ = [
     # code_block
-    'CodeBlock',
-    'SourceLocation',
-    'ASTNode',
-    'LanguageType',
-    'SemanticCategory',
-
+    "CodeBlock",
+    "SourceLocation",
+    "ASTNode",
+    "LanguageType",
+    "SemanticCategory",
     # duplicate_group
-    'DuplicateGroup',
-    'SimilarityMethod',
-
+    "DuplicateGroup",
+    "SimilarityMethod",
     # consolidation_suggestion
-    'ConsolidationSuggestion',
-    'ConsolidationStrategy',
-    'ImplementationComplexity',
-    'MigrationRisk',
-    'MigrationStep',
-
+    "ConsolidationSuggestion",
+    "ConsolidationStrategy",
+    "ImplementationComplexity",
+    "MigrationRisk",
+    "MigrationStep",
     # scan_report
-    'ScanReport',
-    'RepositoryInfo',
-    'ScanConfiguration',
-    'ScanMetrics',
+    "ScanReport",
+    "RepositoryInfo",
+    "ScanConfiguration",
+    "ScanMetrics",
 ]
 
-__version__ = '1.0.0'
+__version__ = "1.0.0"

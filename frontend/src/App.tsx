@@ -10,9 +10,12 @@
 
 import { useCallback, useState } from 'react';
 import { Layout } from './components/Layout';
+import { PipelineDetailPanel } from './components/PipelineDetailPanel/PipelineDetailPanel';
+import { JobLogsModal } from './components/JobLogsModal/JobLogsModal';
 import { useWebSocketConnection } from './hooks/useWebSocketConnection';
 import { useDashboardStore } from './store/dashboard';
 import { apiService } from './services/api';
+import { JobStatus } from './types';
 import './App.css';
 
 /**
@@ -34,9 +37,9 @@ function App() {
   // Connect WebSocket and load initial data
   useWebSocketConnection();
 
-  // Local state for modal/detail views (prefixed _ for future use)
-  const [_selectedJobForLogs, setSelectedJobForLogs] = useState<string | null>(null);
-  const [_selectedPipelineDetail, setSelectedPipelineDetail] = useState<string | null>(null);
+  // Local state for modal/detail views
+  const [selectedJobForLogs, setSelectedJobForLogs] = useState<string | null>(null);
+  const [selectedPipelineDetail, setSelectedPipelineDetail] = useState<string | null>(null);
 
   // Connect to Zustand store
   const {
@@ -117,7 +120,7 @@ function App() {
       if (result.success) {
         console.log('[App] Job cancelled successfully:', result);
         // Update job status in store
-        updateJob(jobId, { status: 'cancelled' as any });
+        updateJob(jobId, { status: JobStatus.CANCELLED });
       } else {
         throw new Error('Failed to cancel job');
       }
@@ -139,7 +142,7 @@ function App() {
       if (result.success) {
         console.log('[App] Job retried successfully:', result);
         // Update job status in store to queued
-        updateJob(jobId, { status: 'queued' as any, retryCount: (activeJobs.find(j => j.id === jobId)?.retryCount ?? 0) + 1 });
+        updateJob(jobId, { status: JobStatus.QUEUED, retryCount: (activeJobs.find(j => j.id === jobId)?.retryCount ?? 0) + 1 });
       } else {
         throw new Error('Failed to retry job');
       }
@@ -193,6 +196,8 @@ function App() {
     window.location.reload();
   }, []);
 
+  const selectedPipeline = pipelines.find(p => p.id === selectedPipelineDetail);
+
   return (
     <div className="app">
       <Layout
@@ -212,6 +217,22 @@ function App() {
         onActivityItemClick={handleActivityItemClick}
         onActivityClear={handleActivityClear}
       />
+
+      {/* Pipeline Detail Slide-out */}
+      {selectedPipeline && (
+        <PipelineDetailPanel
+          pipeline={selectedPipeline}
+          onClose={() => setSelectedPipelineDetail(null)}
+        />
+      )}
+
+      {/* Job Logs Modal */}
+      {selectedJobForLogs && (
+        <JobLogsModal
+          jobId={selectedJobForLogs}
+          onClose={() => setSelectedJobForLogs(null)}
+        />
+      )}
     </div>
   );
 }

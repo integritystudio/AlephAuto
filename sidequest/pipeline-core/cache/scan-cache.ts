@@ -7,6 +7,8 @@
 
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 import crypto from 'crypto';
+import { GIT_ACTIVITY, LIMITS, PAGINATION } from '../../core/constants.ts';
+import { TIME_MS } from '../../core/units.ts';
 
 const logger = createComponentLogger('ScanResultCache');
 
@@ -88,7 +90,7 @@ export class ScanResultCache {
    */
   constructor(redisClient: RedisClient, options: ScanCacheOptions = {}) {
     this.redis = redisClient;
-    this.ttl = options.ttl ?? (30 * 24 * 60 * 60); // Default: 30 days in seconds
+    this.ttl = options.ttl ?? (GIT_ACTIVITY.MONTHLY_WINDOW_DAYS * (TIME_MS.DAY / TIME_MS.SECOND)); // Default: 30 days in seconds
     this.keyPrefix = options.keyPrefix ?? 'scan:';
     this.enabled = options.enabled !== false;
   }
@@ -265,7 +267,7 @@ export class ScanResultCache {
       await this.redis.lrange({
         name: indexKey,
         start: 0,
-        stop: 99
+        stop: PAGINATION.DEFAULT_ALL_LIMIT - 1
       });
     } catch (error) {
       logger.warn({ error, cacheKey }, 'Failed to update cache index');
@@ -337,7 +339,7 @@ export class ScanResultCache {
         total_cached_scans: cacheKeys.length,
         cache_enabled: this.enabled,
         ttl_seconds: this.ttl,
-        ttl_days: Math.floor(this.ttl / (24 * 60 * 60)),
+        ttl_days: Math.floor(this.ttl / (TIME_MS.DAY / TIME_MS.SECOND)),
         prefix: this.keyPrefix
       };
 
@@ -350,7 +352,7 @@ export class ScanResultCache {
         total_cached_scans: 0,
         cache_enabled: this.enabled,
         ttl_seconds: this.ttl,
-        ttl_days: Math.floor(this.ttl / (24 * 60 * 60)),
+        ttl_days: Math.floor(this.ttl / (TIME_MS.DAY / TIME_MS.SECOND)),
         prefix: this.keyPrefix,
         error: (error as Error).message
       };
@@ -365,7 +367,7 @@ export class ScanResultCache {
    * @returns {Promise<IndexEntry[]>} The Promise<IndexEntry[]>
    * @async
    */
-  async listCachedScans(limit = 10): Promise<IndexEntry[]> {
+  async listCachedScans(limit = LIMITS.REPOSITORY_SCAN_HISTORY_ENTRIES): Promise<IndexEntry[]> {
     try {
       const indexKey = `${this.keyPrefix}index`;
       const entries = await this.redis.lrange({
@@ -485,7 +487,7 @@ export class ScanResultCache {
 
     const age = Date.now() - new Date(metadata.cached_at).getTime();
 
-    logger.debug({ repoPath, ageMs: age, ageDays: age / (24 * 60 * 60 * 1000) }, 'Calculated cache age');
+    logger.debug({ repoPath, ageMs: age, ageDays: age / TIME_MS.DAY }, 'Calculated cache age');
 
     return age;
   }

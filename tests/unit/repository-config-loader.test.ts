@@ -15,6 +15,9 @@ describe('RepositoryConfigLoader', () => {
   let tempDir;
   let configPath;
 
+  /**
+   * createTestConfig.
+   */
   const createTestConfig = (config) => {
     return JSON.stringify({
       scanConfig: {

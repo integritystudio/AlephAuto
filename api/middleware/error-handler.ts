@@ -8,6 +8,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { createComponentLogger } from '#sidequest/utils/logger.ts';
 import { config } from '#sidequest/core/config.ts';
 import * as Sentry from '@sentry/node';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 const logger = createComponentLogger('ErrorHandler');
 
@@ -19,6 +20,12 @@ interface ApiError extends Error {
 
 const SENSITIVE_KEYS = new Set(['password', 'token', 'secret', 'apiKey', 'api_key', 'authorization', 'key', 'credential', 'credentials']);
 
+/**
+ * Redacts sensitive keys from request bodies before logging.
+ *
+ * @param body Request body.
+ * @returns Sanitized body with sensitive fields masked.
+ */
 function sanitizeBody(body: unknown): unknown {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return body;
   return Object.fromEntries(
@@ -29,7 +36,12 @@ function sanitizeBody(body: unknown): unknown {
 }
 
 /**
- * Error handler middleware
+ * Handles API errors and sends a standardized JSON response.
+ *
+ * @param err Error object raised by route handlers.
+ * @param req Express request.
+ * @param res Express response.
+ * @param _next Express next callback (unused).
  */
 export function errorHandler(err: ApiError, req: Request, res: Response, _next: NextFunction): void {
   // Log error
@@ -59,7 +71,7 @@ export function errorHandler(err: ApiError, req: Request, res: Response, _next: 
   });
 
   // Determine status code
-  const statusCode = err.statusCode || err.status || 500;
+  const statusCode = err.statusCode || err.status || HttpStatus.INTERNAL_SERVER_ERROR;
 
   // Prepare standardized error response
   const errorResponse: {
@@ -69,7 +81,7 @@ export function errorHandler(err: ApiError, req: Request, res: Response, _next: 
   } = {
     success: false,
     error: {
-      code: err.code || (statusCode >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST'),
+      code: err.code || (statusCode >= HttpStatus.INTERNAL_SERVER_ERROR ? 'INTERNAL_ERROR' : 'BAD_REQUEST'),
       message: err.message || 'An unexpected error occurred'
     },
     timestamp: new Date().toISOString()

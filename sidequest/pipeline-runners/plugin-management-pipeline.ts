@@ -1,8 +1,12 @@
 #!/usr/bin/env -S node --strip-types
 import { PluginManagerWorker } from '../utils/plugin-manager.ts';
 import { config } from '../core/config.ts';
+import { JOB_EVENTS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
+import { realpathSync } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const logger = createComponentLogger('PluginPipeline');
 
@@ -34,6 +38,9 @@ interface AuditResult {
  * Automatically audits Claude Code plugins on a schedule
  */
 class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
+  /**
+   * constructor.
+   */
   constructor(options: Record<string, unknown> = {}) {
     super(new PluginManagerWorker({
       maxConcurrent: 1,
@@ -49,18 +56,18 @@ class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
    * Setup event listeners for job events
    */
   private setupEventListeners(): void {
-    this.worker.on('job:created', (job: Job) => {
+    this.worker.on(JOB_EVENTS.CREATED, (job: Job) => {
       logger.info({ jobId: job.id }, 'Plugin audit job created');
     });
 
-    this.worker.on('job:started', (job: Job) => {
+    this.worker.on(JOB_EVENTS.STARTED, (job: Job) => {
       logger.info({
         jobId: job.id,
         detailed: (job.data as Record<string, unknown>).detailed
       }, 'Plugin audit started');
     });
 
-    this.worker.on('job:completed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
       const result = job.result as unknown as AuditResult;
       const duration = job.completedAt && job.startedAt
         ? job.completedAt.getTime() - job.startedAt.getTime()
@@ -77,7 +84,7 @@ class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
       this.displayRecommendations(result);
     });
 
-    this.worker.on('job:failed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.FAILED, (job: Job) => {
       logError(logger, job.error, 'Plugin audit failed', { jobId: job.id });
     });
   }
@@ -90,9 +97,9 @@ class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
       return;
     }
 
-    console.log('\n╔════════════════════════════════════════════════════════════════╗');
-    console.log('║          Plugin Audit Recommendations                          ║');
-    console.log('╚════════════════════════════════════════════════════════════════╝\n');
+    logger.info('\n╔════════════════════════════════════════════════════════════════╗');
+    logger.info('║          Plugin Audit Recommendations                          ║');
+    logger.info('╚════════════════════════════════════════════════════════════════╝\n');
 
     result.recommendations.forEach((rec) => {
       const priorityIcon: Record<string, string> = {
@@ -102,18 +109,18 @@ class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
       };
       const icon = priorityIcon[rec.priority] || '📌';
 
-      console.log(`${icon} [${rec.priority.toUpperCase()}] ${rec.type}`);
-      console.log(`   ${rec.message}`);
-      console.log(`   Action: ${rec.action}`);
+      logger.info(`${icon} [${rec.priority.toUpperCase()}] ${rec.type}`);
+      logger.info(`   ${rec.message}`);
+      logger.info(`   Action: ${rec.action}`);
 
       if (rec.details) {
-        console.log('   Details:');
+        logger.info('   Details:');
         rec.details.forEach((detail) => {
-          console.log(`     • ${detail.category}: ${detail.plugins.join(', ')}`);
-          console.log(`       → ${detail.suggestion}`);
+          logger.info(`     • ${detail.category}: ${detail.plugins.join(', ')}`);
+          logger.info(`       → ${detail.suggestion}`);
         });
       }
-      console.log('');
+      logger.info('');
     });
   }
 
@@ -159,8 +166,19 @@ class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
   }
 }
 
+function isDirectExecution(): boolean {
+  const currentModulePath = fileURLToPath(import.meta.url);
+  const entryPath = process.argv[1];
+  if (!entryPath) return false;
+  try {
+    return realpathSync(path.resolve(entryPath)) === realpathSync(currentModulePath);
+  } catch {
+    return false;
+  }
+}
+
 // Run if executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectExecution()) {
   const pipeline = new PluginManagementPipeline();
 
   const runOnStartup = config.runOnStartup;

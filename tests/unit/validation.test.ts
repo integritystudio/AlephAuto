@@ -204,6 +204,9 @@ describe('Validation Middleware', () => {
   }).strict();
 
   // Helper to create mock request/response
+  /**
+   * createMocks.
+   */
   function createMocks(data, type = 'body') {
     const req = {
       body: type === 'body' ? data : {},
@@ -215,10 +218,16 @@ describe('Validation Middleware', () => {
     const res = {
       statusCode: 200,
       responseData: null,
+      /**
+       * status.
+       */
       status(code) {
         this.statusCode = code;
         return this;
       },
+      /**
+       * json.
+       */
       json(data) {
         this.responseData = data;
         return this;
@@ -226,6 +235,9 @@ describe('Validation Middleware', () => {
     };
     let nextCalled = false;
     let nextError = null;
+    /**
+     * next.
+     */
     const next = (err) => {
       nextCalled = true;
       nextError = err;
@@ -285,6 +297,9 @@ describe('Validation Middleware', () => {
     it('should pass non-Zod errors to next', () => {
       // Create a schema that throws a non-Zod error
       const BrokenSchema = {
+        /**
+         * parse.
+         */
         parse() {
           throw new Error('Something unexpected');
         }
@@ -340,6 +355,9 @@ describe('Validation Middleware', () => {
 
     it('should pass non-Zod errors to next', () => {
       const BrokenSchema = {
+        /**
+         * parse.
+         */
         parse() {
           throw new Error('Query schema error');
         }
@@ -400,6 +418,9 @@ describe('Validation Middleware', () => {
 
     it('should pass non-Zod errors to next', () => {
       const BrokenSchema = {
+        /**
+         * parse.
+         */
         parse() {
           throw new Error('Params schema error');
         }

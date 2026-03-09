@@ -139,7 +139,7 @@ def calculate_structural_similarity(
 
 ### Implementation
 
-**File:** `lib/similarity/structural.py` (lines 422-482)
+**File:** `sidequest/pipeline-core/similarity/structural.py` (lines 422-482)
 
 ```python
 def calculate_structural_similarity(code1: str, code2: str, threshold: float = 0.90) -> Tuple[float, str]:
@@ -220,7 +220,7 @@ class SemanticFeatures:
 
 ### Extraction Function
 
-**File:** `lib/similarity/structural.py` (lines 29-93)
+**File:** `sidequest/pipeline-core/similarity/structural.py` (lines 29-93)
 
 ```python
 def extract_semantic_features(source_code: str) -> SemanticFeatures:
@@ -325,7 +325,7 @@ Normalization removes variable-specific information to enable **structural compa
 
 ### Normalization Function
 
-**File:** `lib/similarity/structural.py` (lines 96-189)
+**File:** `sidequest/pipeline-core/similarity/structural.py` (lines 96-189)
 
 ```python
 def normalize_code(source_code: str) -> str:
@@ -442,7 +442,7 @@ const var=Math.min(var,var);  // "min" preserved
 
 The penalty system applies multiplicative penalties based on semantic feature mismatches.
 
-**File:** `lib/similarity/structural.py` (lines 373-419)
+**File:** `sidequest/pipeline-core/similarity/structural.py` (lines 373-419)
 
 ```python
 def calculate_semantic_penalty(features1: SemanticFeatures, features2: SemanticFeatures) -> float:
@@ -810,7 +810,7 @@ adjusted_similarity = (base_similarity * 0.7) + (chain_similarity * 0.3)
 
 ### Test Results
 
-**Accuracy Test (test/accuracy/accuracy-test.js):**
+**Current regression test (`sidequest/pipeline-core/similarity/test_grouping_layer3.py`):**
 ```
 Precision: 100.00% (0 false positives)
 Recall: 87.50% (7/8 true duplicates detected)
@@ -910,8 +910,8 @@ for i in range(match_line - 1, match_line - 11, -1):
 ## Related Documentation
 
 - [Pipeline Data Flow Documentation](./pipeline-data-flow.md)
-- [Grouping Algorithm Documentation](../../lib/similarity/grouping.py) (see inline comments)
-- [Accuracy Test Results](../../tests/accuracy/README.md)
+- [Grouping Algorithm Documentation](../../sidequest/pipeline-core/similarity/grouping.py) (see inline comments)
+- [Layer 3 Grouping Test](../../sidequest/pipeline-core/similarity/test_grouping_layer3.py)
 
 ---
 

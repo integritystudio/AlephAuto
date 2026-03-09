@@ -7,6 +7,7 @@
 
 import type { Response } from 'express';
 import { createComponentLogger } from '#sidequest/utils/logger.ts';
+import { HttpStatus, type HttpStatusCode } from '../../shared/constants/http-status.ts';
 
 const logger = createComponentLogger('ApiError');
 
@@ -39,10 +40,13 @@ export const ERROR_CODES = {
  */
 export class ApiError extends Error {
   code: string;
-  status: number;
+  status: HttpStatusCode;
   details: object | null;
 
-  constructor(code: string, message: string, status = 400, details: object | null = null) {
+  /**
+   * constructor.
+   */
+  constructor(code: string, message: string, status: HttpStatusCode = HttpStatus.BAD_REQUEST, details: object | null = null) {
     super(message);
     this.code = code;
     this.status = status;
@@ -50,6 +54,9 @@ export class ApiError extends Error {
     this.name = 'ApiError';
   }
 
+  /**
+   * toJSON.
+   */
   toJSON() {
     const response: { success: false; error: { code: string; message: string; details?: object }; timestamp: string } = {
       success: false,
@@ -71,7 +78,13 @@ export class ApiError extends Error {
 /**
  * Send standardized error response
  */
-export function sendError(res: Response, code: string, message: string, status = 400, details: object | null = null) {
+export function sendError(
+  res: Response,
+  code: string,
+  message: string,
+  status: HttpStatusCode = HttpStatus.BAD_REQUEST,
+  details: object | null = null
+) {
   const response: { success: false; error: { code: string; message: string; details?: object }; timestamp: string } = {
     success: false,
     error: {
@@ -94,7 +107,7 @@ export function sendError(res: Response, code: string, message: string, status =
  * Send validation error response
  */
 export function sendValidationError(res: Response, message: string, errors: unknown[] = []) {
-  return sendError(res, ERROR_CODES.INVALID_REQUEST, message, 400, { errors });
+  return sendError(res, ERROR_CODES.INVALID_REQUEST, message, HttpStatus.BAD_REQUEST, { errors });
 }
 
 /**
@@ -105,7 +118,7 @@ export function sendNotFoundError(res: Response, resource: string, identifier: s
     res,
     ERROR_CODES.NOT_FOUND,
     `${resource} '${identifier}' not found`,
-    404
+    HttpStatus.NOT_FOUND
   );
 }
 
@@ -113,5 +126,5 @@ export function sendNotFoundError(res: Response, resource: string, identifier: s
  * Send internal server error response
  */
 export function sendInternalError(res: Response, message = 'An internal error occurred') {
-  return sendError(res, ERROR_CODES.INTERNAL_ERROR, message, 500);
+  return sendError(res, ERROR_CODES.INTERNAL_ERROR, message, HttpStatus.INTERNAL_SERVER_ERROR);
 }

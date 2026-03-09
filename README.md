@@ -4,7 +4,7 @@ Job queue framework with real-time dashboard for automation pipelines.
 
 ```mermaid
 graph TD
-    root["AlephAuto<br/><i>v2.1.0 &bull; Node + Python</i>"]
+    root["AlephAuto<br/><i>v2.3.x &bull; Node + Python</i>"]
 
     root --> api["api/<br/><i>REST API + WebSocket</i>"]
     root --> frontend["frontend/<br/><i>React Dashboard (Vite + TS)</i>"]
@@ -55,7 +55,7 @@ graph TD
 | 2 | **Schema Enhancement** | JS | 3 AM daily | Modified READMEs + JSON |
 | 3 | **Git Activity Reporter** | JS | Sunday 8 PM | Jekyll MD + SVG |
 | 4 | **Repository Cleanup** | JS | Sunday 3 AM | Cleanup logs |
-| 5 | **Repomix** | JS | 2 AM daily | `condense/*.txt` |
+| 5 | **Repomix** | JS | 2 AM daily | `docs/repomix/{repo-compressed.xml,repomix.xml}` |
 | 6 | **Codebase Health** | JS + Python | 8 AM daily | MD/JSON reports |
 | 7 | **Dashboard Populate** | JS | 6 AM/6 PM | Cloudflare KV + reports |
 | 8 | **Bugfix Audit** | JS | Recurring | Audit reports |
@@ -74,7 +74,10 @@ doppler setup --project bottleneck --config dev
 ```bash
 doppler run -- npm start                  # Repomix cron
 doppler run -- npm run dashboard          # Dashboard UI → http://localhost:8080
-npm test && npm run test:integration      # Tests
+npm run test:all:core                     # Core Node suites (env-gated)
+npm run test:all:env                      # Env-sensitive suites (safe + host-required)
+npm run test:all                          # Core Node + Python tests
+npm run test:all:full                     # Core + env-sensitive + Python
 npm run typecheck                         # Type check
 ```
 
@@ -106,7 +109,7 @@ Multi-Language Pipeline (Duplicate Detection)
 ├── frontend/              # React dashboard (Vite + TypeScript)
 │   └── src/               # Components, services, store, types
 ├── sidequest/             # AlephAuto job queue framework
-│   ├── core/              # server.js, job-repository, git-workflow, constants
+│   ├── core/              # server.ts, job-repository, git-workflow, constants
 │   ├── pipeline-core/     # Scan orchestrator, similarity (Python)
 │   ├── pipeline-runners/  # 11 pipeline entry points
 │   └── workers/           # Worker implementations
@@ -131,10 +134,10 @@ npm run dashboard                          # Dashboard UI
 npm run build:frontend                     # Build React app
 
 # Pipelines
-doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js --run-now
+doppler run -- node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts --run-now
 npm run docs:enhance                       # Schema.org injection
 npm run git:weekly                         # Git activity report
-npm run claude:health                      # Codebase health check
+npm run claude:health                      # Claude health check
 npm run dashboard:populate                 # Quality metrics (seed)
 npm run dashboard:populate:full            # Quality metrics (LLM judge)
 npm run bugfix:once                        # Bugfix audit (one-shot)
@@ -144,6 +147,12 @@ npm run plugin:audit                       # Plugin management audit
 # Testing
 npm test                                   # Unit tests
 npm run test:integration                   # Integration tests
+npm run test:all:core                      # Core Node suites (SKIP_ENV_SENSITIVE_TESTS=1)
+npm run test:all:env-safe                  # Env-sensitive suites that are sandbox-safe
+npm run test:all:env-host-required         # Env-sensitive suites requiring host capabilities
+npm run test:all:env                       # Env aggregate (safe + host-required)
+npm run test:all                           # Core Node + Python
+npm run test:all:full                      # Core + env-sensitive + Python
 npm run typecheck                          # TypeScript checks
 
 # Production
@@ -156,18 +165,18 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 | Purpose | File |
 |---------|------|
 | Pipeline coordinator | `sidequest/pipeline-core/scan-orchestrator.ts` |
-| Base job queue | `sidequest/core/server.js` |
-| Job repository | `sidequest/core/job-repository.js` |
-| Git workflow manager | `sidequest/core/git-workflow-manager.js` |
-| Constants | `sidequest/core/constants.js` |
+| Base job queue | `sidequest/core/server.ts` |
+| Job repository | `sidequest/core/job-repository.ts` |
+| Git workflow manager | `sidequest/core/git-workflow-manager.ts` |
+| Constants | `sidequest/core/constants.ts` |
 | Job status types | `api/types/job-status.ts` |
-| API error utilities | `api/utils/api-error.js` |
-| Port manager | `api/utils/port-manager.js` |
-| Worker registry | `api/utils/worker-registry.js` |
+| API error utilities | `api/utils/api-error.ts` |
+| Port manager | `api/utils/port-manager.ts` |
+| Worker registry | `api/utils/worker-registry.ts` |
 
 ## Docs
 
-- [API Reference](docs/API_REFERENCE.md) - 22 REST endpoints
+- [API Reference](docs/API_REFERENCE.md) - REST API endpoints
 - [System Data Flow](docs/architecture/SYSTEM-DATA-FLOW.md) - Architecture diagrams
 - [Error Handling](docs/architecture/ERROR_HANDLING.md) - Retry logic, circuit breaker
 - [Type System](docs/architecture/TYPE_SYSTEM.md) - Zod + TypeScript patterns
@@ -177,8 +186,25 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 - [Adding Pipelines](docs/ADDING_PIPELINES.md) - Pipeline creation guide
 - [Deployment](docs/DEPLOYMENT.md) - Production deployment
 - [Installation](docs/INSTALL.md) - Setup instructions
-- [Changelog](docs/CHANGELOG.md) - Version history (1.x)
-- [Changelog v2.1](docs/2.1/CHANGELOG.md) - v2.1 release
+- [Changelog](docs/CHANGELOG.md) - Legacy/cross-project history
+- [Release Changelogs](docs/changelog/README.md) - v2.x release history (latest: v2.3.20)
+
+## Known Issues
+
+### PM2 6.x + Node `--strip-types` + `.ts` entry points
+
+**Problem:** PM2 6.x loads `.ts` scripts via `import()` (ESM dynamic import), which causes `process.argv[1]` to point to PM2's `ProcessContainerFork.js` instead of the actual script. Pipeline runners that use `isDirectExecution()` to guard `main()` will see a mismatch and never start, causing the process to exit immediately with code 0. PM2 then enters a crash-restart loop.
+
+Additionally, `--strip-types` does not support TypeScript `enum` syntax — use `as const` objects instead. Import paths must use `.ts` extensions (Node v24 does not rewrite `.js` to `.ts`).
+
+**Solution:**
+- Add `process.env.pm_id !== undefined` as a fallback condition alongside `isDirectExecution()` in any pipeline runner managed by PM2
+- Convert `enum` declarations to `const ... as const` objects
+- Use `.ts` import extensions, not `.js`
+- Rebuild native modules (`npm rebuild better-sqlite3`) after Node version changes
+- Disable `wait_ready` in PM2 config — PM2 6.x sends premature SIGINT with `.ts` files
+
+**Affected versions:** Node v24.x, PM2 6.x. Not observed on Node v25.x.
 
 ## License
 

@@ -3,6 +3,7 @@ import { captureProcessOutput } from '@shared/process-io';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { createComponentLogger } from '../../utils/logger.ts';
+import { TIMEOUTS } from '../../core/constants.ts';
 
 // ============================================================================
 // Type Definitions
@@ -313,10 +314,10 @@ export function withTimeout<T>(
 }
 
 export const TIMEOUT = {
-  FAST: 2000,
-  NORMAL: 5000,
-  SLOW: 10000,
-  VERY_SLOW: 15000,
+  FAST: ${TIMEOUTS.TWO_SECONDS_MS},
+  NORMAL: ${TIMEOUTS.SHORT_MS},
+  SLOW: ${TIMEOUTS.TEN_SECONDS_MS},
+  VERY_SLOW: ${TIMEOUTS.FIFTEEN_SECONDS_MS},
 } as const;`
       }];
     }

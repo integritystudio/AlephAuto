@@ -438,14 +438,14 @@ MCP server configurations are stored in:
 ### Sentry MCP Integration
 
 **Integrated with:**
-- `sidequest/logger.js` - Error tracking and logging
-- `api/server.js` - API error handling
+- `sidequest/utils/logger.ts` - Error tracking and logging
+- `api/server.ts` - API error handling
 - All pipeline workers - Job failure tracking
 
 **Example Usage:**
 ```javascript
 import * as Sentry from '@sentry/node';
-import { logger } from './sidequest/logger.js';
+import { logger } from './sidequest/utils/logger.ts';
 
 // Capture error with context
 try {
@@ -474,12 +474,12 @@ try {
 ### Redis MCP Integration
 
 **Integrated with:**
-- `lib/caching/cached-scanner.js` - Scan result caching
-- `sidequest/server.js` - Job queue state (future)
+- `sidequest/pipeline-core/cache/cached-scanner.ts` - Scan result caching
+- `sidequest/core/server.ts` - Job queue state (future)
 
 **Scan Result Caching:**
 ```javascript
-import { ScanResultCache } from './lib/caching/cached-scanner.js';
+import { ScanResultCache } from './sidequest/pipeline-core/cache/cached-scanner.ts';
 
 const cache = new ScanResultCache({
   ttl: 2592000,  // 30 days
@@ -711,7 +711,7 @@ tail -f ~/.claude/logs/mcp-*.log
 2. **Verify dependencies**
    ```bash
    # Check Node.js version
-   node --version  # Should be v18+
+   node --version  # Should be v22+
 
    # Check Python version (for Redis MCP)
    python3 --version  # Should be v3.8+

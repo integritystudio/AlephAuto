@@ -7,7 +7,8 @@
 
 import type { SidequestServer, Job } from '../sidequest/core/server.ts';
 import { createComponentLogger, logError } from '../sidequest/utils/logger.ts';
-import { TIMEOUTS, TIME } from '../sidequest/core/constants.ts';
+import { TIMEOUTS } from '../sidequest/core/constants.ts';
+import { calculateDurationSeconds, formatDuration } from '../sidequest/utils/time-helpers.ts';
 import * as Sentry from '@sentry/node';
 import { safeErrorMessage, toErrorObject } from '../sidequest/pipeline-core/utils/error-helpers.ts';
 import type { ScanEventBroadcaster } from './event-broadcaster.ts';
@@ -35,12 +36,21 @@ interface RetryInfo {
   delay?: number;
 }
 
+/**
+ * Manages in-memory activity history and realtime activity broadcasts.
+ */
 export class ActivityFeedManager {
   private broadcaster: ScanEventBroadcaster | null;
   private maxActivities: number;
   activities: ActivityEntry[];
   activityId: number;
 
+  /**
+   * Creates an activity feed manager.
+   *
+   * @param broadcaster Optional event broadcaster used for realtime updates.
+   * @param options Feed configuration options.
+   */
   constructor(broadcaster: ScanEventBroadcaster | null, options: { maxActivities?: number } = {}) {
     this.broadcaster = broadcaster;
     this.maxActivities = options.maxActivities ?? 50; // Keep last 50 activities
@@ -50,6 +60,12 @@ export class ActivityFeedManager {
     logger.info({ maxActivities: this.maxActivities }, 'Activity feed manager initialized');
   }
 
+  /**
+   * Adds an activity entry and broadcasts it to subscribers.
+   *
+   * @param activity Activity payload.
+   * @returns Newly created activity entry.
+   */
   addActivity(activity: Record<string, unknown>): ActivityEntry {
     try {
       const activityEntry: ActivityEntry = {
@@ -92,16 +108,30 @@ export class ActivityFeedManager {
     }
   }
 
+  /**
+   * Returns most recent activities.
+   *
+   * @param limit Maximum number of entries to return.
+   * @returns Recent activity entries.
+   */
   getRecentActivities(limit: number = 20): ActivityEntry[] {
     return this.activities.slice(0, limit);
   }
 
+  /**
+   * Clears in-memory activity history.
+   */
   clear(): void {
     this.activities = [];
     this.activityId = 0;
     logger.info('Activity feed cleared');
   }
 
+  /**
+   * Computes aggregate activity statistics.
+   *
+   * @returns Activity feed statistics.
+   */
   getStats(): ActivityStats {
     const now = Date.now();
     const oneHourAgo = now - TIMEOUTS.ONE_HOUR_MS;
@@ -126,6 +156,11 @@ export class ActivityFeedManager {
     };
   }
 
+  /**
+   * Subscribes to worker events and mirrors them into activity feed entries.
+   *
+   * @param worker Sidequest worker instance.
+   */
   listenToWorker(worker: SidequestServer): void {
     try {
       logger.info('Setting up worker event listeners');
@@ -215,12 +250,10 @@ export class ActivityFeedManager {
       const jobResult = job.result as Record<string, unknown> | null | undefined;
       let durationSeconds = (jobResult as Record<string, unknown> | null | undefined)?.duration_seconds as number | undefined;
       if (durationSeconds === undefined && job.startedAt && job.completedAt) {
-        const startTime = job.startedAt instanceof Date ? job.startedAt : new Date(job.startedAt);
-        const endTime = job.completedAt instanceof Date ? job.completedAt : new Date(job.completedAt);
-        durationSeconds = (endTime.getTime() - startTime.getTime()) / TIME.SECOND;
+        durationSeconds = calculateDurationSeconds(job.startedAt, job.completedAt) ?? undefined;
       }
 
-      const duration = durationSeconds != null ? `${durationSeconds.toFixed(2)}s` : 'unknown duration';
+      const duration = formatDuration(durationSeconds ?? null);
 
       this.addActivity({
         type: 'job:completed',

@@ -9,6 +9,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import os from 'os';
+import { LIMITS } from '../../core/constants.ts';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -127,6 +128,7 @@ export class RepositoryConfigLoader {
   private configPath: string;
   private config: RepositoryScanConfig | null;
   private lastLoaded: Date | null;
+  private _saveQueue: Promise<void>;
 
     /**
    * Constructor.
@@ -137,6 +139,7 @@ export class RepositoryConfigLoader {
     this.configPath = configPath ?? path.join(process.cwd(), 'config', 'scan-repositories.json');
     this.config = null;
     this.lastLoaded = null;
+    this._saveQueue = Promise.resolve();
   }
 
     /**
@@ -424,12 +427,47 @@ export class RepositoryConfigLoader {
     });
 
     // Keep only last 10 entries
-    repo.scanHistory = repo.scanHistory.slice(0, 10);
+    repo.scanHistory = repo.scanHistory.slice(0, LIMITS.REPOSITORY_SCAN_HISTORY_ENTRIES);
 
     // Save updated configuration
     await this.save();
 
     logger.info({ repoName, status: historyEntry['status'] }, 'Added scan history entry');
+  }
+
+  /**
+   * Atomically record scan completion for a repository in a single config write.
+   */
+  async recordScanResult(
+    repoName: string,
+    historyEntry: Omit<ScanHistoryEntry, 'timestamp'>,
+    timestamp: Date | null = null
+  ): Promise<void> {
+    this._ensureLoaded();
+
+    const repo = this.getRepository(repoName);
+    if (!repo) {
+      throw new Error(`Repository '${repoName}' not found`);
+    }
+
+    const scannedAtIso = (timestamp ?? new Date()).toISOString();
+    repo.lastScannedAt = scannedAtIso;
+
+    if (!repo.scanHistory) {
+      repo.scanHistory = [];
+    }
+    repo.scanHistory.unshift({
+      timestamp: scannedAtIso,
+      ...historyEntry
+    });
+    repo.scanHistory = repo.scanHistory.slice(0, LIMITS.REPOSITORY_SCAN_HISTORY_ENTRIES);
+
+    await this.save();
+    logger.info({
+      repoName,
+      timestamp: scannedAtIso,
+      status: historyEntry.status
+    }, 'Recorded scan result');
   }
 
     /**
@@ -439,19 +477,25 @@ export class RepositoryConfigLoader {
    * @async
    */
   async save(): Promise<void> {
-    try {
-      await fs.writeFile(
-        this.configPath,
-        JSON.stringify(this.config, null, 2),
-        'utf-8'
-      );
+    const saveTask = this._saveQueue.then(async () => {
+      try {
+        await fs.writeFile(
+          this.configPath,
+          JSON.stringify(this.config, null, 2),
+          'utf-8'
+        );
 
-      logger.info({ configPath: this.configPath }, 'Configuration saved');
-    } catch (error) {
-      logError(logger, error, 'Failed to save configuration', { configPath: this.configPath });
-      const msg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to save configuration: ${msg}`);
-    }
+        logger.info({ configPath: this.configPath }, 'Configuration saved');
+      } catch (error) {
+        logError(logger, error, 'Failed to save configuration', { configPath: this.configPath });
+        const msg = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to save configuration: ${msg}`);
+      }
+    });
+
+    // Keep queue alive even if a write fails.
+    this._saveQueue = saveTask.catch(() => {});
+    return saveTask;
   }
 
     /**

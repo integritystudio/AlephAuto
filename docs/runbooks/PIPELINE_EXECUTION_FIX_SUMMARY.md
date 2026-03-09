@@ -5,22 +5,22 @@ Quick reference for running pipeline scripts with Doppler and PM2.
 ## Common Error
 
 ```
-Error: fork/exec .../duplicate-detection-pipeline.js: permission denied
+Error: fork/exec .../duplicate-detection-pipeline.ts: permission denied
 ```
 
-**Cause:** Attempting to execute JavaScript files directly instead of via Node.js interpreter.
+**Cause:** Attempting to execute a TypeScript entrypoint directly (or without `--strip-types`).
 
-**Fix:** Always use explicit `node` interpreter or ensure PM2 config has `interpreter: 'node'`.
+**Fix:** Always use explicit `node --strip-types` or run via PM2 ecosystem config.
 
 ## Execution Methods
 
 ### Development
 ```bash
-# Recommended: explicit Node.js interpreter
-doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
+# Recommended: explicit Node + strip-types
+doppler run -- node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 
 # With startup flag
-doppler run -- RUN_ON_STARTUP=true node sidequest/pipeline-runners/duplicate-detection-pipeline.js
+doppler run -- RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 ```
 
 ### Production (PM2)
@@ -40,16 +40,16 @@ pm2 delete aleph-worker
 
 ## Requirements for Pipeline Files
 
-All files in `api/server.js` and `sidequest/pipeline-runners/*.js` must have:
+Entrypoints in `api/server.ts` and `sidequest/pipeline-runners/*-pipeline.ts` should have:
 
 1. **Shebang** (first line):
-   ```javascript
-   #!/usr/bin/env node
+   ```bash
+   #!/usr/bin/env -S node --strip-types
    ```
 
-2. **Executable permissions**:
+2. **Non-executable file mode** (repo policy):
    ```bash
-   chmod +x <file>
+   node --strip-types scripts/validate-permissions.ts --check-only
    ```
 
 3. **PM2 config** must use explicit interpreter:
@@ -61,35 +61,36 @@ All files in `api/server.js` and `sidequest/pipeline-runners/*.js` must have:
 
 ### Check shebangs
 ```bash
-for file in api/server.js sidequest/pipeline-runners/*.js; do
+for file in api/server.ts sidequest/pipeline-runners/*-pipeline.ts; do
   echo "=== $file ===" && head -n 1 "$file"
 done
 ```
 
 ### Check permissions
 ```bash
-ls -la api/server.js sidequest/pipeline-runners/*.js | awk '{print $1, $9}'
-# Should show: -rwxr-xr-x
+ls -la api/server.ts sidequest/pipeline-runners/*-pipeline.ts | awk '{print $1, $9}'
+# Should show: -rw-r--r--
 ```
 
 ### Check PM2 interpreter config
 ```bash
-grep -A 1 "interpreter:" config/ecosystem.config.cjs
+rg -n "script:|interpreter:|node_args:" config/ecosystem.config.cjs
 ```
 
 ## Adding New Pipeline Files
 
-1. Add shebang: `#!/usr/bin/env node`
-2. Make executable: `chmod +x <file>`
-3. Test locally: `doppler run -- node <file>`
+1. Add shebang: `#!/usr/bin/env -S node --strip-types`
+2. Keep file mode non-executable (`644`) and run:
+   `node --strip-types scripts/validate-permissions.ts --check-only`
+3. Test locally: `doppler run -- node --strip-types <file>`
 4. Add to PM2 config with `interpreter: 'node'`
 
-Pre-commit hook automatically validates shebangs and permissions.
+Use `scripts/validate-permissions.ts` as the source of truth for entrypoint mode checks.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
 | `config/ecosystem.config.cjs` | PM2 configuration |
-| `.husky/pre-commit` | Validates shebangs/permissions |
+| `scripts/validate-permissions.ts` | Enforces entrypoint mode policy (`644`) |
 | `docs/runbooks/pipeline-execution.md` | Comprehensive execution guide |

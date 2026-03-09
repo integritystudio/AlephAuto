@@ -79,6 +79,9 @@ function buildSkipRanges(lines: string[]): LineRange[] {
   return ranges;
 }
 
+/**
+ * isInSkipRange.
+ */
 function isInSkipRange(line: number, ranges: LineRange[]): boolean {
   return ranges.some(r => line >= r.start && line <= r.end);
 }
@@ -180,6 +183,9 @@ function checkSection(
   }
 }
 
+/**
+ * fileExists.
+ */
 async function fileExists(filePath: string): Promise<boolean> {
   try {
     await fs.access(path.join(ROOT, filePath));
@@ -189,6 +195,9 @@ async function fileExists(filePath: string): Promise<boolean> {
   }
 }
 
+/**
+ * validate.
+ */
 async function validate(): Promise<{ success: boolean; issues: Issue[] }> {
   let content: string;
   try {
@@ -234,6 +243,9 @@ async function validate(): Promise<{ success: boolean; issues: Issue[] }> {
   return { success: false, issues };
 }
 
+/**
+ * main.
+ */
 async function main() {
   try {
     const result = await validate();

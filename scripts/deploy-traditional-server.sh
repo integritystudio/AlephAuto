@@ -373,16 +373,14 @@ update_application() {
         log "Setting permissions..."
         chown -R "$DEPLOY_USER:$DEPLOY_USER" "$APP_DIR"
         chmod -R 755 "$APP_DIR"
-        # Make pipeline files and API server executable
-        chmod +x "$APP_DIR/api/server.js" "$APP_DIR"/sidequest/pipeline-runners/*.js "$APP_DIR"/sidequest/pipeline-runners/*.ts
     fi
 
-    # Set executable permissions for pipeline files (macOS and Linux)
-    log "Setting executable permissions for pipeline files..."
+    # Normalize critical entrypoint modes to match runtime policy (node interpreter + non-executable TS files)
+    log "Normalizing critical entrypoint file modes..."
     if $IS_MACOS; then
-        chmod +x api/server.js sidequest/pipeline-runners/*.js sidequest/pipeline-runners/*.ts
+        node --strip-types scripts/validate-permissions.ts --fix
     else
-        sudo -u "$DEPLOY_USER" chmod +x "$APP_DIR/api/server.js" "$APP_DIR"/sidequest/pipeline-runners/*.js "$APP_DIR"/sidequest/pipeline-runners/*.ts
+        sudo -u "$DEPLOY_USER" bash -c "cd $APP_DIR && node --strip-types scripts/validate-permissions.ts --fix"
     fi
 
     # Restart PM2 processes

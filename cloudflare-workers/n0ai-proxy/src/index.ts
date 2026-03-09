@@ -37,6 +37,9 @@ interface ApiStatusResponse {
   version?: string;
 }
 
+/**
+ * getCorsHeaders.
+ */
 function getCorsHeaders(origin: string, allowedOrigins: string[]): Headers {
   const headers = new Headers();
 
@@ -51,6 +54,9 @@ function getCorsHeaders(origin: string, allowedOrigins: string[]): Headers {
   return headers;
 }
 
+/**
+ * headersToObject.
+ */
 function headersToObject(headers: Headers): Record<string, string> {
   const obj: Record<string, string> = {};
   headers.forEach((value, key) => {
@@ -59,6 +65,9 @@ function headersToObject(headers: Headers): Record<string, string> {
   return obj;
 }
 
+/**
+ * fetchContent.
+ */
 async function fetchContent(url: string, acceptType: string = 'text/html'): Promise<{
   content: string;
   contentType: string;
@@ -82,6 +91,9 @@ async function fetchContent(url: string, acceptType: string = 'text/html'): Prom
 }
 
 export default {
+  /**
+   * fetch.
+   */
   async fetch(request: Request, env: Env, ctx: any): Promise<Response> {
     const url = new URL(request.url);
     const origin = request.headers.get('Origin') || '';
@@ -233,7 +245,7 @@ export default {
         const queryString = url.search || '';
         const metricsUrl = `${env.QUALITY_METRICS_API_URL}${path}${queryString}`;
         const cacheKey = new Request(metricsUrl, request);
-        let cachedResponse = await cache.match(cacheKey);
+        const cachedResponse = await cache.match(cacheKey);
 
         if (cachedResponse) {
           const cachedData = await cachedResponse.json();

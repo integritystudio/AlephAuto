@@ -11,6 +11,7 @@
 
 import { ScanOrchestrator } from '../../sidequest/pipeline-core/scan-orchestrator.ts';
 import { compareResults, calculateAllMetrics, generateAccuracyReport } from './metrics.ts';
+import { TestOutputFormat } from '../constants/output-format-constants.ts';
 import { readFile, writeFile } from 'fs/promises';
 import { createComponentLogger } from '../../sidequest/logger.ts';
 import path from 'path';
@@ -39,45 +40,63 @@ async function loadExpectedResults() {
  * Extract function name from code block
  * Looks at semantic_tags first, then source code
  */
-function extractFunctionName(block) {
-  // Priority 1: Check tags for function name (added by Python extraction)
+const FUNCTION_TAG_PREFIX = 'function:';
+const FUNCTION_NAME_PATTERNS = [
+  /function\s+(\w+)\s*\(/,          // function name(
+  /const\s+(\w+)\s*=/,              // const name =
+  /let\s+(\w+)\s*=/,                // let name =
+  /var\s+(\w+)\s*=/,                // var name =
+  /async\s+function\s+(\w+)\s*\(/,  // async function name(
+  /(\w+)\s*:\s*function/,           // name: function
+  /(\w+)\s*:\s*async\s+function/,   // name: async function
+  /export\s+function\s+(\w+)/,      // export function name
+];
+
+/**
+ * extractNameFromTags.
+ */
+function extractNameFromTags(block) {
   const tags = block.tags || block.semantic_tags || [];
-  for (const tag of tags) {
-    if (tag.startsWith('function:')) {
-      const funcName = tag.substring('function:'.length);
-      if (funcName) return funcName;
-    }
-  }
+  const functionTag = tags.find(tag => tag.startsWith(FUNCTION_TAG_PREFIX));
+  if (!functionTag) return null;
 
-  // Fallback: Extract from source code
+  return functionTag.substring(FUNCTION_TAG_PREFIX.length) || null;
+}
+
+/**
+ * extractNameFromSourceCode.
+ */
+function extractNameFromSourceCode(block) {
   const sourceCode = block.source_code || '';
-
-  // Try various patterns to extract function name
-  const patterns = [
-    /function\s+(\w+)\s*\(/,          // function name(
-    /const\s+(\w+)\s*=/,              // const name =
-    /let\s+(\w+)\s*=/,                // let name =
-    /var\s+(\w+)\s*=/,                // var name =
-    /async\s+function\s+(\w+)\s*\(/,  // async function name(
-    /(\w+)\s*:\s*function/,           // name: function
-    /(\w+)\s*:\s*async\s+function/,   // name: async function
-    /export\s+function\s+(\w+)/,      // export function name
-  ];
-
-  for (const pattern of patterns) {
+  for (const pattern of FUNCTION_NAME_PATTERNS) {
     const match = sourceCode.match(pattern);
-    if (match && match[1]) return match[1];
+    if (match?.[1]) return match[1];
   }
 
-  // Last resort: file:line notation
+  return null;
+}
+
+/**
+ * extractNameFromLocation.
+ */
+function extractNameFromLocation(block) {
   const filePath = block.relative_path || block.location?.file_path || '';
   const lineStart = block.location?.line_start;
+  if (!filePath || !lineStart) return null;
 
-  if (filePath && lineStart) {
-    return `${filePath.split('/').pop()}:${lineStart}`;
-  }
+  return `${filePath.split('/').pop()}:${lineStart}`;
+}
 
-  return 'unknown';
+/**
+ * extractFunctionName.
+ */
+function extractFunctionName(block) {
+  return (
+    extractNameFromTags(block) ??
+    extractNameFromSourceCode(block) ??
+    extractNameFromLocation(block) ??
+    'unknown'
+  );
 }
 
 /**
@@ -137,7 +156,7 @@ function filterExcludedFiles(groups) {
  * Prepare accuracy test data by loading expected results (ground truth)
  * @returns {Promise<{expected: Object}>} Ground truth data
  */
-async function prepareAccuracyTestData() {
+async function prepareAccuracyTestData(): Promise<{ expected: any }> {
   logger.info('Loading expected results (ground truth)...');
   const expected = await loadExpectedResults();
 
@@ -157,7 +176,7 @@ async function prepareAccuracyTestData() {
  * @param {string} testRepoPath - Path to the test repository
  * @returns {Promise<{scanResult: Object, duration: string}>} Scan results and duration
  */
-async function executeDuplicateScan(testRepoPath) {
+async function executeDuplicateScan(testRepoPath): Promise<{ scanResult: any; duration: string }> {
   logger.info({ testRepoPath }, 'Setting up scan orchestrator');
 
   const orchestrator = new ScanOrchestrator({
@@ -166,7 +185,7 @@ async function executeDuplicateScan(testRepoPath) {
   });
 
   console.log('Running duplicate detection scan...');
-  console.log('-'.repeat(70));
+  console.log('-'.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
 
   const startTime = Date.now();
 
@@ -201,7 +220,7 @@ async function executeDuplicateScan(testRepoPath) {
  * @param {Object} scanResult - Raw scan results
  * @returns {Array} Processed and filtered duplicate groups
  */
-function processDetectedGroups(scanResult) {
+function processDetectedGroups(scanResult): any[] {
   let detectedGroups = enhanceDetectedGroups(scanResult);
   detectedGroups = filterExcludedFiles(detectedGroups);
 
@@ -225,9 +244,9 @@ function processDetectedGroups(scanResult) {
  * @param {Object} expected - Ground truth data
  * @returns {Object} Comparison results, metrics, and report
  */
-function calculateAccuracyMetrics(detectedGroups, expected) {
+function calculateAccuracyMetrics(detectedGroups, expected): { comparison: any; metrics: any; report: any } {
   console.log('Comparing results against ground truth...');
-  console.log('-'.repeat(70));
+  console.log('-'.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
 
   const comparison = compareResults(
     detectedGroups,
@@ -248,7 +267,7 @@ function calculateAccuracyMetrics(detectedGroups, expected) {
 function printAccuracyMetrics(metrics) {
   console.log();
   console.log('ACCURACY METRICS');
-  console.log('='.repeat(70));
+  console.log('='.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
   console.log();
 
   console.log(`Precision:  ${metrics.precision.percentage.padStart(8)} - ${metrics.precision.interpretation}`);
@@ -274,9 +293,12 @@ function printAccuracyMetrics(metrics) {
  */
 function printTargetComparison(targets) {
   console.log('TARGET COMPARISON');
-  console.log('='.repeat(70));
+  console.log('='.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
   console.log();
 
+  /**
+   * formatTarget.
+   */
   const formatTarget = (name, target, _prefix = '') => {
     const icon = target.met ? '✅' : '❌';
     const sign = target.delta > 0 ? '+' : '';
@@ -297,7 +319,7 @@ function printTargetComparison(targets) {
  */
 function printDetailedResults(comparison) {
   console.log('DETAILS');
-  console.log('='.repeat(70));
+  console.log('='.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
   console.log();
 
   if (comparison.truePositives.length > 0) {
@@ -344,9 +366,9 @@ function printDetailedResults(comparison) {
  * @param {Object} comparison - Comparison results for details
  * @returns {Promise<boolean>} Whether all targets were met
  */
-async function printOverallAssessmentAndSave(report, comparison) {
+async function printOverallAssessmentAndSave(report, comparison): Promise<boolean> {
   console.log('OVERALL ASSESSMENT');
-  console.log('='.repeat(70));
+  console.log('='.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
   console.log();
   console.log(`Grade:              ${report.overall_assessment.grade}`);
   console.log(`All Targets Met:    ${report.overall_assessment.all_targets_met ? '✅ YES' : '❌ NO'}`);
@@ -372,9 +394,9 @@ async function printOverallAssessmentAndSave(report, comparison) {
  * Run accuracy test - main coordinator function
  */
 async function runAccuracyTest() {
-  console.log('='.repeat(70));
+  console.log('='.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
   console.log('Duplicate Detection Accuracy Test Suite');
-  console.log('='.repeat(70));
+  console.log('='.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
   console.log();
 
   // Phase 1: Load ground truth
@@ -404,7 +426,7 @@ async function runAccuracyTest() {
     console.log('❌ Some accuracy targets not met. See details above.');
   }
 
-  console.log('='.repeat(70));
+  console.log('='.repeat(TestOutputFormat.STANDARD_SEPARATOR_WIDTH));
 
   process.exit(success ? 0 : 1);
 }

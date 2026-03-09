@@ -1,54 +1,105 @@
 {
   "$schema": "https://repomix.com/schemas/latest/schema.json",
-  "input": {
-    "maxFileSize": 52428800
-  },
+
   "output": {
-    "filePath": "repomix-output.xml",
     "style": "xml",
-    "parsableStyle": false,
-    "directoryStructure": true,
-    "files": true,
+    "parsableStyle": true,
+
+    "compress": false,
     "removeComments": true,
     "removeEmptyLines": true,
-    "compress": true,
-    "topFilesLength": 5,
+    "truncateBase64": true,
+
+    "directoryStructure": true,
+    "files": true,
+    "fileSummary": false,
+
+    "topFilesLength": 10,
     "showLineNumbers": false,
-    "truncateBase64": false,
-    "copyToClipboard": false,
-    "includeFullDirectoryStructure": false,
-    "tokenCountTree": false,
-    "includeEmptyDirectories": false,
+
     "git": {
       "sortByChanges": true,
-      "sortByChangesMaxCommits": 100,
+      "sortByChangesMaxCommits": 200,
       "includeDiffs": false,
       "includeLogs": false,
-      "includeLogsCount": 50
+      "includeLogsCount": 1
     }
   },
-  "include": [],
+
   "ignore": {
     "useGitignore": true,
+    "useDotIgnore": true,
     "useDefaultPatterns": true,
     "customPatterns": [
-      "logs/**",
-      "node_modules/**",
-      "*.log",
-      "directory-scan-reports/**",
-      "document-enhancement-impact-measurement/**",
-      "**/go/pkg/mod/**",
-      "**/pyenv/**",
-      "**/python/pyenv/**",
-      "**/vim/bundle/**",
-      "**/vim/autoload/**",
-      "repomix-output.xml",
-      "repomix-output.txt"
+      "docs/repomix/**",
+      "**/repomix-output.*",
+      "**/repo-compressed.*",
+      "**/repomix.xml",
+      "**/repo-compressed.xml",
+      "**/docs/**",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/out/**",
+      "**/.next/**",
+      "**/.turbo/**",
+      "**/.vite/**",
+      "**/coverage/**",
+      "**/fixtures/**",
+      "**/test-files/**",
+      "**/__snapshots__/**",
+      "**/*.snap",
+      "tests/**",
+      "**/*.test.*",
+      "**/*.spec.*",
+      "**/*.log",
+      "**/*.tmp",
+      "**/*.temp",
+      "**/*.cache",
+      "**/*.swp",
+      "**/*.swo",
+      "**/*.tsbuildinfo",
+      "**/__pycache__/**",
+      "**/*.pyc",
+      "**/*.pyo",
+      "**/*.map",
+      "**/*.min.js",
+      "**/*.min.css",
+      "**/*.png",
+      "**/*.jpg",
+      "**/*.jpeg",
+      "**/*.gif",
+      "**/*.webp",
+      "**/*.ico",
+      "**/*.pdf",
+      "**/*.zip",
+      "**/*.tar",
+      "**/*.gz",
+      "**/*.tgz",
+      "**/*.7z",
+      "**/*.mp4",
+      "**/*.mov",
+      "**/*.avi",
+      "**/*.mp3",
+      "**/*.wav",
+      "**/.env",
+      "**/.env.*",
+      "**/*.pem",
+      "**/*.key",
+      "**/*.p12",
+      "**/*.pfx",
+      "**/*secret*",
+      ".claude/**",
+      "**/.claude/**",
+      ".ast-grep-backups/**",
+      "**/.ast-grep-backups/**"
     ]
   },
+
   "security": {
-    "enableSecurityCheck": true
+    "enableSecurityCheck": false
   },
+
   "tokenCount": {
     "encoding": "o200k_base"
   }

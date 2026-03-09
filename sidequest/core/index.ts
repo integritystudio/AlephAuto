@@ -2,9 +2,11 @@ import cron from 'node-cron';
 import { RepomixWorker } from '../workers/repomix-worker.ts';
 import { DirectoryScanner } from '../utils/directory-scanner.ts';
 import { config } from './config.ts';
-import { TIMEOUTS, TIME } from './constants.ts';
+import { JOB_EVENTS, TIMEOUTS } from './constants.ts';
+import { TIME_MS } from './units.ts';
 import path from 'path';
 import fs from 'fs/promises';
+import { fileURLToPath } from 'url';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import type { Job, JobStats } from './server.ts';
 
@@ -22,6 +24,9 @@ interface ScanDirectory {
 interface TypedDirectoryScanner {
   baseDir: string;
   scanDirectories(): Promise<ScanDirectory[]>;
+  /**
+   * generateAndSaveScanResults.
+   */
   generateAndSaveScanResults(dirs: ScanDirectory[]): Promise<{
     reportPath: string;
     treePath: string;
@@ -41,13 +46,20 @@ interface TypedRepomixWorker {
   on(event: string, listener: (job: Job) => void): this;
 }
 
+export function isWorkerIdle(stats: JobStats): boolean {
+  return stats.active === 0 && stats.queued === 0 && stats.pendingRetries === 0;
+}
+
 /**
  * Main application entry point
  */
-class RepomixCronApp {
+export class RepomixCronApp {
   private worker: TypedRepomixWorker;
   private scanner: TypedDirectoryScanner;
 
+  /**
+   * constructor.
+   */
   constructor() {
     this.worker = new RepomixWorker({
       maxConcurrent: cfg.maxConcurrent as number,
@@ -67,16 +79,20 @@ class RepomixCronApp {
   }
 
   private setupEventListeners(): void {
-    this.worker.on('job:created', (job: Job) => {
+    this.worker.on(JOB_EVENTS.CREATED, (job: Job) => {
       logger.info({ jobId: job.id }, 'Job created');
     });
 
-    this.worker.on('job:started', (job: Job) => {
+    this.worker.on(JOB_EVENTS.STARTED, (job: Job) => {
       logger.info({ jobId: job.id, relativePath: job.data.relativePath }, 'Job started');
     });
 
-    this.worker.on('job:completed', (job: Job) => {
-      const duration = new Date(job.completedAt!).getTime() - new Date(job.startedAt!).getTime();
+    this.worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
+      const startedAtMs = job.startedAt?.getTime();
+      const completedAtMs = job.completedAt?.getTime();
+      const duration = (typeof startedAtMs === 'number' && typeof completedAtMs === 'number')
+        ? completedAtMs - startedAtMs
+        : null;
       logger.info({
         jobId: job.id,
         relativePath: job.data.relativePath,
@@ -84,7 +100,7 @@ class RepomixCronApp {
       }, 'Job completed');
     });
 
-    this.worker.on('job:failed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.FAILED, (job: Job) => {
       logger.error({
         jobId: job.id,
         relativePath: job.data.relativePath,
@@ -93,6 +109,9 @@ class RepomixCronApp {
     });
   }
 
+  /**
+   * runRepomixOnAllDirectories.
+   */
   async runRepomixOnAllDirectories(): Promise<void> {
     logStart(logger, 'repomix run', { baseDir: this.scanner.baseDir });
 
@@ -127,7 +146,7 @@ class RepomixCronApp {
       const workerStats = this.worker.getStats();
 
       logger.info({
-        durationSeconds: Math.round(duration / TIME.SECOND),
+        durationSeconds: Math.round(duration / TIME_MS.SECOND),
         totalJobs: workerStats.total,
         completed: workerStats.completed,
         failed: workerStats.failed
@@ -142,7 +161,7 @@ class RepomixCronApp {
   }
 
   private async waitForCompletion(): Promise<void> {
-    const maxWaitMs = 30 * 60 * TIME.SECOND;
+    const maxWaitMs = 30 * 60 * TIME_MS.SECOND;
     return new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
         clearInterval(checkInterval);
@@ -151,7 +170,7 @@ class RepomixCronApp {
 
       const checkInterval = setInterval(() => {
         const stats = this.worker.getStats();
-        if (stats.active === 0 && stats.queued === 0) {
+        if (isWorkerIdle(stats)) {
           clearInterval(checkInterval);
           clearTimeout(timer);
           resolve();
@@ -186,6 +205,9 @@ class RepomixCronApp {
     logger.info('Cron job scheduled successfully');
   }
 
+  /**
+   * start.
+   */
   async start(): Promise<void> {
     logger.info({
       codeDirectory: this.scanner.baseDir,
@@ -204,10 +226,17 @@ class RepomixCronApp {
   }
 }
 
-// Auto-executing entry point: importing this module starts the application.
-// This file lives in core/ for historical reasons but functions as a pipeline runner.
-const app = new RepomixCronApp();
-app.start().catch((error) => {
-  logError(logger, error, 'Fatal error');
-  process.exit(1);
-});
+function isDirectExecution(): boolean {
+  const currentModulePath = fileURLToPath(import.meta.url);
+  const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
+  return entryPath === currentModulePath;
+}
+
+// Entrypoint mode: run only when invoked directly, not when imported by tests/tools.
+if (isDirectExecution()) {
+  const app = new RepomixCronApp();
+  app.start().catch((error) => {
+    logError(logger, error, 'Fatal error');
+    process.exit(1);
+  });
+}

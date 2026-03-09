@@ -13,7 +13,7 @@
  * @param {number} falsePositives - Incorrectly detected duplicates
  * @returns {number} Precision score (0-1)
  */
-export function calculatePrecision(truePositives, falsePositives) {
+export function calculatePrecision(truePositives, falsePositives): number {
   const total = truePositives + falsePositives;
   if (total === 0) return 0;
   return truePositives / total;
@@ -27,7 +27,7 @@ export function calculatePrecision(truePositives, falsePositives) {
  * @param {number} falseNegatives - Missed duplicates
  * @returns {number} Recall score (0-1)
  */
-export function calculateRecall(truePositives, falseNegatives) {
+export function calculateRecall(truePositives, falseNegatives): number {
   const total = truePositives + falseNegatives;
   if (total === 0) return 0;
   return truePositives / total;
@@ -41,7 +41,7 @@ export function calculateRecall(truePositives, falseNegatives) {
  * @param {number} recall - Recall score
  * @returns {number} F1 score (0-1)
  */
-export function calculateF1Score(precision, recall) {
+export function calculateF1Score(precision, recall): number {
   if (precision + recall === 0) return 0;
   return 2 * (precision * recall) / (precision + recall);
 }
@@ -54,7 +54,7 @@ export function calculateF1Score(precision, recall) {
  * @param {number} trueNegatives - Correctly identified non-duplicates
  * @returns {number} False positive rate (0-1)
  */
-export function calculateFalsePositiveRate(falsePositives, trueNegatives) {
+export function calculateFalsePositiveRate(falsePositives, trueNegatives): number {
   const total = falsePositives + trueNegatives;
   if (total === 0) return 0;
   return falsePositives / total;
@@ -67,7 +67,7 @@ export function calculateFalsePositiveRate(falsePositives, trueNegatives) {
  * @param {Array} detectedGroups - Groups detected by scanner
  * @returns {Object} Maps for expected and detected lookups
  */
-function buildLookupMaps(expectedGroups, detectedGroups) {
+function buildLookupMaps(expectedGroups, detectedGroups): { expectedMap: Map<string, any[]>; detectedMap: Map<string, any[]> } {
   const expectedMap = new Map();
   expectedGroups.forEach(group => {
     group.members.forEach(member => {
@@ -102,7 +102,7 @@ function buildLookupMaps(expectedGroups, detectedGroups) {
  * @param {Object} detectedGroup - A detected group
  * @returns {Array<string>} Array of member keys
  */
-function extractDetectedMembers(detectedGroup) {
+function extractDetectedMembers(detectedGroup): string[] {
   return (detectedGroup.member_block_ids || [])
     .map(blockId => {
       const block = detectedGroup._blocks?.find(b => b.block_id === blockId);
@@ -118,7 +118,7 @@ function extractDetectedMembers(detectedGroup) {
  * @param {Array} detectedGroups - Groups detected by scanner
  * @returns {Object} truePositives and falseNegatives arrays
  */
-function findTruePositivesAndFalseNegatives(expectedGroups, detectedGroups) {
+function findTruePositivesAndFalseNegatives(expectedGroups, detectedGroups): { truePositives: any[]; falseNegatives: any[] } {
   const truePositives = [];
   const falseNegatives = [];
 
@@ -163,7 +163,7 @@ function findTruePositivesAndFalseNegatives(expectedGroups, detectedGroups) {
  * @param {Array} truePositives - Already identified true positives
  * @returns {Array} False positive entries
  */
-function findUnmatchedDetections(detectedGroups, truePositives) {
+function findUnmatchedDetections(detectedGroups, truePositives): any[] {
   const falsePositives = [];
 
   detectedGroups.forEach(detectedGroup => {
@@ -187,7 +187,7 @@ function findUnmatchedDetections(detectedGroups, truePositives) {
  * @param {Map} detectedMap - Map of detected function keys
  * @returns {Object} trueNegatives and additionalFalsePositives arrays
  */
-function processFalsePositiveCandidates(falsePositiveCandidates, detectedMap) {
+function processFalsePositiveCandidates(falsePositiveCandidates, detectedMap): { trueNegatives: any[]; additionalFalsePositives: any[] } {
   const trueNegatives = [];
   const additionalFalsePositives = [];
 
@@ -221,7 +221,7 @@ function processFalsePositiveCandidates(falsePositiveCandidates, detectedMap) {
  * @param {Array} falsePositiveCandidates - Functions that should NOT be detected
  * @returns {Object} Comparison results with TP, FP, FN, TN
  */
-export function compareResults(detectedGroups, expectedGroups, falsePositiveCandidates = []) {
+export function compareResults(detectedGroups, expectedGroups, falsePositiveCandidates = []): Record<string, any> {
   const { detectedMap } = buildLookupMaps(expectedGroups, detectedGroups);
   const { truePositives, falseNegatives } = findTruePositivesAndFalseNegatives(expectedGroups, detectedGroups);
   const unmatchedFalsePositives = findUnmatchedDetections(detectedGroups, truePositives);
@@ -237,10 +237,10 @@ export function compareResults(detectedGroups, expectedGroups, falsePositiveCand
 }
 
 /**
- * Calculate all accuracy metrics
+ * Convert a higher-is-better score to a qualitative label.
  *
- * @param {Object} comparisonResults - Results from compareResults()
- * @returns {Object} All metrics with scores and percentages
+ * @param {number} score - Score from 0 to 1.
+ * @returns {string} Interpretation label.
  */
 function interpretHigherIsBetter(score: number): string {
   if (score >= 0.9) return 'Excellent';
@@ -249,6 +249,9 @@ function interpretHigherIsBetter(score: number): string {
   return 'Poor';
 }
 
+/**
+ * interpretLowerIsBetter.
+ */
 function interpretLowerIsBetter(score: number): string {
   if (score <= 0.1) return 'Excellent';
   if (score <= 0.2) return 'Good';
@@ -256,6 +259,9 @@ function interpretLowerIsBetter(score: number): string {
   return 'Poor';
 }
 
+/**
+ * scoreEntry.
+ */
 function scoreEntry(score: number, higherIsBetter = true) {
   return {
     score,
@@ -264,7 +270,13 @@ function scoreEntry(score: number, higherIsBetter = true) {
   };
 }
 
-export function calculateAllMetrics(comparisonResults) {
+/**
+ * Calculate all accuracy metrics.
+ *
+ * @param {Object} comparisonResults - Results from compareResults()
+ * @returns {Object} All metrics with scores and percentages
+ */
+export function calculateAllMetrics(comparisonResults): Record<string, any> {
   const tp = comparisonResults.truePositives.length;
   const fp = comparisonResults.falsePositives.length;
   const fn = comparisonResults.falseNegatives.length;
@@ -292,7 +304,7 @@ export function calculateAllMetrics(comparisonResults) {
  * @param {Object} targets - Target metrics for comparison
  * @returns {Object} Detailed report
  */
-export function generateAccuracyReport(metrics, comparisonResults, targets = {}) {
+export function generateAccuracyReport(metrics, comparisonResults, targets = {}): Record<string, any> {
   const defaultTargets = {
     precision: 0.9,
     recall: 0.8,
@@ -356,7 +368,7 @@ export function generateAccuracyReport(metrics, comparisonResults, targets = {})
  * @param {Object} metrics - Calculated metrics
  * @returns {string} Grade (A+, A, B, C, D, F)
  */
-function calculateGrade(metrics) {
+function calculateGrade(metrics): string {
   const score = (
     metrics.precision.score * 0.35 +
     metrics.recall.score * 0.35 +

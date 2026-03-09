@@ -107,7 +107,7 @@ This pattern allows TypeScript to properly recognize custom properties on the wi
 
 ## Related Files
 
-- `scripts/fix-types.js` - Automated fix script
-- `scripts/verify-setup.js` - Now includes @types/node check
+- `scripts/fix-types.ts` - Automated fix script
+- `scripts/verify-setup.ts` - Now includes @types/node check
 - `.github/workflows/ci.yml` - Updated to include dev dependencies
 - `public/dashboard.js` - Dashboard type declarations and window object access

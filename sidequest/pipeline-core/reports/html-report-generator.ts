@@ -5,6 +5,8 @@
  */
 
 import { saveGeneratedReport } from '../utils/index.ts';
+import { REPORT_SCORE_CLASS_THRESHOLDS } from '../../core/score-thresholds.ts';
+import { formatDuration } from '../../utils/time-helpers.ts';
 import type { ScanResult } from './json-report-generator.ts';
 
 export interface HTMLReportOptions {
@@ -74,7 +76,7 @@ export class HTMLReportGenerator {
                 <strong>Date:</strong> ${scanDate.toLocaleString()}
             </span>
             <span class="meta-item">
-                <strong>Duration:</strong> ${duration.toFixed(2)}s
+                <strong>Duration:</strong> ${formatDuration(duration)}
             </span>
         </div>
     </header>`;
@@ -665,8 +667,7 @@ export class HTMLReportGenerator {
    */
   private static _getScripts(): string {
     return `
-        // Add interactivity here if needed
-        console.log('Duplicate Detection Report loaded');
+        // Add interactivity hooks here if needed.
     `;
   }
 
@@ -675,8 +676,8 @@ export class HTMLReportGenerator {
    * @private
    */
   private static _getImpactClass(score: number): string {
-    if (score >= 70) return 'impact-high';
-    if (score >= 40) return 'impact-medium';
+    if (score >= REPORT_SCORE_CLASS_THRESHOLDS.IMPACT_HIGH_MIN_SCORE) return 'impact-high';
+    if (score >= REPORT_SCORE_CLASS_THRESHOLDS.IMPACT_MEDIUM_MIN_SCORE) return 'impact-medium';
     return 'impact-low';
   }
 
@@ -685,8 +686,8 @@ export class HTMLReportGenerator {
    * @private
    */
   private static _getROIClass(score: number): string {
-    if (score >= 80) return 'roi-high';
-    if (score >= 50) return 'roi-medium';
+    if (score >= REPORT_SCORE_CLASS_THRESHOLDS.ROI_HIGH_MIN_SCORE) return 'roi-high';
+    if (score >= REPORT_SCORE_CLASS_THRESHOLDS.ROI_MEDIUM_MIN_SCORE) return 'roi-medium';
     return 'roi-low';
   }
 

@@ -1,7 +1,7 @@
 # AlephAuto System Data Flow Documentation
 
-**Last Updated:** 2026-01-29
-**Version:** 1.1
+**Last Updated:** 2026-03-04
+**Version:** 1.2
 **Author:** Architecture Documentation
 
 ## Table of Contents
@@ -24,7 +24,7 @@
 
 ## System Overview
 
-AlephAuto is a **job queue framework** with real-time dashboard for automation pipelines. The system processes 8 different pipeline types across JavaScript and Python, with real-time monitoring via WebSocket and comprehensive error tracking via Sentry.
+AlephAuto is a **job queue framework** with real-time dashboard for automation pipelines. The system processes 8 different pipeline types across TypeScript and Python, with real-time monitoring via WebSocket and comprehensive error tracking via Sentry.
 
 ### System Characteristics
 
@@ -599,9 +599,9 @@ The following abstractions were added to improve modularity and maintainability:
 ```mermaid
 flowchart TB
     subgraph Core["Core Abstractions"]
-        JobRepo["JobRepository<br/>sidequest/core/job-repository.js"]
-        GitWF["GitWorkflowManager<br/>sidequest/core/git-workflow-manager.js"]
-        Constants["Constants<br/>sidequest/core/constants.js"]
+        JobRepo["JobRepository<br/>sidequest/core/job-repository.ts"]
+        GitWF["GitWorkflowManager<br/>sidequest/core/git-workflow-manager.ts"]
+        Constants["Constants<br/>sidequest/core/constants.ts"]
     end
 
     subgraph Types["Type System"]
@@ -651,13 +651,13 @@ flowchart TB
 
 ## Inter-Process Communication
 
-### JavaScript ↔ Python Bridge
+### TypeScript ↔ Python Bridge
 
-The duplicate detection pipeline bridges JavaScript and Python via JSON over stdin/stdout:
+The duplicate detection pipeline bridges TypeScript and Python via JSON over stdin/stdout:
 
 ```mermaid
 sequenceDiagram
-    participant JS as JavaScript
+    participant JS as TypeScript
     participant Spawn as Node spawn
     participant PY as Python
 
@@ -688,7 +688,7 @@ sequenceDiagram
 
 ### Data Format Specifications
 
-**JavaScript → Python (Input)**:
+**TypeScript → Python (Input)**:
 
 ```typescript
 interface PythonPipelineInput {
@@ -717,7 +717,7 @@ interface PythonPipelineInput {
 }
 ```
 
-**Python → JavaScript (Output)**:
+**Python → TypeScript (Output)**:
 
 ```typescript
 interface PythonPipelineOutput {
@@ -781,7 +781,7 @@ flowchart TB
     subgraph Loading["Loading Process"]
         DotEnv["dotenv.config"]
         ProcessEnv["process.env"]
-        ConfigModule["config.js"]
+        ConfigModule["sidequest/core/config.ts"]
     end
 
     subgraph Config["Exported Config"]
@@ -895,7 +895,7 @@ module.exports = {
   apps: [
     {
       name: 'alephauto-api',
-      script: 'api/server.js',
+      script: 'api/server.ts',
       instances: 1,
       exec_mode: 'fork',
       env: {
@@ -965,19 +965,19 @@ server {
 
 | Component | Path |
 |-----------|------|
-| API Server | `api/server.js` |
+| API Server | `api/server.ts` |
 | Route Handlers | `api/routes/*.ts` |
-| WebSocket | `api/websocket.js` |
-| Base Queue | `sidequest/core/server.js` |
-| Job Repository | `sidequest/core/job-repository.js` |
-| Git Workflow Manager | `sidequest/core/git-workflow-manager.js` |
-| Constants | `sidequest/core/constants.js` |
-| Database | `sidequest/core/database.js` |
-| Config | `sidequest/core/config.js` |
+| WebSocket | `api/websocket.ts` |
+| Base Queue | `sidequest/core/server.ts` |
+| Job Repository | `sidequest/core/job-repository.ts` |
+| Git Workflow Manager | `sidequest/core/git-workflow-manager.ts` |
+| Constants | `sidequest/core/constants.ts` |
+| Database | `sidequest/core/database.ts` |
+| Config | `sidequest/core/config.ts` |
 | Job Status Types | `api/types/job-status.ts` |
-| Worker Registry | `api/utils/worker-registry.js` |
-| Workers | `sidequest/workers/*.js` |
-| Pipelines | `sidequest/pipeline-runners/*.js` |
+| Worker Registry | `api/utils/worker-registry.ts` |
+| Workers | `sidequest/workers/*.ts` |
+| Pipelines | `sidequest/pipeline-runners/*.ts` |
 | Orchestrator | `sidequest/pipeline-core/scan-orchestrator.ts` |
 
 ---
@@ -993,6 +993,6 @@ server {
 
 ---
 
-**Document Version:** 1.1
-**Last Updated:** 2026-01-29
+**Document Version:** 1.2
+**Last Updated:** 2026-03-04
 **Maintainer:** Architecture Team

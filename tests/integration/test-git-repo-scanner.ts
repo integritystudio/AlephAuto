@@ -2,6 +2,30 @@ import { DirectoryScanner } from '../../sidequest/utils/directory-scanner.ts';
 import path from 'path';
 import os from 'os';
 
+const PREVIEW_COUNT = 10;
+
+function printRepoList(directories: { relativePath: string; fullPath: string; depth: number }[]) {
+  console.log('📁 Git repositories found:');
+  directories.slice(0, PREVIEW_COUNT).forEach((dir, index) => {
+    console.log(`   ${index + 1}. ${dir.relativePath}`);
+    console.log(`      Path: ${dir.fullPath}`);
+    console.log(`      Depth: ${dir.depth}`);
+    console.log('');
+  });
+  if (directories.length > PREVIEW_COUNT) {
+    console.log(`   ... and ${directories.length - PREVIEW_COUNT} more\n`);
+  }
+}
+
+function printScanStats(stats: { total: number; byDepth: Record<string, number> }) {
+  console.log('\n📊 Statistics:');
+  console.log(`   Total: ${stats.total}`);
+  console.log(`   By depth:`);
+  Object.entries(stats.byDepth).forEach(([depth, count]) => {
+    console.log(`      Depth ${depth}: ${count} repos`);
+  });
+}
+
 /**
  * Test the updated DirectoryScanner to verify it only finds git repositories
  */
@@ -21,42 +45,17 @@ async function testGitRepoScanner() {
     const duration = Date.now() - startTime;
 
     console.log(`✅ Scan complete in ${duration}ms\n`);
-    console.log(`📊 Results:`);
-    console.log(`   Total git repositories found: ${directories.length}\n`);
+    console.log(`📊 Results:\n   Total git repositories found: ${directories.length}\n`);
 
-    // Show first 10 repositories
-    console.log('📁 Git repositories found:');
-    directories.slice(0, 10).forEach((dir, index) => {
-      console.log(`   ${index + 1}. ${dir.relativePath}`);
-      console.log(`      Path: ${dir.fullPath}`);
-      console.log(`      Depth: ${dir.depth}`);
-      console.log('');
-    });
+    printRepoList(directories);
 
-    if (directories.length > 10) {
-      console.log(`   ... and ${directories.length - 10} more\n`);
-    }
-
-    // Verify all are git repos
-    console.log('🔍 Verification:');
     const allAreGitRepos = directories.every(dir => dir.isGitRepo === true);
+    console.log('🔍 Verification:');
     console.log(`   All directories are git repos: ${allAreGitRepos ? '✅ Yes' : '❌ No'}`);
 
-    // Show stats
-    const stats = scanner.generateScanStats(directories);
-    console.log('\n📊 Statistics:');
-    console.log(`   Total: ${stats.total}`);
-    console.log(`   By depth:`);
-    Object.entries(stats.byDepth).forEach(([depth, count]) => {
-      console.log(`      Depth ${depth}: ${count} repos`);
-    });
+    printScanStats(scanner.generateScanStats(directories));
 
-    return {
-      success: true,
-      count: directories.length,
-      allAreGitRepos,
-      directories,
-    };
+    return { success: true, count: directories.length, allAreGitRepos, directories };
   } catch (error) {
     console.error('❌ Error during scan:', error);
     throw error;

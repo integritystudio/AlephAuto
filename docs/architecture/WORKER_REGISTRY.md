@@ -1,7 +1,7 @@
 # Worker Registry Architecture
 
-**Version:** 1.8.2
-**Last Updated:** 2026-02-01
+**Version:** 1.8.3
+**Last Updated:** 2026-03-04
 
 ## Overview
 
@@ -24,7 +24,7 @@ The Worker Registry is a centralized singleton that manages worker instances for
 jobs/
 └── api/
     └── utils/
-        └── worker-registry.js  # Worker registry singleton
+        └── worker-registry.ts  # Worker registry singleton
 ```
 
 ### Worker Registry Pattern
@@ -239,7 +239,7 @@ POST /api/pipelines/:pipelineId/trigger
 
 The worker registry is integrated into the server shutdown process:
 
-**Location:** `api/server.js`
+**Location:** `api/server.ts`
 
 ```javascript
 setupGracefulShutdown(httpServer, {
@@ -449,7 +449,7 @@ async function triggerPipelineJob(
 
 ### createJob() Implementation
 
-**Location:** `sidequest/core/server.js:74-111`
+**Location:** `sidequest/core/server.ts:74-111`
 
 ```javascript
 createJob(jobId, jobData) {
@@ -548,11 +548,11 @@ const jobs = await jobRepository.getJobsByPipeline(pipelineId, { limit, offset }
 
 ## References
 
-- **Worker Base Class:** `sidequest/core/server.js` (SidequestServer)
+- **Worker Base Class:** `sidequest/core/server.ts` (SidequestServer)
 - **API Routes:** `api/routes/pipelines.ts`
-- **Server Integration:** `api/server.js`
+- **Server Integration:** `api/server.ts`
 - **Manual Tests:** `tests/manual/test-trigger-endpoint.sh`
-- **Pipeline Names:** `sidequest/utils/pipeline-names.js`
+- **Pipeline Names:** `sidequest/utils/pipeline-names.ts`
 
 ---
 
@@ -560,4 +560,4 @@ const jobs = await jobRepository.getJobsByPipeline(pipelineId, { limit, offset }
 - [Error Handling](./ERROR_HANDLING.md)
 - [Type System](./TYPE_SYSTEM.md)
 - [API Reference](../API_REFERENCE.md)
-- [Git Workflow](../CLAUDE.md#git-workflow-automation)
+- [Git Workflow](../../CLAUDE.md)

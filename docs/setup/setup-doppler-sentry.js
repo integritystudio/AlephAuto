@@ -11,44 +11,39 @@ import fs from 'fs/promises';
 
 const execAsync = promisify(exec);
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
+const PROJECT = 'integrity-studio';
+const CONFIG = 'dev';
 
-function question(prompt) {
+function question(rl, prompt) {
   return new Promise((resolve) => {
     rl.question(prompt, resolve);
   });
 }
 
-async function setupDopplerSentry() {
-  console.log('╔════════════════════════════════════════════════════════════════╗');
-  console.log('║        Doppler + Sentry Integration Setup                     ║');
-  console.log('╚════════════════════════════════════════════════════════════════╝');
-  console.log();
-
+async function checkDopplerInstalled() {
   try {
-    // Check if Doppler is installed
     await execAsync('doppler --version');
     console.log('✅ Doppler CLI detected\n');
-  } catch (error) {
+  } catch {
     console.error('❌ Doppler CLI not found. Please install it first:');
     console.error('   brew install dopplerhq/cli/doppler');
     console.error('   or visit: https://docs.doppler.com/docs/install-cli');
     process.exit(1);
   }
+}
 
-  // Check if logged in to Doppler
+async function checkDopplerAuthenticated() {
   try {
     await execAsync('doppler configure get token.current');
     console.log('✅ Doppler authenticated\n');
-  } catch (error) {
+  } catch {
     console.error('❌ Not logged in to Doppler. Please run:');
     console.error('   doppler login');
     process.exit(1);
   }
+}
 
+function printDsnInstructions() {
   console.log('Step 1: Get Your Sentry DSN');
   console.log('═══════════════════════════');
   console.log('Your Sentry DSN should look like:');
@@ -60,88 +55,77 @@ async function setupDopplerSentry() {
   console.log('3. Settings → Client Keys (DSN)');
   console.log('4. Copy the DSN');
   console.log();
+}
 
-  const dsn = await question('Enter your Sentry DSN: ');
-
+async function promptAndValidateDsn(rl) {
+  const dsn = await question(rl, 'Enter your Sentry DSN: ');
   if (!dsn || !dsn.includes('sentry.io')) {
     console.error('\n❌ Invalid DSN format');
     rl.close();
     process.exit(1);
   }
+  return dsn;
+}
 
+async function addDsnToDoppler(dsn) {
   console.log('\nStep 2: Add to Doppler');
   console.log('══════════════════════');
-
-  const project = 'integrity-studio';
-  const config = 'dev';
-
   console.log(`Adding SENTRY_DSN to Doppler...`);
-  console.log(`Project: ${project}`);
-  console.log(`Config: ${config}`);
+  console.log(`Project: ${PROJECT}`);
+  console.log(`Config: ${CONFIG}`);
   console.log();
 
   try {
     await execAsync(
-      `doppler secrets set SENTRY_DSN="${dsn}" --project ${project} --config ${config}`
+      `doppler secrets set SENTRY_DSN="${dsn}" --project ${PROJECT} --config ${CONFIG}`
     );
     console.log('✅ SENTRY_DSN added to Doppler successfully!\n');
   } catch (error) {
     console.error('❌ Failed to add to Doppler:', error.message);
     console.error('\nYou can add it manually:');
-    console.error(`doppler secrets set SENTRY_DSN="${dsn}" --project ${project} --config ${config}`);
-    rl.close();
+    console.error(`doppler secrets set SENTRY_DSN="${dsn}" --project ${PROJECT} --config ${CONFIG}`);
     process.exit(1);
   }
+}
 
+async function updateLocalEnv(rl, dsn) {
   console.log('Step 3: Update Local .env');
   console.log('═════════════════════════');
 
-  const updateLocal = await question('Update local .env file with this DSN? (y/n): ');
+  const updateLocal = await question(rl, 'Update local .env file with this DSN? (y/n): ');
+  if (updateLocal.toLowerCase() !== 'y') return;
 
-  if (updateLocal.toLowerCase() === 'y') {
-    try {
-      let envContent = await fs.readFile('.env', 'utf-8');
-      envContent = envContent.replace(
-        /SENTRY_DSN=.*/,
-        `SENTRY_DSN=${dsn}`
-      );
-      await fs.writeFile('.env', envContent);
-      console.log('✅ Local .env file updated!\n');
-    } catch (error) {
-      console.error('❌ Error updating .env:', error.message);
-    }
+  try {
+    let envContent = await fs.readFile('.env', 'utf-8');
+    envContent = envContent.replace(/SENTRY_DSN=.*/, `SENTRY_DSN=${dsn}`);
+    await fs.writeFile('.env', envContent);
+    console.log('✅ Local .env file updated!\n');
+  } catch (error) {
+    console.error('❌ Error updating .env:', error.message);
   }
+}
 
+async function testSentryConnection(rl, dsn) {
   console.log('Step 4: Test Connection');
   console.log('═══════════════════════');
 
-  const testNow = await question('Test Sentry connection now? (y/n): ');
+  const testNow = await question(rl, 'Test Sentry connection now? (y/n): ');
+  if (testNow.toLowerCase() !== 'y') return;
 
-  if (testNow.toLowerCase() === 'y') {
-    console.log('\n🧪 Testing Sentry connection...\n');
+  console.log('\n🧪 Testing Sentry connection...\n');
+  const Sentry = await import('@sentry/node');
+  Sentry.init({ dsn, environment: 'setup-test', tracesSampleRate: 1.0 });
+  const eventId = Sentry.captureMessage('Doppler + Sentry integration test successful!', 'info');
+  await Sentry.flush(2000);
 
-    const Sentry = await import('@sentry/node');
+  console.log('✅ Test message sent to Sentry!');
+  console.log(`   Event ID: ${eventId}`);
+  console.log();
+  console.log('📊 Check your Sentry dashboard to see the test message');
+  console.log('   https://sentry.io/\n');
+}
 
-    Sentry.init({
-      dsn: dsn,
-      environment: 'setup-test',
-      tracesSampleRate: 1.0,
-    });
-
-    const eventId = Sentry.captureMessage(
-      'Doppler + Sentry integration test successful!',
-      'info'
-    );
-
-    await Sentry.flush(2000);
-
-    console.log('✅ Test message sent to Sentry!');
-    console.log(`   Event ID: ${eventId}`);
-    console.log();
-    console.log('📊 Check your Sentry dashboard to see the test message');
-    console.log('   https://sentry.io/\n');
-  }
-
+function printCompletion() {
   console.log('╔════════════════════════════════════════════════════════════════╗');
   console.log('║                  Setup Complete! 🎉                           ║');
   console.log('╚════════════════════════════════════════════════════════════════╝');
@@ -150,13 +134,33 @@ async function setupDopplerSentry() {
   console.log('✅ Local .env file updated (if you chose to)');
   console.log();
   console.log('Running with Doppler:');
-  console.log(`  doppler run --project ${project} --config ${config} -- npm start`);
+  console.log(`  doppler run --project ${PROJECT} --config ${CONFIG} -- npm start`);
   console.log();
   console.log('Or use local .env:');
   console.log('  npm start');
   console.log();
+}
 
-  rl.close();
+async function setupDopplerSentry() {
+  console.log('╔════════════════════════════════════════════════════════════════╗');
+  console.log('║        Doppler + Sentry Integration Setup                     ║');
+  console.log('╚════════════════════════════════════════════════════════════════╝');
+  console.log();
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+  try {
+    await checkDopplerInstalled();
+    await checkDopplerAuthenticated();
+    printDsnInstructions();
+    const dsn = await promptAndValidateDsn(rl);
+    await addDsnToDoppler(dsn);
+    await updateLocalEnv(rl, dsn);
+    await testSentryConnection(rl, dsn);
+    printCompletion();
+  } finally {
+    rl.close();
+  }
 }
 
 setupDopplerSentry().catch((error) => {

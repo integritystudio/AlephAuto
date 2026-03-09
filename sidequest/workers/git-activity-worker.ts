@@ -5,8 +5,11 @@ import { captureProcessOutput } from '@shared/process-io';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
+import { fileURLToPath } from 'url';
+import * as Sentry from '@sentry/node';
 import { createComponentLogger } from '../utils/logger.ts';
-import { TIMEOUTS, TIME } from '../core/constants.ts';
+import { TIMEOUTS, GIT_ACTIVITY, NUMBER_BASE } from '../core/constants.ts';
+import { TIME_MS } from '../core/units.ts';
 
 const logger = createComponentLogger('GitActivityWorker');
 
@@ -32,7 +35,7 @@ interface PythonScriptResult {
   outputFiles: string[];
 }
 
-interface GitActivityStats {
+export interface GitActivityStats {
   totalCommits: number;
   totalRepositories: number;
   linesAdded: number;
@@ -56,6 +59,103 @@ interface ReportJobOptions {
   generateVisualizations?: boolean;
 }
 
+function toFiniteNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return 0;
+}
+
+export function buildGitActivityStatsFromData(data: Record<string, unknown>): GitActivityStats {
+  return {
+    totalCommits: toFiniteNumber(data.total_commits),
+    totalRepositories: Array.isArray(data.repositories)
+      ? data.repositories.length
+      : toFiniteNumber(data.total_repositories),
+    linesAdded: toFiniteNumber(data.total_additions),
+    linesDeleted: toFiniteNumber(data.total_deletions),
+    filesChanged: toFiniteNumber(data.total_files),
+  };
+}
+
+export async function parseGitActivityStatsFromJsonFiles(
+  outputFiles: string[],
+  scriptDir: string,
+  readFile: (path: string, encoding: BufferEncoding) => Promise<string> = fs.readFile
+): Promise<GitActivityStats | null> {
+  const jsonFiles = outputFiles.filter((file) => file.toLowerCase().endsWith('.json'));
+
+  for (const file of jsonFiles) {
+    const resolvedPath = path.isAbsolute(file)
+      ? file
+      : path.resolve(scriptDir, file);
+    try {
+      const content = await readFile(resolvedPath, 'utf-8');
+      const data = JSON.parse(content) as Record<string, unknown>;
+      if (Object.prototype.hasOwnProperty.call(data, 'total_commits')) {
+        return buildGitActivityStatsFromData(data);
+      }
+    } catch (error) {
+      const err = error as Error;
+      logger.warn({ file: resolvedPath, error: err.message }, 'Failed to parse git activity stats JSON file');
+      Sentry.captureException(err, {
+        tags: {
+          component: 'git-activity-worker',
+          operation: 'parse-stats-json',
+        },
+        extra: {
+          file: resolvedPath,
+        },
+      });
+      // Continue to next JSON output file.
+    }
+  }
+
+  return null;
+}
+
+export function parseGitActivityStatsFromText(stdout: string): GitActivityStats {
+  const stats: GitActivityStats = {
+    totalCommits: 0,
+    totalRepositories: 0,
+    linesAdded: 0,
+    linesDeleted: 0,
+  };
+
+  const commitsMatch = stdout.match(/Total commits:\s*(\d+)/i);
+  if (commitsMatch) {
+    stats.totalCommits = parseInt(commitsMatch[1], NUMBER_BASE.DECIMAL);
+  }
+
+  const additionsMatch = stdout.match(/Lines added:\s*(\d+)/i);
+  if (additionsMatch) {
+    stats.linesAdded = parseInt(additionsMatch[1], NUMBER_BASE.DECIMAL);
+  }
+
+  const deletionsMatch = stdout.match(/Lines deleted:\s*(\d+)/i);
+  if (deletionsMatch) {
+    stats.linesDeleted = parseInt(deletionsMatch[1], NUMBER_BASE.DECIMAL);
+  }
+
+  const reposMatch = stdout.match(/Active repositories:\s*(\d+)/i);
+  if (reposMatch) {
+    stats.totalRepositories = parseInt(reposMatch[1], NUMBER_BASE.DECIMAL);
+  }
+
+  const filesMatch = stdout.match(/File changes:\s*(\d+)/i);
+  if (filesMatch) {
+    stats.filesChanged = parseInt(filesMatch[1], NUMBER_BASE.DECIMAL);
+  }
+
+  return stats;
+}
+
 /**
  * GitActivityWorker - Executes git activity report jobs
  *
@@ -68,14 +168,20 @@ export class GitActivityWorker extends SidequestServer {
   personalSiteDir: string;
   outputDir: string;
 
+  /**
+   * Initialize a git activity worker with project and output paths.
+   *
+   * @param options Optional worker configuration.
+   */
   constructor(options: GitActivityWorkerOptions = {}) {
     super({
       ...options,
       jobType: 'git-activity',
     });
     this.codeBaseDir = options.codeBaseDir ?? path.join(os.homedir(), 'code');
+    const moduleDir = path.dirname(fileURLToPath(import.meta.url));
     this.pythonScript = options.pythonScript ?? path.join(
-      path.dirname(new URL(import.meta.url).pathname),
+      moduleDir,
       '..',
       'pipeline-runners',
       'collect_git_activity.py'
@@ -98,7 +204,7 @@ export class GitActivityWorker extends SidequestServer {
       days,
       sinceDate,
       untilDate,
-      outputFormat = 'json',
+      outputFormat = 'both',
       generateVisualizations = true
     } = job.data as {
       reportType?: string;
@@ -136,7 +242,7 @@ export class GitActivityWorker extends SidequestServer {
       }
 
       // Parse JSON output to get statistics
-      const stats = this.#parseStats(stdout);
+      const stats = await this.#parseStats(stdout, outputFiles);
 
       // Verify output files exist
       const verifiedFiles = await this.#verifyOutputFiles(outputFiles);
@@ -195,12 +301,14 @@ export class GitActivityWorker extends SidequestServer {
     const args: string[] = [];
 
     // Add date range arguments
-    if (sinceDate && untilDate) {
-      args.push('--since', sinceDate);
-      args.push('--until', untilDate);
-    } else if (reportType === 'weekly' || days === 7) {
+    if (sinceDate) {
+      args.push('--start-date', sinceDate);
+      if (untilDate) {
+        args.push('--end-date', untilDate);
+      }
+    } else if (reportType === GIT_ACTIVITY.WEEKLY_REPORT_TYPE || days === GIT_ACTIVITY.WEEKLY_WINDOW_DAYS) {
       args.push('--weekly');
-    } else if (reportType === 'monthly' || days === 30) {
+    } else if (reportType === GIT_ACTIVITY.MONTHLY_REPORT_TYPE || days === GIT_ACTIVITY.MONTHLY_WINDOW_DAYS) {
       args.push('--monthly');
     } else if (days) {
       args.push('--days', String(days));
@@ -209,8 +317,8 @@ export class GitActivityWorker extends SidequestServer {
       args.push('--weekly');
     }
 
-    // Add output format
-    if (outputFormat && outputFormat !== 'json') {
+    // Always pass output format explicitly so Python defaults cannot drift.
+    if (outputFormat) {
       args.push('--output-format', outputFormat);
     }
 
@@ -269,67 +377,54 @@ export class GitActivityWorker extends SidequestServer {
    * Extract output file paths from script output
    */
   #extractOutputFiles(stdout: string): string[] {
-    const files: string[] = [];
+    const files = new Set<string>();
+    const pendingSvgBasenames: string[] = [];
 
-    // Look for JSON output file
-    const jsonMatch = stdout.match(/(?:Saving|Saved) (?:to|data to):\s*(.+\.json)/i);
-    if (jsonMatch) {
-      files.push(jsonMatch[1].trim());
+    // JSON output lines emitted by the Python script.
+    const jsonPatterns = [
+      /JSON data saved to:\s*(.+\.json)/gi,
+      /(?:Saving|Saved)\s+(?:to|data to):\s*(.+\.json)/gi,
+    ];
+    for (const pattern of jsonPatterns) {
+      for (const match of stdout.matchAll(pattern)) {
+        files.add(match[1].trim());
+      }
     }
 
-    // Look for visualization files
-    const svgMatches = stdout.matchAll(/(?:Generating|Generated|Saving).*?:\s*(.+\.svg)/gi);
-    for (const match of svgMatches) {
-      files.push(match[1].trim());
+    // Markdown output line emitted by the Python script.
+    for (const match of stdout.matchAll(/Jekyll report saved to:\s*(.+\.md)/gi)) {
+      files.add(match[1].trim());
     }
 
-    return files;
+    // SVG output lines (supports "Created:", "Saving:", "Generated:", etc).
+    for (const match of stdout.matchAll(/(?:Generating|Generated|Saving|Created).*?:\s*(.+\.svg)/gi)) {
+      const rawPath = match[1].trim();
+      if (path.isAbsolute(rawPath) || rawPath.includes('/')) {
+        files.add(rawPath);
+      } else {
+        pendingSvgBasenames.push(rawPath);
+      }
+    }
+
+    // When Python logs only SVG basenames, recover full paths from summary output.
+    const visualizationDirMatch = stdout.match(/Visualizations saved to:\s*(.+)/i);
+    if (visualizationDirMatch) {
+      const visualizationDir = visualizationDirMatch[1].trim();
+      for (const svgName of pendingSvgBasenames) {
+        files.add(path.join(visualizationDir, svgName));
+      }
+    }
+
+    return Array.from(files);
   }
 
-  /**
-   * Parse statistics from script output
-   */
-  #parseStats(stdout: string): GitActivityStats {
-    const stats: GitActivityStats = {
-      totalCommits: 0,
-      totalRepositories: 0,
-      linesAdded: 0,
-      linesDeleted: 0,
-    };
-
-    // Try to parse from JSON output in stdout
-    try {
-      const jsonMatch = stdout.match(/\{[\s\S]*"total_commits"[\s\S]*\}/);
-      if (jsonMatch) {
-        const data = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
-        stats.totalCommits = (data.total_commits as number) ?? 0;
-        stats.totalRepositories = (Array.isArray(data.repositories) ? data.repositories.length : 0);
-        stats.linesAdded = (data.total_additions as number) ?? 0;
-        stats.linesDeleted = (data.total_deletions as number) ?? 0;
-        return stats;
-      }
-    } catch (error) {
-      const err = error as Error;
-      logger.debug({ error: err.message }, 'Could not parse JSON stats, trying text format');
+  async #parseStats(stdout: string, outputFiles: string[]): Promise<GitActivityStats> {
+    const scriptDir = path.dirname(this.pythonScript);
+    const jsonStats = await parseGitActivityStatsFromJsonFiles(outputFiles, scriptDir);
+    if (jsonStats) {
+      return jsonStats;
     }
-
-    // Fallback: parse from text summary output
-    const commitsMatch = stdout.match(/Total commits:\s*(\d+)/i);
-    if (commitsMatch) {
-      stats.totalCommits = parseInt(commitsMatch[1], 10);
-    }
-
-    const reposMatch = stdout.match(/Active repositories:\s*(\d+)/i);
-    if (reposMatch) {
-      stats.totalRepositories = parseInt(reposMatch[1], 10);
-    }
-
-    const filesMatch = stdout.match(/File changes:\s*(\d+)/i);
-    if (filesMatch) {
-      stats.filesChanged = parseInt(filesMatch[1], 10);
-    }
-
-    return stats;
+    return parseGitActivityStatsFromText(stdout);
   }
 
   /**
@@ -341,7 +436,7 @@ export class GitActivityWorker extends SidequestServer {
     const since = new Date(sinceDate);
     const until = new Date(untilDate);
     const diffTime = Math.abs(until.getTime() - since.getTime());
-    const diffDays = Math.ceil(diffTime / TIME.DAY);
+    const diffDays = Math.ceil(diffTime / TIME_MS.DAY);
 
     return diffDays;
   }
@@ -351,21 +446,25 @@ export class GitActivityWorker extends SidequestServer {
    */
   async #verifyOutputFiles(files: string[]): Promise<VerifiedFile[]> {
     const verified: VerifiedFile[] = [];
+    const scriptDir = path.dirname(this.pythonScript);
 
     for (const file of files) {
+      const resolvedPath = path.isAbsolute(file)
+        ? file
+        : path.resolve(scriptDir, file);
       try {
-        await fs.access(file);
-        const stats = await fs.stat(file);
+        await fs.access(resolvedPath);
+        const stats = await fs.stat(resolvedPath);
         verified.push({
-          path: file,
+          path: resolvedPath,
           size: stats.size,
           exists: true,
         });
       } catch (error) {
         const err = error as Error;
-        logger.warn({ file, error: err.message }, 'Output file not found');
+        logger.warn({ file: resolvedPath, error: err.message }, 'Output file not found');
         verified.push({
-          path: file,
+          path: resolvedPath,
           exists: false,
         });
       }
@@ -381,8 +480,9 @@ export class GitActivityWorker extends SidequestServer {
     const jobId = `git-activity-weekly-${Date.now()}`;
 
     return this.createJob(jobId, {
-      reportType: 'weekly',
-      days: 7,
+      reportType: GIT_ACTIVITY.WEEKLY_REPORT_TYPE,
+      days: GIT_ACTIVITY.WEEKLY_WINDOW_DAYS,
+      outputFormat: 'both',
       type: 'git-activity-report',
     });
   }
@@ -394,8 +494,9 @@ export class GitActivityWorker extends SidequestServer {
     const jobId = `git-activity-monthly-${Date.now()}`;
 
     return this.createJob(jobId, {
-      reportType: 'monthly',
-      days: 30,
+      reportType: GIT_ACTIVITY.MONTHLY_REPORT_TYPE,
+      days: GIT_ACTIVITY.MONTHLY_WINDOW_DAYS,
+      outputFormat: 'both',
       type: 'git-activity-report',
     });
   }
@@ -407,7 +508,7 @@ export class GitActivityWorker extends SidequestServer {
     const jobId = `git-activity-custom-${Date.now()}`;
 
     return this.createJob(jobId, {
-      reportType: 'custom',
+      reportType: GIT_ACTIVITY.CUSTOM_REPORT_TYPE,
       sinceDate,
       untilDate,
       type: 'git-activity-report',
@@ -421,11 +522,11 @@ export class GitActivityWorker extends SidequestServer {
     const jobId = options.jobId ?? `git-activity-${Date.now()}`;
 
     return this.createJob(jobId, {
-      reportType: options.reportType ?? 'weekly',
+      reportType: options.reportType ?? GIT_ACTIVITY.DEFAULT_REPORT_TYPE,
       days: options.days,
       sinceDate: options.sinceDate,
       untilDate: options.untilDate,
-      outputFormat: options.outputFormat ?? 'json',
+      outputFormat: options.outputFormat ?? 'both',
       generateVisualizations: options.generateVisualizations !== false,
       type: 'git-activity-report',
     });

@@ -8,7 +8,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 11 pipelines: Duplicate Detection (JS+Python), Schema Enhancement, Git Activity Reporter, Repository Cleanup, Repomix, Codebase Health, Dashboard Populate, Bugfix Audit, Gitignore Update, Plugin Management, Test Refactor.
 
+## Efficient read operations
+(file tree w/ token count)[docs/repomix/token-tree.txt]
+lossless codebase packed at docs/repomix/repomix.xml
+compressed, loss-y codebase packed at docs/repomix/repo-compressed.xml
+
+
 ## Quick Reference
+
+file tree with token count at docs/
 
 ```bash
 # Development
@@ -19,6 +27,12 @@ npm run build:frontend                     # Build React dashboard
 # Testing
 npm test                                   # Unit tests
 npm run test:integration                   # Integration tests
+npm run test:all:core                      # Core Node suites (SKIP_ENV_SENSITIVE_TESTS=1)
+npm run test:all:env-safe                  # Env-sensitive suites that are sandbox-safe
+npm run test:all:env-host-required         # Env-sensitive suites requiring host capabilities
+npm run test:all:env                       # Env aggregate (safe + host-required)
+npm run test:all                           # Core Node + Python suites
+npm run test:all:full                      # Core + env-sensitive + Python suites
 npm run typecheck                          # TypeScript checks
 
 # Production
@@ -31,14 +45,14 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 - Cyclomatic Complexity: ≤10 | Cognitive Complexity: ≤15 | Function Length: ≤50 lines | Nesting Depth: ≤4
 - **NEVER** use `eval()` or `new Function()` with dynamic input
 - Use `createTempRepository()` from test fixtures (never hardcode `/tmp/` paths)
-- Run `npm test && npm run test:integration && npm run typecheck` before PRs
+- Run `npm run test:all && npm run typecheck` before PRs; on host-capable environments, also run `npm run test:all:env-host-required` (or `npm run test:all:full`)
 
 ## Critical Patterns
 
 ### 1. Doppler Required for ALL Commands
 ```bash
-doppler run -- node api/server.js        # Correct
-node api/server.js                        # Wrong - secrets won't load
+doppler run -- node --strip-types api/server.ts  # Correct
+node api/server.ts                                 # Wrong - secrets won't load
 ```
 
 ### 2. Configuration: NEVER use process.env directly
@@ -68,12 +82,12 @@ const errorCode = error.code;                   // Wrong - throws if null
 
 ### 6. Port Conflicts: Use Port Manager
 ```javascript
-import { setupServerWithPortFallback } from './api/utils/port-manager.js';
+import { setupServerWithPortFallback } from './api/utils/port-manager.ts';
 ```
 
 ### 7. Database Access: Use JobRepository
 ```javascript
-import { jobRepository } from './sidequest/core/job-repository.js';
+import { jobRepository } from './sidequest/core/job-repository.ts';
 await jobRepository.saveJob(job);           // Correct - never import from database.js directly
 const job = jobRepository.getJob(id);       // Returns parsed camelCase: { pipelineId, createdAt, ... }
 const count = jobRepository.getJobCount({ status });  // Efficient COUNT(*) query
@@ -83,7 +97,7 @@ const count = jobRepository.getJobCount({ status });  // Efficient COUNT(*) quer
 ### 8. Constants: No Magic Numbers
 ```typescript
 import { TIMEOUTS, RETRY, CONCURRENCY, TIME, CACHE } from './sidequest/core/constants.ts';
-const timeout = TIMEOUTS.PYTHON_PIPELINE_MS;     // Correct
+const timeout = TIMEOUTS.PYTHON_PIPELINE_BASE_MS; // Correct
 const oneDay = TIME.DAY;                          // Correct
 ```
 
@@ -97,14 +111,14 @@ this.branchManager.createJobBranch(repoPath, jobInfo);       // Wrong
 
 ### 10. API Error Responses: Use ApiError Utilities
 ```javascript
-import { sendError, sendNotFoundError } from '../utils/api-error.js';
+import { sendError, sendNotFoundError } from '../utils/api-error.ts';
 sendError(res, 'INVALID_REQUEST', 'Missing field', 400);     // Correct
 res.status(400).json({ error: 'Missing field' });            // Wrong
 ```
 
 ### 11. Input Validation: Validate Job IDs and Pagination
 ```javascript
-import { VALIDATION, PAGINATION } from './sidequest/core/constants.js';
+import { VALIDATION, PAGINATION } from './sidequest/core/constants.ts';
 if (!VALIDATION.JOB_ID_PATTERN.test(jobId)) { ... }
 const limit = Math.min(limit, PAGINATION.MAX_LIMIT);         // max 1000
 ```
@@ -141,7 +155,7 @@ BasePipeline<TWorker> (sidequest/pipeline-runners/base-pipeline.ts)
 
 ### Type System Flow
 ```
-api/types/*.ts (Zod schemas) → api/middleware/validation.js → api/routes/*.ts (type-safe handlers)
+api/types/*.ts (Zod schemas) → api/middleware/validation.ts → api/routes/*.ts (type-safe handlers)
 ```
 
 ## Environment Variables (Doppler)
@@ -153,7 +167,7 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 ## Directory Structure
 
 ```
-├── api/                    # REST API + WebSocket (36 endpoints)
+├── api/                    # REST API + WebSocket (22 endpoints)
 │   ├── routes/            # jobs, scans, pipelines, reports, repositories
 │   ├── types/             # Zod schemas
 │   ├── middleware/        # Auth, validation, rate-limit
@@ -183,15 +197,15 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 | Feature extraction | `sidequest/pipeline-core/similarity/structural.py:29` |
 | Base job queue | `sidequest/core/server.ts` |
 | Base pipeline runner | `sidequest/pipeline-runners/base-pipeline.ts` |
-| Job repository | `sidequest/core/job-repository.js` |
-| Git workflow manager | `sidequest/core/git-workflow-manager.js` |
+| Job repository | `sidequest/core/job-repository.ts` |
+| Git workflow manager | `sidequest/core/git-workflow-manager.ts` |
 | Constants | `sidequest/core/constants.ts` |
 | Job status types | `api/types/job-status.ts` |
-| Error classifier | `sidequest/pipeline-core/errors/error-classifier.js` |
-| Worker registry | `api/utils/worker-registry.js` |
-| Port manager | `api/utils/port-manager.js` |
-| API error utilities | `api/utils/api-error.js` |
-| Test helpers | `tests/fixtures/test-helpers.js` |
+| Error classifier | `sidequest/pipeline-core/errors/error-classifier.ts` |
+| Worker registry | `api/utils/worker-registry.ts` |
+| Port manager | `api/utils/port-manager.ts` |
+| API error utilities | `api/utils/api-error.ts` |
+| Test helpers | `tests/fixtures/test-helpers.ts` |
 
 ## Shared Packages
 
@@ -200,4 +214,4 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 
 ---
 
-**Version:** 2.1.0 | **Updated:** 2026-02-26 | **Status:** Production Ready
+**Version:** 2.3.20 | **Updated:** 2026-03-08 | **Status:** Production Ready

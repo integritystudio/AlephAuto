@@ -30,7 +30,11 @@
 import { ClaudeHealthWorker } from '../workers/claude-health-worker.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
+import { BYTES_PER_KB, JOB_EVENTS, MAX_SCORE } from '../core/constants.ts';
+import { HEALTH_SCORE_THRESHOLDS } from '../core/score-thresholds.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const logger = createComponentLogger('ClaudeHealthPipeline');
 
@@ -123,6 +127,9 @@ interface HealthCheckResult {
 class ClaudeHealthPipeline extends BasePipeline<ClaudeHealthWorker> {
   private options: PipelineOptions;
 
+  /**
+   * constructor.
+   */
   constructor(options: Record<string, unknown> = {}) {
     super(new ClaudeHealthWorker({
       maxConcurrent: 1,
@@ -145,15 +152,15 @@ class ClaudeHealthPipeline extends BasePipeline<ClaudeHealthWorker> {
    * Setup event listeners for job events
    */
   private setupEventListeners(): void {
-    this.worker.on('job:created', (job: Job) => {
+    this.worker.on(JOB_EVENTS.CREATED, (job: Job) => {
       logger.info({ jobId: job.id }, 'Health check job created');
     });
 
-    this.worker.on('job:started', (job: Job) => {
+    this.worker.on(JOB_EVENTS.STARTED, (job: Job) => {
       logger.info({ jobId: job.id }, 'Health check job started');
     });
 
-    this.worker.on('job:completed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
       const result = job.result as unknown as HealthCheckResult;
 
       logger.info({
@@ -169,7 +176,7 @@ class ClaudeHealthPipeline extends BasePipeline<ClaudeHealthWorker> {
       this.displayResults(result);
     });
 
-    this.worker.on('job:failed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.FAILED, (job: Job) => {
       logError(logger, job.error, 'Health check job failed', { jobId: job.id });
     });
   }
@@ -235,188 +242,203 @@ class ClaudeHealthPipeline extends BasePipeline<ClaudeHealthWorker> {
 }
 
 // Print functions
+/**
+ * printSummary.
+ */
 function printSummary(result: HealthCheckResult): void {
-  console.log('\n╔════════════════════════════════════════════════════════════════╗');
-  console.log('║          Claude Code Health Check Summary                     ║');
-  console.log('╚════════════════════════════════════════════════════════════════╝\n');
+  logger.info('\n╔════════════════════════════════════════════════════════════════╗');
+  logger.info('║          Claude Code Health Check Summary                     ║');
+  logger.info('╚════════════════════════════════════════════════════════════════╝\n');
 
-  console.log(`Health Score: ${getScoreColor(result.summary.healthScore)}${result.summary.healthScore}/100\x1b[0m`);
-  console.log(`Status:       ${result.summary.message}\n`);
+  logger.info(
+    `Health Score: ${getScoreColor(result.summary.healthScore)}${result.summary.healthScore}/${MAX_SCORE}\x1b[0m`
+  );
+  logger.info(`Status:       ${result.summary.message}\n`);
 
   // Component inventory
   if (result.checks.components) {
-    console.log('Component Inventory:');
-    console.log(`  Skills:        ${result.checks.components.skills}`);
-    console.log(`  Agents:        ${result.checks.components.agents}`);
-    console.log(`  Commands:      ${result.checks.components.commands}`);
-    console.log(`  Hooks:         ${result.checks.hooks?.executableHooks ?? 0}/${result.checks.hooks?.totalHooks ?? 0} executable`);
-    console.log(`  Registered:    ${result.checks.hooks?.registeredHooks ?? 0} hook types`);
+    logger.info('Component Inventory:');
+    logger.info(`  Skills:        ${result.checks.components.skills}`);
+    logger.info(`  Agents:        ${result.checks.components.agents}`);
+    logger.info(`  Commands:      ${result.checks.components.commands}`);
+    logger.info(`  Hooks:         ${result.checks.hooks?.executableHooks ?? 0}/${result.checks.hooks?.totalHooks ?? 0} executable`);
+    logger.info(`  Registered:    ${result.checks.hooks?.registeredHooks ?? 0} hook types`);
     if (result.checks.plugins) {
-      console.log(`  Plugins:       ${result.checks.plugins.totalPlugins}`);
+      logger.info(`  Plugins:       ${result.checks.plugins.totalPlugins}`);
     }
-    console.log(`  Active Tasks:  ${result.checks.components.activeTasks}`);
-    console.log(`  Archived:      ${result.checks.components.archivedTasks}`);
-    console.log('');
+    logger.info(`  Active Tasks:  ${result.checks.components.activeTasks}`);
+    logger.info(`  Archived:      ${result.checks.components.archivedTasks}`);
+    logger.info('');
   }
 
   // Environment
   if (result.checks.environment) {
     const env = result.checks.environment;
-    console.log('Environment:');
-    console.log(`  Node.js:       ${env.nodeVersion ?? 'not found'}`);
-    console.log(`  npm:           ${env.npmVersion ?? 'not found'}`);
-    console.log(`  direnv:        ${env.direnv ? '✓ installed' : '✗ not installed'}`);
+    logger.info('Environment:');
+    logger.info(`  Node.js:       ${env.nodeVersion ?? 'not found'}`);
+    logger.info(`  npm:           ${env.npmVersion ?? 'not found'}`);
+    logger.info(`  direnv:        ${env.direnv ? '✓ installed' : '✗ not installed'}`);
     if (env.direnv && !env.direnvAllowed) {
-      console.log(`  \x1b[33m⚠  Environment variables not loaded\x1b[0m`);
+      logger.info(`  \x1b[33m⚠  Environment variables not loaded\x1b[0m`);
     }
-    console.log('');
+    logger.info('');
   }
 
   // Summary statistics
-  console.log('Summary:');
-  console.log(`  Critical Issues: ${result.summary.criticalIssues}`);
-  console.log(`  Warnings:        ${result.summary.warnings}`);
-  console.log(`  Duration:        ${result.duration}ms\n`);
+  logger.info('Summary:');
+  logger.info(`  Critical Issues: ${result.summary.criticalIssues}`);
+  logger.info(`  Warnings:        ${result.summary.warnings}`);
+  logger.info(`  Duration:        ${result.duration}ms\n`);
 }
 
+/**
+ * printRecommendations.
+ */
 function printRecommendations(recommendations: Recommendation[]): void {
-  console.log('╔════════════════════════════════════════════════════════════════╗');
-  console.log('║          Recommendations                                       ║');
-  console.log('╚════════════════════════════════════════════════════════════════╝\n');
+  logger.info('╔════════════════════════════════════════════════════════════════╗');
+  logger.info('║          Recommendations                                       ║');
+  logger.info('╚════════════════════════════════════════════════════════════════╝\n');
 
   for (const rec of recommendations) {
     const icon = rec.priority === 'high' ? '🔴' : rec.priority === 'medium' ? '🟡' : '✅';
     const priority = rec.priority.toUpperCase();
 
-    console.log(`${icon} [${priority}] ${rec.type}`);
-    console.log(`   ${rec.message}`);
-    console.log(`   Action: ${rec.action}`);
+    logger.info(`${icon} [${priority}] ${rec.type}`);
+    logger.info(`   ${rec.message}`);
+    logger.info(`   Action: ${rec.action}`);
 
     if (rec.details) {
-      console.log('   Details:');
+      logger.info('   Details:');
       for (const detail of rec.details) {
         if (detail.category && detail.plugins) {
-          console.log(`     • ${detail.category}: ${detail.plugins.join(', ')}`);
+          logger.info(`     • ${detail.category}: ${detail.plugins.join(', ')}`);
           if (detail.suggestion) {
-            console.log(`       → ${detail.suggestion}`);
+            logger.info(`       → ${detail.suggestion}`);
           }
         }
       }
     }
-    console.log('');
+    logger.info('');
   }
 }
 
+/**
+ * printDetailedChecks.
+ */
 function printDetailedChecks(checks: HealthCheckResult['checks']): void {
-  console.log('╔════════════════════════════════════════════════════════════════╗');
-  console.log('║          Detailed Check Results                                ║');
-  console.log('╚════════════════════════════════════════════════════════════════╝\n');
+  logger.info('╔════════════════════════════════════════════════════════════════╗');
+  logger.info('║          Detailed Check Results                                ║');
+  logger.info('╚════════════════════════════════════════════════════════════════╝\n');
 
   // Configuration
   if (checks.configuration) {
-    console.log('Configuration Files:');
-    console.log(`  settings.json:     ${checks.configuration.settingsJson.valid ? '✓' : '✗'} valid`);
-    console.log(`  skill-rules.json:  ${checks.configuration.skillRulesJson.valid ? '✓' : '✗'} valid`);
-    console.log(`  package.json:      ${checks.configuration.packageJson.valid ? '✓' : '✗'} valid`);
-    console.log(`  .envrc:            ${checks.configuration.envrc.exists ? '✓' : '✗'} exists`);
-    console.log('');
+    logger.info('Configuration Files:');
+    logger.info(`  settings.json:     ${checks.configuration.settingsJson.valid ? '✓' : '✗'} valid`);
+    logger.info(`  skill-rules.json:  ${checks.configuration.skillRulesJson.valid ? '✓' : '✗'} valid`);
+    logger.info(`  package.json:      ${checks.configuration.packageJson.valid ? '✓' : '✗'} valid`);
+    logger.info(`  .envrc:            ${checks.configuration.envrc.exists ? '✓' : '✗'} exists`);
+    logger.info('');
   }
 
   // Hooks
   if (checks.hooks?.hooks) {
-    console.log('Hook Details:');
+    logger.info('Hook Details:');
     for (const hook of checks.hooks.hooks) {
       const status = hook.executable ? '✓' : '✗';
-      console.log(`  ${status} ${hook.name}`);
+      logger.info(`  ${status} ${hook.name}`);
     }
-    console.log('');
+    logger.info('');
   }
 
   // Plugins
   if (checks.plugins?.duplicateCategories && checks.plugins.duplicateCategories.length > 0) {
-    console.log('Duplicate Plugin Categories:');
+    logger.info('Duplicate Plugin Categories:');
     for (const cat of checks.plugins.duplicateCategories) {
-      console.log(`  ${cat.category} (${cat.count} plugins):`);
+      logger.info(`  ${cat.category} (${cat.count} plugins):`);
       for (const plugin of cat.plugins) {
-        console.log(`    • ${plugin}`);
+        logger.info(`    • ${plugin}`);
       }
     }
-    console.log('');
+    logger.info('');
   }
 
   // Performance
   if (checks.performance?.logExists) {
-    console.log('Performance:');
-    console.log(`  Log size:       ${formatBytes(checks.performance.logSize)}`);
-    console.log(`  Total entries:  ${checks.performance.totalEntries}`);
-    console.log(`  Slow hooks:     ${checks.performance.slowHooks}`);
-    console.log(`  Failures:       ${checks.performance.failures}`);
+    logger.info('Performance:');
+    logger.info(`  Log size:       ${formatBytes(checks.performance.logSize)}`);
+    logger.info(`  Total entries:  ${checks.performance.totalEntries}`);
+    logger.info(`  Slow hooks:     ${checks.performance.slowHooks}`);
+    logger.info(`  Failures:       ${checks.performance.failures}`);
 
     if (checks.performance.slowHookDetails && checks.performance.slowHookDetails.length > 0) {
-      console.log('\n  Slowest hooks:');
+      logger.info('\n  Slowest hooks:');
       for (const hook of checks.performance.slowHookDetails) {
-        console.log(`    • ${hook.hook}: ${hook.duration}ms`);
+        logger.info(`    • ${hook.hook}: ${hook.duration}ms`);
       }
     }
-    console.log('');
+    logger.info('');
   }
 }
 
+/**
+ * getScoreColor.
+ */
 function getScoreColor(score: number): string {
-  if (score >= 90) return '\x1b[32m'; // Green
-  if (score >= 70) return '\x1b[33m'; // Yellow
+  if (score >= HEALTH_SCORE_THRESHOLDS.HEALTHY_MIN_SCORE) return '\x1b[32m'; // Green
+  if (score >= HEALTH_SCORE_THRESHOLDS.WARNING_MIN_SCORE) return '\x1b[33m'; // Yellow
   return '\x1b[31m'; // Red
 }
 
+/**
+ * formatBytes.
+ */
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
-  const k = 1024;
+  const k = BYTES_PER_KB;
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
-// Initialize pipeline
-const pipeline = new ClaudeHealthPipeline();
+function isDirectExecution(): boolean {
+  const currentModulePath = fileURLToPath(import.meta.url);
+  const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
+  return entryPath === currentModulePath;
+}
 
-// Configuration
-const CRON_SCHEDULE = process.env.CLAUDE_HEALTH_CRON_SCHEDULE || '0 8 * * *';
-const RUN_ON_STARTUP = config.runOnStartup;
-const CRON_ENABLED = process.argv.includes('--cron');
+async function runCli(): Promise<void> {
+  const pipeline = new ClaudeHealthPipeline();
 
-logger.info({
-  cronEnabled: CRON_ENABLED,
-  cronSchedule: CRON_SCHEDULE,
-  runOnStartup: RUN_ON_STARTUP
-}, 'Claude Health Pipeline initialized');
+  const cronSchedule = process.env.CLAUDE_HEALTH_CRON_SCHEDULE || '0 8 * * *';
+  const runOnStartup = config.runOnStartup;
+  const cronEnabled = process.argv.includes('--cron');
 
-// Main execution
-(async () => {
+  logger.info({
+    cronEnabled,
+    cronSchedule,
+    runOnStartup
+  }, 'Claude Health Pipeline initialized');
+
   try {
-    // Run immediately if requested
-    if (RUN_ON_STARTUP) {
+    if (runOnStartup) {
       logger.info('Running health check on startup');
       await pipeline.runHealthCheck();
 
-      if (!CRON_ENABLED) {
+      if (!cronEnabled) {
         const stats = pipeline.getStats();
         const hasFailures = stats.failed > 0;
         process.exit(hasFailures ? 1 : 0);
       }
     }
 
-    // Setup cron if enabled
-    if (CRON_ENABLED) {
-      logger.info({ schedule: CRON_SCHEDULE }, 'Setting up cron schedule');
-      pipeline.scheduleHealthChecks(CRON_SCHEDULE);
+    if (cronEnabled) {
+      logger.info({ schedule: cronSchedule }, 'Setting up cron schedule');
+      pipeline.scheduleHealthChecks(cronSchedule);
 
-      console.log(`\n✓ Claude Health Check scheduled: ${CRON_SCHEDULE}`);
-      console.log('  Press Ctrl+C to stop\n');
-
-      // Keep process alive
+      logger.info({ cronSchedule }, 'Claude Health Check scheduled');
+      logger.info('Press Ctrl+C to stop');
       process.stdin.resume();
-    } else if (!RUN_ON_STARTUP) {
-      // Run once immediately if not cron mode and not startup
+    } else if (!runOnStartup) {
       await pipeline.runHealthCheck();
       const stats = pipeline.getStats();
       const hasFailures = stats.failed > 0;
@@ -426,15 +448,21 @@ logger.info({
     logError(logger, error, 'Pipeline execution failed');
     process.exit(1);
   }
-})();
 
-// Handle graceful shutdown
-process.on('SIGINT', () => {
-  logger.info('Received SIGINT, shutting down gracefully');
-  process.exit(0);
-});
+  process.on('SIGINT', () => {
+    logger.info('Received SIGINT, shutting down gracefully');
+    process.exit(0);
+  });
 
-process.on('SIGTERM', () => {
-  logger.info('Received SIGTERM, shutting down gracefully');
-  process.exit(0);
-});
+  process.on('SIGTERM', () => {
+    logger.info('Received SIGTERM, shutting down gracefully');
+    process.exit(0);
+  });
+}
+
+if (isDirectExecution()) {
+  runCli().catch((error) => {
+    logError(logger, error, 'Pipeline execution failed');
+    process.exit(1);
+  });
+}

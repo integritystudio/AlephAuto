@@ -8,10 +8,16 @@ import os from 'os';
 
 // Mock SidequestServer for testing
 class TestSidequestServer extends SidequestServer {
+  /**
+   * constructor.
+   */
   constructor(options = {}) {
     super(options);
   }
 
+  /**
+   * runJobHandler.
+   */
   async runJobHandler(job) {
     // Simulate job execution
     if (job.data.shouldFail) {
@@ -23,6 +29,9 @@ class TestSidequestServer extends SidequestServer {
 
 describe('SidequestServer', () => {
   const servers = [];
+  /**
+   * createServer.
+   */
   const createServer = (opts = {}) => {
     const s = new TestSidequestServer(opts);
     servers.push(s);

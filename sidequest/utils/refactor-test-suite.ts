@@ -14,6 +14,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { glob } from 'glob';
+import { LIMITS } from '../core/constants.ts';
+import { createComponentLogger } from './logger.ts';
+
+const logger = createComponentLogger('RefactorTestSuite');
 
 interface RefactorConfig {
   projectPath: string;
@@ -43,6 +47,14 @@ const defaultConfig: Partial<RefactorConfig> = {
   e2eDir: 'tests/e2e',
   framework: 'vitest'
 };
+
+const REFACTOR_ANALYSIS_LIMITS = {
+  DUPLICATE_MIN_OCCURRENCES: LIMITS.HARD_CODED_STRING_MIN_OCCURRENCES,
+  MIN_HARDCODED_STRING_LENGTH: 5,
+  RECOMMENDATION_PATTERN_THRESHOLD: 5,
+  HARDCODED_STRINGS_RECOMMEND_THRESHOLD: 10,
+  MAX_EXTRACTED_CONSTANT_STRINGS: 50,
+} as const;
 
 /**
  * Detect test framework from package.json
@@ -144,37 +156,40 @@ async function analyzeTestFiles(config: RefactorConfig, testFiles: string[]): Pr
     }
   }
 
-  // Find duplicated strings (appearing 3+ times)
+  // Find duplicated strings (appearing minimum times)
   for (const [str, count] of stringCounts) {
-    if (count >= 3 && str.length > 5) {
+    if (
+      count >= REFACTOR_ANALYSIS_LIMITS.DUPLICATE_MIN_OCCURRENCES
+      && str.length > REFACTOR_ANALYSIS_LIMITS.MIN_HARDCODED_STRING_LENGTH
+    ) {
       result.patterns.hardcodedStrings.push(str);
     }
   }
 
-  // Find duplicated assertions (appearing 3+ times)
+  // Find duplicated assertions (appearing minimum times)
   for (const [assertion, count] of assertionCounts) {
-    if (count >= 3) {
+    if (count >= REFACTOR_ANALYSIS_LIMITS.DUPLICATE_MIN_OCCURRENCES) {
       result.patterns.duplicateAssertions.push(assertion);
     }
   }
 
   // Generate recommendations
-  if (result.patterns.renderWaitFor > 5) {
+  if (result.patterns.renderWaitFor > REFACTOR_ANALYSIS_LIMITS.RECOMMENDATION_PATTERN_THRESHOLD) {
     result.recommendations.push('Create renderAndWait helper to reduce render + waitFor boilerplate');
   }
-  if (result.patterns.linkValidation > 5) {
+  if (result.patterns.linkValidation > REFACTOR_ANALYSIS_LIMITS.RECOMMENDATION_PATTERN_THRESHOLD) {
     result.recommendations.push('Create link assertion helpers (expectExternalLink, expectInternalLink, etc.)');
   }
-  if (result.patterns.semanticChecks > 5) {
+  if (result.patterns.semanticChecks > REFACTOR_ANALYSIS_LIMITS.RECOMMENDATION_PATTERN_THRESHOLD) {
     result.recommendations.push('Create semantic validators (expectSectionWithId, expectHeadingLevel, etc.)');
   }
-  if (result.patterns.formInteractions > 5) {
+  if (result.patterns.formInteractions > REFACTOR_ANALYSIS_LIMITS.RECOMMENDATION_PATTERN_THRESHOLD) {
     result.recommendations.push('Create form helpers (fillContactForm, expectFormAccessibility, etc.)');
   }
-  if (result.patterns.hardcodedStrings.length > 10) {
+  if (result.patterns.hardcodedStrings.length > REFACTOR_ANALYSIS_LIMITS.HARDCODED_STRINGS_RECOMMEND_THRESHOLD) {
     result.recommendations.push('Extract hardcoded strings to test-constants.ts');
   }
-  if (result.patterns.duplicateAssertions.length > 5) {
+  if (result.patterns.duplicateAssertions.length > REFACTOR_ANALYSIS_LIMITS.RECOMMENDATION_PATTERN_THRESHOLD) {
     result.recommendations.push('Extract duplicate assertions to custom assertion helpers');
   }
 
@@ -633,7 +648,10 @@ function generateArrayExport(name: string, strings: string[], comment: string): 
  * Generate the test constants file template
  */
 function generateConstantsTemplate(hardcodedStrings: string[]): string {
-  const uniqueStrings = [...new Set(hardcodedStrings)].slice(0, 50);
+  const uniqueStrings = [...new Set(hardcodedStrings)].slice(
+    0,
+    REFACTOR_ANALYSIS_LIMITS.MAX_EXTRACTED_CONSTANT_STRINGS
+  );
   const categories = categorizeStrings(uniqueStrings);
 
   const sections: string[] = [];
@@ -868,29 +886,38 @@ export * from './test-constants';
 `;
 }
 
+/**
+ * printAnalysisResults.
+ */
 function printAnalysisResults(analysis: Awaited<ReturnType<typeof analyzeTestFiles>>) {
-  console.log('Analysis Results:');
-  console.log('─────────────────');
-  console.log(`  render + waitFor patterns: ${analysis.patterns.renderWaitFor}`);
-  console.log(`  Link validation patterns: ${analysis.patterns.linkValidation}`);
-  console.log(`  Semantic checks: ${analysis.patterns.semanticChecks}`);
-  console.log(`  Form interactions: ${analysis.patterns.formInteractions}`);
-  console.log(`  Hardcoded strings (3+ occurrences): ${analysis.patterns.hardcodedStrings.length}`);
-  console.log(`  Duplicate assertions: ${analysis.patterns.duplicateAssertions.length}`);
-  console.log();
+  logger.info('Analysis Results:');
+  logger.info('─────────────────');
+  logger.info(`  render + waitFor patterns: ${analysis.patterns.renderWaitFor}`);
+  logger.info(`  Link validation patterns: ${analysis.patterns.linkValidation}`);
+  logger.info(`  Semantic checks: ${analysis.patterns.semanticChecks}`);
+  logger.info(`  Form interactions: ${analysis.patterns.formInteractions}`);
+  logger.info(
+    `  Hardcoded strings (${REFACTOR_ANALYSIS_LIMITS.DUPLICATE_MIN_OCCURRENCES}+ occurrences): `
+    + `${analysis.patterns.hardcodedStrings.length}`
+  );
+  logger.info(`  Duplicate assertions: ${analysis.patterns.duplicateAssertions.length}`);
+  logger.info('');
 
   if (analysis.recommendations.length > 0) {
-    console.log('Recommendations:');
-    console.log('────────────────');
-    analysis.recommendations.forEach((rec, i) => console.log(`  ${i + 1}. ${rec}`));
-    console.log();
+    logger.info('Recommendations:');
+    logger.info('────────────────');
+    analysis.recommendations.forEach((rec, i) => logger.info(`  ${i + 1}. ${rec}`));
+    logger.info('');
   }
 }
 
+/**
+ * generateUtilityFiles.
+ */
 function generateUtilityFiles(config: RefactorConfig, analysis: Awaited<ReturnType<typeof analyzeTestFiles>>, utilsPath: string) {
   if (!fs.existsSync(utilsPath)) {
     fs.mkdirSync(utilsPath, { recursive: true });
-    console.log(`Created directory: ${config.utilsDir}`);
+    logger.info(`Created directory: ${config.utilsDir}`);
   }
 
   const filesToGenerate = [
@@ -901,24 +928,27 @@ function generateUtilityFiles(config: RefactorConfig, analysis: Awaited<ReturnTy
     { name: 'index.ts', content: generateIndexFile() },
   ];
 
-  console.log('\nGenerating utility files:');
-  console.log('─────────────────────────');
+  logger.info('\nGenerating utility files:');
+  logger.info('─────────────────────────');
 
   for (const file of filesToGenerate) {
     const filePath = path.join(utilsPath, file.name);
     if (!fs.existsSync(filePath)) {
       fs.writeFileSync(filePath, file.content);
-      console.log(`  ✓ Created ${config.utilsDir}/${file.name}`);
+      logger.info(`  ✓ Created ${config.utilsDir}/${file.name}`);
     } else {
-      console.log(`  ⊘ Skipped ${config.utilsDir}/${file.name} (already exists)`);
+      logger.info(`  ⊘ Skipped ${config.utilsDir}/${file.name} (already exists)`);
     }
   }
 
   const renderHelpersPath = path.join(utilsPath, 'render-helpers.ts');
   fs.writeFileSync(renderHelpersPath, generateRenderHelpers());
-  console.log(`  ✓ Created ${config.utilsDir}/render-helpers.ts (add to test-utils.tsx)`);
+  logger.info(`  ✓ Created ${config.utilsDir}/render-helpers.ts (add to test-utils.tsx)`);
 }
 
+/**
+ * generateE2EFixturesIfNeeded.
+ */
 function generateE2EFixturesIfNeeded(config: RefactorConfig, projectPath: string) {
   const e2ePath = path.join(projectPath, config.e2eDir);
   if (!fs.existsSync(e2ePath)) return;
@@ -930,7 +960,7 @@ function generateE2EFixturesIfNeeded(config: RefactorConfig, projectPath: string
   const navFixturesPath = path.join(fixturesPath, 'navigation.ts');
   if (!fs.existsSync(navFixturesPath)) {
     fs.writeFileSync(navFixturesPath, generateE2EFixtures());
-    console.log(`  ✓ Created ${config.e2eDir}/fixtures/navigation.ts`);
+    logger.info(`  ✓ Created ${config.e2eDir}/fixtures/navigation.ts`);
   }
 }
 
@@ -940,9 +970,9 @@ function generateE2EFixturesIfNeeded(config: RefactorConfig, projectPath: string
 async function main() {
   const projectPath = process.argv[2] || process.cwd();
 
-  console.log('🔍 Test Suite Refactoring Script');
-  console.log('================================\n');
-  console.log(`Project: ${projectPath}\n`);
+  logger.info('🔍 Test Suite Refactoring Script');
+  logger.info('================================\n');
+  logger.info(`Project: ${projectPath}\n`);
 
   const config: RefactorConfig = {
     ...defaultConfig as RefactorConfig,
@@ -950,17 +980,17 @@ async function main() {
     framework: detectFramework(projectPath)
   };
 
-  console.log(`Detected framework: ${config.framework}`);
+  logger.info(`Detected framework: ${config.framework}`);
 
   const testFiles = await findTestFiles(config);
-  console.log(`Found ${testFiles.length} test files\n`);
+  logger.info(`Found ${testFiles.length} test files\n`);
 
   if (testFiles.length === 0) {
-    console.log('No test files found. Please check your project structure.');
+    logger.info('No test files found. Please check your project structure.');
     process.exit(1);
   }
 
-  console.log('Analyzing test files for patterns...\n');
+  logger.info('Analyzing test files for patterns...\n');
   const analysis = await analyzeTestFiles(config, testFiles);
 
   printAnalysisResults(analysis);
@@ -969,12 +999,14 @@ async function main() {
   generateUtilityFiles(config, analysis, utilsPath);
   generateE2EFixturesIfNeeded(config, projectPath);
 
-  console.log('\n✅ Refactoring complete!');
-  console.log('\nNext steps:');
-  console.log('  1. Review generated files and customize for your project');
-  console.log('  2. Add render helpers to your existing test-utils.tsx');
-  console.log('  3. Update your test files to import from the new utilities');
-  console.log('  4. Run your test suite to verify everything works');
+  logger.info('\n✅ Refactoring complete!');
+  logger.info('\nNext steps:');
+  logger.info('  1. Review generated files and customize for your project');
+  logger.info('  2. Add render helpers to your existing test-utils.tsx');
+  logger.info('  3. Update your test files to import from the new utilities');
+  logger.info('  4. Run your test suite to verify everything works');
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  logger.error({ error }, 'Unhandled error in test suite refactor script');
+});

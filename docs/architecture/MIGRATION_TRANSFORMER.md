@@ -4,7 +4,7 @@
 
 The Migration Transformer is an automated code transformation system that applies consolidation migration steps to affected files using AST (Abstract Syntax Tree) manipulation. It's part of the duplicate detection PR creation workflow.
 
-**Location:** `sidequest/pipeline-core/git/migration-transformer.js`
+**Location:** `sidequest/pipeline-core/git/migration-transformer.ts`
 
 ## Purpose
 
@@ -27,7 +27,7 @@ ConsolidationSuggestion (with migration_steps)
            ↓
     Parse Migration Steps
            ↓
-    Create Backup (.migration-backups/)
+    Stash Existing Local Changes (git stash)
            ↓
     For Each Affected File:
       - Parse to AST (Babel)
@@ -37,13 +37,13 @@ ConsolidationSuggestion (with migration_steps)
            ↓
     Return Results (filesModified, transformations, errors)
            ↓
-    On Error: Rollback from Backup
+    On Error: Rollback via Git Working Tree Reset
 ```
 
 ### Integration with PR Creator
 
 ```javascript
-// In pr-creator.js
+// In pr-creator.ts
 class PRCreator {
   constructor(options = {}) {
     this.migrationTransformer = new MigrationTransformer({
@@ -205,8 +205,8 @@ Migration steps are defined in `ConsolidationSuggestion.migration_steps`:
 ```javascript
 {
   step_number: 1,
-  description: "Update import from './utils/json.js' to '../shared/json-utils.js'",
-  code_example: "// src/api/routes.js\nimport { writeJsonFile } from '../shared/json-utils.js';",
+  description: "Update import from './utils/json.ts' to '../shared/json-utils.ts'",
+  code_example: "// src/api/routes.ts\nimport { writeJsonFile } from '../shared/json-utils.ts';",
   automated: true,
   estimated_time: "5min"
 }
@@ -218,9 +218,9 @@ The transformer needs to know which file to apply each step to. It uses:
 
 1. **Code example comment** (preferred):
    ```javascript
-   code_example: "// src/api/routes.js\nimport { ... } from '...';"
+   code_example: "// src/api/routes.ts\nimport { ... } from '...';"
    ```
-   Extracts `src/api/routes.js` from first line comment.
+   Extracts `src/api/routes.ts` from first line comment.
 
 2. **Transformation type** (fallback):
    - `update-import`, `add-import` → Apply to all files importing old code
@@ -233,20 +233,20 @@ The transformer needs to know which file to apply each step to. It uses:
 
 ## Safety Features
 
-### 1. Backup System
+### 1. Stash and Rollback Safety
 
 Before any transformations:
 ```javascript
-const backupPath = await this._createBackup(repositoryPath);
-// backupPath = .migration-backups/backup-<timestamp>/
+const stashRef = await this._stashChanges(repositoryPath);
+// stashRef = stash@{N} or null (if clean worktree)
 ```
 
-Each file is backed up before transformation. On error, automatic rollback:
+On error, automatic rollback restores tracked files and cleans untracked files:
 ```javascript
 try {
   await transformer.applyMigrationSteps(suggestion, repoPath);
 } catch (error) {
-  await transformer.rollback(backupPath, repoPath);
+  await transformer.rollback(repoPath); // git checkout . + git clean -fd
   throw error;
 }
 ```
@@ -291,20 +291,20 @@ for (const file of affectedFiles) {
 
 ```javascript
 {
-  filesModified: ['src/api/routes.js', 'src/utils/helper.js'],
+  filesModified: ['src/api/routes.ts', 'src/utils/helper.ts'],
   transformations: [
     {
-      file: 'src/api/routes.js',
+      file: 'src/api/routes.ts',
       modified: true,
       transformations: [
-        { type: 'update-import', from: './old.js', to: './new.js' },
+        { type: 'update-import', from: './old.ts', to: './new.ts' },
         { type: 'replace-call', from: 'oldFunc', to: 'utils.oldFunc' }
       ],
       originalLength: 1234,
       newLength: 1256
     },
     {
-      file: 'src/utils/helper.js',
+      file: 'src/utils/helper.ts',
       modified: true,
       transformations: [
         { type: 'remove-declaration', name: 'duplicateFunc' }
@@ -312,9 +312,9 @@ for (const file of affectedFiles) {
     }
   ],
   errors: [
-    { file: 'tests/legacy.test.js', error: 'Parse error: Unexpected token' }
+    { file: 'tests/legacy.test.ts', error: 'Parse error: Unexpected token' }
   ],
-  backupPath: '.migration-backups/backup-1732567890123'
+  backupPath: 'git-stash'
 }
 ```
 
@@ -362,7 +362,7 @@ parse(source, {
 ### Basic Usage
 
 ```javascript
-import { MigrationTransformer } from './sidequest/pipeline-core/git/migration-transformer.js';
+import { MigrationTransformer } from './sidequest/pipeline-core/git/migration-transformer.ts';
 
 const transformer = new MigrationTransformer();
 
@@ -371,8 +371,8 @@ const suggestion = {
   migration_steps: [
     {
       step_number: 1,
-      description: 'Update import from "./old.js" to "./new.js"',
-      code_example: '// src/index.js',
+      description: 'Update import from "./old.ts" to "./new.ts"',
+      code_example: '// src/index.ts',
       automated: true
     }
   ]
@@ -389,7 +389,7 @@ console.log(`Modified ${result.filesModified.length} files`);
 ### With PR Creator
 
 ```javascript
-import { PRCreator } from './sidequest/pipeline-core/git/pr-creator.js';
+import { PRCreator } from './sidequest/pipeline-core/git/pr-creator.ts';
 
 const prCreator = new PRCreator({
   baseBranch: 'main',
@@ -419,7 +419,7 @@ console.log('Transformations:', result.transformations);
 
 ### Test File
 
-`tests/unit/migration-transformer.test.js`
+`tests/unit/migration-transformer.test.ts`
 
 ### Test Coverage
 
@@ -437,7 +437,7 @@ console.log('Transformations:', result.transformations);
    - Multiple transformations in one file
 
 3. **Safety features**
-   - Backup creation
+   - Stash-before-transform behavior
    - Rollback on error
    - Dry run mode
 
@@ -449,7 +449,7 @@ console.log('Transformations:', result.transformations);
 ### Run Tests
 
 ```bash
-npm test tests/unit/migration-transformer.test.js
+node --strip-types --test tests/unit/migration-transformer.test.ts
 ```
 
 ## Limitations
@@ -474,7 +474,7 @@ Currently only supports JavaScript and TypeScript files.
 
 Requires file path hints in `code_example`:
 ```javascript
-code_example: "// src/api/routes.js\nimport ..."
+code_example: "// src/api/routes.ts\nimport ..."
 ```
 
 **Workaround:** Infer from suggestion context (affected_files, duplicate locations).
@@ -550,7 +550,7 @@ await runTests(repoPath);
 
 // If validation fails, rollback
 if (!validationPassed) {
-  await transformer.rollback(result.backupPath, repoPath);
+  await transformer.rollback(repoPath);
 }
 ```
 
@@ -561,7 +561,7 @@ Prompt for confirmation on ambiguous transformations:
 const transformer = new MigrationTransformer({ interactive: true });
 
 // Prompts:
-// "Found 3 files importing from './old.js'. Update all? (y/n)"
+// "Found 3 files importing from './old.ts'. Update all? (y/n)"
 // "Found multiple functions named 'writeJson'. Remove all? (y/n/select)"
 ```
 
@@ -600,14 +600,14 @@ const transformer = new MigrationTransformer({ interactive: true });
 **Symptom:** "Rollback failed" error
 
 **Causes:**
-- Backup directory deleted
+- Git working tree conflicts
 - Permission errors
-- File conflicts
+- Failed `git checkout` / `git clean`
 
 **Solution:**
-1. Check `.migration-backups/` directory exists
-2. Verify write permissions
-3. Manually restore from backup if needed
+1. Verify repository has a clean and valid git state
+2. Check write permissions
+3. If stash restore failed, recover manually with `git stash list` / `git stash pop`
 
 ### Dry Run Not Working
 
@@ -658,13 +658,13 @@ const transformer = new MigrationTransformer({ dryRun: true });
 
 ## Related Documentation
 
-- **PR Creator:** `sidequest/pipeline-core/git/pr-creator.js`
+- **PR Creator:** `sidequest/pipeline-core/git/pr-creator.ts`
 - **Consolidation Suggestions:** `sidequest/pipeline-core/models/consolidation_suggestion.py`
 - **Duplicate Detection:** `docs/architecture/pipeline-data-flow.md`
 - **Error Handling:** `docs/architecture/ERROR_HANDLING.md`
 
 ---
 
-**Version:** 1.0.0
-**Last Updated:** 2025-11-25
+**Version:** 2.0.0
+**Last Updated:** 2026-03-04
 **Maintainer:** AlephAuto Team

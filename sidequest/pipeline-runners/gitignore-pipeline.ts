@@ -2,11 +2,14 @@
 import { GitignoreWorker } from '../workers/gitignore-worker.ts';
 import type { Job } from '../core/server.ts';
 import { config } from '../core/config.ts';
+import { JOB_EVENTS, NUMBER_BASE, TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
+import { realpathSync } from 'fs';
 import path from 'path';
 import os from 'os';
+import { fileURLToPath } from 'url';
 
 const logger = createComponentLogger('GitignorePipeline');
 
@@ -50,14 +53,72 @@ interface JobResult {
 
 const CRON_SCHEDULE = process.env.GITIGNORE_CRON_SCHEDULE || '0 4 * * *'; // Daily at 4 AM
 const BASE_DIR = process.env.GITIGNORE_BASE_DIR || path.join(os.homedir(), 'code');
-const MAX_DEPTH = parseInt(process.env.GITIGNORE_MAX_DEPTH || '10', 10);
+const MAX_DEPTH = parseInt(process.env.GITIGNORE_MAX_DEPTH || '10', NUMBER_BASE.DECIMAL);
 const DRY_RUN = process.env.GITIGNORE_DRY_RUN === 'true';
 
 // Support both env var and --run-now flag
 const args = process.argv.slice(2);
+const RUN_WITH_CRON = args.includes('--cron');
 // || is correct here: CLI flags must also trigger when config.runOnStartup is false (boolean OR, not nullish coalescing)
 const RUN_ON_STARTUP = config.runOnStartup || args.includes('--run-now') || args.includes('--run');
 
+function waitForJobTerminalStatus(worker: GitignoreWorker, jobId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let timeoutHandle: NodeJS.Timeout | null = null;
+
+    const cleanup = () => {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+      worker.off(JOB_EVENTS.COMPLETED, onCompleted);
+      worker.off(JOB_EVENTS.FAILED, onFailed);
+    };
+
+    const rejectWithFailure = (job: Job) => {
+      const message = job.error?.message ?? `Startup gitignore job ${job.id} failed`;
+      cleanup();
+      reject(new Error(message));
+    };
+
+    const onCompleted = (job: Job) => {
+      if (job.id !== jobId) return;
+      cleanup();
+      resolve();
+    };
+
+    const onFailed = (job: Job) => {
+      if (job.id !== jobId) return;
+      rejectWithFailure(job);
+    };
+
+    worker.on(JOB_EVENTS.COMPLETED, onCompleted);
+    worker.on(JOB_EVENTS.FAILED, onFailed);
+
+    timeoutHandle = setTimeout(() => {
+      cleanup();
+      reject(new Error(`Timed out waiting for startup gitignore job ${jobId} after ${TIMEOUTS.ONE_HOUR_MS}ms`));
+    }, TIMEOUTS.ONE_HOUR_MS);
+
+    const currentJob = worker.getJob(jobId);
+    if (!currentJob) {
+      cleanup();
+      reject(new Error(`Startup gitignore job ${jobId} was not found after creation`));
+      return;
+    }
+    if (currentJob.status === 'completed') {
+      cleanup();
+      resolve();
+      return;
+    }
+    if (currentJob.status === 'failed') {
+      rejectWithFailure(currentJob);
+    }
+  });
+}
+
+/**
+ * main.
+ */
 async function main(): Promise<void> {
   logger.info({
     cronSchedule: CRON_SCHEDULE,
@@ -75,7 +136,7 @@ async function main(): Promise<void> {
   });
 
   // Event listeners
-  worker.on('job:created', (job: Job) => {
+  worker.on(JOB_EVENTS.CREATED, (job: Job) => {
     logger.info({
       jobId: job.id,
       type: (job.data as unknown as JobData).type,
@@ -83,7 +144,7 @@ async function main(): Promise<void> {
     }, 'Job created');
   });
 
-  worker.on('job:started', (job: Job) => {
+  worker.on(JOB_EVENTS.STARTED, (job: Job) => {
     logger.info({
       jobId: job.id,
       baseDir: (job.data as unknown as JobData).baseDir,
@@ -91,7 +152,7 @@ async function main(): Promise<void> {
     }, 'Job started');
   });
 
-  worker.on('job:completed', (job: Job) => {
+  worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
     const { totalRepositories, summary } = (job.result as JobResult | undefined) ?? {};
 
     logger.info({
@@ -117,7 +178,7 @@ async function main(): Promise<void> {
     }
   });
 
-  worker.on('job:failed', (job: Job) => {
+  worker.on(JOB_EVENTS.FAILED, (job: Job) => {
     logError(logger, job.error, 'Job failed', { jobId: job.id, retryCount: job.retryCount });
 
     Sentry.captureException(new Error(job.error?.message ?? 'Job failed'), {
@@ -134,17 +195,19 @@ async function main(): Promise<void> {
   });
 
   // Run immediately if requested
+  let startupJob: Job | null = null;
+
   if (RUN_ON_STARTUP) {
     logger.info('Running gitignore update immediately (RUN_ON_STARTUP=true)');
     try {
-      const job = (worker as unknown as { createUpdateAllJob(opts: { baseDir: string; dryRun: boolean; maxDepth: number }): Job }).createUpdateAllJob({
+      startupJob = (worker as unknown as { createUpdateAllJob(opts: { baseDir: string; dryRun: boolean; maxDepth: number }): Job }).createUpdateAllJob({
         baseDir: BASE_DIR,
         dryRun: DRY_RUN,
         maxDepth: MAX_DEPTH,
       });
 
       logger.info({
-        jobId: job.id,
+        jobId: startupJob.id,
         dryRun: DRY_RUN
       }, 'Startup job created');
     } catch (error) {
@@ -152,7 +215,20 @@ async function main(): Promise<void> {
       Sentry.captureException(error, {
         tags: { component: 'gitignore-pipeline', phase: 'startup' },
       });
+      if (!RUN_WITH_CRON) {
+        throw error;
+      }
     }
+  }
+
+  if (RUN_ON_STARTUP && !RUN_WITH_CRON) {
+    if (!startupJob) {
+      throw new Error('Startup gitignore job was not created');
+    }
+    logger.info({ jobId: startupJob.id }, 'Waiting for startup gitignore job to finish');
+    await waitForJobTerminalStatus(worker, startupJob.id);
+    logger.info({ jobId: startupJob.id }, 'Startup gitignore job completed; exiting');
+    return;
   }
 
   // Schedule cron job
@@ -193,11 +269,23 @@ async function main(): Promise<void> {
   });
 }
 
-// Run the pipeline
-main().catch((error: unknown) => {
-  logError(logger, error, 'Fatal error in gitignore pipeline');
-  Sentry.captureException(error, {
-    tags: { component: 'gitignore-pipeline', phase: 'startup' },
+function isDirectExecution(): boolean {
+  const currentModulePath = fileURLToPath(import.meta.url);
+  const entryPath = process.argv[1];
+  if (!entryPath) return false;
+  try {
+    return realpathSync(path.resolve(entryPath)) === realpathSync(currentModulePath);
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectExecution()) {
+  main().catch((error: unknown) => {
+    logError(logger, error, 'Fatal error in gitignore pipeline');
+    Sentry.captureException(error, {
+      tags: { component: 'gitignore-pipeline', phase: 'startup' },
+    });
+    process.exit(1);
   });
-  process.exit(1);
-});
+}

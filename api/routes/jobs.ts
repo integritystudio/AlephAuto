@@ -14,6 +14,7 @@ import { isValidJobStatus, JOB_STATUS } from '../types/job-status.ts';
 import { PAGINATION, VALIDATION, RETRY } from '#sidequest/core/constants.ts';
 import { sendError, sendNotFoundError, sendInternalError, ERROR_CODES } from '../utils/api-error.ts';
 import { bulkImportRateLimiter } from '../middleware/rate-limit.ts';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 /**
  * Timing safe equal.
@@ -111,7 +112,7 @@ router.get('/', (req, res) => {
     // Validate status if provided (use explicit null check, not truthy check)
     if (status !== undefined && status !== null && !isValidJobStatus(status as string)) {
       return sendError(res, ERROR_CODES.INVALID_STATUS,
-        `Invalid status '${status}'. Must be one of: ${Object.values(JOB_STATUS).join(', ')}`, 400);
+        `Invalid status '${status}'. Must be one of: ${Object.values(JOB_STATUS).join(', ')}`, HttpStatus.BAD_REQUEST);
     }
 
     // Sanitize pagination parameters to prevent memory issues and NaN propagation
@@ -179,18 +180,18 @@ router.post('/bulk-import', bulkImportRateLimiter, (req, res) => {
     const migrationKey = config.migrationApiKey;
     if (!migrationKey) {
       return sendError(res, ERROR_CODES.MIGRATION_NOT_CONFIGURED,
-        'Migration API not configured. Set MIGRATION_API_KEY environment variable.', 503);
+        'Migration API not configured. Set MIGRATION_API_KEY environment variable.', HttpStatus.SERVICE_UNAVAILABLE);
     }
 
     if (!timingSafeEqual(apiKey, migrationKey)) {
       logger.warn('Bulk import attempted with invalid API key');
-      return sendError(res, ERROR_CODES.UNAUTHORIZED, 'Invalid migration API key', 401);
+      return sendError(res, ERROR_CODES.UNAUTHORIZED, 'Invalid migration API key', HttpStatus.UNAUTHORIZED);
     }
 
     // Validate jobs array
     if (!Array.isArray(jobs) || jobs.length === 0) {
       return sendError(res, ERROR_CODES.INVALID_REQUEST,
-        'Request body must contain a non-empty "jobs" array', 400);
+        'Request body must contain a non-empty "jobs" array', HttpStatus.BAD_REQUEST);
     }
 
     // Validate required fields
@@ -199,7 +200,7 @@ router.post('/bulk-import', bulkImportRateLimiter, (req, res) => {
       for (const field of requiredFields) {
         if (!job[field]) {
           return sendError(res, ERROR_CODES.INVALID_JOB_DATA,
-            `Job missing required field: ${field}`, 400);
+            `Job missing required field: ${field}`, HttpStatus.BAD_REQUEST);
         }
       }
     }
@@ -227,7 +228,7 @@ router.post('/bulk-import', bulkImportRateLimiter, (req, res) => {
 
   } catch (error) {
     logError(logger, error, 'Bulk import failed');
-    return sendError(res, ERROR_CODES.INTERNAL_ERROR, 'Bulk import failed', 500, { details: (error as Error).message });
+    return sendError(res, ERROR_CODES.INTERNAL_ERROR, 'Bulk import failed', HttpStatus.INTERNAL_SERVER_ERROR, { details: (error as Error).message });
   }
 });
 
@@ -242,7 +243,7 @@ router.get('/:jobId', (req, res) => {
     // Validate job ID to prevent path traversal and injection attacks
     const validation = validateJobId(jobId);
     if (!validation.valid) {
-      return sendError(res, ERROR_CODES.INVALID_REQUEST, validation.error!, 400);
+      return sendError(res, ERROR_CODES.INVALID_REQUEST, validation.error!, HttpStatus.BAD_REQUEST);
     }
 
     const job = jobRepository.getJob(validation.sanitized!);
@@ -287,7 +288,7 @@ router.post('/:jobId/cancel', async (req, res) => {
     // Validate job ID to prevent path traversal and injection attacks
     const validation = validateJobId(jobId);
     if (!validation.valid) {
-      return sendError(res, ERROR_CODES.INVALID_REQUEST, validation.error!, 400);
+      return sendError(res, ERROR_CODES.INVALID_REQUEST, validation.error!, HttpStatus.BAD_REQUEST);
     }
 
     const sanitizedJobId = validation.sanitized!;
@@ -301,7 +302,7 @@ router.post('/:jobId/cancel', async (req, res) => {
 
     if (!worker) {
       return sendError(res, ERROR_CODES.WORKER_NOT_FOUND,
-        `No worker found for pipeline: ${pipelineId}`, 404);
+        `No worker found for pipeline: ${pipelineId}`, HttpStatus.NOT_FOUND);
     }
 
     // Cancel the job via worker
@@ -317,7 +318,7 @@ router.post('/:jobId/cancel', async (req, res) => {
     } else {
       logger.warn({ jobId: sanitizedJobId, message: result.message }, 'Failed to cancel job');
       return sendError(res, ERROR_CODES.CANCEL_FAILED,
-        result.message || 'Failed to cancel job', 400);
+        result.message || 'Failed to cancel job', HttpStatus.BAD_REQUEST);
     }
 
   } catch (error) {
@@ -337,7 +338,7 @@ router.post('/:jobId/retry', async (req, res) => {
     // Validate job ID to prevent path traversal and injection attacks
     const validation = validateJobId(jobId);
     if (!validation.valid) {
-      return sendError(res, ERROR_CODES.INVALID_REQUEST, validation.error!, 400);
+      return sendError(res, ERROR_CODES.INVALID_REQUEST, validation.error!, HttpStatus.BAD_REQUEST);
     }
 
     const sanitizedJobId = validation.sanitized!;
@@ -353,7 +354,7 @@ router.post('/:jobId/retry', async (req, res) => {
     // Can only retry failed jobs
     if (job.status !== 'failed') {
       return sendError(res, ERROR_CODES.INVALID_STATUS,
-        `Cannot retry job with status '${job.status}'. Only failed jobs can be retried.`, 400);
+        `Cannot retry job with status '${job.status}'. Only failed jobs can be retried.`, HttpStatus.BAD_REQUEST);
     }
 
     // job.data is already parsed by the repository layer
@@ -363,7 +364,7 @@ router.post('/:jobId/retry', async (req, res) => {
     const currentRetryCount = (jobData.retryCount as number) ?? 0;
     if (currentRetryCount >= RETRY.MAX_MANUAL_RETRIES) {
       return sendError(res, ERROR_CODES.INVALID_REQUEST,
-        `Job has already been retried ${currentRetryCount} times (max: ${RETRY.MAX_MANUAL_RETRIES})`, 400);
+        `Job has already been retried ${currentRetryCount} times (max: ${RETRY.MAX_MANUAL_RETRIES})`, HttpStatus.BAD_REQUEST);
     }
 
     const pipelineId = job.pipelineId;
@@ -373,7 +374,7 @@ router.post('/:jobId/retry', async (req, res) => {
 
     if (!worker) {
       return sendError(res, ERROR_CODES.WORKER_NOT_FOUND,
-        `No worker found for pipeline: ${pipelineId}`, 404);
+        `No worker found for pipeline: ${pipelineId}`, HttpStatus.NOT_FOUND);
     }
 
     // Create a new job with same parameters (retry by creating duplicate)
@@ -399,6 +400,68 @@ router.post('/:jobId/retry', async (req, res) => {
   } catch (error) {
     logError(logger, error, 'Failed to retry job', { jobId: req.params.jobId });
     return sendInternalError(res, 'Failed to retry job');
+  }
+});
+
+/**
+ * GET /api/jobs/:jobId/logs
+ * Get logs for a specific job (synthesized from job data)
+ */
+router.get('/:jobId/logs', (req, res) => {
+  try {
+    const { jobId } = req.params;
+
+    const validation = validateJobId(jobId);
+    if (!validation.valid) {
+      return sendError(res, ERROR_CODES.INVALID_REQUEST, validation.error!, HttpStatus.BAD_REQUEST);
+    }
+
+    const job = jobRepository.getJob(validation.sanitized!);
+
+    if (!job) {
+      return sendNotFoundError(res, 'Job', validation.sanitized!);
+    }
+
+    // Sanitize a log field value: strip newlines, limit length to prevent log injection
+    const sanitizeLogField = (value: unknown, maxLen = 200): string =>
+      String(value).replace(/[\r\n\t]/g, ' ').substring(0, maxLen);
+
+    // Build log lines from job lifecycle data
+    const logs: string[] = [];
+    if (job.createdAt) logs.push(`[${job.createdAt}] Job created (pipeline: ${job.pipelineId})`);
+    if (job.startedAt) logs.push(`[${job.startedAt}] Job started`);
+
+    const jobData = (job.data ?? {}) as Record<string, unknown>;
+    if (jobData.repositoryPath) logs.push(`[${job.startedAt || job.createdAt}] Repository: ${sanitizeLogField(jobData.repositoryPath)}`);
+    if (jobData.retryCount) logs.push(`[${job.startedAt || job.createdAt}] Retry attempt: ${sanitizeLogField(jobData.retryCount)}`);
+
+    const jobResult = (job.result ?? {}) as Record<string, unknown>;
+    const endTs = job.completedAt || job.startedAt || job.createdAt;
+    if (jobResult.duration_seconds) logs.push(`[${endTs}] Duration: ${sanitizeLogField(jobResult.duration_seconds)}s`);
+    if (jobResult.summary) logs.push(`[${endTs}] ${sanitizeLogField(jobResult.summary)}`);
+    if (jobResult.filesProcessed) logs.push(`[${endTs}] Files processed: ${sanitizeLogField(jobResult.filesProcessed)}`);
+
+    if (job.error) {
+      const errorObj = (typeof job.error === 'object' ? job.error : { message: job.error }) as unknown as Record<string, unknown>;
+      logs.push(`[${endTs}] ERROR: ${sanitizeLogField(errorObj.message || String(job.error))}`);
+    }
+
+    if (job.completedAt && job.status === 'completed') logs.push(`[${job.completedAt}] Job completed successfully`);
+    if (job.completedAt && job.status === 'failed') logs.push(`[${job.completedAt}] Job failed`);
+
+    res.json({
+      success: true,
+      data: {
+        jobId: job.id,
+        logs,
+        totalLines: logs.length
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logError(logger, error, 'Failed to get job logs', { jobId: req.params.jobId });
+    return sendInternalError(res, 'Failed to retrieve job logs');
   }
 });
 

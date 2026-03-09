@@ -34,20 +34,20 @@ npm run plugin:schedule
 PLUGIN_CRON_SCHEDULE="0 10 * * 2" npm run plugin:schedule  # Tuesday 10 AM
 
 # Deploy with PM2
-doppler run -- pm2 start sidequest/plugin-manager.js --name plugin-auditor
+doppler run -- pm2 start sidequest/pipeline-runners/plugin-management-pipeline.ts --name plugin-auditor --interpreter node --node-args "--strip-types"
 ```
 
 ### Manual Shell Script Audit
 
 ```bash
 # Human-readable output
-./sidequest/plugin-management-audit.sh
+./sidequest/pipeline-runners/plugin-management-audit.sh
 
 # Detailed listing
-./sidequest/plugin-management-audit.sh --detailed
+./sidequest/pipeline-runners/plugin-management-audit.sh --detailed
 
 # JSON output
-./sidequest/plugin-management-audit.sh --json
+./sidequest/pipeline-runners/plugin-management-audit.sh --json
 ```
 
 ## Installation Requirements
@@ -72,14 +72,14 @@ The npm scripts automatically handle this requirement.
 
 ```
 Plugin Manager System
-├── plugin-manager.js          # AlephAuto worker (Node.js)
+├── sidequest/utils/plugin-manager.ts # AlephAuto worker class (TypeScript)
 │   ├── Extends SidequestServer
 │   ├── Job queue management
 │   ├── Cron scheduling
 │   ├── Event emission
 │   └── Sentry integration
 │
-├── plugin-management-audit.sh # Audit script (Bash)
+├── sidequest/pipeline-runners/plugin-management-audit.sh # Audit script (Bash)
 │   ├── Config file parsing
 │   ├── Category detection
 │   ├── Duplicate identification
@@ -94,7 +94,7 @@ Plugin Manager System
 The `PluginManagerWorker` extends `SidequestServer` and follows AlephAuto patterns:
 
 ```javascript
-import { PluginManagerWorker } from './sidequest/plugin-manager.js';
+import { PluginManagerWorker } from './sidequest/utils/plugin-manager.ts';
 
 const worker = new PluginManagerWorker({
   maxConcurrent: 1,
@@ -225,7 +225,7 @@ npm run plugin:audit
 npm run plugin:schedule
 
 # Monitor with PM2
-pm2 start sidequest/plugin-manager.js --name plugin-auditor
+pm2 start sidequest/pipeline-runners/plugin-management-pipeline.ts --name plugin-auditor --interpreter node --node-args "--strip-types"
 pm2 logs plugin-auditor
 pm2 monit
 ```
@@ -234,8 +234,8 @@ pm2 monit
 
 ```javascript
 // Monitor plugin changes alongside other systems
-import { PluginManagerWorker } from './sidequest/plugin-manager.js';
-import { GitActivityWorker } from './sidequest/git-activity-worker.js';
+import { PluginManagerWorker } from './sidequest/utils/plugin-manager.ts';
+import { GitActivityWorker } from './sidequest/workers/git-activity-worker.ts';
 
 const pluginWorker = new PluginManagerWorker();
 const gitWorker = new GitActivityWorker();
@@ -276,7 +276,7 @@ This means you're using bash 3.x (macOS default):
 brew install bash
 
 # Run with explicit path
-/opt/homebrew/bin/bash ./sidequest/plugin-management-audit.sh
+/opt/homebrew/bin/bash ./sidequest/pipeline-runners/plugin-management-audit.sh
 
 # Or use npm scripts (they handle this automatically)
 npm run plugin:audit
@@ -335,11 +335,11 @@ Potential features for future versions:
 
 ## Related Documentation
 
-- [AlephAuto Job Queue Framework](../CLAUDE.md#alephauto-job-queue-framework)
-- [Cron Scheduling](../CLAUDE.md#cron-scheduling)
-- [Sentry Integration](../CLAUDE.md#logging-with-sentry)
-- [PM2 Deployment](../CLAUDE.md#production-deployment)
+- [AlephAuto Job Queue Framework](../../CLAUDE.md)
+- [Cron Scheduling Reference](../architecture/pipeline-data-flow.md)
+- [Sentry Setup](../setup/SENTRY_SETUP.md)
+- [PM2 Deployment](../deployment/TRADITIONAL_SERVER_DEPLOYMENT.md)
 
 ---
 
-**Last Updated:** 2025-11-17
+**Last Updated:** 2026-03-04

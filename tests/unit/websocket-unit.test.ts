@@ -14,6 +14,9 @@ import { createWebSocketServer } from '../../api/websocket.ts';
 
 // Mock WebSocket client
 class _MockWebSocket extends EventEmitter {
+  /**
+   * constructor.
+   */
   constructor() {
     super();
     this.readyState = 1; // OPEN
@@ -21,15 +24,24 @@ class _MockWebSocket extends EventEmitter {
     this.sentMessages = [];
   }
 
+  /**
+   * send.
+   */
   send(data) {
     this.sentMessages.push(data);
   }
 
+  /**
+   * close.
+   */
   close() {
     this.readyState = 3; // CLOSED
     this.emit('close');
   }
 
+  /**
+   * ping.
+   */
   ping() {
     // Mock ping
   }
@@ -37,6 +49,9 @@ class _MockWebSocket extends EventEmitter {
 
 // Mock HTTP Server
 class MockHttpServer extends EventEmitter {
+  /**
+   * constructor.
+   */
   constructor() {
     super();
   }
@@ -44,6 +59,9 @@ class MockHttpServer extends EventEmitter {
 
 // Mock WebSocketServer (ws library)
 class _MockWSS extends EventEmitter {
+  /**
+   * constructor.
+   */
   constructor() {
     super();
     this.clients = new Set();

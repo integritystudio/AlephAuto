@@ -44,6 +44,26 @@ interface HealthScanOptions {
 }
 
 /**
+ * Print CLI usage details to stderr.
+ */
+function printUsage(): void {
+  const lines = [
+    'Usage: node codebase-health-scanner.ts <repo-path> [options]',
+    '',
+    'Options:',
+    '  --scan <type>       Scan type: timeout, root, all (default: all)',
+    '  --output <file>     Output file path (markdown report)',
+    '  --json              Output JSON instead of markdown',
+    '',
+    'Examples:',
+    '  node codebase-health-scanner.ts ~/code/myproject --scan timeout',
+    '  node codebase-health-scanner.ts ~/code/myproject --scan all --output report.md',
+  ];
+
+  process.stderr.write(`${lines.join('\n')}\n`);
+}
+
+/**
  * Main.
  *
  * @returns {Promise<void>} The Promise<void>
@@ -64,16 +84,7 @@ async function main(): Promise<void> {
 
   // Validate repo path
   if (!repoPath) {
-    console.error('Usage: node codebase-health-scanner.ts <repo-path> [options]');
-    console.error('');
-    console.error('Options:');
-    console.error('  --scan <type>       Scan type: timeout, root, all (default: all)');
-    console.error('  --output <file>     Output file path (markdown report)');
-    console.error('  --json              Output JSON instead of markdown');
-    console.error('');
-    console.error('Examples:');
-    console.error('  node codebase-health-scanner.ts ~/code/myproject --scan timeout');
-    console.error('  node codebase-health-scanner.ts ~/code/myproject --scan all --output report.md');
+    printUsage();
     process.exit(1);
   }
 
@@ -120,7 +131,7 @@ async function main(): Promise<void> {
         await fs.writeFile(outputFile, output);
         logger.info(`JSON report saved to: ${outputFile}`);
       } else {
-        console.log(output);
+        process.stdout.write(`${output}\n`);
       }
     } else {
       const report = generateMarkdownReport(results);
@@ -128,7 +139,7 @@ async function main(): Promise<void> {
         await fs.writeFile(outputFile, report);
         logger.info(`Markdown report saved to: ${outputFile}`);
       } else {
-        console.log('\n' + report);
+        process.stdout.write(`\n${report}\n`);
       }
     }
 

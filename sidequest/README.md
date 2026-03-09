@@ -18,10 +18,10 @@ The **sidequest** directory contains the core job queue framework for AlephAuto 
 ```
 sidequest/
 ├── core/               # Base framework components
-│   ├── server.js       # SidequestServer base class (job queue engine)
-│   ├── database.js     # SQLite persistence layer
-│   ├── config.js       # Centralized configuration
-│   └── index.js        # Module exports
+│   ├── server.ts       # SidequestServer base class (job queue engine)
+│   ├── database.ts     # SQLite persistence layer
+│   ├── config.ts       # Centralized configuration
+│   └── index.ts        # Module exports
 │
 ├── pipeline-core/      # Business logic for pipelines
 │   ├── cache/          # Git-aware caching (Redis integration)
@@ -37,42 +37,44 @@ sidequest/
 │   └── utils/          # Error helpers
 │
 ├── pipeline-runners/   # Pipeline entry points
-│   ├── duplicate-detection-pipeline.js   # 7-stage duplicate detection
-│   ├── claude-health-pipeline.js         # Claude Code health checks
-│   ├── git-activity-pipeline.js          # Git activity reports
-│   ├── gitignore-pipeline.js             # .gitignore management
-│   ├── repo-cleanup-pipeline.js          # Repository cleanup
-│   ├── schema-enhancement-pipeline.js    # Schema.org injection
-│   ├── plugin-management-pipeline.js     # Plugin management
+│   ├── duplicate-detection-pipeline.ts   # 7-stage duplicate detection
+│   ├── claude-health-pipeline.ts         # Claude Code health checks
+│   ├── git-activity-pipeline.ts          # Git activity reports
+│   ├── gitignore-pipeline.ts             # .gitignore management
+│   ├── repo-cleanup-pipeline.ts          # Repository cleanup
+│   ├── schema-enhancement-pipeline.ts    # Schema.org injection
+│   ├── plugin-management-pipeline.ts     # Plugin management
+│   ├── bugfix-audit-pipeline.ts          # Bugfix audit workflow
+│   ├── dashboard-populate-pipeline.ts    # Dashboard data population
+│   ├── collect_git_activity.py           # Git activity collector
 │   └── test-refactor-pipeline.ts         # Test suite refactoring
 │
 ├── workers/            # Worker implementations (extend SidequestServer)
-│   ├── duplicate-detection-worker.js     # Duplicate detection jobs
-│   ├── claude-health-worker.js           # Health check jobs
-│   ├── git-activity-worker.js            # Git activity jobs
-│   ├── gitignore-worker.js               # .gitignore jobs
-│   ├── repo-cleanup-worker.js            # Cleanup jobs
-│   ├── repomix-worker.js                 # Repomix jobs
-│   ├── schema-enhancement-worker.js      # Schema jobs
+│   ├── duplicate-detection-worker.ts     # Duplicate detection jobs
+│   ├── claude-health-worker.ts           # Health check jobs
+│   ├── git-activity-worker.ts            # Git activity jobs
+│   ├── gitignore-worker.ts               # .gitignore jobs
+│   ├── repo-cleanup-worker.ts            # Cleanup jobs
+│   ├── repomix-worker.ts                 # Repomix jobs
+│   ├── schema-enhancement-worker.ts      # Schema jobs
+│   ├── bugfix-audit-worker.ts            # Bugfix audit jobs
+│   ├── dashboard-populate-worker.ts      # Dashboard populate jobs
 │   └── test-refactor-worker.ts           # Test refactor jobs
 │
-├── bug-fixes/          # Automated bug fixing workflow
-│   ├── bugfix-audit-worker.js            # Multi-stage bug fix orchestrator
-│   ├── launch-tonight.sh                 # Launch script
-│   └── index.js                          # Module exports
-│
-├── types/              # TypeScript type definitions
+├── pipeline-core/types/ # TypeScript type definitions
+│   ├── scan-orchestrator-types.ts        # Scan orchestrator interfaces
+│   ├── migration-types.ts                # Migration definitions
 │   └── duplicate-detection-types.ts      # Zod schemas + types
 │
 ├── utils/              # Utility modules
-│   ├── logger.js                         # Pino component logger
-│   ├── doppler-resilience.js             # Doppler fallback handling
-│   ├── directory-scanner.js              # Directory scanning
-│   ├── pipeline-names.js                 # Pipeline name constants
-│   ├── plugin-manager.js                 # Plugin management
-│   ├── report-generator.js               # Report utilities
-│   ├── gitignore-repomix-updater.js      # Gitignore sync
-│   ├── schema-mcp-tools.js               # Schema MCP tools
+│   ├── logger.ts                         # Pino component logger
+│   ├── doppler-resilience.ts             # Doppler fallback handling
+│   ├── directory-scanner.ts              # Directory scanning
+│   ├── pipeline-names.ts                 # Pipeline name constants
+│   ├── plugin-manager.ts                 # Plugin management
+│   ├── report-generator.ts               # Report utilities
+│   ├── gitignore-repomix-updater.ts      # Gitignore sync
+│   ├── schema-mcp-tools.ts               # Schema MCP tools
 │   └── refactor-test-suite.ts            # Test refactoring utility
 │
 └── config files
@@ -84,7 +86,7 @@ sidequest/
 
 ## Core Framework
 
-### SidequestServer (core/server.js)
+### SidequestServer (core/server.ts)
 
 The base class for all workers with:
 
@@ -95,8 +97,8 @@ The base class for all workers with:
 - **Git workflow**: Optional branch creation, commits, and PR automation
 - **Auto-retry with circuit breaker**: Classifies errors as retryable/non-retryable
 
-```javascript
-import { SidequestServer } from './core/server.js';
+```typescript
+import { SidequestServer } from './core/server.ts';
 
 class MyWorker extends SidequestServer {
   constructor(options) {
@@ -110,7 +112,7 @@ class MyWorker extends SidequestServer {
 }
 ```
 
-### Error Classification (pipeline-core/errors/error-classifier.js)
+### Error Classification (pipeline-core/errors/error-classifier.ts)
 
 Intelligent error handling with retry logic:
 
@@ -125,7 +127,7 @@ Intelligent error handling with retry logic:
 7-stage pipeline combining JavaScript (stages 1-2) and Python (stages 3-7):
 
 ```bash
-doppler run -- RUN_ON_STARTUP=true node sidequest/pipeline-runners/duplicate-detection-pipeline.js
+doppler run -- RUN_ON_STARTUP=true npx tsx pipeline-runners/duplicate-detection-pipeline.ts
 ```
 
 **Stages:**
@@ -166,8 +168,9 @@ npm run claude:health:schedule     # Cron scheduler (daily 8 AM)
 Weekly/monthly git activity reports:
 
 ```bash
-python3 sidequest/pipeline-runners/collect_git_activity.py --weekly
-python3 sidequest/pipeline-runners/collect_git_activity.py --days 30
+node --strip-types pipeline-runners/git-activity-pipeline.ts --run --weekly
+node --strip-types pipeline-runners/git-activity-pipeline.ts --run --monthly
+python3 pipeline-runners/collect_git_activity.py --weekly
 ```
 
 **Features:**
@@ -175,6 +178,13 @@ python3 sidequest/pipeline-runners/collect_git_activity.py --days 30
 - Language distribution analysis
 - Commit frequency metrics
 - Jekyll-formatted markdown output
+
+**`git-report-config.json` defaults:**
+- Scans `~/code`, `~/reports`, plus `~/schema-org-file-system`, `~/claude-tool-use`, and `~/dotfiles`
+- Includes dotfiles, uses max depth `2`, and excludes common build/dependency folders (`node_modules`, `.git`, `dist`, `build`, etc.)
+- Report schedules: weekly `Sunday 20:00`, monthly `1st of month 08:00`, quarterly disabled
+- Outputs reports into `~/code/PersonalSite/_work` with SVG visualizations under `assets/images/git-activity-{year}`
+- Weekly and monthly report generation are enabled; both default to markdown output and no auto-commit/push
 
 ### 4. Repository Cleanup Pipeline
 
@@ -236,7 +246,7 @@ Managed via Doppler (`bottleneck` project):
 
 ```bash
 doppler setup --project bottleneck --config dev
-doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
+doppler run -- npx tsx pipeline-runners/duplicate-detection-pipeline.ts
 ```
 
 **Key variables:**
@@ -300,8 +310,8 @@ Human-readable summaries for documentation.
 ### Adding a New Worker
 
 1. Create worker in `workers/`:
-```javascript
-import { SidequestServer } from '../core/server.js';
+```typescript
+import { SidequestServer } from '../core/server.ts';
 
 export class MyWorker extends SidequestServer {
   constructor(options = {}) {
@@ -316,8 +326,8 @@ export class MyWorker extends SidequestServer {
 ```
 
 2. Create pipeline in `pipeline-runners/`:
-```javascript
-import { MyWorker } from '../workers/my-worker.js';
+```typescript
+import { MyWorker } from '../workers/my-worker.ts';
 
 const worker = new MyWorker({ maxConcurrent: 1 });
 worker.addJob({ data: 'example' });

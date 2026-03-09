@@ -8,11 +8,15 @@
 
 import { ScanOrchestrator } from '../../sidequest/pipeline-core/scan-orchestrator.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
+import { TestOutputFormat } from '../constants/output-format-constants.ts';
 import path from 'path';
 import fs from 'fs/promises';
 
 const logger = createComponentLogger('TestPipeline');
 
+/**
+ * printScanMetrics.
+ */
 function printScanMetrics(metrics: Record<string, number>) {
   console.log('\nMetrics:');
   console.log(`  Code Blocks Detected: ${metrics.total_code_blocks}`);
@@ -24,6 +28,9 @@ function printScanMetrics(metrics: Record<string, number>) {
   console.log(`  Quick Wins: ${metrics.quick_wins}`);
 }
 
+/**
+ * printTopGroups.
+ */
 function printTopGroups(groups: any[]) {
   if (!groups?.length) return;
   console.log('\nTop Duplicate Groups:');
@@ -38,6 +45,9 @@ function printTopGroups(groups: any[]) {
   }
 }
 
+/**
+ * printTopSuggestions.
+ */
 function printTopSuggestions(suggestions: any[]) {
   if (!suggestions?.length) return;
   console.log('\nTop Suggestions:');
@@ -53,6 +63,9 @@ function printTopSuggestions(suggestions: any[]) {
   }
 }
 
+/**
+ * main.
+ */
 async function main() {
   const args = process.argv.slice(2);
   const repoPath = args[0] || path.join(process.cwd(), 'sidequest');
@@ -76,9 +89,9 @@ async function main() {
       pattern_config: { languages: ['javascript', 'typescript'] }
     });
 
-    console.log('\n' + '='.repeat(80));
+    console.log('\n' + '='.repeat(TestOutputFormat.WIDE_SEPARATOR_WIDTH));
     console.log('SCAN RESULTS');
-    console.log('='.repeat(80));
+    console.log('='.repeat(TestOutputFormat.WIDE_SEPARATOR_WIDTH));
 
     printScanMetrics(result.metrics);
     printTopGroups(result.duplicate_groups);
@@ -89,7 +102,7 @@ async function main() {
     await fs.writeFile(outputPath, JSON.stringify(result, null, 2));
 
     console.log(`\n\nFull results saved to: ${outputPath}`);
-    console.log('='.repeat(80) + '\n');
+    console.log('='.repeat(TestOutputFormat.WIDE_SEPARATOR_WIDTH) + '\n');
     logger.info('Test scan completed successfully');
 
   } catch (error) {

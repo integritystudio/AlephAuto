@@ -338,6 +338,9 @@ describe('Timestamp normalization', () => {
   });
 
   it('should handle null timestamps', () => {
+    /**
+     * toISOString.
+     */
     const toISOString = (val) => {
       if (!val) return null;
       if (val instanceof Date) return val.toISOString();

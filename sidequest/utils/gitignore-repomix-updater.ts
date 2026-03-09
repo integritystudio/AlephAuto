@@ -53,6 +53,9 @@ export class GitignoreRepomixUpdater {
   dryRun: boolean;
   gitignoreEntry: string;
 
+  /**
+   * constructor.
+   */
   constructor(options: UpdaterOptions = {}) {
     this.baseDir = options.baseDir ?? path.join(os.homedir(), 'code');
     this.excludeDirs = new Set(options.excludeDirs ?? [

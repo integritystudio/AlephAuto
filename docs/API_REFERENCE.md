@@ -2,13 +2,14 @@
 
 **Base URL:** `http://localhost:8080`
 **WebSocket:** `ws://localhost:8080/ws`
-**Version:** 1.8.1
+**Version:** 1.9.0
 
 ## Table of Contents
 
 - [Error Response Format](#error-response-format)
 - [Health & Status](#health--status)
 - [Scans](#scans)
+- [Jobs](#jobs)
 - [Repositories](#repositories)
 - [Reports](#reports)
 - [Pipelines](#pipelines)
@@ -128,6 +129,19 @@ System status with pipeline metrics and activity feed.
     "queued": 3,
     "capacity": 0
   },
+  "activeJobs": [
+    {
+      "@type": "https://schema.org/Action",
+      "id": "duplicate-detection-1705312200000",
+      "pipelineId": "duplicate-detection",
+      "pipelineName": "Duplicate Detection",
+      "status": "running",
+      "createdAt": "2024-01-15T10:00:00.000Z",
+      "startedAt": "2024-01-15T10:00:01.000Z",
+      "completedAt": null
+    }
+  ],
+  "queuedJobs": [],
   "retryMetrics": {
     "totalRetries": 5,
     "successfulRetries": 4,
@@ -176,12 +190,9 @@ Start a new duplicate detection scan for a single repository.
 **Response (201):**
 ```json
 {
-  "success": true,
-  "job_id": "api-scan-1705312200000",
+  "scanId": "duplicate-detection-1705312200000",
   "repositoryPath": "/path/to/repository",
   "status": "queued",
-  "status_url": "/api/scans/api-scan-1705312200000/status",
-  "results_url": "/api/scans/api-scan-1705312200000/results",
   "timestamp": "2024-01-15T10:30:00.000Z"
 }
 ```
@@ -234,7 +245,7 @@ Get scan status by ID.
 **Response:**
 ```json
 {
-  "scan_id": "api-scan-1705312200000",
+  "scan_id": "duplicate-detection-1705312200000",
   "status": "running",
   "active_jobs": 1,
   "queued_jobs": 2,
@@ -257,12 +268,14 @@ Get scan results by ID.
 **Response (Summary):**
 ```json
 {
-  "scan_id": "api-scan-1705312200000",
+  "scanId": "duplicate-detection-1705312200000",
   "status": "completed",
-  "summary": {
-    "duplicateCount": 5,
-    "filesScanned": 120,
-    "duplicateGroups": 3
+  "startTime": "2024-01-15T10:00:00.000Z",
+  "endTime": "2024-01-15T10:00:45.000Z",
+  "results": {
+    "scanType": "intra-project",
+    "totalDuplicates": 5,
+    "reportPath": "output/reports/scan-report-1705312200000.html"
   },
   "timestamp": "2024-01-15T10:30:00.000Z"
 }
@@ -271,11 +284,18 @@ Get scan results by ID.
 **Response (Full):**
 ```json
 {
-  "scan_id": "api-scan-1705312200000",
+  "scanId": "duplicate-detection-1705312200000",
   "status": "completed",
+  "startTime": "2024-01-15T10:00:00.000Z",
+  "endTime": "2024-01-15T10:00:45.000Z",
   "results": {
-    "duplicates": [],
-    "statistics": {}
+    "scanType": "intra-project",
+    "totalDuplicates": 5,
+    "duplicates": 5,
+    "totalBlocks": 220,
+    "scanDuration": 45000,
+    "suggestions": 3,
+    "reportPath": "output/reports/scan-report-1705312200000.html"
   },
   "timestamp": "2024-01-15T10:30:00.000Z"
 }
@@ -283,52 +303,62 @@ Get scan results by ID.
 
 ---
 
-### GET /api/scans/recent
+## Jobs
 
-List recent scans with optional limit.
+### GET /api/jobs
 
-**Query Parameters:**
-- `limit` (optional): Maximum number of scans to return (default: 10)
+List jobs across pipelines (with optional status filter).
 
 **Response:**
 ```json
 {
-  "scans": [
-    {
-      "job_id": "api-scan-1705312200000",
-      "repositoryPath": "/path/to/repository",
-      "status": "completed",
-      "timestamp": "2024-01-15T10:30:00.000Z"
-    }
-  ],
-  "count": 1,
+  "success": true,
+  "data": {
+    "jobs": [
+      {
+        "id": "duplicate-detection-1705312200000",
+        "pipelineId": "duplicate-detection",
+        "status": "completed"
+      }
+    ],
+    "total": 1,
+    "page": 0,
+    "limit": 50,
+    "hasMore": false
+  },
   "timestamp": "2024-01-15T10:30:00.000Z"
 }
 ```
 
 ---
 
-### GET /api/scans/stats
+### GET /api/jobs/:jobId
 
-Get scanning statistics and metrics.
+Get details for a single job.
 
 **Response:**
 ```json
 {
-  "totalScans": 150,
-  "completedScans": 142,
-  "failedScans": 5,
-  "runningScans": 3,
-  "averageDuration": 45000,
+  "success": true,
+  "data": {
+    "id": "duplicate-detection-1705312200000",
+    "pipelineId": "duplicate-detection",
+    "status": "completed",
+    "createdAt": "2024-01-15T10:00:00.000Z",
+    "startedAt": "2024-01-15T10:00:01.000Z",
+    "completedAt": "2024-01-15T10:00:45.000Z"
+  },
   "timestamp": "2024-01-15T10:30:00.000Z"
 }
 ```
 
 ---
 
-### DELETE /api/scans/:jobId
+### POST /api/jobs/:jobId/cancel
 
-Cancel a running scan job.
+Cancel a queued or paused job.
+
+Running jobs are not cancellable.
 
 **Parameters:**
 - `jobId` (path): Job identifier
@@ -337,11 +367,95 @@ Cancel a running scan job.
 ```json
 {
   "success": true,
-  "job_id": "api-scan-1705312200000",
-  "message": "Scan job cancelled successfully",
+  "message": "Job duplicate-detection-1705312200000 cancelled successfully",
   "timestamp": "2024-01-15T10:30:00.000Z"
 }
 ```
+
+---
+
+### POST /api/jobs/:jobId/retry
+
+Retry a failed job by creating a new retry job.
+
+**Parameters:**
+- `jobId` (path): Failed job identifier
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Job retried successfully",
+  "newJobId": "duplicate-detection-retry-1705312200000",
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+---
+
+### GET /api/jobs/:jobId/logs
+
+Get synthesized logs for a specific job (built from job lifecycle data).
+
+**Parameters:**
+- `jobId` (path): Job identifier
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "jobId": "duplicate-detection-1705312200000",
+    "logs": [
+      "[2024-01-15T10:00:00.000Z] Job created (pipeline: duplicate-detection)",
+      "[2024-01-15T10:00:01.000Z] Job started",
+      "[2024-01-15T10:00:45.000Z] Job completed successfully"
+    ],
+    "totalLines": 3
+  },
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+**Errors:**
+- `400`: Invalid job ID format
+- `404`: Job not found
+
+---
+
+### POST /api/jobs/bulk-import
+
+Bulk import jobs (for database migration). Requires `MIGRATION_API_KEY` environment variable.
+
+**Rate Limited:** Yes (bulk import limiter)
+
+**Request Body:**
+```json
+{
+  "jobs": [
+    { "id": "job-1", "status": "completed", "pipeline_id": "duplicate-detection" }
+  ],
+  "apiKey": "migration-key-from-env"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "imported": 10,
+    "skipped": 2,
+    "errors": []
+  },
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+**Errors:**
+- `400`: Invalid request (missing jobs array or required fields)
+- `401`: Invalid migration API key
+- `503`: Migration API not configured
 
 ---
 
@@ -798,7 +912,7 @@ All endpoints return errors in this format:
 
 ## Authentication
 
-Currently, the API uses basic authentication middleware. Check `api/middleware/auth.js` for implementation details.
+Currently, the API uses basic authentication middleware. Check `api/middleware/auth.ts` for implementation details.
 
 ## Rate Limiting
 
@@ -808,7 +922,7 @@ Strict rate limiting is applied to mutation endpoints:
 - `POST /api/repositories/:name/scan`
 - `POST /api/pipelines/:pipelineId/trigger`
 
-Check `api/middleware/rate-limit.js` for configuration.
+Check `api/middleware/rate-limit.ts` for configuration.
 
 ---
 
@@ -832,6 +946,9 @@ curl -X POST http://localhost:8080/api/scans/start \
 # Get pipeline jobs
 curl "http://localhost:8080/api/pipelines/duplicate-detection/jobs?limit=5"
 
+# Get job logs
+curl http://localhost:8080/api/jobs/duplicate-detection-1705312200000/logs
+
 # List reports
 curl "http://localhost:8080/api/reports?format=html&limit=10"
 
@@ -843,5 +960,5 @@ curl -X POST http://localhost:8080/api/pipelines/duplicate-detection/trigger \
 
 ---
 
-**Last Updated:** 2025-11-26
-**Version:** 1.6.1
+**Last Updated:** 2026-03-09
+**Version:** 1.9.0

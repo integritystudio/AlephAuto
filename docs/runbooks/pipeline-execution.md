@@ -2,676 +2,281 @@
 
 ## Overview
 
-This runbook documents the correct methods for executing AlephAuto pipeline scripts, explains shebang usage, Doppler execution patterns, and provides troubleshooting guidance for common permission and execution errors.
+This runbook documents the current TypeScript execution model for AlephAuto pipelines and API services.
 
-## Table of Contents
-
-- [Quick Reference](#quick-reference)
-- [Execution Methods](#execution-methods)
-- [Shebang Requirements](#shebang-requirements)
-- [Doppler Integration](#doppler-integration)
-- [PM2 Configuration](#pm2-configuration)
-- [Troubleshooting](#troubleshooting)
-- [Pre-commit Validation](#pre-commit-validation)
+- Runtime: Node.js 22+ (`engines.node >= 22.0.0`)
+- Entry points: `.ts` files
+- Preferred interpreter mode: `node --strip-types`
+- Secret injection: `doppler run -- ...`
+- Process manager: PM2 (`config/ecosystem.config.cjs`)
 
 ## Quick Reference
 
 ### Correct Execution Methods
 
 ```bash
-# Method 1: Direct execution (requires shebang + executable permissions)
-./sidequest/pipeline-runners/duplicate-detection-pipeline.js
+# Method 1: Explicit Node interpreter (recommended one-off pattern)
+node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 
-# Method 2: Explicit Node.js interpreter (always works)
-node sidequest/pipeline-runners/duplicate-detection-pipeline.js
+# Method 2: With Doppler (recommended for production-like runs)
+doppler run -- node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 
-# Method 3: With Doppler (recommended for production)
-doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
-
-# Method 4: PM2 via Doppler (production deployment)
+# Method 3: PM2 via Doppler (production deployment)
 doppler run -- pm2 start config/ecosystem.config.cjs
 ```
 
 ### Incorrect Execution Methods
 
 ```bash
-# ❌ WRONG: Doppler executing JS file directly without interpreter
-doppler run -- sidequest/pipeline-runners/duplicate-detection-pipeline.js
+# WRONG: Doppler executing a TS file directly without interpreter
+doppler run -- sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 # Error: fork/exec permission denied
 
-# ❌ WRONG: Missing executable permissions
-./sidequest/pipeline-runners/duplicate-detection-pipeline.js
-# Error: Permission denied
-
-# ❌ WRONG: Missing shebang
-./sidequest/pipeline-runners/duplicate-detection-pipeline.js
-# Error: exec format error
+# WRONG: Missing strip-types when running TS directly with node
+node sidequest/pipeline-runners/duplicate-detection-pipeline.ts
+# Error: Unknown file extension ".ts" or parse failures
 ```
 
 ## Execution Methods
 
-### 1. Direct Execution
+### 1. Explicit Node Interpreter (Recommended)
 
-**Requirements:**
-- Shebang line: `#!/usr/bin/env node`
-- Executable permissions: `chmod +x <file>`
+Use explicit Node invocation for consistency and predictable behavior:
 
-**Usage:**
 ```bash
-./sidequest/pipeline-runners/duplicate-detection-pipeline.js
+node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
+node --strip-types api/server.ts
 ```
 
-**When to use:**
-- Quick manual testing
-- Shell scripts calling pipelines
-- Cron jobs (if configured correctly)
+Benefits:
+- No reliance on shebang behavior
+- Works consistently in local shells and automation
+- Aligns with PM2 `node_args: --strip-types`
 
-**Advantages:**
-- Concise syntax
-- Self-documenting (shebang shows interpreter)
+### 2. Doppler + Node (Recommended for Secrets)
 
-**Disadvantages:**
-- Requires both shebang and executable permissions
-- Can fail if environment is misconfigured
-
-### 2. Explicit Node.js Interpreter
-
-**Requirements:**
-- Node.js installed and in PATH
-
-**Usage:**
 ```bash
-node sidequest/pipeline-runners/duplicate-detection-pipeline.js
+# API server
+doppler run -- node --strip-types api/server.ts
+
+# Duplicate detection worker
+doppler run -- node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
+
+# Run duplicate detection immediately
+RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 ```
 
-**When to use:**
-- Production deployments
-- PM2 process management
-- Doppler secret injection
-- CI/CD pipelines
+### 3. PM2 via Doppler (Production)
 
-**Advantages:**
-- No shebang required
-- No executable permissions required
-- Explicit and unambiguous
-- Works on all systems
-
-**Disadvantages:**
-- Slightly longer syntax
-
-### 3. Doppler + Node.js (Recommended)
-
-**Requirements:**
-- Doppler CLI installed
-- Doppler project configured (`doppler setup`)
-
-**Usage:**
 ```bash
-# One-off execution
-doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
-
-# With environment override
-RUN_ON_STARTUP=true doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
-```
-
-**When to use:**
-- Production execution requiring secrets
-- Local testing with production-like configuration
-- Any pipeline that needs Doppler secrets (API keys, tokens, DSNs)
-
-**Advantages:**
-- Secrets injected securely
-- Environment-specific configuration
-- No hardcoded credentials
-
-**Disadvantages:**
-- Requires Doppler setup
-- Slightly slower startup
-
-### 4. PM2 via Doppler (Production)
-
-**Requirements:**
-- PM2 installed globally: `npm install -g pm2`
-- Doppler configured
-- `config/ecosystem.config.cjs` present
-
-**Usage:**
-```bash
-# Start all apps
+# Start all apps from ecosystem config
 doppler run -- pm2 start config/ecosystem.config.cjs
 
-# Start specific app
-doppler run -- pm2 start config/ecosystem.config.cjs --only aleph-worker
-
-# Restart with updated environment
+# Restart and refresh environment from Doppler
 doppler run -- pm2 restart config/ecosystem.config.cjs --update-env
 
-# View logs
+# Logs and process info
+pm2 logs aleph-dashboard
 pm2 logs aleph-worker
-
-# Monitor processes
-pm2 monit
+pm2 show aleph-worker
 ```
 
-**When to use:**
-- Production deployments
-- Long-running background workers
-- Auto-restart on failure
-- Process monitoring and logging
+## Shebang and Permissions
 
-**Advantages:**
-- Process management (restart, monitoring, logs)
-- Cluster mode for scalability
-- Memory/CPU limits
-- Startup on boot
+### Shebang Expectations
 
-**Disadvantages:**
-- More complex setup
-- Requires PM2 knowledge
+Current entry points use shebangs with command flags via `env -S`:
 
-## Shebang Requirements
+- `api/server.ts`: `#!/usr/bin/env node`
+- Most pipeline runners: `#!/usr/bin/env -S node --strip-types`
+- `duplicate-detection-pipeline.ts`: `#!/usr/bin/env -S npx tsx`
 
-### What is a Shebang?
+Why `env -S`:
+- Allows passing interpreter flags (`--strip-types`)
+- Keeps scripts portable across machines with different install paths
 
-A shebang (hash-bang) is the first line of a script that tells the operating system which interpreter to use:
+### Expected File Modes
 
-```javascript
-#!/usr/bin/env node
-```
+- `api/server.ts`
+- `sidequest/pipeline-runners/*-pipeline.ts`
 
-### Why `#!/usr/bin/env node`?
+Expected mode in this repo: non-executable regular files (`644`), because PM2 and scripts invoke them via explicit `node --strip-types`.
 
-- `/usr/bin/env`: Locates `node` in the user's PATH (portable)
-- `node`: The interpreter to use
-
-This is more portable than hardcoding `/usr/local/bin/node` because Node.js location varies across systems.
-
-### All Pipeline Files Must Have Shebangs
-
-**Required files:**
-- `api/server.js`
-- `sidequest/pipeline-runners/*.js`
-
-**Format:**
-```javascript
-#!/usr/bin/env node
-
-// Rest of file...
-```
-
-**Validation:**
-Pre-commit hook validates all pipeline files have correct shebangs.
-
-### Setting Executable Permissions
-
-After adding a shebang, make the file executable:
+### Validate and Fix
 
 ```bash
-chmod +x sidequest/pipeline-runners/duplicate-detection-pipeline.js
-```
+# Validate shebangs
+head -n 1 api/server.ts sidequest/pipeline-runners/*-pipeline.ts
 
-**Verify permissions:**
-```bash
-ls -la sidequest/pipeline-runners/*.js
+# Validate file modes
+ls -la api/server.ts sidequest/pipeline-runners/*-pipeline.ts
 
-# Should show: -rwxr-xr-x (x = executable)
+# Enforce expected non-executable mode policy
+node --strip-types scripts/validate-permissions.ts --check-only
+node --strip-types scripts/validate-permissions.ts --fix
 ```
 
 ## Doppler Integration
 
-### Configuration
+### Setup
 
-**Setup Doppler project:**
 ```bash
 doppler setup --project bottleneck --config dev
-```
-
-**Verify configuration:**
-```bash
 doppler configure get
 ```
 
-**Key environment variables:**
-- `NODE_ENV`: development/production
-- `JOBS_API_PORT`: API server port (8080)
-- `REDIS_HOST` / `REDIS_PORT`: Redis connection
-- `SENTRY_DSN` / `SENTRY_ENVIRONMENT`: Error tracking
-- `CRON_SCHEDULE`: Duplicate detection schedule
-- `ENABLE_PR_CREATION`: Auto-PR for duplicates
-- `ENABLE_GIT_WORKFLOW`: Automated branch/PR creation
-
 ### Execution Patterns
 
-**Pattern 1: Direct execution with secrets**
 ```bash
-doppler run -- node api/server.js
-```
+# Development config
+doppler run -- node --strip-types api/server.ts
 
-**Pattern 2: PM2 with secrets**
-```bash
+# Production config
+doppler run --config prd -- node --strip-types api/server.ts
+
+# PM2 with Doppler-managed env
 doppler run -- pm2 start config/ecosystem.config.cjs
 ```
 
-**Pattern 3: Environment override**
-```bash
-RUN_ON_STARTUP=true doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
-```
+### Config Usage Pattern
 
-**Pattern 4: Different environment**
-```bash
-doppler run --config prd -- node api/server.js
-```
+Use centralized config modules, not ad hoc `process.env` reads scattered across business logic:
 
-### Common Mistakes
-
-**❌ Missing `node` interpreter:**
-```bash
-doppler run -- sidequest/pipeline-runners/duplicate-detection-pipeline.js
-# Error: fork/exec permission denied
-```
-
-**✅ Correct:**
-```bash
-doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
-```
-
-**❌ Using `process.env` directly:**
-```javascript
-// ❌ WRONG: Breaks when Doppler not used
-const port = process.env.JOBS_API_PORT;
-
-// ✅ CORRECT: Uses centralized config with fallbacks
-import { config } from './sidequest/config.js';
+```ts
+import { config } from '../sidequest/core/config.ts';
 const port = config.jobsApiPort;
 ```
 
 ## PM2 Configuration
 
-### Ecosystem Configuration
+`config/ecosystem.config.cjs` currently defines:
 
-The `config/ecosystem.config.cjs` defines two PM2 apps:
+- `aleph-dashboard`
+  - `script: 'api/server.ts'`
+  - `interpreter: 'node'`
+  - `node_args: '--strip-types --import ./api/preload.ts --max-old-space-size=512'`
+- `aleph-worker`
+  - `script: 'sidequest/pipeline-runners/duplicate-detection-pipeline.ts'`
+  - `interpreter: 'node'`
+  - `node_args: '--strip-types'`
 
-**1. aleph-dashboard (API + WebSocket server)**
-```javascript
-{
-  name: 'aleph-dashboard',
-  script: 'api/server.js',
-  interpreter: 'node',  // Explicit interpreter
-  instances: 2,
-  exec_mode: 'cluster'
-}
-```
+Execution flow:
 
-**2. aleph-worker (Background pipeline)**
-```javascript
-{
-  name: 'aleph-worker',
-  script: 'sidequest/pipeline-runners/duplicate-detection-pipeline.js',
-  interpreter: 'node',  // Explicit interpreter
-  instances: 1,
-  exec_mode: 'fork'
-}
-```
-
-### Key Configuration Points
-
-**Interpreter specification:**
-```javascript
-interpreter: 'node'
-```
-
-This tells PM2 to use Node.js interpreter, making shebangs optional (but still recommended for manual execution).
-
-**Environment variables:**
-```javascript
-env: {
-  NODE_ENV: process.env.NODE_ENV || 'production',
-  JOBS_API_PORT: process.env.JOBS_API_PORT || '8080',
-  // ... other vars with fallbacks
-}
-```
-
-Variables are pulled from Doppler when starting PM2 with `doppler run --`.
-
-### PM2 Execution Flow
-
-```
-1. doppler run -- pm2 start config/ecosystem.config.cjs
-   ↓
-2. Doppler injects secrets into process.env
-   ↓
-3. PM2 reads config/ecosystem.config.cjs
-   ↓
-4. PM2 extracts env variables (with fallbacks)
-   ↓
-5. PM2 spawns processes with interpreter: 'node'
-   ↓
-6. Node.js executes script files
-```
-
-### PM2 Commands
-
-```bash
-# Start all apps
-doppler run -- pm2 start config/ecosystem.config.cjs
-
-# Start specific app
-doppler run -- pm2 start config/ecosystem.config.cjs --only aleph-worker
-
-# Stop all
-pm2 stop config/ecosystem.config.cjs
-
-# Restart with updated env
-doppler run -- pm2 restart config/ecosystem.config.cjs --update-env
-
-# Delete all
-pm2 delete config/ecosystem.config.cjs
-
-# View logs
-pm2 logs
-pm2 logs aleph-worker
-pm2 logs aleph-dashboard
-
-# Monitor processes
-pm2 monit
-
-# Save process list (startup on boot)
-pm2 save
-pm2 startup
-
-# View detailed info
-pm2 show aleph-worker
-```
+1. `doppler run -- pm2 start config/ecosystem.config.cjs`
+2. Doppler injects env vars
+3. PM2 loads `script: *.ts`
+4. PM2 starts `node` with `node_args`
+5. Node executes TypeScript entry points via strip-types mode
 
 ## Troubleshooting
 
-### Error: "fork/exec permission denied"
+### Error: `fork/exec permission denied`
 
-**Symptom:**
+Symptom:
 ```
-Error: fork/exec /Users/user/code/jobs/sidequest/pipeline-runners/duplicate-detection-pipeline.js: permission denied
+Error: fork/exec .../duplicate-detection-pipeline.ts: permission denied
 ```
 
-**Root cause:**
-Doppler trying to execute JS file directly without interpreter.
+Cause:
+- Executing file directly through Doppler without interpreter
 
-**Solution:**
-Always use explicit `node` interpreter:
+Fix:
 ```bash
-# ❌ Wrong
-doppler run -- sidequest/pipeline-runners/duplicate-detection-pipeline.js
+# Wrong
+doppler run -- sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 
-# ✅ Correct
-doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
+# Correct
+doppler run -- node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 ```
 
-**PM2 Solution:**
-Ensure `interpreter: 'node'` in `config/ecosystem.config.cjs`:
-```javascript
-{
-  name: 'aleph-worker',
-  script: 'sidequest/pipeline-runners/duplicate-detection-pipeline.js',
-  interpreter: 'node'  // Critical!
-}
-```
+### Error: `Unknown file extension ".ts"` / parse errors
 
-### Error: "Permission denied" (direct execution)
+Cause:
+- Running `node file.ts` without `--strip-types`
 
-**Symptom:**
+Fix:
 ```bash
-./sidequest/pipeline-runners/duplicate-detection-pipeline.js
-bash: ./sidequest/pipeline-runners/duplicate-detection-pipeline.js: Permission denied
+node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 ```
 
-**Root cause:**
-File not executable.
+### Error: `Permission denied` (direct `./file.ts`)
 
-**Solution:**
-Add executable permissions:
+Cause:
+- Entrypoints are intentionally non-executable in this repo (mode `644`)
+- Direct execution relies on executable bit and is not the supported default path
+
+Fix:
 ```bash
-chmod +x sidequest/pipeline-runners/duplicate-detection-pipeline.js
+# Preferred fix: run with explicit Node interpreter
+node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 
-# Or for all pipeline files
-chmod +x api/server.js sidequest/pipeline-runners/*.js
+# Or with Doppler
+doppler run -- node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 ```
 
-**Verify:**
+### Error: `exec format error`
+
+Cause:
+- Missing or incorrect shebang at file top
+
+Fix:
 ```bash
-ls -la sidequest/pipeline-runners/*.js
-# Should show: -rwxr-xr-x
+head -n 1 sidequest/pipeline-runners/duplicate-detection-pipeline.ts
+# Expect: #!/usr/bin/env -S npx tsx
 ```
 
-### Error: "exec format error"
+### Error: `Cannot find module ...worker.ts`
 
-**Symptom:**
+Common causes:
+- Running from wrong repository
+- Out-of-date branch / missing files
+- Running without strip-types
+
+Fix checklist:
 ```bash
-./sidequest/pipeline-runners/duplicate-detection-pipeline.js
-bash: ./sidequest/pipeline-runners/duplicate-detection-pipeline.js: cannot execute binary file: Exec format error
+cd /Users/alyshialedlie/code/jobs
+git status
+node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 ```
 
-**Root cause:**
-Missing or incorrect shebang.
+### Error: Doppler secrets not loaded
 
-**Solution:**
-Add shebang as first line:
-```javascript
-#!/usr/bin/env node
-
-// Rest of file...
-```
-
-**Verify:**
+Fix checklist:
 ```bash
-head -n 1 sidequest/pipeline-runners/duplicate-detection-pipeline.js
-# Should output: #!/usr/bin/env node
+doppler configure get
+doppler run -- node -e "console.log(process.env.SENTRY_DSN ? 'loaded' : 'missing')"
+doppler run -- node --strip-types api/server.ts
 ```
 
-### Error: "command not found: node"
+## Validation Checklist
 
-**Symptom:**
-```bash
-./sidequest/pipeline-runners/duplicate-detection-pipeline.js
-env: node: No such file or directory
-```
-
-**Root cause:**
-Node.js not in PATH.
-
-**Solution:**
-1. Verify Node.js installation:
-   ```bash
-   which node
-   node --version
-   ```
-
-2. If not installed, install via nvm or package manager:
-   ```bash
-   # Using nvm (recommended)
-   nvm install --lts
-   nvm use --lts
-
-   # Or using Homebrew
-   brew install node
-   ```
-
-3. If installed but not in PATH, add to shell profile:
-   ```bash
-   # Add to ~/.zshrc or ~/.bashrc
-   export PATH="/usr/local/bin:$PATH"
-   ```
-
-### Error: "Cannot find module"
-
-**Symptom:**
-```
-Error: Cannot find module '../workers/duplicate-detection-worker.js'
-```
-
-**Root cause:**
-Incorrect working directory.
-
-**Solution:**
-1. Always run from project root:
-   ```bash
-   cd /Users/alyshialedlie/code/jobs
-   node sidequest/pipeline-runners/duplicate-detection-pipeline.js
-   ```
-
-2. Or use absolute paths in PM2:
-   ```javascript
-   {
-     cwd: '/Users/alyshialedlie/code/jobs',
-     script: 'sidequest/pipeline-runners/duplicate-detection-pipeline.js'
-   }
-   ```
-
-### Error: "Doppler secrets not loaded"
-
-**Symptom:**
-Pipeline fails with missing environment variables or authentication errors.
-
-**Root cause:**
-Doppler not configured or not used during execution.
-
-**Solution:**
-1. Verify Doppler setup:
-   ```bash
-   doppler configure get
-   ```
-
-2. If not configured:
-   ```bash
-   doppler setup --project bottleneck --config dev
-   ```
-
-3. Always use `doppler run --`:
-   ```bash
-   doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
-   ```
-
-4. Verify secrets loaded:
-   ```bash
-   doppler run -- node -e "console.log(process.env.SENTRY_DSN)"
-   ```
-
-## Pre-commit Validation
-
-The project includes automated validation to prevent execution errors.
-
-### Automated Checks
-
-**Location:** `.husky/pre-commit`
-
-**Checks performed:**
-1. Test path validation (no hardcoded `/tmp/` paths)
-2. Executable permissions on pipeline files
-3. Shebang validation (all pipeline files must have `#!/usr/bin/env node`)
-
-### Running Validation Manually
+Run this before committing execution-related changes:
 
 ```bash
-# Run all pre-commit checks
+# Existing test-path validation
 npm run test:validate-paths
 
-# Check permissions
-ls -la api/server.js sidequest/pipeline-runners/*.js
+# TS entrypoint shebang + mode checks
+head -n 1 api/server.ts sidequest/pipeline-runners/*-pipeline.ts
+node --strip-types scripts/validate-permissions.ts --check-only
 
-# Check shebangs
-head -n 1 api/server.js sidequest/pipeline-runners/*.js
+# Smoke tests
+node --strip-types --version
+timeout 10 node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 ```
 
-### Validation Errors
-
-**Missing executable permissions:**
-```
-❌ Missing executable permission: sidequest/pipeline-runners/duplicate-detection-pipeline.js
-Fix with: chmod +x api/server.js sidequest/pipeline-runners/*.js
-```
-
-**Missing/incorrect shebang:**
-```
-❌ Missing or incorrect shebang in: sidequest/pipeline-runners/duplicate-detection-pipeline.js
-   Expected: #!/usr/bin/env node
-   Found: // Some other comment
-```
-
-### Fixing Validation Errors
-
-**Fix permissions:**
-```bash
-chmod +x api/server.js sidequest/pipeline-runners/*.js
-```
-
-**Fix shebangs:**
-Edit file and ensure first line is:
-```javascript
-#!/usr/bin/env node
-```
-
-**Re-run validation:**
-```bash
-git add .
-git commit -m "fix: pipeline execution permissions"
-# Pre-commit hook runs automatically
-```
+Note:
+- `.husky/pre-commit` still contains legacy `.js` glob checks.
+- Keep this runbook as the source of truth for current TS execution until hook checks are migrated.
 
 ## Best Practices
 
-### 1. Always Use Explicit Interpreter in Production
-
-```bash
-# ✅ GOOD: Explicit and reliable
-doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
-
-# ⚠️ OKAY: Works if properly configured
-./sidequest/pipeline-runners/duplicate-detection-pipeline.js
-```
-
-### 2. Always Use Doppler for Secrets
-
-```bash
-# ✅ GOOD: Secrets injected
-doppler run -- node api/server.js
-
-# ❌ BAD: Missing secrets
-node api/server.js
-```
-
-### 3. Always Use Centralized Config
-
-```javascript
-// ✅ GOOD: Centralized with fallbacks
-import { config } from './sidequest/config.js';
-const port = config.jobsApiPort;
-
-// ❌ BAD: Direct env access
-const port = process.env.JOBS_API_PORT;
-```
-
-### 4. Always Run from Project Root
-
-```bash
-# ✅ GOOD: Correct working directory
-cd /Users/alyshialedlie/code/jobs
-node sidequest/pipeline-runners/duplicate-detection-pipeline.js
-
-# ❌ BAD: Wrong working directory
-cd sidequest/pipeline-runners
-node duplicate-detection-pipeline.js
-```
-
-### 5. Always Use PM2 for Production Workers
-
-```bash
-# ✅ GOOD: Process management + monitoring
-doppler run -- pm2 start config/ecosystem.config.cjs
-
-# ⚠️ OKAY: One-off testing
-doppler run -- node sidequest/pipeline-runners/duplicate-detection-pipeline.js
-
-# ❌ BAD: No process management
-nohup node sidequest/pipeline-runners/duplicate-detection-pipeline.js &
-```
+1. Prefer explicit interpreter commands in docs, scripts, and runbooks:
+   - `node --strip-types <entrypoint.ts>`
+2. Use Doppler for all environments that require secrets.
+3. Run from repository root: `/Users/alyshialedlie/code/jobs`
+4. Use PM2 for long-running production services.
+5. Keep entrypoint shebangs valid and file modes non-executable (`644`) when PM2 uses explicit interpreter settings.
 
 ## Reference
 
@@ -679,54 +284,44 @@ nohup node sidequest/pipeline-runners/duplicate-detection-pipeline.js &
 
 | File | Shebang | Executable | PM2 Interpreter |
 |------|---------|------------|-----------------|
-| api/server.js | ✅ Required | ✅ Required | `node` |
-| sidequest/pipeline-runners/*.js | ✅ Required | ✅ Required | `node` |
+| `api/server.ts` | ✅ Required | ❌ Not required (expected `644`) | `node` |
+| `sidequest/pipeline-runners/*-pipeline.ts` | ✅ Required | ❌ Not required (expected `644`) | `node` |
 
 ### Execution Method Comparison
 
 | Method | Shebang Required | Permissions Required | Doppler Support | Best For |
 |--------|------------------|----------------------|-----------------|----------|
-| Direct (`./file.js`) | ✅ Yes | ✅ Yes | ❌ No | Quick testing |
-| Node.js (`node file.js`) | ❌ No | ❌ No | ✅ Yes | Manual execution |
-| Doppler + Node.js | ❌ No | ❌ No | ✅ Yes | Production |
-| PM2 via Doppler | ❌ No | ❌ No | ✅ Yes | Production workers |
+| Direct (`./file.ts`) | ✅ Yes | ✅ Yes | ❌ No | Quick local testing |
+| Node (`node --strip-types file.ts`) | ❌ No | ❌ No | ✅ Yes | One-off runs |
+| Doppler + Node | ❌ No | ❌ No | ✅ Yes | Production-like runs |
+| PM2 via Doppler | ❌ No | ❌ No | ✅ Yes | Production services |
 
 ### Common Commands
 
 ```bash
 # Development
-doppler run -- npm run dev
-doppler run -- npm run dashboard
+node --strip-types api/server.ts
+node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 
-# Testing
-npm test
-npm run test:integration
+# With Doppler
+doppler run -- node --strip-types api/server.ts
+doppler run -- node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 
 # Production
 doppler run -- pm2 start config/ecosystem.config.cjs
 pm2 save
 pm2 logs
-
-# Troubleshooting
-doppler configure get
-pm2 show aleph-worker
-pm2 logs aleph-worker --lines 100
-node --version
-which node
-ls -la sidequest/pipeline-runners/*.js
-head -n 1 sidequest/pipeline-runners/*.js
 ```
 
 ## Related Documentation
 
 - `/Users/alyshialedlie/code/jobs/docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md` - PM2 deployment guide
 - `/Users/alyshialedlie/code/jobs/docs/runbooks/DOPPLER_OUTAGE.md` - Doppler troubleshooting
-- `/Users/alyshialedlie/code/jobs/docs/architecture/CHEAT_SHEET.md` - Command reference
+- `/Users/alyshialedlie/code/jobs/docs/architecture/CHEAT-SHEET.md` - command reference
 - `/Users/alyshialedlie/code/jobs/config/ecosystem.config.cjs` - PM2 configuration
-- `/Users/alyshialedlie/code/jobs/.husky/pre-commit` - Pre-commit validation
 
 ---
 
-**Version:** 1.0.0
-**Last Updated:** 2025-11-30
+**Version:** 2.0.0
+**Last Updated:** 2026-03-04
 **Maintained By:** DevOps Team

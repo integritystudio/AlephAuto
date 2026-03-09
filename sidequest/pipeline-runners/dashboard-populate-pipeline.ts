@@ -13,6 +13,9 @@ import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
 import type { Job } from '../core/server.ts';
+import { JOB_EVENTS, NUMBER_BASE, TIMEOUTS } from '../core/constants.ts';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const logger = createComponentLogger('DashboardPopulatePipeline');
 
@@ -20,6 +23,7 @@ const CRON_SCHEDULE = process.env.DASHBOARD_CRON_SCHEDULE || '0 6,18 * * *';
 
 // Parse CLI args
 const args = process.argv.slice(2);
+const RUN_WITH_CRON = args.includes('--cron');
 const RUN_ON_STARTUP = process.env.RUN_ON_STARTUP === 'true'
   || args.includes('--run-now')
   || args.includes('--run');
@@ -42,13 +46,70 @@ const cliOptions: CliOptions = {
 
 const limitIdx = args.indexOf('--limit');
 if (limitIdx !== -1 && args[limitIdx + 1]) {
-  cliOptions.limit = parseInt(args[limitIdx + 1], 10);
+  cliOptions.limit = parseInt(args[limitIdx + 1], NUMBER_BASE.DECIMAL);
 }
 
 if (process.env.DASHBOARD_SEED === 'false') {
   cliOptions.seed = false;
 }
 
+function waitForJobTerminalStatus(worker: DashboardPopulateWorker, jobId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let timeoutHandle: NodeJS.Timeout | null = null;
+
+    const cleanup = () => {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+      worker.off(JOB_EVENTS.COMPLETED, onCompleted);
+      worker.off(JOB_EVENTS.FAILED, onFailed);
+    };
+
+    const rejectWithFailure = (job: Job) => {
+      const message = job.error?.message ?? `Startup dashboard job ${job.id} failed`;
+      cleanup();
+      reject(new Error(message));
+    };
+
+    const onCompleted = (job: Job) => {
+      if (job.id !== jobId) return;
+      cleanup();
+      resolve();
+    };
+
+    const onFailed = (job: Job) => {
+      if (job.id !== jobId) return;
+      rejectWithFailure(job);
+    };
+
+    worker.on(JOB_EVENTS.COMPLETED, onCompleted);
+    worker.on(JOB_EVENTS.FAILED, onFailed);
+
+    timeoutHandle = setTimeout(() => {
+      cleanup();
+      reject(new Error(`Timed out waiting for startup dashboard job ${jobId} after ${TIMEOUTS.ONE_HOUR_MS}ms`));
+    }, TIMEOUTS.ONE_HOUR_MS);
+
+    const currentJob = worker.getJob(jobId);
+    if (!currentJob) {
+      cleanup();
+      reject(new Error(`Startup dashboard job ${jobId} was not found after creation`));
+      return;
+    }
+    if (currentJob.status === 'completed') {
+      cleanup();
+      resolve();
+      return;
+    }
+    if (currentJob.status === 'failed') {
+      rejectWithFailure(currentJob);
+    }
+  });
+}
+
+/**
+ * main.
+ */
 async function main(): Promise<void> {
   logger.info({
     cronSchedule: CRON_SCHEDULE,
@@ -59,7 +120,7 @@ async function main(): Promise<void> {
 
   const worker = new DashboardPopulateWorker({ maxConcurrent: 1 });
 
-  worker.on('job:created', (job: Job) => {
+  worker.on(JOB_EVENTS.CREATED, (job: Job) => {
     logger.info({
       jobId: job.id,
       seed: job.data.seed,
@@ -67,11 +128,11 @@ async function main(): Promise<void> {
     }, 'Job created');
   });
 
-  worker.on('job:started', (job: Job) => {
+  worker.on(JOB_EVENTS.STARTED, (job: Job) => {
     logger.info({ jobId: job.id }, 'Job started');
   });
 
-  worker.on('job:completed', (job: Job) => {
+  worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
     const result = job.result as Record<string, unknown> | null;
     const durationMs = result?.durationMs;
     const steps = result?.steps as Array<unknown> | undefined;
@@ -82,28 +143,37 @@ async function main(): Promise<void> {
     }, 'Job completed');
   });
 
-  worker.on('job:failed', (job: Job) => {
+  worker.on(JOB_EVENTS.FAILED, (job: Job) => {
     logError(logger, job.error, 'Job failed', { jobId: job.id, retryCount: job.retryCount });
     Sentry.captureException(new Error(job.error?.message ?? 'Unknown error'), {
       tags: { component: 'dashboard-populate-pipeline', job_id: job.id },
     });
   });
 
+  let startupJob: Job | null = null;
+
   if (RUN_ON_STARTUP) {
     logger.info({ ...cliOptions }, 'Running populate immediately');
     try {
-      worker.createPopulateJob(cliOptions);
+      startupJob = worker.createPopulateJob(cliOptions);
     } catch (error) {
       logError(logger, error, 'Failed to create startup job');
       Sentry.captureException(error, {
         tags: { component: 'dashboard-populate-pipeline', phase: 'startup' },
       });
+      if (!RUN_WITH_CRON) {
+        throw error;
+      }
     }
   }
 
-  if (RUN_ON_STARTUP && !args.includes('--cron')) {
-    worker.on('job:completed', () => process.exit(0));
-    worker.on('job:failed', () => process.exit(1));
+  if (RUN_ON_STARTUP && !RUN_WITH_CRON) {
+    if (!startupJob) {
+      throw new Error('Startup dashboard populate job was not created');
+    }
+    logger.info({ jobId: startupJob.id }, 'Waiting for startup dashboard job to finish');
+    await waitForJobTerminalStatus(worker, startupJob.id);
+    logger.info({ jobId: startupJob.id }, 'Startup dashboard job completed; exiting');
     return;
   }
 
@@ -134,10 +204,18 @@ async function main(): Promise<void> {
   });
 }
 
-main().catch((error) => {
-  logError(logger, error, 'Fatal error in dashboard populate pipeline');
-  Sentry.captureException(error, {
-    tags: { component: 'dashboard-populate-pipeline', phase: 'startup' },
+function isDirectExecution(): boolean {
+  const currentModulePath = fileURLToPath(import.meta.url);
+  const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
+  return entryPath === currentModulePath;
+}
+
+if (isDirectExecution()) {
+  main().catch((error) => {
+    logError(logger, error, 'Fatal error in dashboard populate pipeline');
+    Sentry.captureException(error, {
+      tags: { component: 'dashboard-populate-pipeline', phase: 'startup' },
+    });
+    process.exit(1);
   });
-  process.exit(1);
-});
+}

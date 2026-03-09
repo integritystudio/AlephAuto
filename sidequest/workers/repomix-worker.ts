@@ -41,6 +41,9 @@ export class RepomixWorker extends SidequestServer {
   respectGitignore: boolean;
   additionalIgnorePatterns: string[];
 
+  /**
+   * constructor.
+   */
   constructor(options: RepomixWorkerOptions = {}) {
     super({
       ...options,

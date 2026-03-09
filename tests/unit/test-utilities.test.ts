@@ -36,6 +36,9 @@ describe('Test Utilities - Validation', () => {
 
     it('should allow setting a custom handler', () => {
       worker = new TestWorker();
+      /**
+       * handler.
+       */
       const handler = async (_job) => ({ success: true });
       worker.setHandler(handler);
       assert.ok(worker._testHandler);

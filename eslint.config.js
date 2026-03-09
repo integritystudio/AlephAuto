@@ -1,5 +1,6 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import sonarjs from "eslint-plugin-sonarjs";
 
 export default tseslint.config(
   {
@@ -21,11 +22,19 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    plugins: {
+      sonarjs
+    },
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', {
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
         caughtErrorsIgnorePattern: '^_',
+      }],
+      "sonarjs/no-duplicate-string": ["warn", { "threshold": 3 }],
+      "no-magic-numbers": ["warn", {
+        ignore: [0, 1],
+        ignoreArrayIndexes: true
       }],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-require-imports': 'off',
@@ -50,6 +59,12 @@ export default tseslint.config(
         varsIgnorePattern: '^_',
         caughtErrorsIgnorePattern: '^_',
       }],
+    },
+  },
+  {
+    files: ['sidequest/core/constants.ts', 'sidequest/core/units.ts'],
+    rules: {
+      'no-magic-numbers': 'off',
     },
   },
 );

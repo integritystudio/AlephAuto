@@ -15,6 +15,7 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
 import { getJobs, initDatabase, getJobCounts, closeDatabase, saveJob } from '../../sidequest/core/database.ts';
+import { TestTiming } from '../constants/timing-test-constants.ts';
 
 /** Seed the in-memory database with realistic test jobs */
 function seedTestData() {
@@ -27,7 +28,7 @@ function seedTestData() {
       status,
       createdAt: new Date(now.getTime() - i * 60_000).toISOString(),
       startedAt: new Date(now.getTime() - i * 60_000 + 1000).toISOString(),
-      completedAt: new Date(now.getTime() - i * 60_000 + 5000).toISOString(),
+      completedAt: new Date(now.getTime() - i * 60_000 + TestTiming.JOB_COMPLETION_OFFSET_MS).toISOString(),
       data: { repository: `repo-${i}` },
       result: status === 'completed' ? { duplicates: i } : null,
       error: status === 'failed' ? { message: `Error ${i}` } : null,

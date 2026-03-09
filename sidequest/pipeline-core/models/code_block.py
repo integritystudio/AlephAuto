@@ -6,16 +6,27 @@ including its location, AST structure, semantic categorization, and hash
 for similarity comparison.
 """
 
-from datetime import datetime
-from enum import Enum
-from typing import Optional, Dict, Any, List
-from pydantic import BaseModel, Field, computed_field, field_validator
 import hashlib
-import json
+import sys
+from datetime import UTC, datetime
+from enum import Enum
+from pathlib import Path
+from typing import Optional, Dict, Any, List
+
+from pydantic import BaseModel, Field, computed_field, field_validator
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from constants import ScanDefaults
+
+
+def utc_now() -> datetime:
+    """Return timezone-aware current UTC datetime."""
+    return datetime.now(UTC)
 
 
 class LanguageType(str, Enum):
     """Supported programming languages"""
+
     JAVASCRIPT = "javascript"
     TYPESCRIPT = "typescript"
     PYTHON = "python"
@@ -32,6 +43,7 @@ class LanguageType(str, Enum):
 
 class SemanticCategory(str, Enum):
     """Semantic categorization of code blocks"""
+
     UTILITY = "utility"
     HELPER = "helper"
     VALIDATOR = "validator"
@@ -51,18 +63,23 @@ class SemanticCategory(str, Enum):
 
 class SourceLocation(BaseModel):
     """Precise location of code in source file"""
+
     file_path: str = Field(..., description="Absolute path to source file")
     line_start: int = Field(..., ge=1, description="Starting line number (1-indexed)")
     line_end: int = Field(..., ge=1, description="Ending line number (1-indexed)")
-    column_start: Optional[int] = Field(None, ge=0, description="Starting column (0-indexed)")
-    column_end: Optional[int] = Field(None, ge=0, description="Ending column (0-indexed)")
+    column_start: Optional[int] = Field(
+        None, ge=0, description="Starting column (0-indexed)"
+    )
+    column_end: Optional[int] = Field(
+        None, ge=0, description="Ending column (0-indexed)"
+    )
 
-    @field_validator('line_end')
+    @field_validator("line_end")
     @classmethod
     def validate_line_range(cls, v, info):
         """Ensure line_end >= line_start"""
-        if 'line_start' in info.data and v < info.data['line_start']:
-            raise ValueError('line_end must be >= line_start')
+        if "line_start" in info.data and v < info.data["line_start"]:
+            raise ValueError("line_end must be >= line_start")
         return v
 
     def __str__(self) -> str:
@@ -71,12 +88,15 @@ class SourceLocation(BaseModel):
 
 class ASTNode(BaseModel):
     """Representation of AST node structure"""
+
     node_type: str = Field(..., description="Type of AST node (e.g., 'CallExpression')")
-    children: List['ASTNode'] = Field(default_factory=list, description="Child nodes")
-    properties: Dict[str, Any] = Field(default_factory=dict, description="Node properties")
+    children: List["ASTNode"] = Field(default_factory=list, description="Child nodes")
+    properties: Dict[str, Any] = Field(
+        default_factory=dict, description="Node properties"
+    )
 
     model_config = {
-        'frozen': False,  # Allow mutation for building AST
+        "frozen": False,  # Allow mutation for building AST
     }
 
 
@@ -107,7 +127,9 @@ class CodeBlock(BaseModel):
 
     # Code content
     source_code: str = Field(..., description="Raw source code of the block")
-    normalized_code: Optional[str] = Field(None, description="Normalized/formatted code")
+    normalized_code: Optional[str] = Field(
+        None, description="Normalized/formatted code"
+    )
 
     # AST representation
     ast_structure: Optional[ASTNode] = Field(None, description="AST node tree")
@@ -116,49 +138,50 @@ class CodeBlock(BaseModel):
     # Semantic information
     language: LanguageType = Field(..., description="Programming language")
     category: SemanticCategory = Field(..., description="Semantic category")
-    tags: List[str] = Field(default_factory=list, description="Additional semantic tags")
+    tags: List[str] = Field(
+        default_factory=list, description="Additional semantic tags"
+    )
 
     # Metadata from ast-grep
     match_context: Dict[str, Any] = Field(
         default_factory=dict,
-        description="Context from ast-grep match (meta-variables, etc.)"
+        description="Context from ast-grep match (meta-variables, etc.)",
     )
 
     # Repository context
     repository_path: str = Field(..., description="Absolute path to repository root")
-    repository_name: Optional[str] = Field(None, description="Repository name/identifier")
+    repository_name: Optional[str] = Field(
+        None, description="Repository name/identifier"
+    )
     git_commit: Optional[str] = Field(None, description="Git commit hash when scanned")
 
     # Timestamps
     detected_at: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="When this block was detected"
+        default_factory=utc_now, description="When this block was detected"
     )
 
     # Complexity metrics
     line_count: int = Field(..., ge=1, description="Number of lines in block")
     complexity_score: Optional[float] = Field(
-        None,
-        ge=0,
-        description="Cyclomatic complexity or similar metric"
+        None, ge=0, description="Cyclomatic complexity or similar metric"
     )
 
     model_config = {
-        'json_schema_extra': {
-            'example': {
-                'block_id': 'cb_12345',
-                'pattern_id': 'object-manipulation',
-                'location': {
-                    'file_path': '/path/to/repo/src/utils.js',
-                    'line_start': 42,
-                    'line_end': 44,
+        "json_schema_extra": {
+            "example": {
+                "block_id": "cb_12345",
+                "pattern_id": "object-manipulation",
+                "location": {
+                    "file_path": "/path/to/repo/src/utils.js",
+                    "line_start": 42,
+                    "line_end": 44,
                 },
-                'relative_path': 'src/utils.js',
-                'source_code': 'JSON.stringify(data, null, 2)',
-                'language': 'javascript',
-                'category': 'utility',
-                'repository_path': '/path/to/repo',
-                'line_count': 3,
+                "relative_path": "src/utils.js",
+                "source_code": "JSON.stringify(data, null, 2)",
+                "language": "javascript",
+                "category": "utility",
+                "repository_path": "/path/to/repo",
+                "line_count": 3,
             }
         }
     }
@@ -172,8 +195,10 @@ class CodeBlock(BaseModel):
         Uses SHA-256 hash of normalized source code
         """
         # Normalize: remove extra whitespace, consistent formatting
-        normalized = ' '.join(self.source_code.split())
-        return hashlib.sha256(normalized.encode()).hexdigest()[:16]
+        normalized = " ".join(self.source_code.split())
+        return hashlib.sha256(normalized.encode()).hexdigest()[
+            : ScanDefaults.CONTENT_HASH_LENGTH
+        ]
 
     @computed_field
     @property
@@ -194,14 +219,14 @@ class CodeBlock(BaseModel):
         Returns dict suitable for clustering/grouping algorithms
         """
         return {
-            'block_id': self.block_id,
-            'pattern_id': self.pattern_id,
-            'category': self.category.value,
-            'language': self.language.value,
-            'content_hash': self.content_hash,
-            'structural_hash': self.structural_hash,
-            'line_count': self.line_count,
-            'tags': self.tags,
+            "block_id": self.block_id,
+            "pattern_id": self.pattern_id,
+            "category": self.category.value,
+            "language": self.language.value,
+            "content_hash": self.content_hash,
+            "structural_hash": self.structural_hash,
+            "line_count": self.line_count,
+            "tags": self.tags,
         }
 
     def __hash__(self) -> int:

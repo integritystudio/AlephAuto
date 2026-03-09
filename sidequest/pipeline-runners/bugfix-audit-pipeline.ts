@@ -1,10 +1,14 @@
 #!/usr/bin/env -S node --strip-types
 import { BugfixAuditWorker } from '../workers/bugfix-audit-worker.ts';
 import { config } from '../core/config.ts';
+import { JOB_EVENTS } from '../core/constants.ts';
+import { TIME_MS } from '../core/units.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
+import { realpathSync } from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 const logger = createComponentLogger('BugfixAuditPipeline');
 
@@ -45,6 +49,9 @@ interface RunResult {
  * Scans ~/dev/active for markdown files and orchestrates automated bug detection and fixing.
  */
 class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
+  /**
+   * constructor.
+   */
   constructor(options: BugfixAuditOptions = {}) {
     super(new BugfixAuditWorker({
       ...options,
@@ -62,7 +69,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
   }
 
   private setupEventListeners(): void {
-    this.worker.on('job:created', (job: Job) => {
+    this.worker.on(JOB_EVENTS.CREATED, (job: Job) => {
       const data = job.data as unknown as JobData;
       logger.info({
         jobId: job.id,
@@ -71,7 +78,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
       }, 'Bugfix audit job created');
     });
 
-    this.worker.on('job:started', (job: Job) => {
+    this.worker.on(JOB_EVENTS.STARTED, (job: Job) => {
       const data = job.data as unknown as JobData;
       logger.info({
         jobId: job.id,
@@ -79,7 +86,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
       }, 'Bugfix audit job started');
     });
 
-    this.worker.on('job:completed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
       const data = job.data as unknown as JobData;
       const result = job.result as unknown as JobResult | undefined;
       const duration = job.completedAt && job.startedAt
@@ -93,7 +100,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
       }, 'Bugfix audit job completed');
     });
 
-    this.worker.on('job:failed', (job: Job) => {
+    this.worker.on(JOB_EVENTS.FAILED, (job: Job) => {
       const data = job.data as unknown as JobData;
       logError(logger, job.error, 'Bugfix audit job failed', {
         jobId: job.id,
@@ -125,7 +132,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
     const stats = this.getStats();
 
     logger.info({
-      durationSeconds: Math.round(duration / 1000),
+      durationSeconds: Math.round(duration / TIME_MS.SECOND),
       totalJobs: stats.total,
       completed: stats.completed,
       failed: stats.failed,
@@ -202,8 +209,19 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
   }
 }
 
+function isDirectExecution(): boolean {
+  const currentModulePath = fileURLToPath(import.meta.url);
+  const entryPath = process.argv[1];
+  if (!entryPath) return false;
+  try {
+    return realpathSync(path.resolve(entryPath)) === realpathSync(currentModulePath);
+  } catch {
+    return false;
+  }
+}
+
 // CLI entry point
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectExecution()) {
   const args = process.argv.slice(2);
 
   const runNow = args.includes('--run-now') || args.includes('--now');

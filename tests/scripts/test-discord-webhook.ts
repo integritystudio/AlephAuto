@@ -1,8 +1,13 @@
-const https = require('https');
-require('dotenv').config();
+import https from 'https';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_SENTRY_WEBHOOK;
 
+/**
+ * sendDiscordMessage.
+ */
 function sendDiscordMessage(embed) {
   return new Promise((resolve, reject) => {
     if (!DISCORD_WEBHOOK_URL) {
@@ -51,6 +56,75 @@ function sendDiscordMessage(embed) {
   });
 }
 
+const INFO_EMBED = {
+  title: '🧪 Sentry + Discord Integration Test',
+  description: 'This is a test info message to verify Discord integration is working correctly.',
+  color: 0x00AAFF,
+  fields: [
+    { name: '📊 Level', value: 'info', inline: true },
+    { name: '🌍 Environment', value: 'test', inline: true },
+    { name: '⏰ Time', value: new Date().toLocaleString(), inline: true }
+  ],
+  timestamp: new Date().toISOString(),
+  footer: { text: 'Sentry Alert Test' }
+};
+
+const ERROR_EMBED = {
+  title: '🚨 Test Error Alert',
+  description: 'TypeError: Cannot read property \'map\' of undefined',
+  color: 0xFF4444,
+  fields: [
+    { name: '📊 Level', value: 'error', inline: true },
+    { name: '🌍 Environment', value: 'production', inline: true },
+    { name: '🏷️ Component', value: 'test-worker', inline: true },
+    { name: '📍 Location', value: 'test-script.js:42', inline: true },
+    { name: '🔗 View Details', value: '[Open in Sentry](https://sentry.io/)', inline: false }
+  ],
+  timestamp: new Date().toISOString(),
+  footer: { text: 'Sentry Alert • High Priority' }
+};
+
+const WARNING_EMBED = {
+  title: '⚠️ High Error Rate Detected',
+  description: 'Error rate exceeded 100 errors/hour threshold',
+  color: 0xFFAA00,
+  fields: [
+    { name: '📊 Threshold', value: '100 errors/hour', inline: true },
+    { name: '📈 Current Rate', value: '157 errors/hour', inline: true },
+    { name: '🌍 Environment', value: 'production', inline: true },
+    { name: '⏰ Started', value: '5 minutes ago', inline: true }
+  ],
+  timestamp: new Date().toISOString(),
+  footer: { text: 'Sentry Alert • Critical' }
+};
+
+const RATE_LIMIT_DELAY_MS = 1000;
+
+function printSuccess() {
+  console.log('\n╔════════════════════════════════════════════════════════════════╗');
+  console.log('║          Discord Integration Test Complete! ✅                ║');
+  console.log('╚════════════════════════════════════════════════════════════════╝\n');
+  console.log('📱 Check your Discord channel for 3 test messages:');
+  console.log('   1. 🧪 Info message (blue)');
+  console.log('   2. 🚨 Error alert (red)');
+  console.log('   3. ⚠️  Warning alert (orange)\n');
+  console.log('Next steps:');
+  console.log('   • Configure Sentry to use Discord webhook');
+  console.log('   • Run: node setup-files/configure-discord-alerts.js');
+  console.log('   • Monitor for real Sentry alerts in Discord\n');
+}
+
+function printTroubleshooting(error) {
+  console.error('\n❌ Test failed:', error.message);
+  console.error('\nTroubleshooting:');
+  console.error('1. Verify webhook URL is correct');
+  console.error('2. Check webhook is active in Discord channel settings');
+  console.error('3. Ensure network connectivity to Discord API');
+}
+
+/**
+ * testDiscordIntegration.
+ */
 async function testDiscordIntegration() {
   console.log('🧪 Testing Discord Integration...\n');
 
@@ -69,78 +143,23 @@ async function testDiscordIntegration() {
   console.log(`   Webhook: ${DISCORD_WEBHOOK_URL.substring(0, 50)}...\n`);
 
   try {
-    // Test 1: Info message
     console.log('📤 Test 1: Sending info message...');
-    await sendDiscordMessage({
-      title: '🧪 Sentry + Discord Integration Test',
-      description: 'This is a test info message to verify Discord integration is working correctly.',
-      color: 0x00AAFF, // Blue
-      fields: [
-        { name: '📊 Level', value: 'info', inline: true },
-        { name: '🌍 Environment', value: 'test', inline: true },
-        { name: '⏰ Time', value: new Date().toLocaleString(), inline: true }
-      ],
-      timestamp: new Date().toISOString(),
-      footer: { text: 'Sentry Alert Test' }
-    });
+    await sendDiscordMessage(INFO_EMBED);
 
-    // Wait between messages to avoid rate limiting
     console.log('⏳ Waiting 1 second to avoid rate limiting...\n');
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY_MS));
 
-    // Test 2: Error message
     console.log('📤 Test 2: Sending error message...');
-    await sendDiscordMessage({
-      title: '🚨 Test Error Alert',
-      description: 'TypeError: Cannot read property \'map\' of undefined',
-      color: 0xFF4444, // Red
-      fields: [
-        { name: '📊 Level', value: 'error', inline: true },
-        { name: '🌍 Environment', value: 'production', inline: true },
-        { name: '🏷️ Component', value: 'test-worker', inline: true },
-        { name: '📍 Location', value: 'test-script.js:42', inline: true },
-        { name: '🔗 View Details', value: '[Open in Sentry](https://sentry.io/)', inline: false }
-      ],
-      timestamp: new Date().toISOString(),
-      footer: { text: 'Sentry Alert • High Priority' }
-    });
+    await sendDiscordMessage(ERROR_EMBED);
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY_MS));
 
-    // Test 3: Warning message
     console.log('\n📤 Test 3: Sending warning message...');
-    await sendDiscordMessage({
-      title: '⚠️ High Error Rate Detected',
-      description: 'Error rate exceeded 100 errors/hour threshold',
-      color: 0xFFAA00, // Orange
-      fields: [
-        { name: '📊 Threshold', value: '100 errors/hour', inline: true },
-        { name: '📈 Current Rate', value: '157 errors/hour', inline: true },
-        { name: '🌍 Environment', value: 'production', inline: true },
-        { name: '⏰ Started', value: '5 minutes ago', inline: true }
-      ],
-      timestamp: new Date().toISOString(),
-      footer: { text: 'Sentry Alert • Critical' }
-    });
+    await sendDiscordMessage(WARNING_EMBED);
 
-    console.log('\n╔════════════════════════════════════════════════════════════════╗');
-    console.log('║          Discord Integration Test Complete! ✅                ║');
-    console.log('╚════════════════════════════════════════════════════════════════╝\n');
-    console.log('📱 Check your Discord channel for 3 test messages:');
-    console.log('   1. 🧪 Info message (blue)');
-    console.log('   2. 🚨 Error alert (red)');
-    console.log('   3. ⚠️  Warning alert (orange)\n');
-    console.log('Next steps:');
-    console.log('   • Configure Sentry to use Discord webhook');
-    console.log('   • Run: node setup-files/configure-discord-alerts.js');
-    console.log('   • Monitor for real Sentry alerts in Discord\n');
-
+    printSuccess();
   } catch (error) {
-    console.error('\n❌ Test failed:', error.message);
-    console.error('\nTroubleshooting:');
-    console.error('1. Verify webhook URL is correct');
-    console.error('2. Check webhook is active in Discord channel settings');
-    console.error('3. Ensure network connectivity to Discord API');
+    printTroubleshooting(error);
     process.exit(1);
   }
 }

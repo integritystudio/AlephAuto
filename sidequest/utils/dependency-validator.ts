@@ -19,6 +19,9 @@ const logger = createComponentLogger('DependencyValidator');
 export class DependencyValidationError extends Error {
   failures: string[];
 
+  /**
+   * constructor.
+   */
   constructor(failures: string[]) {
     super(`Dependency validation failed:\n${failures.map(f => `  - ${f}`).join('\n')}`);
     this.failures = failures;

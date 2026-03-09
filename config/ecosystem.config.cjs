@@ -60,8 +60,8 @@ module.exports = {
       max_size: '10M',
 
       // CRITICAL: Use node interpreter explicitly to prevent "fork/exec permission denied" errors
-      // This tells PM2 to run: node api/server.js
-      // NOT: ./api/server.js (which would require shebang + executable permissions)
+      // This tells PM2 to run: node api/server.ts
+      // NOT: ./api/server.ts (which would require shebang + executable permissions)
       // Environment variables from process.env, set by doppler run
       interpreter: 'node',
 
@@ -113,6 +113,7 @@ module.exports = {
         PLUGIN_CRON_SCHEDULE: process.env.PLUGIN_CRON_SCHEDULE || '0 9 * * 1',
         CLAUDE_HEALTH_CRON_SCHEDULE: process.env.CLAUDE_HEALTH_CRON_SCHEDULE || '0 8 * * *',
         DASHBOARD_CRON_SCHEDULE: process.env.DASHBOARD_CRON_SCHEDULE || '0 6,18 * * *',
+        KV_NAMESPACE_ID: process.env.KV_NAMESPACE_ID || '',
         // CRITICAL: Include Homebrew paths for npx/repomix availability in child processes
         // This prevents "spawn npx ENOENT" errors (E4 bugfix 2025-11-25)
         PATH: process.env.PATH || '/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
@@ -126,8 +127,8 @@ module.exports = {
       max_size: '10M',
 
       // CRITICAL: Use node interpreter explicitly to prevent "fork/exec permission denied" errors
-      // This tells PM2 to run: node sidequest/pipeline-runners/duplicate-detection-pipeline.js
-      // NOT: ./sidequest/pipeline-runners/duplicate-detection-pipeline.js
+      // This tells PM2 to run: node sidequest/pipeline-runners/duplicate-detection-pipeline.ts
+      // NOT: ./sidequest/pipeline-runners/duplicate-detection-pipeline.ts
       // Environment variables from process.env, set by doppler run
       interpreter: 'node',
 
@@ -136,12 +137,11 @@ module.exports = {
       max_restarts: 5,
       restart_delay: 10000,
 
-      // Wait for ready signal from process
-      wait_ready: true,
-      listen_timeout: 10000,  // Wait up to 10s for ready signal
-
-      // Cron-based restart (optional - restart daily at 2 AM)
-      cron_restart: '0 2 * * *'
+      // Disabled wait_ready — PM2 6.x sends SIGINT before listen_timeout
+      // when using --strip-types with .ts files. The cron scheduler keeps
+      // the event loop alive, so ready signal is unnecessary.
+      wait_ready: false,
+      kill_timeout: 15000  // Allow 15s for graceful shutdown to prevent SQLite lock contention
     }
   ],
 

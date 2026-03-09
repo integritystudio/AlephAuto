@@ -249,11 +249,19 @@ show_preview() {
     echo ""
 
     # Scan all categories
-    local venvs=($(scan_venvs))
-    local temp_files=($(scan_temp_files))
-    local output_files=($(scan_output_files))
-    local build_artifacts=($(scan_build_artifacts))
-    local redundant_dirs=($(scan_redundant_dirs))
+    local -a venvs=()
+    local -a temp_files=()
+    local -a output_files=()
+    local -a build_artifacts=()
+    local -a redundant_dirs=()
+    local previous_ifs="$IFS"
+    IFS=$'\n'
+    venvs=($(scan_venvs || true))
+    temp_files=($(scan_temp_files || true))
+    output_files=($(scan_output_files || true))
+    build_artifacts=($(scan_build_artifacts || true))
+    redundant_dirs=($(scan_redundant_dirs || true))
+    IFS="$previous_ifs"
 
     local total_items=0
 
@@ -312,12 +320,33 @@ show_preview() {
     echo -e "${YELLOW}Total items to remove: $total_items${NC}"
     echo ""
 
-    # Store for cleanup functions
-    export FOUND_VENVS="${venvs[*]}"
-    export FOUND_TEMP_FILES="${temp_files[*]}"
-    export FOUND_OUTPUT_FILES="${output_files[*]}"
-    export FOUND_BUILD_ARTIFACTS="${build_artifacts[*]}"
-    export FOUND_REDUNDANT_DIRS="${redundant_dirs[*]}"
+    # Store for cleanup functions (newline-delimited to preserve spaces in paths)
+    if [ ${#venvs[@]} -gt 0 ]; then
+        FOUND_VENVS=$(printf '%s\n' "${venvs[@]}")
+    else
+        FOUND_VENVS=""
+    fi
+    if [ ${#temp_files[@]} -gt 0 ]; then
+        FOUND_TEMP_FILES=$(printf '%s\n' "${temp_files[@]}")
+    else
+        FOUND_TEMP_FILES=""
+    fi
+    if [ ${#output_files[@]} -gt 0 ]; then
+        FOUND_OUTPUT_FILES=$(printf '%s\n' "${output_files[@]}")
+    else
+        FOUND_OUTPUT_FILES=""
+    fi
+    if [ ${#build_artifacts[@]} -gt 0 ]; then
+        FOUND_BUILD_ARTIFACTS=$(printf '%s\n' "${build_artifacts[@]}")
+    else
+        FOUND_BUILD_ARTIFACTS=""
+    fi
+    if [ ${#redundant_dirs[@]} -gt 0 ]; then
+        FOUND_REDUNDANT_DIRS=$(printf '%s\n' "${redundant_dirs[@]}")
+    else
+        FOUND_REDUNDANT_DIRS=""
+    fi
+    export FOUND_VENVS FOUND_TEMP_FILES FOUND_OUTPUT_FILES FOUND_BUILD_ARTIFACTS FOUND_REDUNDANT_DIRS
 }
 
 confirm_cleanup() {
@@ -338,7 +367,13 @@ confirm_cleanup() {
 cleanup_venvs() {
     print_header "Step 1: Removing Python Virtual Environments"
 
-    local venvs=($FOUND_VENVS)
+    local -a venvs=()
+    if [ -n "${FOUND_VENVS:-}" ]; then
+        local previous_ifs="$IFS"
+        IFS=$'\n'
+        venvs=($FOUND_VENVS)
+        IFS="$previous_ifs"
+    fi
     local removed=0
 
     if [ ${#venvs[@]} -eq 0 ] || [ -z "${venvs[0]}" ]; then
@@ -362,7 +397,13 @@ cleanup_venvs() {
 cleanup_temp_files() {
     print_header "Step 2: Removing Temporary/Cache Files"
 
-    local temp_files=($FOUND_TEMP_FILES)
+    local -a temp_files=()
+    if [ -n "${FOUND_TEMP_FILES:-}" ]; then
+        local previous_ifs="$IFS"
+        IFS=$'\n'
+        temp_files=($FOUND_TEMP_FILES)
+        IFS="$previous_ifs"
+    fi
     local removed=0
 
     if [ ${#temp_files[@]} -eq 0 ] || [ -z "${temp_files[0]}" ]; then
@@ -382,7 +423,13 @@ cleanup_temp_files() {
 cleanup_output_files() {
     print_header "Step 3: Removing Output/Generated Files"
 
-    local output_files=($FOUND_OUTPUT_FILES)
+    local -a output_files=()
+    if [ -n "${FOUND_OUTPUT_FILES:-}" ]; then
+        local previous_ifs="$IFS"
+        IFS=$'\n'
+        output_files=($FOUND_OUTPUT_FILES)
+        IFS="$previous_ifs"
+    fi
     local removed=0
 
     if [ ${#output_files[@]} -eq 0 ] || [ -z "${output_files[0]}" ]; then
@@ -405,7 +452,13 @@ cleanup_output_files() {
 cleanup_build_artifacts() {
     print_header "Step 4: Removing Build Artifacts"
 
-    local build_artifacts=($FOUND_BUILD_ARTIFACTS)
+    local -a build_artifacts=()
+    if [ -n "${FOUND_BUILD_ARTIFACTS:-}" ]; then
+        local previous_ifs="$IFS"
+        IFS=$'\n'
+        build_artifacts=($FOUND_BUILD_ARTIFACTS)
+        IFS="$previous_ifs"
+    fi
     local removed=0
 
     if [ ${#build_artifacts[@]} -eq 0 ] || [ -z "${build_artifacts[0]}" ]; then
@@ -429,7 +482,13 @@ cleanup_build_artifacts() {
 cleanup_redundant_dirs() {
     print_header "Step 5: Removing Redundant Directories"
 
-    local redundant_dirs=($FOUND_REDUNDANT_DIRS)
+    local -a redundant_dirs=()
+    if [ -n "${FOUND_REDUNDANT_DIRS:-}" ]; then
+        local previous_ifs="$IFS"
+        IFS=$'\n'
+        redundant_dirs=($FOUND_REDUNDANT_DIRS)
+        IFS="$previous_ifs"
+    fi
     local removed=0
 
     if [ ${#redundant_dirs[@]} -eq 0 ] || [ -z "${redundant_dirs[0]}" ]; then

@@ -180,7 +180,7 @@ curl -s http://localhost:8080/api/health/doppler | jq '.cacheAgeHours'
 ### Force Cache Refresh
 ```bash
 # Trigger Doppler cache warm
-doppler run -- node scripts/warm-doppler-cache.js
+doppler run -- bash scripts/warm-doppler-cache.sh
 
 # Or simply restart with Doppler
 doppler run -- pm2 restart aleph-dashboard --update-env

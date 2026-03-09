@@ -26,6 +26,9 @@ if (!global._activeOperations) {
   global._activeOperations = new Map();
 }
 
+/**
+ * trackOperation.
+ */
 export function trackOperation(dirPath: string): () => void {
   const normalizedPath = path.resolve(dirPath);
 
@@ -49,6 +52,9 @@ export function trackOperation(dirPath: string): () => void {
   };
 }
 
+/**
+ * waitForOperations.
+ */
 export async function waitForOperations(dirPath: string, timeout = 30000): Promise<void> {
   const normalizedPath = path.resolve(dirPath);
   const tracker = global._activeOperations!.get(normalizedPath);
@@ -71,6 +77,9 @@ export async function waitForOperations(dirPath: string, timeout = 30000): Promi
   });
 }
 
+/**
+ * getTestRepoPath.
+ */
 export function getTestRepoPath(): string {
   return path.join(__dirname, 'test-repo');
 }
@@ -89,6 +98,9 @@ export interface TempRepository {
   cleanup: (options?: CleanupOptions) => Promise<void>;
 }
 
+/**
+ * createTempRepository.
+ */
 export async function createTempRepository(name = 'test-repo', options: TempRepositoryOptions = {}): Promise<TempRepository> {
   const { cleanupTimeout = 30000 } = options;
 
@@ -141,6 +153,9 @@ export async function createTempRepository(name = 'test-repo', options: TempRepo
   };
 }
 
+/**
+ * createMultipleTempRepositories.
+ */
 export async function createMultipleTempRepositories(count = 2): Promise<TempRepository[]> {
   const repos: TempRepository[] = [];
   for (let i = 0; i < count; i++) {

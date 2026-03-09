@@ -7,6 +7,8 @@
 
 import { ScanOrchestrator, type ScanResult, type CodeBlock, type DuplicateGroup, type ConsolidationSuggestion } from './scan-orchestrator.ts';
 import { createComponentLogger, logError, logStart, logStage } from '../utils/logger.ts';
+import { INTER_PROJECT_SCAN, MAX_SCORE, NUMBER_BASE } from '../core/constants.ts';
+import { MONTHS_PER_YEAR, TIME_MS } from '../core/units.ts';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -131,14 +133,6 @@ export interface InterProjectScanConfig {
   [key: string]: unknown;
 }
 
-const CATEGORY_BONUSES: Partial<Record<string, number>> = {
-  api_handler: 10,
-  auth_check: 10,
-  database_operation: 8,
-  validator: 8,
-  error_handler: 6
-} as const;
-
 const CATEGORY_PATHS: Partial<Record<string, string>> = {
   logger: '@shared/logging',
   config_access: '@shared/config',
@@ -149,17 +143,9 @@ const CATEGORY_PATHS: Partial<Record<string, string>> = {
   error_handler: '@shared/errors'
 } as const;
 
-const COMPLEXITY_MULTIPLIERS: Record<Complexity, number> = {
-  simple: 1.1,
-  moderate: 1.0,
-  complex: 0.8
-} as const;
-
-const RISK_MULTIPLIERS: Record<MigrationRisk, number> = {
-  low: 1.1,
-  medium: 1.0,
-  high: 0.8
-} as const;
+const CATEGORY_BONUSES: Partial<Record<string, number>> = INTER_PROJECT_SCAN.CATEGORY_BONUSES;
+const COMPLEXITY_MULTIPLIERS: Record<Complexity, number> = INTER_PROJECT_SCAN.COMPLEXITY_MULTIPLIERS;
+const RISK_MULTIPLIERS: Record<MigrationRisk, number> = INTER_PROJECT_SCAN.RISK_MULTIPLIERS;
 
 /**
  * Scanner for detecting duplicates across multiple repositories
@@ -266,7 +252,7 @@ export class InterProjectScanner {
         crossRepoSuggestions
       );
 
-      const duration = (Date.now() - startTime) / 1000;
+      const duration = (Date.now() - startTime) / TIME_MS.SECOND;
 
       const result: InterProjectScanResult = {
         scan_type: 'inter-project',
@@ -343,14 +329,14 @@ export class InterProjectScanner {
     const crossRepoGroups: CrossRepoDuplicateGroup[] = [];
 
     for (const [hash, blocks] of Object.entries(hashGroups)) {
-      if (blocks.length < 2) continue;
+      if (blocks.length < INTER_PROJECT_SCAN.MIN_BLOCKS_PER_HASH_GROUP) continue;
 
       const repositories = new Set(blocks.map(b => b.source_repository));
 
-      if (repositories.size >= 2) {
+      if (repositories.size >= INTER_PROJECT_SCAN.MIN_REPOSITORIES_PER_GROUP) {
         const firstBlock = blocks[0];
         const group: Omit<CrossRepoDuplicateGroup, 'impact_score'> = {
-          group_id: `cross_${hash.substring(0, 12)}`,
+          group_id: `cross_${hash.substring(0, INTER_PROJECT_SCAN.GROUP_ID_HASH_LENGTH)}`,
           pattern_id: firstBlock.pattern_id,
           content_hash: hash,
           member_blocks: blocks,
@@ -385,13 +371,19 @@ export class InterProjectScanner {
   private _calculateCrossRepoImpactScore(group: CrossRepoDuplicateGroup): number {
     let score = 0;
 
-    score += Math.min(group.occurrence_count * 5, 40);
-    score += group.repository_count * 15;
-    score += Math.min(group.total_lines / 2, 20);
+    score += Math.min(
+      group.occurrence_count * INTER_PROJECT_SCAN.IMPACT_OCCURRENCE_WEIGHT,
+      INTER_PROJECT_SCAN.IMPACT_OCCURRENCE_CAP
+    );
+    score += group.repository_count * INTER_PROJECT_SCAN.IMPACT_REPOSITORY_WEIGHT;
+    score += Math.min(
+      group.total_lines / INTER_PROJECT_SCAN.IMPACT_LINES_DIVISOR,
+      INTER_PROJECT_SCAN.IMPACT_LINES_CAP
+    );
 
     score += CATEGORY_BONUSES[group.category ?? ''] ?? 0;
 
-    return Math.min(score, 100);
+    return Math.min(score, MAX_SCORE);
   }
 
   /**
@@ -422,7 +414,7 @@ export class InterProjectScanner {
         affected_repositories_count: group.repository_count,
         affected_files_count: group.affected_files.length,
         breaking_changes: strategy !== 'shared_package',
-        confidence: 0.9,
+        confidence: INTER_PROJECT_SCAN.DEFAULT_SUGGESTION_CONFIDENCE,
         roi_score: this._calculateCrossRepoROI(group, complexity, risk)
       };
 
@@ -442,15 +434,22 @@ export class InterProjectScanner {
     const occurrences = group.occurrence_count;
     const category = group.category ?? '';
 
-    if (repoCount <= 3 && occurrences <= 10) {
+    if (
+      repoCount <= INTER_PROJECT_SCAN.SHARED_PACKAGE_MAX_REPOSITORIES
+      && occurrences <= INTER_PROJECT_SCAN.SHARED_PACKAGE_MAX_OCCURRENCES
+    ) {
       return 'shared_package';
     }
 
-    if (repoCount >= 4 || category === 'api_handler' || category === 'database_operation') {
+    if (
+      repoCount >= INTER_PROJECT_SCAN.MCP_SERVER_MIN_REPOSITORIES
+      || category === 'api_handler'
+      || category === 'database_operation'
+    ) {
       return 'mcp_server';
     }
 
-    if (occurrences >= 20) {
+    if (occurrences >= INTER_PROJECT_SCAN.AUTONOMOUS_AGENT_MIN_OCCURRENCES) {
       return 'autonomous_agent';
     }
 
@@ -476,8 +475,8 @@ export class InterProjectScanner {
   private _assessComplexity(group: CrossRepoDuplicateGroup): Complexity {
     const repoCount = group.repository_count;
 
-    if (repoCount === 2) return 'simple';
-    if (repoCount === 3) return 'moderate';
+    if (repoCount === INTER_PROJECT_SCAN.COMPLEXITY_SIMPLE_REPOSITORIES) return 'simple';
+    if (repoCount === INTER_PROJECT_SCAN.COMPLEXITY_MODERATE_REPOSITORIES) return 'moderate';
     return 'complex';
   }
 
@@ -516,11 +515,11 @@ export class InterProjectScanner {
   ): number {
     let roi = group.impact_score;
 
-    roi *= 1.2;
+    roi *= MONTHS_PER_YEAR / NUMBER_BASE.DECIMAL;
     roi *= COMPLEXITY_MULTIPLIERS[complexity];
     roi *= RISK_MULTIPLIERS[risk];
 
-    return Math.min(roi, 100);
+    return Math.min(roi, MAX_SCORE);
   }
 
   /**
@@ -575,7 +574,7 @@ export class InterProjectScanner {
   async saveResults(results: InterProjectScanResult, filename = 'inter-project-scan.json'): Promise<string> {
     await fs.mkdir(this.outputDir, { recursive: true });
     const outputPath = path.join(this.outputDir, filename);
-    await fs.writeFile(outputPath, JSON.stringify(results, null, 2));
+    await fs.writeFile(outputPath, JSON.stringify(results, null, INTER_PROJECT_SCAN.RESULTS_JSON_INDENT_SPACES));
     logger.info({ outputPath }, 'Scan results saved');
     return outputPath;
   }

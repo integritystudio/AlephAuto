@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
 import sys
 from dataclasses import dataclass
@@ -27,75 +26,111 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    pass
 
+# Add lib/models and lib/similarity to Python path (early for validation constants)
+sys.path.insert(0, str(Path(__file__).parent.parent / "models"))
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from constants import (
+    BlockExtraction,
+    ConfidenceThresholds,
+    EFFORT_IMPLEMENTATION_DEFAULT_HOURS,
+    EFFORT_IMPLEMENTATION_HOURS_BY_TIER,
+    EFFORT_IMPLEMENTATION_PER_FILE_INCREMENT_HOURS,
+    EFFORT_IMPLEMENTATION_TESTING_OVERHEAD_HOURS,
+    EffortTier,
+    ExtractionDefaults,
+    ROIMultipliers,
+    ScanDefaults,
+    ScoringThresholds,
+    StrategyThresholds,
+    SuggestionDefaults,
+    ValidationLimits,
+)
+from similarity.config import SimilarityConfig
+from code_block import CodeBlock, SourceLocation
+from duplicate_group import DuplicateGroup
+from consolidation_suggestion import ConsolidationSuggestion, MigrationStep
+from similarity.grouping import group_by_similarity
 
 # ---------------------------------------------------------------------------
 # Input Validation Models (C2 Security Fix)
 # ---------------------------------------------------------------------------
 
+
 class PatternMatchInput(BaseModel):
     """Validated pattern match from ast-grep pipeline input"""
-    file_path: str = Field(..., max_length=500, description="Relative file path")
-    rule_id: str = Field(..., max_length=100, description="ast-grep rule ID")
-    matched_text: str = Field(..., max_length=100_000, description="Matched source code")
-    line_start: int = Field(..., ge=1, le=1_000_000, description="Start line number")
-    line_end: int = Field(..., ge=1, le=1_000_000, description="End line number")
-    column_start: Optional[int] = Field(None, ge=0, le=10_000)
-    column_end: Optional[int] = Field(None, ge=0, le=10_000)
-    severity: Optional[str] = Field(None, max_length=20)
+
+    file_path: str = Field(
+        ..., max_length=ValidationLimits.FILE_PATH_MAX, description="Relative file path"
+    )
+    rule_id: str = Field(
+        ..., max_length=ValidationLimits.RULE_ID_MAX, description="ast-grep rule ID"
+    )
+    matched_text: str = Field(
+        ...,
+        max_length=ValidationLimits.MATCHED_TEXT_MAX,
+        description="Matched source code",
+    )
+    line_start: int = Field(
+        ..., ge=1, le=ValidationLimits.LINE_NUMBER_MAX, description="Start line number"
+    )
+    line_end: int = Field(
+        ..., ge=1, le=ValidationLimits.LINE_NUMBER_MAX, description="End line number"
+    )
+    column_start: Optional[int] = Field(None, ge=0, le=ValidationLimits.COLUMN_MAX)
+    column_end: Optional[int] = Field(None, ge=0, le=ValidationLimits.COLUMN_MAX)
+    severity: Optional[str] = Field(None, max_length=ValidationLimits.SEVERITY_MAX)
     confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
 
-    @field_validator('file_path')
+    @field_validator("file_path")
     @classmethod
     def validate_file_path(cls, v: str) -> str:
         """Prevent path traversal attacks"""
-        if '..' in v:
+        if ".." in v:
             raise ValueError('Path traversal detected: ".." not allowed in file_path')
-        if v.startswith('/'):
-            raise ValueError('Absolute paths not allowed in file_path')
+        if v.startswith("/"):
+            raise ValueError("Absolute paths not allowed in file_path")
         return v
 
-    @field_validator('line_end')
+    @field_validator("line_end")
     @classmethod
     def validate_line_range(cls, v: int, info) -> int:
         """Ensure line_end >= line_start"""
-        line_start = info.data.get('line_start')
+        line_start = info.data.get("line_start")
         if line_start is not None and v < line_start:
-            raise ValueError('line_end must be >= line_start')
+            raise ValueError("line_end must be >= line_start")
         return v
 
 
 class RepositoryInfoInput(BaseModel):
     """Validated repository information from pipeline input"""
-    path: str = Field(..., max_length=1000, description="Repository path")
-    name: Optional[str] = Field(None, max_length=200)
-    git_remote: Optional[str] = Field(None, max_length=500)
-    git_branch: Optional[str] = Field(None, max_length=200)
-    git_commit: Optional[str] = Field(None, max_length=50)
+
+    path: str = Field(
+        ..., max_length=ValidationLimits.REPO_PATH_MAX, description="Repository path"
+    )
+    name: Optional[str] = Field(None, max_length=ValidationLimits.REPO_NAME_MAX)
+    git_remote: Optional[str] = Field(None, max_length=ValidationLimits.GIT_REMOTE_MAX)
+    git_branch: Optional[str] = Field(None, max_length=ValidationLimits.GIT_BRANCH_MAX)
+    git_commit: Optional[str] = Field(None, max_length=ValidationLimits.GIT_COMMIT_MAX)
 
 
 class PipelineInput(BaseModel):
     """Validated pipeline input from stdin"""
+
     repository_info: RepositoryInfoInput
     pattern_matches: List[PatternMatchInput] = Field(
         ...,
-        max_length=50_000,
-        description="Pattern matches (max 50k to prevent DoS)"
+        max_length=ValidationLimits.PATTERN_MATCHES_MAX,
+        description="Pattern matches (max 50k to prevent DoS)",
     )
 
     model_config = {
-        'str_strip_whitespace': True,
-        'extra': 'ignore'  # Ignore unexpected fields
+        "str_strip_whitespace": True,
+        "extra": "ignore",  # Ignore unexpected fields
     }
 
-# Add lib/models and lib/similarity to Python path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'models'))
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-# Import config for DEBUG flag (H1 fix: use config module)
-from similarity.config import SimilarityConfig
-from constants import ExtractionDefaults, ScoringThresholds
 
 # Debug mode from centralized config
 DEBUG = SimilarityConfig.DEBUG
@@ -104,14 +139,7 @@ DEBUG = SimilarityConfig.DEBUG
 def _debug(msg: str) -> None:
     """Print debug message if DEBUG is enabled."""
     if DEBUG:
-        print(f"DEBUG {msg}", file=sys.stderr)
-
-
-from code_block import CodeBlock, SourceLocation, ASTNode
-from duplicate_group import DuplicateGroup
-from consolidation_suggestion import ConsolidationSuggestion, MigrationStep
-from scan_report import ScanReport, RepositoryInfo, ScanConfiguration, ScanMetrics
-from similarity.grouping import group_by_similarity
+        sys.stderr.write(f"DEBUG {msg}\n")
 
 
 # ---------------------------------------------------------------------------
@@ -119,32 +147,32 @@ from similarity.grouping import group_by_similarity
 # ---------------------------------------------------------------------------
 
 LANGUAGE_MAP: dict[str, str] = {
-    '.js': 'javascript',
-    '.jsx': 'javascript',
-    '.mjs': 'javascript',
-    '.cjs': 'javascript',
-    '.ts': 'typescript',
-    '.tsx': 'typescript',
-    '.mts': 'typescript',
-    '.cts': 'typescript',
-    '.py': 'python',
-    '.rb': 'ruby',
-    '.go': 'go',
-    '.rs': 'rust',
-    '.java': 'java',
-    '.kt': 'kotlin',
-    '.swift': 'swift',
-    '.c': 'c',
-    '.cpp': 'cpp',
-    '.cc': 'cpp',
-    '.cxx': 'cpp',
-    '.h': 'c',
-    '.hpp': 'cpp',
-    '.cs': 'csharp',
-    '.php': 'php',
-    '.scala': 'scala',
-    '.vue': 'vue',
-    '.svelte': 'svelte',
+    ".js": "javascript",
+    ".jsx": "javascript",
+    ".mjs": "javascript",
+    ".cjs": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".mts": "typescript",
+    ".cts": "typescript",
+    ".py": "python",
+    ".rb": "ruby",
+    ".go": "go",
+    ".rs": "rust",
+    ".java": "java",
+    ".kt": "kotlin",
+    ".swift": "swift",
+    ".c": "c",
+    ".cpp": "cpp",
+    ".cc": "cpp",
+    ".cxx": "cpp",
+    ".h": "c",
+    ".hpp": "cpp",
+    ".cs": "csharp",
+    ".php": "php",
+    ".scala": "scala",
+    ".vue": "vue",
+    ".svelte": "svelte",
 }
 
 # ---------------------------------------------------------------------------
@@ -152,28 +180,28 @@ LANGUAGE_MAP: dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 PATTERN_CATEGORY_MAP: dict[str, str] = {
-    'object-manipulation': 'utility',
-    'array-map-filter': 'utility',
-    'string-manipulation': 'utility',
-    'type-checking': 'utility',
-    'validation': 'validator',
-    'express-route-handlers': 'api_handler',
-    'auth-checks': 'auth_check',
-    'error-responses': 'error_handler',
-    'request-validation': 'validator',
-    'prisma-operations': 'database_operation',
-    'query-builders': 'database_operation',
-    'connection-handling': 'database_operation',
-    'await-patterns': 'async_pattern',
-    'promise-chains': 'async_pattern',
-    'env-variables': 'config_access',
-    'config-objects': 'config_access',
-    'console-statements': 'logger',
-    'logger-patterns': 'logger',
+    "object-manipulation": "utility",
+    "array-map-filter": "utility",
+    "string-manipulation": "utility",
+    "type-checking": "utility",
+    "validation": "validator",
+    "express-route-handlers": "api_handler",
+    "auth-checks": "auth_check",
+    "error-responses": "error_handler",
+    "request-validation": "validator",
+    "prisma-operations": "database_operation",
+    "query-builders": "database_operation",
+    "connection-handling": "database_operation",
+    "await-patterns": "async_pattern",
+    "promise-chains": "async_pattern",
+    "env-variables": "config_access",
+    "config-objects": "config_access",
+    "console-statements": "logger",
+    "logger-patterns": "logger",
     # New categories for previously miscategorized patterns
-    'process-io': 'process_io',
-    'timing-patterns': 'timing',
-    'tracing-patterns': 'tracing',
+    "process-io": "process_io",
+    "timing-patterns": "timing",
+    "tracing-patterns": "tracing",
 }
 
 
@@ -188,7 +216,7 @@ def detect_language(file_path: str) -> str:
         Returns 'unknown' if extension is not recognized.
     """
     ext = Path(file_path).suffix.lower()
-    return LANGUAGE_MAP.get(ext, 'unknown')
+    return LANGUAGE_MAP.get(ext, "unknown")
 
 
 # ---------------------------------------------------------------------------
@@ -196,18 +224,18 @@ def detect_language(file_path: str) -> str:
 # ---------------------------------------------------------------------------
 
 FUNCTION_NAME_PATTERNS: tuple[str, ...] = (
-    r'function\s+(\w+)\s*\(',              # function name(
-    r'const\s+(\w+)\s*=\s*(?:async\s+)?function',  # const name = function
-    r'const\s+(\w+)\s*=\s*(?:async\s+)?\(',        # const name = ( or const name = async (
-    r'let\s+(\w+)\s*=\s*(?:async\s+)?function',    # let name = function
-    r'let\s+(\w+)\s*=\s*(?:async\s+)?\(',          # let name = (
-    r'var\s+(\w+)\s*=\s*(?:async\s+)?function',    # var name = function
-    r'var\s+(\w+)\s*=\s*(?:async\s+)?\(',          # var name = (
-    r'async\s+function\s+(\w+)\s*\(',      # async function name(
-    r'(\w+)\s*:\s*function',               # name: function
-    r'(\w+)\s*:\s*async\s+function',       # name: async function
-    r'export\s+function\s+(\w+)',          # export function name
-    r'export\s+const\s+(\w+)\s*=',         # export const name =
+    r"function\s+(\w+)\s*\(",  # function name(
+    r"const\s+(\w+)\s*=\s*(?:async\s+)?function",  # const name = function
+    r"const\s+(\w+)\s*=\s*(?:async\s+)?\(",  # const name = ( or const name = async (
+    r"let\s+(\w+)\s*=\s*(?:async\s+)?function",  # let name = function
+    r"let\s+(\w+)\s*=\s*(?:async\s+)?\(",  # let name = (
+    r"var\s+(\w+)\s*=\s*(?:async\s+)?function",  # var name = function
+    r"var\s+(\w+)\s*=\s*(?:async\s+)?\(",  # var name = (
+    r"async\s+function\s+(\w+)\s*\(",  # async function name(
+    r"(\w+)\s*:\s*function",  # name: function
+    r"(\w+)\s*:\s*async\s+function",  # name: async function
+    r"export\s+function\s+(\w+)",  # export function name
+    r"export\s+const\s+(\w+)\s*=",  # export const name =
 )
 
 
@@ -235,9 +263,8 @@ def _search_file_for_function_name(
         return None
 
     try:
-        lines = full_path.read_text(encoding='utf-8').splitlines()
+        lines = full_path.read_text(encoding="utf-8").splitlines()
     except (OSError, UnicodeDecodeError) as e:
-        print(f"Warning: Could not read file context for {file_path}: {e}", file=sys.stderr)
         return None
 
     # Search backwards from match line (up to SEARCH_WINDOW lines before)
@@ -248,10 +275,14 @@ def _search_file_for_function_name(
 
         func_name = _match_function_pattern(lines[i])
         if func_name:
-            _debug(f"found function name '{func_name}' at line {i+1} (match was at {line_start})")
+            _debug(
+                f"found function name '{func_name}' at line {i + 1} (match was at {line_start})"
+            )
             return func_name
 
-    _debug(f"no function name found in lines {search_start+1}-{line_start} for {file_path}:{line_start}")
+    _debug(
+        f"no function name found in lines {search_start + 1}-{line_start} for {file_path}:{line_start}"
+    )
     return None
 
 
@@ -269,7 +300,9 @@ def extract_function_name(
     If function name can't be found in source_code, reads the actual file
     to get more context (lines before the match).
     """
-    _debug(f"extract_function_name called: file_path={file_path}, line_start={line_start}")
+    _debug(
+        f"extract_function_name called: file_path={file_path}, line_start={line_start}"
+    )
 
     if not source_code:
         return None
@@ -285,11 +318,12 @@ def extract_function_name(
 
     return None
 
+
 def _get_function_name_from_tags(tags: list[str]) -> str | None:
     """Extract function name from block tags."""
     for tag in tags:
-        if tag.startswith('function:'):
-            return tag[9:]  # Remove 'function:' prefix
+        if tag.startswith(BlockExtraction.FUNCTION_TAG_PREFIX):
+            return tag[len(BlockExtraction.FUNCTION_TAG_PREFIX) :]
     return None
 
 
@@ -317,7 +351,9 @@ def _try_add_by_function(
         seen_functions[function_key] = block
         unique_blocks.append(block)
     else:
-        _debug(f"dedup: skipping duplicate {function_name} at line {block.location.line_start} (kept line {existing_block.location.line_start})")
+        _debug(
+            f"dedup: skipping duplicate {function_name} at line {block.location.line_start} (kept line {existing_block.location.line_start})"
+        )
 
     return True
 
@@ -337,7 +373,7 @@ def _try_add_by_location(
 def deduplicate_blocks(blocks: list[CodeBlock]) -> list[CodeBlock]:
     """Remove duplicate code blocks from the same location and function.
 
-    Priority 4: Deduplicate Pattern Matches
+    Deduplicate Pattern Matches (priority four)
     ast-grep patterns can match the same code multiple times within a function.
     This removes duplicates based on file:function_name, keeping only the earliest match.
     """
@@ -348,8 +384,10 @@ def deduplicate_blocks(blocks: list[CodeBlock]) -> list[CodeBlock]:
     for i, block in enumerate(blocks):
         function_name = _get_function_name_from_tags(block.tags)
 
-        if i < 10:
-            _debug(f"dedup block {i}: {block.location.file_path}:{block.location.line_start}, func={function_name}")
+        if i < BlockExtraction.DEBUG_LOG_DEDUP_LIMIT:
+            _debug(
+                f"dedup block {i}: {block.location.file_path}:{block.location.line_start}, func={function_name}"
+            )
 
         if function_name:
             _try_add_by_function(block, function_name, seen_functions, unique_blocks)
@@ -358,7 +396,9 @@ def deduplicate_blocks(blocks: list[CodeBlock]) -> list[CodeBlock]:
 
     removed = len(blocks) - len(unique_blocks)
     if removed > 0:
-        print(f"Deduplication: Removed {removed} duplicate blocks ({len(seen_functions)} unique functions, {len(seen_locations)} unique locations)", file=sys.stderr)
+        sys.stderr.write(
+            f"Deduplication: Removed {removed} duplicate blocks ({len(seen_functions)} unique functions, {len(seen_locations)} unique locations)\n"
+        )
 
     return unique_blocks
 
@@ -367,40 +407,46 @@ def _create_code_block(match: Dict, repository_info: Dict) -> CodeBlock:
     """Create a CodeBlock from a pattern match (H4 fix: extracted helper)."""
     # Generate unique block ID
     block_key = f"{match['file_path']}:{match['line_start']}"
-    block_hash = hashlib.sha256(block_key.encode()).hexdigest()[:12]
+    block_hash = hashlib.sha256(block_key.encode()).hexdigest()[
+        : BlockExtraction.BLOCK_HASH_LENGTH
+    ]
     block_id = f"cb_{block_hash}"
 
     # Map pattern_id to category
-    category = PATTERN_CATEGORY_MAP.get(match['rule_id'], 'utility')
+    category = PATTERN_CATEGORY_MAP.get(match["rule_id"], "utility")
 
     # Extract function name from source code
-    source_code = match.get('matched_text', '')
+    source_code = match.get("matched_text", "")
     function_name = extract_function_name(
         source_code,
-        file_path=match['file_path'],
-        line_start=match['line_start'],
-        repo_path=repository_info['path']
+        file_path=match["file_path"],
+        line_start=match["line_start"],
+        repo_path=repository_info["path"],
     )
 
     return CodeBlock(
         block_id=block_id,
-        pattern_id=match['rule_id'],
+        pattern_id=match["rule_id"],
         location=SourceLocation(
-            file_path=match['file_path'],
-            line_start=match['line_start'],
-            line_end=match.get('line_end', match['line_start'])
+            file_path=match["file_path"],
+            line_start=match["line_start"],
+            line_end=match.get("line_end", match["line_start"]),
         ),
-        relative_path=match['file_path'],
+        relative_path=match["file_path"],
         source_code=source_code,
-        language=detect_language(match['file_path']),
+        language=detect_language(match["file_path"]),
         category=category,
-        repository_path=repository_info['path'],
-        line_count=match.get('line_end', match['line_start']) - match['line_start'] + 1,
-        tags=[f"function:{function_name}"] if function_name else []
+        repository_path=repository_info["path"],
+        line_count=match.get("line_end", match["line_start"]) - match["line_start"] + 1,
+        tags=[f"{BlockExtraction.FUNCTION_TAG_PREFIX}{function_name}"]
+        if function_name
+        else [],
     )
 
 
-def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> List[CodeBlock]:
+def extract_code_blocks(
+    pattern_matches: List[Dict], repository_info: Dict
+) -> List[CodeBlock]:
     """Extract CodeBlock models from pattern matches."""
     _debug(f"extract_code_blocks: repository_info={repository_info}")
     _debug(f"extract_code_blocks: got {len(pattern_matches)} pattern matches")
@@ -408,19 +454,23 @@ def extract_code_blocks(pattern_matches: List[Dict], repository_info: Dict) -> L
     blocks = []
     for i, match in enumerate(pattern_matches):
         if i == 0:
-            _debug(f"first match: file_path={match.get('file_path')}, line_start={match.get('line_start')}")
+            _debug(
+                f"first match: file_path={match.get('file_path')}, line_start={match.get('line_start')}"
+            )
 
         try:
             block = _create_code_block(match, repository_info)
 
-            if i < 3:
-                _debug(f"block created: file={block.relative_path}, line={block.location.line_start}, tags={block.tags}")
+            if i < BlockExtraction.DEBUG_LOG_BLOCK_LIMIT:
+                _debug(
+                    f"block created: file={block.relative_path}, line={block.location.line_start}, tags={block.tags}"
+                )
 
             blocks.append(block)
 
         except Exception as e:
-            print(f"Warning: Failed to extract block {i} from {match.get('file_path', 'unknown')}: {e}", file=sys.stderr)
             import traceback
+
             traceback.print_exc(file=sys.stderr)
             continue
 
@@ -433,12 +483,14 @@ def group_duplicates(blocks: List[CodeBlock]) -> List[DuplicateGroup]:
 
     Priority 2: Structural Similarity
     Uses the enhanced grouping algorithm that combines:
-    - Layer 1: Exact matching (hash-based)
-    - Layer 2: Structural similarity (AST-based)
-    - Layer 3: Semantic equivalence (TODO)
+    - Exact matching layer (hash-based)
+    - Structural similarity layer (AST-based)
+    - Semantic equivalence layer (category + tags)
     """
     # Use the multi-layer grouping algorithm
-    groups = group_by_similarity(blocks, similarity_threshold=0.85)
+    groups = group_by_similarity(
+        blocks, similarity_threshold=SuggestionDefaults.GROUPING_SIMILARITY_THRESHOLD
+    )
 
     return groups
 
@@ -473,15 +525,17 @@ def generate_suggestions(groups: List[DuplicateGroup]) -> List[ConsolidationSugg
             target_location=_suggest_target_location(group, strategy),
             migration_steps=migration_steps,
             code_example=code_example,
-            impact_score=min(group.impact_score, 100.0),
+            impact_score=min(group.impact_score, ScanDefaults.PERCENTAGE_MAX),
             complexity=complexity,
             migration_risk=risk,
             estimated_effort_hours=_estimate_effort(group, complexity),
             breaking_changes=breaking_changes,
             affected_files_count=len(group.affected_files),
             affected_repositories_count=len(group.affected_repositories),
-            confidence=0.9 if group.similarity_score >= 0.95 else 0.7,
-            roi_score=roi_score
+            confidence=ConfidenceThresholds.HIGH_CONFIDENCE
+            if group.similarity_score >= ConfidenceThresholds.HIGH_SIMILARITY
+            else ConfidenceThresholds.LOW_CONFIDENCE,
+            roi_score=roi_score,
         )
 
         suggestions.append(suggestion)
@@ -497,6 +551,7 @@ def generate_suggestions(groups: List[DuplicateGroup]) -> List[ConsolidationSugg
 # Rules are evaluated in order; first matching rule wins.
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class StrategyRule:
     """Rule for determining consolidation strategy."""
@@ -510,40 +565,148 @@ class StrategyRule:
 
 # Category-specific strategy rules
 CATEGORY_STRATEGY_RULES: dict[str, list[StrategyRule]] = {
-    'logger': [
-        StrategyRule(5, 'local_util', "Logger/config pattern used {occ} times - extract to module constant", 'trivial', 'minimal'),
-        StrategyRule(None, 'shared_package', "Logger/config pattern used {occ} times across {files} files - centralize configuration", 'simple', 'low'),
+    "logger": [
+        StrategyRule(
+            StrategyThresholds.LOGGER_LOCAL_MAX,
+            "local_util",
+            "Logger/config pattern used {occ} times - extract to module constant",
+            "trivial",
+            "minimal",
+        ),
+        StrategyRule(
+            None,
+            "shared_package",
+            "Logger/config pattern used {occ} times across {files} files - centralize configuration",
+            "simple",
+            "low",
+        ),
     ],
-    'config_access': [
-        StrategyRule(5, 'local_util', "Logger/config pattern used {occ} times - extract to module constant", 'trivial', 'minimal'),
-        StrategyRule(None, 'shared_package', "Logger/config pattern used {occ} times across {files} files - centralize configuration", 'simple', 'low'),
+    "config_access": [
+        StrategyRule(
+            StrategyThresholds.LOGGER_LOCAL_MAX,
+            "local_util",
+            "Logger/config pattern used {occ} times - extract to module constant",
+            "trivial",
+            "minimal",
+        ),
+        StrategyRule(
+            None,
+            "shared_package",
+            "Logger/config pattern used {occ} times across {files} files - centralize configuration",
+            "simple",
+            "low",
+        ),
     ],
-    'api_handler': [
-        StrategyRule(3, 'local_util', "API pattern used {occ} times - extract to middleware/util", 'simple', 'low'),
-        StrategyRule(10, 'shared_package', "API pattern used {occ} times across {files} files - create shared middleware", 'moderate', 'medium'),
-        StrategyRule(None, 'mcp_server', "API pattern used {occ} times - candidate for framework/MCP abstraction", 'complex', 'high'),
+    "api_handler": [
+        StrategyRule(
+            StrategyThresholds.API_LOCAL_MAX,
+            "local_util",
+            "API pattern used {occ} times - extract to middleware/util",
+            "simple",
+            "low",
+        ),
+        StrategyRule(
+            StrategyThresholds.API_SHARED_MAX,
+            "shared_package",
+            "API pattern used {occ} times across {files} files - create shared middleware",
+            "moderate",
+            "medium",
+        ),
+        StrategyRule(
+            None,
+            "mcp_server",
+            "API pattern used {occ} times - candidate for framework/MCP abstraction",
+            "complex",
+            "high",
+        ),
     ],
-    'auth_check': [
-        StrategyRule(3, 'local_util', "API pattern used {occ} times - extract to middleware/util", 'simple', 'low'),
-        StrategyRule(10, 'shared_package', "API pattern used {occ} times across {files} files - create shared middleware", 'moderate', 'medium'),
-        StrategyRule(None, 'mcp_server', "API pattern used {occ} times - candidate for framework/MCP abstraction", 'complex', 'high'),
+    "auth_check": [
+        StrategyRule(
+            StrategyThresholds.API_LOCAL_MAX,
+            "local_util",
+            "API pattern used {occ} times - extract to middleware/util",
+            "simple",
+            "low",
+        ),
+        StrategyRule(
+            StrategyThresholds.API_SHARED_MAX,
+            "shared_package",
+            "API pattern used {occ} times across {files} files - create shared middleware",
+            "moderate",
+            "medium",
+        ),
+        StrategyRule(
+            None,
+            "mcp_server",
+            "API pattern used {occ} times - candidate for framework/MCP abstraction",
+            "complex",
+            "high",
+        ),
     ],
-    'error_handler': [
-        StrategyRule(3, 'local_util', "API pattern used {occ} times - extract to middleware/util", 'simple', 'low'),
-        StrategyRule(10, 'shared_package', "API pattern used {occ} times across {files} files - create shared middleware", 'moderate', 'medium'),
-        StrategyRule(None, 'mcp_server', "API pattern used {occ} times - candidate for framework/MCP abstraction", 'complex', 'high'),
+    "error_handler": [
+        StrategyRule(
+            StrategyThresholds.API_LOCAL_MAX,
+            "local_util",
+            "API pattern used {occ} times - extract to middleware/util",
+            "simple",
+            "low",
+        ),
+        StrategyRule(
+            StrategyThresholds.API_SHARED_MAX,
+            "shared_package",
+            "API pattern used {occ} times across {files} files - create shared middleware",
+            "moderate",
+            "medium",
+        ),
+        StrategyRule(
+            None,
+            "mcp_server",
+            "API pattern used {occ} times - candidate for framework/MCP abstraction",
+            "complex",
+            "high",
+        ),
     ],
-    'database_operation': [
-        StrategyRule(3, 'local_util', "Database pattern used {occ} times - extract to repository method", 'moderate', 'medium'),
-        StrategyRule(None, 'shared_package', "Database pattern used {occ} times - create shared query builder", 'complex', 'high'),
+    "database_operation": [
+        StrategyRule(
+            StrategyThresholds.DB_LOCAL_MAX,
+            "local_util",
+            "Database pattern used {occ} times - extract to repository method",
+            "moderate",
+            "medium",
+        ),
+        StrategyRule(
+            None,
+            "shared_package",
+            "Database pattern used {occ} times - create shared query builder",
+            "complex",
+            "high",
+        ),
     ],
 }
 
 # Default rules for categories not explicitly listed
 DEFAULT_STRATEGY_RULES: list[StrategyRule] = [
-    StrategyRule(3, 'local_util', "Utility pattern used {occ} times in {files} files - extract to local util", 'simple', 'minimal'),
-    StrategyRule(8, 'shared_package', "Utility pattern used {occ} times across {files} files - create shared utility", 'simple', 'low'),
-    StrategyRule(None, 'mcp_server', "Utility pattern used {occ} times - consider MCP tool or shared package", 'moderate', 'medium'),
+    StrategyRule(
+        StrategyThresholds.DEFAULT_LOCAL_MAX,
+        "local_util",
+        "Utility pattern used {occ} times in {files} files - extract to local util",
+        "simple",
+        "minimal",
+    ),
+    StrategyRule(
+        StrategyThresholds.DEFAULT_SHARED_MAX,
+        "shared_package",
+        "Utility pattern used {occ} times across {files} files - create shared utility",
+        "simple",
+        "low",
+    ),
+    StrategyRule(
+        None,
+        "mcp_server",
+        "Utility pattern used {occ} times - consider MCP tool or shared package",
+        "moderate",
+        "medium",
+    ),
 ]
 
 
@@ -560,7 +723,12 @@ def _apply_strategy_rules(
 
     # Fallback (should not reach here if rules are properly defined)
     last_rule = rules[-1]
-    return (last_rule.strategy, last_rule.rationale_template.format(occ=occurrences, files=files), last_rule.complexity, last_rule.risk)
+    return (
+        last_rule.strategy,
+        last_rule.rationale_template.format(occ=occurrences, files=files),
+        last_rule.complexity,
+        last_rule.risk,
+    )
 
 
 def _determine_strategy(group: DuplicateGroup) -> tuple[str, str, str, str]:
@@ -575,10 +743,10 @@ def _determine_strategy(group: DuplicateGroup) -> tuple[str, str, str, str]:
     # Single file duplicates - simplest case (always local_util)
     if files == 1:
         return (
-            'local_util',
+            "local_util",
             f"All {occurrences} occurrences in same file - extract to local function",
-            'trivial',
-            'minimal',
+            "trivial",
+            "minimal",
         )
 
     # Get category-specific rules or use defaults
@@ -586,18 +754,20 @@ def _determine_strategy(group: DuplicateGroup) -> tuple[str, str, str, str]:
     return _apply_strategy_rules(rules, occurrences, files)
 
 
-def _generate_migration_steps(group: DuplicateGroup, strategy: str) -> List[MigrationStep]:
+def _generate_migration_steps(
+    group: DuplicateGroup, strategy: str
+) -> List[MigrationStep]:
     """Generate specific migration steps based on strategy"""
 
-    if strategy == 'local_util':
+    if strategy == "local_util":
         steps = [
             ("Create utility function in local utils module", True, "15min"),
             ("Extract common logic from duplicate blocks", False, "30min"),
             ("Replace each occurrence with function call", True, "20min"),
             ("Add unit tests for extracted function", False, "30min"),
-            ("Run existing tests to verify behavior", True, "10min")
+            ("Run existing tests to verify behavior", True, "10min"),
         ]
-    elif strategy == 'shared_package':
+    elif strategy == "shared_package":
         steps = [
             ("Create shared package/module for utility", False, "1h"),
             ("Extract and parameterize common logic", False, "1h"),
@@ -605,9 +775,9 @@ def _generate_migration_steps(group: DuplicateGroup, strategy: str) -> List[Migr
             ("Update each file to import from shared package", True, "30min"),
             ("Replace duplicates with shared function calls", True, "30min"),
             ("Update package.json/requirements.txt dependencies", False, "15min"),
-            ("Run full test suite across affected projects", True, "20min")
+            ("Run full test suite across affected projects", True, "20min"),
         ]
-    elif strategy == 'mcp_server':
+    elif strategy == "mcp_server":
         steps = [
             ("Design MCP tool interface for functionality", False, "2h"),
             ("Create MCP server with tool implementation", False, "4h"),
@@ -616,7 +786,7 @@ def _generate_migration_steps(group: DuplicateGroup, strategy: str) -> List[Migr
             ("Update projects to use MCP client", False, "2h"),
             ("Replace duplicates with MCP tool calls", True, "1h"),
             ("Add integration tests", False, "2h"),
-            ("Document MCP tool usage", False, "1h")
+            ("Document MCP tool usage", False, "1h"),
         ]
     else:  # autonomous_agent
         steps = [
@@ -627,7 +797,7 @@ def _generate_migration_steps(group: DuplicateGroup, strategy: str) -> List[Migr
             ("Integrate agent with existing systems", False, "4h"),
             ("Replace complex duplicate logic with agent calls", False, "2h"),
             ("Monitor agent performance and behavior", False, "ongoing"),
-            ("Document agent usage and limitations", False, "2h")
+            ("Document agent usage and limitations", False, "2h"),
         ]
 
     # Convert to MigrationStep objects
@@ -636,7 +806,7 @@ def _generate_migration_steps(group: DuplicateGroup, strategy: str) -> List[Migr
             step_number=i + 1,
             description=desc,
             automated=automated,
-            estimated_time=time
+            estimated_time=time,
         )
         for i, (desc, automated, time) in enumerate(steps)
     ]
@@ -645,11 +815,10 @@ def _generate_migration_steps(group: DuplicateGroup, strategy: str) -> List[Migr
 def _generate_code_example(group: DuplicateGroup, strategy: str) -> str:
     """Generate example code showing the refactoring"""
 
-    pattern = group.pattern_id
     category = group.category
 
-    if strategy == 'local_util':
-        if category == 'logger':
+    if strategy == "local_util":
+        if category == "logger":
             return """// Before:
 logger.info({ userId }, 'User action');
 logger.info({ userId }, 'User action');
@@ -670,7 +839,7 @@ function foo() {
   sharedUtil();
 }"""
 
-    elif strategy == 'shared_package':
+    elif strategy == "shared_package":
         return """// Before: Duplicated across files
 // file1.js: { check logic }
 // file2.js: { check logic }
@@ -679,7 +848,7 @@ function foo() {
 import { validateInput } from '@shared/validators';
 validateInput(data);"""
 
-    elif strategy == 'mcp_server':
+    elif strategy == "mcp_server":
         return """// Before: Complex duplicated logic
 async function processData() {
   // ... complex logic ...
@@ -699,35 +868,35 @@ def _calculate_roi(group: DuplicateGroup, complexity: str, risk: str) -> float:
 
     # Adjust based on complexity (simpler = higher ROI)
     complexity_multipliers = {
-        'trivial': 1.3,
-        'simple': 1.1,
-        'moderate': 0.9,
-        'complex': 0.7
+        "trivial": ROIMultipliers.COMPLEXITY_TRIVIAL,
+        "simple": ROIMultipliers.COMPLEXITY_SIMPLE,
+        "moderate": ROIMultipliers.COMPLEXITY_MODERATE,
+        "complex": ROIMultipliers.COMPLEXITY_COMPLEX,
     }
     roi *= complexity_multipliers.get(complexity, 1.0)
 
     # Adjust based on risk (lower risk = higher ROI)
     risk_multipliers = {
-        'minimal': 1.2,
-        'low': 1.1,
-        'medium': 0.9,
-        'high': 0.7
+        "minimal": ROIMultipliers.RISK_MINIMAL,
+        "low": ROIMultipliers.RISK_LOW,
+        "medium": ROIMultipliers.RISK_MEDIUM,
+        "high": ROIMultipliers.RISK_HIGH,
     }
     roi *= risk_multipliers.get(risk, 1.0)
 
-    return min(roi, 100.0)
+    return min(roi, ScanDefaults.PERCENTAGE_MAX)
 
 
 def _is_breaking_change(group: DuplicateGroup, strategy: str) -> bool:
     """Determine if consolidation would be a breaking change"""
 
     # Local utils are not breaking
-    if strategy == 'local_util':
+    if strategy == "local_util":
         return False
 
     # Shared packages might be breaking if they change APIs
-    if strategy == 'shared_package':
-        return group.category in ['api_handler', 'auth_check']
+    if strategy == "shared_package":
+        return group.category in ["api_handler", "auth_check"]
 
     # MCP servers and agents are potentially breaking
     return True
@@ -736,28 +905,28 @@ def _is_breaking_change(group: DuplicateGroup, strategy: str) -> bool:
 def _suggest_target_location(group: DuplicateGroup, strategy: str) -> str:
     """Suggest where the consolidated code should live"""
 
-    if strategy == 'local_util':
+    if strategy == "local_util":
         # Extract to utils in same directory
-        first_file = group.affected_files[0] if group.affected_files else ''
-        if '/' in first_file:
-            dir_path = '/'.join(first_file.split('/')[:-1])
+        first_file = group.affected_files[0] if group.affected_files else ""
+        if "/" in first_file:
+            dir_path = "/".join(first_file.split("/")[:-1])
             return f"{dir_path}/utils.js"
         return "utils.js"
 
-    elif strategy == 'shared_package':
+    elif strategy == "shared_package":
         category = group.category
-        if category == 'logger':
+        if category == "logger":
             return "shared/logging/logger-utils.js"
-        elif category in ['api_handler', 'auth_check']:
+        elif category in ["api_handler", "auth_check"]:
             return "shared/middleware/auth-middleware.js"
-        elif category == 'database_operation':
+        elif category == "database_operation":
             return "shared/database/query-builder.js"
-        elif category == 'validator':
+        elif category == "validator":
             return "shared/validation/validators.js"
         else:
             return f"shared/utils/{category}.js"
 
-    elif strategy == 'mcp_server':
+    elif strategy == "mcp_server":
         return f"mcp-servers/{group.pattern_id}-server/"
 
     else:  # autonomous_agent
@@ -766,21 +935,17 @@ def _suggest_target_location(group: DuplicateGroup, strategy: str) -> str:
 
 def _estimate_effort(group: DuplicateGroup, complexity: str) -> float:
     """Estimate effort in hours"""
-
-    base_hours = {
-        'trivial': 0.5,
-        'simple': 1.0,
-        'moderate': 3.0,
-        'complex': 8.0
-    }
-
-    hours = base_hours.get(complexity, 2.0)
+    try:
+        effort_tier = EffortTier(complexity)
+        hours = EFFORT_IMPLEMENTATION_HOURS_BY_TIER[effort_tier]
+    except ValueError:
+        hours = EFFORT_IMPLEMENTATION_DEFAULT_HOURS
 
     # Add time per affected file (more files = more refactoring)
-    hours += len(group.affected_files) * 0.25
+    hours += len(group.affected_files) * EFFORT_IMPLEMENTATION_PER_FILE_INCREMENT_HOURS
 
     # Add time for testing
-    hours += 0.5
+    hours += EFFORT_IMPLEMENTATION_TESTING_OVERHEAD_HOURS
 
     return round(hours, 1)
 
@@ -789,7 +954,7 @@ def calculate_metrics(
     blocks: List[CodeBlock],
     groups: List[DuplicateGroup],
     suggestions: List[ConsolidationSuggestion],
-    total_repo_lines: int = 0
+    total_repo_lines: int = 0,
 ) -> Dict[str, Any]:
     """Calculate comprehensive duplication metrics.
 
@@ -803,16 +968,15 @@ def calculate_metrics(
         Dict with all metrics
     """
     # Count by similarity method
-    exact_groups = [g for g in groups if g.similarity_method == 'exact_match']
-    structural_groups = [g for g in groups if g.similarity_method == 'structural']
-    semantic_groups = [g for g in groups if g.similarity_method == 'semantic']
+    exact_groups = [g for g in groups if g.similarity_method == "exact_match"]
+    structural_groups = [g for g in groups if g.similarity_method == "structural"]
+    semantic_groups = [g for g in groups if g.similarity_method == "semantic"]
 
     total_duplicated_lines = sum(g.total_lines for g in groups)
 
     # Calculate potential LOC reduction (keep one copy of each group)
     potential_loc_reduction = sum(
-        g.total_lines - (g.total_lines // g.occurrence_count)
-        for g in groups
+        g.total_lines - (g.total_lines // g.occurrence_count) for g in groups
     )
 
     # Calculate duplication percentage
@@ -822,19 +986,24 @@ def calculate_metrics(
 
     duplication_percentage = (
         (total_duplicated_lines / total_repo_lines * 100)
-        if total_repo_lines > 0 else 0.0
+        if total_repo_lines > 0
+        else 0.0
     )
 
     # Identify quick wins (simple to fix)
     quick_wins = [
-        g for g in groups
-        if g.occurrence_count <= ExtractionDefaults.QUICK_WIN_MAX_OCCURRENCES and len(g.affected_files) == 1
+        g
+        for g in groups
+        if g.occurrence_count <= ExtractionDefaults.QUICK_WIN_MAX_OCCURRENCES
+        and len(g.affected_files) == 1
     ]
 
     # Identify high-impact suggestions (significant refactoring value)
     high_impact = [
-        g for g in groups
-        if g.total_lines >= ExtractionDefaults.HIGH_IMPACT_MIN_LINES or g.occurrence_count >= ExtractionDefaults.HIGH_IMPACT_MIN_OCCURRENCES
+        g
+        for g in groups
+        if g.total_lines >= ExtractionDefaults.HIGH_IMPACT_MIN_LINES
+        or g.occurrence_count >= ExtractionDefaults.HIGH_IMPACT_MIN_OCCURRENCES
     ]
 
     # Semantic annotation metrics
@@ -847,37 +1016,39 @@ def calculate_metrics(
 
     return {
         # Block counts
-        'total_code_blocks': len(blocks),
-        'total_duplicate_groups': len(groups),
-
+        "total_code_blocks": len(blocks),
+        "total_duplicate_groups": len(groups),
         # By similarity method
-        'exact_duplicates': len(exact_groups),
-        'structural_duplicates': len(structural_groups),
-        'semantic_duplicates': len(semantic_groups),
-
+        "exact_duplicates": len(exact_groups),
+        "structural_duplicates": len(structural_groups),
+        "semantic_duplicates": len(semantic_groups),
         # Line metrics
-        'total_duplicated_lines': total_duplicated_lines,
-        'potential_loc_reduction': potential_loc_reduction,
-        'duplication_percentage': round(duplication_percentage, 2),
-
+        "total_duplicated_lines": total_duplicated_lines,
+        "potential_loc_reduction": potential_loc_reduction,
+        "duplication_percentage": round(duplication_percentage, 2),
         # Suggestion metrics
-        'total_suggestions': len(suggestions),
-        'quick_wins': len(quick_wins),
-        'high_impact_suggestions': len(high_impact),
-
+        "total_suggestions": len(suggestions),
+        "quick_wins": len(quick_wins),
+        "high_impact_suggestions": len(high_impact),
         # Detailed by complexity
-        'trivial_suggestions': len([s for s in suggestions if s.complexity == 'trivial']),
-        'simple_suggestions': len([s for s in suggestions if s.complexity == 'simple']),
-        'moderate_suggestions': len([s for s in suggestions if s.complexity == 'moderate']),
-        'complex_suggestions': len([s for s in suggestions if s.complexity == 'complex']),
-
+        "trivial_suggestions": len(
+            [s for s in suggestions if s.complexity == "trivial"]
+        ),
+        "simple_suggestions": len([s for s in suggestions if s.complexity == "simple"]),
+        "moderate_suggestions": len(
+            [s for s in suggestions if s.complexity == "moderate"]
+        ),
+        "complex_suggestions": len(
+            [s for s in suggestions if s.complexity == "complex"]
+        ),
         # High priority (by impact score)
-        'high_priority_suggestions': len([s for s in suggestions if s.impact_score >= ScoringThresholds.CRITICAL]),
-
+        "high_priority_suggestions": len(
+            [s for s in suggestions if s.impact_score >= ScoringThresholds.CRITICAL]
+        ),
         # Semantic annotation coverage
-        'blocks_with_tags': blocks_with_tags,
-        'blocks_with_tags_percentage': blocks_with_tags_percentage,
-        'avg_tags_per_block': avg_tags_per_block,
+        "blocks_with_tags": blocks_with_tags,
+        "blocks_with_tags_percentage": blocks_with_tags_percentage,
+        "avg_tags_per_block": avg_tags_per_block,
     }
 
 
@@ -893,15 +1064,20 @@ def main():
             validated_input = PipelineInput(**raw_input)
         except Exception as validation_error:
             # Include available context for debugging
-            repo_hint = raw_input.get('repository_info', {}).get('path', 'unknown') if isinstance(raw_input, dict) else 'invalid_input'
-            print(f"Input validation failed: {validation_error} (repo={repo_hint})", file=sys.stderr)
+            repo_hint = (
+                raw_input.get("repository_info", {}).get("path", "unknown")
+                if isinstance(raw_input, dict)
+                else "invalid_input"
+            )
             sys.exit(2)  # Distinct exit code for validation errors
 
         # Convert validated models to dicts for compatibility
         repository_info = validated_input.repository_info.model_dump()
         pattern_matches = [m.model_dump() for m in validated_input.pattern_matches]
 
-        _debug(f"Validated {len(pattern_matches)} pattern matches from {repository_info.get('path', 'unknown')}")
+        _debug(
+            f"Validated {len(pattern_matches)} pattern matches from {repository_info.get('path', 'unknown')}"
+        )
 
         # Stage 3: Extract code blocks
         blocks = extract_code_blocks(pattern_matches, repository_info)
@@ -924,22 +1100,26 @@ def main():
 
         # Output result as JSON (use mode='json' to serialize datetime objects)
         result = {
-            'code_blocks': [b.model_dump(mode='json') for b in blocks],
-            'duplicate_groups': [g.model_dump(mode='json') for g in groups],
-            'suggestions': [s.model_dump(mode='json') for s in suggestions],
-            'metrics': metrics
+            "code_blocks": [b.model_dump(mode="json") for b in blocks],
+            "duplicate_groups": [g.model_dump(mode="json") for g in groups],
+            "suggestions": [s.model_dump(mode="json") for s in suggestions],
+            "metrics": metrics,
         }
 
         json.dump(result, sys.stdout, indent=2)
 
     except Exception as e:
-        repo_path = repository_info.get('path', 'unknown') if 'repository_info' in dir() else 'unknown'
-        match_count = len(pattern_matches) if 'pattern_matches' in dir() else 0
-        print(f"Error in extraction pipeline: {e} (repo={repo_path}, matches={match_count})", file=sys.stderr)
+        repo_path = (
+            repository_info.get("path", "unknown")
+            if "repository_info" in dir()
+            else "unknown"
+        )
+        match_count = len(pattern_matches) if "pattern_matches" in dir() else 0
         import traceback
+
         traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

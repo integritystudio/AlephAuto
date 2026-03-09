@@ -13,6 +13,8 @@
 
 This directory contains all project documentation organized by category.
 
+**Docs Version:** 2.3.12
+
 ## Directory Structure
 
 ```
@@ -21,6 +23,7 @@ docs/
 ├── API_REFERENCE.md         # REST API endpoints (22 endpoints)
 ├── MCP_SERVERS.md           # MCP server configuration (Sentry, Redis, etc.)
 ├── ROADMAP.md               # Future enhancements (Phases 5-7)
+├── changelog/               # Versioned release-cycle changelogs
 │
 ├── architecture/            # System architecture and design
 │   ├── CHEAT-SHEET.md       # Quick reference for common patterns
@@ -108,6 +111,7 @@ docs/
 
 ### Planning
 - [Roadmap](./ROADMAP.md) - Future enhancements (Phases 5-7)
+- [Release Changelogs](./changelog/README.md) - Versioned progress by release cycle
 
 ## Related Documentation
 
@@ -117,4 +121,4 @@ The main project documentation remains in the root-level files:
 
 ---
 
-**Last Updated:** February 2026
+**Last Updated:** March 4, 2026

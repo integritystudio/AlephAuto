@@ -289,7 +289,7 @@ pm2 monit
 ## Dependencies
 
 ### Required
-- Node.js v18+
+- Node.js v22+
 - npm
 - Doppler CLI
 - jq (JSON processor)

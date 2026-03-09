@@ -18,6 +18,9 @@ import { TIMEOUTS } from '../core/constants.ts';
 // @ts-ignore - no declaration file for node-cron
 import cron from 'node-cron';
 import * as Sentry from '@sentry/node';
+import { realpathSync } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import type { Logger } from 'pino';
 
@@ -26,14 +29,14 @@ const logger: Logger = createComponentLogger('DuplicateDetectionPipeline');
 // Re-export worker and types for any external consumers.
 // Types previously re-exported here (JobStatus, ScanType, JobData, ScanResult,
 // DuplicateGroup, Suggestion, PRCreationResult, JobResult, Inter/IntraProjectScanJobResult)
-// are now imported directly from '../types/duplicate-detection-types.ts'.
+// are now imported directly from '../pipeline-core/types/duplicate-detection-types.ts'.
 export { DuplicateDetectionWorker };
 export type {
   RetryInfo,
   RetryMetrics,
   WorkerScanMetrics,
   DuplicateDetectionWorkerOptions
-} from '../types/duplicate-detection-types.ts';
+} from '../pipeline-core/types/duplicate-detection-types.ts';
 
 /**
  * Main execution
@@ -42,9 +45,7 @@ async function main(): Promise<void> {
   const cronSchedule = process.env.DUPLICATE_SCAN_CRON_SCHEDULE || '0 2 * * *';
   const runOnStartup = config.runOnStartup;
 
-  console.log('╔══════════════════════════════════════════════════════════╗');
-  console.log('║     DUPLICATE DETECTION AUTOMATED PIPELINE              ║');
-  console.log('╚══════════════════════════════════════════════════════════╝\n');
+  logger.info({ cronSchedule, runOnStartup }, 'Starting duplicate detection pipeline');
 
   try {
     // Initialize worker
@@ -54,17 +55,18 @@ async function main(): Promise<void> {
 
     await worker.initialize();
 
-    console.log('✅ Duplicate detection pipeline initialized\n');
+    logger.info('Duplicate detection pipeline initialized');
 
     const stats = worker.configLoader.getStats();
-    console.log('📊 Configuration:');
-    console.log(`   Total repositories: ${stats.totalRepositories}`);
-    console.log(`   Enabled repositories: ${stats.enabledRepositories}`);
-    console.log(`   Repository groups: ${stats.groups}\n`);
+    logger.info({
+      totalRepositories: stats.totalRepositories,
+      enabledRepositories: stats.enabledRepositories,
+      repositoryGroups: stats.groups
+    }, 'Loaded duplicate-detection configuration');
 
     // Schedule cron job
     if (!runOnStartup) {
-      console.log(`⏰ Scheduling nightly scans: ${cronSchedule}\n`);
+      logger.info({ cronSchedule }, 'Scheduling nightly duplicate scans');
 
       cron.schedule(cronSchedule, async () => {
         logger.info('Cron job triggered');
@@ -76,7 +78,7 @@ async function main(): Promise<void> {
         }
       });
 
-      console.log('🚀 Pipeline is running. Press Ctrl+C to stop.\n');
+      logger.info('Duplicate detection scheduler is running');
 
       // Notify PM2 that process is ready (fork mode)
       if (process.send) {
@@ -90,43 +92,52 @@ async function main(): Promise<void> {
         logger.debug('Worker keep-alive heartbeat');
       }, TIMEOUTS.FIVE_MINUTES_MS);
     } else {
-      console.log('▶️  Running scan immediately (RUN_ON_STARTUP=true)\n');
+      logger.info('Running scan immediately (runOnStartup=true)');
       await worker.runNightlyScan();
 
-      console.log('\n✅ Startup scan completed');
       const metrics = worker.getScanMetrics();
-      console.log('\n📊 Scan Metrics:');
-      console.log(`   Total scans: ${metrics.totalScans}`);
-      console.log(`   Duplicates found: ${metrics.totalDuplicatesFound}`);
-      console.log(`   Suggestions generated: ${metrics.totalSuggestionsGenerated}`);
-      console.log(`   High-impact duplicates: ${metrics.highImpactDuplicates}`);
+      logger.info({
+        totalScans: metrics.totalScans,
+        duplicatesFound: metrics.totalDuplicatesFound,
+        suggestionsGenerated: metrics.totalSuggestionsGenerated,
+        highImpactDuplicates: metrics.highImpactDuplicates
+      }, 'Startup scan completed');
 
       if (worker.enablePRCreation) {
-        console.log('\n🔀 PR Creation:');
-        console.log(`   PRs created: ${metrics.prsCreated}`);
-        console.log(`   PR creation errors: ${metrics.prCreationErrors}`);
+        logger.info({
+          prsCreated: metrics.prsCreated,
+          prCreationErrors: metrics.prCreationErrors
+        }, 'PR creation metrics');
       }
 
-      console.log('');
       process.exit(0);
     }
 
   } catch (error) {
-    console.error('\n❌ Error:', (error as Error).message);
-    logger.error({ error }, 'Pipeline initialization failed');
+    logger.error({ error, message: (error as Error).message }, 'Pipeline initialization failed');
     Sentry.captureException(error);
     process.exit(1);
   }
 }
 
-// Run the pipeline
-// Check if running directly (not imported as module)
-// Also check for PM2 execution (pm_id is set by PM2)
-const isDirectExecution = import.meta.url === `file://${process.argv[1]}` || process.env.pm_id !== undefined;
+function isDirectExecution(): boolean {
+  const currentModulePath = fileURLToPath(import.meta.url);
+  // PM2 uses dynamic import() so process.argv[1] points to PM2's fork container,
+  // not the actual script. Check pm_exec_path env var as fallback.
+  const entryPath = process.argv[1] || process.env.pm_exec_path;
+  if (!entryPath) return false;
+  try {
+    return realpathSync(path.resolve(entryPath)) === realpathSync(currentModulePath);
+  } catch {
+    return false;
+  }
+}
 
-if (isDirectExecution) {
+// PM2 loads this file via dynamic import(), so process.argv[1] points to
+// PM2's ProcessContainerFork, not this script. Detect PM2 via pm_id env var.
+if (isDirectExecution() || process.env.pm_id !== undefined) {
   main().catch((error) => {
-    console.error('Fatal error:', error);
+    logger.error({ error }, 'Fatal error in duplicate detection pipeline');
     process.exit(1);
   });
 }

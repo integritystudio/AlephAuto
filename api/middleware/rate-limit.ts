@@ -8,8 +8,18 @@ import type { Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import { createComponentLogger } from '#sidequest/utils/logger.ts';
 import { RATE_LIMIT } from '#sidequest/core/constants.ts';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 const logger = createComponentLogger('RateLimiter');
+const TOO_MANY_REQUESTS_ERROR = 'Too Many Requests';
+const FIFTEEN_MINUTES_LABEL = RATE_LIMIT.STANDARD_RETRY_AFTER_LABEL;
+const ONE_HOUR_LABEL = RATE_LIMIT.STRICT_RETRY_AFTER_LABEL;
+const dashboardReadPaths = [
+  '/api/status',
+  '/api/pipelines',
+  '/api/sidequest/pipeline-runners',
+  '/api/reports'
+] as const;
 
 /**
  * Standard rate limiter: 500 requests per 15 minutes
@@ -17,35 +27,29 @@ const logger = createComponentLogger('RateLimiter');
  */
 export const rateLimiter = rateLimit({
   windowMs: RATE_LIMIT.STANDARD_WINDOW_MS,
-  max: 500, // Limit each IP to 500 requests per window (increased for dashboard)
+  max: RATE_LIMIT.STANDARD_MAX_REQUESTS, // Limit each IP to 500 requests per window (increased for dashboard)
   message: {
-    error: 'Too Many Requests',
+    error: TOO_MANY_REQUESTS_ERROR,
     message: 'Rate limit exceeded. Please try again later.',
-    retryAfter: '15 minutes'
+    retryAfter: FIFTEEN_MINUTES_LABEL
   },
   standardHeaders: true, // Return rate limit info in RateLimit-* headers
   legacyHeaders: false, // Disable X-RateLimit-* headers
   // Skip rate limiting for dashboard read endpoints
   skip: (req: Request) => {
-    const dashboardReadPaths = [
-      '/api/status',
-      '/api/pipelines',
-      '/api/sidequest/pipeline-runners',
-      '/api/reports'
-    ];
     return dashboardReadPaths.some(p => req.path.startsWith(p) && req.method === 'GET');
   },
   handler: (req: Request, res: Response) => {
     logger.warn({
       ip: req.ip,
       path: req.path,
-      limit: 500
+      limit: RATE_LIMIT.STANDARD_MAX_REQUESTS
     }, 'Rate limit exceeded');
 
-    res.status(429).json({
-      error: 'Too Many Requests',
-      message: 'Rate limit exceeded. Please try again in 15 minutes.',
-      retryAfter: 900, // seconds
+    res.status(HttpStatus.TOO_MANY_REQUESTS).json({
+      error: TOO_MANY_REQUESTS_ERROR,
+      message: `Rate limit exceeded. Please try again in ${FIFTEEN_MINUTES_LABEL}.`,
+      retryAfter: RATE_LIMIT.STANDARD_RETRY_AFTER_SECONDS,
       timestamp: new Date().toISOString()
     });
   }
@@ -56,16 +60,21 @@ export const rateLimiter = rateLimit({
  * or 100 requests per hour (development/test)
  */
 const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
-const strictLimitMax = isDevelopment ? 100 : 10;
+const strictLimitMax = isDevelopment
+  ? RATE_LIMIT.STRICT_MAX_REQUESTS_DEVELOPMENT
+  : RATE_LIMIT.STRICT_MAX_REQUESTS_PRODUCTION;
 const strictLimitWindow = RATE_LIMIT.STRICT_WINDOW_MS;
+const bulkImportLimitMax = isDevelopment
+  ? RATE_LIMIT.BULK_IMPORT_MAX_REQUESTS_DEVELOPMENT
+  : RATE_LIMIT.BULK_IMPORT_MAX_REQUESTS_PRODUCTION;
 
 export const strictRateLimiter = rateLimit({
   windowMs: strictLimitWindow,
   max: strictLimitMax,
   message: {
-    error: 'Too Many Requests',
+    error: TOO_MANY_REQUESTS_ERROR,
     message: 'Rate limit exceeded for scan operations. Please try again later.',
-    retryAfter: '1 hour'
+    retryAfter: ONE_HOUR_LABEL
   },
   handler: (req: Request, res: Response) => {
     logger.warn({
@@ -75,10 +84,10 @@ export const strictRateLimiter = rateLimit({
       mode: isDevelopment ? 'development' : 'production'
     }, 'Strict rate limit exceeded');
 
-    res.status(429).json({
-      error: 'Too Many Requests',
-      message: `Rate limit exceeded for scan operations. Please try again in 1 hour.${isDevelopment ? ' (Development mode: 100/hour)' : ''}`,
-      retryAfter: 3600,
+    res.status(HttpStatus.TOO_MANY_REQUESTS).json({
+      error: TOO_MANY_REQUESTS_ERROR,
+      message: `Rate limit exceeded for scan operations. Please try again in ${ONE_HOUR_LABEL}.${isDevelopment ? ` (Development mode: ${RATE_LIMIT.STRICT_MAX_REQUESTS_DEVELOPMENT}/hour)` : ''}`,
+      retryAfter: RATE_LIMIT.STRICT_RETRY_AFTER_SECONDS,
       timestamp: new Date().toISOString()
     });
   }
@@ -90,24 +99,24 @@ export const strictRateLimiter = rateLimit({
  */
 export const bulkImportRateLimiter = rateLimit({
   windowMs: RATE_LIMIT.STRICT_WINDOW_MS,
-  max: isDevelopment ? 50 : 5, // 5 in production, 50 in dev/test
+  max: bulkImportLimitMax, // 5 in production, 50 in dev/test
   message: {
-    error: 'Too Many Requests',
+    error: TOO_MANY_REQUESTS_ERROR,
     message: 'Rate limit exceeded for bulk import operations. Please try again later.',
-    retryAfter: '1 hour'
+    retryAfter: ONE_HOUR_LABEL
   },
   handler: (req: Request, res: Response) => {
     logger.warn({
       ip: req.ip,
       path: req.path,
-      limit: isDevelopment ? 50 : 5,
+      limit: bulkImportLimitMax,
       mode: isDevelopment ? 'development' : 'production'
     }, 'Bulk import rate limit exceeded');
 
-    res.status(429).json({
-      error: 'Too Many Requests',
-      message: `Rate limit exceeded for bulk import operations. Please try again in 1 hour.`,
-      retryAfter: 3600,
+    res.status(HttpStatus.TOO_MANY_REQUESTS).json({
+      error: TOO_MANY_REQUESTS_ERROR,
+      message: `Rate limit exceeded for bulk import operations. Please try again in ${ONE_HOUR_LABEL}.`,
+      retryAfter: RATE_LIMIT.STRICT_RETRY_AFTER_SECONDS,
       timestamp: new Date().toISOString()
     });
   }

@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-02-27 | **Last Session:** 2026-02-27 (backlog-implementer run — CX1-CX10, CS5, SV2-SV3 addressed)
+**Last Updated:** 2026-03-08 | **Last Session:** 2026-03-08 (CX15 complete v2.3.22, added SV4-SV6)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -10,22 +10,61 @@ Technical debt and planned improvements.
 
 ## Deferred / Blocked Items
 
-| ID | Description | Reason |
-|----|-------------|--------|
-| LOG8 | `mcp-server.test.js` skipped — binary (`mcp-servers/duplicate-detection/index.js`) not implemented | Blocked on MCP server binary |
-| LOG9 | TODO comments in `schema-enhancement-pipeline.js`, `grouping.py`, `extract_blocks.py` | Feature work (Layer 3 semantic equivalence), not cleanup |
+No active deferred items.
+
+Closed items migrated to changelog:
+- [v2.3.20](changelog/2.3/CHANGELOG.md) (`CS9`, `DUP1`)
+- [v2.3.19](changelog/2.3/CHANGELOG.md) (`CX14`, `CX15` partial, `CX16`)
+- [v2.3.18](changelog/2.3/CHANGELOG.md) (`UI review: M43-M44, L19-L22`)
+- [v2.3.17](changelog/2.3/CHANGELOG.md) (`CONST10`)
+- [v2.3.16](changelog/2.3/CHANGELOG.md) (`CONST9`)
+- [v2.3.15](changelog/2.3/CHANGELOG.md) (`CONST4`, `CONST6`, `CONST7`, `CONST8`)
+- [v2.3.14](changelog/2.3/CHANGELOG.md) (`CONST5`)
+- [v2.3.10](changelog/2.3/CHANGELOG.md) (`SV1`)
+- [v2.3.9](changelog/2.3/CHANGELOG.md) (`CX11`)
+- [v2.3.8](changelog/2.3/CHANGELOG.md) (`CX12`, `CX13`)
+- [v2.3.7](changelog/2.3/CHANGELOG.md) (`DOC1-DOC7`)
+- [v2.3.6](changelog/2.3/CHANGELOG.md) (`DOC8`)
+- [v2.3.5](changelog/2.3/CHANGELOG.md) (`CS8`)
+- [v2.3.4](changelog/2.3/CHANGELOG.md) (`CS7`)
+- [v2.3.3](changelog/2.3/CHANGELOG.md) (`CX7`)
+- [v2.3.2](changelog/2.3/CHANGELOG.md) (`CX6`)
+- [v2.3.1](changelog/2.3/CHANGELOG.md) (`LOG8`, `LOG9`)
+- [v2.2.0](changelog/2.2/CHANGELOG.md) (`CX1-CX5`, `CX8-CX10`, `CS5`, `SV2`, `SV3`)
+
+---
+
+## Open Findings — Constants Dedup Audit (2026-03-05)
+
+No active constants-dedup backlog items.
+
+---
+
+## Open Findings — Remaining Magic Numbers (2026-03-06)
+
+Current lint snapshot (`no-magic-numbers`):
+- Total: `947`
+- Production/runtime: `282`
+- Tests: `665`
+
+Priority backlog:
+- No active magic-number hotspot backlog items.
+
+Tracking artifacts:
+- ESLint JSON snapshot: `/tmp/eslint_current.json`
+- Grouping report: [docs/magic-number-categories.json](docs/magic-number-categories.json)
 
 ---
 
 ## DRY Refactoring Opportunities — sidequest/ (2026-02-25)
 
-> All items completed and migrated to [v2.1 CHANGELOG](2.1/CHANGELOG.md).
+> All items completed and migrated to [v2.1 CHANGELOG](changelog/2.1/CHANGELOG.md).
 
 ---
 
 ## Code Review Findings — Pipeline Runners (2026-02-25)
 
-> All items completed and migrated to [v2.1 CHANGELOG](2.1/CHANGELOG.md).
+> All items completed and migrated to [v2.1 CHANGELOG](changelog/2.1/CHANGELOG.md).
 
 ---
 
@@ -33,58 +72,25 @@ Technical debt and planned improvements.
 
 ### Critical Complexity (Cyclomatic/Cognitive/Length)
 
-| ID | File | Lines | Cyclomatic | Cognitive | Length | Exceeds | Status |
-|----|------|-------|-----------|-----------|--------|---------|--------|
-| ~~CX1~~ | ~~`frontend/src/hooks/useWebSocketConnection.ts`~~ | — | — | — | — | — | Done 2026-02-27 |
-| ~~CX2~~ | ~~`tests/integration/test-error-classification-ui.ts`~~ | — | — | — | — | — | Done 2026-02-27 |
-| ~~CX3~~ | ~~`tests/integration/test-error-classification-ui.ts`~~ | — | — | — | — | — | Done 2026-02-27 |
-| ~~CX4~~ | ~~`sidequest/utils/refactor-test-suite.ts`~~ | — | — | — | — | — | Done 2026-02-27 |
-| ~~CX5~~ | ~~`tests/integration/test-scan-pipeline.ts`~~ | — | — | — | — | — | Done 2026-02-27 |
-| CX6 | `tests/integration/test-inter-project-scan.ts` | 23-178 | 12 | 10 | 156 | cyclomatic, length | |
-| CX7 | `tests/accuracy/accuracy-test.ts` | 42-81 | 15 | 14 | 40 | cyclomatic | |
-| ~~CX8~~ | ~~`tests/accuracy/metrics.ts`~~ | — | — | — | — | — | Done 2026-02-27 |
-| ~~CX9~~ | ~~`scripts/cleanup-error-logs.ts`~~ | — | — | — | — | — | Done 2026-02-27 |
-| ~~CX10~~ | ~~`scripts/validate-permissions.ts`~~ | — | — | — | — | — | Done 2026-02-27 |
-| CX11 | `docs/setup/sentry-to-discord.js` | 44-128 | **31** | 19 | 85 | cyclomatic, cognitive, length | Archive file |
-| CX12 | `scripts/archive/migrate-db-to-render.js` | 184-259 | 13 | 18 | 76 | cyclomatic, cognitive, length | Archive file |
-| CX13 | `scripts/archive/generate-retroactive-reports.js` | 76-176 | 11 | 14 | 101 | cyclomatic, length | Archive file |
+No active critical-complexity backlog items.
 
 Thresholds: cyclomatic ≤10, cognitive ≤15, nesting ≤4, length ≤50 lines.
 
-> CX6: `test-inter-project-scan.ts` main function — consider extracting print helpers similar to CX5 approach.
-> CX7: `extractFunctionName` — inherent fallback chain; hard to reduce without obscuring logic.
-> CX11-CX13: archive/docs files — low priority.
+> CX11 completed in v2.3.9. CX12-CX13 retired in v2.3.8 (archived scripts removed).
 
 ### Large Classes (Code Smells)
 
-| ID | File | Lines | Methods | Severity | Status |
-|----|------|-------|---------|----------|--------|
-| ~~CS5~~ | ~~`api/activity-feed.ts:38`~~ | — | — | — | Done 2026-02-27 |
-| CS7 | `api/utils/worker-registry.ts:164` | 348 | 19 | low | |
-| CS8 | `sidequest/utils/schema-mcp-tools.ts:54` | 259 | 27 | low | |
+No active large-class backlog items.
 
 Thresholds: ≤300 lines, ≤20 methods.
 
 ### Standards Violations
 
-| ID | Rule | Count | Severity | Details |
-|----|------|-------|----------|---------|
-| SV1 | `no-console-log` | 500+ | warning | Hit 500 cap; worst: `claude-health-pipeline.ts` (61), `test-automated-pipeline.ts` (50), `test-mcp-server.ts` (64) |
-| ~~SV2~~ | ~~`prefer-const`~~ | ~~186~~ | ~~info~~ | ~~`let` declarations never reassigned~~ | Investigated 2026-02-27 — ESLint finds 0 violations; ast-grep count inflated by loop/destructured bindings. All `let` are legitimately mutable. |
-| ~~SV3~~ | ~~`no-double-equals`~~ | ~~3~~ | ~~warning~~ | ~~`==` instead of `===` — correctness risk~~ | Done 2026-02-27 |
+No active standards backlog items.
 
 ### Documentation Coverage
 
-| ID | Description | Metric |
-|----|-------------|--------|
-| DOC1 | Overall documentation coverage | **0%** (0/889 functions documented) |
-| DOC2 | `api/activity-feed.ts` | 6 public methods undocumented |
-| DOC3 | `api/event-broadcaster.ts` | 10 public methods undocumented |
-| DOC4 | `api/middleware/*.ts` (auth, validation, error-handler) | All functions undocumented |
-| DOC5 | `sidequest/core/database.ts` | 15+ exported functions undocumented |
-| DOC6 | `sidequest/core/server.ts` | Core job queue base class undocumented |
-| DOC7 | `sidequest/core/git-workflow-manager.ts` | All public methods undocumented |
-| DOC8 | `sidequest/core/job-repository.ts` | All public methods undocumented |
+No active documentation backlog items.
 
 ### Security
 
@@ -92,7 +98,37 @@ No issues found (SQL injection, XSS, command injection, hardcoded secrets, insec
 
 ### Remaining Priority
 
-1. **CX6** — Extract helpers from `test-inter-project-scan.ts` (156-line main)
-2. **SV1** — Replace `console.log` with structured logger in non-test code
-3. **CS7/CS8** — Large classes (low severity, low priority)
-4. **DOC1-8** — Add JSDoc starting with core modules
+No active backlog items.
+
+---
+
+## Code Review Findings — Dashboard UI (2026-03-08)
+
+> All items completed and migrated to [v2.3.18](changelog/2.3/CHANGELOG.md).
+
+---
+
+## Complexity Analysis — Full Repo (2026-03-08)
+
+Full report: [complexity-report-2026-03-08.md](complexity-report-2026-03-08.md)
+
+**Scan:** 234 TS files, 165 functions extracted, 24 exceeding thresholds → **0** (all resolved). 0 security issues, 95 `prefer-const` info violations, ~~1~~ 0 duplication groups.
+
+### Critical
+
+No active critical-complexity backlog items.
+
+> CX14 completed and migrated to [v2.3.19](changelog/2.3/CHANGELOG.md).
+
+### Medium
+
+No active medium-priority backlog items.
+
+> CX15 completed and migrated to [v2.3.22](changelog/2.3/CHANGELOG.md).
+
+
+### Low
+
+No active low-priority backlog items.
+
+> SV4-SV6 migrated to [v2.3.23](changelog/2.3/CHANGELOG.md#2323---2026-03-09).

@@ -5,16 +5,14 @@ from typing import Any, Callable, Dict, List, Set, Tuple
 
 from ..models.code_block import CodeBlock
 from ..models.duplicate_group import DuplicateGroup
-from ..annotators.semantic_annotator import SemanticAnnotation
-
 
 @dataclass
 class SemanticCheckResult:
     """Result of a semantic compatibility check."""
+
     is_valid: bool
     reason: str
     details: Tuple[Any, Any] | None = ...
-
 
 # Module constants
 MIN_COMPLEXITY_THRESHOLD: Dict[str, int]
@@ -24,7 +22,6 @@ SEMANTIC_CHECKS: List[Callable[[str, str], SemanticCheckResult]]
 SEMANTIC_WEIGHTS: Dict[str, float]
 SEMANTIC_SIMILARITY_THRESHOLD: float
 DEBUG: bool
-
 
 def calculate_code_complexity(source_code: str) -> dict: ...
 def is_complex_enough(block: CodeBlock) -> bool: ...

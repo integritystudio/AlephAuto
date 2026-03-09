@@ -31,6 +31,9 @@ const logger = createComponentLogger('RetryLogicIntegrationTest');
  * to simulate failures and track retry attempts
  */
 class RetryTestWorker extends DuplicateDetectionWorker {
+  /**
+   * constructor.
+   */
   constructor(options = {}) {
     super({
       ...options,

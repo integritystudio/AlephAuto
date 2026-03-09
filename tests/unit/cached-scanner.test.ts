@@ -12,6 +12,7 @@ import { CachedScanner } from '../../sidequest/pipeline-core/cache/cached-scanne
 
 // Mock dependencies
 class MockGitTracker {
+  /** Create a git tracker mock with default repository status values. */
   constructor() {
     this.mockStatus = {
       is_git_repository: true,
@@ -24,26 +25,31 @@ class MockGitTracker {
     };
   }
 
+  /** Return the configured repository status payload. */
   async getRepositoryStatus() {
     return this.mockStatus;
   }
 
+  /** Merge partial status overrides into the mock repository status. */
   setMockStatus(status) {
     this.mockStatus = { ...this.mockStatus, ...status };
   }
 }
 
 class MockCache {
+  /** Initialize an in-memory cache mock. */
   constructor() {
     this.cache = new Map();
     this.enabled = true;
   }
 
+  /** Return a cached scan entry for repository/commit, if available. */
   async getCachedScan(repoPath, commitHash) {
     const key = `${repoPath}:${commitHash}`;
     return this.cache.get(key) || null;
   }
 
+  /** Store a scan result under repository/commit with cache metadata. */
   async cacheScan(repoPath, commitHash, scanResult) {
     const key = `${repoPath}:${commitHash}`;
     this.cache.set(key, {
@@ -54,21 +60,25 @@ class MockCache {
     });
   }
 
+  /** Check whether repository/commit has a cached scan entry. */
   async isCached(repoPath, commitHash) {
     const key = `${repoPath}:${commitHash}`;
     return this.cache.has(key);
   }
 
+  /** Return a fixed cache age for deterministic tests. */
   async getCacheAge(_repoPath, _commitHash) {
     return 3600000; // 1 hour
   }
 
+  /** Return cache metadata for a cached entry. */
   async getCacheMetadata(repoPath, commitHash) {
     const key = `${repoPath}:${commitHash}`;
     const cached = this.cache.get(key);
     return cached?.cache_metadata || null;
   }
 
+  /** Remove all cached entries for a repository and return deleted count. */
   async invalidateCache(repoPath) {
     let count = 0;
     for (const key of this.cache.keys()) {
@@ -80,6 +90,7 @@ class MockCache {
     return count;
   }
 
+  /** Return cache stats used by CachedScanner.getStats tests. */
   async getStats() {
     return {
       total_entries: this.cache.size,
@@ -89,6 +100,7 @@ class MockCache {
 }
 
 class _MockScanner {
+  /** Return a deterministic scan result payload for integration tests. */
   async scanRepository(repoPath, _options) {
     return {
       repository_info: {
@@ -438,6 +450,7 @@ describe('CachedScanner - Integration Behavior', () => {
 describe('CachedScanner - warmCache', () => {
   // Mock scanner that always succeeds
   class SuccessScanner {
+    /** Always return a successful scan result. */
     async scanRepository(repoPath, _options) {
       return {
         repository_info: { path: repoPath },
@@ -448,6 +461,7 @@ describe('CachedScanner - warmCache', () => {
 
   // Mock scanner that always fails
   class FailingScanner {
+    /** Always throw to simulate scanner failure. */
     async scanRepository(_repoPath, _options) {
       throw new Error('Simulated scan failure');
     }
@@ -495,6 +509,7 @@ describe('CachedScanner - warmCache', () => {
   it('should continue after individual failures', async () => {
     let callCount = 0;
     class MixedScanner {
+      /** Fail the second invocation and succeed otherwise. */
       async scanRepository(repoPath, _options) {
         callCount++;
         if (callCount === 2) {
@@ -532,6 +547,7 @@ describe('CachedScanner - warmCache', () => {
   it('should force refresh when warming cache', async () => {
     let receivedOptions = null;
     class OptionsTrackingScanner {
+      /** Capture received options and return a minimal result payload. */
       async scanRepository(repoPath, options) {
         receivedOptions = options;
         return { repository_info: { path: repoPath } };
@@ -553,21 +569,26 @@ describe('CachedScanner - warmCache', () => {
 
 describe('CachedScanner - Error Handling', () => {
   class ErrorThrowingCache {
+    /** Throw during invalidation to exercise error propagation. */
     async invalidateCache() {
       throw new Error('Cache invalidation failed');
     }
+    /** Return uncached status for error-handling tests. */
     async isCached() {
       return false;
     }
+    /** Return null cache age for error-handling tests. */
     async getCacheAge() {
       return null;
     }
+    /** Return null metadata for error-handling tests. */
     async getCacheMetadata() {
       return null;
     }
   }
 
   class ErrorThrowingGitTracker {
+    /** Throw when repository status is requested. */
     async getRepositoryStatus() {
       throw new Error('Git tracker failed');
     }

@@ -6,64 +6,153 @@ Scans multiple repositories, analyzes commits, generates visualizations,
 and creates a formatted markdown report for Jekyll sites.
 
 Usage:
-    python3 collect_git_activity.py --start-date 2025-07-07 --end-date 2025-11-16
-    python3 collect_git_activity.py --days 7  # Last 7 days
+    python3 collect_git_activity.py --start-date YYYY-MM-DD --end-date YYYY-MM-DD
+    python3 collect_git_activity.py --days N  # Last N days
     python3 collect_git_activity.py --weekly  # Last week
+    python3 collect_git_activity.py --monthly  # Last 30 days
+    python3 collect_git_activity.py --weekly --output-format both --no-visualizations
 """
 
 import argparse
 import json
 import math
-import os
 import subprocess
 import sys
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'pipeline-core'))
-from constants import ChartDefaults
+sys.path.insert(0, str(Path(__file__).parent.parent / "pipeline-core"))
+from constants import ChartColors, ChartDefaults, GitActivityDefaults
 
 
-# Configuration
-CODE_DIR = Path.home() / 'code'
-REPORTS_DIR = Path.home() / 'reports'
+def _load_git_report_config() -> dict:
+    """Load collector configuration from git-report-config.json with fallback defaults."""
+    config_path = Path(__file__).parent.parent / "git-report-config.json"
+    try:
+        with config_path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+    except json.JSONDecodeError as e:
+        print(f"Warning: Invalid JSON in {config_path}: {e}", file=sys.stderr)
+        return {}
+
+
+def _get_int(value, default: int) -> int:
+    """Parse int value with fallback."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _get_path(value, fallback: Path) -> Path:
+    """Resolve a path from config with fallback."""
+    if isinstance(value, str) and value.strip():
+        return Path(value).expanduser()
+    return fallback
+
+
+def _run_command(
+    cmd: list[str], cwd: Path | None = None
+) -> subprocess.CompletedProcess[str]:
+    """Run a subprocess and fail fast on non-zero exit."""
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
+    if result.returncode != 0:
+        stderr = result.stderr.strip()
+        stdout = result.stdout.strip()
+        details = stderr or stdout or "no output"
+        raise RuntimeError(f"Command failed ({' '.join(cmd)}): {details}")
+    return result
+
+
+# Configuration (defaults)
 HOME_DIR = Path.home()
-ADDITIONAL_REPOS = [
-    Path.home() / 'schema-org-file-system',
-    Path.home() / 'claude-tool-use',
-    Path.home() / 'dotfiles',
+DEFAULT_CODE_DIR = HOME_DIR / "code"
+DEFAULT_REPORTS_DIR = HOME_DIR / "reports"
+DEFAULT_ADDITIONAL_REPOS = [
+    HOME_DIR / "schema-org-file-system",
+    HOME_DIR / "claude-tool-use",
+    HOME_DIR / "dotfiles",
 ]
-EXCLUDE_PATTERNS = ['vim/bundle', 'node_modules', '.git', 'venv', '.venv']
+DEFAULT_EXCLUDE_PATTERNS = ["vim/bundle", "node_modules", ".git", "venv", ".venv"]
 DEFAULT_MAX_DEPTH = 3
+DEFAULT_INCLUDE_DOTFILES = True
+DEFAULT_PERSONALSITE_DIR = HOME_DIR / "code" / "PersonalSite"
+DEFAULT_WORK_COLLECTION = "_reports"
+DEFAULT_VISUALIZATION_DIR_TEMPLATE = "assets/images/git-activity-{year}"
+
+
+# Load user/project config overrides
+CONFIG = _load_git_report_config()
+SCANNING_CONFIG = CONFIG.get("scanning", {})
+OUTPUT_CONFIG = CONFIG.get("output", {})
+
+CODE_DIR = _get_path(SCANNING_CONFIG.get("code_directory"), DEFAULT_CODE_DIR)
+REPORTS_DIR = _get_path(SCANNING_CONFIG.get("reports_directory"), DEFAULT_REPORTS_DIR)
+ADDITIONAL_REPOS = [
+    _get_path(repo, DEFAULT_CODE_DIR)
+    for repo in SCANNING_CONFIG.get(
+        "additional_repositories", [str(p) for p in DEFAULT_ADDITIONAL_REPOS]
+    )
+    if isinstance(repo, str) and repo.strip()
+]
+EXCLUDE_PATTERNS = SCANNING_CONFIG.get("exclude_patterns", DEFAULT_EXCLUDE_PATTERNS)
+if not isinstance(EXCLUDE_PATTERNS, list):
+    EXCLUDE_PATTERNS = DEFAULT_EXCLUDE_PATTERNS
+INCLUDE_DOTFILES = bool(
+    SCANNING_CONFIG.get("include_dotfiles", DEFAULT_INCLUDE_DOTFILES)
+)
+DEFAULT_MAX_DEPTH = _get_int(SCANNING_CONFIG.get("max_depth"), DEFAULT_MAX_DEPTH)
+PERSONALSITE_DIR = _get_path(
+    OUTPUT_CONFIG.get("personalsite_dir"), DEFAULT_PERSONALSITE_DIR
+)
+WORK_COLLECTION = OUTPUT_CONFIG.get("work_collection", DEFAULT_WORK_COLLECTION)
+if not isinstance(WORK_COLLECTION, str) or not WORK_COLLECTION.strip():
+    WORK_COLLECTION = DEFAULT_WORK_COLLECTION
+VISUALIZATION_DIR_TEMPLATE = OUTPUT_CONFIG.get(
+    "visualization_dir", DEFAULT_VISUALIZATION_DIR_TEMPLATE
+)
+if (
+    not isinstance(VISUALIZATION_DIR_TEMPLATE, str)
+    or not VISUALIZATION_DIR_TEMPLATE.strip()
+):
+    VISUALIZATION_DIR_TEMPLATE = DEFAULT_VISUALIZATION_DIR_TEMPLATE
 
 # Language/File Type Mapping
 LANGUAGE_EXTENSIONS = {
-    'Python': ['.py', '.pyw'],
-    'JavaScript': ['.js', '.mjs', '.cjs'],
-    'TypeScript': ['.ts', '.tsx'],
-    'Ruby': ['.rb', '.rake', '.gemspec'],
-    'HTML': ['.html', '.htm'],
-    'CSS/SCSS': ['.css', '.scss', '.sass', '.less'],
-    'Markdown': ['.md', '.markdown'],
-    'JSON': ['.json'],
-    'YAML': ['.yml', '.yaml'],
-    'Shell': ['.sh', '.bash', '.zsh'],
-    'SQL': ['.sql'],
-    'Go': ['.go'],
-    'Rust': ['.rs'],
-    'C/C++': ['.c', '.cpp', '.cc', '.h', '.hpp'],
-    'Java': ['.java'],
-    'PHP': ['.php'],
-    'Lock Files': ['.lock', 'package-lock.json', 'Gemfile.lock', 'yarn.lock', 'pnpm-lock.yaml'],
-    'SVG': ['.svg'],
-    'Images': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.bmp'],
-    'Data Files': ['.csv', '.xml', '.tsv', '.parquet'],
-    'Text Files': ['.txt', '.log', '.ini', '.conf']
+    "Python": [".py", ".pyw"],
+    "JavaScript": [".js", ".mjs", ".cjs"],
+    "TypeScript": [".ts", ".tsx"],
+    "Ruby": [".rb", ".rake", ".gemspec"],
+    "HTML": [".html", ".htm"],
+    "CSS/SCSS": [".css", ".scss", ".sass", ".less"],
+    "Markdown": [".md", ".markdown"],
+    "JSON": [".json"],
+    "YAML": [".yml", ".yaml"],
+    "Shell": [".sh", ".bash", ".zsh"],
+    "SQL": [".sql"],
+    "Go": [".go"],
+    "Rust": [".rs"],
+    "C/C++": [".c", ".cpp", ".cc", ".h", ".hpp"],
+    "Java": [".java"],
+    "PHP": [".php"],
+    "Lock Files": [
+        ".lock",
+        "package-lock.json",
+        "Gemfile.lock",
+        "yarn.lock",
+        "pnpm-lock.yaml",
+    ],
+    "SVG": [".svg"],
+    "Images": [".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".bmp"],
+    "Data Files": [".csv", ".xml", ".tsv", ".parquet"],
+    "Text Files": [".txt", ".log", ".ini", ".conf"],
 }
 
 
-def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=True):
+def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=INCLUDE_DOTFILES):
     """Find all git repositories, excluding specified patterns.
 
     Args:
@@ -74,10 +163,19 @@ def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=True):
 
     # Scan main code directory
     print(f"Scanning for repositories in {CODE_DIR} (depth: {max_depth})...")
-    cmd = f"find {CODE_DIR} -maxdepth {max_depth} -name .git -type d"
-    result = subprocess.run(cmd.split(), capture_output=True, text=True)
+    cmd = [
+        "find",
+        str(CODE_DIR),
+        "-maxdepth",
+        str(max_depth),
+        "-name",
+        ".git",
+        "-type",
+        "d",
+    ]
+    result = _run_command(cmd)
 
-    for line in result.stdout.strip().split('\n'):
+    for line in result.stdout.strip().split("\n"):
         if line:
             repo_path = Path(line).parent
             # Exclude patterns
@@ -87,10 +185,19 @@ def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=True):
     # Scan reports directory
     if REPORTS_DIR.exists():
         print(f"Scanning for repositories in {REPORTS_DIR} (depth: {max_depth})...")
-        cmd = f"find {REPORTS_DIR} -maxdepth {max_depth} -name .git -type d"
-        result = subprocess.run(cmd.split(), capture_output=True, text=True)
+        cmd = [
+            "find",
+            str(REPORTS_DIR),
+            "-maxdepth",
+            str(max_depth),
+            "-name",
+            ".git",
+            "-type",
+            "d",
+        ]
+        result = _run_command(cmd)
 
-        for line in result.stdout.strip().split('\n'):
+        for line in result.stdout.strip().split("\n"):
             if line:
                 repo_path = Path(line).parent
                 if not any(pattern in str(repo_path) for pattern in EXCLUDE_PATTERNS):
@@ -100,16 +207,20 @@ def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=True):
     if include_dotfiles:
         print(f"Scanning dotfile directories in {HOME_DIR}...")
         for entry in HOME_DIR.iterdir():
-            if entry.is_dir() and entry.name.startswith('.') and entry.name != '.git':
+            if entry.is_dir() and entry.name.startswith(".") and entry.name != ".git":
                 try:
                     # Check if directory itself is a git repo
-                    if (entry / '.git').exists():
-                        if not any(pattern in str(entry) for pattern in EXCLUDE_PATTERNS):
+                    if (entry / ".git").exists():
+                        if not any(
+                            pattern in str(entry) for pattern in EXCLUDE_PATTERNS
+                        ):
                             repos.append(entry)
                     # Also check subdirectories (depth 1 within dotfile dirs)
                     for subentry in entry.iterdir():
-                        if subentry.is_dir() and (subentry / '.git').exists():
-                            if not any(pattern in str(subentry) for pattern in EXCLUDE_PATTERNS):
+                        if subentry.is_dir() and (subentry / ".git").exists():
+                            if not any(
+                                pattern in str(subentry) for pattern in EXCLUDE_PATTERNS
+                            ):
                                 repos.append(subentry)
                 except PermissionError:
                     # Skip directories we can't access (e.g., .Trash)
@@ -117,7 +228,7 @@ def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=True):
 
     # Add explicit additional repositories
     for repo_path in ADDITIONAL_REPOS:
-        if repo_path.exists() and (repo_path / '.git').exists():
+        if repo_path.exists() and (repo_path / ".git").exists():
             if repo_path not in repos:
                 print(f"Adding explicit repository: {repo_path}")
                 repos.append(repo_path)
@@ -128,45 +239,73 @@ def find_git_repos(max_depth=DEFAULT_MAX_DEPTH, include_dotfiles=True):
 
 def get_repo_stats(repo_path, since_date, until_date=None):
     """Get commit statistics for a repository"""
-    try:
-        os.chdir(repo_path)
+    base_git_cmd = ["git", "log", f"--since={since_date}", "--all"]
+    if until_date:
+        base_git_cmd.append(f"--until={until_date}")
 
-        # Build git log command
-        git_cmd = f"git log --since={since_date} --all --oneline"
-        if until_date:
-            git_cmd += f" --until={until_date}"
+    result = _run_command(
+        [*base_git_cmd, "--oneline"],
+        cwd=repo_path,
+    )
+    commits = len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
 
-        result = subprocess.run(git_cmd.split(), capture_output=True, text=True)
-        commits = len(result.stdout.strip().split('\n')) if result.stdout.strip() else 0
+    # Get monthly commit distribution for visualization
+    result = _run_command(
+        [*base_git_cmd, "--date=format:%Y-%m", "--pretty=format:%ad"],
+        cwd=repo_path,
+    )
+    monthly_commits = defaultdict(int)
+    for line in result.stdout.strip().split("\n"):
+        month = line.strip()
+        if month:
+            monthly_commits[month] += 1
 
-        # Get file changes for language analysis
-        git_cmd = f"git log --since={since_date} --all --name-only --pretty=format:"
-        if until_date:
-            git_cmd += f" --until={until_date}"
+    # Get file changes for language analysis
+    result = _run_command(
+        [*base_git_cmd, "--name-only", "--pretty=format:"],
+        cwd=repo_path,
+    )
+    files = [f for f in result.stdout.strip().split("\n") if f]
 
-        result = subprocess.run(git_cmd.split(), capture_output=True, text=True)
-        files = [f for f in result.stdout.strip().split('\n') if f]
+    # Get line-level additions/deletions
+    result = _run_command(
+        [*base_git_cmd, "--numstat", "--pretty=format:"],
+        cwd=repo_path,
+    )
+    additions = 0
+    deletions = 0
+    for line in result.stdout.strip().split("\n"):
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        if parts[0].isdigit():
+            additions += int(parts[0])
+        if parts[1].isdigit():
+            deletions += int(parts[1])
 
-        # Get parent directory (for organization/grouping)
-        if repo_path.parent == CODE_DIR or repo_path.parent == REPORTS_DIR:
-            parent = None
-        elif repo_path.parent == HOME_DIR:
-            parent = '~'  # Dotfile at home root
-        elif str(repo_path.parent).startswith(str(HOME_DIR)) and repo_path.parent.parent == HOME_DIR:
-            parent = repo_path.parent.name  # Inside a dotfile directory
-        else:
-            parent = repo_path.parent.name
+    # Get parent directory (for organization/grouping)
+    if repo_path.parent == CODE_DIR or repo_path.parent == REPORTS_DIR:
+        parent = None
+    elif repo_path.parent == HOME_DIR:
+        parent = "~"  # Dotfile at home root
+    elif (
+        str(repo_path.parent).startswith(str(HOME_DIR))
+        and repo_path.parent.parent == HOME_DIR
+    ):
+        parent = repo_path.parent.name  # Inside a dotfile directory
+    else:
+        parent = repo_path.parent.name
 
-        return {
-            'path': str(repo_path),
-            'name': repo_path.name,
-            'parent': parent,
-            'commits': commits,
-            'files': files
-        }
-    except Exception as e:
-        print(f"Error processing {repo_path}: {e}")
-        return None
+    return {
+        "path": str(repo_path),
+        "name": repo_path.name,
+        "parent": parent,
+        "commits": commits,
+        "monthly_commits": dict(monthly_commits),
+        "files": files,
+        "additions": additions,
+        "deletions": deletions,
+    }
 
 
 def analyze_languages(all_files):
@@ -186,7 +325,7 @@ def analyze_languages(all_files):
                 break
 
         if not found and file_ext:
-            language_stats['Other'] += 1
+            language_stats["Other"] += 1
 
     return dict(language_stats)
 
@@ -195,14 +334,14 @@ def find_project_websites(repositories):
     """Scan for CNAME files to discover GitHub Pages websites"""
     websites = {}
     for repo in repositories:
-        repo_path = Path(repo['path'])
-        cname_file = repo_path / 'CNAME'
+        repo_path = Path(repo["path"])
+        cname_file = repo_path / "CNAME"
 
         if cname_file.exists():
             try:
                 website = cname_file.read_text().strip()
-                if website and '.' in website:  # Basic validation
-                    websites[repo['name']] = f"https://{website}"
+                if website and "." in website:  # Basic validation
+                    websites[repo["name"]] = f"https://{website}"
             except Exception:
                 pass
 
@@ -212,47 +351,46 @@ def find_project_websites(repositories):
 def categorize_repositories(repositories):
     """Categorize repositories by project type"""
     categories = {
-        'Data & Analytics': [],
-        'Personal Sites': [],
-        'Infrastructure': [],
-        'MCP Servers': [],
-        'Client Work': [],
-        'Business Apps': [],
-        'Legacy': []
+        "Data & Analytics": [],
+        "Personal Sites": [],
+        "Infrastructure": [],
+        "MCP Servers": [],
+        "Client Work": [],
+        "Business Apps": [],
+        "Legacy": [],
     }
 
     for repo in repositories:
-        name = repo['name'].lower()
-        commits = repo['commits']
+        name = repo["name"].lower()
+        commits = repo["commits"]
 
         # Categorization logic (customize based on your projects)
-        if 'scraper' in name or 'analytics' in name or 'bot' in name:
-            categories['Data & Analytics'].append(repo)
-        elif 'personalsite' in name or 'github.io' in name:
-            categories['Personal Sites'].append(repo)
-        elif 'mcp' in name or 'server' in name:
-            categories['MCP Servers'].append(repo)
-        elif commits < 5:
-            categories['Legacy'].append(repo)
-        elif 'integrity' in name or 'studio' in name or 'visualizer' in name:
-            categories['Infrastructure'].append(repo)
-        elif 'inventory' in name or 'financial' in name:
-            categories['Business Apps'].append(repo)
+        if "scraper" in name or "analytics" in name or "bot" in name:
+            categories["Data & Analytics"].append(repo)
+        elif "personalsite" in name or "github.io" in name:
+            categories["Personal Sites"].append(repo)
+        elif "mcp" in name or "server" in name:
+            categories["MCP Servers"].append(repo)
+        elif commits < GitActivityDefaults.LEGACY_COMMIT_THRESHOLD:
+            categories["Legacy"].append(repo)
+        elif "integrity" in name or "studio" in name or "visualizer" in name:
+            categories["Infrastructure"].append(repo)
+        elif "inventory" in name or "financial" in name:
+            categories["Business Apps"].append(repo)
         else:
-            categories['Client Work'].append(repo)
+            categories["Client Work"].append(repo)
 
     return categories
 
 
-def create_pie_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, height=ChartDefaults.HEIGHT):
+def create_pie_chart_svg(
+    data, title, output_file, width=ChartDefaults.WIDTH, height=ChartDefaults.HEIGHT
+):
     """Create SVG pie chart without matplotlib dependency"""
     cx, cy = width / 2, height / 2
     radius = min(width, height) / ChartDefaults.RADIUS_DIVISOR
 
-    colors = [
-        '#0066cc', '#4da6ff', '#99ccff', '#00994d', '#ffcc00',
-        '#ff6600', '#cc0000', '#9966cc', '#66cc99', '#ff6699'
-    ]
+    colors = list(ChartColors.PALETTE)
 
     total = sum(data.values())
     if total == 0:
@@ -260,7 +398,7 @@ def create_pie_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, he
 
     svg_parts = [
         f'<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">',
-        f'<text x="{cx}" y="30" text-anchor="middle" font-size="{ChartDefaults.TITLE_FONT_SIZE}" font-weight="bold">{title}</text>'
+        f'<text x="{cx}" y="{ChartDefaults.TITLE_Y}" text-anchor="middle" font-size="{ChartDefaults.TITLE_FONT_SIZE}" font-weight="bold">{title}</text>',
     ]
 
     start_angle = 0
@@ -271,7 +409,7 @@ def create_pie_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, he
             continue
 
         percent = (value / total) * 100
-        angle = (value / total) * 360
+        angle = (value / total) * ChartDefaults.FULL_CIRCLE_DEGREES
         end_angle = start_angle + angle
 
         # Convert to radians
@@ -287,27 +425,37 @@ def create_pie_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, he
         large_arc = 1 if angle > ChartDefaults.LARGE_ARC_THRESHOLD else 0
 
         # Create pie slice
-        path = f'M {cx},{cy} L {x1},{y1} A {radius},{radius} 0 {large_arc},1 {x2},{y2} Z'
+        path = (
+            f"M {cx},{cy} L {x1},{y1} A {radius},{radius} 0 {large_arc},1 {x2},{y2} Z"
+        )
         color = colors[i % len(colors)]
-        svg_parts.append(f'<path d="{path}" fill="{color}" stroke="white" stroke-width="{ChartDefaults.STROKE_WIDTH_PATH}"/>')
+        svg_parts.append(
+            f'<path d="{path}" fill="{color}" stroke="{ChartColors.PIE_STROKE}" stroke-width="{ChartDefaults.STROKE_WIDTH_PATH}"/>'
+        )
 
         # Add legend
         legend_x = width - ChartDefaults.LEGEND_OFFSET_X
-        svg_parts.append(f'<rect x="{legend_x}" y="{legend_y}" width="15" height="15" fill="{color}"/>')
-        svg_parts.append(f'<text x="{legend_x + 20}" y="{legend_y + 12}" font-size="12">{label}: {value} ({percent:.1f}%)</text>')
+        svg_parts.append(
+            f'<rect x="{legend_x}" y="{legend_y}" width="{ChartDefaults.LEGEND_ICON_SIZE}" height="{ChartDefaults.LEGEND_ICON_SIZE}" fill="{color}"/>'
+        )
+        svg_parts.append(
+            f'<text x="{legend_x + ChartDefaults.LEGEND_TEXT_OFFSET_X}" y="{legend_y + ChartDefaults.LEGEND_TEXT_OFFSET_Y}" font-size="{ChartDefaults.LEGEND_FONT_SIZE}">{label}: {value} ({percent:.1f}%)</text>'
+        )
         legend_y += ChartDefaults.LEGEND_SPACING_Y
 
         start_angle = end_angle
 
-    svg_parts.append('</svg>')
+    svg_parts.append("</svg>")
 
     # Write to file
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    output_file.write_text('\n'.join(svg_parts))
-    print(f"Created: {output_file.name}")
+    output_file.write_text("\n".join(svg_parts))
+    print(f"Created: {output_file}")
 
 
-def create_bar_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, height=ChartDefaults.HEIGHT):
+def create_bar_chart_svg(
+    data, title, output_file, width=ChartDefaults.WIDTH, height=ChartDefaults.HEIGHT
+):
     """Create SVG horizontal bar chart"""
     max_value = max(data.values()) if data else 1
     bar_height = ChartDefaults.BAR_HEIGHT
@@ -320,33 +468,42 @@ def create_bar_chart_svg(data, title, output_file, width=ChartDefaults.WIDTH, he
 
     svg_parts = [
         f'<svg width="{width}" height="{actual_height}" xmlns="http://www.w3.org/2000/svg">',
-        f'<text x="{width/2}" y="30" text-anchor="middle" font-size="{ChartDefaults.TITLE_FONT_SIZE}" font-weight="bold">{title}</text>'
+        f'<text x="{width / 2}" y="{ChartDefaults.TITLE_Y}" text-anchor="middle" font-size="{ChartDefaults.TITLE_FONT_SIZE}" font-weight="bold">{title}</text>',
     ]
 
     for i, (label, value) in enumerate(data.items()):
         y = margin_top + i * (bar_height + spacing)
-        bar_width = ((width - margin_left - ChartDefaults.MARGIN_RIGHT) * value / max_value)
+        bar_width = (
+            (width - margin_left - ChartDefaults.MARGIN_RIGHT) * value / max_value
+        )
 
         # Bar
-        svg_parts.append(f'<rect x="{margin_left}" y="{y}" width="{bar_width}" height="{bar_height}" fill="#0066cc" stroke="#333" stroke-width="{ChartDefaults.STROKE_WIDTH_BAR}"/>')
+        svg_parts.append(
+            f'<rect x="{margin_left}" y="{y}" width="{bar_width}" height="{bar_height}" fill="{ChartColors.BAR_FILL}" stroke="{ChartColors.BAR_STROKE}" stroke-width="{ChartDefaults.STROKE_WIDTH_BAR}"/>'
+        )
 
         # Label
-        svg_parts.append(f'<text x="{margin_left - 10}" y="{y + bar_height/2 + 5}" text-anchor="end" font-size="{ChartDefaults.LABEL_FONT_SIZE}">{label}</text>')
+        svg_parts.append(
+            f'<text x="{margin_left - ChartDefaults.LABEL_GAP}" y="{y + bar_height / 2 + ChartDefaults.TEXT_VERTICAL_OFFSET}" text-anchor="end" font-size="{ChartDefaults.LABEL_FONT_SIZE}">{label}</text>'
+        )
 
         # Value
-        svg_parts.append(f'<text x="{margin_left + bar_width + 5}" y="{y + bar_height/2 + 5}" font-size="{ChartDefaults.LABEL_FONT_SIZE}" font-weight="bold">{value}</text>')
+        svg_parts.append(
+            f'<text x="{margin_left + bar_width + ChartDefaults.VALUE_GAP}" y="{y + bar_height / 2 + ChartDefaults.TEXT_VERTICAL_OFFSET}" font-size="{ChartDefaults.LABEL_FONT_SIZE}" font-weight="bold">{value}</text>'
+        )
 
-    svg_parts.append('</svg>')
+    svg_parts.append("</svg>")
 
     # Write to file
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    output_file.write_text('\n'.join(svg_parts))
-    print(f"Created: {output_file.name}")
+    output_file.write_text("\n".join(svg_parts))
+    print(f"Created: {output_file}")
 
 
 # ---------------------------------------------------------------------------
 # Helper Functions for Main
 # ---------------------------------------------------------------------------
+
 
 def _calculate_date_range(args) -> tuple[str, str | None] | None:
     """Calculate date range from command line arguments.
@@ -356,14 +513,17 @@ def _calculate_date_range(args) -> tuple[str, str | None] | None:
     """
     # Handle shorthand flags
     if args.weekly:
-        args.days = 7
+        args.days = GitActivityDefaults.WEEKLY_WINDOW_DAYS
     elif args.monthly:
-        args.days = 30
+        args.days = GitActivityDefaults.MONTHLY_WINDOW_DAYS
 
     if args.days:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=args.days)
-        return start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')
+        return (
+            start_date.strftime(GitActivityDefaults.ISO_DATE_FORMAT),
+            end_date.strftime(GitActivityDefaults.ISO_DATE_FORMAT),
+        )
 
     if args.start_date:
         return args.start_date, args.end_date
@@ -377,10 +537,16 @@ def _resolve_output_dir(args) -> Path:
         return Path(args.output_dir)
 
     year = datetime.now().year
-    return Path.home() / 'code' / 'PersonalSite' / 'assets' / 'images' / f'git-activity-{year}'
+    rel_or_abs = VISUALIZATION_DIR_TEMPLATE.format(year=year)
+    configured_path = Path(rel_or_abs).expanduser()
+    if configured_path.is_absolute():
+        return configured_path
+    return PERSONALSITE_DIR / configured_path
 
 
-def _collect_repository_stats(repos: list[Path], since_date: str, until_date: str | None) -> tuple[list, list]:
+def _collect_repository_stats(
+    repos: list[Path], since_date: str, until_date: str | None
+) -> tuple[list, list]:
     """Collect statistics from all repositories.
 
     Returns:
@@ -392,19 +558,16 @@ def _collect_repository_stats(repos: list[Path], since_date: str, until_date: st
 
     for repo in repos:
         stats = get_repo_stats(repo, since_date, until_date)
-        if stats and stats['commits'] > 0:
+        if stats and stats["commits"] > 0:
             repositories.append(stats)
-            all_files.extend(stats['files'])
+            all_files.extend(stats["files"])
 
-    repositories.sort(key=lambda x: x['commits'], reverse=True)
+    repositories.sort(key=lambda x: x["commits"], reverse=True)
     return repositories, all_files
 
 
 def _compile_activity_data(
-    repositories: list,
-    all_files: list,
-    since_date: str,
-    until_date: str | None
+    repositories: list, all_files: list, since_date: str, until_date: str | None
 ) -> dict:
     """Compile all activity data into a single dictionary."""
     print("\nAnalyzing programming languages...")
@@ -416,72 +579,88 @@ def _compile_activity_data(
     print("\nCategorizing projects...")
     categories = categorize_repositories(repositories)
 
+    monthly_totals = defaultdict(int)
+    for repo in repositories:
+        for month, count in repo.get("monthly_commits", {}).items():
+            monthly_totals[month] += count
+
     return {
-        'date_range': {
-            'start': since_date,
-            'end': until_date or datetime.now().strftime('%Y-%m-%d')
+        "date_range": {
+            "start": since_date,
+            "end": until_date
+            or datetime.now().strftime(GitActivityDefaults.ISO_DATE_FORMAT),
         },
-        'total_commits': sum(r['commits'] for r in repositories),
-        'total_repositories': len(repositories),
-        'total_files': len(all_files),
-        'repositories': repositories,
-        'languages': language_stats,
-        'websites': websites,
-        'categories': {
-            cat: [{'name': r['name'], 'commits': r['commits']} for r in repos]
+        "total_commits": sum(r["commits"] for r in repositories),
+        "total_additions": sum(r.get("additions", 0) for r in repositories),
+        "total_deletions": sum(r.get("deletions", 0) for r in repositories),
+        "total_repositories": len(repositories),
+        "total_files": len(all_files),
+        "repositories": repositories,
+        "languages": language_stats,
+        "websites": websites,
+        "monthly": dict(sorted(monthly_totals.items())),
+        "categories": {
+            cat: [{"name": r["name"], "commits": r["commits"]} for r in repos]
             for cat, repos in categories.items()
-        }
+        },
     }
 
 
-def _print_summary(data: dict, output_dir: Path) -> None:
+def _print_summary(data: dict, output_dir: Path | None = None) -> None:
     """Print activity summary to console."""
-    repositories = data['repositories']
-    language_stats = data['languages']
-    websites = data['websites']
+    repositories = data["repositories"]
+    language_stats = data["languages"]
+    websites = data["websites"]
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * GitActivityDefaults.SEPARATOR_LENGTH}")
     print("Summary")
-    print(f"{'='*60}")
+    print(f"{'=' * GitActivityDefaults.SEPARATOR_LENGTH}")
     print(f"Total commits: {data['total_commits']}")
+    print(f"Lines added: {data.get('total_additions', 0)}")
+    print(f"Lines deleted: {data.get('total_deletions', 0)}")
     print(f"Active repositories: {len(repositories)}")
     print(f"File changes: {data['total_files']}")
     print(f"Languages detected: {len(language_stats)}")
     print(f"Websites found: {len(websites)}")
 
-    print("\nTop 5 repositories:")
-    for i, repo in enumerate(repositories[:5], 1):
+    print(f"\nTop {GitActivityDefaults.TOP_N_DISPLAY} repositories:")
+    for i, repo in enumerate(repositories[: GitActivityDefaults.TOP_N_DISPLAY], 1):
         print(f"  {i}. {repo['name']}: {repo['commits']} commits")
 
-    print("\nTop 5 languages:")
+    print(f"\nTop {GitActivityDefaults.TOP_N_DISPLAY} languages:")
     sorted_langs = sorted(language_stats.items(), key=lambda x: x[1], reverse=True)
-    for i, (lang, count) in enumerate(sorted_langs[:5], 1):
+    for i, (lang, count) in enumerate(
+        sorted_langs[: GitActivityDefaults.TOP_N_DISPLAY], 1
+    ):
         print(f"  {i}. {lang}: {count} files")
 
-    print(f"\n✅ Complete! Visualizations saved to: {output_dir}")
-    print(f"{'='*60}\n")
+    if output_dir:
+        print(f"\n✅ Complete! Visualizations saved to: {output_dir}")
+    else:
+        print("\n✅ Complete! Visualizations were skipped.")
+    print(f"{'=' * GitActivityDefaults.SEPARATOR_LENGTH}\n")
 
 
 def generate_jekyll_report(data: dict, output_file: Path) -> None:
     """Generate Jekyll-formatted markdown report with frontmatter."""
-    date_range = data['date_range']
-    start_date = date_range['start']
-    end_date = date_range['end']
+    date_range = data["date_range"]
+    start_date = date_range["start"]
+    end_date = date_range["end"]
 
     # Calculate report type for title
-    start = datetime.strptime(start_date, '%Y-%m-%d')
-    end = datetime.strptime(end_date, '%Y-%m-%d')
+    start = datetime.strptime(start_date, GitActivityDefaults.ISO_DATE_FORMAT)
+    end = datetime.strptime(end_date, GitActivityDefaults.ISO_DATE_FORMAT)
     days = (end - start).days
 
-    if days <= 7:
+    if days <= GitActivityDefaults.WEEKLY_WINDOW_DAYS:
         report_type = "Weekly"
-    elif days <= 31:
+    elif days <= GitActivityDefaults.MONTHLY_BUCKET_MAX_DAYS:
         report_type = "Monthly"
     else:
         report_type = f"{days}-Day"
 
     # Format date for filename and frontmatter
-    report_date = datetime.now().strftime('%Y-%m-%d')
+    report_date = datetime.now().strftime(GitActivityDefaults.ISO_DATE_FORMAT)
 
     # Build frontmatter
     frontmatter = f"""---
@@ -492,7 +671,7 @@ author_profile: true
 breadcrumbs: true
 categories: [git-activity, development-metrics]
 tags: [git, commits, repositories, weekly-report, automation]
-excerpt: "{data['total_commits']} commits across {data['total_repositories']} repositories with {data['total_files']} file changes."
+excerpt: "{data["total_commits"]} commits across {data["total_repositories"]} repositories with {data["total_files"]} file changes."
 header:
   image: /assets/images/cover-reports.png
 ---
@@ -501,17 +680,17 @@ header:
     # Build report content (no # title - Jekyll uses frontmatter title)
     content = f"""
 **Report Period**: {start_date} to {end_date}
-**Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+**Generated**: {datetime.now().strftime(GitActivityDefaults.ISO_DATETIME_MINUTE_FORMAT)}
 **Report Type**: Automated Git Activity Analysis
 
 ## Executive Summary
 
 | Metric | Value |
 |--------|-------|
-| Total Commits | {data['total_commits']} |
-| Active Repositories | {data['total_repositories']} |
-| Files Changed | {data['total_files']} |
-| Languages Detected | {len(data.get('languages', {}))} |
+| Total Commits | {data["total_commits"]} |
+| Active Repositories | {data["total_repositories"]} |
+| Files Changed | {data["total_files"]} |
+| Languages Detected | {len(data.get("languages", {}))} |
 
 ## Top Repositories by Commits
 
@@ -519,44 +698,46 @@ header:
 |------------|---------|
 """
 
-    # Add top 10 repositories
-    for repo in data['repositories'][:10]:
-        parent_prefix = f"{repo['parent']}/" if repo['parent'] else ""
+    # Add top repositories
+    for repo in data["repositories"][: GitActivityDefaults.TOP_N_TABLE_DISPLAY]:
+        parent_prefix = f"{repo['parent']}/" if repo["parent"] else ""
         content += f"| {parent_prefix}{repo['name']} | {repo['commits']} |\n"
 
     # Add language breakdown
-    if data.get('languages'):
+    if data.get("languages"):
         content += "\n## Language Distribution\n\n"
         content += "| Language | File Changes |\n"
         content += "|----------|-------------|\n"
 
-        sorted_langs = sorted(data['languages'].items(), key=lambda x: x[1], reverse=True)
-        for lang, count in sorted_langs[:10]:
+        sorted_langs = sorted(
+            data["languages"].items(), key=lambda x: x[1], reverse=True
+        )
+        for lang, count in sorted_langs[: GitActivityDefaults.TOP_N_TABLE_DISPLAY]:
             content += f"| {lang} | {count} |\n"
 
     # Add category breakdown if available
-    if data.get('categories'):
+    if data.get("categories"):
         content += "\n## Project Categories\n\n"
         content += "| Category | Repositories |\n"
         content += "|----------|-------------|\n"
 
-        for category, repos in data['categories'].items():
+        for category, repos in data["categories"].items():
             if repos:
                 content += f"| {category} | {len(repos)} |\n"
 
     # Add detailed repository list
     content += "\n## Repository Details\n\n"
-    for repo in data['repositories']:
-        parent_prefix = f"{repo['parent']}/" if repo['parent'] else ""
+    for repo in data["repositories"]:
+        parent_prefix = f"{repo['parent']}/" if repo["parent"] else ""
         content += f"### {parent_prefix}{repo['name']}\n\n"
         content += f"- **Path**: `{repo['path']}`\n"
         content += f"- **Commits**: {repo['commits']}\n"
         content += f"- **Files Changed**: {len(repo['files'])}\n\n"
 
     # Add websites if found
-    if data.get('websites'):
+    if data.get("websites"):
         content += "\n## Project Websites\n\n"
-        for name, url in data['websites'].items():
+        for name, url in data["websites"].items():
             content += f"- [{name}]({url})\n"
 
     content += "\n---\n\n"
@@ -573,58 +754,84 @@ def generate_visualizations(data, output_dir):
     print("\nGenerating SVG visualizations...")
 
     # Monthly commits (if available in data)
-    if 'monthly' in data:
-        monthly_data = {month: count for month, count in data['monthly'].items()}
+    if "monthly" in data:
+        monthly_data = {month: count for month, count in data["monthly"].items()}
         create_pie_chart_svg(
             monthly_data,
             f"Commits by Month ({data['total_commits']} total)",
-            output_dir / 'monthly-commits.svg'
+            output_dir / "monthly-commits.svg",
         )
 
-    # Top 10 repositories
+    # Top repositories
     top_10 = {}
-    for repo in data['repositories'][:10]:
-        name = repo['name']
-        if repo['parent']:
+    for repo in data["repositories"][: GitActivityDefaults.TOP_N_TABLE_DISPLAY]:
+        name = repo["name"]
+        if repo["parent"]:
             name = f"{repo['parent']}/{name}"
-        top_10[name] = repo['commits']
+        top_10[name] = repo["commits"]
 
     create_bar_chart_svg(
         top_10,
-        'Top 10 Repositories by Commits',
-        output_dir / 'top-10-repos.svg'
+        f"Top {GitActivityDefaults.TOP_N_TABLE_DISPLAY} Repositories by Commits",
+        output_dir / "top-10-repos.svg",
     )
 
     # Project categories
-    if 'categories' in data:
-        category_data = {cat: len(repos) for cat, repos in data['categories'].items() if repos}
+    if "categories" in data:
+        category_data = {
+            cat: len(repos) for cat, repos in data["categories"].items() if repos
+        }
         create_pie_chart_svg(
             category_data,
             f"Project Categories ({len(data['repositories'])} repos)",
-            output_dir / 'project-categories.svg'
+            output_dir / "project-categories.svg",
         )
 
     # Language distribution
-    if 'languages' in data:
-        language_data = data['languages']
+    if "languages" in data:
+        language_data = data["languages"]
         create_pie_chart_svg(
             language_data,
             f"File Changes by Language ({sum(language_data.values())} total)",
-            output_dir / 'language-distribution.svg',
-            width=900
+            output_dir / "language-distribution.svg",
+            width=ChartDefaults.WIDE_WIDTH,
         )
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Generate comprehensive git activity report')
-    parser.add_argument('--start-date', help='Start date (YYYY-MM-DD)')
-    parser.add_argument('--end-date', help='End date (YYYY-MM-DD)', default=None)
-    parser.add_argument('--days', type=int, help='Number of days back from today')
-    parser.add_argument('--weekly', action='store_true', help='Last 7 days')
-    parser.add_argument('--monthly', action='store_true', help='Last 30 days')
-    parser.add_argument('--max-depth', type=int, default=DEFAULT_MAX_DEPTH, help='Max directory depth')
-    parser.add_argument('--output-dir', help='Output directory for visualizations')
-    parser.add_argument('--json-output', help='Output JSON data file')
+    parser = argparse.ArgumentParser(
+        description="Generate comprehensive git activity report"
+    )
+    parser.add_argument("--start-date", help="Start date (YYYY-MM-DD)")
+    parser.add_argument("--end-date", help="End date (YYYY-MM-DD)", default=None)
+    # Backward-compatible aliases used by older worker/pipeline integrations.
+    parser.add_argument("--since", dest="start_date", help=argparse.SUPPRESS)
+    parser.add_argument("--until", dest="end_date", help=argparse.SUPPRESS)
+    parser.add_argument("--days", type=int, help="Number of days back from today")
+    parser.add_argument(
+        "--weekly",
+        action="store_true",
+        help=f"Last {GitActivityDefaults.WEEKLY_WINDOW_DAYS} days",
+    )
+    parser.add_argument(
+        "--monthly",
+        action="store_true",
+        help=f"Last {GitActivityDefaults.MONTHLY_WINDOW_DAYS} days",
+    )
+    parser.add_argument(
+        "--max-depth", type=int, default=DEFAULT_MAX_DEPTH, help="Max directory depth"
+    )
+    parser.add_argument("--output-dir", help="Output directory for visualizations")
+    parser.add_argument(
+        "--output-format",
+        choices=["markdown", "json", "both"],
+        default="markdown",
+        help="Output format: markdown, json, or both",
+    )
+    parser.add_argument(
+        "--no-visualizations", action="store_true", help="Skip SVG chart generation"
+    )
+    parser.add_argument("--json-output", help="Output JSON data file")
 
     args = parser.parse_args()
 
@@ -637,42 +844,63 @@ def main():
     since_date, until_date = date_range
 
     # Print header
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * GitActivityDefaults.SEPARATOR_LENGTH}")
     print("Git Activity Report Generator")
-    print(f"{'='*60}")
+    print(f"{'=' * GitActivityDefaults.SEPARATOR_LENGTH}")
     print(f"Date range: {since_date} to {until_date or 'now'}")
     print(f"Scan depth: {args.max_depth} directories")
-    print(f"{'='*60}\n")
+    print(f"{'=' * GitActivityDefaults.SEPARATOR_LENGTH}\n")
 
-    # Find and process repositories
-    repos = find_git_repos(args.max_depth)
-    repositories, all_files = _collect_repository_stats(repos, since_date, until_date)
+    try:
+        # Find and process repositories
+        repos = find_git_repos(args.max_depth)
+        repositories, all_files = _collect_repository_stats(
+            repos, since_date, until_date
+        )
 
-    # Compile all data
-    data = _compile_activity_data(repositories, all_files, since_date, until_date)
+        # Compile all data
+        data = _compile_activity_data(repositories, all_files, since_date, until_date)
 
-    # Save Jekyll markdown report
-    default_report_dir = Path.home() / 'code' / 'PersonalSite' / '_reports'
-    default_report_dir.mkdir(parents=True, exist_ok=True)
-    report_date = datetime.now().strftime('%Y-%m-%d')
-    report_file = default_report_dir / f'{report_date}-git-activity-report.md'
-    generate_jekyll_report(data, report_file)
+        # Resolve output locations
+        default_report_dir = PERSONALSITE_DIR / WORK_COLLECTION
+        default_report_dir.mkdir(parents=True, exist_ok=True)
+        report_date = datetime.now().strftime(GitActivityDefaults.ISO_DATE_FORMAT)
+        report_file = default_report_dir / f"{report_date}-git-activity-report.md"
+        default_json_file = (
+            default_report_dir / f"{report_date}-git-activity-report.json"
+        )
 
-    # Also save JSON for programmatic access if requested
-    if args.json_output:
-        with open(args.json_output, 'w') as f:
-            json.dump(data, f, indent=2)
-        print(f"✅ JSON data saved to: {args.json_output}")
+        wants_markdown = args.output_format in ("markdown", "both")
+        wants_json = args.output_format in ("json", "both") or bool(args.json_output)
 
-    # Generate visualizations
-    output_dir = _resolve_output_dir(args)
-    generate_visualizations(data, output_dir)
+        # Save Jekyll markdown report when requested.
+        if wants_markdown:
+            generate_jekyll_report(data, report_file)
 
-    # Print summary
-    _print_summary(data, output_dir)
+        # Save JSON data when requested by output format or explicit path.
+        if wants_json:
+            json_path = (
+                Path(args.json_output) if args.json_output else default_json_file
+            )
+            json_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(json_path, "w") as f:
+                json.dump(data, f, indent=2)
+            print(f"✅ JSON data saved to: {json_path}")
 
-    return 0
+        # Generate visualizations unless explicitly disabled.
+        output_dir = _resolve_output_dir(args)
+        if args.no_visualizations:
+            print("\nSkipping visualizations (--no-visualizations).")
+            _print_summary(data, None)
+        else:
+            generate_visualizations(data, output_dir)
+            _print_summary(data, output_dir)
+
+        return 0
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     exit(main())

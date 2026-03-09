@@ -103,6 +103,15 @@ function runGitCommand(cwd, args) {
   });
 }
 
+async function verifyDryRunBranches(repoPath) {
+  const currentBranch = await runGitCommand(repoPath, ['branch', '--show-current']);
+  const branches = await runGitCommand(repoPath, ['branch', '-a']);
+  return {
+    onMainBranch: currentBranch === 'main',
+    noRemoteBranches: !branches.includes('remotes/'),
+  };
+}
+
 /**
  * Test 1: Dry Run Mode
  * Verify dry-run mode prevents actual PR creation
@@ -113,56 +122,26 @@ async function testDryRunMode() {
   const testRepo = await createTempRepository('pr-creator-dryrun');
 
   try {
-    // Initialize git repo
     await initGitRepo(testRepo.path);
 
-    // Create mock scan result
-    const scanResult = {
-      suggestions: createMockSuggestions(3)
-    };
+    const creator = new PRCreator({ dryRun: true, baseBranch: 'main' });
+    const result = await creator.createPRsForSuggestions(
+      { suggestions: createMockSuggestions(3) },
+      testRepo.path
+    );
 
-    // Create PRCreator in dry-run mode
-    const creator = new PRCreator({
-      dryRun: true,
-      baseBranch: 'main'
-    });
-
-    // Create PRs (should not actually create PRs)
-    const result = await creator.createPRsForSuggestions(scanResult, testRepo.path);
-
-    // Verify dry-run results
     const dryRunSuccess =
-      result.prsCreated === 1 && // 3 suggestions = 1 batch
+      result.prsCreated === 1 &&
       result.prUrls.length === 1 &&
       result.prUrls[0].startsWith('dry-run-') &&
       result.errors.length === 0;
 
-    // Verify we're still on main branch
-    const currentBranch = await runGitCommand(testRepo.path, ['branch', '--show-current']);
-    const onMainBranch = currentBranch === 'main';
-
-    // Verify no remote branches created
-    const branches = await runGitCommand(testRepo.path, ['branch', '-a']);
-    const noRemoteBranches = !branches.includes('remotes/');
-
+    const { onMainBranch, noRemoteBranches } = await verifyDryRunBranches(testRepo.path);
     const success = dryRunSuccess && onMainBranch && noRemoteBranches;
 
-    logger.info({
-      success,
-      prsCreated: result.prsCreated,
-      prUrls: result.prUrls,
-      onMainBranch,
-      noRemoteBranches
-    }, 'TEST 1 Result');
+    logger.info({ success, prsCreated: result.prsCreated, prUrls: result.prUrls, onMainBranch, noRemoteBranches }, 'TEST 1 Result');
 
-    return {
-      test: 'Dry Run Mode',
-      passed: success,
-      prsCreated: result.prsCreated,
-      prUrls: result.prUrls,
-      onMainBranch,
-      noRemoteBranches
-    };
+    return { test: 'Dry Run Mode', passed: success, prsCreated: result.prsCreated, prUrls: result.prUrls, onMainBranch, noRemoteBranches };
   } finally {
     await testRepo.cleanup();
   }
@@ -408,76 +387,36 @@ async function testFileCreation() {
   }
 }
 
+function printResult(index, label, passed, detail) {
+  console.log(`${index}. ${label}: ${passed ? '✓ PASS' : '✗ FAIL'}`);
+  if (detail) {
+    console.log(`   ${detail}`);
+  }
+}
+
 /**
  * Main test runner
  */
 async function runTests() {
   logger.info('Starting Phase 4.1.5 - Auto-PR Creation Feature Validation Tests');
 
-  const results = {
-    test1: null,
-    test2: null,
-    test3: null,
-    test4: null,
-    test5: null,
-    test6: null
-  };
-
   try {
-    // Run tests sequentially
-    results.test1 = await testDryRunMode();
-    results.test2 = await testSuggestionFiltering();
-    results.test3 = await testBatching();
-    results.test4 = await testBranchNaming();
-    results.test5 = await testNoSuggestions();
-    results.test6 = await testFileCreation();
+    const test1 = await testDryRunMode();
+    const test2 = await testSuggestionFiltering();
+    const test3 = await testBatching();
+    const test4 = await testBranchNaming();
+    const test5 = await testNoSuggestions();
+    const test6 = await testFileCreation();
 
-    // Print summary
     console.log('\n=== TEST SUMMARY ===');
+    printResult(1, 'Dry Run Mode', test1.passed, `PRs created: ${test1.prsCreated}, On main branch: ${test1.onMainBranch}`);
+    printResult(2, 'Suggestion Filtering', test2.passed, `Processed: 2 of ${test2.totalSuggestions}, Skipped: ${test2.skipped}`);
+    printResult(3, 'Batching (Max 5 per PR)', test3.passed, `Batches: ${test3.prsCreated} of ${test3.expectedBatches} expected`);
+    printResult(4, 'Branch Naming', test4.passed, `Pattern: ${test4.expectedPattern}`);
+    printResult(5, 'No Suggestions Handling', test5.passed, `Behavior: ${test5.expectedBehavior}`);
+    printResult(6, 'File Creation', test6.passed, `Expected files: ${test6.expectedFiles}`);
 
-    if (results.test1.passed) {
-      console.log('1. Dry Run Mode: ✓ PASS');
-      console.log(`   PRs created: ${results.test1.prsCreated}, On main branch: ${results.test1.onMainBranch}`);
-    } else {
-      console.log('1. Dry Run Mode: ✗ FAIL');
-    }
-
-    if (results.test2.passed) {
-      console.log('2. Suggestion Filtering: ✓ PASS');
-      console.log(`   Processed: 2 of ${results.test2.totalSuggestions}, Skipped: ${results.test2.skipped}`);
-    } else {
-      console.log('2. Suggestion Filtering: ✗ FAIL');
-    }
-
-    if (results.test3.passed) {
-      console.log('3. Batching (Max 5 per PR): ✓ PASS');
-      console.log(`   Batches: ${results.test3.prsCreated} of ${results.test3.expectedBatches} expected`);
-    } else {
-      console.log('3. Batching (Max 5 per PR): ✗ FAIL');
-    }
-
-    if (results.test4.passed) {
-      console.log('4. Branch Naming: ✓ PASS');
-      console.log(`   Pattern: ${results.test4.expectedPattern}`);
-    } else {
-      console.log('4. Branch Naming: ✗ FAIL');
-    }
-
-    if (results.test5.passed) {
-      console.log('5. No Suggestions Handling: ✓ PASS');
-      console.log(`   Behavior: ${results.test5.expectedBehavior}`);
-    } else {
-      console.log('5. No Suggestions Handling: ✗ FAIL');
-    }
-
-    if (results.test6.passed) {
-      console.log('6. File Creation: ✓ PASS');
-      console.log(`   Expected files: ${results.test6.expectedFiles}`);
-    } else {
-      console.log('6. File Creation: ✗ FAIL');
-    }
-
-    const passedCount = Object.values(results).filter(r => r && r.passed).length;
+    const passedCount = [test1, test2, test3, test4, test5, test6].filter(r => r.passed).length;
     console.log(`\n${passedCount}/6 tests passed`);
 
     process.exit(passedCount === 6 ? 0 : 1);

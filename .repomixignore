@@ -5,6 +5,7 @@
 .env.development
 .env.production
 .env.*.local
+.env.example
 
 # Node.js
 node_modules/

@@ -4,7 +4,7 @@
 
 Comprehensive testing suite for the Redis-backed ScanResultCache implementation.
 
-**Test File:** `/Users/alyshialedlie/code/jobs/tests/integration/cache-redis.test.js`
+**Test File:** `/Users/alyshialedlie/code/jobs/tests/integration/test-cache-layer.ts`
 
 **Total Tests:** 32
 **Pass Rate:** 100%
@@ -88,7 +88,7 @@ npm run test:all
 ## Implementation Files
 
 ### 1. ScanResultCache
-**File:** `/Users/alyshialedlie/code/jobs/lib/cache/scan-cache.js` (404 lines)
+**File:** `/Users/alyshialedlie/code/jobs/sidequest/pipeline-core/cache/scan-cache.ts` (404 lines)
 
 **Features:**
 - Redis hash-based storage (HSET/HGET)
@@ -117,7 +117,7 @@ getCacheAge(repoPath, commitHash)
 **Coverage:** ~100% of public methods
 
 ### 2. CachedScanner
-**File:** `/Users/alyshialedlie/code/jobs/lib/cache/cached-scanner.js` (342 lines)
+**File:** `/Users/alyshialedlie/code/jobs/sidequest/pipeline-core/cache/cached-scanner.ts` (342 lines)
 
 **Features:**
 - Git commit tracking integration
@@ -144,9 +144,9 @@ warmCache(repoPaths, options)
 **Coverage:** ~90% (warmCache not tested)
 
 ### 3. GitCommitTracker
-**File:** `/Users/alyshialedlie/code/jobs/lib/cache/git-tracker.js` (349 lines)
+**File:** `/Users/alyshialedlie/code/jobs/sidequest/pipeline-core/cache/git-tracker.ts` (349 lines)
 
-Tested by existing integration test: `/Users/alyshialedlie/code/jobs/tests/integration/test-cache-layer.js`
+Tested by existing integration test: `/Users/alyshialedlie/code/jobs/tests/integration/test-cache-layer.ts`
 
 **Coverage:** ~95%
 
@@ -309,10 +309,10 @@ npm run test:integration
 npm run test:all
 
 # Single test file
-node --test tests/integration/cache-redis.test.js
+node --strip-types --test tests/integration/test-cache-layer.ts
 
 # With verbose output
-node --test --test-reporter=spec tests/integration/cache-redis.test.js
+node --strip-types --test --test-reporter=spec tests/integration/test-cache-layer.ts
 ```
 
 ### Expected Output
@@ -375,7 +375,7 @@ rm -rf /tmp/test-cache-repo-*
 
 ### Adding New Tests
 
-1. Add test to appropriate suite in `tests/integration/cache-redis.test.js`
+1. Add test to appropriate suite in `tests/integration/test-cache-layer.ts`
 2. Ensure cleanup in `beforeEach()` or `afterEach()`
 3. Use test prefix `test:scan:` for cache keys
 4. Run tests to verify

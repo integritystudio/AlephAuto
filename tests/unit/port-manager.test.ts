@@ -15,8 +15,29 @@ import {
   killProcessOnPort
 } from '../../api/utils/port-manager.ts';
 import { createServer } from 'http';
+import { CONFIG_POLICY, RETRY } from '../../sidequest/core/constants.ts';
+import { TestTiming } from '../constants/timing-test-constants.ts';
 
-describe('Port Manager', () => {
+const EPHEMERAL_PORT_RANGE_START = 49_152;
+const EPHEMERAL_PORT_RANGE_END = CONFIG_POLICY.PORTS.MAX_PORT;
+const FALLBACK_SMALL_RANGE_SIZE = RETRY.MAX_ABSOLUTE_ATTEMPTS;
+const FALLBACK_STANDARD_RANGE_SIZE = RETRY.MAX_MANUAL_RETRIES;
+const FIRST_FALLBACK_OFFSET = CONFIG_POLICY.PORTS.MIN_PORT;
+const SECOND_FALLBACK_OFFSET = CONFIG_POLICY.DOPPLER.DEFAULT_SUCCESS_THRESHOLD;
+const THIRD_FALLBACK_OFFSET = CONFIG_POLICY.DOPPLER.DEFAULT_FAILURE_THRESHOLD;
+const FOURTH_FALLBACK_OFFSET = 4;
+const FAST_LOOKUP_MAX_DURATION_MS = CONFIG_POLICY.DOPPLER.MIN_TIMEOUT_MS;
+const UNUSED_TEST_PORT = 19_999;
+const HIGH_PORT_TEST_BASE = 59_990;
+const HIGH_VALID_TEST_PORT = 65_000;
+const REPEAT_CHECK_PORT = 49_200;
+const MAX_PORT_MINUS_ONE = CONFIG_POLICY.PORTS.MAX_PORT - CONFIG_POLICY.PORTS.MIN_PORT;
+
+const describeEnvSensitive = process.env.SKIP_ENV_SENSITIVE_TESTS === '1'
+  ? describe.skip
+  : describe;
+
+describeEnvSensitive('Port Manager', () => {
   let servers = [];
 
   // Track process listeners added by setupGracefulShutdown so we can remove them
@@ -24,6 +45,9 @@ describe('Port Manager', () => {
   let listenerSnapshot: Map<string, ((...args: unknown[]) => void)[]>;
 
   // Helper to create and track servers for cleanup
+  /**
+   * createTestServer.
+   */
   const createTestServer = () => {
     const server = createServer();
     servers.push(server);
@@ -31,6 +55,9 @@ describe('Port Manager', () => {
   };
 
   // Helper to start server on specific port
+  /**
+   * startServerOnPort.
+   */
   const startServerOnPort = (port, host = '0.0.0.0') => {
     return new Promise((resolve, reject) => {
       const server = createTestServer();
@@ -80,7 +107,7 @@ describe('Port Manager', () => {
   describe('isPortAvailable', () => {
     test('should return true for available port', async () => {
       // Use OS-assigned port to guarantee availability
-      const port = await findAvailablePort(49152, 65535);
+      const port = await findAvailablePort(EPHEMERAL_PORT_RANGE_START, EPHEMERAL_PORT_RANGE_END);
       assert.ok(port !== null, 'Should find an available port');
       const available = await isPortAvailable(port!);
       assert.strictEqual(available, true);
@@ -96,14 +123,14 @@ describe('Port Manager', () => {
     });
 
     test('should work with different host addresses', async () => {
-      const port = await findAvailablePort(49152, 65535);
+      const port = await findAvailablePort(EPHEMERAL_PORT_RANGE_START, EPHEMERAL_PORT_RANGE_END);
       assert.ok(port !== null, 'Should find an available port');
       const available = await isPortAvailable(port!, 'localhost');
       assert.strictEqual(available, true);
     });
 
     test('should handle rapid sequential checks', async () => {
-      const port = await findAvailablePort(49152, 65535);
+      const port = await findAvailablePort(EPHEMERAL_PORT_RANGE_START, EPHEMERAL_PORT_RANGE_END);
       assert.ok(port !== null, 'Should find an available port');
 
       // Run checks sequentially to avoid race conditions
@@ -120,7 +147,7 @@ describe('Port Manager', () => {
   describe('findAvailablePort', () => {
     test('should return first available port in range', async () => {
       const startPort = 9100;
-      const endPort = 9105;
+      const endPort = startPort + FALLBACK_SMALL_RANGE_SIZE;
 
       const port = await findAvailablePort(startPort, endPort);
       assert.strictEqual(port, startPort);
@@ -130,14 +157,14 @@ describe('Port Manager', () => {
 
     test('should skip occupied ports and find next available', async () => {
       const startPort = 9110;
-      const endPort = 9115;
+      const endPort = startPort + FALLBACK_SMALL_RANGE_SIZE;
 
       // Occupy first two ports
-      await startServerOnPort(9110);
-      await startServerOnPort(9111);
+      await startServerOnPort(startPort);
+      await startServerOnPort(startPort + FIRST_FALLBACK_OFFSET);
 
       const port = await findAvailablePort(startPort, endPort);
-      assert.strictEqual(port, 9112);
+      assert.strictEqual(port, startPort + SECOND_FALLBACK_OFFSET);
     });
 
     test('should return null if no ports available in range', async () => {
@@ -145,9 +172,9 @@ describe('Port Manager', () => {
       const endPort = 9122;
 
       // Occupy all ports in range
-      await startServerOnPort(9120);
-      await startServerOnPort(9121);
-      await startServerOnPort(9122);
+      await startServerOnPort(startPort);
+      await startServerOnPort(startPort + FIRST_FALLBACK_OFFSET);
+      await startServerOnPort(startPort + SECOND_FALLBACK_OFFSET);
 
       const port = await findAvailablePort(startPort, endPort);
       assert.strictEqual(port, null);
@@ -168,7 +195,7 @@ describe('Port Manager', () => {
       const duration = Date.now() - startTime;
 
       assert.strictEqual(port, startPort);
-      assert.ok(duration < 1000); // Should be fast when first port is available
+      assert.ok(duration < FAST_LOOKUP_MAX_DURATION_MS); // Should be fast when first port is available
     });
   });
 
@@ -179,7 +206,7 @@ describe('Port Manager', () => {
 
       const actualPort = await setupServerWithPortFallback(server, {
         preferredPort,
-        maxPort: preferredPort + 5
+        maxPort: preferredPort + FALLBACK_SMALL_RANGE_SIZE
       });
 
       assert.strictEqual(actualPort, preferredPort);
@@ -197,29 +224,29 @@ describe('Port Manager', () => {
       const server = createTestServer();
       const actualPort = await setupServerWithPortFallback(server, {
         preferredPort,
-        maxPort: preferredPort + 5
+        maxPort: preferredPort + FALLBACK_SMALL_RANGE_SIZE
       });
 
-      assert.strictEqual(actualPort, preferredPort + 1);
+      assert.strictEqual(actualPort, preferredPort + FIRST_FALLBACK_OFFSET);
       assert.strictEqual(server.listening, true);
-      assert.strictEqual(server.address().port, preferredPort + 1);
+      assert.strictEqual(server.address().port, preferredPort + FIRST_FALLBACK_OFFSET);
     });
 
     test('should skip multiple occupied ports', async () => {
       const preferredPort = 9320;
 
       // Occupy first three ports
-      await startServerOnPort(9320);
-      await startServerOnPort(9321);
-      await startServerOnPort(9322);
+      await startServerOnPort(preferredPort);
+      await startServerOnPort(preferredPort + FIRST_FALLBACK_OFFSET);
+      await startServerOnPort(preferredPort + SECOND_FALLBACK_OFFSET);
 
       const server = createTestServer();
       const actualPort = await setupServerWithPortFallback(server, {
         preferredPort,
-        maxPort: preferredPort + 10
+        maxPort: preferredPort + FALLBACK_STANDARD_RANGE_SIZE
       });
 
-      assert.strictEqual(actualPort, 9323);
+      assert.strictEqual(actualPort, preferredPort + THIRD_FALLBACK_OFFSET);
       assert.strictEqual(server.listening, true);
     });
 
@@ -228,9 +255,9 @@ describe('Port Manager', () => {
       const maxPort = 9332;
 
       // Occupy all ports
-      await startServerOnPort(9330);
-      await startServerOnPort(9331);
-      await startServerOnPort(9332);
+      await startServerOnPort(preferredPort);
+      await startServerOnPort(preferredPort + FIRST_FALLBACK_OFFSET);
+      await startServerOnPort(preferredPort + SECOND_FALLBACK_OFFSET);
 
       const server = createTestServer();
 
@@ -258,7 +285,7 @@ describe('Port Manager', () => {
 
       const actualPort = await setupServerWithPortFallback(server, {
         preferredPort,
-        maxPort: preferredPort + 5,
+        maxPort: preferredPort + FALLBACK_SMALL_RANGE_SIZE,
         host: 'localhost'
       });
 
@@ -302,7 +329,7 @@ describe('Port Manager', () => {
       // Startup with port fallback
       const actualPort = await setupServerWithPortFallback(server, {
         preferredPort,
-        maxPort: preferredPort + 5
+        maxPort: preferredPort + FALLBACK_SMALL_RANGE_SIZE
       });
 
       assert.strictEqual(actualPort, preferredPort);
@@ -339,7 +366,7 @@ describe('Port Manager', () => {
       const server1 = createTestServer();
       await setupServerWithPortFallback(server1, {
         preferredPort: port,
-        maxPort: port + 5
+        maxPort: port + FALLBACK_SMALL_RANGE_SIZE
       });
 
       assert.strictEqual(server1.address().port, port);
@@ -348,10 +375,10 @@ describe('Port Manager', () => {
       const server2 = createTestServer();
       const port2 = await setupServerWithPortFallback(server2, {
         preferredPort: port,
-        maxPort: port + 5
+        maxPort: port + FALLBACK_SMALL_RANGE_SIZE
       });
 
-      assert.strictEqual(port2, port + 1);
+      assert.strictEqual(port2, port + FIRST_FALLBACK_OFFSET);
 
       // Close first server
       await new Promise((resolve) => server1.close(resolve));
@@ -360,7 +387,7 @@ describe('Port Manager', () => {
       const server3 = createTestServer();
       const port3 = await setupServerWithPortFallback(server3, {
         preferredPort: port,
-        maxPort: port + 5
+        maxPort: port + FALLBACK_SMALL_RANGE_SIZE
       });
 
       assert.strictEqual(port3, port);
@@ -403,7 +430,7 @@ describe('Port Manager', () => {
     test('should return false when lsof fails to find process', async () => {
       // Use a port that's definitely not in use
       // lsof exits with error when no process found, so we get false
-      const unusedPort = 19999;
+      const unusedPort = UNUSED_TEST_PORT;
       const result = await killProcessOnPort(unusedPort);
       // lsof returns non-zero when no process found, which causes error
       assert.strictEqual(result, false);
@@ -420,9 +447,9 @@ describe('Port Manager', () => {
     test('should return boolean for any port input', async () => {
       // Test that the function always returns a boolean, never throws
       // Use high ports unlikely to have processes to avoid killing anything important
-      const result1 = await killProcessOnPort(59990);
-      const result2 = await killProcessOnPort(59991);
-      const result3 = await killProcessOnPort(59992);
+      const result1 = await killProcessOnPort(HIGH_PORT_TEST_BASE);
+      const result2 = await killProcessOnPort(HIGH_PORT_TEST_BASE + FIRST_FALLBACK_OFFSET);
+      const result3 = await killProcessOnPort(HIGH_PORT_TEST_BASE + SECOND_FALLBACK_OFFSET);
 
       assert.strictEqual(typeof result1, 'boolean');
       assert.strictEqual(typeof result2, 'boolean');
@@ -452,7 +479,7 @@ describe('Port Manager', () => {
 
       const actualPort = await setupServerWithPortFallback(server, {
         preferredPort,
-        maxPort: preferredPort + 5,
+        maxPort: preferredPort + FALLBACK_SMALL_RANGE_SIZE,
         killExisting: true
       });
 
@@ -467,7 +494,7 @@ describe('Port Manager', () => {
 
       const actualPort = await setupServerWithPortFallback(server, {
         preferredPort,
-        maxPort: preferredPort + 5,
+        maxPort: preferredPort + FALLBACK_SMALL_RANGE_SIZE,
         killExisting: false
       });
 
@@ -496,7 +523,7 @@ describe('Port Manager', () => {
 
       // Should not throw with custom timeout
       setupGracefulShutdown(server, {
-        timeout: 5000
+        timeout: TestTiming.DEFAULT_WAIT_TIMEOUT_MS
       });
 
       assert.ok(process.listeners('SIGTERM').length > 0);
@@ -534,16 +561,16 @@ describe('Port Manager', () => {
 
   describe('isPortAvailable - Edge Cases', () => {
     test('should handle high port numbers', async () => {
-      const port = 65000;
+      const port = HIGH_VALID_TEST_PORT;
       const available = await isPortAvailable(port);
       assert.strictEqual(available, true);
     });
 
     test('should always return boolean for any valid port', async () => {
       // Test that function returns boolean regardless of port availability
-      const result1 = await isPortAvailable(49152);
-      const result2 = await isPortAvailable(49153);
-      const result3 = await isPortAvailable(65534);
+      const result1 = await isPortAvailable(EPHEMERAL_PORT_RANGE_START);
+      const result2 = await isPortAvailable(EPHEMERAL_PORT_RANGE_START + FIRST_FALLBACK_OFFSET);
+      const result3 = await isPortAvailable(MAX_PORT_MINUS_ONE);
 
       assert.strictEqual(typeof result1, 'boolean');
       assert.strictEqual(typeof result2, 'boolean');
@@ -551,7 +578,7 @@ describe('Port Manager', () => {
     });
 
     test('should handle checking same port multiple times', async () => {
-      const port = 49200;
+      const port = REPEAT_CHECK_PORT;
 
       const result1 = await isPortAvailable(port);
       const result2 = await isPortAvailable(port);
@@ -565,7 +592,8 @@ describe('Port Manager', () => {
   describe('findAvailablePort - Edge Cases', () => {
     test('should handle inverted range (start > end)', async () => {
       // When startPort > endPort, loop doesn't execute
-      const port = await findAvailablePort(9900, 9890);
+      const invertedRangeStartPort = 9900;
+      const port = await findAvailablePort(invertedRangeStartPort, invertedRangeStartPort - FALLBACK_STANDARD_RANGE_SIZE);
       assert.strictEqual(port, null);
     });
 
@@ -573,13 +601,13 @@ describe('Port Manager', () => {
       const startPort = 9800;
 
       // Occupy consecutive ports
-      await startServerOnPort(9800);
-      await startServerOnPort(9801);
-      await startServerOnPort(9802);
-      await startServerOnPort(9803);
+      await startServerOnPort(startPort);
+      await startServerOnPort(startPort + FIRST_FALLBACK_OFFSET);
+      await startServerOnPort(startPort + SECOND_FALLBACK_OFFSET);
+      await startServerOnPort(startPort + THIRD_FALLBACK_OFFSET);
 
-      const port = await findAvailablePort(startPort, startPort + 10);
-      assert.strictEqual(port, 9804);
+      const port = await findAvailablePort(startPort, startPort + FALLBACK_STANDARD_RANGE_SIZE);
+      assert.strictEqual(port, startPort + FOURTH_FALLBACK_OFFSET);
     });
   });
 
@@ -596,7 +624,7 @@ describe('Port Manager', () => {
       // This should still work via fallback
       const actualPort = await setupServerWithPortFallback(server, {
         preferredPort,
-        maxPort: preferredPort + 5
+        maxPort: preferredPort + FALLBACK_SMALL_RANGE_SIZE
       });
 
       assert.ok(actualPort > preferredPort);

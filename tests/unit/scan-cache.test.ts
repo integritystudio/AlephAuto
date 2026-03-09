@@ -6,6 +6,8 @@
 
 import { describe, it, beforeEach, mock } from 'node:test';
 import assert from 'node:assert';
+import { GIT_ACTIVITY } from '../../sidequest/core/constants.ts';
+import { TIME_MS } from '../../sidequest/core/units.ts';
 import { ScanResultCache } from '../../sidequest/pipeline-core/cache/scan-cache.ts';
 
 describe('ScanResultCache', () => {
@@ -66,7 +68,7 @@ describe('ScanResultCache', () => {
   describe('constructor', () => {
     it('should initialize with default options', () => {
       const defaultCache = new ScanResultCache(mockRedis);
-      assert.strictEqual(defaultCache.ttl, 30 * 24 * 60 * 60); // 30 days
+      assert.strictEqual(defaultCache.ttl, GIT_ACTIVITY.MONTHLY_WINDOW_DAYS * (TIME_MS.DAY / TIME_MS.SECOND)); // 30 days
       assert.strictEqual(defaultCache.keyPrefix, 'scan:');
       assert.strictEqual(defaultCache.enabled, true);
     });

@@ -11,6 +11,7 @@ import { createComponentLogger, logError } from '#sidequest/utils/logger.ts';
 import { strictRateLimiter } from '../middleware/rate-limit.ts';
 import { validateQuery } from '../middleware/validation.ts';
 import { RepositoryQuerySchema, RepositoryGroupQuerySchema } from '../types/repository-requests.ts';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 const router = express.Router();
 const logger = createComponentLogger('RepositoryRoutes');
@@ -89,7 +90,7 @@ router.get('/:name', async (req, res, next) => {
     const repository = configLoader.getRepository(name);
 
     if (!repository) {
-      return res.status(404).json({
+      return res.status(HttpStatus.NOT_FOUND).json({
         success: false,
         error: {
           code: 'NOT_FOUND',
@@ -126,7 +127,7 @@ router.post('/:name/scan', strictRateLimiter, async (req, res, next) => {
     const repository = configLoader.getRepository(name);
 
     if (!repository) {
-      return res.status(404).json({
+      return res.status(HttpStatus.NOT_FOUND).json({
         success: false,
         error: {
           code: 'NOT_FOUND',
@@ -166,7 +167,7 @@ router.get('/:name/cache', async (req, res, next) => {
     const repository = configLoader.getRepository(name);
 
     if (!repository) {
-      return res.status(404).json({
+      return res.status(HttpStatus.NOT_FOUND).json({
         success: false,
         error: {
           code: 'NOT_FOUND',
@@ -201,7 +202,7 @@ router.delete('/:name/cache', async (req, res, next) => {
     const repository = configLoader.getRepository(name);
 
     if (!repository) {
-      return res.status(404).json({
+      return res.status(HttpStatus.NOT_FOUND).json({
         success: false,
         error: {
           code: 'NOT_FOUND',
@@ -275,7 +276,7 @@ router.get('/groups/:name', async (req, res, next) => {
     const group = configLoader.getGroup(name);
 
     if (!group) {
-      return res.status(404).json({
+      return res.status(HttpStatus.NOT_FOUND).json({
         success: false,
         error: {
           code: 'NOT_FOUND',

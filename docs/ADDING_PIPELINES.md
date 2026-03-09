@@ -5,32 +5,32 @@ Step-by-step guide for integrating a new job type into the AlephAuto framework. 
 ## Prerequisites
 
 Familiarity with:
-- `sidequest/core/server.js` — `SidequestServer` base class
-- `sidequest/core/git-workflow-manager.js` — `GitWorkflowManager`
-- `api/utils/worker-registry.js` — `PIPELINE_CONFIGS`
+- `sidequest/core/server.ts` — `SidequestServer` base class
+- `sidequest/core/git-workflow-manager.ts` — `GitWorkflowManager`
+- `api/utils/worker-registry.ts` — `PIPELINE_CONFIGS`
 
 ## Overview
 
 Every pipeline consists of three files:
 
 ```
-sidequest/workers/<name>-worker.js        # 1. Worker (business logic)
-sidequest/pipeline-runners/<name>-pipeline.js  # 2. Pipeline runner (CLI + scheduling)
-api/utils/worker-registry.js              # 3. Registry entry (API integration)
+sidequest/workers/<name>-worker.ts        # 1. Worker (business logic)
+sidequest/pipeline-runners/<name>-pipeline.ts  # 2. Pipeline runner (CLI + scheduling)
+api/utils/worker-registry.ts              # 3. Registry entry (API integration)
 ```
 
 Plus an npm script entry in `package.json`.
 
 ## Step 1: Create the Worker
 
-**File:** `sidequest/workers/<name>-worker.js`
+**File:** `sidequest/workers/<name>-worker.ts`
 
 Extend `SidequestServer` and implement `runJobHandler(job)`.
 
 ```javascript
-import { SidequestServer } from '../core/server.js';
-import { createComponentLogger, logError } from '../utils/logger.js';
-import { config } from '../core/config.js';
+import { SidequestServer } from '../core/server.ts';
+import { createComponentLogger, logError } from '../utils/logger.ts';
+import { config } from '../core/config.ts';
 
 const logger = createComponentLogger('MyNewWorker');
 
@@ -81,13 +81,13 @@ super({
 });
 ```
 
-Override `_generateCommitMessage(job)` and `_generatePRContext(job)` to customise messages. See `schema-enhancement-worker.js` for an example.
+Override `_generateCommitMessage(job)` and `_generatePRContext(job)` to customise messages. See `schema-enhancement-worker.ts` for an example.
 
 **Option B — Manual multi-commit (advanced):**
 Disable the base-class flow and instantiate `GitWorkflowManager` yourself. Use this when your pipeline makes multiple intermediate commits.
 
 ```javascript
-import { GitWorkflowManager } from '../core/git-workflow-manager.js';
+import { GitWorkflowManager } from '../core/git-workflow-manager.ts';
 
 constructor(options = {}) {
   super({ ...options, jobType: 'my-pipeline', gitWorkflowEnabled: false });
@@ -123,20 +123,20 @@ async runJobHandler(job) {
 }
 ```
 
-See `bugfix-audit-worker.js` for a full example of Option B.
+See `bugfix-audit-worker.ts` for a full example of Option B.
 
 ## Step 2: Create the Pipeline Runner
 
-**File:** `sidequest/pipeline-runners/<name>-pipeline.js`
+**File:** `sidequest/pipeline-runners/<name>-pipeline.ts`
 
 The pipeline runner wraps the worker with event logging, polling, cron scheduling, and a CLI entry point.
 
 ```javascript
 #!/usr/bin/env node
-import { MyNewWorker } from '../workers/my-new-worker.js';
-import { config } from '../core/config.js';
-import { TIMEOUTS } from '../core/constants.js';
-import { createComponentLogger, logError, logStart } from '../utils/logger.js';
+import { MyNewWorker } from '../workers/my-new-worker.ts';
+import { config } from '../core/config.ts';
+import { TIMEOUTS } from '../core/constants.ts';
+import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import cron from 'node-cron';
 
 const logger = createComponentLogger('MyNewPipeline');
@@ -212,19 +212,19 @@ export { MyNewPipeline };
 
 | Pipeline | Runner | Notes |
 |----------|--------|-------|
-| schema-enhancement | `schema-enhancement-pipeline.js` | Single-commit git workflow (Option A) |
-| bugfix-audit | `bugfix-audit-pipeline.js` | Multi-commit git workflow (Option B) |
-| git-activity | `git-activity-pipeline.js` | No git workflow |
-| repo-cleanup | `repo-cleanup-pipeline.js` | Dry-run support |
+| schema-enhancement | `schema-enhancement-pipeline.ts` | Single-commit git workflow (Option A) |
+| bugfix-audit | `bugfix-audit-pipeline.ts` | Multi-commit git workflow (Option B) |
+| git-activity | `git-activity-pipeline.ts` | No git workflow |
+| repo-cleanup | `repo-cleanup-pipeline.ts` | Dry-run support |
 
 ## Step 3: Register in Worker Registry
 
-**File:** `api/utils/worker-registry.js`
+**File:** `api/utils/worker-registry.ts`
 
 1. Add the import at the top of the file:
 
 ```javascript
-import { MyNewWorker } from '../../sidequest/workers/my-new-worker.js';
+import { MyNewWorker } from '#sidequest/workers/my-new-worker.ts';
 ```
 
 2. Add an entry to `PIPELINE_CONFIGS` (before `'test-refactor'`):
@@ -253,8 +253,8 @@ This enables:
 Follow the existing naming convention (`namespace:action`):
 
 ```json
-"mypipeline:once": "doppler run -- node sidequest/pipeline-runners/my-new-pipeline.js --run-now",
-"mypipeline:schedule": "doppler run -- node sidequest/pipeline-runners/my-new-pipeline.js --recurring"
+"mypipeline:once": "doppler run -- node --strip-types sidequest/pipeline-runners/my-new-pipeline.ts --run-now",
+"mypipeline:schedule": "doppler run -- node --strip-types sidequest/pipeline-runners/my-new-pipeline.ts --recurring"
 ```
 
 All commands must be prefixed with `doppler run --` to inject secrets.
@@ -286,7 +286,7 @@ npm run mypipeline:once
 - [ ] Pipeline runner has CLI entry point with `import.meta.url` guard
 - [ ] Cron scheduling validates with `cron.validate()`
 - [ ] `waitForCompletion()` uses `TIMEOUTS.POLL_INTERVAL_MS`
-- [ ] Registered in `PIPELINE_CONFIGS` in `worker-registry.js`
+- [ ] Registered in `PIPELINE_CONFIGS` in `worker-registry.ts`
 - [ ] npm scripts added to `package.json` with `doppler run --` prefix
 - [ ] `npm run typecheck` passes
 - [ ] `npm test` passes (0 failures)
@@ -301,19 +301,19 @@ Pipelines registered in the worker registry automatically get:
 - **Structured logging** — Pino logger with component context (`createComponentLogger`)
 - **Retry with circuit breaker** — retryable errors (ETIMEDOUT, 5xx) auto-retry; non-retryable (ENOENT, 4xx) fail immediately
 
-If OpenTelemetry is configured, traces and metrics export to the configured collector (see `sidequest/core/config.js` for endpoint settings).
+If OpenTelemetry is configured, traces and metrics export to the configured collector (see `sidequest/core/config.ts` for endpoint settings).
 
 ## Reference
 
 | Resource | Path |
 |----------|------|
-| Base class | `sidequest/core/server.js` |
-| Git workflow manager | `sidequest/core/git-workflow-manager.js` |
-| Worker registry | `api/utils/worker-registry.js` |
-| Constants | `sidequest/core/constants.js` |
-| Config | `sidequest/core/config.js` |
-| Process IO | `packages/shared-process-io/src/index.js` |
-| Logger | `sidequest/utils/logger.js` |
-| Error classifier | `sidequest/pipeline-core/errors/error-classifier.js` |
+| Base class | `sidequest/core/server.ts` |
+| Git workflow manager | `sidequest/core/git-workflow-manager.ts` |
+| Worker registry | `api/utils/worker-registry.ts` |
+| Constants | `sidequest/core/constants.ts` |
+| Config | `sidequest/core/config.ts` |
+| Process IO | `packages/shared-process-io/src/index.ts` |
+| Logger | `sidequest/utils/logger.ts` |
+| Error classifier | `sidequest/pipeline-core/errors/error-classifier.ts` |
 | Worker registry architecture | `docs/architecture/WORKER_REGISTRY.md` |
 | Error handling architecture | `docs/architecture/ERROR_HANDLING.md` |

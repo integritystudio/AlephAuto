@@ -34,7 +34,7 @@ The AlephAuto system implements a sophisticated error handling strategy with thr
 
 ### Location
 
-`lib/errors/error-classifier.js`
+`sidequest/pipeline-core/errors/error-classifier.ts`
 
 ### Error Categories
 
@@ -135,7 +135,7 @@ Different error types have different suggested delays:
 ### Usage
 
 ```javascript
-import { isRetryable, getErrorInfo, classifyError } from '../lib/errors/error-classifier.js';
+import { isRetryable, getErrorInfo, classifyError } from '../sidequest/pipeline-core/errors/error-classifier.ts';
 
 // Check if error is retryable
 if (!isRetryable(error)) {
@@ -166,7 +166,7 @@ setTimeout(() => retry(), delay);
 
 ### Overview
 
-Located in `sidequest/pipeline-runners/duplicate-detection-pipeline.js` (lines 150-235), the retry logic implements exponential backoff with circuit breaker protection.
+Located in `sidequest/pipeline-runners/duplicate-detection-pipeline.ts` (lines 150-235), the retry logic implements exponential backoff with circuit breaker protection.
 
 ### Key Concepts
 
@@ -827,7 +827,7 @@ Archived logs are compressed with gzip and deleted after 30 days.
 
 The Doppler health monitor implements a circuit breaker pattern to detect and alert on stale Doppler cache, preventing production failures from outdated secrets.
 
-**Location:** `sidequest/pipeline-core/doppler-health-monitor.js`
+**Location:** `sidequest/pipeline-core/doppler-health-monitor.ts`
 
 ### How It Works
 
@@ -880,8 +880,8 @@ const health = await monitor.checkCacheHealth();
 ### Integration Pattern
 
 ```javascript
-// In api/server.js
-import { DopplerHealthMonitor } from '../sidequest/pipeline-core/doppler-health-monitor.js';
+// In api/server.ts
+import { DopplerHealthMonitor } from '../sidequest/pipeline-core/doppler-health-monitor.ts';
 
 const dopplerMonitor = new DopplerHealthMonitor();
 
@@ -953,7 +953,7 @@ try {
 
 The port manager utility provides automatic port conflict detection and resolution, preventing EADDRINUSE errors during server startup.
 
-**Location:** `api/utils/port-manager.js`
+**Location:** `api/utils/port-manager.ts`
 
 ### Key Features
 
@@ -965,7 +965,7 @@ The port manager utility provides automatic port conflict detection and resoluti
 ### Port Availability Check
 
 ```javascript
-import { isPortAvailable } from './api/utils/port-manager.js';
+import { isPortAvailable } from './api/utils/port-manager.ts';
 
 // Check if port 8080 is available
 const available = await isPortAvailable(8080, '0.0.0.0');
@@ -984,7 +984,7 @@ if (!available) {
 ### Automatic Port Fallback
 
 ```javascript
-import { setupServerWithPortFallback } from './api/utils/port-manager.js';
+import { setupServerWithPortFallback } from './api/utils/port-manager.ts';
 
 const actualPort = await setupServerWithPortFallback(httpServer, {
   preferredPort: 8080,
@@ -1005,7 +1005,7 @@ logger.info({ actualPort }, 'Server started on port');
 ### Process Cleanup (Optional)
 
 ```javascript
-import { killProcessOnPort } from './api/utils/port-manager.js';
+import { killProcessOnPort } from './api/utils/port-manager.ts';
 
 // Kill existing process on port 8080
 const killed = await killProcessOnPort(8080);
@@ -1024,7 +1024,7 @@ if (killed) {
 ### Graceful Shutdown
 
 ```javascript
-import { setupGracefulShutdown } from './api/utils/port-manager.js';
+import { setupGracefulShutdown } from './api/utils/port-manager.ts';
 
 setupGracefulShutdown(httpServer, {
   onShutdown: async (signal) => {
@@ -1061,8 +1061,8 @@ setupGracefulShutdown(httpServer, {
 ### Real-World Example
 
 ```javascript
-// api/server.js - Production pattern
-import { setupServerWithPortFallback, setupGracefulShutdown } from './api/utils/port-manager.js';
+// api/server.ts - Production pattern
+import { setupServerWithPortFallback, setupGracefulShutdown } from './api/utils/port-manager.ts';
 
 const PORT = config.apiPort || 8080;
 
@@ -1169,7 +1169,7 @@ const isRetryable = error?.retryable ?? false;
 
 ### Activity Feed Error Handling
 
-**Location:** `api/activity-feed.js`
+**Location:** `api/activity-feed.ts`
 
 The Activity Feed Manager implements comprehensive null-safe error handling:
 
@@ -1309,7 +1309,7 @@ Sentry.captureException(error || new Error('Unknown error'), {
 ### Real-World Null-Safe Pattern
 
 ```javascript
-// api/activity-feed.js - Production-ready error handling
+// api/activity-feed.ts - Production-ready error handling
 export class ActivityFeedManager {
   listenToWorker(worker) {
     worker.on('retry:created', (jobId, attempt, error) => {
@@ -1367,18 +1367,18 @@ export class ActivityFeedManager {
 
 ## Additional Resources
 
-- Error classifier source: `lib/errors/error-classifier.js`
-- Retry logic: `sidequest/pipeline-runners/duplicate-detection-pipeline.js` (lines 150-235)
-- Retry metrics: `sidequest/pipeline-runners/duplicate-detection-pipeline.js` (lines 539-585)
+- Error classifier source: `sidequest/pipeline-core/errors/error-classifier.ts`
+- Retry logic: `sidequest/pipeline-runners/duplicate-detection-pipeline.ts` (lines 150-235)
+- Retry metrics: `sidequest/pipeline-runners/duplicate-detection-pipeline.ts` (lines 539-585)
 - Dashboard UI: `public/index.html` (retry section)
-- Sentry setup: `sidequest/logger.js`
-- Doppler health monitor: `sidequest/pipeline-core/doppler-health-monitor.js`
-- Port manager: `api/utils/port-manager.js`
-- Activity feed: `api/activity-feed.js`
+- Sentry setup: `sidequest/utils/logger.ts`
+- Doppler health monitor: `sidequest/pipeline-core/doppler-health-monitor.ts`
+- Port manager: `api/utils/port-manager.ts`
+- Activity feed: `api/activity-feed.ts`
 
 ---
 
-**Last Updated:** 2026-01-30
+**Last Updated:** 2026-03-04
 **Circuit Breaker Limit:** 5 attempts
 **Default Max Retries:** 2 attempts
 **Default Base Delay:** 5 seconds
@@ -1391,7 +1391,7 @@ export class ActivityFeedManager {
 
 The database persistence layer implements a degraded mode pattern with automatic recovery. When disk persistence fails (e.g., disk full, permissions), the system continues operating in-memory while attempting recovery.
 
-**Location:** `sidequest/core/database.js`
+**Location:** `sidequest/core/database.ts`
 
 ### Degraded Mode Entry
 
@@ -1431,7 +1431,7 @@ Max attempts: 10
 Query database health status:
 
 ```javascript
-import { getHealthStatus } from './sidequest/core/database.js';
+import { getHealthStatus } from './sidequest/core/database.ts';
 
 const health = getHealthStatus();
 // Returns:
@@ -1483,7 +1483,7 @@ writeQueue = ['job-123', 'job-456', ...]
 
 All API endpoints return standardized error responses using the `ApiError` utility.
 
-**Location:** `api/utils/api-error.js`
+**Location:** `api/utils/api-error.ts`
 
 ### Error Response Format
 
@@ -1513,7 +1513,7 @@ All API endpoints return standardized error responses using the `ApiError` utili
 ### Usage
 
 ```javascript
-import { sendError, sendNotFoundError, ApiError } from '../utils/api-error.js';
+import { sendError, sendNotFoundError, ApiError } from '../utils/api-error.ts';
 
 // Simple error
 sendError(res, 'INVALID_REQUEST', 'Missing required field', 400);

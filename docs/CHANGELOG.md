@@ -6,6 +6,42 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.23] - 2026-03-09
+
+See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2323---2026-03-09)
+
+---
+
+## [2.3.22] - 2026-03-08
+
+See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2322---2026-03-08)
+
+---
+
+## [2.3.21] - 2026-03-08
+
+See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2321---2026-03-08)
+
+---
+
+## [2.3.20] - 2026-03-09
+
+See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2320---2026-03-09)
+
+---
+
+## [2.3.19] - 2026-03-09
+
+See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2319---2026-03-09)
+
+---
+
+## [2.3.18] - 2026-03-09
+
+See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2318---2026-03-09)
+
+---
+
 ## [1.9.0] - 2026-02-25
 
 ### Summary

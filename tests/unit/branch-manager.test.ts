@@ -11,7 +11,7 @@ import { execSync } from 'child_process';
  * @param {string} name - Repository name
  * @returns {Promise<{path: string, cleanup: () => Promise<void>}>}
  */
-async function createRealGitRepo(name = 'test-repo') {
+async function createRealGitRepo(name = 'test-repo'): Promise<{ path: string; cleanup: () => Promise<void> }> {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), `branch-manager-${name}-`));
 
   // Initialize real git repo

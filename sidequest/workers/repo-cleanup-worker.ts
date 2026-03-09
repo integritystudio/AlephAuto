@@ -16,12 +16,13 @@ import { SidequestServer, type Job, type SidequestServerOptions } from '../core/
 import { generateReport } from '../utils/report-generator.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
-import { execFile } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import os from 'os';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
+import { BYTES_PER_KB, NUMBER_BASE } from '../core/constants.ts';
 
 const execFileAsync = promisify(execFile);
 const logger = createComponentLogger('RepoCleanupWorker');
@@ -91,6 +92,9 @@ export class RepoCleanupWorker extends SidequestServer {
   baseDir: string;
   scriptPath: string;
 
+  /**
+   * constructor.
+   */
   constructor(options: RepoCleanupWorkerOptions = {}) {
     super({
       ...options,
@@ -214,7 +218,7 @@ export class RepoCleanupWorker extends SidequestServer {
       try {
         const { stdout } = await execFileAsync('find', [
           targetDir, '-maxdepth', '3', '-type', 'd', '-name', pattern
-        ], { maxBuffer: 10 * 1024 * 1024 });
+        ], { maxBuffer: 10 * BYTES_PER_KB * BYTES_PER_KB });
         const dirs = stdout.trim().split('\n').filter(Boolean);
         categories.venvs.push(...dirs);
       } catch {
@@ -228,7 +232,7 @@ export class RepoCleanupWorker extends SidequestServer {
       try {
         const { stdout } = await execFileAsync('find', [
           targetDir, '-name', pattern
-        ], { maxBuffer: 10 * 1024 * 1024 });
+        ], { maxBuffer: 10 * BYTES_PER_KB * BYTES_PER_KB });
         const files = stdout.trim().split('\n').filter(Boolean);
         categories.tempFiles.push(...files);
       } catch {
@@ -279,20 +283,49 @@ export class RepoCleanupWorker extends SidequestServer {
    * Run actual cleanup using bash script
    */
   private async runCleanup(targetDir: string): Promise<CleanupResult> {
-    // Run cleanup non-interactively by piping "yes"
-    const { stdout, stderr } = await execFileAsync('bash', [
-      '-c',
-      `echo "yes" | ${this.scriptPath} "${targetDir}"`
-    ], { maxBuffer: 10 * 1024 * 1024 });
+    return await new Promise<CleanupResult>((resolve, reject) => {
+      const proc = spawn(this.scriptPath, [targetDir], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: process.env,
+      });
 
-    // Parse output to extract results
-    const result = this.parseCleanupOutput(stdout);
+      let stdout = '';
+      let stderr = '';
 
-    if (stderr) {
-      logger.warn({ stderr }, 'Cleanup script stderr');
-    }
+      proc.stdout.on('data', (chunk) => {
+        stdout += String(chunk);
+      });
+      proc.stderr.on('data', (chunk) => {
+        stderr += String(chunk);
+      });
 
-    return result;
+      proc.on('error', (error) => {
+        reject(error);
+      });
+
+      proc.on('close', (code) => {
+        if (stderr) {
+          logger.warn({ stderr }, 'Cleanup script stderr');
+        }
+        if (code !== 0) {
+          const error = new Error(`Cleanup script exited with code ${code}`) as Error & {
+            code: number | null;
+            stdout: string;
+            stderr: string;
+          };
+          error.code = code;
+          error.stdout = stdout;
+          error.stderr = stderr;
+          reject(error);
+          return;
+        }
+
+        resolve(this.parseCleanupOutput(stdout));
+      });
+
+      proc.stdin.write('yes\n');
+      proc.stdin.end();
+    });
   }
 
   /**
@@ -309,19 +342,19 @@ export class RepoCleanupWorker extends SidequestServer {
 
     // Extract counts from output
     const venvMatch = output.match(/Removed (\d+) virtual environment/);
-    if (venvMatch) summary.venvs = parseInt(venvMatch[1], 10);
+    if (venvMatch) summary.venvs = parseInt(venvMatch[1], NUMBER_BASE.DECIMAL);
 
     const tempMatch = output.match(/Removed (\d+) temporary file/);
-    if (tempMatch) summary.tempFiles = parseInt(tempMatch[1], 10);
+    if (tempMatch) summary.tempFiles = parseInt(tempMatch[1], NUMBER_BASE.DECIMAL);
 
     const outputMatch = output.match(/Removed (\d+) output file/);
-    if (outputMatch) summary.outputFiles = parseInt(outputMatch[1], 10);
+    if (outputMatch) summary.outputFiles = parseInt(outputMatch[1], NUMBER_BASE.DECIMAL);
 
     const buildMatch = output.match(/Removed (\d+) build artifact/);
-    if (buildMatch) summary.buildArtifacts = parseInt(buildMatch[1], 10);
+    if (buildMatch) summary.buildArtifacts = parseInt(buildMatch[1], NUMBER_BASE.DECIMAL);
 
     const dirMatch = output.match(/Removed (\d+) redundant director/);
-    if (dirMatch) summary.redundantDirs = parseInt(dirMatch[1], 10);
+    if (dirMatch) summary.redundantDirs = parseInt(dirMatch[1], NUMBER_BASE.DECIMAL);
 
     const totalItems = Object.values(summary).reduce((sum, val) => sum + val, 0);
 

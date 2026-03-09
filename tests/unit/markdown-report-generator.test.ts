@@ -12,8 +12,12 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { MarkdownReportGenerator } from '../../sidequest/pipeline-core/reports/markdown-report-generator.ts';
+import { TestScoreFixtures } from '../constants/test-score-constants.ts';
 
 // Test fixtures
+/**
+ * createIntraProjectScanResult.
+ */
 const createIntraProjectScanResult = () => ({
   scan_type: 'intra-project',
   repository_info: {
@@ -62,7 +66,7 @@ const createIntraProjectScanResult = () => ({
       suggestion_id: 'sug-001',
       strategy: 'local_util',
       target_location: 'src/utils/shared.js',
-      impact_score: 80,
+      impact_score: TestScoreFixtures.HIGH_IMPACT_SCORE,
       roi_score: 90,
       complexity: 'simple',
       migration_risk: 'low',
@@ -83,7 +87,7 @@ const createIntraProjectScanResult = () => ({
       suggestion_id: 'sug-002',
       strategy: 'shared_package',
       target_location: '@org/common-utils',
-      impact_score: 70,
+      impact_score: TestScoreFixtures.GOOD_IMPACT_SCORE,
       roi_score: 60,
       complexity: 'moderate',
       migration_risk: 'medium',
@@ -99,6 +103,9 @@ const createIntraProjectScanResult = () => ({
   }
 });
 
+/**
+ * createInterProjectScanResult.
+ */
 const createInterProjectScanResult = () => ({
   scan_type: 'inter-project',
   metrics: {
