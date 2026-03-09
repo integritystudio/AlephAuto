@@ -6,6 +6,32 @@
  */
 
 import { RepomixWorker } from '../../sidequest/workers/repomix-worker.ts';
+async function checkNpxRepomix() {
+  const { execSync } = await import('child_process');
+  const version = execSync('npx repomix --version', {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+  }).trim();
+  console.log(`✅ repomix version: ${version}\n`);
+}
+
+async function checkErrorLogs() {
+  const fs = await import('fs/promises');
+  const path = await import('path');
+  try {
+    const files = await fs.readdir(path.join(process.cwd(), 'logs'));
+    const errorFiles = files.filter(f => f.endsWith('.error.json'));
+    if (errorFiles.length === 0) {
+      console.log('✅ No error log files found\n');
+    } else {
+      console.log(`⚠️  Found ${errorFiles.length} existing error files (from before fix)`);
+      console.log('   These should not increase after running repomix jobs\n');
+    }
+  } catch (_err) {
+    console.log('⚠️  Could not check logs directory (might not exist yet)\n');
+  }
+}
+
 /**
  * testRepomixFix.
  */
@@ -13,47 +39,20 @@ async function testRepomixFix() {
   console.log('🔍 Testing Repomix Fix...\n');
 
   try {
-    // Test 1: Verify RepomixWorker can be instantiated
     console.log('Test 1: Instantiating RepomixWorker...');
-    const _worker = new RepomixWorker({
-      outputBaseDir: './test-output',
-      maxConcurrent: 1,
-    });
+    const _worker = new RepomixWorker({ outputBaseDir: './test-output', maxConcurrent: 1 });
     console.log('✅ RepomixWorker instantiated successfully');
     console.log('   Pre-flight check passed: repomix is available\n');
 
-    // Test 2: Verify repomix is callable via npx
     console.log('Test 2: Verifying repomix command via npx...');
-    const { execSync } = await import('child_process');
-    const version = execSync('npx repomix --version', {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
-    console.log(`✅ repomix version: ${version}\n`);
+    await checkNpxRepomix();
 
-    // Test 3: Verify no error logs for spawn repomix ENOENT
     console.log('Test 3: Checking for spawn ENOENT errors in logs...');
-    const fs = await import('fs/promises');
-    const path = await import('path');
+    await checkErrorLogs();
 
-    try {
-      const logDir = path.join(process.cwd(), 'logs');
-      const files = await fs.readdir(logDir);
-      const errorFiles = files.filter(f => f.endsWith('.error.json'));
-
-      if (errorFiles.length === 0) {
-        console.log('✅ No error log files found\n');
-      } else {
-        console.log(`⚠️  Found ${errorFiles.length} existing error files (from before fix)`);
-        console.log('   These should not increase after running repomix jobs\n');
-      }
-    } catch (_err) {
-      console.log('⚠️  Could not check logs directory (might not exist yet)\n');
-    }
-
-    console.log('=' .repeat(50));
+    console.log('='.repeat(50));
     console.log('✨ All tests passed!');
-    console.log('=' .repeat(50));
+    console.log('='.repeat(50));
     console.log('\nThe repomix fix is working correctly:');
     console.log('  ✓ repomix installed as npm dependency');
     console.log('  ✓ RepomixWorker uses npx repomix');
