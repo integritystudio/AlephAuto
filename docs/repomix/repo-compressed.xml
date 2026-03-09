@@ -301,7 +301,9 @@ sidequest/
     directory-scanner.test.ts
     directory-scanner.ts
     doppler-resilience.ts
+    execution-helpers.ts
     gitignore-repomix-updater.ts
+    html-report-utils.ts
     logger.ts
     pipeline-names.ts
     plugin-manager.test.ts
@@ -1991,237 +1993,7 @@ kill_timeout: 15000  // Allow 15s for graceful shutdown to prevent SQLite lock c
 ⋮----
 // Pre-setup commands (first-time deployment)
 ⋮----
-// Environment</file><file path="config/scan-repositories.json">{
-  &quot;$schema&quot;: &quot;./scan-repositories.schema.json&quot;,
-  &quot;version&quot;: &quot;1.0.0&quot;,
-  &quot;scanConfig&quot;: {
-    &quot;enabled&quot;: true,
-    &quot;schedule&quot;: &quot;0 2 * * *&quot;,
-    &quot;maxRepositoriesPerNight&quot;: 10,
-    &quot;maxConcurrentScans&quot;: 3,
-    &quot;scanTimeout&quot;: 600000,
-    &quot;retryAttempts&quot;: 2,
-    &quot;retryDelay&quot;: 60000
-  },
-  &quot;cacheConfig&quot;: {
-    &quot;enabled&quot;: true,
-    &quot;provider&quot;: &quot;redis&quot;,
-    &quot;ttl&quot;: 2592000,
-    &quot;invalidateOnChange&quot;: true,
-    &quot;trackGitCommits&quot;: true,
-    &quot;trackUncommittedChanges&quot;: true
-  },
-  &quot;repositories&quot;: [
-    {
-      &quot;name&quot;: &quot;sidequest&quot;,
-      &quot;path&quot;: &quot;/Users/alyshialedlie/code/jobs/sidequest&quot;,
-      &quot;priority&quot;: &quot;high&quot;,
-      &quot;scanFrequency&quot;: &quot;daily&quot;,
-      &quot;enabled&quot;: true,
-      &quot;tags&quot;: [
-        &quot;internal&quot;,
-        &quot;job-management&quot;
-      ],
-      &quot;excludePatterns&quot;: [
-        &quot;*.test.js&quot;,
-        &quot;*.spec.js&quot;
-      ],
-      &quot;lastScannedAt&quot;: &quot;2026-03-09T07:00:39.037Z&quot;,
-      &quot;scanHistory&quot;: [
-        {
-          &quot;timestamp&quot;: &quot;2026-03-09T07:00:39.037Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 6.327,
-          &quot;duplicatesFound&quot;: 0
-        },
-        {
-          &quot;timestamp&quot;: &quot;2026-02-27T08:00:09.621Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 3.892,
-          &quot;duplicatesFound&quot;: 0
-        },
-        {
-          &quot;timestamp&quot;: &quot;2026-02-25T07:01:50.795Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 109.69,
-          &quot;duplicatesFound&quot;: 0
-        },
-        {
-          &quot;timestamp&quot;: &quot;2026-02-25T07:01:04.057Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 63.23,
-          &quot;duplicatesFound&quot;: 3
-        },
-        {
-          &quot;timestamp&quot;: &quot;2026-02-24T07:03:43.600Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 221.818,
-          &quot;duplicatesFound&quot;: 0
-        },
-        {
-          &quot;timestamp&quot;: &quot;2026-02-24T07:02:09.149Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 127.361,
-          &quot;duplicatesFound&quot;: 3
-        },
-        {
-          &quot;timestamp&quot;: &quot;2026-02-23T07:01:42.203Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 101,
-          &quot;duplicatesFound&quot;: 0
-        },
-        {
-          &quot;timestamp&quot;: &quot;2026-02-23T07:01:09.459Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 68.166,
-          &quot;duplicatesFound&quot;: 27
-        },
-        {
-          &quot;timestamp&quot;: &quot;2026-02-22T07:01:43.324Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 102.727,
-          &quot;duplicatesFound&quot;: 342
-        },
-        {
-          &quot;timestamp&quot;: &quot;2026-02-22T07:01:20.353Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 79.844,
-          &quot;duplicatesFound&quot;: 131
-        }
-      ]
-    },
-    {
-      &quot;name&quot;: &quot;pipeline-core&quot;,
-      &quot;path&quot;: &quot;/Users/alyshialedlie/code/jobs/sidequest/pipeline-core&quot;,
-      &quot;priority&quot;: &quot;high&quot;,
-      &quot;scanFrequency&quot;: &quot;daily&quot;,
-      &quot;enabled&quot;: true,
-      &quot;tags&quot;: [
-        &quot;internal&quot;,
-        &quot;duplicate-detection&quot;
-      ],
-      &quot;excludePatterns&quot;: [
-        &quot;*.test.js&quot;,
-        &quot;*.spec.js&quot;
-      ],
-      &quot;lastScannedAt&quot;: &quot;2026-03-09T07:00:39.039Z&quot;,
-      &quot;scanHistory&quot;: [
-        {
-          &quot;timestamp&quot;: &quot;2026-03-09T07:00:39.039Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 6.327,
-          &quot;duplicatesFound&quot;: 0
-        },
-        {
-          &quot;timestamp&quot;: &quot;2026-02-27T08:00:09.622Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 3.892,
-          &quot;duplicatesFound&quot;: 0
-        },
-        {
-          &quot;timestamp&quot;: &quot;2026-02-25T07:01:50.807Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 109.69,
-          &quot;duplicatesFound&quot;: 0
-        },
-        {
-          &quot;timestamp&quot;: &quot;2026-02-25T07:01:02.623Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 61.706,
-          &quot;duplicatesFound&quot;: 0
-        },
-        {
-          &quot;timestamp&quot;: &quot;2026-02-24T07:03:43.723Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 221.818,
-          &quot;duplicatesFound&quot;: 0
-        },
-        {
-          &quot;timestamp&quot;: &quot;2026-02-24T07:02:06.915Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 124.991,
-          &quot;duplicatesFound&quot;: 0
-        },
-        {
-          &quot;timestamp&quot;: &quot;2026-02-23T07:01:42.238Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 101,
-          &quot;duplicatesFound&quot;: 0
-        },
-        {
-          &quot;timestamp&quot;: &quot;2026-02-23T07:01:03.034Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 61.838,
-          &quot;duplicatesFound&quot;: 0
-        },
-        {
-          &quot;timestamp&quot;: &quot;2026-02-22T07:01:43.326Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 102.727,
-          &quot;duplicatesFound&quot;: 342
-        },
-        {
-          &quot;timestamp&quot;: &quot;2026-02-22T07:00:55.972Z&quot;,
-          &quot;status&quot;: &quot;success&quot;,
-          &quot;duration&quot;: 55.449,
-          &quot;duplicatesFound&quot;: 60
-        }
-      ]
-    },
-    {
-      &quot;name&quot;: &quot;tests&quot;,
-      &quot;path&quot;: &quot;/Users/alyshialedlie/code/jobs/tests&quot;,
-      &quot;priority&quot;: &quot;low&quot;,
-      &quot;scanFrequency&quot;: &quot;weekly&quot;,
-      &quot;enabled&quot;: false,
-      &quot;tags&quot;: [
-        &quot;internal&quot;,
-        &quot;testing&quot;
-      ],
-      &quot;excludePatterns&quot;: [],
-      &quot;_comment&quot;: &quot;Disabled: Test files are intentionally similar and not useful to scan for duplicates&quot;
-    }
-  ],
-  &quot;repositoryGroups&quot;: [
-    {
-      &quot;name&quot;: &quot;internal-tools&quot;,
-      &quot;description&quot;: &quot;Internal job management and duplicate detection tools&quot;,
-      &quot;repositories&quot;: [
-        &quot;sidequest&quot;,
-        &quot;pipeline-core&quot;
-      ],
-      &quot;scanType&quot;: &quot;inter-project&quot;,
-      &quot;enabled&quot;: true
-    }
-  ],
-  &quot;scanDefaults&quot;: {
-    &quot;languages&quot;: [
-      &quot;javascript&quot;,
-      &quot;typescript&quot;,
-      &quot;python&quot;
-    ],
-    &quot;includeSourceCode&quot;: true,
-    &quot;includeCodeBlocks&quot;: true,
-    &quot;generateReports&quot;: true,
-    &quot;reportFormats&quot;: [
-      &quot;html&quot;,
-      &quot;markdown&quot;,
-      &quot;json&quot;,
-      &quot;summary&quot;
-    ]
-  },
-  &quot;notifications&quot;: {
-    &quot;enabled&quot;: true,
-    &quot;channels&quot;: [
-      &quot;sentry&quot;,
-      &quot;log&quot;
-    ],
-    &quot;onSuccess&quot;: false,
-    &quot;onFailure&quot;: true,
-    &quot;onHighImpactDuplicates&quot;: true,
-    &quot;highImpactThreshold&quot;: 75
-  }
-}</file><file path="config/scan-repositories.schema.json">{
+// Environment</file><file path="config/scan-repositories.schema.json">{
   &quot;$schema&quot;: &quot;http://json-schema.org/draft-07/schema#&quot;,
   &quot;title&quot;: &quot;Scan Repositories Configuration&quot;,
   &quot;description&quot;: &quot;Configuration for automated duplicate detection scanning&quot;,
@@ -6044,7 +5816,8 @@ import fs from &apos;fs/promises&apos;;
 import path from &apos;path&apos;;
 import { createComponentLogger, logError, logWarn } from &apos;../utils/logger.ts&apos;;
 import { safeErrorMessage } from &apos;../pipeline-core/utils/error-helpers.ts&apos;;
-import { GitWorkflowManager } from &apos;./git-workflow-manager.ts&apos;;
+import { BranchManager } from &apos;../pipeline-core/git/branch-manager.ts&apos;;
+import type { BranchManagerOptions, JobBranchContext, PRContext } from &apos;../pipeline-core/git/branch-manager.ts&apos;;
 import { jobRepository } from &apos;./job-repository.ts&apos;;
 import { CONCURRENCY, JOB_EVENTS, RETRY, RETRY_EVENTS } from &apos;./constants.ts&apos;;
 import { TIME_MS } from &apos;./units.ts&apos;;
@@ -9699,6 +9472,7 @@ roi = calculate_roi_score(impact, hours)
 def main()</file><file path="sidequest/pipeline-core/reports/html-report-generator.ts">import { saveGeneratedReport } from &apos;../utils/index.ts&apos;;
 import { REPORT_SCORE_CLASS_THRESHOLDS } from &apos;../../core/score-thresholds.ts&apos;;
 import { formatDuration } from &apos;../../utils/time-helpers.ts&apos;;
+import { escapeHtml, getBaseStyles } from &apos;../../utils/html-report-utils.ts&apos;;
 import type { ScanResult } from &apos;./json-report-generator.ts&apos;;
 export interface HTMLReportOptions {
   title?: string;
@@ -9723,7 +9497,7 @@ private static _generateSuggestions(scanResult: ScanResult, isInterProject: bool
    */
 private static _generateFooter(): string
 /**
-   * Get CSS styles
+   * Get CSS styles — extends base styles with scan-report-specific additions.
    * @private
    */
 private static _getStyles(): string
@@ -9733,8 +9507,7 @@ private static _getStyles(): string
    */
 private static _getScripts(): string
 private static _getImpactClass(score: number): string
-private static _getROIClass(score: number): string
-private static _escapeHtml(text: string): string</file><file path="sidequest/pipeline-core/reports/json-report-generator.ts">import { saveGeneratedReport } from &apos;../utils/index.ts&apos;;
+private static _getROIClass(score: number): string</file><file path="sidequest/pipeline-core/reports/json-report-generator.ts">import { saveGeneratedReport } from &apos;../utils/index.ts&apos;;
 import type { MigrationStep } from &apos;../types/migration-types.ts&apos;;
 export interface ScanMetadata {
   repository_count?: number;
@@ -12947,176 +12720,11 @@ protected scheduleCron(
     cronSchedule: string,
     runFn: () =&gt; Promise&lt;unknown&gt;
 ): cron.ScheduledTask
-getStats(): JobStats</file><file path="sidequest/pipeline-runners/bugfix-audit-pipeline.ts">import { BugfixAuditWorker } from &apos;../workers/bugfix-audit-worker.ts&apos;;
-import { config } from &apos;../core/config.ts&apos;;
-import { JOB_EVENTS } from &apos;../core/constants.ts&apos;;
-import { TIME_MS } from &apos;../core/units.ts&apos;;
-import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;
-import { BasePipeline, type Job, type JobStats } from &apos;./base-pipeline.ts&apos;;
-import { realpathSync } from &apos;fs&apos;;
-import fs from &apos;fs/promises&apos;;
-import path from &apos;path&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-⋮----
-interface BugfixAuditOptions {
-  maxConcurrent?: number;
-  activeDocsDir?: string;
-  outputBaseDir?: string;
-  gitBaseBranch?: string;
-  gitBranchPrefix?: string;
-  gitDryRun?: boolean;
-  [key: string]: unknown;
-}
-interface JobData {
-  projectName: string;
-  markdownFile: string;
-  repoPath: string;
-}
-interface JobResult {
-  pullRequestUrl?: string;
-}
-interface RunResult {
-  status: string;
-  jobsCreated?: number;
-  duration?: number;
-  active?: number;
-  queued?: number;
-  total?: number;
-  completed?: number;
-  failed?: number;
-}
-class BugfixAuditPipeline extends BasePipeline&lt;BugfixAuditWorker&gt;
-⋮----
-constructor(options: BugfixAuditOptions =
-private setupEventListeners(): void
-async runBugfixAudit(): Promise&lt;RunResult&gt;
-private async saveRunSummary(stats: JobStats, duration: number, jobs: Job[]): Promise&lt;void&gt;
-scheduleAudits(cronSchedule: string = &apos;0 1 * * *&apos;)
-scheduleTonight(): void
-⋮----
-function isDirectExecution(): boolean</file><file path="sidequest/pipeline-runners/claude-health-pipeline.ts">import { ClaudeHealthWorker } from &apos;../workers/claude-health-worker.ts&apos;;
-import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;
-import { config } from &apos;../core/config.ts&apos;;
-import { BYTES_PER_KB, JOB_EVENTS, MAX_SCORE } from &apos;../core/constants.ts&apos;;
-import { HEALTH_SCORE_THRESHOLDS } from &apos;../core/score-thresholds.ts&apos;;
-import { BasePipeline, type Job, type JobStats } from &apos;./base-pipeline.ts&apos;;
-import path from &apos;path&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-⋮----
-interface HealthCheckOptions {
-  detailed?: boolean;
-  validateConfig?: boolean;
-  checkPerformance?: boolean;
-  analyzePlugins?: boolean;
-  [key: string]: unknown;
-}
-interface PipelineOptions {
-  detailed: boolean;
-  skipValidation: boolean;
-  skipPerformance: boolean;
-  skipPlugins: boolean;
-}
-interface Recommendation {
-  priority: string;
-  type: string;
-  message: string;
-  action: string;
-  details?: Array&lt;{
-    category?: string;
-    plugins?: string[];
-    suggestion?: string;
-  }&gt;;
-}
-interface HealthCheckResult {
-  summary: {
-    healthScore: number;
-    status: string;
-    message: string;
-    criticalIssues: number;
-    warnings: number;
-  };
-  checks: {
-    components?: {
-      skills: number;
-      agents: number;
-      commands: number;
-      activeTasks: number;
-      archivedTasks: number;
-    };
-    hooks?: {
-      executableHooks: number;
-      totalHooks: number;
-      registeredHooks: number;
-      hooks?: Array&lt;{ name: string; executable: boolean }&gt;;
-    };
-    plugins?: {
-      totalPlugins: number;
-      duplicateCategories?: Array&lt;{
-        category: string;
-        count: number;
-        plugins: string[];
-      }&gt;;
-    };
-    environment?: {
-      nodeVersion?: string;
-      npmVersion?: string;
-      direnv?: boolean;
-      direnvAllowed?: boolean;
-    };
-    configuration?: {
-      settingsJson: { valid: boolean };
-      skillRulesJson: { valid: boolean };
-      packageJson: { valid: boolean };
-      envrc: { exists: boolean };
-    };
-    performance?: {
-      logExists: boolean;
-      logSize: number;
-      totalEntries: number;
-      slowHooks: number;
-      failures: number;
-      slowHookDetails?: Array&lt;{ hook: string; duration: number }&gt;;
-    };
-  };
-  recommendations: Recommendation[];
-  duration: number;
-}
-class ClaudeHealthPipeline extends BasePipeline&lt;ClaudeHealthWorker&gt;
-⋮----
-constructor(options: Record&lt;string, unknown&gt; =
-private setupEventListeners(): void
-private displayResults(result: HealthCheckResult): void
-async runHealthCheck(options: HealthCheckOptions =
-scheduleHealthChecks(cronSchedule: string)
-⋮----
-function printSummary(result: HealthCheckResult): void
-⋮----
-// Environment
-⋮----
-// Summary statistics
-⋮----
-/**
- * printRecommendations.
- */
-function printRecommendations(recommendations: Recommendation[]): void
-/**
- * printDetailedChecks.
- */
-function printDetailedChecks(checks: HealthCheckResult[&apos;checks&apos;]): void
-⋮----
-// Hooks
-⋮----
-// Plugins
-⋮----
-// Performance
-⋮----
-/**
- * getScoreColor.
- */
-function getScoreColor(score: number): string
-function formatBytes(bytes: number): string
-function isDirectExecution(): boolean
-async function runCli(): Promise&lt;void&gt;</file><file path="sidequest/pipeline-runners/collect_git_activity.py">def _load_git_report_config() -&gt; dict
+protected setupDefaultEventListeners(
+    logger: Logger,
+    handlers?: {
+onCreated?: (job: Job)
+getStats(): JobStats</file><file path="sidequest/pipeline-runners/collect_git_activity.py">def _load_git_report_config() -&gt; dict
 ⋮----
 config_path = Path(__file__).parent.parent / &quot;git-report-config.json&quot;
 ⋮----
@@ -13381,32 +12989,7 @@ wants_json = args.output_format in (&quot;json&quot;, &quot;both&quot;) or bool(
 json_path = (
 ⋮----
 # Generate visualizations unless explicitly disabled.
-output_dir = _resolve_output_dir(args)</file><file path="sidequest/pipeline-runners/dashboard-populate-pipeline.ts">import { DashboardPopulateWorker } from &apos;../workers/dashboard-populate-worker.ts&apos;;
-import { createComponentLogger, logError } from &apos;../utils/logger.ts&apos;;
-⋮----
-import cron from &apos;node-cron&apos;;
-import type { Job } from &apos;../core/server.ts&apos;;
-import { JOB_EVENTS, NUMBER_BASE, TIMEOUTS } from &apos;../core/constants.ts&apos;;
-import path from &apos;path&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-⋮----
-interface CliOptions {
-  seed: boolean;
-  dryRun: boolean;
-  skipJudge: boolean;
-  skipSync: boolean;
-  limit: number | undefined;
-}
-⋮----
-function waitForJobTerminalStatus(worker: DashboardPopulateWorker, jobId: string): Promise&lt;void&gt;
-⋮----
-const cleanup = () =&gt;
-const rejectWithFailure = (job: Job) =&gt;
-const onCompleted = (job: Job) =&gt;
-const onFailed = (job: Job) =&gt;
-⋮----
-async function main(): Promise&lt;void&gt;
-function isDirectExecution(): boolean</file><file path="sidequest/pipeline-runners/direct-execution-path-guard.test.ts">import test from &apos;node:test&apos;;
+output_dir = _resolve_output_dir(args)</file><file path="sidequest/pipeline-runners/direct-execution-path-guard.test.ts">import test from &apos;node:test&apos;;
 import assert from &apos;node:assert/strict&apos;;
 import fs from &apos;fs/promises&apos;;
 import os from &apos;os&apos;;
@@ -13421,126 +13004,10 @@ interface ScriptRunResult {
   timedOut: boolean;
 }
 ⋮----
-async function runViaSymlinkWithSpace(scriptRelativePath: string): Promise&lt;ScriptRunResult&gt;</file><file path="sidequest/pipeline-runners/duplicate-detection-pipeline.ts">import { DuplicateDetectionWorker } from &apos;../workers/duplicate-detection-worker.ts&apos;;
-import { createComponentLogger } from &apos;../utils/logger.ts&apos;;
-import { config } from &apos;../core/config.ts&apos;;
-import { TIMEOUTS } from &apos;../core/constants.ts&apos;;
-import cron from &apos;node-cron&apos;;
-⋮----
-import { realpathSync } from &apos;fs&apos;;
-import path from &apos;path&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-import type { Logger } from &apos;pino&apos;;
-⋮----
-async function main(): Promise&lt;void&gt;
-function isDirectExecution(): boolean</file><file path="sidequest/pipeline-runners/git-activity-pipeline.test.ts">import test from &apos;node:test&apos;;
+async function runViaSymlinkWithSpace(scriptRelativePath: string): Promise&lt;ScriptRunResult&gt;</file><file path="sidequest/pipeline-runners/git-activity-pipeline.test.ts">import test from &apos;node:test&apos;;
 import assert from &apos;node:assert/strict&apos;;
 import { GIT_ACTIVITY } from &apos;../core/constants.ts&apos;;
-import { parseGitActivityCliArgs, selectGitActivityJob } from &apos;./git-activity-pipeline.ts&apos;;</file><file path="sidequest/pipeline-runners/git-activity-pipeline.ts">import { GitActivityWorker } from &apos;../workers/git-activity-worker.ts&apos;;
-import { config } from &apos;../core/config.ts&apos;;
-import { GIT_ACTIVITY, JOB_EVENTS, NUMBER_BASE } from &apos;../core/constants.ts&apos;;
-import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;
-import { BasePipeline, type Job, type JobStats } from &apos;./base-pipeline.ts&apos;;
-import { realpathSync } from &apos;fs&apos;;
-import path from &apos;path&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-⋮----
-export interface ReportOptions {
-  reportType?: string;
-  sinceDate?: string;
-  untilDate?: string;
-  days?: number;
-}
-⋮----
-type DefaultReportType =
-  | typeof GIT_ACTIVITY.WEEKLY_REPORT_TYPE
-  | typeof GIT_ACTIVITY.MONTHLY_REPORT_TYPE;
-⋮----
-function isDefaultReportType(reportType: string | undefined): reportType is DefaultReportType
-interface ParsedCliArgs {
-  options: ReportOptions;
-  runNow: boolean;
-  errors: string[];
-}
-⋮----
-type JobSelectionStrategy =
-  (typeof JOB_SELECTION_STRATEGY)[keyof typeof JOB_SELECTION_STRATEGY];
-interface JobSelection {
-  strategy: JobSelectionStrategy;
-  options: ReportOptions;
-}
-interface OutputFile {
-  path: string;
-  size: number;
-  exists: boolean;
-}
-interface JobData {
-  reportType?: string;
-  days?: number;
-}
-interface JobResult {
-  reportType: string;
-  stats: {
-    totalCommits: number;
-    totalRepositories: number;
-  };
-  outputFiles: OutputFile[];
-}
-class GitActivityPipeline extends BasePipeline&lt;GitActivityWorker&gt;
-⋮----
-constructor(options: Record&lt;string, unknown&gt; =
-private setupEventListeners(): void
-async runReport(options: ReportOptions =
-scheduleWeeklyReports(cronSchedule: string = GIT_ACTIVITY.DEFAULT_WEEKLY_CRON)
-scheduleMonthlyReports(cronSchedule: string = GIT_ACTIVITY.DEFAULT_MONTHLY_CRON)
-⋮----
-export function selectGitActivityJob(
-  options: ReportOptions,
-  defaultReportType: string = GIT_ACTIVITY.DEFAULT_REPORT_TYPE
-): JobSelection
-export function parseGitActivityCliArgs(args: string[], runOnStartup: boolean): ParsedCliArgs
-function isDirectExecution(): boolean</file><file path="sidequest/pipeline-runners/gitignore-pipeline.ts">import { GitignoreWorker } from &apos;../workers/gitignore-worker.ts&apos;;
-import type { Job } from &apos;../core/server.ts&apos;;
-import { config } from &apos;../core/config.ts&apos;;
-import { JOB_EVENTS, NUMBER_BASE, TIMEOUTS } from &apos;../core/constants.ts&apos;;
-import { createComponentLogger, logError } from &apos;../utils/logger.ts&apos;;
-⋮----
-import cron from &apos;node-cron&apos;;
-import { realpathSync } from &apos;fs&apos;;
-import path from &apos;path&apos;;
-import os from &apos;os&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-⋮----
-interface JobData {
-  type?: string;
-  dryRun?: boolean;
-  baseDir?: string;
-  maxDepth?: number;
-}
-interface JobResult {
-  totalRepositories?: number;
-  summary?: {
-    added?: number;
-    skipped?: number;
-    would_add?: number;
-    error?: number;
-  };
-}
-⋮----
-function waitForJobTerminalStatus(worker: GitignoreWorker, jobId: string): Promise&lt;void&gt;
-⋮----
-const cleanup = () =&gt;
-const rejectWithFailure = (job: Job) =&gt;
-const onCompleted = (job: Job) =&gt;
-const onFailed = (job: Job) =&gt;
-⋮----
-async function main(): Promise&lt;void&gt;
-⋮----
-startupJob = (worker as unknown as
-⋮----
-const job = (worker as unknown as
-⋮----
-function isDirectExecution(): boolean</file><file path="sidequest/pipeline-runners/pipeline-import-safety.test.ts">import test from &apos;node:test&apos;;
+import { parseGitActivityCliArgs, selectGitActivityJob } from &apos;./git-activity-pipeline.ts&apos;;</file><file path="sidequest/pipeline-runners/pipeline-import-safety.test.ts">import test from &apos;node:test&apos;;
 import assert from &apos;node:assert/strict&apos;;
 async function assertImportDoesNotRegisterSignalHandlers(modulePath: string): Promise&lt;void&gt;
 async function assertImportWithPmIdDoesNotStartTimers(modulePath: string): Promise&lt;void&gt;</file><file path="sidequest/pipeline-runners/plugin-management-audit.sh">set -euo pipefail
@@ -13692,141 +13159,7 @@ if [[ &quot;$has_duplicates&quot; == true ]] || [[ $PLUGIN_COUNT -gt 30 ]]; then
     exit 1
 else
     exit 0
-fi</file><file path="sidequest/pipeline-runners/plugin-management-pipeline.ts">import { PluginManagerWorker } from &apos;../utils/plugin-manager.ts&apos;;
-import { config } from &apos;../core/config.ts&apos;;
-import { JOB_EVENTS } from &apos;../core/constants.ts&apos;;
-import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;
-import { BasePipeline, type Job, type JobStats } from &apos;./base-pipeline.ts&apos;;
-import { realpathSync } from &apos;fs&apos;;
-import path from &apos;path&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-⋮----
-interface AuditOptions {
-  detailed?: boolean;
-}
-interface AuditRecommendation {
-  priority: string;
-  type: string;
-  message: string;
-  action: string;
-  details?: Array&lt;{
-    category: string;
-    plugins: string[];
-    suggestion: string;
-  }&gt;;
-}
-interface AuditResult {
-  totalPlugins: number;
-  duplicateCategories?: Array&lt;{ category: string; count: number }&gt;;
-  recommendations?: AuditRecommendation[];
-}
-class PluginManagementPipeline extends BasePipeline&lt;PluginManagerWorker&gt;
-⋮----
-constructor(options: Record&lt;string, unknown&gt; =
-private setupEventListeners(): void
-private displayRecommendations(result: AuditResult): void
-/**
-   * Run a single audit
-   */
-async runAudit(options: AuditOptions =
-scheduleAudits(cronSchedule: string = &apos;0 9 * * 1&apos;)
-⋮----
-function isDirectExecution(): boolean</file><file path="sidequest/pipeline-runners/repo-cleanup-pipeline.ts">import { RepoCleanupWorker } from &apos;../workers/repo-cleanup-worker.ts&apos;;
-import type { Job } from &apos;../core/server.ts&apos;;
-import { config } from &apos;../core/config.ts&apos;;
-import { JOB_EVENTS, TIMEOUTS } from &apos;../core/constants.ts&apos;;
-import { createComponentLogger, logError } from &apos;../utils/logger.ts&apos;;
-⋮----
-import cron from &apos;node-cron&apos;;
-import { realpathSync } from &apos;fs&apos;;
-import path from &apos;path&apos;;
-import os from &apos;os&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-⋮----
-interface CleanupSummary {
-  venvs?: number;
-  tempFiles?: number;
-  outputFiles?: number;
-  buildArtifacts?: number;
-  redundantDirs?: number;
-}
-interface JobData {
-  type?: string;
-  targetDir?: string;
-  dryRun?: boolean;
-}
-interface JobResult {
-  initialSize?: number;
-  finalSize?: number;
-  totalItems?: number;
-  summary?: CleanupSummary;
-}
-⋮----
-function waitForJobTerminalStatus(worker: RepoCleanupWorker, jobId: string): Promise&lt;void&gt;
-⋮----
-const cleanup = () =&gt;
-const rejectWithFailure = (job: Job) =&gt;
-const onCompleted = (job: Job) =&gt;
-const onFailed = (job: Job) =&gt;
-⋮----
-async function main(): Promise&lt;void&gt;
-⋮----
-startupJob = (worker as unknown as
-⋮----
-const job = (worker as unknown as
-⋮----
-function isDirectExecution(): boolean</file><file path="sidequest/pipeline-runners/schema-enhancement-pipeline.ts">import { SchemaEnhancementWorker } from &apos;../workers/schema-enhancement-worker.ts&apos;;
-import { config } from &apos;../core/config.ts&apos;;
-import { JOB_EVENTS } from &apos;../core/constants.ts&apos;;
-import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;
-import { BasePipeline, type Job, type JobStats } from &apos;./base-pipeline.ts&apos;;
-import { realpathSync } from &apos;fs&apos;;
-import fs from &apos;fs/promises&apos;;
-import path from &apos;path&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-⋮----
-interface ReadmeFile {
-  fullPath: string;
-  relativePath: string;
-  name: string;
-  dirPath: string;
-}
-interface RepoContext extends Record&lt;string, unknown&gt; {
-  totalReadmes: number;
-  baseDir: string;
-  hasPackageJson: boolean;
-  hasPyproject: boolean;
-  gitRemote: string | null;
-}
-interface EnhancementResult {
-  status: string;
-  readmesFound?: number;
-  enhanced?: number;
-  duration?: number;
-  jobs?: JobStats;
-  [key: string]: unknown;
-}
-interface SchemaEnhancementOptions {
-  gitWorkflowEnabled?: boolean;
-  gitBranchPrefix?: string;
-  gitBaseBranch?: string;
-  gitDryRun?: boolean;
-  outputBaseDir?: string;
-  dryRun?: boolean;
-  baseDir?: string;
-  [key: string]: unknown;
-}
-class SchemaEnhancementPipeline extends BasePipeline&lt;SchemaEnhancementWorker&gt;
-⋮----
-constructor(options: SchemaEnhancementOptions =
-private setupEventListeners(): void
-async scanForReadmes(dir: string, baseDir: string = dir, results: ReadmeFile[] = []): Promise&lt;ReadmeFile[]&gt;
-async scanDirectory(directory: string): Promise&lt;ReadmeFile[]&gt;
-async createEnhancementJobs(readmeFiles: ReadmeFile[]): Promise&lt;void&gt;
-async runEnhancement(directory: string = this.baseDir): Promise&lt;EnhancementResult&gt;
-scheduleEnhancements(cronSchedule: string = &apos;0 3 * * 0&apos;)
-⋮----
-function isDirectExecution(): boolean</file><file path="sidequest/pipeline-runners/startup-once-mode.test.ts">import test from &apos;node:test&apos;;
+fi</file><file path="sidequest/pipeline-runners/startup-once-mode.test.ts">import test from &apos;node:test&apos;;
 import assert from &apos;node:assert/strict&apos;;
 import fs from &apos;fs/promises&apos;;
 import os from &apos;os&apos;;
@@ -13941,45 +13274,7 @@ json_report = report_dir / f&quot;{report_date}-git-activity-report.json&quot;
 def test_main_e2e_31_day_range_generates_monthly_report_title(monkeypatch, tmp_path)
 ⋮----
 report_path = tmp_path / &quot;site&quot; / &quot;work&quot; / f&quot;{_frozen_report_date()}-git-activity-report.md&quot;</file><file path="sidequest/pipeline-runners/test-refactor-pipeline.test.ts">import test from &apos;node:test&apos;;
-import assert from &apos;node:assert/strict&apos;;</file><file path="sidequest/pipeline-runners/test-refactor-pipeline.ts">import { TestRefactorWorker } from &apos;../workers/test-refactor-worker.ts&apos;;
-import type { Job as BaseJob } from &apos;../core/server.ts&apos;;
-import { DirectoryScanner } from &apos;../utils/directory-scanner.ts&apos;;
-import { createComponentLogger } from &apos;../utils/logger.ts&apos;;
-import { config } from &apos;../core/config.ts&apos;;
-import { JOB_EVENTS, RETRY_EVENTS, TIMEOUTS } from &apos;../core/constants.ts&apos;;
-import cron from &apos;node-cron&apos;;
-import path from &apos;path&apos;;
-import { fileURLToPath } from &apos;url&apos;;
-⋮----
-interface PipelineMetrics {
-  totalProjects: number;
-  successfulRefactors: number;
-  failedRefactors: number;
-  filesGenerated: number;
-  patternsDetected: number;
-  stringsExtracted: number;
-  recommendationsGenerated: number;
-}
-interface PipelineStats {
-  total: number;
-  queued: number;
-  active: number;
-  completed: number;
-  failed: number;
-}
-interface PipelineResult {
-  metrics: PipelineMetrics;
-  stats: PipelineStats;
-}
-async function runPipeline(targetPath: string | null = null): Promise&lt;PipelineResult&gt;
-async function hasTestDirectory(dirPath: string): Promise&lt;boolean&gt;
-function waitForCompletion(worker: TestRefactorWorker): Promise&lt;void&gt;
-⋮----
-const cleanup = () =&gt;
-const checkAndResolve = () =&gt;
-⋮----
-async function main(): Promise&lt;void&gt;
-function isDirectExecution(): boolean</file><file path="sidequest/pipeline-runners/universal-repo-cleanup.sh">set -e
+import assert from &apos;node:assert/strict&apos;;</file><file path="sidequest/pipeline-runners/universal-repo-cleanup.sh">set -e
 set -u
 RED=&apos;\033[0;31m&apos;
 GREEN=&apos;\033[0;32m&apos;
@@ -14623,7 +13918,8 @@ async processRepositories(): Promise&lt;ProcessResults&gt;
 generateSummary(results: RepoUpdateResult[]): UpdateSummary
 async saveResults(results: ProcessResults, outputPath: string): Promise&lt;object&gt;
 ⋮----
-export async function main(): Promise&lt;void&gt;</file><file path="sidequest/utils/logger.ts">import type { Logger } from &apos;pino&apos;;
+export async function main(): Promise&lt;void&gt;</file><file path="sidequest/utils/html-report-utils.ts">export function escapeHtml(text: string): string
+export function getBaseStyles(): string</file><file path="sidequest/utils/logger.ts">import type { Logger } from &apos;pino&apos;;
 import { createLogger as createBaseLogger, createChildLogger as createBaseChildLogger, createComponentLogger as createBaseComponentLogger } from &apos;@shared/logging&apos;;
 import { config } from &apos;../core/config.ts&apos;;
 ⋮----
@@ -14789,6 +14085,7 @@ import path from &apos;path&apos;;
 import { createComponentLogger, logError } from &apos;./logger.ts&apos;;
 import { TIME_MS } from &apos;../core/units.ts&apos;;
 import { formatDuration } from &apos;./time-helpers.ts&apos;;
+import { escapeHtml, getBaseStyles } from &apos;./html-report-utils.ts&apos;;
 ⋮----
 interface ReportOptions {
   jobId: string;
@@ -14850,7 +14147,6 @@ function extractDetails(result: Record&lt;string, unknown&gt;): Record&lt;string
 function getJobTypeTitle(jobType: string): string
 function formatValue(value: unknown): string
 export async function pruneOldReports(outputDir: string = DEFAULT_OUTPUT_DIR, maxAgeMs: number = 30 * TIME_MS.DAY): Promise&lt;void&gt;
-function escapeHtml(text: string): string
 function getHTMLStyles(): string</file><file path="sidequest/utils/schema-mcp-tools.ts">import { config } from &apos;../core/config.ts&apos;;
 import { SCHEMA_RATING_THRESHOLDS } from &apos;../core/score-thresholds.ts&apos;;
 interface SchemaContext {
@@ -14929,7 +14225,7 @@ async analyzeSchemaImpact(originalContent: string, enhancedContent: string, sche
 getRating(score: number): string
 createJSONLDScript(schema: SchemaObject): string
 injectSchema(content: string, schema: SchemaObject): string</file><file path="sidequest/workers/bugfix-audit-worker.ts">import { SidequestServer, type Job, type SidequestServerOptions } from &apos;../core/server.ts&apos;;
-import { GitWorkflowManager } from &apos;../core/git-workflow-manager.ts&apos;;
+import { BranchManager } from &apos;../pipeline-core/git/branch-manager.ts&apos;;
 import { execCommand } from &apos;@shared/process-io&apos;;
 import { createComponentLogger, logError, logStage } from &apos;../utils/logger.ts&apos;;
 import { config } from &apos;../core/config.ts&apos;;
@@ -16744,7 +16040,687 @@ npm run typecheck           # TypeScript checks
     &quot;mcp-servers/**/*&quot;,
     &quot;**/*.example.js&quot;
   ]
-}</file><file path="sidequest/utils/time-helpers.ts">import { TIME_MS } from &apos;../core/units.ts&apos;;
+}</file><file path="config/scan-repositories.json">{
+  &quot;$schema&quot;: &quot;./scan-repositories.schema.json&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;scanConfig&quot;: {
+    &quot;enabled&quot;: true,
+    &quot;schedule&quot;: &quot;0 2 * * *&quot;,
+    &quot;maxRepositoriesPerNight&quot;: 10,
+    &quot;maxConcurrentScans&quot;: 3,
+    &quot;scanTimeout&quot;: 600000,
+    &quot;retryAttempts&quot;: 2,
+    &quot;retryDelay&quot;: 60000
+  },
+  &quot;cacheConfig&quot;: {
+    &quot;enabled&quot;: true,
+    &quot;provider&quot;: &quot;redis&quot;,
+    &quot;ttl&quot;: 2592000,
+    &quot;invalidateOnChange&quot;: true,
+    &quot;trackGitCommits&quot;: true,
+    &quot;trackUncommittedChanges&quot;: true
+  },
+  &quot;repositories&quot;: [
+    {
+      &quot;name&quot;: &quot;sidequest&quot;,
+      &quot;path&quot;: &quot;/Users/alyshialedlie/code/jobs/sidequest&quot;,
+      &quot;priority&quot;: &quot;high&quot;,
+      &quot;scanFrequency&quot;: &quot;daily&quot;,
+      &quot;enabled&quot;: true,
+      &quot;tags&quot;: [
+        &quot;internal&quot;,
+        &quot;job-management&quot;
+      ],
+      &quot;excludePatterns&quot;: [
+        &quot;*.test.js&quot;,
+        &quot;*.spec.js&quot;
+      ],
+      &quot;lastScannedAt&quot;: &quot;2026-03-09T07:00:39.037Z&quot;,
+      &quot;scanHistory&quot;: [
+        {
+          &quot;timestamp&quot;: &quot;2026-03-09T07:00:39.037Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 6.327,
+          &quot;duplicatesFound&quot;: 0
+        },
+        {
+          &quot;timestamp&quot;: &quot;2026-02-27T08:00:09.621Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 3.892,
+          &quot;duplicatesFound&quot;: 0
+        },
+        {
+          &quot;timestamp&quot;: &quot;2026-02-25T07:01:50.795Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 109.69,
+          &quot;duplicatesFound&quot;: 0
+        },
+        {
+          &quot;timestamp&quot;: &quot;2026-02-25T07:01:04.057Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 63.23,
+          &quot;duplicatesFound&quot;: 3
+        },
+        {
+          &quot;timestamp&quot;: &quot;2026-02-24T07:03:43.600Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 221.818,
+          &quot;duplicatesFound&quot;: 0
+        },
+        {
+          &quot;timestamp&quot;: &quot;2026-02-24T07:02:09.149Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 127.361,
+          &quot;duplicatesFound&quot;: 3
+        },
+        {
+          &quot;timestamp&quot;: &quot;2026-02-23T07:01:42.203Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 101,
+          &quot;duplicatesFound&quot;: 0
+        },
+        {
+          &quot;timestamp&quot;: &quot;2026-02-23T07:01:09.459Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 68.166,
+          &quot;duplicatesFound&quot;: 27
+        },
+        {
+          &quot;timestamp&quot;: &quot;2026-02-22T07:01:43.324Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 102.727,
+          &quot;duplicatesFound&quot;: 342
+        },
+        {
+          &quot;timestamp&quot;: &quot;2026-02-22T07:01:20.353Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 79.844,
+          &quot;duplicatesFound&quot;: 131
+        }
+      ]
+    },
+    {
+      &quot;name&quot;: &quot;pipeline-core&quot;,
+      &quot;path&quot;: &quot;/Users/alyshialedlie/code/jobs/sidequest/pipeline-core&quot;,
+      &quot;priority&quot;: &quot;high&quot;,
+      &quot;scanFrequency&quot;: &quot;daily&quot;,
+      &quot;enabled&quot;: true,
+      &quot;tags&quot;: [
+        &quot;internal&quot;,
+        &quot;duplicate-detection&quot;
+      ],
+      &quot;excludePatterns&quot;: [
+        &quot;*.test.js&quot;,
+        &quot;*.spec.js&quot;
+      ],
+      &quot;lastScannedAt&quot;: &quot;2026-03-09T07:00:39.039Z&quot;,
+      &quot;scanHistory&quot;: [
+        {
+          &quot;timestamp&quot;: &quot;2026-03-09T07:00:39.039Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 6.327,
+          &quot;duplicatesFound&quot;: 0
+        },
+        {
+          &quot;timestamp&quot;: &quot;2026-02-27T08:00:09.622Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 3.892,
+          &quot;duplicatesFound&quot;: 0
+        },
+        {
+          &quot;timestamp&quot;: &quot;2026-02-25T07:01:50.807Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 109.69,
+          &quot;duplicatesFound&quot;: 0
+        },
+        {
+          &quot;timestamp&quot;: &quot;2026-02-25T07:01:02.623Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 61.706,
+          &quot;duplicatesFound&quot;: 0
+        },
+        {
+          &quot;timestamp&quot;: &quot;2026-02-24T07:03:43.723Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 221.818,
+          &quot;duplicatesFound&quot;: 0
+        },
+        {
+          &quot;timestamp&quot;: &quot;2026-02-24T07:02:06.915Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 124.991,
+          &quot;duplicatesFound&quot;: 0
+        },
+        {
+          &quot;timestamp&quot;: &quot;2026-02-23T07:01:42.238Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 101,
+          &quot;duplicatesFound&quot;: 0
+        },
+        {
+          &quot;timestamp&quot;: &quot;2026-02-23T07:01:03.034Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 61.838,
+          &quot;duplicatesFound&quot;: 0
+        },
+        {
+          &quot;timestamp&quot;: &quot;2026-02-22T07:01:43.326Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 102.727,
+          &quot;duplicatesFound&quot;: 342
+        },
+        {
+          &quot;timestamp&quot;: &quot;2026-02-22T07:00:55.972Z&quot;,
+          &quot;status&quot;: &quot;success&quot;,
+          &quot;duration&quot;: 55.449,
+          &quot;duplicatesFound&quot;: 60
+        }
+      ]
+    },
+    {
+      &quot;name&quot;: &quot;tests&quot;,
+      &quot;path&quot;: &quot;/Users/alyshialedlie/code/jobs/tests&quot;,
+      &quot;priority&quot;: &quot;low&quot;,
+      &quot;scanFrequency&quot;: &quot;weekly&quot;,
+      &quot;enabled&quot;: false,
+      &quot;tags&quot;: [
+        &quot;internal&quot;,
+        &quot;testing&quot;
+      ],
+      &quot;excludePatterns&quot;: [],
+      &quot;_comment&quot;: &quot;Disabled: Test files are intentionally similar and not useful to scan for duplicates&quot;
+    }
+  ],
+  &quot;repositoryGroups&quot;: [
+    {
+      &quot;name&quot;: &quot;internal-tools&quot;,
+      &quot;description&quot;: &quot;Internal job management and duplicate detection tools&quot;,
+      &quot;repositories&quot;: [
+        &quot;sidequest&quot;,
+        &quot;pipeline-core&quot;
+      ],
+      &quot;scanType&quot;: &quot;inter-project&quot;,
+      &quot;enabled&quot;: true
+    }
+  ],
+  &quot;scanDefaults&quot;: {
+    &quot;languages&quot;: [
+      &quot;javascript&quot;,
+      &quot;typescript&quot;,
+      &quot;python&quot;
+    ],
+    &quot;includeSourceCode&quot;: true,
+    &quot;includeCodeBlocks&quot;: true,
+    &quot;generateReports&quot;: true,
+    &quot;reportFormats&quot;: [
+      &quot;html&quot;,
+      &quot;markdown&quot;,
+      &quot;json&quot;,
+      &quot;summary&quot;
+    ]
+  },
+  &quot;notifications&quot;: {
+    &quot;enabled&quot;: true,
+    &quot;channels&quot;: [
+      &quot;sentry&quot;,
+      &quot;log&quot;
+    ],
+    &quot;onSuccess&quot;: false,
+    &quot;onFailure&quot;: true,
+    &quot;onHighImpactDuplicates&quot;: true,
+    &quot;highImpactThreshold&quot;: 75
+  }
+}</file><file path="sidequest/pipeline-runners/bugfix-audit-pipeline.ts">import { BugfixAuditWorker } from &apos;../workers/bugfix-audit-worker.ts&apos;;
+import { config } from &apos;../core/config.ts&apos;;
+import { TIME_MS } from &apos;../core/units.ts&apos;;
+import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;
+import { BasePipeline, type Job, type JobStats } from &apos;./base-pipeline.ts&apos;;
+import fs from &apos;fs/promises&apos;;
+import path from &apos;path&apos;;
+import { isDirectExecution } from &apos;../utils/execution-helpers.ts&apos;;
+⋮----
+interface BugfixAuditOptions {
+  maxConcurrent?: number;
+  activeDocsDir?: string;
+  outputBaseDir?: string;
+  gitBaseBranch?: string;
+  gitBranchPrefix?: string;
+  gitDryRun?: boolean;
+  [key: string]: unknown;
+}
+interface JobData {
+  projectName: string;
+  markdownFile: string;
+  repoPath: string;
+}
+interface JobResult {
+  pullRequestUrl?: string;
+}
+interface RunResult {
+  status: string;
+  jobsCreated?: number;
+  duration?: number;
+  active?: number;
+  queued?: number;
+  total?: number;
+  completed?: number;
+  failed?: number;
+}
+class BugfixAuditPipeline extends BasePipeline&lt;BugfixAuditWorker&gt;
+⋮----
+constructor(options: BugfixAuditOptions =
+async runBugfixAudit(): Promise&lt;RunResult&gt;
+private async saveRunSummary(stats: JobStats, duration: number, jobs: Job[]): Promise&lt;void&gt;
+scheduleAudits(cronSchedule: string = &apos;0 1 * * *&apos;)
+scheduleTonight(): void</file><file path="sidequest/pipeline-runners/claude-health-pipeline.ts">import { ClaudeHealthWorker } from &apos;../workers/claude-health-worker.ts&apos;;
+import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;
+import { config } from &apos;../core/config.ts&apos;;
+import { BYTES_PER_KB, MAX_SCORE } from &apos;../core/constants.ts&apos;;
+import { HEALTH_SCORE_THRESHOLDS } from &apos;../core/score-thresholds.ts&apos;;
+import { BasePipeline, type JobStats } from &apos;./base-pipeline.ts&apos;;
+import { isDirectExecution } from &apos;../utils/execution-helpers.ts&apos;;
+⋮----
+interface HealthCheckOptions {
+  detailed?: boolean;
+  validateConfig?: boolean;
+  checkPerformance?: boolean;
+  analyzePlugins?: boolean;
+  [key: string]: unknown;
+}
+interface PipelineOptions {
+  detailed: boolean;
+  skipValidation: boolean;
+  skipPerformance: boolean;
+  skipPlugins: boolean;
+}
+interface Recommendation {
+  priority: string;
+  type: string;
+  message: string;
+  action: string;
+  details?: Array&lt;{
+    category?: string;
+    plugins?: string[];
+    suggestion?: string;
+  }&gt;;
+}
+interface HealthCheckResult {
+  summary: {
+    healthScore: number;
+    status: string;
+    message: string;
+    criticalIssues: number;
+    warnings: number;
+  };
+  checks: {
+    components?: {
+      skills: number;
+      agents: number;
+      commands: number;
+      activeTasks: number;
+      archivedTasks: number;
+    };
+    hooks?: {
+      executableHooks: number;
+      totalHooks: number;
+      registeredHooks: number;
+      hooks?: Array&lt;{ name: string; executable: boolean }&gt;;
+    };
+    plugins?: {
+      totalPlugins: number;
+      duplicateCategories?: Array&lt;{
+        category: string;
+        count: number;
+        plugins: string[];
+      }&gt;;
+    };
+    environment?: {
+      nodeVersion?: string;
+      npmVersion?: string;
+      direnv?: boolean;
+      direnvAllowed?: boolean;
+    };
+    configuration?: {
+      settingsJson: { valid: boolean };
+      skillRulesJson: { valid: boolean };
+      packageJson: { valid: boolean };
+      envrc: { exists: boolean };
+    };
+    performance?: {
+      logExists: boolean;
+      logSize: number;
+      totalEntries: number;
+      slowHooks: number;
+      failures: number;
+      slowHookDetails?: Array&lt;{ hook: string; duration: number }&gt;;
+    };
+  };
+  recommendations: Recommendation[];
+  duration: number;
+}
+class ClaudeHealthPipeline extends BasePipeline&lt;ClaudeHealthWorker&gt;
+⋮----
+constructor(options: Record&lt;string, unknown&gt; =
+private displayResults(result: HealthCheckResult): void
+async runHealthCheck(options: HealthCheckOptions =
+scheduleHealthChecks(cronSchedule: string)
+⋮----
+function printSummary(result: HealthCheckResult): void
+⋮----
+// Environment
+⋮----
+// Summary statistics
+⋮----
+/**
+ * printRecommendations.
+ */
+function printRecommendations(recommendations: Recommendation[]): void
+/**
+ * printDetailedChecks.
+ */
+function printDetailedChecks(checks: HealthCheckResult[&apos;checks&apos;]): void
+⋮----
+// Hooks
+⋮----
+// Plugins
+⋮----
+// Performance
+⋮----
+/**
+ * getScoreColor.
+ */
+function getScoreColor(score: number): string
+function formatBytes(bytes: number): string
+async function runCli(): Promise&lt;void&gt;</file><file path="sidequest/pipeline-runners/dashboard-populate-pipeline.ts">import { DashboardPopulateWorker } from &apos;../workers/dashboard-populate-worker.ts&apos;;
+import { createComponentLogger, logError } from &apos;../utils/logger.ts&apos;;
+⋮----
+import cron from &apos;node-cron&apos;;
+import type { Job } from &apos;../core/server.ts&apos;;
+import { JOB_EVENTS, NUMBER_BASE, TIMEOUTS } from &apos;../core/constants.ts&apos;;
+import { isDirectExecution } from &apos;../utils/execution-helpers.ts&apos;;
+⋮----
+interface CliOptions {
+  seed: boolean;
+  dryRun: boolean;
+  skipJudge: boolean;
+  skipSync: boolean;
+  limit: number | undefined;
+}
+⋮----
+function waitForJobTerminalStatus(worker: DashboardPopulateWorker, jobId: string): Promise&lt;void&gt;
+⋮----
+const cleanup = () =&gt;
+const rejectWithFailure = (job: Job) =&gt;
+const onCompleted = (job: Job) =&gt;
+const onFailed = (job: Job) =&gt;
+⋮----
+async function main(): Promise&lt;void&gt;</file><file path="sidequest/pipeline-runners/duplicate-detection-pipeline.ts">import { DuplicateDetectionWorker } from &apos;../workers/duplicate-detection-worker.ts&apos;;
+import { createComponentLogger } from &apos;../utils/logger.ts&apos;;
+import { config } from &apos;../core/config.ts&apos;;
+import { TIMEOUTS } from &apos;../core/constants.ts&apos;;
+import cron from &apos;node-cron&apos;;
+⋮----
+import { isDirectExecution } from &apos;../utils/execution-helpers.ts&apos;;
+import type { Logger } from &apos;pino&apos;;
+⋮----
+async function main(): Promise&lt;void&gt;</file><file path="sidequest/pipeline-runners/git-activity-pipeline.ts">import { GitActivityWorker } from &apos;../workers/git-activity-worker.ts&apos;;
+import { config } from &apos;../core/config.ts&apos;;
+import { GIT_ACTIVITY, NUMBER_BASE } from &apos;../core/constants.ts&apos;;
+import { createComponentLogger, logStart } from &apos;../utils/logger.ts&apos;;
+import { BasePipeline, type Job, type JobStats } from &apos;./base-pipeline.ts&apos;;
+import { isDirectExecution } from &apos;../utils/execution-helpers.ts&apos;;
+⋮----
+export interface ReportOptions {
+  reportType?: string;
+  sinceDate?: string;
+  untilDate?: string;
+  days?: number;
+}
+⋮----
+type DefaultReportType =
+  | typeof GIT_ACTIVITY.WEEKLY_REPORT_TYPE
+  | typeof GIT_ACTIVITY.MONTHLY_REPORT_TYPE;
+⋮----
+function isDefaultReportType(reportType: string | undefined): reportType is DefaultReportType
+interface ParsedCliArgs {
+  options: ReportOptions;
+  runNow: boolean;
+  errors: string[];
+}
+⋮----
+type JobSelectionStrategy =
+  (typeof JOB_SELECTION_STRATEGY)[keyof typeof JOB_SELECTION_STRATEGY];
+interface JobSelection {
+  strategy: JobSelectionStrategy;
+  options: ReportOptions;
+}
+interface OutputFile {
+  path: string;
+  size: number;
+  exists: boolean;
+}
+interface JobData {
+  reportType?: string;
+  days?: number;
+}
+interface JobResult {
+  reportType: string;
+  stats: {
+    totalCommits: number;
+    totalRepositories: number;
+  };
+  outputFiles: OutputFile[];
+}
+class GitActivityPipeline extends BasePipeline&lt;GitActivityWorker&gt;
+⋮----
+constructor(options: Record&lt;string, unknown&gt; =
+async runReport(options: ReportOptions =
+scheduleWeeklyReports(cronSchedule: string = GIT_ACTIVITY.DEFAULT_WEEKLY_CRON)
+scheduleMonthlyReports(cronSchedule: string = GIT_ACTIVITY.DEFAULT_MONTHLY_CRON)
+⋮----
+export function selectGitActivityJob(
+  options: ReportOptions,
+  defaultReportType: string = GIT_ACTIVITY.DEFAULT_REPORT_TYPE
+): JobSelection
+export function parseGitActivityCliArgs(args: string[], runOnStartup: boolean): ParsedCliArgs</file><file path="sidequest/pipeline-runners/gitignore-pipeline.ts">import { GitignoreWorker } from &apos;../workers/gitignore-worker.ts&apos;;
+import type { Job } from &apos;../core/server.ts&apos;;
+import { config } from &apos;../core/config.ts&apos;;
+import { JOB_EVENTS, NUMBER_BASE, TIMEOUTS } from &apos;../core/constants.ts&apos;;
+import { createComponentLogger, logError } from &apos;../utils/logger.ts&apos;;
+⋮----
+import cron from &apos;node-cron&apos;;
+import path from &apos;path&apos;;
+import os from &apos;os&apos;;
+import { isDirectExecution } from &apos;../utils/execution-helpers.ts&apos;;
+⋮----
+interface JobData {
+  type?: string;
+  dryRun?: boolean;
+  baseDir?: string;
+  maxDepth?: number;
+}
+interface JobResult {
+  totalRepositories?: number;
+  summary?: {
+    added?: number;
+    skipped?: number;
+    would_add?: number;
+    error?: number;
+  };
+}
+⋮----
+function waitForJobTerminalStatus(worker: GitignoreWorker, jobId: string): Promise&lt;void&gt;
+⋮----
+const cleanup = () =&gt;
+const rejectWithFailure = (job: Job) =&gt;
+const onCompleted = (job: Job) =&gt;
+const onFailed = (job: Job) =&gt;
+⋮----
+async function main(): Promise&lt;void&gt;
+⋮----
+startupJob = (worker as unknown as
+⋮----
+const job = (worker as unknown as</file><file path="sidequest/pipeline-runners/plugin-management-pipeline.ts">import { PluginManagerWorker } from &apos;../utils/plugin-manager.ts&apos;;
+import { config } from &apos;../core/config.ts&apos;;
+import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;
+import { BasePipeline, type JobStats } from &apos;./base-pipeline.ts&apos;;
+import { isDirectExecution } from &apos;../utils/execution-helpers.ts&apos;;
+⋮----
+interface AuditOptions {
+  detailed?: boolean;
+}
+interface AuditRecommendation {
+  priority: string;
+  type: string;
+  message: string;
+  action: string;
+  details?: Array&lt;{
+    category: string;
+    plugins: string[];
+    suggestion: string;
+  }&gt;;
+}
+interface AuditResult {
+  totalPlugins: number;
+  duplicateCategories?: Array&lt;{ category: string; count: number }&gt;;
+  recommendations?: AuditRecommendation[];
+}
+class PluginManagementPipeline extends BasePipeline&lt;PluginManagerWorker&gt;
+⋮----
+constructor(options: Record&lt;string, unknown&gt; =
+private displayRecommendations(result: AuditResult): void
+/**
+   * Run a single audit
+   */
+async runAudit(options: AuditOptions =
+scheduleAudits(cronSchedule: string = &apos;0 9 * * 1&apos;)</file><file path="sidequest/pipeline-runners/repo-cleanup-pipeline.ts">import { RepoCleanupWorker } from &apos;../workers/repo-cleanup-worker.ts&apos;;
+import type { Job } from &apos;../core/server.ts&apos;;
+import { config } from &apos;../core/config.ts&apos;;
+import { JOB_EVENTS, TIMEOUTS } from &apos;../core/constants.ts&apos;;
+import { createComponentLogger, logError } from &apos;../utils/logger.ts&apos;;
+⋮----
+import cron from &apos;node-cron&apos;;
+import path from &apos;path&apos;;
+import os from &apos;os&apos;;
+import { isDirectExecution } from &apos;../utils/execution-helpers.ts&apos;;
+⋮----
+interface CleanupSummary {
+  venvs?: number;
+  tempFiles?: number;
+  outputFiles?: number;
+  buildArtifacts?: number;
+  redundantDirs?: number;
+}
+interface JobData {
+  type?: string;
+  targetDir?: string;
+  dryRun?: boolean;
+}
+interface JobResult {
+  initialSize?: number;
+  finalSize?: number;
+  totalItems?: number;
+  summary?: CleanupSummary;
+}
+⋮----
+function waitForJobTerminalStatus(worker: RepoCleanupWorker, jobId: string): Promise&lt;void&gt;
+⋮----
+const cleanup = () =&gt;
+const rejectWithFailure = (job: Job) =&gt;
+const onCompleted = (job: Job) =&gt;
+const onFailed = (job: Job) =&gt;
+⋮----
+async function main(): Promise&lt;void&gt;
+⋮----
+startupJob = (worker as unknown as
+⋮----
+const job = (worker as unknown as</file><file path="sidequest/pipeline-runners/schema-enhancement-pipeline.ts">import { SchemaEnhancementWorker } from &apos;../workers/schema-enhancement-worker.ts&apos;;
+import { config } from &apos;../core/config.ts&apos;;
+import { createComponentLogger, logError, logStart } from &apos;../utils/logger.ts&apos;;
+import { BasePipeline, type JobStats } from &apos;./base-pipeline.ts&apos;;
+import fs from &apos;fs/promises&apos;;
+import path from &apos;path&apos;;
+import { isDirectExecution } from &apos;../utils/execution-helpers.ts&apos;;
+⋮----
+interface ReadmeFile {
+  fullPath: string;
+  relativePath: string;
+  name: string;
+  dirPath: string;
+}
+interface RepoContext extends Record&lt;string, unknown&gt; {
+  totalReadmes: number;
+  baseDir: string;
+  hasPackageJson: boolean;
+  hasPyproject: boolean;
+  gitRemote: string | null;
+}
+interface EnhancementResult {
+  status: string;
+  readmesFound?: number;
+  enhanced?: number;
+  duration?: number;
+  jobs?: JobStats;
+  [key: string]: unknown;
+}
+interface SchemaEnhancementOptions {
+  gitWorkflowEnabled?: boolean;
+  gitBranchPrefix?: string;
+  gitBaseBranch?: string;
+  gitDryRun?: boolean;
+  outputBaseDir?: string;
+  dryRun?: boolean;
+  baseDir?: string;
+  [key: string]: unknown;
+}
+class SchemaEnhancementPipeline extends BasePipeline&lt;SchemaEnhancementWorker&gt;
+⋮----
+constructor(options: SchemaEnhancementOptions =
+async scanForReadmes(dir: string, baseDir: string = dir, results: ReadmeFile[] = []): Promise&lt;ReadmeFile[]&gt;
+async scanDirectory(directory: string): Promise&lt;ReadmeFile[]&gt;
+async createEnhancementJobs(readmeFiles: ReadmeFile[]): Promise&lt;void&gt;
+async runEnhancement(directory: string = this.baseDir): Promise&lt;EnhancementResult&gt;
+scheduleEnhancements(cronSchedule: string = &apos;0 3 * * 0&apos;)</file><file path="sidequest/pipeline-runners/test-refactor-pipeline.ts">import { TestRefactorWorker } from &apos;../workers/test-refactor-worker.ts&apos;;
+import type { Job as BaseJob } from &apos;../core/server.ts&apos;;
+import { DirectoryScanner } from &apos;../utils/directory-scanner.ts&apos;;
+import { createComponentLogger } from &apos;../utils/logger.ts&apos;;
+import { config } from &apos;../core/config.ts&apos;;
+import { JOB_EVENTS, RETRY_EVENTS, TIMEOUTS } from &apos;../core/constants.ts&apos;;
+import cron from &apos;node-cron&apos;;
+import path from &apos;path&apos;;
+import { isDirectExecution } from &apos;../utils/execution-helpers.ts&apos;;
+⋮----
+interface PipelineMetrics {
+  totalProjects: number;
+  successfulRefactors: number;
+  failedRefactors: number;
+  filesGenerated: number;
+  patternsDetected: number;
+  stringsExtracted: number;
+  recommendationsGenerated: number;
+}
+interface PipelineStats {
+  total: number;
+  queued: number;
+  active: number;
+  completed: number;
+  failed: number;
+}
+interface PipelineResult {
+  metrics: PipelineMetrics;
+  stats: PipelineStats;
+}
+async function runPipeline(targetPath: string | null = null): Promise&lt;PipelineResult&gt;
+async function hasTestDirectory(dirPath: string): Promise&lt;boolean&gt;
+function waitForCompletion(worker: TestRefactorWorker): Promise&lt;void&gt;
+⋮----
+const cleanup = () =&gt;
+const checkAndResolve = () =&gt;
+⋮----
+async function main(): Promise&lt;void&gt;</file><file path="sidequest/utils/execution-helpers.ts">import { realpathSync } from &apos;fs&apos;;
+import path from &apos;path&apos;;
+import { fileURLToPath } from &apos;url&apos;;
+export function isDirectExecution(importMetaUrl: string): boolean</file><file path="sidequest/utils/time-helpers.ts">import { TIME_MS } from &apos;../core/units.ts&apos;;
 ⋮----
 export function toISOString(val: Date | string | null | undefined): string | null
 export function calculateDurationSeconds(startTime: Date | string | null, endTime: Date | string | null): number | null

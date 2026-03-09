@@ -19137,7 +19137,2136 @@ The system is production-ready and can be integrated incrementally without risk 
 - **Outage Response**: `/docs/runbooks/DOPPLER_OUTAGE.md`
 - **Examples**: `/docs/quickstart/doppler-circuit-breaker.md`
 - **Tests**: `/tests/unit/doppler-resilience.test.ts`
-- **Configuration**: `/sidequest/core/config.ts`</file><file path="docs/architecture/README.md"># Architecture Documentation
+- **Configuration**: `/sidequest/core/config.ts`</file><file path="docs/architecture/pipeline-data-flow.md"># AlephAuto Pipeline Data Flow Documentation
+
+**Last Updated:** 2026-03-04
+**Version:** 2.3
+**Author:** System Architecture Documentation
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [AlephAuto Framework Architecture](#alephauto-framework-architecture)
+3. [Pipeline Catalog](#pipeline-catalog)
+4. [Pipeline Data Flows](#pipeline-data-flows)
+   - [Duplicate Detection Pipeline](#1-duplicate-detection-pipeline)
+   - [Schema Enhancement Pipeline](#2-schema-enhancement-pipeline)
+   - [Git Activity Reporter Pipeline](#3-git-activity-reporter-pipeline)
+   - [Gitignore Manager Pipeline](#4-gitignore-manager-pipeline)
+   - [Repomix Automation Pipeline](#5-repomix-automation-pipeline)
+   - [Plugin Manager Pipeline](#6-plugin-manager-pipeline)
+   - [Claude Health Monitor Pipeline](#7-claude-health-monitor-pipeline)
+   - [Test Refactor Pipeline](#8-test-refactor-pipeline)
+   - [Repository Cleanup Pipeline](#9-repository-cleanup-pipeline)
+   - [Bugfix Audit Pipeline](#10-bugfix-audit-pipeline)
+   - [Dashboard Populate Pipeline](#11-dashboard-populate-pipeline)
+5. [Git Workflow Integration](#git-workflow-integration)
+6. [Common Patterns](#common-patterns)
+7. [Error Handling &amp; Resilience](#error-handling--resilience)
+
+---
+
+## Overview
+
+The AlephAuto automation system consists of 11 specialized pipelines built on a unified job queue framework. Each pipeline follows event-driven architecture with automatic retry logic, Sentry error tracking, and real-time dashboard updates via WebSocket.
+
+### Maintenance Notes (2026-03-04)
+
+- Retry orchestration is owned by `SidequestServer` (`sidequest/core/server.ts`), including retry scheduling and `pendingRetries` accounting. Individual workers should not create ad-hoc retry jobs.
+- `GitActivityPipeline` default report-type selection is constrained to valid defaults (`weekly` / `monthly`) before fallback to configured default; this is a type-safety hardening and does not change pipeline data flow.
+- `collect_git_activity.py` and related tests were formatting-only updates; input/output contract remains unchanged.
+- Startup-once runner behavior is verified for `repo-cleanup`, `gitignore`, and `dashboard-populate`: `--run-now`/`--run` creates one startup job, waits for terminal status, and exits when `--cron` is not set.
+- Aggregate test execution is split into `test:all:core` (default, env-sensitive suites skipped via `SKIP_ENV_SENSITIVE_TESTS=1`) and `test:all:full` (includes env-sensitive suites requiring socket bind and writable report/database paths).
+
+### System Characteristics
+
+- **Framework:** AlephAuto (SidequestServer base class)
+- **Job Queue:** In-memory with configurable concurrency (default: 5, via `CONCURRENCY.DEFAULT_MAX_JOBS`)
+- **Event System:** EventEmitter-based job lifecycle tracking
+- **Error Tracking:** Sentry v8 with automatic classification
+- **Dashboard:** Real-time WebSocket + REST API (port 8080)
+- **Deployment:** PM2 + Doppler + traditional server stack
+
+### Pipeline Categories
+
+| Category | Pipelines | Language Stack |
+|----------|-----------|----------------|
+| **Code Analysis** | Duplicate Detection, Test Refactor | TypeScript + Python |
+| **Code Quality** | Bugfix Audit | TypeScript + Shell |
+| **Documentation** | Schema Enhancement | TypeScript |
+| **Operations** | Repomix, Gitignore, Repository Cleanup | TypeScript + Shell |
+| **Observability** | Dashboard Populate | TypeScript (external) |
+| **Reporting** | Git Activity, Plugin Manager, Claude Health | TypeScript + Python + Shell |
+
+---
+
+## AlephAuto Framework Architecture
+
+### Job Lifecycle
+
+```mermaid
+graph TB
+    A[createJob] --&gt; B{Job Created Event}
+    B --&gt; C[Queue Job]
+    C --&gt; D{Job Started Event}
+    D --&gt; E[runJobHandler]
+    E --&gt; F{Success?}
+    F --&gt;|Yes| G{Job Completed Event}
+    F --&gt;|No| H{Retryable?}
+    H --&gt;|Yes| I[Exponential Backoff]
+    H --&gt;|No| J{Job Failed Event}
+    I --&gt; K{Max Retries?}
+    K --&gt;|No| E
+    K --&gt;|Yes| J
+    G --&gt; L[Return Result]
+    J --&gt; M[Capture to Sentry]
+
+    style B fill:#9f9,stroke:#333
+    style D fill:#9f9,stroke:#333
+    style G fill:#9f9,stroke:#333
+    style J fill:#f99,stroke:#333
+    style H fill:#ff9,stroke:#333
+```
+
+### SidequestServer Base Class
+
+**File:** `sidequest/core/server.ts`
+
+All workers extend this base class which provides:
+
+```typescript
+class SidequestServer extends EventEmitter {
+  constructor(options: SidequestServerOptions) {
+    this.maxConcurrent = options.maxConcurrent ?? CONCURRENCY.DEFAULT_MAX_JOBS;
+    this.jobs = new Map&lt;string, Job&gt;();
+    this.queue: string[] = [];
+    this.activeJobs = 0;
+    this.gitWorkflowEnabled = options.gitWorkflowEnabled ?? false;
+    // ... circuit breaker, retry logic, Sentry integration
+  }
+
+  // Job management
+  createJob(jobId: string, data: Record&lt;string, unknown&gt;): Job { /* ... */ }
+  async runJobHandler(job: Job): Promise&lt;unknown&gt; { /* Override in subclass */ }
+  getStats(): JobStats { /* ... */ }
+
+  // Git workflow (if enabled via GitWorkflowManager)
+  async _setupGitBranchIfEnabled(job: Job): Promise&lt;boolean&gt; { /* ... */ }
+  async _handleGitWorkflowSuccess(job: Job): Promise&lt;void&gt; { /* ... */ }
+
+  // Retry logic with error classification
+  // Auto-retry for retryable errors (ETIMEDOUT, 5xx) up to maxRetries
+
+  // Event emitters
+  emit(&apos;job:created&apos;, job);
+  emit(&apos;job:started&apos;, job);
+  emit(&apos;job:completed&apos;, job);
+  emit(&apos;job:failed&apos;, job, error);
+}
+```
+
+### BasePipeline Abstract Class
+
+**File:** `sidequest/pipeline-runners/base-pipeline.ts`
+
+Class-based pipeline runners extend `BasePipeline&lt;TWorker&gt;`, which provides shared scheduling, event-driven completion, and stats:
+
+```typescript
+abstract class BasePipeline&lt;TWorker extends SidequestServer&gt; {
+  protected worker: TWorker;
+
+  waitForCompletion(): Promise&lt;void&gt;;    // Event-driven: listens for job:completed, job:failed, retry:created
+  protected scheduleCron(                // Validate + schedule + log + error-wrap
+    logger, name, cronSchedule, runFn
+  ): cron.ScheduledTask;
+  getStats(): JobStats;                  // Delegate to worker.getStats()
+}
+```
+
+**Pipelines extending BasePipeline:** BugfixAuditPipeline, ClaudeHealthPipeline, GitActivityPipeline, PluginManagementPipeline, SchemaEnhancementPipeline.
+
+**Pipelines using functional pattern (no base class):** DashboardPopulatePipeline, DuplicateDetectionPipeline, GitignorePipeline, RepoCleanupPipeline, TestRefactorPipeline.
+
+### Class Hierarchy
+
+```mermaid
+graph TB
+    EE[EventEmitter] --&gt; SS[SidequestServer]
+    SS --&gt; W1[BugfixAuditWorker]
+    SS --&gt; W2[ClaudeHealthWorker]
+    SS --&gt; W3[GitActivityWorker]
+    SS --&gt; W4[SchemaEnhancementWorker]
+    SS --&gt; W5[&quot;PluginManagerWorker&lt;br/&gt;&lt;i&gt;utils/plugin-manager.ts&lt;/i&gt;&quot;]
+    SS --&gt; W6[DuplicateDetectionWorker]
+    SS --&gt; W7[GitignoreWorker]
+    SS --&gt; W8[RepoCleanupWorker]
+    SS --&gt; W9[RepomixWorker]
+    SS --&gt; W10[TestRefactorWorker]
+    SS --&gt; W11[DashboardPopulateWorker]
+
+    BP[&quot;BasePipeline&amp;lt;TWorker&amp;gt;&quot;] --&gt; P1[&quot;BugfixAuditPipeline&amp;lt;W1&amp;gt;&quot;]
+    BP --&gt; P2[&quot;ClaudeHealthPipeline&amp;lt;W2&amp;gt;&quot;]
+    BP --&gt; P3[&quot;GitActivityPipeline&amp;lt;W3&amp;gt;&quot;]
+    BP --&gt; P4[&quot;PluginManagementPipeline&amp;lt;W5&amp;gt;&quot;]
+    BP --&gt; P5[&quot;SchemaEnhancementPipeline&amp;lt;W4&amp;gt;&quot;]
+
+    P1 -.-&gt;|owns| W1
+    P2 -.-&gt;|owns| W2
+    P3 -.-&gt;|owns| W3
+    P4 -.-&gt;|owns| W5
+    P5 -.-&gt;|owns| W4
+
+    style SS fill:#bbf,stroke:#333
+    style BP fill:#bfb,stroke:#333
+```
+
+### Common Data Flow Pattern
+
+```mermaid
+graph LR
+    A[Pipeline Runner] --&gt; B[Worker.createJob]
+    B --&gt; C[SidequestServer Queue]
+    C --&gt; D[Worker.runJobHandler]
+    D --&gt; E{Success?}
+    E --&gt;|Yes| F[Emit job:completed]
+    E --&gt;|No| G[Auto-retry or Fail]
+    F --&gt; H[WebSocket Broadcast]
+    H --&gt; I[Dashboard Update]
+    G --&gt; J[Sentry Capture]
+
+    style C fill:#bbf,stroke:#333
+    style D fill:#bfb,stroke:#333
+    style F fill:#9f9,stroke:#333
+    style G fill:#f99,stroke:#333
+```
+
+---
+
+## Pipeline Catalog
+
+| # | Pipeline | Job Type | Runner File | Worker File | Base Class | Git Workflow | Languages |
+|---|----------|----------|-------------|-------------|------------|--------------|-----------|
+| 1 | Duplicate Detection | `duplicate-detection` | `duplicate-detection-pipeline.ts` | `workers/duplicate-detection-worker.ts` (API/registry) · inline class in pipeline file (CLI runner) | functional | ⚠️ Custom | TS + Python |
+| 2 | Schema Enhancement | `schema-enhancement` | `schema-enhancement-pipeline.ts` | `schema-enhancement-worker.ts` | BasePipeline | ✅ Yes | TypeScript |
+| 3 | Git Activity | `git-activity` | `git-activity-pipeline.ts` | `git-activity-worker.ts` | BasePipeline | ❌ No | TS + Python |
+| 4 | Gitignore Manager | `gitignore-manager` | `gitignore-pipeline.ts` | `gitignore-worker.ts` | functional | ⚠️ Batch N/A | TypeScript |
+| 5 | Repomix | `repomix` | N/A (cron server) | `repomix-worker.ts` | — | ❌ No | TypeScript |
+| 6 | Plugin Manager | `plugin-manager` | `plugin-management-pipeline.ts` | (embedded in utils) | BasePipeline | ❌ No | TypeScript |
+| 7 | Claude Health | `claude-health` | `claude-health-pipeline.ts` | `claude-health-worker.ts` | BasePipeline | ❌ No | TS + Shell |
+| 8 | Test Refactor | `test-refactor` | `test-refactor-pipeline.ts` | `test-refactor-worker.ts` | functional | ✅ Optional | TypeScript |
+| 9 | Repository Cleanup | `repo-cleanup` | `repo-cleanup-pipeline.ts` | `repo-cleanup-worker.ts` | functional | ❌ No | TS + Shell |
+| 10 | Bugfix Audit | `bugfix-audit` | `bugfix-audit-pipeline.ts` | `bugfix-audit-worker.ts` | BasePipeline | ✅ Multi-commit | TS + Shell |
+| 11 | Dashboard Populate | `dashboard-populate` | `dashboard-populate-pipeline.ts` | `dashboard-populate-worker.ts` | functional | ❌ No | TypeScript |
+
+---
+
+## Pipeline Data Flows
+
+### 1. Duplicate Detection Pipeline
+
+**Purpose:** 7-stage AST-based duplicate code detection with consolidation suggestions
+**Job Type:** `duplicate-detection`
+**Languages:** JavaScript (stages 1-2) → Python (stages 3-7)
+
+#### Complete Data Flow
+
+```mermaid
+graph TB
+    Start([Repository Path]) --&gt; S1[Stage 1: Repository Scanner&lt;br/&gt;JS]
+    S1 --&gt; S2[Stage 2: AST-Grep Detector&lt;br/&gt;JS]
+    S2 --&gt; Bridge{JSON Bridge&lt;br/&gt;stdin/stdout}
+    Bridge --&gt; S3[Stage 3: Code Block Extraction&lt;br/&gt;Python]
+    S3 --&gt; S3_5[Stage 3.5: Block Deduplication&lt;br/&gt;Python]
+    S3_5 --&gt; S4[Stage 4: Semantic Annotation&lt;br/&gt;Python]
+    S4 --&gt; S5[Stage 5: Duplicate Grouping&lt;br/&gt;Python]
+    S5 --&gt; S6[Stage 6: Suggestion Generation&lt;br/&gt;Python]
+    S6 --&gt; S7[Stage 7: Metrics &amp; Reporting&lt;br/&gt;Python]
+    S7 --&gt; End([Scan Report JSON])
+
+    style Bridge fill:#f9f,stroke:#333,stroke-width:4px
+    style S1 fill:#bbf,stroke:#333,stroke-width:2px
+    style S2 fill:#bbf,stroke:#333,stroke-width:2px
+    style S3 fill:#bfb,stroke:#333,stroke-width:2px
+    style S3_5 fill:#bfb,stroke:#333,stroke-width:2px
+    style S4 fill:#bfb,stroke:#333,stroke-width:2px
+    style S5 fill:#bfb,stroke:#333,stroke-width:2px
+    style S6 fill:#bfb,stroke:#333,stroke-width:2px
+    style S7 fill:#bfb,stroke:#333,stroke-width:2px
+```
+
+#### Stage Details
+
+**Stage 1: Repository Scanner** (`sidequest/pipeline-core/scanners/repository-scanner.ts`)
+- Duration: ~500ms - 2s
+- Input: `{ repoPath: &quot;/path/to/repo&quot; }`
+- Process: Git validation → repomix scan → metadata extraction
+- Output: Repository info (files, lines, languages)
+
+**Stage 2: AST-Grep Pattern Detector** (`sidequest/pipeline-core/scanners/ast-grep-detector.ts`)
+- Duration: ~1-5s
+- Input: Repository path
+- Process: Execute `sg scan --json` with 18 AST-grep rules
+- Output: Pattern matches (array-map-filter, express routes, etc.)
+
+**Stage 3: Code Block Extraction** (`sidequest/pipeline-core/extractors/extract_blocks.py`)
+- Duration: ~100-500ms
+- Input: JSON via stdin (repository info + pattern matches)
+- Process: Convert matches to CodeBlock Pydantic models
+- Output: List of CodeBlock objects with tags
+
+**Stage 3.5: Block Deduplication**
+- Duration: ~10-50ms
+- Process: Remove duplicate blocks by `file:function_name` key
+- Output: Unique code blocks only
+
+**Stage 4: Semantic Annotation**
+- Duration: Negligible (basic implementation)
+- Process: Category mapping (utility, api_handler, database_operation)
+- Output: Blocks with semantic categories
+
+**Stage 5: Duplicate Grouping** (`sidequest/pipeline-core/similarity/grouping.py`)
+- Duration: ~200ms - 2s
+- Process: Multi-layer algorithm (exact hash → structural similarity)
+- Output: DuplicateGroup objects with similarity scores
+
+**Stage 6: Suggestion Generation** (`sidequest/pipeline-core/extractors/extract_blocks.py`)
+- Duration: ~50-200ms
+- Process: Strategy determination (local_util, shared_package, mcp_server)
+- Output: ConsolidationSuggestion objects with migration steps
+
+**Stage 7: Metrics &amp; Reporting**
+- Duration: ~10-50ms
+- Process: Calculate statistics and prepare final JSON
+- Output: Complete scan report with blocks, groups, suggestions, metrics
+
+#### Data Format Examples
+
+**CodeBlock (Python → JSON)**
+```json
+{
+  &quot;block_id&quot;: &quot;cb_a1b2c3d4&quot;,
+  &quot;pattern_id&quot;: &quot;array-map-filter&quot;,
+  &quot;location&quot;: {
+    &quot;file_path&quot;: &quot;src/utils/helpers.js&quot;,
+    &quot;line_start&quot;: 15,
+    &quot;line_end&quot;: 17
+  },
+  &quot;source_code&quot;: &quot;return arr.filter(x =&gt; x &gt; 0).map(x =&gt; x * 2);&quot;,
+  &quot;category&quot;: &quot;utility&quot;,
+  &quot;tags&quot;: [&quot;function:processArray&quot;]
+}
+```
+
+**DuplicateGroup**
+```json
+{
+  &quot;group_id&quot;: &quot;dg_xyz789&quot;,
+  &quot;member_block_ids&quot;: [&quot;cb_abc&quot;, &quot;cb_def&quot;],
+  &quot;similarity_score&quot;: 0.95,
+  &quot;similarity_method&quot;: &quot;structural&quot;,
+  &quot;occurrence_count&quot;: 2,
+  &quot;affected_files&quot;: [&quot;src/utils/helpers.js&quot;, &quot;src/lib/transforms.js&quot;]
+}
+```
+
+**ConsolidationSuggestion**
+```json
+{
+  &quot;suggestion_id&quot;: &quot;cs_dg_xyz789&quot;,
+  &quot;strategy&quot;: &quot;local_util&quot;,
+  &quot;impact_score&quot;: 75.0,
+  &quot;roi_score&quot;: 91.3,
+  &quot;estimated_effort_hours&quot;: 1.5,
+  &quot;migration_steps&quot;: [
+    {
+      &quot;step_number&quot;: 1,
+      &quot;description&quot;: &quot;Extract to shared utility function&quot;,
+      &quot;automated&quot;: false,
+      &quot;estimated_time&quot;: &quot;30min&quot;
+    }
+  ]
+}
+```
+
+#### Performance Benchmarks
+
+| Repository Size | Total Time | Blocks Found | Groups Found |
+|----------------|------------|--------------|--------------|
+| Small (50 files) | ~2s | 30-50 | 5-10 |
+| Medium (200 files) | ~6s | 100-200 | 15-30 |
+| Large (500 files) | ~15s | 300-600 | 40-80 |
+
+---
+
+### 2. Schema Enhancement Pipeline
+
+**Purpose:** Add Schema.org JSON-LD structured data to README files
+**Job Type:** `schema-enhancement`
+**Languages:** JavaScript
+**Git Workflow:** ✅ Enabled (creates PRs with `docs/` prefix)
+
+#### Data Flow
+
+```mermaid
+graph TB
+    A[README Path] --&gt; B[SchemaEnhancementWorker]
+    B --&gt; C{Already Has Schema?}
+    C --&gt;|Yes| D[Skip - Return skipped]
+    C --&gt;|No| E[SchemaMCPTools.getSchemaType]
+    E --&gt; F[SchemaMCPTools.generateSchema]
+    F --&gt; G[SchemaMCPTools.validateSchema]
+    G --&gt; H{Valid?}
+    H --&gt;|No| I[Throw Error]
+    H --&gt;|Yes| J[Inject Schema into README]
+    J --&gt; K[Analyze Impact]
+    K --&gt; L[Save Enhanced README]
+    L --&gt; M[Save Impact Report]
+    M --&gt; N{Git Workflow Enabled?}
+    N --&gt;|Yes| O[Create Branch]
+    O --&gt; P[Commit Changes]
+    P --&gt; Q[Push Branch]
+    Q --&gt; R[Create Pull Request]
+    N --&gt;|No| S[Complete Job]
+    R --&gt; S
+
+    style E fill:#bbf,stroke:#333
+    style F fill:#bbf,stroke:#333
+    style G fill:#bbf,stroke:#333
+    style J fill:#bfb,stroke:#333
+    style K fill:#bfb,stroke:#333
+    style O fill:#ff9,stroke:#333
+    style R fill:#9f9,stroke:#333
+```
+
+#### Stage Breakdown
+
+**1. Schema Type Detection**
+- Input: README content + file path + context
+- Process: MCP tools analyze content to determine best schema type
+- Output: Schema type (SoftwareSourceCode, Article, TechArticle, etc.)
+
+**2. Schema Generation**
+- Input: README content + schema type
+- Process: Extract metadata (name, description, author, dependencies)
+- Output: Schema.org JSON-LD object
+
+**3. Schema Validation**
+- Input: Generated schema object
+- Process: Validate against Schema.org specifications
+- Output: `{ valid: boolean, errors: [], warnings: [] }`
+
+**4. Schema Injection**
+- Input: Original README + schema object
+- Process: Insert `&lt;script type=&quot;application/ld+json&quot;&gt;` block at top
+- Output: Enhanced README content
+
+**5. Impact Analysis**
+- Input: Original + enhanced content
+- Process: Calculate SEO improvements, rich results eligibility
+- Output: Impact report with score (0-100)
+
+**6. Git Workflow** (if enabled)
+- Branch: `docs/schema-README-1234567890`
+- Commit: `&quot;docs: add Schema.org structured data to README.md&quot;`
+- PR labels: `documentation`, `seo`, `schema-org`, `automated`
+
+#### Job Data Format
+
+```javascript
+// Input
+{
+  readmePath: &quot;/path/to/README.md&quot;,
+  relativePath: &quot;project/README.md&quot;,
+  repositoryPath: &quot;/path/to/repo&quot;,
+  repository: &quot;repo-name&quot;,
+  context: { /* additional context */ }
+}
+
+// Output
+{
+  status: &quot;enhanced&quot;,
+  readmePath: &quot;/path/to/README.md&quot;,
+  schemaType: &quot;SoftwareSourceCode&quot;,
+  schema: {
+    &quot;@context&quot;: &quot;https://schema.org&quot;,
+    &quot;@type&quot;: &quot;SoftwareSourceCode&quot;,
+    &quot;name&quot;: &quot;Project Name&quot;,
+    &quot;description&quot;: &quot;Project description&quot;,
+    // ... full schema
+  },
+  impact: {
+    impactScore: 85,
+    rating: &quot;high&quot;,
+    seoImprovements: [
+      &quot;Enhanced search result appearance&quot;,
+      &quot;Structured data for rich results&quot;
+    ],
+    richResultsEligibility: [&quot;Software&quot;, &quot;Article&quot;]
+  },
+  validation: {
+    valid: true,
+    errors: [],
+    warnings: []
+  },
+  timestamp: &quot;2025-11-24T12:00:00.000Z&quot;
+}
+```
+
+#### File Locations
+
+| Component | Path |
+|-----------|------|
+| Worker | `sidequest/workers/schema-enhancement-worker.ts` |
+| Runner | `sidequest/pipeline-runners/schema-enhancement-pipeline.ts` |
+| MCP Tools | `sidequest/utils/schema-mcp-tools.ts` |
+| Output | `./document-enhancement-impact-measurement/` |
+
+---
+
+### 3. Git Activity Reporter Pipeline
+
+**Purpose:** Generate weekly/monthly git activity reports with visualizations
+**Job Type:** Worker `git-activity` (payload type: `git-activity-report`)
+**Languages:** JavaScript → Python
+**Git Workflow:** ❌ No (generates reports only)
+
+#### Data Flow
+
+```mermaid
+graph TB
+    A[Report Request] --&gt; B[GitActivityWorker]
+    B --&gt; C[Build Python Args]
+    C --&gt; D{Report Type?}
+    D --&gt;|Weekly| E[--weekly flag]
+    D --&gt;|Monthly| F[--monthly flag]
+    D --&gt;|Custom| G[--start-date [--end-date]]
+    E --&gt; H[Execute Python Script]
+    F --&gt; H
+    G --&gt; H
+    H --&gt; I[collect_git_activity.py]
+    I --&gt; J[Scan configured repos + dotfiles]
+    J --&gt; K[Collect commit data]
+    K --&gt; L[Calculate statistics]
+    L --&gt; M{Output format?}
+    M --&gt;|markdown| N[Generate Jekyll markdown]
+    M --&gt;|json| O[Generate JSON]
+    M --&gt;|both| P[Generate markdown + JSON]
+    N --&gt; Q{Visualizations?}
+    O --&gt; Q
+    P --&gt; Q
+    Q --&gt;|Yes| R[Generate SVG charts]
+    Q --&gt;|No| S[Skip visualizations]
+    R --&gt; T[Save output files]
+    S --&gt; T
+    T --&gt; U[Parse stats from stdout]
+    U --&gt; V[Verify files exist]
+    V --&gt; W[Return job result]
+
+    style I fill:#bfb,stroke:#333
+    style J fill:#bfb,stroke:#333
+    style K fill:#bfb,stroke:#333
+    style R fill:#bbf,stroke:#333
+```
+
+#### Scheduling Behavior
+
+- Scheduled mode registers **both** weekly and monthly jobs.
+- Weekly cron: `GIT_CRON_SCHEDULE` (default `0 20 * * 0`).
+- Monthly cron: `GIT_MONTHLY_CRON_SCHEDULE` (default `0 8 1 * *`).
+
+#### Python Script Flow
+
+**File:** `sidequest/pipeline-runners/collect_git_activity.py`
+
+```python
+# 1. Parse command-line arguments
+args = parse_args()  # --weekly, --monthly, --start-date [--end-date], --output-format, --no-visualizations
+
+# 2. Find git repositories
+repos = find_git_repositories(config)  # CODE_DIR, REPORTS_DIR, additional_repositories, include_dotfiles
+
+# 3. Collect commit data per repository
+for repo in repos:
+    commits = git log --since={date} [--until={date}] --all
+    parse_commit_data(commits)
+
+# 4. Aggregate statistics
+total_commits = sum(repo.commits for repo in repos)
+total_additions = sum(repo.additions for repo in repos)
+total_deletions = sum(repo.deletions for repo in repos)
+
+# 5. Save report outputs based on output format
+if args.output_format in (&quot;markdown&quot;, &quot;both&quot;):
+    generate_jekyll_report(...)
+if args.output_format in (&quot;json&quot;, &quot;both&quot;) or args.json_output:
+    save_json_report(...)
+
+# 6. Generate visualizations (optional)
+if not args.no_visualizations:
+    generate_svg_charts(...)
+
+# 7. Print summary + return
+print_summary(...)
+```
+
+#### Job Data Format
+
+```javascript
+// Input
+{
+  reportType: &quot;weekly&quot; | &quot;monthly&quot; | &quot;custom&quot;,
+  days: 7 | 30 | null,
+  sinceDate: &quot;2025-11-17&quot; | null,
+  untilDate: &quot;2025-11-24&quot; | null, // optional when sinceDate is provided
+  outputFormat: &quot;json&quot; | &quot;markdown&quot; | &quot;both&quot;,
+  generateVisualizations: true
+}
+
+// Output
+{
+  reportType: &quot;weekly&quot;,
+  days: 7,
+  sinceDate: &quot;2025-11-17&quot;,
+  untilDate: &quot;2025-11-24&quot;,
+  stats: {
+    totalCommits: 142,
+    totalRepositories: 12,
+    linesAdded: 3421,
+    linesDeleted: 1876
+  },
+  outputFiles: [
+    { path: &quot;/Users/&lt;user&gt;/code/PersonalSite/_reports/2026-03-04-git-activity-report.json&quot;, size: 45678, exists: true },
+    { path: &quot;/Users/&lt;user&gt;/code/PersonalSite/assets/images/git-activity-2026/top-10-repos.svg&quot;, size: 12345, exists: true }
+  ],
+  timestamp: &quot;2026-03-04T12:00:00.000Z&quot;
+}
+```
+
+#### Output Files
+
+| File Type | Description | Default Location |
+|-----------|-------------|------------------|
+| Markdown Report | Jekyll-formatted git activity report | `~/code/PersonalSite/_reports/{date}-git-activity-report.md` |
+| JSON Report | Aggregated statistics (when `--output-format json|both` or `--json-output`) | `~/code/PersonalSite/_reports/{date}-git-activity-report.json` or custom `--json-output` path |
+| SVG Charts | Repository/language/category visualizations | `~/code/PersonalSite/assets/images/git-activity-{year}/` |
+
+---
+
+### 4. Gitignore Manager Pipeline
+
+**Purpose:** Batch update `.gitignore` files across multiple repositories
+**Job Type:** `gitignore-update`
+**Languages:** JavaScript
+**Git Workflow:** ⚠️ Not supported (processes multiple repos per job)
+
+#### Data Flow
+
+```mermaid
+graph TB
+    A[Base Directory] --&gt; B[GitignoreWorker]
+    B --&gt; C[GitignoreRepomixUpdater]
+    C --&gt; D{Specific Repos?}
+    D --&gt;|Yes| E[Process Specific List]
+    D --&gt;|No| F[Scan Base Directory]
+    F --&gt; G[Find Git Repositories]
+    G --&gt; H[Filter by excludeDirs]
+    E --&gt; I[For Each Repository]
+    H --&gt; I
+    I --&gt; J[Check .gitignore exists]
+    J --&gt; K{Entry Already Present?}
+    K --&gt;|Yes| L[Skip - already_present]
+    K --&gt;|No| M{Dry Run?}
+    M --&gt;|Yes| N[Return would_add]
+    M --&gt;|No| O[Append to .gitignore]
+    O --&gt; P[Return added]
+    L --&gt; Q[Aggregate Results]
+    N --&gt; Q
+    P --&gt; Q
+    Q --&gt; R[Generate Summary]
+    R --&gt; S[Return Job Result]
+
+    style C fill:#bbf,stroke:#333
+    style G fill:#bfb,stroke:#333
+    style O fill:#9f9,stroke:#333
+```
+
+#### Update Logic
+
+**File:** `sidequest/workers/gitignore-repomix-updater.ts`
+
+```javascript
+async addToGitignore(repoPath) {
+  // 1. Check if .gitignore exists
+  const gitignorePath = path.join(repoPath, &apos;.gitignore&apos;);
+  if (!await exists(gitignorePath)) {
+    return { action: &apos;error&apos;, reason: &apos;no_gitignore&apos; };
+  }
+
+  // 2. Read existing content
+  const content = await fs.readFile(gitignorePath, &apos;utf-8&apos;);
+
+  // 3. Check if entry already present
+  if (content.includes(this.gitignoreEntry)) {
+    return { action: &apos;skipped&apos;, reason: &apos;already_present&apos; };
+  }
+
+  // 4. Dry run check
+  if (this.dryRun) {
+    return { action: &apos;would_add&apos;, entry: this.gitignoreEntry };
+  }
+
+  // 5. Append entry
+  const newContent = content + &apos;\n&apos; + this.gitignoreEntry + &apos;\n&apos;;
+  await fs.writeFile(gitignorePath, newContent);
+
+  return { action: &apos;added&apos;, entry: this.gitignoreEntry };
+}
+```
+
+#### Job Data Format
+
+```javascript
+// Input
+{
+  baseDir: &quot;~/code&quot;,
+  excludeDirs: [&quot;node_modules&quot;, &quot;.git&quot;, &quot;dist&quot;],
+  maxDepth: 10,
+  gitignoreEntry: &quot;repomix-output.xml&quot;,
+  dryRun: false,
+  repositories: null  // or [&quot;~/code/repo1&quot;, &quot;~/code/repo2&quot;]
+}
+
+// Output
+{
+  totalRepositories: 47,
+  results: [
+    { repository: &quot;~/code/repo1&quot;, action: &quot;added&quot;, entry: &quot;repomix-output.xml&quot; },
+    { repository: &quot;~/code/repo2&quot;, action: &quot;skipped&quot;, reason: &quot;already_present&quot; },
+    { repository: &quot;~/code/repo3&quot;, action: &quot;error&quot;, reason: &quot;no_gitignore&quot; }
+  ],
+  summary: {
+    added: 23,
+    skipped: 21,
+    would_add: 0,
+    error: 3
+  },
+  timestamp: &quot;2025-11-24T12:00:00.000Z&quot;,
+  dryRun: false,
+  gitignoreEntry: &quot;repomix-output.xml&quot;
+}
+```
+
+#### Scheduling &amp; Startup Modes
+
+**Cron Schedule (Doppler):**
+```bash
+GITIGNORE_CRON_SCHEDULE=&quot;0 4 * * *&quot;  # Daily at 4 AM
+```
+
+**Startup-once behavior:**
+
+- `--run-now` / `--run` and no `--cron`: create startup job, wait for terminal status, then exit.
+- `--run-now` / `--run` with `--cron`: run startup job first, then continue as a scheduler process.
+
+---
+
+### 5. Repomix Automation Pipeline
+
+**Purpose:** Automated repomix scan scheduling and execution
+**Job Type:** `repomix`
+**Languages:** JavaScript
+**Git Workflow:** ❌ No (cron-based execution)
+
+#### Data Flow
+
+```mermaid
+graph TB
+    A[Cron Schedule] --&gt; B[RepomixWorker]
+    B --&gt; C[Scan Base Directory]
+    C --&gt; D[Find Git Repositories]
+    D --&gt; E[For Each Repository]
+    E --&gt; F[Create Output Directory]
+    F --&gt; G[Execute repomix command]
+    G --&gt; H{Respect .gitignore?}
+    H --&gt;|Yes| I[Default behavior]
+    H --&gt;|No| J[Add --no-gitignore flag]
+    I --&gt; K{Additional Ignore Patterns?}
+    J --&gt; K
+    K --&gt;|Yes| L[Add --ignore patterns]
+    K --&gt;|No| M[Run npx repomix]
+    L --&gt; M
+    M --&gt; N[Capture stdout/stderr]
+    N --&gt; O[Save repomix-output.txt]
+    O --&gt; P[Calculate file size]
+    P --&gt; Q[Return job result]
+
+    style G fill:#bbf,stroke:#333
+    style M fill:#bfb,stroke:#333
+    style O fill:#9f9,stroke:#333
+```
+
+#### Repomix Command Construction
+
+**File:** `sidequest/workers/repomix-worker.ts`
+
+```javascript
+#runRepomixCommand(cwd) {
+  const args = [&apos;repomix&apos;];
+
+  // Respect .gitignore by default
+  if (!this.respectGitignore) {
+    args.push(&apos;--no-gitignore&apos;);
+  }
+
+  // Add additional ignore patterns (e.g., README.md)
+  if (this.additionalIgnorePatterns.length &gt; 0) {
+    args.push(&apos;--ignore&apos;, this.additionalIgnorePatterns.join(&apos;,&apos;));
+  }
+
+  // Execute: npx repomix [--no-gitignore] [--ignore patterns]
+  const proc = spawn(&apos;npx&apos;, args, {
+    cwd,
+    timeout: TIMEOUTS.REPOMIX_MS  // 10 minutes (from constants)
+  });
+
+  // Capture output and save to file
+}
+```
+
+#### Configuration
+
+**Environment Variables (Doppler):**
+```bash
+REPOMIX_IGNORE_PATTERNS=&quot;README.md,*.md&quot;  # Comma-separated patterns
+REPOMIX_RESPECT_GITIGNORE=&quot;true&quot;          # Default: true
+```
+
+#### Job Data Format
+
+```javascript
+// Input
+{
+  sourceDir: &quot;/path/to/repository&quot;,
+  relativePath: &quot;projects/myapp&quot;
+}
+
+// Output
+{
+  sourceDir: &quot;/path/to/repository&quot;,
+  outputFile: &quot;./condense/projects/myapp/repomix-output.txt&quot;,
+  relativePath: &quot;projects/myapp&quot;,
+  size: 456789,
+  timestamp: &quot;2025-11-24T12:00:00.000Z&quot;
+}
+```
+
+#### Output Structure
+
+```
+condense/
+├── project-a/
+│   └── repomix-output.txt
+├── project-b/
+│   └── repomix-output.txt
+└── project-c/
+    └── repomix-output.txt
+```
+
+---
+
+### 6. Plugin Manager Pipeline
+
+**Purpose:** Audit Claude Code plugins for duplicates and issues
+**Job Type:** `plugin-audit`
+**Languages:** JavaScript
+**Git Workflow:** ❌ No (analysis only)
+
+#### Data Flow
+
+```mermaid
+graph TB
+    A[Audit Request] --&gt; B[PluginManagerWorker]
+    B --&gt; C[Read settings.json]
+    C --&gt; D[Parse enabled plugins]
+    D --&gt; E[Group by category]
+    E --&gt; F{Detect Duplicates?}
+    F --&gt;|Yes| G[Identify duplicate categories]
+    F --&gt;|No| H[Continue analysis]
+    G --&gt; I[Generate recommendations]
+    H --&gt; I
+    I --&gt; J{Priority Level?}
+    J --&gt;|High| K[⚠️ Duplicate functionality]
+    J --&gt;|Medium| L[💡 Consolidation opportunity]
+    J --&gt;|Info| M[✅ Configuration OK]
+    K --&gt; N[Return audit results]
+    L --&gt; N
+    M --&gt; N
+
+    style C fill:#bbf,stroke:#333
+    style E fill:#bfb,stroke:#333
+    style G fill:#ff9,stroke:#333
+    style I fill:#9f9,stroke:#333
+```
+
+#### Audit Logic
+
+**File:** `sidequest/utils/plugin-manager.ts`
+
+```javascript
+async auditPlugins() {
+  // 1. Read settings.json
+  const settings = await this.readSettings();
+  const enabledPlugins = settings.plugins || [];
+
+  // 2. Categorize plugins
+  const categorized = this.categorizePlugins(enabledPlugins);
+
+  // 3. Detect duplicates
+  const duplicates = [];
+  for (const [category, plugins] of Object.entries(categorized)) {
+    if (plugins.length &gt; 1) {
+      duplicates.push({
+        category,
+        plugins,
+        suggestion: this.getSuggestion(category, plugins)
+      });
+    }
+  }
+
+  // 4. Generate recommendations
+  const recommendations = [];
+
+  if (enabledPlugins.length &gt; 30) {
+    recommendations.push({
+      priority: &apos;high&apos;,
+      type: &apos;plugin_count&apos;,
+      message: `${enabledPlugins.length} plugins enabled (threshold: 30)`,
+      action: &apos;Review and disable unused plugins&apos;
+    });
+  }
+
+  if (duplicates.length &gt; 0) {
+    recommendations.push({
+      priority: &apos;medium&apos;,
+      type: &apos;duplicate_functionality&apos;,
+      message: `${duplicates.length} categories with duplicate plugins`,
+      action: &apos;Consider consolidating similar plugins&apos;,
+      details: duplicates
+    });
+  }
+
+  return {
+    totalPlugins: enabledPlugins.length,
+    categorized,
+    duplicateCategories: duplicates,
+    recommendations
+  };
+}
+```
+
+#### Job Data Format
+
+```javascript
+// Input
+{
+  detailed: true  // Include full plugin listing
+}
+
+// Output
+{
+  totalPlugins: 62,
+  categorized: {
+    &quot;git&quot;: [&quot;git@fradser-dotagent&quot;, &quot;github@fradser-dotagent&quot;],
+    &quot;documentation&quot;: [&quot;update-claudemd@marketplace&quot;, &quot;document-skills:pdf&quot;],
+    &quot;refactoring&quot;: [&quot;refractor@marketplace&quot;]
+  },
+  duplicateCategories: [
+    {
+      category: &quot;git&quot;,
+      plugins: [&quot;git@fradser-dotagent&quot;, &quot;github@fradser-dotagent&quot;],
+      suggestion: &quot;Review if both git plugins are necessary&quot;
+    }
+  ],
+  recommendations: [
+    {
+      priority: &quot;high&quot;,
+      type: &quot;plugin_count&quot;,
+      message: &quot;62 plugins enabled (threshold: 30)&quot;,
+      action: &quot;Review and disable unused plugins&quot;
+    },
+    {
+      priority: &quot;medium&quot;,
+      type: &quot;duplicate_functionality&quot;,
+      message: &quot;1 categories with duplicate plugins&quot;,
+      action: &quot;Consider consolidating similar plugins&quot;,
+      details: [...]
+    }
+  ],
+  timestamp: &quot;2025-11-24T12:00:00.000Z&quot;
+}
+```
+
+---
+
+### 7. Claude Health Monitor Pipeline
+
+**Purpose:** Comprehensive health check for Claude Code environment
+**Job Type:** `claude-health-check`
+**Languages:** JavaScript + Shell
+**Git Workflow:** ❌ No (monitoring only)
+
+#### Data Flow
+
+```mermaid
+graph TB
+    A[Health Check Request] --&gt; B[ClaudeHealthWorker]
+    B --&gt; C[Run Parallel Checks]
+    C --&gt; D[Environment Check]
+    C --&gt; E[Directory Check]
+    C --&gt; F[Configuration Check]
+    C --&gt; G[Hook Check]
+    C --&gt; H[Component Check]
+    C --&gt; I[Plugin Check]
+    C --&gt; J[Performance Check]
+    D --&gt; K[Aggregate Results]
+    E --&gt; K
+    F --&gt; K
+    G --&gt; K
+    H --&gt; K
+    I --&gt; K
+    J --&gt; K
+    K --&gt; L[Analyze Results]
+    L --&gt; M{Issues Found?}
+    M --&gt;|Yes| N[Generate Recommendations]
+    M --&gt;|No| O[Return OK status]
+    N --&gt; P[Priority Classification]
+    P --&gt; Q[Return Health Report]
+    O --&gt; Q
+
+    style C fill:#bbf,stroke:#333
+    style K fill:#bfb,stroke:#333
+    style M fill:#ff9,stroke:#333
+```
+
+#### Check Categories
+
+**1. Environment Check**
+```javascript
+{
+  direnv: true,
+  direnvConfigured: true,
+  direnvAllowed: true,
+  nodeVersion: &quot;v20.10.0&quot;,
+  npmVersion: &quot;10.2.3&quot;,
+  envVars: {
+    CLAUDE_CONFIG_DIR: &quot;~/.claude&quot;,
+    CLAUDE_PROJECT_DIR: &quot;~/dev&quot;
+  }
+}
+```
+
+**2. Directory Check**
+```javascript
+{
+  claudeDir: {
+    exists: true,
+    permissions: &quot;drwxr-xr-x&quot;
+  },
+  agentsDir: {
+    exists: true,
+    count: 10
+  },
+  skillsDir: {
+    exists: true,
+    count: 10
+  },
+  hooksDir: {
+    exists: true,
+    count: 7
+  }
+}
+```
+
+**3. Configuration Check**
+```javascript
+{
+  settingsJson: {
+    valid: true,
+    schema: &quot;valid&quot;,
+    hooks: 7,
+    plugins: 62
+  },
+  skillRulesJson: {
+    valid: true,
+    schema: &quot;valid&quot;,
+    skills: 10
+  }
+}
+```
+
+**4. Hook Check**
+```javascript
+{
+  registered: 7,
+  executable: 7,
+  issues: [
+    {
+      hook: &quot;session-start.sh&quot;,
+      issue: &quot;slow_execution&quot;,
+      executionTime: 1234
+    }
+  ]
+}
+```
+
+**5. Component Check**
+```javascript
+{
+  agents: {
+    total: 10,
+    files: [&quot;auth-route-manager.md&quot;, &quot;code-refactor-agent.md&quot;, ...]
+  },
+  skills: {
+    total: 10,
+    directories: [&quot;backend-dev-guidelines&quot;, &quot;frontend-dev-guidelines&quot;, ...]
+  },
+  hooks: {
+    total: 7,
+    scripts: [&quot;session-start.sh&quot;, &quot;post-tool-use-tracker.sh&quot;, ...]
+  }
+}
+```
+
+**6. Performance Check**
+```javascript
+{
+  hookPerformance: {
+    averageExecutionTime: 234,
+    slowHooks: [
+      { name: &quot;stop-build-check-enhanced.sh&quot;, time: 1234 }
+    ]
+  },
+  logSize: 234567,
+  diskSpace: 102400000
+}
+```
+
+#### Recommendations
+
+```javascript
+[
+  {
+    priority: &quot;high&quot;,
+    category: &quot;performance&quot;,
+    message: &quot;Hook execution time exceeds threshold&quot;,
+    action: &quot;Optimize stop-build-check-enhanced.sh hook&quot;,
+    details: { executionTime: 1234, threshold: 1000 }
+  },
+  {
+    priority: &quot;medium&quot;,
+    category: &quot;configuration&quot;,
+    message: &quot;Large number of enabled plugins&quot;,
+    action: &quot;Review and disable unused plugins&quot;,
+    details: { totalPlugins: 62, threshold: 30 }
+  }
+]
+```
+
+---
+
+### 8. Test Refactor Pipeline
+
+**Purpose:** Automated test suite modularization and utility generation
+**Job Type:** `test-refactor`
+**Languages:** TypeScript
+**Git Workflow:** ✅ Optional
+**Status:** ⚠️ Disabled in worker registry (`disabled: true, disabledReason: &apos;TypeScript compilation required&apos;`). Run via the dedicated pipeline runner directly.
+
+#### Data Flow
+
+```mermaid
+graph TB
+    A[Project Path] --&gt; B[TestRefactorWorker]
+    B --&gt; C[Detect Test Framework]
+    C --&gt; D[Find Test Files]
+    D --&gt; E{Tests Found?}
+    E --&gt;|No| F[Skip - no tests]
+    E --&gt;|Yes| G[Analyze Test Files]
+    G --&gt; H[Detect Patterns]
+    H --&gt; I[Extract Hardcoded Strings]
+    I --&gt; J[Generate Recommendations]
+    J --&gt; K{Dry Run?}
+    K --&gt;|Yes| L[Return analysis only]
+    K --&gt;|No| M[Generate Utility Files]
+    M --&gt; N[Create assertions.ts]
+    M --&gt; O[Create validators.ts]
+    M --&gt; P[Create helpers.ts]
+    M --&gt; Q[Create constants.ts]
+    N --&gt; R{Git Workflow?}
+    O --&gt; R
+    P --&gt; R
+    Q --&gt; R
+    R --&gt;|Yes| S[Create Branch &amp; PR]
+    R --&gt;|No| T[Complete Job]
+    S --&gt; T
+
+    style G fill:#bbf,stroke:#333
+    style H fill:#bfb,stroke:#333
+    style M fill:#9f9,stroke:#333
+    style S fill:#ff9,stroke:#333
+```
+
+#### Pattern Detection
+
+**File:** `sidequest/workers/test-refactor-worker.ts`
+
+```typescript
+async analyzeTestFiles(projectPath: string, testFiles: string[]): Promise&lt;Analysis&gt; {
+  const patterns: AnalysisPatterns = {
+    renderWaitFor: 0,
+    linkValidation: 0,
+    semanticChecks: 0,
+    formInteractions: 0,
+    hardcodedStrings: [],
+    duplicateAssertions: []
+  };
+
+  for (const testFile of testFiles) {
+    const content = await fs.readFile(testFile, &apos;utf-8&apos;);
+
+    // Pattern: render + waitFor
+    if (/render\(.*?\)[\s\S]*?waitFor\(/g.test(content)) {
+      patterns.renderWaitFor++;
+    }
+
+    // Pattern: Link validation
+    if (/expect\(.*?link\)\.toHaveAttribute\([&apos;&quot;]href[&apos;&quot;]/g.test(content)) {
+      patterns.linkValidation++;
+    }
+
+    // Pattern: Semantic checks
+    if (/expect\(.*?\)\.toHaveAttribute\([&apos;&quot;]role[&apos;&quot;]/g.test(content)) {
+      patterns.semanticChecks++;
+    }
+
+    // Extract hardcoded strings
+    const stringMatches = content.match(/[&apos;&quot;]([A-Z_]{3,})[&apos;&quot;]/g);
+    if (stringMatches) {
+      patterns.hardcodedStrings.push(...stringMatches);
+    }
+  }
+
+  return {
+    testFiles,
+    patterns,
+    recommendations: this.generateRecommendations(patterns)
+  };
+}
+```
+
+#### Generated Files
+
+**1. `tests/utils/assertions.ts`**
+```typescript
+import { expect } from &apos;@playwright/test&apos;;
+
+export async function expectRenderAndWait(
+  component: React.ReactElement,
+  selector: string
+) {
+  const { container } = render(component);
+  await waitFor(() =&gt; {
+    expect(container.querySelector(selector)).toBeInTheDocument();
+  });
+  return container;
+}
+
+export function expectLinkHasValidHref(
+  link: HTMLElement,
+  expectedHref: string
+) {
+  expect(link).toHaveAttribute(&apos;href&apos;, expectedHref);
+}
+```
+
+**2. `tests/utils/validators.ts`**
+```typescript
+export function validateSemanticRole(
+  element: HTMLElement,
+  expectedRole: string
+) {
+  expect(element).toHaveAttribute(&apos;role&apos;, expectedRole);
+}
+
+export function validateFormField(
+  field: HTMLInputElement,
+  options: { label?: string; required?: boolean }
+) {
+  if (options.label) {
+    expect(field).toHaveAccessibleName(options.label);
+  }
+  if (options.required) {
+    expect(field).toBeRequired();
+  }
+}
+```
+
+**3. `tests/utils/constants.ts`**
+```typescript
+export const TEST_ROUTES = {
+  HOME: &apos;/&apos;,
+  LOGIN: &apos;/login&apos;,
+  DASHBOARD: &apos;/dashboard&apos;
+};
+
+export const TEST_LABELS = {
+  SUBMIT_BUTTON: &apos;Submit&apos;,
+  CANCEL_BUTTON: &apos;Cancel&apos;
+};
+```
+
+#### Job Data Format
+
+```javascript
+// Input
+{
+  repositoryPath: &quot;/path/to/project&quot;,
+  repository: &quot;my-app&quot;,
+  testsDir: &quot;tests&quot;,
+  utilsDir: &quot;tests/utils&quot;,
+  e2eDir: &quot;tests/e2e&quot;,
+  framework: &quot;vitest&quot;,
+  dryRun: false
+}
+
+// Output
+{
+  status: &quot;success&quot;,
+  analysis: {
+    testFiles: [&quot;tests/Home.test.tsx&quot;, &quot;tests/Login.test.tsx&quot;],
+    patterns: {
+      renderWaitFor: 12,
+      linkValidation: 8,
+      semanticChecks: 15,
+      formInteractions: 6,
+      hardcodedStrings: [&quot;SUBMIT&quot;, &quot;CANCEL&quot;, &quot;HOME_ROUTE&quot;],
+      duplicateAssertions: [...]
+    },
+    recommendations: [
+      &quot;Extract renderWaitFor pattern to shared utility&quot;,
+      &quot;Create constants file for hardcoded strings&quot;
+    ]
+  },
+  generatedFiles: [
+    &quot;tests/utils/assertions.ts&quot;,
+    &quot;tests/utils/validators.ts&quot;,
+    &quot;tests/utils/constants.ts&quot;
+  ],
+  testFiles: 47,
+  timestamp: &quot;2025-11-24T12:00:00.000Z&quot;
+}
+```
+
+---
+
+### 9. Repository Cleanup Pipeline
+
+**Purpose:** Automated cleanup of Python venvs, build artifacts, temp files
+**Job Type:** `repo-cleanup`
+**Languages:** JavaScript + Shell
+**Git Workflow:** ❌ No (destructive operations)
+
+#### Data Flow
+
+```mermaid
+graph TB
+    A[Target Directory] --&gt; B[RepoCleanupWorker]
+    B --&gt; C[Get Initial Size]
+    C --&gt; D{Dry Run?}
+    D --&gt;|Yes| E[Scan Repository]
+    D --&gt;|No| F[Run Cleanup Script]
+    E --&gt; G[Find Python venvs]
+    E --&gt; H[Find temp files]
+    E --&gt; I[Find build artifacts]
+    E --&gt; J[Find output files]
+    F --&gt; K[Execute cleanup]
+    G --&gt; L[Aggregate Results]
+    H --&gt; L
+    I --&gt; L
+    J --&gt; L
+    K --&gt; L
+    L --&gt; M[Get Final Size]
+    M --&gt; N[Calculate Space Saved]
+    N --&gt; O[Return Job Result]
+
+    style E fill:#bbf,stroke:#333
+    style F fill:#f99,stroke:#333
+    style K fill:#9f9,stroke:#333
+```
+
+#### Cleanup Targets
+
+**File:** `sidequest/pipeline-runners/universal-repo-cleanup.sh`
+
+**1. Python Virtual Environments**
+```bash
+# Patterns: venv, .venv, env, virtualenv
+find $TARGET_DIR -maxdepth 3 -type d \( \
+  -name &quot;venv&quot; -o \
+  -name &quot;.venv&quot; -o \
+  -name &quot;env&quot; -o \
+  -name &quot;virtualenv&quot; \
+\) -exec rm -rf {} +
+```
+
+**2. Temporary/Cache Files**
+```bash
+# Patterns: .DS_Store, __pycache__, *.pyc, *.swp
+find $TARGET_DIR \( \
+  -name &quot;.DS_Store&quot; -o \
+  -name &quot;__pycache__&quot; -o \
+  -name &quot;*.pyc&quot; -o \
+  -name &quot;*.swp&quot; \
+\) -delete
+```
+
+**3. Build Artifacts**
+```bash
+# Patterns: .jekyll-cache, dist, build, node_modules/.cache
+find $TARGET_DIR -type d \( \
+  -name &quot;.jekyll-cache&quot; -o \
+  -path &quot;*/node_modules/.cache&quot; -o \
+  -name &quot;dist&quot; -o \
+  -name &quot;build&quot; \
+\) -exec rm -rf {} +
+```
+
+**4. Output Files**
+```bash
+# Patterns: repomix-output.xml, *.log
+find $TARGET_DIR \( \
+  -name &quot;repomix-output.xml&quot; -o \
+  -name &quot;*.log&quot; \
+\) -delete
+```
+
+**5. Redundant Directories**
+```bash
+# Patterns: drafts, temp, tmp, backup
+find $TARGET_DIR -maxdepth 2 -type d \( \
+  -name &quot;drafts&quot; -o \
+  -name &quot;temp&quot; -o \
+  -name &quot;tmp&quot; -o \
+  -name &quot;backup&quot; \
+\) -exec rm -rf {} +
+```
+
+#### Job Data Format
+
+```javascript
+// Input
+{
+  targetDir: &quot;~/code&quot;,
+  dryRun: false
+}
+
+// Output
+{
+  targetDir: &quot;~/code&quot;,
+  dryRun: false,
+  initialSize: 15728640000,  // bytes
+  finalSize: 14680064000,
+  savedSpace: &quot;1 GB&quot;,
+  totalItems: 342,
+  categories: {
+    venvs: {
+      count: 12,
+      items: [&quot;~/code/project1/venv&quot;, &quot;~/code/project2/.venv&quot;]
+    },
+    tempFiles: {
+      count: 156,
+      items: [&quot;~/code/project1/.DS_Store&quot;, &quot;~/code/project2/__pycache__&quot;]
+    },
+    buildArtifacts: {
+      count: 34,
+      items: [&quot;~/code/project1/dist&quot;, &quot;~/code/project2/build&quot;]
+    },
+    outputFiles: {
+      count: 89,
+      items: [&quot;~/code/project1/repomix-output.xml&quot;]
+    },
+    redundantDirs: {
+      count: 51,
+      items: [&quot;~/code/project1/temp&quot;, &quot;~/code/project2/backup&quot;]
+    }
+  },
+  timestamp: &quot;2025-11-24T12:00:00.000Z&quot;
+}
+```
+
+#### Scheduling
+
+**Cron Schedule (Doppler):**
+```bash
+CLEANUP_CRON_SCHEDULE=&quot;0 3 * * 0&quot;  # Weekly, Sunday 3 AM
+```
+
+**Startup-once behavior:**
+
+- `--run-now` / `--run` and no `--cron`: create startup job, wait for terminal status, then exit.
+- `--run-now` / `--run` with `--cron`: run startup job first, then continue as a scheduler process.
+
+**Manual Execution:**
+```bash
+npm run cleanup:once      # Run now
+npm run cleanup:dryrun    # Preview without deletion
+```
+
+---
+
+### 10. Bugfix Audit Pipeline
+
+**Purpose:** Automated 5-stage bug detection, security audit, and fix workflow
+**Job Type:** `bugfix-audit`
+**Languages:** JavaScript + Shell (Claude Code CLI)
+**Git Workflow:** ✅ Multi-commit (manual GitWorkflowManager, not base-class single-commit)
+
+#### Data Flow
+
+```mermaid
+graph TB
+    A[~/dev/active/*.md] --&gt; B[BugfixAuditPipeline]
+    B --&gt; C[Scan for Markdown Files]
+    C --&gt; D[Resolve Repository Paths]
+    D --&gt; E[Create Jobs per Project]
+    E --&gt; F[BugfixAuditWorker.runJobHandler]
+    F --&gt; G[Create Feature Branch]
+    G --&gt; S1[Stage 1: bugfix-planner agent]
+    S1 --&gt; S2[Stage 2: bug-detective plugin]
+    S2 --&gt; S3[Stage 3: audit plugin]
+    S3 --&gt; C1[Commit: audit results]
+    C1 --&gt; S4[Stage 4: ceo-quality-controller agent]
+    S4 --&gt; C2[Commit: quality control]
+    C2 --&gt; S5[Stage 5: refractor plugin]
+    S5 --&gt; C3[Commit: bug fixes]
+    C3 --&gt; Push[Push Branch]
+    Push --&gt; PR[Create Pull Request]
+    PR --&gt; Done([Job Complete])
+
+    style G fill:#bbf,stroke:#333
+    style S1 fill:#bfb,stroke:#333
+    style S2 fill:#bfb,stroke:#333
+    style S3 fill:#bfb,stroke:#333
+    style S4 fill:#bfb,stroke:#333
+    style S5 fill:#bfb,stroke:#333
+    style C1 fill:#ff9,stroke:#333
+    style C2 fill:#ff9,stroke:#333
+    style C3 fill:#ff9,stroke:#333
+    style PR fill:#9f9,stroke:#333
+```
+
+#### Stage Breakdown
+
+**Stage 1: bugfix-planner agent**
+- Input: Markdown content from `~/dev/active/&lt;project&gt;/`
+- Process: Claude Code agent analyzes markdown and creates bug fix plan
+- Output: `01-bugfix-plan.md`
+
+**Stage 2: bug-detective plugin**
+- Input: Repository path
+- Process: Systematic debugging via `/bug-detective:bug-detective` slash command
+- Output: `02-bug-detective-report.md`
+
+**Stage 3: audit plugin**
+- Input: Repository path
+- Process: Security audit via `/audit:audit` slash command
+- Output: `03-security-audit.md`
+- **Commit:** audit results (plan + detective + audit)
+
+**Stage 4: ceo-quality-controller agent**
+- Input: Repository path (with audit reports present)
+- Process: Claude Code agent validates quality standards
+- Output: `04-quality-control.md`
+- **Commit:** quality control validation
+
+**Stage 5: refractor plugin**
+- Input: Repository path
+- Process: Implement fixes via `/refractor:refractor` slash command
+- Output: `05-refactor-implementation.md`
+- **Commit:** bug fixes implemented
+- **Push + PR:** Branch pushed, PR created against base branch
+
+#### Git Workflow (Multi-Commit)
+
+Unlike pipelines that use `gitWorkflowEnabled: true` (single commit at end), bugfix-audit manages git operations directly via `GitWorkflowManager`:
+
+```
+createJobBranch()     → bugfix/bugfix-audit-&lt;project&gt;-&lt;timestamp&gt;
+commitChanges() ×3    → after stages 3, 4, and 5
+pushBranch()          → push to remote
+createPullRequest()   → PR to main with stage summary
+```
+
+This pattern is documented in [Adding New Pipelines](../ADDING_PIPELINES.md) as &quot;Option B — Manual multi-commit.&quot;
+
+#### Job Data Format
+
+```javascript
+// Input
+{
+  markdownFile: &quot;/Users/dev/active/my-project/context.md&quot;,
+  projectName: &quot;my-project&quot;,
+  repoPath: &quot;/Users/code/my-project&quot;
+}
+
+// Output
+{
+  markdownFile: &quot;/Users/dev/active/my-project/context.md&quot;,
+  projectName: &quot;my-project&quot;,
+  repoPath: &quot;/Users/code/my-project&quot;,
+  branchName: &quot;bugfix/bugfix-audit-my-project-1707500000&quot;,
+  stages: [
+    { name: &quot;bugfix-planner&quot;, status: &quot;completed&quot; },
+    { name: &quot;bug-detective&quot;, status: &quot;completed&quot; },
+    { name: &quot;audit&quot;, status: &quot;completed&quot; },
+    { name: &quot;ceo-quality-controller&quot;, status: &quot;completed&quot; },
+    { name: &quot;refractor&quot;, status: &quot;completed&quot; }
+  ],
+  pullRequestUrl: &quot;https://github.com/user/my-project/pull/42&quot;,
+  timestamp: &quot;2026-02-09T01:00:00.000Z&quot;
+}
+```
+
+#### File Locations
+
+| Component | Path |
+|-----------|------|
+| Worker | `sidequest/workers/bugfix-audit-worker.ts` |
+| Runner | `sidequest/pipeline-runners/bugfix-audit-pipeline.ts` |
+| Output | `~/code/jobs/sidequest/bug-fixes/output/&lt;project&gt;/&lt;date&gt;/` |
+| Logs | `~/code/jobs/sidequest/bug-fixes/logs/` |
+
+#### Scheduling
+
+```bash
+npm run bugfix:once       # Run immediately
+npm run bugfix:tonight    # One-time at 1 AM
+npm run bugfix:schedule   # Recurring daily at 1 AM
+```
+
+---
+
+### 11. Dashboard Populate Pipeline
+
+**Purpose:** Populate quality-metrics-dashboard with 7 metrics from Claude Code session telemetry
+**Job Type:** `dashboard-populate`
+**Languages:** JavaScript (worker) → TypeScript (external scripts)
+**Git Workflow:** ❌ No (data pipeline only)
+
+#### Data Flow
+
+```mermaid
+graph TB
+    A[Cron / Manual Trigger] --&gt; B[DashboardPopulateWorker]
+    B --&gt; C{Skip Sync?}
+    C --&gt;|No| D[npm run build&lt;br/&gt;observability-toolkit]
+    C --&gt;|Yes| E[Skip build]
+    D --&gt; F[npm run populate]
+    E --&gt; F
+    F --&gt; S1[Step 1: derive-evaluations.ts&lt;br/&gt;Rule-based metrics]
+    S1 --&gt; S2[Step 2: judge-evaluations.ts&lt;br/&gt;LLM-based metrics]
+    S2 --&gt; S3[Step 3: sync-to-kv.ts&lt;br/&gt;Aggregate + KV upload]
+    S1 -.-&gt;|--dry-run| Skip1[Skipped]
+    S2 -.-&gt;|--skip-judge| Skip2[Skipped]
+    S3 -.-&gt;|--skip-sync| Skip3[Skipped]
+    S3 --&gt; G[Parse Step Timings]
+    G --&gt; H[Generate Report]
+    H --&gt; I[Return Job Result]
+
+    style S1 fill:#bbf,stroke:#333
+    style S2 fill:#bfb,stroke:#333
+    style S3 fill:#9f9,stroke:#333
+```
+
+#### Metrics Produced
+
+| Step | Metrics | Method |
+|------|---------|--------|
+| derive-evaluations | tool_correctness, evaluation_latency, task_completion | Rule-based (trace analysis) |
+| judge-evaluations | relevance, coherence, faithfulness, hallucination | LLM-as-Judge (or `--seed` for synthetic) |
+| sync-to-kv | Aggregated summaries per period (24h, 7d, 30d) + role views | Cloudflare KV upload |
+
+#### External Script Locations
+
+| Script | Path |
+|--------|------|
+| Orchestrator | `~/.claude/mcp-servers/observability-toolkit/dashboard/scripts/populate-dashboard.ts` |
+| Derive | `~/.claude/mcp-servers/observability-toolkit/dashboard/scripts/derive-evaluations.ts` |
+| Judge | `~/.claude/mcp-servers/observability-toolkit/dashboard/scripts/judge-evaluations.ts` |
+| Sync | `~/.claude/mcp-servers/observability-toolkit/dashboard/scripts/sync-to-kv.ts` |
+
+#### Job Data Format
+
+```javascript
+// Input
+{
+  type: &quot;populate&quot;,
+  seed: true,           // Use synthetic judge scores (offline)
+  dryRun: false,        // Preview only, no writes
+  skipJudge: false,     // Skip LLM-based metrics
+  skipSync: false,      // Skip KV upload
+  limit: undefined      // Max turns to judge
+}
+
+// Output
+{
+  seed: true,
+  dryRun: false,
+  skipJudge: false,
+  skipSync: false,
+  steps: [
+    { name: &quot;derive-evaluations&quot;, ms: 1234 },
+    { name: &quot;judge-evaluations&quot;, ms: 5678 },
+    { name: &quot;sync-to-kv&quot;, ms: 2345 }
+  ],
+  durationMs: 9257,
+  stdout: &quot;...&quot;,        // last 2KB
+  timestamp: &quot;2026-02-13T06:00:00.000Z&quot;
+}
+```
+
+#### Scheduling
+
+**Cron Schedule (twice daily):**
+```bash
+DASHBOARD_CRON_SCHEDULE=&quot;0 6,18 * * *&quot;  # 6 AM and 6 PM
+```
+
+**Manual Execution:**
+```bash
+npm run dashboard:populate        # Run once with --seed (offline)
+npm run dashboard:populate:full   # Run once with real LLM judge
+npm run dashboard:populate:dry    # Dry run preview
+npm run dashboard:populate:schedule  # Start cron scheduler
+```
+
+**Startup-once behavior:** when invoked with `--run-now` / `--run` and without `--cron`, the runner waits for the startup job to finish and exits.
+
+#### File Locations
+
+| Component | Path |
+|-----------|------|
+| Worker | `sidequest/workers/dashboard-populate-worker.ts` |
+| Runner | `sidequest/pipeline-runners/dashboard-populate-pipeline.ts` |
+| External | `~/.claude/mcp-servers/observability-toolkit/dashboard/` |
+
+---
+
+## Git Workflow Integration
+
+### Overview
+
+The AlephAuto framework supports automated branch creation and PR generation for workers that modify code. This is implemented in the `SidequestServer` base class and can be enabled per worker.
+
+### Workflow Sequence
+
+```mermaid
+graph TB
+    A[Job Started] --&gt; B{Git Workflow Enabled?}
+    B --&gt;|No| C[Run Job Handler]
+    B --&gt;|Yes| D[Find Git Repository Root]
+    D --&gt; E[Get Original Branch]
+    E --&gt; F[Create Feature Branch]
+    F --&gt; G[Run Job Handler]
+    G --&gt; H{Changes Detected?}
+    H --&gt;|No| I[Cleanup Branch]
+    H --&gt;|Yes| J[Stage Changes]
+    I --&gt; K[Complete Job]
+    J --&gt; L[Generate Commit Message]
+    L --&gt; M[Commit Changes]
+    M --&gt; N[Push Branch]
+    N --&gt; O[Generate PR Context]
+    O --&gt; P[Create Pull Request]
+    P --&gt; Q{Success?}
+    Q --&gt;|Yes| R[Record PR URL in job.git]
+    Q --&gt;|No| S[Capture Error]
+    R --&gt; K
+    S --&gt; T[Cleanup Branch]
+    T --&gt; U[Fail Job]
+
+    style F fill:#bbf,stroke:#333
+    style M fill:#bfb,stroke:#333
+    style P fill:#9f9,stroke:#333
+    style U fill:#f99,stroke:#333
+```
+
+### Configuration
+
+**Environment Variables (Doppler):**
+```bash
+ENABLE_GIT_WORKFLOW=true                 # Enable/disable globally
+GIT_BASE_BRANCH=main                     # Base branch for PRs
+GIT_BRANCH_PREFIX=automated              # Branch prefix
+GIT_DRY_RUN=false                        # Skip push/PR creation
+```
+
+**Worker-Specific Configuration:**
+```javascript
+export class MyWorker extends SidequestServer {
+  constructor(options = {}) {
+    super({
+      ...options,
+      jobType: &apos;my-worker&apos;,
+      gitWorkflowEnabled: config.enableGitWorkflow,
+      gitBranchPrefix: &apos;feature&apos;,
+      gitBaseBranch: config.gitBaseBranch,
+      gitDryRun: config.gitDryRun
+    });
+  }
+}
+```
+
+### Branch Naming
+
+**Pattern:** `{prefix}/{job-type}/{description}-{timestamp}`
+
+**Examples:**
+- `docs/schema-enhancement-README-1732464000`
+- `test-refactor/my-app-1732464000`
+- `automated/gitignore-update-1732464000`
+
+### Commit Message Generation
+
+**Override in worker:**
+```javascript
+async _generateCommitMessage(job) {
+  return {
+    title: &apos;feat: automated improvements&apos;,
+    body: &apos;Detailed description of changes&apos;
+  };
+}
+```
+
+**Default Format:**
+```
+{title}
+
+{body}
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude &lt;noreply@anthropic.com&gt;
+```
+
+### PR Context Generation
+
+**Override in worker:**
+```javascript
+async _generatePRContext(job) {
+  return {
+    branchName: job.git.branchName,
+    title: &apos;PR title&apos;,
+    body: &apos;## Summary\n\nDetailed PR description&apos;,
+    labels: [&apos;automated&apos;, &apos;enhancement&apos;]
+  };
+}
+```
+
+### Job Metadata
+
+**job.git object:**
+```javascript
+{
+  branchName: &apos;docs/schema-enhancement-README-1732464000&apos;,
+  originalBranch: &apos;main&apos;,
+  commitSha: &apos;abc123def456...&apos;,
+  prUrl: &apos;https://github.com/user/repo/pull/42&apos;,
+  changedFiles: [&apos;README.md&apos;, &apos;package.json&apos;]
+}
+```
+
+### Workers with Git Workflow
+
+| Worker | Enabled | Branch Prefix | PR Labels |
+|--------|---------|---------------|-----------|
+| Schema Enhancement | ✅ Yes | `docs` | `documentation`, `seo`, `schema-org`, `automated` |
+| Bugfix Audit | ✅ Multi-commit | `bugfix` | `automated`, `bugfix` |
+| Test Refactor | ✅ Optional | `test-refactor` | `testing`, `refactoring`, `automated` |
+| Duplicate Detection | ⚠️ Custom | N/A | Custom PRCreator implementation |
+| Gitignore | ❌ No | N/A | Batch operations, not supported |
+
+---
+
+## Common Patterns
+
+### 1. Language Boundaries (JavaScript ↔ Python)
+
+**Pattern:** JSON over stdin/stdout
+
+```javascript
+// JavaScript caller
+const proc = spawn(&apos;python3&apos;, [&apos;script.py&apos;]);
+proc.stdin.write(JSON.stringify(data));
+proc.stdin.end();
+
+let stdout = &apos;&apos;;
+proc.stdout.on(&apos;data&apos;, (chunk) =&gt; {
+  stdout += chunk.toString();
+});
+
+proc.on(&apos;close&apos;, (code) =&gt; {
+  if (code === 0) {
+    const result = JSON.parse(stdout);
+    resolve(result);
+  }
+});
+```
+
+```python
+# Python receiver
+import sys
+import json
+
+input_data = json.load(sys.stdin)
+# ... process data
+result = {&quot;output&quot;: &quot;data&quot;}
+json.dump(result, sys.stdout, indent=2)
+```
+
+### 2. Event-Driven Job Lifecycle
+
+**All workers emit standard events (SidequestServer base):**
+```typescript
+// Pipeline runners register listeners in setupEventListeners()
+this.worker.on(&apos;job:created&apos;, (job: Job) =&gt; {
+  logger.info({ jobId: job.id }, &apos;Job created&apos;);
+});
+
+this.worker.on(&apos;job:started&apos;, (job: Job) =&gt; {
+  logger.info({ jobId: job.id }, &apos;Job started&apos;);
+});
+
+this.worker.on(&apos;job:completed&apos;, (job: Job) =&gt; {
+  logger.info({ jobId: job.id, result: job.result }, &apos;Job completed&apos;);
+});
+
+this.worker.on(&apos;job:failed&apos;, (job: Job) =&gt; {
+  logError(logger, job.error as unknown as Error, &apos;Job failed&apos;, { jobId: job.id });
+});
+```
+
+### 3. Configuration via Doppler
+
+**Pipelines use centralized config (`sidequest/core/config.ts`) plus runner-local env/CLI overrides where needed:**
+```typescript
+import { config } from &apos;./sidequest/core/config.ts&apos;;
+const port = config.jobsApiPort;    // Correct — typed access
+// Preferred: typed config values from config.ts.
+// Runner-local scheduling/operation settings may read process.env directly
+// (for example, *_CRON_SCHEDULE, *_DRY_RUN, *_BASE_DIR/TARGET_DIR) and parse
+// CLI flags (--run-now/--run/--cron) to control one-shot vs scheduler mode.
+```
+
+### 4. Retry Logic with Error Classification
+
+**Automatic retry for transient errors (handled by `SidequestServer._finalizeJobFailure`):**
+
+```typescript
+// sidequest/core/server.ts — retry is built into the job lifecycle
+// Uses error-classifier.ts: isRetryable() + classifyError()
+//
+// Retryable: ETIMEDOUT, ECONNRESET, ENOTFOUND, 5xx
+// Non-retryable: ENOENT, EACCES, EPERM, 4xx
+//
+// On retry: status → queued, retryCount++, delay via setTimeout
+// On final failure: status → failed, Sentry capture, persist to SQLite
+```
+
+### 5. WebSocket Broadcasting
+
+**Real-time dashboard updates (`api/websocket.ts`):**
+
+```
+Worker emits event → EventBroadcaster → WebSocket → Dashboard UI
+```
+
+Workers emit `job:completed`/`job:failed` → `EventBroadcaster` serializes and broadcasts to all connected WebSocket clients → React dashboard updates in real-time.
+
+---
+
+## Error Handling &amp; Resilience
+
+### Error Classification
+
+**File:** `sidequest/pipeline-core/errors/error-classifier.ts`
+
+```javascript
+export function classifyError(error) {
+  // Network errors (retryable)
+  if ([&apos;ETIMEDOUT&apos;, &apos;ECONNRESET&apos;, &apos;ENOTFOUND&apos;].includes(error.code)) {
+    return {
+      category: &apos;network&apos;,
+      retryable: true,
+      severity: &apos;warning&apos;
+    };
+  }
+
+  // File system errors (non-retryable)
+  if ([&apos;ENOENT&apos;, &apos;EACCES&apos;, &apos;EPERM&apos;].includes(error.code)) {
+    return {
+      category: &apos;filesystem&apos;,
+      retryable: false,
+      severity: &apos;error&apos;
+    };
+  }
+
+  // Validation errors (non-retryable)
+  if (error.name === &apos;ValidationError&apos;) {
+    return {
+      category: &apos;validation&apos;,
+      retryable: false,
+      severity: &apos;error&apos;
+    };
+  }
+
+  // Unknown errors (retryable with caution)
+  return {
+    category: &apos;unknown&apos;,
+    retryable: true,
+    severity: &apos;error&apos;
+  };
+}
+```
+
+### Sentry Integration
+
+**Three severity levels:**
+```javascript
+import * as Sentry from &apos;@sentry/node&apos;;
+
+// Level 1: Warning (retryable errors)
+Sentry.captureMessage(&apos;Job retry attempt&apos;, {
+  level: &apos;warning&apos;,
+  tags: { job_id: job.id },
+  extra: { attempt: 1, error: error.message }
+});
+
+// Level 2: Error (non-retryable errors)
+Sentry.captureException(error, {
+  level: &apos;error&apos;,
+  tags: { component: &apos;worker&apos;, job_id: job.id },
+  extra: { job_data: job.data }
+});
+
+// Level 3: Fatal (system failures)
+Sentry.captureException(error, {
+  level: &apos;fatal&apos;,
+  tags: { component: &apos;system&apos; },
+  extra: { context: &apos;worker_initialization&apos; }
+});
+```
+
+### Doppler Health Monitor
+
+**Circuit breaker for stale cache:**
+```typescript
+// sidequest/pipeline-core/doppler-health-monitor.ts
+class DopplerHealthMonitor {
+  // Configurable options — all optional with defaults from CACHE constants
+  constructor(options: DopplerHealthMonitorOptions = {}) {
+    this.cacheDir = options.cacheDir ?? path.join(os.homedir(), &apos;.doppler&apos;, &apos;fallback&apos;);
+    this.maxCacheAge = options.maxCacheAge ?? CACHE.MAX_AGE_MS;       // default: 24h
+    this.warningThreshold = options.warningThreshold ?? CACHE.WARNING_THRESHOLD_MS; // default: 12h
+    this.monitoringInterval = null;  // NOT auto-started in constructor
+  }
+
+  // Start periodic monitoring (call explicitly after construction)
+  async startMonitoring(intervalMinutes = 15): Promise&lt;void&gt; { /* ... */ }
+
+  // On-demand check: reads file mtime from cacheDir, does not use stored state
+  async checkCacheHealth(): Promise&lt;CacheHealthStatus&gt; {
+    // Reads ~/.doppler/fallback/ files, computes age from newest mtime
+    // Returns: { healthy, cacheAgeMs, cacheAgeHours, severity, lastModified, ... }
+  }
+}
+```
+
+### Port Conflict Resolution
+
+**Automatic fallback:**
+```javascript
+// api/utils/port-manager.ts
+export async function setupServerWithPortFallback(httpServer, options) {
+  const { preferredPort, maxPort } = options;
+
+  for (let port = preferredPort; port &lt;= maxPort; port++) {
+    try {
+      await new Promise((resolve, reject) =&gt; {
+        httpServer.listen(port, () =&gt; resolve());
+        httpServer.on(&apos;error&apos;, reject);
+      });
+
+      logger.info({ port }, &apos;Server listening on port&apos;);
+      return port;
+    } catch (error) {
+      if (error.code === &apos;EADDRINUSE&apos;) {
+        logger.warn({ port }, &apos;Port in use, trying next&apos;);
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw new Error(`No available ports between ${preferredPort}-${maxPort}`);
+}
+```
+
+### Graceful Shutdown
+
+**Cleanup on process termination:**
+```javascript
+// api/server.ts
+const signals = [&apos;SIGTERM&apos;, &apos;SIGINT&apos;, &apos;SIGHUP&apos;];
+
+signals.forEach((signal) =&gt; {
+  process.on(signal, async () =&gt; {
+    logger.info({ signal }, &apos;Received shutdown signal&apos;);
+
+    // 1. Stop accepting new connections
+    httpServer.close();
+
+    // 2. Wait for active jobs to complete
+    await waitForActiveJobs();
+
+    // 3. Close WebSocket connections
+    websocket.close();
+
+    // 4. Close database connections
+    jobRepository.close();
+
+    // 5. Exit
+    process.exit(0);
+  });
+});
+```
+
+---
+
+## Related Documentation
+
+- [Adding New Pipelines](../ADDING_PIPELINES.md)
+- [Similarity Algorithm Documentation](./similarity-algorithm.md)
+- [Error Handling Architecture](./ERROR_HANDLING.md)
+- [Type System Documentation](./TYPE_SYSTEM.md)
+- [API Reference](../API_REFERENCE.md)
+- [Dashboard UI Guide](../dashboard_ui/DASHBOARD.md)
+- [Deployment Guide](../deployment/TRADITIONAL_SERVER_DEPLOYMENT.md)
+
+---
+
+**Document Version:** 2.3
+**Last Updated:** 2026-03-04
+**Maintainer:** Architecture Team</file><file path="docs/architecture/README.md"># Architecture Documentation
 
 &lt;script type=&quot;application/ld+json&quot;&gt;
 {
@@ -53970,2136 +56099,7 @@ The main project documentation remains in the root-level files:
 
 ---
 
-**Last Updated:** March 4, 2026</file><file path="docs/architecture/pipeline-data-flow.md"># AlephAuto Pipeline Data Flow Documentation
-
-**Last Updated:** 2026-03-04
-**Version:** 2.3
-**Author:** System Architecture Documentation
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [AlephAuto Framework Architecture](#alephauto-framework-architecture)
-3. [Pipeline Catalog](#pipeline-catalog)
-4. [Pipeline Data Flows](#pipeline-data-flows)
-   - [Duplicate Detection Pipeline](#1-duplicate-detection-pipeline)
-   - [Schema Enhancement Pipeline](#2-schema-enhancement-pipeline)
-   - [Git Activity Reporter Pipeline](#3-git-activity-reporter-pipeline)
-   - [Gitignore Manager Pipeline](#4-gitignore-manager-pipeline)
-   - [Repomix Automation Pipeline](#5-repomix-automation-pipeline)
-   - [Plugin Manager Pipeline](#6-plugin-manager-pipeline)
-   - [Claude Health Monitor Pipeline](#7-claude-health-monitor-pipeline)
-   - [Test Refactor Pipeline](#8-test-refactor-pipeline)
-   - [Repository Cleanup Pipeline](#9-repository-cleanup-pipeline)
-   - [Bugfix Audit Pipeline](#10-bugfix-audit-pipeline)
-   - [Dashboard Populate Pipeline](#11-dashboard-populate-pipeline)
-5. [Git Workflow Integration](#git-workflow-integration)
-6. [Common Patterns](#common-patterns)
-7. [Error Handling &amp; Resilience](#error-handling--resilience)
-
----
-
-## Overview
-
-The AlephAuto automation system consists of 11 specialized pipelines built on a unified job queue framework. Each pipeline follows event-driven architecture with automatic retry logic, Sentry error tracking, and real-time dashboard updates via WebSocket.
-
-### Maintenance Notes (2026-03-04)
-
-- Retry orchestration is owned by `SidequestServer` (`sidequest/core/server.ts`), including retry scheduling and `pendingRetries` accounting. Individual workers should not create ad-hoc retry jobs.
-- `GitActivityPipeline` default report-type selection is constrained to valid defaults (`weekly` / `monthly`) before fallback to configured default; this is a type-safety hardening and does not change pipeline data flow.
-- `collect_git_activity.py` and related tests were formatting-only updates; input/output contract remains unchanged.
-- Startup-once runner behavior is verified for `repo-cleanup`, `gitignore`, and `dashboard-populate`: `--run-now`/`--run` creates one startup job, waits for terminal status, and exits when `--cron` is not set.
-- Aggregate test execution is split into `test:all:core` (default, env-sensitive suites skipped via `SKIP_ENV_SENSITIVE_TESTS=1`) and `test:all:full` (includes env-sensitive suites requiring socket bind and writable report/database paths).
-
-### System Characteristics
-
-- **Framework:** AlephAuto (SidequestServer base class)
-- **Job Queue:** In-memory with configurable concurrency (default: 5, via `CONCURRENCY.DEFAULT_MAX_JOBS`)
-- **Event System:** EventEmitter-based job lifecycle tracking
-- **Error Tracking:** Sentry v8 with automatic classification
-- **Dashboard:** Real-time WebSocket + REST API (port 8080)
-- **Deployment:** PM2 + Doppler + traditional server stack
-
-### Pipeline Categories
-
-| Category | Pipelines | Language Stack |
-|----------|-----------|----------------|
-| **Code Analysis** | Duplicate Detection, Test Refactor | TypeScript + Python |
-| **Code Quality** | Bugfix Audit | TypeScript + Shell |
-| **Documentation** | Schema Enhancement | TypeScript |
-| **Operations** | Repomix, Gitignore, Repository Cleanup | TypeScript + Shell |
-| **Observability** | Dashboard Populate | TypeScript (external) |
-| **Reporting** | Git Activity, Plugin Manager, Claude Health | TypeScript + Python + Shell |
-
----
-
-## AlephAuto Framework Architecture
-
-### Job Lifecycle
-
-```mermaid
-graph TB
-    A[createJob] --&gt; B{Job Created Event}
-    B --&gt; C[Queue Job]
-    C --&gt; D{Job Started Event}
-    D --&gt; E[runJobHandler]
-    E --&gt; F{Success?}
-    F --&gt;|Yes| G{Job Completed Event}
-    F --&gt;|No| H{Retryable?}
-    H --&gt;|Yes| I[Exponential Backoff]
-    H --&gt;|No| J{Job Failed Event}
-    I --&gt; K{Max Retries?}
-    K --&gt;|No| E
-    K --&gt;|Yes| J
-    G --&gt; L[Return Result]
-    J --&gt; M[Capture to Sentry]
-
-    style B fill:#9f9,stroke:#333
-    style D fill:#9f9,stroke:#333
-    style G fill:#9f9,stroke:#333
-    style J fill:#f99,stroke:#333
-    style H fill:#ff9,stroke:#333
-```
-
-### SidequestServer Base Class
-
-**File:** `sidequest/core/server.ts`
-
-All workers extend this base class which provides:
-
-```typescript
-class SidequestServer extends EventEmitter {
-  constructor(options: SidequestServerOptions) {
-    this.maxConcurrent = options.maxConcurrent ?? CONCURRENCY.DEFAULT_MAX_JOBS;
-    this.jobs = new Map&lt;string, Job&gt;();
-    this.queue: string[] = [];
-    this.activeJobs = 0;
-    this.gitWorkflowEnabled = options.gitWorkflowEnabled ?? false;
-    // ... circuit breaker, retry logic, Sentry integration
-  }
-
-  // Job management
-  createJob(jobId: string, data: Record&lt;string, unknown&gt;): Job { /* ... */ }
-  async runJobHandler(job: Job): Promise&lt;unknown&gt; { /* Override in subclass */ }
-  getStats(): JobStats { /* ... */ }
-
-  // Git workflow (if enabled via GitWorkflowManager)
-  async _setupGitBranchIfEnabled(job: Job): Promise&lt;boolean&gt; { /* ... */ }
-  async _handleGitWorkflowSuccess(job: Job): Promise&lt;void&gt; { /* ... */ }
-
-  // Retry logic with error classification
-  // Auto-retry for retryable errors (ETIMEDOUT, 5xx) up to maxRetries
-
-  // Event emitters
-  emit(&apos;job:created&apos;, job);
-  emit(&apos;job:started&apos;, job);
-  emit(&apos;job:completed&apos;, job);
-  emit(&apos;job:failed&apos;, job, error);
-}
-```
-
-### BasePipeline Abstract Class
-
-**File:** `sidequest/pipeline-runners/base-pipeline.ts`
-
-Class-based pipeline runners extend `BasePipeline&lt;TWorker&gt;`, which provides shared scheduling, event-driven completion, and stats:
-
-```typescript
-abstract class BasePipeline&lt;TWorker extends SidequestServer&gt; {
-  protected worker: TWorker;
-
-  waitForCompletion(): Promise&lt;void&gt;;    // Event-driven: listens for job:completed, job:failed, retry:created
-  protected scheduleCron(                // Validate + schedule + log + error-wrap
-    logger, name, cronSchedule, runFn
-  ): cron.ScheduledTask;
-  getStats(): JobStats;                  // Delegate to worker.getStats()
-}
-```
-
-**Pipelines extending BasePipeline:** BugfixAuditPipeline, ClaudeHealthPipeline, GitActivityPipeline, PluginManagementPipeline, SchemaEnhancementPipeline.
-
-**Pipelines using functional pattern (no base class):** DashboardPopulatePipeline, DuplicateDetectionPipeline, GitignorePipeline, RepoCleanupPipeline, TestRefactorPipeline.
-
-### Class Hierarchy
-
-```mermaid
-graph TB
-    EE[EventEmitter] --&gt; SS[SidequestServer]
-    SS --&gt; W1[BugfixAuditWorker]
-    SS --&gt; W2[ClaudeHealthWorker]
-    SS --&gt; W3[GitActivityWorker]
-    SS --&gt; W4[SchemaEnhancementWorker]
-    SS --&gt; W5[&quot;PluginManagerWorker&lt;br/&gt;&lt;i&gt;utils/plugin-manager.ts&lt;/i&gt;&quot;]
-    SS --&gt; W6[DuplicateDetectionWorker]
-    SS --&gt; W7[GitignoreWorker]
-    SS --&gt; W8[RepoCleanupWorker]
-    SS --&gt; W9[RepomixWorker]
-    SS --&gt; W10[TestRefactorWorker]
-    SS --&gt; W11[DashboardPopulateWorker]
-
-    BP[&quot;BasePipeline&amp;lt;TWorker&amp;gt;&quot;] --&gt; P1[&quot;BugfixAuditPipeline&amp;lt;W1&amp;gt;&quot;]
-    BP --&gt; P2[&quot;ClaudeHealthPipeline&amp;lt;W2&amp;gt;&quot;]
-    BP --&gt; P3[&quot;GitActivityPipeline&amp;lt;W3&amp;gt;&quot;]
-    BP --&gt; P4[&quot;PluginManagementPipeline&amp;lt;W5&amp;gt;&quot;]
-    BP --&gt; P5[&quot;SchemaEnhancementPipeline&amp;lt;W4&amp;gt;&quot;]
-
-    P1 -.-&gt;|owns| W1
-    P2 -.-&gt;|owns| W2
-    P3 -.-&gt;|owns| W3
-    P4 -.-&gt;|owns| W5
-    P5 -.-&gt;|owns| W4
-
-    style SS fill:#bbf,stroke:#333
-    style BP fill:#bfb,stroke:#333
-```
-
-### Common Data Flow Pattern
-
-```mermaid
-graph LR
-    A[Pipeline Runner] --&gt; B[Worker.createJob]
-    B --&gt; C[SidequestServer Queue]
-    C --&gt; D[Worker.runJobHandler]
-    D --&gt; E{Success?}
-    E --&gt;|Yes| F[Emit job:completed]
-    E --&gt;|No| G[Auto-retry or Fail]
-    F --&gt; H[WebSocket Broadcast]
-    H --&gt; I[Dashboard Update]
-    G --&gt; J[Sentry Capture]
-
-    style C fill:#bbf,stroke:#333
-    style D fill:#bfb,stroke:#333
-    style F fill:#9f9,stroke:#333
-    style G fill:#f99,stroke:#333
-```
-
----
-
-## Pipeline Catalog
-
-| # | Pipeline | Job Type | Runner File | Worker File | Base Class | Git Workflow | Languages |
-|---|----------|----------|-------------|-------------|------------|--------------|-----------|
-| 1 | Duplicate Detection | `duplicate-detection` | `duplicate-detection-pipeline.ts` | `workers/duplicate-detection-worker.ts` (API/registry) · inline class in pipeline file (CLI runner) | functional | ⚠️ Custom | TS + Python |
-| 2 | Schema Enhancement | `schema-enhancement` | `schema-enhancement-pipeline.ts` | `schema-enhancement-worker.ts` | BasePipeline | ✅ Yes | TypeScript |
-| 3 | Git Activity | `git-activity` | `git-activity-pipeline.ts` | `git-activity-worker.ts` | BasePipeline | ❌ No | TS + Python |
-| 4 | Gitignore Manager | `gitignore-manager` | `gitignore-pipeline.ts` | `gitignore-worker.ts` | functional | ⚠️ Batch N/A | TypeScript |
-| 5 | Repomix | `repomix` | N/A (cron server) | `repomix-worker.ts` | — | ❌ No | TypeScript |
-| 6 | Plugin Manager | `plugin-manager` | `plugin-management-pipeline.ts` | (embedded in utils) | BasePipeline | ❌ No | TypeScript |
-| 7 | Claude Health | `claude-health` | `claude-health-pipeline.ts` | `claude-health-worker.ts` | BasePipeline | ❌ No | TS + Shell |
-| 8 | Test Refactor | `test-refactor` | `test-refactor-pipeline.ts` | `test-refactor-worker.ts` | functional | ✅ Optional | TypeScript |
-| 9 | Repository Cleanup | `repo-cleanup` | `repo-cleanup-pipeline.ts` | `repo-cleanup-worker.ts` | functional | ❌ No | TS + Shell |
-| 10 | Bugfix Audit | `bugfix-audit` | `bugfix-audit-pipeline.ts` | `bugfix-audit-worker.ts` | BasePipeline | ✅ Multi-commit | TS + Shell |
-| 11 | Dashboard Populate | `dashboard-populate` | `dashboard-populate-pipeline.ts` | `dashboard-populate-worker.ts` | functional | ❌ No | TypeScript |
-
----
-
-## Pipeline Data Flows
-
-### 1. Duplicate Detection Pipeline
-
-**Purpose:** 7-stage AST-based duplicate code detection with consolidation suggestions
-**Job Type:** `duplicate-detection`
-**Languages:** JavaScript (stages 1-2) → Python (stages 3-7)
-
-#### Complete Data Flow
-
-```mermaid
-graph TB
-    Start([Repository Path]) --&gt; S1[Stage 1: Repository Scanner&lt;br/&gt;JS]
-    S1 --&gt; S2[Stage 2: AST-Grep Detector&lt;br/&gt;JS]
-    S2 --&gt; Bridge{JSON Bridge&lt;br/&gt;stdin/stdout}
-    Bridge --&gt; S3[Stage 3: Code Block Extraction&lt;br/&gt;Python]
-    S3 --&gt; S3_5[Stage 3.5: Block Deduplication&lt;br/&gt;Python]
-    S3_5 --&gt; S4[Stage 4: Semantic Annotation&lt;br/&gt;Python]
-    S4 --&gt; S5[Stage 5: Duplicate Grouping&lt;br/&gt;Python]
-    S5 --&gt; S6[Stage 6: Suggestion Generation&lt;br/&gt;Python]
-    S6 --&gt; S7[Stage 7: Metrics &amp; Reporting&lt;br/&gt;Python]
-    S7 --&gt; End([Scan Report JSON])
-
-    style Bridge fill:#f9f,stroke:#333,stroke-width:4px
-    style S1 fill:#bbf,stroke:#333,stroke-width:2px
-    style S2 fill:#bbf,stroke:#333,stroke-width:2px
-    style S3 fill:#bfb,stroke:#333,stroke-width:2px
-    style S3_5 fill:#bfb,stroke:#333,stroke-width:2px
-    style S4 fill:#bfb,stroke:#333,stroke-width:2px
-    style S5 fill:#bfb,stroke:#333,stroke-width:2px
-    style S6 fill:#bfb,stroke:#333,stroke-width:2px
-    style S7 fill:#bfb,stroke:#333,stroke-width:2px
-```
-
-#### Stage Details
-
-**Stage 1: Repository Scanner** (`sidequest/pipeline-core/scanners/repository-scanner.ts`)
-- Duration: ~500ms - 2s
-- Input: `{ repoPath: &quot;/path/to/repo&quot; }`
-- Process: Git validation → repomix scan → metadata extraction
-- Output: Repository info (files, lines, languages)
-
-**Stage 2: AST-Grep Pattern Detector** (`sidequest/pipeline-core/scanners/ast-grep-detector.ts`)
-- Duration: ~1-5s
-- Input: Repository path
-- Process: Execute `sg scan --json` with 18 AST-grep rules
-- Output: Pattern matches (array-map-filter, express routes, etc.)
-
-**Stage 3: Code Block Extraction** (`sidequest/pipeline-core/extractors/extract_blocks.py`)
-- Duration: ~100-500ms
-- Input: JSON via stdin (repository info + pattern matches)
-- Process: Convert matches to CodeBlock Pydantic models
-- Output: List of CodeBlock objects with tags
-
-**Stage 3.5: Block Deduplication**
-- Duration: ~10-50ms
-- Process: Remove duplicate blocks by `file:function_name` key
-- Output: Unique code blocks only
-
-**Stage 4: Semantic Annotation**
-- Duration: Negligible (basic implementation)
-- Process: Category mapping (utility, api_handler, database_operation)
-- Output: Blocks with semantic categories
-
-**Stage 5: Duplicate Grouping** (`sidequest/pipeline-core/similarity/grouping.py`)
-- Duration: ~200ms - 2s
-- Process: Multi-layer algorithm (exact hash → structural similarity)
-- Output: DuplicateGroup objects with similarity scores
-
-**Stage 6: Suggestion Generation** (`sidequest/pipeline-core/extractors/extract_blocks.py`)
-- Duration: ~50-200ms
-- Process: Strategy determination (local_util, shared_package, mcp_server)
-- Output: ConsolidationSuggestion objects with migration steps
-
-**Stage 7: Metrics &amp; Reporting**
-- Duration: ~10-50ms
-- Process: Calculate statistics and prepare final JSON
-- Output: Complete scan report with blocks, groups, suggestions, metrics
-
-#### Data Format Examples
-
-**CodeBlock (Python → JSON)**
-```json
-{
-  &quot;block_id&quot;: &quot;cb_a1b2c3d4&quot;,
-  &quot;pattern_id&quot;: &quot;array-map-filter&quot;,
-  &quot;location&quot;: {
-    &quot;file_path&quot;: &quot;src/utils/helpers.js&quot;,
-    &quot;line_start&quot;: 15,
-    &quot;line_end&quot;: 17
-  },
-  &quot;source_code&quot;: &quot;return arr.filter(x =&gt; x &gt; 0).map(x =&gt; x * 2);&quot;,
-  &quot;category&quot;: &quot;utility&quot;,
-  &quot;tags&quot;: [&quot;function:processArray&quot;]
-}
-```
-
-**DuplicateGroup**
-```json
-{
-  &quot;group_id&quot;: &quot;dg_xyz789&quot;,
-  &quot;member_block_ids&quot;: [&quot;cb_abc&quot;, &quot;cb_def&quot;],
-  &quot;similarity_score&quot;: 0.95,
-  &quot;similarity_method&quot;: &quot;structural&quot;,
-  &quot;occurrence_count&quot;: 2,
-  &quot;affected_files&quot;: [&quot;src/utils/helpers.js&quot;, &quot;src/lib/transforms.js&quot;]
-}
-```
-
-**ConsolidationSuggestion**
-```json
-{
-  &quot;suggestion_id&quot;: &quot;cs_dg_xyz789&quot;,
-  &quot;strategy&quot;: &quot;local_util&quot;,
-  &quot;impact_score&quot;: 75.0,
-  &quot;roi_score&quot;: 91.3,
-  &quot;estimated_effort_hours&quot;: 1.5,
-  &quot;migration_steps&quot;: [
-    {
-      &quot;step_number&quot;: 1,
-      &quot;description&quot;: &quot;Extract to shared utility function&quot;,
-      &quot;automated&quot;: false,
-      &quot;estimated_time&quot;: &quot;30min&quot;
-    }
-  ]
-}
-```
-
-#### Performance Benchmarks
-
-| Repository Size | Total Time | Blocks Found | Groups Found |
-|----------------|------------|--------------|--------------|
-| Small (50 files) | ~2s | 30-50 | 5-10 |
-| Medium (200 files) | ~6s | 100-200 | 15-30 |
-| Large (500 files) | ~15s | 300-600 | 40-80 |
-
----
-
-### 2. Schema Enhancement Pipeline
-
-**Purpose:** Add Schema.org JSON-LD structured data to README files
-**Job Type:** `schema-enhancement`
-**Languages:** JavaScript
-**Git Workflow:** ✅ Enabled (creates PRs with `docs/` prefix)
-
-#### Data Flow
-
-```mermaid
-graph TB
-    A[README Path] --&gt; B[SchemaEnhancementWorker]
-    B --&gt; C{Already Has Schema?}
-    C --&gt;|Yes| D[Skip - Return skipped]
-    C --&gt;|No| E[SchemaMCPTools.getSchemaType]
-    E --&gt; F[SchemaMCPTools.generateSchema]
-    F --&gt; G[SchemaMCPTools.validateSchema]
-    G --&gt; H{Valid?}
-    H --&gt;|No| I[Throw Error]
-    H --&gt;|Yes| J[Inject Schema into README]
-    J --&gt; K[Analyze Impact]
-    K --&gt; L[Save Enhanced README]
-    L --&gt; M[Save Impact Report]
-    M --&gt; N{Git Workflow Enabled?}
-    N --&gt;|Yes| O[Create Branch]
-    O --&gt; P[Commit Changes]
-    P --&gt; Q[Push Branch]
-    Q --&gt; R[Create Pull Request]
-    N --&gt;|No| S[Complete Job]
-    R --&gt; S
-
-    style E fill:#bbf,stroke:#333
-    style F fill:#bbf,stroke:#333
-    style G fill:#bbf,stroke:#333
-    style J fill:#bfb,stroke:#333
-    style K fill:#bfb,stroke:#333
-    style O fill:#ff9,stroke:#333
-    style R fill:#9f9,stroke:#333
-```
-
-#### Stage Breakdown
-
-**1. Schema Type Detection**
-- Input: README content + file path + context
-- Process: MCP tools analyze content to determine best schema type
-- Output: Schema type (SoftwareSourceCode, Article, TechArticle, etc.)
-
-**2. Schema Generation**
-- Input: README content + schema type
-- Process: Extract metadata (name, description, author, dependencies)
-- Output: Schema.org JSON-LD object
-
-**3. Schema Validation**
-- Input: Generated schema object
-- Process: Validate against Schema.org specifications
-- Output: `{ valid: boolean, errors: [], warnings: [] }`
-
-**4. Schema Injection**
-- Input: Original README + schema object
-- Process: Insert `&lt;script type=&quot;application/ld+json&quot;&gt;` block at top
-- Output: Enhanced README content
-
-**5. Impact Analysis**
-- Input: Original + enhanced content
-- Process: Calculate SEO improvements, rich results eligibility
-- Output: Impact report with score (0-100)
-
-**6. Git Workflow** (if enabled)
-- Branch: `docs/schema-README-1234567890`
-- Commit: `&quot;docs: add Schema.org structured data to README.md&quot;`
-- PR labels: `documentation`, `seo`, `schema-org`, `automated`
-
-#### Job Data Format
-
-```javascript
-// Input
-{
-  readmePath: &quot;/path/to/README.md&quot;,
-  relativePath: &quot;project/README.md&quot;,
-  repositoryPath: &quot;/path/to/repo&quot;,
-  repository: &quot;repo-name&quot;,
-  context: { /* additional context */ }
-}
-
-// Output
-{
-  status: &quot;enhanced&quot;,
-  readmePath: &quot;/path/to/README.md&quot;,
-  schemaType: &quot;SoftwareSourceCode&quot;,
-  schema: {
-    &quot;@context&quot;: &quot;https://schema.org&quot;,
-    &quot;@type&quot;: &quot;SoftwareSourceCode&quot;,
-    &quot;name&quot;: &quot;Project Name&quot;,
-    &quot;description&quot;: &quot;Project description&quot;,
-    // ... full schema
-  },
-  impact: {
-    impactScore: 85,
-    rating: &quot;high&quot;,
-    seoImprovements: [
-      &quot;Enhanced search result appearance&quot;,
-      &quot;Structured data for rich results&quot;
-    ],
-    richResultsEligibility: [&quot;Software&quot;, &quot;Article&quot;]
-  },
-  validation: {
-    valid: true,
-    errors: [],
-    warnings: []
-  },
-  timestamp: &quot;2025-11-24T12:00:00.000Z&quot;
-}
-```
-
-#### File Locations
-
-| Component | Path |
-|-----------|------|
-| Worker | `sidequest/workers/schema-enhancement-worker.ts` |
-| Runner | `sidequest/pipeline-runners/schema-enhancement-pipeline.ts` |
-| MCP Tools | `sidequest/utils/schema-mcp-tools.ts` |
-| Output | `./document-enhancement-impact-measurement/` |
-
----
-
-### 3. Git Activity Reporter Pipeline
-
-**Purpose:** Generate weekly/monthly git activity reports with visualizations
-**Job Type:** Worker `git-activity` (payload type: `git-activity-report`)
-**Languages:** JavaScript → Python
-**Git Workflow:** ❌ No (generates reports only)
-
-#### Data Flow
-
-```mermaid
-graph TB
-    A[Report Request] --&gt; B[GitActivityWorker]
-    B --&gt; C[Build Python Args]
-    C --&gt; D{Report Type?}
-    D --&gt;|Weekly| E[--weekly flag]
-    D --&gt;|Monthly| F[--monthly flag]
-    D --&gt;|Custom| G[--start-date [--end-date]]
-    E --&gt; H[Execute Python Script]
-    F --&gt; H
-    G --&gt; H
-    H --&gt; I[collect_git_activity.py]
-    I --&gt; J[Scan configured repos + dotfiles]
-    J --&gt; K[Collect commit data]
-    K --&gt; L[Calculate statistics]
-    L --&gt; M{Output format?}
-    M --&gt;|markdown| N[Generate Jekyll markdown]
-    M --&gt;|json| O[Generate JSON]
-    M --&gt;|both| P[Generate markdown + JSON]
-    N --&gt; Q{Visualizations?}
-    O --&gt; Q
-    P --&gt; Q
-    Q --&gt;|Yes| R[Generate SVG charts]
-    Q --&gt;|No| S[Skip visualizations]
-    R --&gt; T[Save output files]
-    S --&gt; T
-    T --&gt; U[Parse stats from stdout]
-    U --&gt; V[Verify files exist]
-    V --&gt; W[Return job result]
-
-    style I fill:#bfb,stroke:#333
-    style J fill:#bfb,stroke:#333
-    style K fill:#bfb,stroke:#333
-    style R fill:#bbf,stroke:#333
-```
-
-#### Scheduling Behavior
-
-- Scheduled mode registers **both** weekly and monthly jobs.
-- Weekly cron: `GIT_CRON_SCHEDULE` (default `0 20 * * 0`).
-- Monthly cron: `GIT_MONTHLY_CRON_SCHEDULE` (default `0 8 1 * *`).
-
-#### Python Script Flow
-
-**File:** `sidequest/pipeline-runners/collect_git_activity.py`
-
-```python
-# 1. Parse command-line arguments
-args = parse_args()  # --weekly, --monthly, --start-date [--end-date], --output-format, --no-visualizations
-
-# 2. Find git repositories
-repos = find_git_repositories(config)  # CODE_DIR, REPORTS_DIR, additional_repositories, include_dotfiles
-
-# 3. Collect commit data per repository
-for repo in repos:
-    commits = git log --since={date} [--until={date}] --all
-    parse_commit_data(commits)
-
-# 4. Aggregate statistics
-total_commits = sum(repo.commits for repo in repos)
-total_additions = sum(repo.additions for repo in repos)
-total_deletions = sum(repo.deletions for repo in repos)
-
-# 5. Save report outputs based on output format
-if args.output_format in (&quot;markdown&quot;, &quot;both&quot;):
-    generate_jekyll_report(...)
-if args.output_format in (&quot;json&quot;, &quot;both&quot;) or args.json_output:
-    save_json_report(...)
-
-# 6. Generate visualizations (optional)
-if not args.no_visualizations:
-    generate_svg_charts(...)
-
-# 7. Print summary + return
-print_summary(...)
-```
-
-#### Job Data Format
-
-```javascript
-// Input
-{
-  reportType: &quot;weekly&quot; | &quot;monthly&quot; | &quot;custom&quot;,
-  days: 7 | 30 | null,
-  sinceDate: &quot;2025-11-17&quot; | null,
-  untilDate: &quot;2025-11-24&quot; | null, // optional when sinceDate is provided
-  outputFormat: &quot;json&quot; | &quot;markdown&quot; | &quot;both&quot;,
-  generateVisualizations: true
-}
-
-// Output
-{
-  reportType: &quot;weekly&quot;,
-  days: 7,
-  sinceDate: &quot;2025-11-17&quot;,
-  untilDate: &quot;2025-11-24&quot;,
-  stats: {
-    totalCommits: 142,
-    totalRepositories: 12,
-    linesAdded: 3421,
-    linesDeleted: 1876
-  },
-  outputFiles: [
-    { path: &quot;/Users/&lt;user&gt;/code/PersonalSite/_reports/2026-03-04-git-activity-report.json&quot;, size: 45678, exists: true },
-    { path: &quot;/Users/&lt;user&gt;/code/PersonalSite/assets/images/git-activity-2026/top-10-repos.svg&quot;, size: 12345, exists: true }
-  ],
-  timestamp: &quot;2026-03-04T12:00:00.000Z&quot;
-}
-```
-
-#### Output Files
-
-| File Type | Description | Default Location |
-|-----------|-------------|------------------|
-| Markdown Report | Jekyll-formatted git activity report | `~/code/PersonalSite/_reports/{date}-git-activity-report.md` |
-| JSON Report | Aggregated statistics (when `--output-format json|both` or `--json-output`) | `~/code/PersonalSite/_reports/{date}-git-activity-report.json` or custom `--json-output` path |
-| SVG Charts | Repository/language/category visualizations | `~/code/PersonalSite/assets/images/git-activity-{year}/` |
-
----
-
-### 4. Gitignore Manager Pipeline
-
-**Purpose:** Batch update `.gitignore` files across multiple repositories
-**Job Type:** `gitignore-update`
-**Languages:** JavaScript
-**Git Workflow:** ⚠️ Not supported (processes multiple repos per job)
-
-#### Data Flow
-
-```mermaid
-graph TB
-    A[Base Directory] --&gt; B[GitignoreWorker]
-    B --&gt; C[GitignoreRepomixUpdater]
-    C --&gt; D{Specific Repos?}
-    D --&gt;|Yes| E[Process Specific List]
-    D --&gt;|No| F[Scan Base Directory]
-    F --&gt; G[Find Git Repositories]
-    G --&gt; H[Filter by excludeDirs]
-    E --&gt; I[For Each Repository]
-    H --&gt; I
-    I --&gt; J[Check .gitignore exists]
-    J --&gt; K{Entry Already Present?}
-    K --&gt;|Yes| L[Skip - already_present]
-    K --&gt;|No| M{Dry Run?}
-    M --&gt;|Yes| N[Return would_add]
-    M --&gt;|No| O[Append to .gitignore]
-    O --&gt; P[Return added]
-    L --&gt; Q[Aggregate Results]
-    N --&gt; Q
-    P --&gt; Q
-    Q --&gt; R[Generate Summary]
-    R --&gt; S[Return Job Result]
-
-    style C fill:#bbf,stroke:#333
-    style G fill:#bfb,stroke:#333
-    style O fill:#9f9,stroke:#333
-```
-
-#### Update Logic
-
-**File:** `sidequest/workers/gitignore-repomix-updater.ts`
-
-```javascript
-async addToGitignore(repoPath) {
-  // 1. Check if .gitignore exists
-  const gitignorePath = path.join(repoPath, &apos;.gitignore&apos;);
-  if (!await exists(gitignorePath)) {
-    return { action: &apos;error&apos;, reason: &apos;no_gitignore&apos; };
-  }
-
-  // 2. Read existing content
-  const content = await fs.readFile(gitignorePath, &apos;utf-8&apos;);
-
-  // 3. Check if entry already present
-  if (content.includes(this.gitignoreEntry)) {
-    return { action: &apos;skipped&apos;, reason: &apos;already_present&apos; };
-  }
-
-  // 4. Dry run check
-  if (this.dryRun) {
-    return { action: &apos;would_add&apos;, entry: this.gitignoreEntry };
-  }
-
-  // 5. Append entry
-  const newContent = content + &apos;\n&apos; + this.gitignoreEntry + &apos;\n&apos;;
-  await fs.writeFile(gitignorePath, newContent);
-
-  return { action: &apos;added&apos;, entry: this.gitignoreEntry };
-}
-```
-
-#### Job Data Format
-
-```javascript
-// Input
-{
-  baseDir: &quot;~/code&quot;,
-  excludeDirs: [&quot;node_modules&quot;, &quot;.git&quot;, &quot;dist&quot;],
-  maxDepth: 10,
-  gitignoreEntry: &quot;repomix-output.xml&quot;,
-  dryRun: false,
-  repositories: null  // or [&quot;~/code/repo1&quot;, &quot;~/code/repo2&quot;]
-}
-
-// Output
-{
-  totalRepositories: 47,
-  results: [
-    { repository: &quot;~/code/repo1&quot;, action: &quot;added&quot;, entry: &quot;repomix-output.xml&quot; },
-    { repository: &quot;~/code/repo2&quot;, action: &quot;skipped&quot;, reason: &quot;already_present&quot; },
-    { repository: &quot;~/code/repo3&quot;, action: &quot;error&quot;, reason: &quot;no_gitignore&quot; }
-  ],
-  summary: {
-    added: 23,
-    skipped: 21,
-    would_add: 0,
-    error: 3
-  },
-  timestamp: &quot;2025-11-24T12:00:00.000Z&quot;,
-  dryRun: false,
-  gitignoreEntry: &quot;repomix-output.xml&quot;
-}
-```
-
-#### Scheduling &amp; Startup Modes
-
-**Cron Schedule (Doppler):**
-```bash
-GITIGNORE_CRON_SCHEDULE=&quot;0 4 * * *&quot;  # Daily at 4 AM
-```
-
-**Startup-once behavior:**
-
-- `--run-now` / `--run` and no `--cron`: create startup job, wait for terminal status, then exit.
-- `--run-now` / `--run` with `--cron`: run startup job first, then continue as a scheduler process.
-
----
-
-### 5. Repomix Automation Pipeline
-
-**Purpose:** Automated repomix scan scheduling and execution
-**Job Type:** `repomix`
-**Languages:** JavaScript
-**Git Workflow:** ❌ No (cron-based execution)
-
-#### Data Flow
-
-```mermaid
-graph TB
-    A[Cron Schedule] --&gt; B[RepomixWorker]
-    B --&gt; C[Scan Base Directory]
-    C --&gt; D[Find Git Repositories]
-    D --&gt; E[For Each Repository]
-    E --&gt; F[Create Output Directory]
-    F --&gt; G[Execute repomix command]
-    G --&gt; H{Respect .gitignore?}
-    H --&gt;|Yes| I[Default behavior]
-    H --&gt;|No| J[Add --no-gitignore flag]
-    I --&gt; K{Additional Ignore Patterns?}
-    J --&gt; K
-    K --&gt;|Yes| L[Add --ignore patterns]
-    K --&gt;|No| M[Run npx repomix]
-    L --&gt; M
-    M --&gt; N[Capture stdout/stderr]
-    N --&gt; O[Save repomix-output.txt]
-    O --&gt; P[Calculate file size]
-    P --&gt; Q[Return job result]
-
-    style G fill:#bbf,stroke:#333
-    style M fill:#bfb,stroke:#333
-    style O fill:#9f9,stroke:#333
-```
-
-#### Repomix Command Construction
-
-**File:** `sidequest/workers/repomix-worker.ts`
-
-```javascript
-#runRepomixCommand(cwd) {
-  const args = [&apos;repomix&apos;];
-
-  // Respect .gitignore by default
-  if (!this.respectGitignore) {
-    args.push(&apos;--no-gitignore&apos;);
-  }
-
-  // Add additional ignore patterns (e.g., README.md)
-  if (this.additionalIgnorePatterns.length &gt; 0) {
-    args.push(&apos;--ignore&apos;, this.additionalIgnorePatterns.join(&apos;,&apos;));
-  }
-
-  // Execute: npx repomix [--no-gitignore] [--ignore patterns]
-  const proc = spawn(&apos;npx&apos;, args, {
-    cwd,
-    timeout: TIMEOUTS.REPOMIX_MS  // 10 minutes (from constants)
-  });
-
-  // Capture output and save to file
-}
-```
-
-#### Configuration
-
-**Environment Variables (Doppler):**
-```bash
-REPOMIX_IGNORE_PATTERNS=&quot;README.md,*.md&quot;  # Comma-separated patterns
-REPOMIX_RESPECT_GITIGNORE=&quot;true&quot;          # Default: true
-```
-
-#### Job Data Format
-
-```javascript
-// Input
-{
-  sourceDir: &quot;/path/to/repository&quot;,
-  relativePath: &quot;projects/myapp&quot;
-}
-
-// Output
-{
-  sourceDir: &quot;/path/to/repository&quot;,
-  outputFile: &quot;./condense/projects/myapp/repomix-output.txt&quot;,
-  relativePath: &quot;projects/myapp&quot;,
-  size: 456789,
-  timestamp: &quot;2025-11-24T12:00:00.000Z&quot;
-}
-```
-
-#### Output Structure
-
-```
-condense/
-├── project-a/
-│   └── repomix-output.txt
-├── project-b/
-│   └── repomix-output.txt
-└── project-c/
-    └── repomix-output.txt
-```
-
----
-
-### 6. Plugin Manager Pipeline
-
-**Purpose:** Audit Claude Code plugins for duplicates and issues
-**Job Type:** `plugin-audit`
-**Languages:** JavaScript
-**Git Workflow:** ❌ No (analysis only)
-
-#### Data Flow
-
-```mermaid
-graph TB
-    A[Audit Request] --&gt; B[PluginManagerWorker]
-    B --&gt; C[Read settings.json]
-    C --&gt; D[Parse enabled plugins]
-    D --&gt; E[Group by category]
-    E --&gt; F{Detect Duplicates?}
-    F --&gt;|Yes| G[Identify duplicate categories]
-    F --&gt;|No| H[Continue analysis]
-    G --&gt; I[Generate recommendations]
-    H --&gt; I
-    I --&gt; J{Priority Level?}
-    J --&gt;|High| K[⚠️ Duplicate functionality]
-    J --&gt;|Medium| L[💡 Consolidation opportunity]
-    J --&gt;|Info| M[✅ Configuration OK]
-    K --&gt; N[Return audit results]
-    L --&gt; N
-    M --&gt; N
-
-    style C fill:#bbf,stroke:#333
-    style E fill:#bfb,stroke:#333
-    style G fill:#ff9,stroke:#333
-    style I fill:#9f9,stroke:#333
-```
-
-#### Audit Logic
-
-**File:** `sidequest/utils/plugin-manager.ts`
-
-```javascript
-async auditPlugins() {
-  // 1. Read settings.json
-  const settings = await this.readSettings();
-  const enabledPlugins = settings.plugins || [];
-
-  // 2. Categorize plugins
-  const categorized = this.categorizePlugins(enabledPlugins);
-
-  // 3. Detect duplicates
-  const duplicates = [];
-  for (const [category, plugins] of Object.entries(categorized)) {
-    if (plugins.length &gt; 1) {
-      duplicates.push({
-        category,
-        plugins,
-        suggestion: this.getSuggestion(category, plugins)
-      });
-    }
-  }
-
-  // 4. Generate recommendations
-  const recommendations = [];
-
-  if (enabledPlugins.length &gt; 30) {
-    recommendations.push({
-      priority: &apos;high&apos;,
-      type: &apos;plugin_count&apos;,
-      message: `${enabledPlugins.length} plugins enabled (threshold: 30)`,
-      action: &apos;Review and disable unused plugins&apos;
-    });
-  }
-
-  if (duplicates.length &gt; 0) {
-    recommendations.push({
-      priority: &apos;medium&apos;,
-      type: &apos;duplicate_functionality&apos;,
-      message: `${duplicates.length} categories with duplicate plugins`,
-      action: &apos;Consider consolidating similar plugins&apos;,
-      details: duplicates
-    });
-  }
-
-  return {
-    totalPlugins: enabledPlugins.length,
-    categorized,
-    duplicateCategories: duplicates,
-    recommendations
-  };
-}
-```
-
-#### Job Data Format
-
-```javascript
-// Input
-{
-  detailed: true  // Include full plugin listing
-}
-
-// Output
-{
-  totalPlugins: 62,
-  categorized: {
-    &quot;git&quot;: [&quot;git@fradser-dotagent&quot;, &quot;github@fradser-dotagent&quot;],
-    &quot;documentation&quot;: [&quot;update-claudemd@marketplace&quot;, &quot;document-skills:pdf&quot;],
-    &quot;refactoring&quot;: [&quot;refractor@marketplace&quot;]
-  },
-  duplicateCategories: [
-    {
-      category: &quot;git&quot;,
-      plugins: [&quot;git@fradser-dotagent&quot;, &quot;github@fradser-dotagent&quot;],
-      suggestion: &quot;Review if both git plugins are necessary&quot;
-    }
-  ],
-  recommendations: [
-    {
-      priority: &quot;high&quot;,
-      type: &quot;plugin_count&quot;,
-      message: &quot;62 plugins enabled (threshold: 30)&quot;,
-      action: &quot;Review and disable unused plugins&quot;
-    },
-    {
-      priority: &quot;medium&quot;,
-      type: &quot;duplicate_functionality&quot;,
-      message: &quot;1 categories with duplicate plugins&quot;,
-      action: &quot;Consider consolidating similar plugins&quot;,
-      details: [...]
-    }
-  ],
-  timestamp: &quot;2025-11-24T12:00:00.000Z&quot;
-}
-```
-
----
-
-### 7. Claude Health Monitor Pipeline
-
-**Purpose:** Comprehensive health check for Claude Code environment
-**Job Type:** `claude-health-check`
-**Languages:** JavaScript + Shell
-**Git Workflow:** ❌ No (monitoring only)
-
-#### Data Flow
-
-```mermaid
-graph TB
-    A[Health Check Request] --&gt; B[ClaudeHealthWorker]
-    B --&gt; C[Run Parallel Checks]
-    C --&gt; D[Environment Check]
-    C --&gt; E[Directory Check]
-    C --&gt; F[Configuration Check]
-    C --&gt; G[Hook Check]
-    C --&gt; H[Component Check]
-    C --&gt; I[Plugin Check]
-    C --&gt; J[Performance Check]
-    D --&gt; K[Aggregate Results]
-    E --&gt; K
-    F --&gt; K
-    G --&gt; K
-    H --&gt; K
-    I --&gt; K
-    J --&gt; K
-    K --&gt; L[Analyze Results]
-    L --&gt; M{Issues Found?}
-    M --&gt;|Yes| N[Generate Recommendations]
-    M --&gt;|No| O[Return OK status]
-    N --&gt; P[Priority Classification]
-    P --&gt; Q[Return Health Report]
-    O --&gt; Q
-
-    style C fill:#bbf,stroke:#333
-    style K fill:#bfb,stroke:#333
-    style M fill:#ff9,stroke:#333
-```
-
-#### Check Categories
-
-**1. Environment Check**
-```javascript
-{
-  direnv: true,
-  direnvConfigured: true,
-  direnvAllowed: true,
-  nodeVersion: &quot;v20.10.0&quot;,
-  npmVersion: &quot;10.2.3&quot;,
-  envVars: {
-    CLAUDE_CONFIG_DIR: &quot;~/.claude&quot;,
-    CLAUDE_PROJECT_DIR: &quot;~/dev&quot;
-  }
-}
-```
-
-**2. Directory Check**
-```javascript
-{
-  claudeDir: {
-    exists: true,
-    permissions: &quot;drwxr-xr-x&quot;
-  },
-  agentsDir: {
-    exists: true,
-    count: 10
-  },
-  skillsDir: {
-    exists: true,
-    count: 10
-  },
-  hooksDir: {
-    exists: true,
-    count: 7
-  }
-}
-```
-
-**3. Configuration Check**
-```javascript
-{
-  settingsJson: {
-    valid: true,
-    schema: &quot;valid&quot;,
-    hooks: 7,
-    plugins: 62
-  },
-  skillRulesJson: {
-    valid: true,
-    schema: &quot;valid&quot;,
-    skills: 10
-  }
-}
-```
-
-**4. Hook Check**
-```javascript
-{
-  registered: 7,
-  executable: 7,
-  issues: [
-    {
-      hook: &quot;session-start.sh&quot;,
-      issue: &quot;slow_execution&quot;,
-      executionTime: 1234
-    }
-  ]
-}
-```
-
-**5. Component Check**
-```javascript
-{
-  agents: {
-    total: 10,
-    files: [&quot;auth-route-manager.md&quot;, &quot;code-refactor-agent.md&quot;, ...]
-  },
-  skills: {
-    total: 10,
-    directories: [&quot;backend-dev-guidelines&quot;, &quot;frontend-dev-guidelines&quot;, ...]
-  },
-  hooks: {
-    total: 7,
-    scripts: [&quot;session-start.sh&quot;, &quot;post-tool-use-tracker.sh&quot;, ...]
-  }
-}
-```
-
-**6. Performance Check**
-```javascript
-{
-  hookPerformance: {
-    averageExecutionTime: 234,
-    slowHooks: [
-      { name: &quot;stop-build-check-enhanced.sh&quot;, time: 1234 }
-    ]
-  },
-  logSize: 234567,
-  diskSpace: 102400000
-}
-```
-
-#### Recommendations
-
-```javascript
-[
-  {
-    priority: &quot;high&quot;,
-    category: &quot;performance&quot;,
-    message: &quot;Hook execution time exceeds threshold&quot;,
-    action: &quot;Optimize stop-build-check-enhanced.sh hook&quot;,
-    details: { executionTime: 1234, threshold: 1000 }
-  },
-  {
-    priority: &quot;medium&quot;,
-    category: &quot;configuration&quot;,
-    message: &quot;Large number of enabled plugins&quot;,
-    action: &quot;Review and disable unused plugins&quot;,
-    details: { totalPlugins: 62, threshold: 30 }
-  }
-]
-```
-
----
-
-### 8. Test Refactor Pipeline
-
-**Purpose:** Automated test suite modularization and utility generation
-**Job Type:** `test-refactor`
-**Languages:** TypeScript
-**Git Workflow:** ✅ Optional
-**Status:** ⚠️ Disabled in worker registry (`disabled: true, disabledReason: &apos;TypeScript compilation required&apos;`). Run via the dedicated pipeline runner directly.
-
-#### Data Flow
-
-```mermaid
-graph TB
-    A[Project Path] --&gt; B[TestRefactorWorker]
-    B --&gt; C[Detect Test Framework]
-    C --&gt; D[Find Test Files]
-    D --&gt; E{Tests Found?}
-    E --&gt;|No| F[Skip - no tests]
-    E --&gt;|Yes| G[Analyze Test Files]
-    G --&gt; H[Detect Patterns]
-    H --&gt; I[Extract Hardcoded Strings]
-    I --&gt; J[Generate Recommendations]
-    J --&gt; K{Dry Run?}
-    K --&gt;|Yes| L[Return analysis only]
-    K --&gt;|No| M[Generate Utility Files]
-    M --&gt; N[Create assertions.ts]
-    M --&gt; O[Create validators.ts]
-    M --&gt; P[Create helpers.ts]
-    M --&gt; Q[Create constants.ts]
-    N --&gt; R{Git Workflow?}
-    O --&gt; R
-    P --&gt; R
-    Q --&gt; R
-    R --&gt;|Yes| S[Create Branch &amp; PR]
-    R --&gt;|No| T[Complete Job]
-    S --&gt; T
-
-    style G fill:#bbf,stroke:#333
-    style H fill:#bfb,stroke:#333
-    style M fill:#9f9,stroke:#333
-    style S fill:#ff9,stroke:#333
-```
-
-#### Pattern Detection
-
-**File:** `sidequest/workers/test-refactor-worker.ts`
-
-```typescript
-async analyzeTestFiles(projectPath: string, testFiles: string[]): Promise&lt;Analysis&gt; {
-  const patterns: AnalysisPatterns = {
-    renderWaitFor: 0,
-    linkValidation: 0,
-    semanticChecks: 0,
-    formInteractions: 0,
-    hardcodedStrings: [],
-    duplicateAssertions: []
-  };
-
-  for (const testFile of testFiles) {
-    const content = await fs.readFile(testFile, &apos;utf-8&apos;);
-
-    // Pattern: render + waitFor
-    if (/render\(.*?\)[\s\S]*?waitFor\(/g.test(content)) {
-      patterns.renderWaitFor++;
-    }
-
-    // Pattern: Link validation
-    if (/expect\(.*?link\)\.toHaveAttribute\([&apos;&quot;]href[&apos;&quot;]/g.test(content)) {
-      patterns.linkValidation++;
-    }
-
-    // Pattern: Semantic checks
-    if (/expect\(.*?\)\.toHaveAttribute\([&apos;&quot;]role[&apos;&quot;]/g.test(content)) {
-      patterns.semanticChecks++;
-    }
-
-    // Extract hardcoded strings
-    const stringMatches = content.match(/[&apos;&quot;]([A-Z_]{3,})[&apos;&quot;]/g);
-    if (stringMatches) {
-      patterns.hardcodedStrings.push(...stringMatches);
-    }
-  }
-
-  return {
-    testFiles,
-    patterns,
-    recommendations: this.generateRecommendations(patterns)
-  };
-}
-```
-
-#### Generated Files
-
-**1. `tests/utils/assertions.ts`**
-```typescript
-import { expect } from &apos;@playwright/test&apos;;
-
-export async function expectRenderAndWait(
-  component: React.ReactElement,
-  selector: string
-) {
-  const { container } = render(component);
-  await waitFor(() =&gt; {
-    expect(container.querySelector(selector)).toBeInTheDocument();
-  });
-  return container;
-}
-
-export function expectLinkHasValidHref(
-  link: HTMLElement,
-  expectedHref: string
-) {
-  expect(link).toHaveAttribute(&apos;href&apos;, expectedHref);
-}
-```
-
-**2. `tests/utils/validators.ts`**
-```typescript
-export function validateSemanticRole(
-  element: HTMLElement,
-  expectedRole: string
-) {
-  expect(element).toHaveAttribute(&apos;role&apos;, expectedRole);
-}
-
-export function validateFormField(
-  field: HTMLInputElement,
-  options: { label?: string; required?: boolean }
-) {
-  if (options.label) {
-    expect(field).toHaveAccessibleName(options.label);
-  }
-  if (options.required) {
-    expect(field).toBeRequired();
-  }
-}
-```
-
-**3. `tests/utils/constants.ts`**
-```typescript
-export const TEST_ROUTES = {
-  HOME: &apos;/&apos;,
-  LOGIN: &apos;/login&apos;,
-  DASHBOARD: &apos;/dashboard&apos;
-};
-
-export const TEST_LABELS = {
-  SUBMIT_BUTTON: &apos;Submit&apos;,
-  CANCEL_BUTTON: &apos;Cancel&apos;
-};
-```
-
-#### Job Data Format
-
-```javascript
-// Input
-{
-  repositoryPath: &quot;/path/to/project&quot;,
-  repository: &quot;my-app&quot;,
-  testsDir: &quot;tests&quot;,
-  utilsDir: &quot;tests/utils&quot;,
-  e2eDir: &quot;tests/e2e&quot;,
-  framework: &quot;vitest&quot;,
-  dryRun: false
-}
-
-// Output
-{
-  status: &quot;success&quot;,
-  analysis: {
-    testFiles: [&quot;tests/Home.test.tsx&quot;, &quot;tests/Login.test.tsx&quot;],
-    patterns: {
-      renderWaitFor: 12,
-      linkValidation: 8,
-      semanticChecks: 15,
-      formInteractions: 6,
-      hardcodedStrings: [&quot;SUBMIT&quot;, &quot;CANCEL&quot;, &quot;HOME_ROUTE&quot;],
-      duplicateAssertions: [...]
-    },
-    recommendations: [
-      &quot;Extract renderWaitFor pattern to shared utility&quot;,
-      &quot;Create constants file for hardcoded strings&quot;
-    ]
-  },
-  generatedFiles: [
-    &quot;tests/utils/assertions.ts&quot;,
-    &quot;tests/utils/validators.ts&quot;,
-    &quot;tests/utils/constants.ts&quot;
-  ],
-  testFiles: 47,
-  timestamp: &quot;2025-11-24T12:00:00.000Z&quot;
-}
-```
-
----
-
-### 9. Repository Cleanup Pipeline
-
-**Purpose:** Automated cleanup of Python venvs, build artifacts, temp files
-**Job Type:** `repo-cleanup`
-**Languages:** JavaScript + Shell
-**Git Workflow:** ❌ No (destructive operations)
-
-#### Data Flow
-
-```mermaid
-graph TB
-    A[Target Directory] --&gt; B[RepoCleanupWorker]
-    B --&gt; C[Get Initial Size]
-    C --&gt; D{Dry Run?}
-    D --&gt;|Yes| E[Scan Repository]
-    D --&gt;|No| F[Run Cleanup Script]
-    E --&gt; G[Find Python venvs]
-    E --&gt; H[Find temp files]
-    E --&gt; I[Find build artifacts]
-    E --&gt; J[Find output files]
-    F --&gt; K[Execute cleanup]
-    G --&gt; L[Aggregate Results]
-    H --&gt; L
-    I --&gt; L
-    J --&gt; L
-    K --&gt; L
-    L --&gt; M[Get Final Size]
-    M --&gt; N[Calculate Space Saved]
-    N --&gt; O[Return Job Result]
-
-    style E fill:#bbf,stroke:#333
-    style F fill:#f99,stroke:#333
-    style K fill:#9f9,stroke:#333
-```
-
-#### Cleanup Targets
-
-**File:** `sidequest/pipeline-runners/universal-repo-cleanup.sh`
-
-**1. Python Virtual Environments**
-```bash
-# Patterns: venv, .venv, env, virtualenv
-find $TARGET_DIR -maxdepth 3 -type d \( \
-  -name &quot;venv&quot; -o \
-  -name &quot;.venv&quot; -o \
-  -name &quot;env&quot; -o \
-  -name &quot;virtualenv&quot; \
-\) -exec rm -rf {} +
-```
-
-**2. Temporary/Cache Files**
-```bash
-# Patterns: .DS_Store, __pycache__, *.pyc, *.swp
-find $TARGET_DIR \( \
-  -name &quot;.DS_Store&quot; -o \
-  -name &quot;__pycache__&quot; -o \
-  -name &quot;*.pyc&quot; -o \
-  -name &quot;*.swp&quot; \
-\) -delete
-```
-
-**3. Build Artifacts**
-```bash
-# Patterns: .jekyll-cache, dist, build, node_modules/.cache
-find $TARGET_DIR -type d \( \
-  -name &quot;.jekyll-cache&quot; -o \
-  -path &quot;*/node_modules/.cache&quot; -o \
-  -name &quot;dist&quot; -o \
-  -name &quot;build&quot; \
-\) -exec rm -rf {} +
-```
-
-**4. Output Files**
-```bash
-# Patterns: repomix-output.xml, *.log
-find $TARGET_DIR \( \
-  -name &quot;repomix-output.xml&quot; -o \
-  -name &quot;*.log&quot; \
-\) -delete
-```
-
-**5. Redundant Directories**
-```bash
-# Patterns: drafts, temp, tmp, backup
-find $TARGET_DIR -maxdepth 2 -type d \( \
-  -name &quot;drafts&quot; -o \
-  -name &quot;temp&quot; -o \
-  -name &quot;tmp&quot; -o \
-  -name &quot;backup&quot; \
-\) -exec rm -rf {} +
-```
-
-#### Job Data Format
-
-```javascript
-// Input
-{
-  targetDir: &quot;~/code&quot;,
-  dryRun: false
-}
-
-// Output
-{
-  targetDir: &quot;~/code&quot;,
-  dryRun: false,
-  initialSize: 15728640000,  // bytes
-  finalSize: 14680064000,
-  savedSpace: &quot;1 GB&quot;,
-  totalItems: 342,
-  categories: {
-    venvs: {
-      count: 12,
-      items: [&quot;~/code/project1/venv&quot;, &quot;~/code/project2/.venv&quot;]
-    },
-    tempFiles: {
-      count: 156,
-      items: [&quot;~/code/project1/.DS_Store&quot;, &quot;~/code/project2/__pycache__&quot;]
-    },
-    buildArtifacts: {
-      count: 34,
-      items: [&quot;~/code/project1/dist&quot;, &quot;~/code/project2/build&quot;]
-    },
-    outputFiles: {
-      count: 89,
-      items: [&quot;~/code/project1/repomix-output.xml&quot;]
-    },
-    redundantDirs: {
-      count: 51,
-      items: [&quot;~/code/project1/temp&quot;, &quot;~/code/project2/backup&quot;]
-    }
-  },
-  timestamp: &quot;2025-11-24T12:00:00.000Z&quot;
-}
-```
-
-#### Scheduling
-
-**Cron Schedule (Doppler):**
-```bash
-CLEANUP_CRON_SCHEDULE=&quot;0 3 * * 0&quot;  # Weekly, Sunday 3 AM
-```
-
-**Startup-once behavior:**
-
-- `--run-now` / `--run` and no `--cron`: create startup job, wait for terminal status, then exit.
-- `--run-now` / `--run` with `--cron`: run startup job first, then continue as a scheduler process.
-
-**Manual Execution:**
-```bash
-npm run cleanup:once      # Run now
-npm run cleanup:dryrun    # Preview without deletion
-```
-
----
-
-### 10. Bugfix Audit Pipeline
-
-**Purpose:** Automated 5-stage bug detection, security audit, and fix workflow
-**Job Type:** `bugfix-audit`
-**Languages:** JavaScript + Shell (Claude Code CLI)
-**Git Workflow:** ✅ Multi-commit (manual GitWorkflowManager, not base-class single-commit)
-
-#### Data Flow
-
-```mermaid
-graph TB
-    A[~/dev/active/*.md] --&gt; B[BugfixAuditPipeline]
-    B --&gt; C[Scan for Markdown Files]
-    C --&gt; D[Resolve Repository Paths]
-    D --&gt; E[Create Jobs per Project]
-    E --&gt; F[BugfixAuditWorker.runJobHandler]
-    F --&gt; G[Create Feature Branch]
-    G --&gt; S1[Stage 1: bugfix-planner agent]
-    S1 --&gt; S2[Stage 2: bug-detective plugin]
-    S2 --&gt; S3[Stage 3: audit plugin]
-    S3 --&gt; C1[Commit: audit results]
-    C1 --&gt; S4[Stage 4: ceo-quality-controller agent]
-    S4 --&gt; C2[Commit: quality control]
-    C2 --&gt; S5[Stage 5: refractor plugin]
-    S5 --&gt; C3[Commit: bug fixes]
-    C3 --&gt; Push[Push Branch]
-    Push --&gt; PR[Create Pull Request]
-    PR --&gt; Done([Job Complete])
-
-    style G fill:#bbf,stroke:#333
-    style S1 fill:#bfb,stroke:#333
-    style S2 fill:#bfb,stroke:#333
-    style S3 fill:#bfb,stroke:#333
-    style S4 fill:#bfb,stroke:#333
-    style S5 fill:#bfb,stroke:#333
-    style C1 fill:#ff9,stroke:#333
-    style C2 fill:#ff9,stroke:#333
-    style C3 fill:#ff9,stroke:#333
-    style PR fill:#9f9,stroke:#333
-```
-
-#### Stage Breakdown
-
-**Stage 1: bugfix-planner agent**
-- Input: Markdown content from `~/dev/active/&lt;project&gt;/`
-- Process: Claude Code agent analyzes markdown and creates bug fix plan
-- Output: `01-bugfix-plan.md`
-
-**Stage 2: bug-detective plugin**
-- Input: Repository path
-- Process: Systematic debugging via `/bug-detective:bug-detective` slash command
-- Output: `02-bug-detective-report.md`
-
-**Stage 3: audit plugin**
-- Input: Repository path
-- Process: Security audit via `/audit:audit` slash command
-- Output: `03-security-audit.md`
-- **Commit:** audit results (plan + detective + audit)
-
-**Stage 4: ceo-quality-controller agent**
-- Input: Repository path (with audit reports present)
-- Process: Claude Code agent validates quality standards
-- Output: `04-quality-control.md`
-- **Commit:** quality control validation
-
-**Stage 5: refractor plugin**
-- Input: Repository path
-- Process: Implement fixes via `/refractor:refractor` slash command
-- Output: `05-refactor-implementation.md`
-- **Commit:** bug fixes implemented
-- **Push + PR:** Branch pushed, PR created against base branch
-
-#### Git Workflow (Multi-Commit)
-
-Unlike pipelines that use `gitWorkflowEnabled: true` (single commit at end), bugfix-audit manages git operations directly via `GitWorkflowManager`:
-
-```
-createJobBranch()     → bugfix/bugfix-audit-&lt;project&gt;-&lt;timestamp&gt;
-commitChanges() ×3    → after stages 3, 4, and 5
-pushBranch()          → push to remote
-createPullRequest()   → PR to main with stage summary
-```
-
-This pattern is documented in [Adding New Pipelines](../ADDING_PIPELINES.md) as &quot;Option B — Manual multi-commit.&quot;
-
-#### Job Data Format
-
-```javascript
-// Input
-{
-  markdownFile: &quot;/Users/dev/active/my-project/context.md&quot;,
-  projectName: &quot;my-project&quot;,
-  repoPath: &quot;/Users/code/my-project&quot;
-}
-
-// Output
-{
-  markdownFile: &quot;/Users/dev/active/my-project/context.md&quot;,
-  projectName: &quot;my-project&quot;,
-  repoPath: &quot;/Users/code/my-project&quot;,
-  branchName: &quot;bugfix/bugfix-audit-my-project-1707500000&quot;,
-  stages: [
-    { name: &quot;bugfix-planner&quot;, status: &quot;completed&quot; },
-    { name: &quot;bug-detective&quot;, status: &quot;completed&quot; },
-    { name: &quot;audit&quot;, status: &quot;completed&quot; },
-    { name: &quot;ceo-quality-controller&quot;, status: &quot;completed&quot; },
-    { name: &quot;refractor&quot;, status: &quot;completed&quot; }
-  ],
-  pullRequestUrl: &quot;https://github.com/user/my-project/pull/42&quot;,
-  timestamp: &quot;2026-02-09T01:00:00.000Z&quot;
-}
-```
-
-#### File Locations
-
-| Component | Path |
-|-----------|------|
-| Worker | `sidequest/workers/bugfix-audit-worker.ts` |
-| Runner | `sidequest/pipeline-runners/bugfix-audit-pipeline.ts` |
-| Output | `~/code/jobs/sidequest/bug-fixes/output/&lt;project&gt;/&lt;date&gt;/` |
-| Logs | `~/code/jobs/sidequest/bug-fixes/logs/` |
-
-#### Scheduling
-
-```bash
-npm run bugfix:once       # Run immediately
-npm run bugfix:tonight    # One-time at 1 AM
-npm run bugfix:schedule   # Recurring daily at 1 AM
-```
-
----
-
-### 11. Dashboard Populate Pipeline
-
-**Purpose:** Populate quality-metrics-dashboard with 7 metrics from Claude Code session telemetry
-**Job Type:** `dashboard-populate`
-**Languages:** JavaScript (worker) → TypeScript (external scripts)
-**Git Workflow:** ❌ No (data pipeline only)
-
-#### Data Flow
-
-```mermaid
-graph TB
-    A[Cron / Manual Trigger] --&gt; B[DashboardPopulateWorker]
-    B --&gt; C{Skip Sync?}
-    C --&gt;|No| D[npm run build&lt;br/&gt;observability-toolkit]
-    C --&gt;|Yes| E[Skip build]
-    D --&gt; F[npm run populate]
-    E --&gt; F
-    F --&gt; S1[Step 1: derive-evaluations.ts&lt;br/&gt;Rule-based metrics]
-    S1 --&gt; S2[Step 2: judge-evaluations.ts&lt;br/&gt;LLM-based metrics]
-    S2 --&gt; S3[Step 3: sync-to-kv.ts&lt;br/&gt;Aggregate + KV upload]
-    S1 -.-&gt;|--dry-run| Skip1[Skipped]
-    S2 -.-&gt;|--skip-judge| Skip2[Skipped]
-    S3 -.-&gt;|--skip-sync| Skip3[Skipped]
-    S3 --&gt; G[Parse Step Timings]
-    G --&gt; H[Generate Report]
-    H --&gt; I[Return Job Result]
-
-    style S1 fill:#bbf,stroke:#333
-    style S2 fill:#bfb,stroke:#333
-    style S3 fill:#9f9,stroke:#333
-```
-
-#### Metrics Produced
-
-| Step | Metrics | Method |
-|------|---------|--------|
-| derive-evaluations | tool_correctness, evaluation_latency, task_completion | Rule-based (trace analysis) |
-| judge-evaluations | relevance, coherence, faithfulness, hallucination | LLM-as-Judge (or `--seed` for synthetic) |
-| sync-to-kv | Aggregated summaries per period (24h, 7d, 30d) + role views | Cloudflare KV upload |
-
-#### External Script Locations
-
-| Script | Path |
-|--------|------|
-| Orchestrator | `~/.claude/mcp-servers/observability-toolkit/dashboard/scripts/populate-dashboard.ts` |
-| Derive | `~/.claude/mcp-servers/observability-toolkit/dashboard/scripts/derive-evaluations.ts` |
-| Judge | `~/.claude/mcp-servers/observability-toolkit/dashboard/scripts/judge-evaluations.ts` |
-| Sync | `~/.claude/mcp-servers/observability-toolkit/dashboard/scripts/sync-to-kv.ts` |
-
-#### Job Data Format
-
-```javascript
-// Input
-{
-  type: &quot;populate&quot;,
-  seed: true,           // Use synthetic judge scores (offline)
-  dryRun: false,        // Preview only, no writes
-  skipJudge: false,     // Skip LLM-based metrics
-  skipSync: false,      // Skip KV upload
-  limit: undefined      // Max turns to judge
-}
-
-// Output
-{
-  seed: true,
-  dryRun: false,
-  skipJudge: false,
-  skipSync: false,
-  steps: [
-    { name: &quot;derive-evaluations&quot;, ms: 1234 },
-    { name: &quot;judge-evaluations&quot;, ms: 5678 },
-    { name: &quot;sync-to-kv&quot;, ms: 2345 }
-  ],
-  durationMs: 9257,
-  stdout: &quot;...&quot;,        // last 2KB
-  timestamp: &quot;2026-02-13T06:00:00.000Z&quot;
-}
-```
-
-#### Scheduling
-
-**Cron Schedule (twice daily):**
-```bash
-DASHBOARD_CRON_SCHEDULE=&quot;0 6,18 * * *&quot;  # 6 AM and 6 PM
-```
-
-**Manual Execution:**
-```bash
-npm run dashboard:populate        # Run once with --seed (offline)
-npm run dashboard:populate:full   # Run once with real LLM judge
-npm run dashboard:populate:dry    # Dry run preview
-npm run dashboard:populate:schedule  # Start cron scheduler
-```
-
-**Startup-once behavior:** when invoked with `--run-now` / `--run` and without `--cron`, the runner waits for the startup job to finish and exits.
-
-#### File Locations
-
-| Component | Path |
-|-----------|------|
-| Worker | `sidequest/workers/dashboard-populate-worker.ts` |
-| Runner | `sidequest/pipeline-runners/dashboard-populate-pipeline.ts` |
-| External | `~/.claude/mcp-servers/observability-toolkit/dashboard/` |
-
----
-
-## Git Workflow Integration
-
-### Overview
-
-The AlephAuto framework supports automated branch creation and PR generation for workers that modify code. This is implemented in the `SidequestServer` base class and can be enabled per worker.
-
-### Workflow Sequence
-
-```mermaid
-graph TB
-    A[Job Started] --&gt; B{Git Workflow Enabled?}
-    B --&gt;|No| C[Run Job Handler]
-    B --&gt;|Yes| D[Find Git Repository Root]
-    D --&gt; E[Get Original Branch]
-    E --&gt; F[Create Feature Branch]
-    F --&gt; G[Run Job Handler]
-    G --&gt; H{Changes Detected?}
-    H --&gt;|No| I[Cleanup Branch]
-    H --&gt;|Yes| J[Stage Changes]
-    I --&gt; K[Complete Job]
-    J --&gt; L[Generate Commit Message]
-    L --&gt; M[Commit Changes]
-    M --&gt; N[Push Branch]
-    N --&gt; O[Generate PR Context]
-    O --&gt; P[Create Pull Request]
-    P --&gt; Q{Success?}
-    Q --&gt;|Yes| R[Record PR URL in job.git]
-    Q --&gt;|No| S[Capture Error]
-    R --&gt; K
-    S --&gt; T[Cleanup Branch]
-    T --&gt; U[Fail Job]
-
-    style F fill:#bbf,stroke:#333
-    style M fill:#bfb,stroke:#333
-    style P fill:#9f9,stroke:#333
-    style U fill:#f99,stroke:#333
-```
-
-### Configuration
-
-**Environment Variables (Doppler):**
-```bash
-ENABLE_GIT_WORKFLOW=true                 # Enable/disable globally
-GIT_BASE_BRANCH=main                     # Base branch for PRs
-GIT_BRANCH_PREFIX=automated              # Branch prefix
-GIT_DRY_RUN=false                        # Skip push/PR creation
-```
-
-**Worker-Specific Configuration:**
-```javascript
-export class MyWorker extends SidequestServer {
-  constructor(options = {}) {
-    super({
-      ...options,
-      jobType: &apos;my-worker&apos;,
-      gitWorkflowEnabled: config.enableGitWorkflow,
-      gitBranchPrefix: &apos;feature&apos;,
-      gitBaseBranch: config.gitBaseBranch,
-      gitDryRun: config.gitDryRun
-    });
-  }
-}
-```
-
-### Branch Naming
-
-**Pattern:** `{prefix}/{job-type}/{description}-{timestamp}`
-
-**Examples:**
-- `docs/schema-enhancement-README-1732464000`
-- `test-refactor/my-app-1732464000`
-- `automated/gitignore-update-1732464000`
-
-### Commit Message Generation
-
-**Override in worker:**
-```javascript
-async _generateCommitMessage(job) {
-  return {
-    title: &apos;feat: automated improvements&apos;,
-    body: &apos;Detailed description of changes&apos;
-  };
-}
-```
-
-**Default Format:**
-```
-{title}
-
-{body}
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude &lt;noreply@anthropic.com&gt;
-```
-
-### PR Context Generation
-
-**Override in worker:**
-```javascript
-async _generatePRContext(job) {
-  return {
-    branchName: job.git.branchName,
-    title: &apos;PR title&apos;,
-    body: &apos;## Summary\n\nDetailed PR description&apos;,
-    labels: [&apos;automated&apos;, &apos;enhancement&apos;]
-  };
-}
-```
-
-### Job Metadata
-
-**job.git object:**
-```javascript
-{
-  branchName: &apos;docs/schema-enhancement-README-1732464000&apos;,
-  originalBranch: &apos;main&apos;,
-  commitSha: &apos;abc123def456...&apos;,
-  prUrl: &apos;https://github.com/user/repo/pull/42&apos;,
-  changedFiles: [&apos;README.md&apos;, &apos;package.json&apos;]
-}
-```
-
-### Workers with Git Workflow
-
-| Worker | Enabled | Branch Prefix | PR Labels |
-|--------|---------|---------------|-----------|
-| Schema Enhancement | ✅ Yes | `docs` | `documentation`, `seo`, `schema-org`, `automated` |
-| Bugfix Audit | ✅ Multi-commit | `bugfix` | `automated`, `bugfix` |
-| Test Refactor | ✅ Optional | `test-refactor` | `testing`, `refactoring`, `automated` |
-| Duplicate Detection | ⚠️ Custom | N/A | Custom PRCreator implementation |
-| Gitignore | ❌ No | N/A | Batch operations, not supported |
-
----
-
-## Common Patterns
-
-### 1. Language Boundaries (JavaScript ↔ Python)
-
-**Pattern:** JSON over stdin/stdout
-
-```javascript
-// JavaScript caller
-const proc = spawn(&apos;python3&apos;, [&apos;script.py&apos;]);
-proc.stdin.write(JSON.stringify(data));
-proc.stdin.end();
-
-let stdout = &apos;&apos;;
-proc.stdout.on(&apos;data&apos;, (chunk) =&gt; {
-  stdout += chunk.toString();
-});
-
-proc.on(&apos;close&apos;, (code) =&gt; {
-  if (code === 0) {
-    const result = JSON.parse(stdout);
-    resolve(result);
-  }
-});
-```
-
-```python
-# Python receiver
-import sys
-import json
-
-input_data = json.load(sys.stdin)
-# ... process data
-result = {&quot;output&quot;: &quot;data&quot;}
-json.dump(result, sys.stdout, indent=2)
-```
-
-### 2. Event-Driven Job Lifecycle
-
-**All workers emit standard events (SidequestServer base):**
-```typescript
-// Pipeline runners register listeners in setupEventListeners()
-this.worker.on(&apos;job:created&apos;, (job: Job) =&gt; {
-  logger.info({ jobId: job.id }, &apos;Job created&apos;);
-});
-
-this.worker.on(&apos;job:started&apos;, (job: Job) =&gt; {
-  logger.info({ jobId: job.id }, &apos;Job started&apos;);
-});
-
-this.worker.on(&apos;job:completed&apos;, (job: Job) =&gt; {
-  logger.info({ jobId: job.id, result: job.result }, &apos;Job completed&apos;);
-});
-
-this.worker.on(&apos;job:failed&apos;, (job: Job) =&gt; {
-  logError(logger, job.error as unknown as Error, &apos;Job failed&apos;, { jobId: job.id });
-});
-```
-
-### 3. Configuration via Doppler
-
-**Pipelines use centralized config (`sidequest/core/config.ts`) plus runner-local env/CLI overrides where needed:**
-```typescript
-import { config } from &apos;./sidequest/core/config.ts&apos;;
-const port = config.jobsApiPort;    // Correct — typed access
-// Preferred: typed config values from config.ts.
-// Runner-local scheduling/operation settings may read process.env directly
-// (for example, *_CRON_SCHEDULE, *_DRY_RUN, *_BASE_DIR/TARGET_DIR) and parse
-// CLI flags (--run-now/--run/--cron) to control one-shot vs scheduler mode.
-```
-
-### 4. Retry Logic with Error Classification
-
-**Automatic retry for transient errors (handled by `SidequestServer._finalizeJobFailure`):**
-
-```typescript
-// sidequest/core/server.ts — retry is built into the job lifecycle
-// Uses error-classifier.ts: isRetryable() + classifyError()
-//
-// Retryable: ETIMEDOUT, ECONNRESET, ENOTFOUND, 5xx
-// Non-retryable: ENOENT, EACCES, EPERM, 4xx
-//
-// On retry: status → queued, retryCount++, delay via setTimeout
-// On final failure: status → failed, Sentry capture, persist to SQLite
-```
-
-### 5. WebSocket Broadcasting
-
-**Real-time dashboard updates (`api/websocket.ts`):**
-
-```
-Worker emits event → EventBroadcaster → WebSocket → Dashboard UI
-```
-
-Workers emit `job:completed`/`job:failed` → `EventBroadcaster` serializes and broadcasts to all connected WebSocket clients → React dashboard updates in real-time.
-
----
-
-## Error Handling &amp; Resilience
-
-### Error Classification
-
-**File:** `sidequest/pipeline-core/errors/error-classifier.ts`
-
-```javascript
-export function classifyError(error) {
-  // Network errors (retryable)
-  if ([&apos;ETIMEDOUT&apos;, &apos;ECONNRESET&apos;, &apos;ENOTFOUND&apos;].includes(error.code)) {
-    return {
-      category: &apos;network&apos;,
-      retryable: true,
-      severity: &apos;warning&apos;
-    };
-  }
-
-  // File system errors (non-retryable)
-  if ([&apos;ENOENT&apos;, &apos;EACCES&apos;, &apos;EPERM&apos;].includes(error.code)) {
-    return {
-      category: &apos;filesystem&apos;,
-      retryable: false,
-      severity: &apos;error&apos;
-    };
-  }
-
-  // Validation errors (non-retryable)
-  if (error.name === &apos;ValidationError&apos;) {
-    return {
-      category: &apos;validation&apos;,
-      retryable: false,
-      severity: &apos;error&apos;
-    };
-  }
-
-  // Unknown errors (retryable with caution)
-  return {
-    category: &apos;unknown&apos;,
-    retryable: true,
-    severity: &apos;error&apos;
-  };
-}
-```
-
-### Sentry Integration
-
-**Three severity levels:**
-```javascript
-import * as Sentry from &apos;@sentry/node&apos;;
-
-// Level 1: Warning (retryable errors)
-Sentry.captureMessage(&apos;Job retry attempt&apos;, {
-  level: &apos;warning&apos;,
-  tags: { job_id: job.id },
-  extra: { attempt: 1, error: error.message }
-});
-
-// Level 2: Error (non-retryable errors)
-Sentry.captureException(error, {
-  level: &apos;error&apos;,
-  tags: { component: &apos;worker&apos;, job_id: job.id },
-  extra: { job_data: job.data }
-});
-
-// Level 3: Fatal (system failures)
-Sentry.captureException(error, {
-  level: &apos;fatal&apos;,
-  tags: { component: &apos;system&apos; },
-  extra: { context: &apos;worker_initialization&apos; }
-});
-```
-
-### Doppler Health Monitor
-
-**Circuit breaker for stale cache:**
-```typescript
-// sidequest/pipeline-core/doppler-health-monitor.ts
-class DopplerHealthMonitor {
-  // Configurable options — all optional with defaults from CACHE constants
-  constructor(options: DopplerHealthMonitorOptions = {}) {
-    this.cacheDir = options.cacheDir ?? path.join(os.homedir(), &apos;.doppler&apos;, &apos;fallback&apos;);
-    this.maxCacheAge = options.maxCacheAge ?? CACHE.MAX_AGE_MS;       // default: 24h
-    this.warningThreshold = options.warningThreshold ?? CACHE.WARNING_THRESHOLD_MS; // default: 12h
-    this.monitoringInterval = null;  // NOT auto-started in constructor
-  }
-
-  // Start periodic monitoring (call explicitly after construction)
-  async startMonitoring(intervalMinutes = 15): Promise&lt;void&gt; { /* ... */ }
-
-  // On-demand check: reads file mtime from cacheDir, does not use stored state
-  async checkCacheHealth(): Promise&lt;CacheHealthStatus&gt; {
-    // Reads ~/.doppler/fallback/ files, computes age from newest mtime
-    // Returns: { healthy, cacheAgeMs, cacheAgeHours, severity, lastModified, ... }
-  }
-}
-```
-
-### Port Conflict Resolution
-
-**Automatic fallback:**
-```javascript
-// api/utils/port-manager.ts
-export async function setupServerWithPortFallback(httpServer, options) {
-  const { preferredPort, maxPort } = options;
-
-  for (let port = preferredPort; port &lt;= maxPort; port++) {
-    try {
-      await new Promise((resolve, reject) =&gt; {
-        httpServer.listen(port, () =&gt; resolve());
-        httpServer.on(&apos;error&apos;, reject);
-      });
-
-      logger.info({ port }, &apos;Server listening on port&apos;);
-      return port;
-    } catch (error) {
-      if (error.code === &apos;EADDRINUSE&apos;) {
-        logger.warn({ port }, &apos;Port in use, trying next&apos;);
-        continue;
-      }
-      throw error;
-    }
-  }
-
-  throw new Error(`No available ports between ${preferredPort}-${maxPort}`);
-}
-```
-
-### Graceful Shutdown
-
-**Cleanup on process termination:**
-```javascript
-// api/server.ts
-const signals = [&apos;SIGTERM&apos;, &apos;SIGINT&apos;, &apos;SIGHUP&apos;];
-
-signals.forEach((signal) =&gt; {
-  process.on(signal, async () =&gt; {
-    logger.info({ signal }, &apos;Received shutdown signal&apos;);
-
-    // 1. Stop accepting new connections
-    httpServer.close();
-
-    // 2. Wait for active jobs to complete
-    await waitForActiveJobs();
-
-    // 3. Close WebSocket connections
-    websocket.close();
-
-    // 4. Close database connections
-    jobRepository.close();
-
-    // 5. Exit
-    process.exit(0);
-  });
-});
-```
-
----
-
-## Related Documentation
-
-- [Adding New Pipelines](../ADDING_PIPELINES.md)
-- [Similarity Algorithm Documentation](./similarity-algorithm.md)
-- [Error Handling Architecture](./ERROR_HANDLING.md)
-- [Type System Documentation](./TYPE_SYSTEM.md)
-- [API Reference](../API_REFERENCE.md)
-- [Dashboard UI Guide](../dashboard_ui/DASHBOARD.md)
-- [Deployment Guide](../deployment/TRADITIONAL_SERVER_DEPLOYMENT.md)
-
----
-
-**Document Version:** 2.3
-**Last Updated:** 2026-03-04
-**Maintainer:** Architecture Team</file><file path="docs/dashboard_ui/DASHBOARD.md"># AlephAuto Dashboard
+**Last Updated:** March 4, 2026</file><file path="docs/dashboard_ui/DASHBOARD.md"># AlephAuto Dashboard
 
 **Version**: 1.4.0 | **Status**: Production Ready | **Updated**: 2026-03-09
 
