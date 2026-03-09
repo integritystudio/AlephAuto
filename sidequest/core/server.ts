@@ -167,7 +167,7 @@ export class SidequestServer extends EventEmitter {
       Sentry.init({
         dsn: options.sentryDsn ?? config.sentryDsn,
         environment: config.nodeEnv,
-        tracesSampleRate: 1.0,
+        tracesSampleRate: config.sentryTracesSampleRate,
       });
       sentryInitialized = true;
     }

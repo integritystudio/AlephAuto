@@ -111,6 +111,7 @@ export const config = {
   // Sentry monitoring
   sentryDsn: process.env.SENTRY_DSN,
   nodeEnv: process.env.NODE_ENV || 'production',
+  sentryTracesSampleRate: safeParseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE, 0.1, 0, 1),
 
   // Cron schedules (default: 2 AM for repomix, 3 AM for docs)
   repomixSchedule: process.env.CRON_SCHEDULE || '0 2 * * *',
