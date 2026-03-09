@@ -48,12 +48,12 @@ async function createGitRepo(testDir, repoName) {
   return repoPath;
 }
 
-async function createTestRepos(testDirPath: string, count: number, gitignoreContent: string): Promise<string[]> {
+async function createTestRepos(testDirPath: string, count: number, gitignoreContent?: string): Promise<string[]> {
   const repos: string[] = [];
   for (let i = 1; i <= count; i++) {
     const repoPath = await createGitRepo(testDirPath, `repo-${i}`);
     repos.push(repoPath);
-    if (gitignoreContent) {
+    if (gitignoreContent !== undefined) {
       await fs.writeFile(path.join(repoPath, '.gitignore'), gitignoreContent);
     }
   }
@@ -75,7 +75,7 @@ async function countGitignoreMatches(repos: string[], entry: string): Promise<nu
 
 function printResult(index: number, label: string, passed: boolean, detail?: string) {
   console.log(`${index}. ${label}: ${passed ? '✓ PASS' : '✗ FAIL'}`);
-  if (passed && detail) console.log(`   ${detail}`);
+  if (detail) console.log(`   ${detail}`);
 }
 
 /**
@@ -198,7 +198,7 @@ async function testErrorHandling() {
 
   try {
     // Create 3 repos; only first 2 get .gitignore files
-    const repos = await createTestRepos(testDir.path, 3, '');
+    const repos = await createTestRepos(testDir.path, 3);
     for (let i = 0; i < 2; i++) {
       await fs.writeFile(path.join(repos[i], '.gitignore'), 'node_modules/\n.env\n');
     }
