@@ -249,22 +249,39 @@ function handleClientMessage(clientId: string, message: Record<string, unknown>,
  * @param {Record<string, unknown>} message - Parsed message payload.
  * @param {WsClient} client - Connected client metadata.
  */
-function handleSubscribe(clientId: string, message: Record<string, unknown>, client: WsClient): void {
-  const channels = (message.channels as string[]) ?? [];
+const MAX_SUBSCRIPTIONS_PER_CLIENT = 50;
+const MAX_CHANNEL_NAME_LENGTH = 128;
+const VALID_CHANNEL_PATTERN = /^[a-zA-Z0-9_:.-]+$/;
 
-  channels.forEach((channel: string) => {
+function handleSubscribe(clientId: string, message: Record<string, unknown>, client: WsClient): void {
+  const rawChannels = message.channels;
+  if (!Array.isArray(rawChannels)) {
+    logger.warn({ clientId }, 'Subscribe message has invalid channels field');
+    return;
+  }
+
+  const channels = rawChannels.filter((ch): ch is string => {
+    if (typeof ch !== 'string') return false;
+    if (ch.length === 0 || ch.length > MAX_CHANNEL_NAME_LENGTH) return false;
+    return VALID_CHANNEL_PATTERN.test(ch);
+  });
+
+  const available = MAX_SUBSCRIPTIONS_PER_CLIENT - client.subscriptions.size;
+  const toAdd = channels.slice(0, available);
+
+  toAdd.forEach((channel: string) => {
     client.subscriptions.add(channel);
   });
 
   logger.info({
     clientId,
-    channels,
+    channels: toAdd,
     totalSubscriptions: client.subscriptions.size
   }, 'Client subscribed to channels');
 
   client.ws.send(JSON.stringify({
     type: 'subscribed',
-    channels,
+    channels: toAdd,
     total_subscriptions: client.subscriptions.size,
     timestamp: new Date().toISOString()
   }));
@@ -278,7 +295,15 @@ function handleSubscribe(clientId: string, message: Record<string, unknown>, cli
  * @param {WsClient} client - Connected client metadata.
  */
 function handleUnsubscribe(clientId: string, message: Record<string, unknown>, client: WsClient): void {
-  const channels = (message.channels as string[]) ?? [];
+  const rawChannels = message.channels;
+  if (!Array.isArray(rawChannels)) {
+    logger.warn({ clientId }, 'Unsubscribe message has invalid channels field');
+    return;
+  }
+
+  const channels = rawChannels.filter((ch): ch is string =>
+    typeof ch === 'string' && ch.length > 0 && ch.length <= MAX_CHANNEL_NAME_LENGTH
+  );
 
   channels.forEach((channel: string) => {
     client.subscriptions.delete(channel);

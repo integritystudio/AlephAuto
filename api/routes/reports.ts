@@ -13,11 +13,12 @@ import path from 'path';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
 import { VALIDATION } from '#sidequest/core/constants.ts';
 import { sendError, ERROR_CODES } from '../utils/api-error.ts';
+import { config } from '#sidequest/core/config.ts';
 
 const router = express.Router();
 const logger = createComponentLogger('ReportRoutes');
 
-const REPORTS_DIR = path.join(process.cwd(), 'output', 'reports');
+const REPORTS_DIR = path.join(config.scanReportsDir, 'reports');
 
 /**
  * GET /api/reports
@@ -30,7 +31,13 @@ router.get('/', validateQuery(ReportQuerySchema), async (req, res, next) => {
 
     logger.debug({ limit, format, type }, 'Listing reports');
 
-    const files = await fs.readdir(REPORTS_DIR);
+    let files: string[];
+    try {
+      files = await fs.readdir(REPORTS_DIR);
+    } catch {
+      res.json({ total: 0, reports: [], timestamp: new Date().toISOString() });
+      return;
+    }
 
     let reportFiles = files;
 

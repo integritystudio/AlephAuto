@@ -18,7 +18,7 @@ interface ApiError extends Error {
   code?: string;
 }
 
-const SENSITIVE_KEYS = new Set(['password', 'token', 'secret', 'apiKey', 'api_key', 'authorization', 'key', 'credential', 'credentials']);
+const SENSITIVE_KEYS = new Set(['password', 'token', 'secret', 'apiKey', 'api_key', 'authorization', 'x-api-key', 'key', 'credential', 'credentials']);
 
 /**
  * Redacts sensitive keys from request bodies before logging.
@@ -53,6 +53,12 @@ export function errorHandler(err: ApiError, req: Request, res: Response, _next: 
     body: sanitizeBody(req.body)
   }, 'API error occurred');
 
+  // Redact sensitive headers before sending to Sentry
+  const safeHeaders: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(req.headers)) {
+    safeHeaders[key] = SENSITIVE_KEYS.has(key.toLowerCase()) ? '[REDACTED]' : value;
+  }
+
   // Capture in Sentry
   Sentry.captureException(err, {
     tags: {
@@ -65,7 +71,7 @@ export function errorHandler(err: ApiError, req: Request, res: Response, _next: 
         method: req.method,
         url: req.url,
         query: req.query,
-        headers: req.headers
+        headers: safeHeaders
       }
     }
   });

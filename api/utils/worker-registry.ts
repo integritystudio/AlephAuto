@@ -19,7 +19,7 @@ import { PluginManagerWorker } from '#sidequest/utils/plugin-manager.ts';
 import { config } from '#sidequest/core/config.ts';
 import { createComponentLogger, logError } from '#sidequest/utils/logger.ts';
 import { jobRepository } from '#sidequest/core/job-repository.ts';
-import { CONCURRENCY, TIMEOUTS, WORKER_COOLDOWN } from '#sidequest/core/constants.ts';
+import { CONCURRENCY, RETRY, TIMEOUTS, WORKER_COOLDOWN } from '#sidequest/core/constants.ts';
 import { TIME_MS } from '#sidequest/core/units.ts';
 import type { ActivityFeedManager } from '../activity-feed.ts';
 
@@ -67,7 +67,7 @@ const PIPELINE_CONFIGS: Record<string, PipelineConfig> = {
   'schema-enhancement': {
     WorkerClass: SchemaEnhancementWorker as unknown as WorkerConstructor,
     getOptions: () => ({
-      maxConcurrent: config.maxConcurrent ?? 2,
+      maxConcurrent: config.maxConcurrent ?? CONCURRENCY.DEFAULT_IO_BOUND,
       logDir: config.logDir,
       sentryDsn: config.sentryDsn,
       gitWorkflowEnabled: config.enableGitWorkflow,
@@ -180,7 +180,7 @@ function enforceInitCircuitBreaker(pipelineId: string): void {
   }
 
   const cooldownAttempts = failureInfo.cooldownAttempts || 0;
-  const cooldownMs = Math.min(WORKER_COOLDOWN.BASE_MS * Math.pow(2, cooldownAttempts), WORKER_COOLDOWN.MAX_MS);
+  const cooldownMs = Math.min(WORKER_COOLDOWN.BASE_MS * Math.pow(RETRY.BACKOFF_MULTIPLIER, cooldownAttempts), WORKER_COOLDOWN.MAX_MS);
   const timeSinceLastAttempt = Date.now() - failureInfo.lastAttempt;
 
   if (timeSinceLastAttempt < cooldownMs) {
@@ -536,6 +536,21 @@ class WorkerRegistry {
       workers: this._workers,
       activityFeed: this._activityFeed
     });
+  }
+
+  /**
+   * Register a pre-existing worker instance (e.g. workers created outside the registry).
+   * If a worker is already registered for the given pipelineId, this is a no-op.
+   */
+  registerWorker(pipelineId: string, worker: SidequestServer): void {
+    if (this._workers.has(pipelineId)) {
+      return;
+    }
+    this._workers.set(pipelineId, worker);
+    if (this._activityFeed) {
+      this._activityFeed.listenToWorker(worker);
+    }
+    logger.info({ pipelineId }, 'Pre-existing worker registered');
   }
 
   /**

@@ -103,12 +103,12 @@ export async function findAvailablePort(startPort: number, endPort: number, host
  */
 export async function killProcessOnPort(port: number): Promise<boolean> {
   try {
-    const { exec } = await import('child_process');
+    const { execFile } = await import('child_process');
     const { promisify } = await import('util');
-    const execAsync = promisify(exec);
+    const execFileAsync = promisify(execFile);
 
     // Find process using the port
-    const { stdout } = await execAsync(`lsof -ti:${port}`);
+    const { stdout } = await execFileAsync('lsof', ['-ti', `:${port}`]);
     const pids = stdout.trim().split('\n').filter(Boolean);
 
     if (pids.length === 0) {
@@ -116,11 +116,18 @@ export async function killProcessOnPort(port: number): Promise<boolean> {
       return true;
     }
 
-    logger.info({ port, pids }, 'Killing processes on port');
+    // Validate each pid is a numeric string before passing to kill
+    const numericPids = pids.filter(pid => /^\d+$/.test(pid.trim()));
+    if (numericPids.length !== pids.length) {
+      logger.error({ port, pids }, 'Unexpected non-numeric PID from lsof output');
+      return false;
+    }
 
-    // Kill all processes
-    for (const pid of pids) {
-      await execAsync(`kill -9 ${pid}`);
+    logger.info({ port, pids: numericPids }, 'Killing processes on port');
+
+    // Kill all processes using execFile to avoid shell injection
+    for (const pid of numericPids) {
+      await execFileAsync('kill', ['-9', pid.trim()]);
       logger.info({ port, pid }, 'Killed process');
     }
 

@@ -38,16 +38,7 @@ function isDevelopmentEnvironment(): boolean {
  * Returns the configured API key when present.
  */
 function getConfiguredApiKey(): string | null {
-  const configuredValue =
-    ((config as Record<string, unknown>).apiKey as string | undefined)
-    || process.env.API_KEY;
-
-  if (!configuredValue) {
-    return null;
-  }
-
-  const trimmed = configuredValue.trim();
-  return trimmed.length > 0 ? trimmed : null;
+  return config.apiKey;
 }
 
 /**
@@ -62,15 +53,17 @@ function validateApiKey(apiKey: string, configuredApiKey: string): boolean {
     return false;
   }
 
-  // Constant-time comparison to prevent timing attacks
+  // Constant-time comparison to prevent timing attacks including length oracle
   const expectedBuffer = Buffer.from(configuredApiKey);
   const actualBuffer = Buffer.from(apiKey);
-
-  if (expectedBuffer.length !== actualBuffer.length) {
-    return false;
-  }
-
-  return crypto.timingSafeEqual(expectedBuffer, actualBuffer);
+  const maxLen = Math.max(expectedBuffer.length, actualBuffer.length);
+  const paddedExpected = Buffer.alloc(maxLen, 0);
+  const paddedActual = Buffer.alloc(maxLen, 0);
+  expectedBuffer.copy(paddedExpected);
+  actualBuffer.copy(paddedActual);
+  const equal = crypto.timingSafeEqual(paddedExpected, paddedActual);
+  const sameLength = expectedBuffer.length === actualBuffer.length;
+  return (equal && sameLength);
 }
 
 /**

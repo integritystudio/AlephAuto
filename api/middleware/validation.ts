@@ -9,6 +9,15 @@ import { type ZodSchema, ZodError } from 'zod';
 import { createComponentLogger } from '#sidequest/utils/logger.ts';
 import { sendValidationError } from '../utils/api-error.ts';
 
+// Module augmentation for type-safe validated query access
+declare global {
+  namespace Express {
+    interface Request {
+      validatedQuery?: unknown;
+    }
+  }
+}
+
 const logger = createComponentLogger('ValidationMiddleware');
 
 /**
@@ -81,8 +90,8 @@ export function validateQuery(schema: ZodSchema): (req: Request, res: Response, 
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const validated = schema.parse(req.query);
-      // Store in custom property since req.query is read-only
-      (req as Request & { validatedQuery: unknown }).validatedQuery = validated;
+      // Store in typed augmented property since req.query is read-only
+      req.validatedQuery = validated;
       next();
     } catch (error) {
       if (error instanceof ZodError) {

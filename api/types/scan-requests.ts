@@ -87,4 +87,14 @@ export const ScanResultsSchema = z.object({
 
 export type ScanResults = z.infer<typeof ScanResultsSchema>;
 
+/**
+ * Start Multi Scan Request Schema
+ */
+export const StartMultiScanRequestSchema = z.object({
+  repositoryPaths: z.array(z.string().min(1)).min(2, 'At least 2 repository paths required'),
+  groupName: z.string().optional()
+}).strict();
+
+export type StartMultiScanRequest = z.infer<typeof StartMultiScanRequestSchema>;
+
 export { createErrorResponse } from './shared-schemas.ts';

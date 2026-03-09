@@ -277,6 +277,15 @@ export const config = {
 
   // System paths
   homeDir: process.env.HOME || os.homedir(),
+
+  // API key for authenticating protected API endpoints.
+  // Implemented as a getter so test overrides of process.env.API_KEY take effect.
+  get apiKey(): string | null {
+    const value = process.env.API_KEY;
+    if (!value) return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  },
 };
 
 /**

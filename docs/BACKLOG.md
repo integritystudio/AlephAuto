@@ -164,68 +164,22 @@ Full review: [code-reviewer agent findings](REMOVED_AFTER_SESSION)
 
 **Scan:** 23 TS files (server, routes, middleware, utils, types). **Critical fixes applied:** C1 (CORS), C2 (directory traversal), C3 (scanId validation).
 
-### High Priority (Security/Correctness)
+### Done
 
-#### H4: `start-multi` accepts arbitrary filesystem paths
-**Priority**: P1 | **Source**: code-review:2026-03-09
-`POST /api/scans/start-multi` passes `repositoryPaths` array to `worker.scheduleScan()` without validation. Attacker can supply `/etc/passwd` or any host path. Apply allowlist against configured repositories or validate against known-safe prefix. -- `scans.ts:82-117`
-
-#### H5: Retry endpoint re-executes unsanitized job parameters
-**Priority**: P1 | **Source**: code-review:2026-03-09
-`POST /api/jobs/:jobId/retry` merges full original `jobData` from database and spreads it as new job parameters without schema validation. If original data contained injected fields, they are re-executed on retry. -- `jobs.ts:384-390`
-
-#### H6: Manual pipeline trigger bypasses parameter validation
-**Priority**: P1 | **Source**: code-review:2026-03-09
-`POST /:pipelineId/trigger` validates envelope only (`z.record(z.unknown())`) but not contents. Raw map spread into job with no per-pipeline validation. -- `pipelines.ts:290-294`
-
-#### H7: REPORTS_DIR hardcoded, violates config pattern
-**Priority**: P2 | **Source**: code-review:2026-03-09
-`REPORTS_DIR` hardcoded as `path.join(process.cwd(), 'output', 'reports')` with no existence check. Violates CLAUDE.md critical pattern #2 (use config, not process.cwd). First GET may throw unhandled error if directory missing. -- `reports.ts:18`
-
-#### H8: Auth key falls back to raw process.env
-**Priority**: P2 | **Source**: code-review:2026-03-09
-`getConfiguredApiKey()` falls back to `process.env.API_KEY` directly, violating project rule against direct env access. Config object cast suggests apiKey property may not be typed, causing fallback to always activate. -- `auth.ts:41-43`
-
-#### H9: timingSafeEqual duplicate leaks length, bypasses timing defense
-**Priority**: P2 | **Source**: code-review:2026-03-09
-Local `timingSafeEqual` in `jobs.ts` has early-exit on length mismatch (line 37) which defeats timing safety. Also duplicates already-correct implementation in `auth.ts`. Consolidate or fix. -- `jobs.ts:27-43`
-
-### Medium Priority
-
-#### M10: Duplicate DuplicateDetectionWorker bypasses registry + shutdown
-**Priority**: P2 | **Source**: code-review:2026-03-09
-`scans.ts` creates independent `DuplicateDetectionWorker` at module load, outside `workerRegistry`. Has no activity feed integration, no circuit breaker, no graceful shutdown. Jobs visible to `POST /api/scans/start` are invisible to `GET /api/status`. -- `scans.ts:31-41`
-
-#### M11: `/:scanId/status` returns aggregate worker stats regardless of scanId
-**Priority**: P2 | **Source**: code-review:2026-03-09
-Route ignores `scanId` parameter, returns entire worker's stats for any request. Caller cannot distinguish "scan not found" from "scan running". -- `scans.ts:123-142`
-
-#### M12: `hasMore` pagination flag off-by-one in pipelines
-**Priority**: P3 | **Source**: code-review:2026-03-09
-`hasMore: result.jobs.length === limit` returns `true` when page is exactly limit-sized even if no more results exist. Use `(offset + length) < total` (correct in `jobs.ts:142`). -- `pipelines.ts:75`
-
-#### M13: Sentry captures raw req.headers including Authorization
-**Priority**: P2 | **Source**: code-review:2026-03-09
-Error handler sends full `req.headers` to Sentry in custom contexts, exposing `authorization` and `x-api-key` headers unredacted. Apply `SENSITIVE_KEYS` set before passing to Sentry. -- `error-handler.ts:63-70`
-
-#### M14: Shell command injection in port-cleanup utility
-**Priority**: P2 | **Source**: code-review:2026-03-09
-`killProcessOnPort()` uses template-string exec: `kill -9 ${pid}` where `pid` comes from `lsof` output string. Pathological output or locale issues could inject shell tokens. Use `execFile()` with args array. -- `port-manager.ts:111-124`
-
-#### M15: WebSocket subscribe accepts unconstrained channel names
-**Priority**: P3 | **Source**: code-review:2026-03-09
-No validation on channel names, no subscription limit per client. Client can fill subscriptions with arbitrary large entries. `getClientInfo` exposes full subscription list over HTTP without auth. -- `websocket.ts:252-257`
-
-### Low Priority
-
-#### L16: validateQuery double-cast bypasses TypeScript type safety
-**Priority**: P4 | **Source**: code-review:2026-03-09
-Middleware stores validated data at non-standard property, routes retrieve via double-cast through `unknown`, completely bypassing type checking. Declare shared module augmentation for `express.Request` once. -- `validation.ts:85`, `pipelines.ts:52`
-
-#### L17: `/:scanId/results` does 7 serial table reads instead of direct lookup
-**Priority**: P3 | **Source**: code-review:2026-03-09
-Fetches `MAX_LIMIT` jobs from 7 different pipelines serially looking for scan. `jobRepository.getJob(scanId)` already does direct primary-key lookup. -- `scans.ts:166-177`
-
-#### L18: retryCount read from wrong location enables retry-limit bypass
-**Priority**: P3 | **Source**: code-review:2026-03-09
-`retryCount` read from `job.data` instead of top-level `job.retryCount`. Auto-retry mechanism may not store it in data, bypassing manual retry limit. -- `jobs.ts:364-367`
+| ID | Title | Fix |
+|----|-------|-----|
+| H4 | `start-multi` accepts arbitrary filesystem paths | Added `StartMultiScanRequestSchema` with Zod validation; absolute path + null-byte + traversal checks in `scans.ts` |
+| H5 | Retry endpoint re-executes unsanitized job parameters | Strip `RESERVED_JOB_KEYS` before spreading into new job in `jobs.ts` |
+| H6 | Manual pipeline trigger bypasses parameter validation | Strip `RESERVED_PARAM_KEYS` before spreading into job in `pipelines.ts` |
+| H7 | REPORTS_DIR hardcoded, violates config pattern | Use `config.scanReportsDir` + graceful empty response on missing dir in `reports.ts` |
+| H8 | Auth key falls back to raw process.env | Added `apiKey` getter to config; `auth.ts` uses `config.apiKey` directly |
+| H9 | timingSafeEqual leaks length | Padding approach in both `jobs.ts` and `auth.ts` prevents length oracle |
+| M10 | Duplicate worker bypasses registry | `scans.ts` registers standalone worker with `workerRegistry.registerWorker()` after init |
+| M11 | `/:scanId/status` returns aggregate stats | Now uses `jobRepository.getJob(scanId)` for scan-specific lookup, returns 404 for unknown |
+| M12 | `hasMore` pagination off-by-one | Fixed to `(offset + result.jobs.length) < result.total` in `pipelines.ts` |
+| M13 | Sentry captures raw headers | Redact `SENSITIVE_KEYS` headers before sending to Sentry in `error-handler.ts` |
+| M14 | Shell injection in port-cleanup | Replaced `exec` with `execFile` + numeric PID validation in `port-manager.ts` |
+| M15 | WebSocket unconstrained channels | Added `VALID_CHANNEL_PATTERN`, `MAX_CHANNEL_NAME_LENGTH`, `MAX_SUBSCRIPTIONS_PER_CLIENT` in `websocket.ts` |
+| L16 | validateQuery double-cast | Express module augmentation for `req.validatedQuery` in `validation.ts` |
+| L17 | 7 serial table reads | Replaced with `jobRepository.getJob(scanId)` direct lookup in `scans.ts` |
+| L18 | retryCount from wrong location | Validate `retryCount` is non-negative number before use in `jobs.ts` |
