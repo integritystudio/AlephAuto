@@ -7,6 +7,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { VALIDATION, PAGINATION } from '../../sidequest/core/constants.ts';
 import { timingSafeEqual } from '../../api/utils/crypto-helpers.ts';
+import { filterReservedJobKeys } from '../../api/utils/job-helpers.ts';
 
 /**
  * Validate and sanitize job ID from URL parameter
@@ -211,5 +212,44 @@ describe('timingSafeEqual - TC-H2', () => {
 
   it('returns false for empty string vs non-empty', () => {
     assert.ok(!timingSafeEqual('', 'key'));
+  });
+});
+
+describe('filterReservedJobKeys - TC-H3', () => {
+  it('should strip all four reserved keys', () => {
+    const result = filterReservedJobKeys({
+      repositoryPath: '/repo',
+      retriedFrom: 'job-old',
+      triggeredBy: 'retry',
+      triggeredAt: '2026-01-01',
+      retryCount: 3,
+    });
+    assert.ok(!('retriedFrom' in result));
+    assert.ok(!('triggeredBy' in result));
+    assert.ok(!('triggeredAt' in result));
+    assert.ok(!('retryCount' in result));
+    assert.strictEqual(result.repositoryPath, '/repo');
+  });
+
+  it('should pass through non-reserved keys unchanged', () => {
+    const result = filterReservedJobKeys({ foo: 'bar', baz: 42 });
+    assert.strictEqual(result.foo, 'bar');
+    assert.strictEqual(result.baz, 42);
+  });
+
+  it('should handle empty input', () => {
+    const result = filterReservedJobKeys({});
+    assert.deepStrictEqual(result, {});
+  });
+
+  it('should not mutate the original object', () => {
+    const input = { repositoryPath: '/repo', retriedFrom: 'old' };
+    filterReservedJobKeys(input);
+    assert.ok('retriedFrom' in input);
+  });
+
+  it('should return object with no reserved keys when all are reserved', () => {
+    const result = filterReservedJobKeys({ retriedFrom: 'x', triggeredBy: 'y', triggeredAt: 'z', retryCount: 1 });
+    assert.deepStrictEqual(result, {});
   });
 });
