@@ -80,7 +80,7 @@ export const BYTES = {
   PB: KB ** 5,
 } as const;
 
-const DECIMAL_KB = EXPORT_MAX_BATCH_SIZE_LIMIT;
+const DECIMAL_KB = 1_000;
 
 export const BYTES_DECIMAL = {
   B: 1,
