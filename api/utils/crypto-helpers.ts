@@ -14,7 +14,8 @@ export function timingSafeEqual(a: unknown, b: unknown): boolean {
   bufB.copy(paddedB);
   const equal = crypto.timingSafeEqual(paddedA, paddedB);
   const sameLength = bufA.length === bufB.length;
-  // Both checks computed unconditionally; && is safe because equal is
-  // already evaluated over padded (constant-length) buffers above.
+  // Both checks computed unconditionally to avoid short-circuit timing leaks.
+  // `sameLength` intentionally distinguishes wrong-length inputs (returns false
+  // without leaking content) from same-length wrong-content inputs.
   return (equal && sameLength);
 }

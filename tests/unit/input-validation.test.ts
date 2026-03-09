@@ -187,6 +187,8 @@ describe('Input Sanitization - M7: Pagination Parameters', () => {
 
   it('should prevent huge offsets from causing issues', () => {
     const result = sanitizePaginationParams(50, Number.MAX_SAFE_INTEGER);
+    // No isSafeInteger assertion: Number.MAX_SAFE_INTEGER is always a safe integer,
+    // so asserting it here would be vacuously true and not test any real code path.
     assert.strictEqual(result.offset, Number.MAX_SAFE_INTEGER);
   });
 });
