@@ -19,7 +19,7 @@ import { glob } from 'glob';
 import path from 'path';
 import fs from 'fs/promises';
 import { readFileSync } from 'fs';
-import { LIMITS, TEST_REFACTOR } from '../core/constants.ts';
+import { CONCURRENCY, LIMITS, TEST_REFACTOR } from '../core/constants.ts';
 const logger = createComponentLogger('TestRefactorWorker');
 
 // Type definitions
@@ -100,7 +100,7 @@ export class TestRefactorWorker extends SidequestServer {
    */
   constructor(options: TestRefactorWorkerOptions = {}) {
     super({
-      maxConcurrent: options.maxConcurrent || 3,
+      maxConcurrent: options.maxConcurrent || CONCURRENCY.DEFAULT_PIPELINE_CONCURRENCY,
       logDir: path.join(process.cwd(), 'logs', 'test-refactor'),
       gitWorkflowEnabled: options.gitWorkflowEnabled ?? false,
       gitBranchPrefix: options.gitBranchPrefix || 'test-refactor',
@@ -307,14 +307,14 @@ export class TestRefactorWorker extends SidequestServer {
 
     // Find duplicated strings (3+ occurrences)
     for (const [str, count] of stringCounts) {
-      if (count >= 3 && str.length > TEST_REFACTOR.MIN_HARDCODED_STRING_LENGTH) {
+      if (count >= LIMITS.HARD_CODED_STRING_MIN_OCCURRENCES && str.length > TEST_REFACTOR.MIN_HARDCODED_STRING_LENGTH) {
         result.patterns.hardcodedStrings.push(str);
       }
     }
 
     // Find duplicated assertions (3+ occurrences)
     for (const [assertion, count] of assertionCounts) {
-      if (count >= 3) {
+      if (count >= LIMITS.HARD_CODED_STRING_MIN_OCCURRENCES) {
         result.patterns.duplicateAssertions.push(assertion);
       }
     }

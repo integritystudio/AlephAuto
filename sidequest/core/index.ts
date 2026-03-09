@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { RepomixWorker } from '../workers/repomix-worker.ts';
 import { DirectoryScanner } from '../utils/directory-scanner.ts';
 import { config } from './config.ts';
-import { FORMATTING, JOB_EVENTS, TIMEOUTS } from './constants.ts';
+import { FORMATTING, JOB_EVENTS, LIMITS, TIMEOUTS } from './constants.ts';
 import { TIME_MS } from './units.ts';
 import path from 'path';
 import fs from 'fs/promises';
@@ -129,7 +129,7 @@ export class RepomixCronApp {
         treePath: scanResults.treePath,
         summaryPath: scanResults.summaryPath,
         maxDepth: summary.maxDepth,
-        topDirectories: summary.stats.topDirectoryNames.slice(0, 3).map(d => d.name)
+        topDirectories: summary.stats.topDirectoryNames.slice(0, LIMITS.SHORT_PREVIEW_COUNT).map(d => d.name)
       }, 'Scan results saved');
 
       let jobCount = 0;

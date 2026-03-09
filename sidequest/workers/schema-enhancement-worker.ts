@@ -7,7 +7,7 @@ import { SchemaMCPTools, type SchemaObject } from '../utils/schema-mcp-tools.ts'
 import { generateReport } from '../utils/report-generator.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
-import { FORMATTING } from '../core/constants.ts';
+import { FORMATTING, LIMITS } from '../core/constants.ts';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -354,7 +354,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
     if (impact) {
       bodyParts.push(
         `- Impact score: ${impact.impactScore}/100 (${impact.rating})`,
-        `- ${impact.seoImprovements.length} SEO improvements: ${impact.seoImprovements.slice(0, 3).join(', ')}${impact.seoImprovements.length > 3 ? '...' : ''}`
+        `- ${impact.seoImprovements.length} SEO improvements: ${impact.seoImprovements.slice(0, LIMITS.SHORT_PREVIEW_COUNT).join(', ')}${impact.seoImprovements.length > LIMITS.SHORT_PREVIEW_COUNT ? '...' : ''}`
       );
 
       if (impact.richResultsEligibility.length > 0) {

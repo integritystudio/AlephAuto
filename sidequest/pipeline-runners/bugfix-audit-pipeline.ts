@@ -2,7 +2,7 @@
 import { BugfixAuditWorker } from '../workers/bugfix-audit-worker.ts';
 import { config } from '../core/config.ts';
 import { TIME_MS } from '../core/units.ts';
-import { FORMATTING, PROCESS } from '../core/constants.ts';
+import { CONCURRENCY, FORMATTING, PROCESS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 import fs from 'fs/promises';
@@ -54,7 +54,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
   constructor(options: BugfixAuditOptions = {}) {
     super(new BugfixAuditWorker({
       ...options,
-      maxConcurrent: options.maxConcurrent ?? 3,
+      maxConcurrent: options.maxConcurrent ?? CONCURRENCY.DEFAULT_PIPELINE_CONCURRENCY,
       logDir: config.logDir,
       sentryDsn: config.sentryDsn,
       activeDocsDir: options.activeDocsDir ?? path.join(config.homeDir, 'dev', 'active'),

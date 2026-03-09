@@ -6,7 +6,7 @@
  */
 
 import { createComponentLogger, logError } from './logger.ts';
-import { TIMEOUTS, RETRY, CACHE, FORMATTING } from '../core/constants.ts';
+import { CONFIG_POLICY, TIMEOUTS, RETRY, CACHE, FORMATTING } from '../core/constants.ts';
 import Sentry from '@sentry/node';
 import fs from 'fs/promises';
 import path from 'path';
@@ -87,7 +87,7 @@ export class DopplerResilience {
    * constructor.
    */
   constructor(options: DopplerResilienceOptions = {}) {
-    this.failureThreshold = options.failureThreshold ?? 3;
+    this.failureThreshold = options.failureThreshold ?? CONFIG_POLICY.DOPPLER.DEFAULT_FAILURE_THRESHOLD;
     this.successThreshold = options.successThreshold ?? 2;
     this.timeout = options.timeout ?? TIMEOUTS.SHORT_MS;
     this.maxBackoffMs = options.maxBackoffMs ?? RETRY.MAX_BACKOFF_MS;

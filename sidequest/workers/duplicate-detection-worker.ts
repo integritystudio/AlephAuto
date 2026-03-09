@@ -24,7 +24,7 @@ import path from 'path';
 import * as Sentry from '@sentry/node';
 import type { RetryMetrics, WorkerScanMetrics as ScanMetrics, DuplicateDetectionWorkerOptions } from '../pipeline-core/types/duplicate-detection-types.ts';
 import { config } from '../core/config.ts';
-import { LIMITS, RETRY, WORKER_EVENTS } from '../core/constants.ts';
+import { CONCURRENCY, LIMITS, RETRY, WORKER_EVENTS } from '../core/constants.ts';
 
 const logger = createComponentLogger('DuplicateDetectionWorker');
 
@@ -115,7 +115,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
     super({
       ...options,
       jobType: 'duplicate-detection',
-      maxConcurrent: options.maxConcurrentScans ?? 3,
+      maxConcurrent: options.maxConcurrentScans ?? CONCURRENCY.DEFAULT_PIPELINE_CONCURRENCY,
       logDir: path.join(process.cwd(), 'logs', 'duplicate-detection'),
     });
 

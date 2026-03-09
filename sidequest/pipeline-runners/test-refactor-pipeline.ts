@@ -16,7 +16,7 @@ import type { Job as BaseJob } from '../core/server.ts';
 import { DirectoryScanner } from '../utils/directory-scanner.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
-import { JOB_EVENTS, RETRY_EVENTS, TIMEOUTS } from '../core/constants.ts';
+import { CONCURRENCY, JOB_EVENTS, RETRY_EVENTS, TIMEOUTS } from '../core/constants.ts';
 import cron from 'node-cron';
 import path from 'path';
 import { isDirectExecution } from '../utils/execution-helpers.ts';
@@ -66,7 +66,7 @@ async function runPipeline(targetPath: string | null = null): Promise<PipelineRe
   const worker = new TestRefactorWorker({
     dryRun: DRY_RUN,
     gitWorkflowEnabled: ENABLE_GIT_WORKFLOW,
-    maxConcurrent: config.maxConcurrent ?? 3
+    maxConcurrent: config.maxConcurrent ?? CONCURRENCY.DEFAULT_PIPELINE_CONCURRENCY
   });
 
   // Set up event handlers

@@ -247,6 +247,9 @@ export const CONCURRENCY = {
 
   /** Maximum concurrent worker initializations */
   MAX_WORKER_INITS: 3,
+
+  /** Default max concurrent jobs for analysis pipelines (test-refactor, duplicate-detection, etc.) */
+  DEFAULT_PIPELINE_CONCURRENCY: 3,
 } as const;
 
 /**
@@ -304,6 +307,9 @@ export const LIMITS = {
 
   /** Default maximum suggestions grouped per PR */
   DEFAULT_MAX_SUGGESTIONS_PER_PR: 5,
+
+  /** Short preview list size for inline truncated displays */
+  SHORT_PREVIEW_COUNT: 3,
 } as const;
 
 /**
