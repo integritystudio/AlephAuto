@@ -45,11 +45,11 @@ describe('Filepath Imports Test Suite', () => {
       const filePath = resolve(__dirname, '../../sidequest/core/index.ts');
       const content = await fs.readFile(filePath, 'utf-8');
 
-      // Verify outputBaseDir is sourced from config (via cfg cast)
+      // Verify outputBaseDir is sourced from config
       assert.match(
         content,
-        /outputBaseDir:\s*cfg\.outputBaseDir/,
-        'outputBaseDir should use cfg.outputBaseDir'
+        /outputBaseDir:\s*config\.outputBaseDir/,
+        'outputBaseDir should use config.outputBaseDir'
       );
     });
 
@@ -57,11 +57,11 @@ describe('Filepath Imports Test Suite', () => {
       const filePath = resolve(__dirname, '../../sidequest/core/index.ts');
       const content = await fs.readFile(filePath, 'utf-8');
 
-      // Verify logDir is sourced from config (via cfg cast)
+      // Verify logDir is sourced from config
       assert.match(
         content,
-        /logDir:\s*cfg\.logDir/,
-        'logDir should use cfg.logDir'
+        /logDir:\s*config\.logDir/,
+        'logDir should use config.logDir'
       );
     });
 
@@ -69,11 +69,11 @@ describe('Filepath Imports Test Suite', () => {
       const filePath = resolve(__dirname, '../../sidequest/core/index.ts');
       const content = await fs.readFile(filePath, 'utf-8');
 
-      // Verify outputDir is sourced from config (via cfg cast)
+      // Verify outputDir is sourced from config
       assert.match(
         content,
-        /outputDir:\s*cfg\.scanReportsDir/,
-        'outputDir should use cfg.scanReportsDir'
+        /outputDir:\s*config\.scanReportsDir/,
+        'outputDir should use config.scanReportsDir'
       );
     });
 
