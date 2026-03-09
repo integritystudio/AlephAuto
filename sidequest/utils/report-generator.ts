@@ -358,7 +358,7 @@ function extractDetails(result: Record<string, unknown>): Record<string, unknown
   const details: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(result)) {
-    if (!METRIC_KEYS.includes(key as typeof METRIC_KEYS[number])) {
+    if (!(METRIC_KEYS as readonly string[]).includes(key)) {
       details[key] = value;
     }
   }
