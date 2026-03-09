@@ -308,6 +308,14 @@ export function saveJob(job: SaveJobInput): void {
     throw new Error(`Invalid job ID format: ${job.id} (must be alphanumeric with hyphens/underscores, max 100 chars)`);
   }
 
+  const jsonFields = { data: job.data, result: job.result, error: job.error, git: job.git } as const;
+  const invalidField = Object.entries(jsonFields).find(
+    ([, val]) => typeof val === 'string' && !isValidJsonString(val)
+  );
+  if (invalidField) {
+    throw new Error(`Job ${job.id}: field '${invalidField[0]}' is a string but not valid JSON`);
+  }
+
   const database = getDatabase();
 
   database.prepare(`
