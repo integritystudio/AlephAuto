@@ -253,3 +253,21 @@ describe('filterReservedJobKeys - TC-H3', () => {
     assert.deepStrictEqual(result, {});
   });
 });
+
+describe('sanitizePaginationParams - route wiring (TC-M4)', () => {
+  it('should clamp over-limit value to MAX_LIMIT before it reaches the repository', () => {
+    const { limit } = sanitizePaginationParams(Number.MAX_SAFE_INTEGER, 0);
+    assert.strictEqual(limit, PAGINATION.MAX_LIMIT);
+    assert.ok(limit <= PAGINATION.MAX_LIMIT, 'Repository never receives a limit above MAX_LIMIT');
+  });
+
+  it('should clamp negative limit to 1 before it reaches the repository', () => {
+    const { limit } = sanitizePaginationParams(-99, 0);
+    assert.strictEqual(limit, 1);
+  });
+
+  it('should clamp negative offset to 0 before it reaches the repository', () => {
+    const { offset } = sanitizePaginationParams(10, -50);
+    assert.strictEqual(offset, 0);
+  });
+});
