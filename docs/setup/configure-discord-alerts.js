@@ -10,8 +10,8 @@
  *   doppler run -- node setup-files/configure-discord-alerts.js
  */
 
-const https = require('https');
-require('dotenv').config();
+import https from 'https';
+import 'dotenv/config';
 
 const SENTRY_TOKEN = process.env.SENTRY_TOKEN;
 const DISCORD_WEBHOOK = process.env.DISCORD_SENTRY_WEBHOOK;
