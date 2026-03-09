@@ -133,59 +133,46 @@ async function testGitTracker() {
 /**
  * testScanCache.
  */
+const MOCK_SCAN_RESULT = {
+  scan_type: 'intra-project',
+  metrics: { total_duplicate_groups: 10, total_suggestions: 10 },
+  scan_metadata: { scan_id: 'test-123', duration_seconds: 2.5 }
+};
+
+const CACHE_CONFIG = { enabled: true, ttl: 2592000, keyPrefix: 'test:scan:' };
+
+function printCacheStats(stats: { total_cached_scans: number; cache_enabled: boolean; ttl_days: number; prefix: string }) {
+  console.log(`   Total Cached Scans: ${stats.total_cached_scans}`);
+  console.log(`   Cache Enabled: ${stats.cache_enabled}`);
+  console.log(`   TTL Days: ${stats.ttl_days}`);
+  console.log(`   Prefix: ${stats.prefix}\n`);
+}
+
 async function testScanCache() {
   console.log('\n╔══════════════════════════════════════════════════════════╗');
   console.log('║               TEST 2: SCAN RESULT CACHE                  ║');
   console.log('╚══════════════════════════════════════════════════════════╝\n');
 
-  const scanCache = new ScanResultCache(mockRedisClient, {
-    enabled: true,
-    ttl: 2592000, // 30 days
-    keyPrefix: 'test:scan:'
-  });
+  const scanCache = new ScanResultCache(mockRedisClient, CACHE_CONFIG);
 
   try {
     const testRepoPath = process.cwd();
     const testCommit = 'abc123def456';
 
-    // Test 2.1: Cache key generation
     console.log('📝 Test 2.1: Cache key generation\n');
-
     const cacheKey = scanCache._generateCacheKey(testRepoPath, testCommit);
     console.log(`   ✅ Cache key: ${cacheKey}\n`);
 
-    // Test 2.2: Check if cached (should be false)
     console.log('📝 Test 2.2: Check if scan is cached\n');
-
     const isCached = await scanCache.isCached(testRepoPath, testCommit);
     console.log(`   Cached: ${isCached}`);
     console.log(`   ✅ Expected: false (cache miss)\n`);
 
-    // Test 2.3: Get cache statistics
     console.log('📝 Test 2.3: Get cache statistics\n');
+    printCacheStats(await scanCache.getStats());
 
-    const stats = await scanCache.getStats();
-    console.log(`   Total Cached Scans: ${stats.total_cached_scans}`);
-    console.log(`   Cache Enabled: ${stats.cache_enabled}`);
-    console.log(`   TTL Days: ${stats.ttl_days}`);
-    console.log(`   Prefix: ${stats.prefix}\n`);
-
-    // Test 2.4: Mock caching a scan result
     console.log('📝 Test 2.4: Cache a mock scan result\n');
-
-    const mockScanResult = {
-      scan_type: 'intra-project',
-      metrics: {
-        total_duplicate_groups: 10,
-        total_suggestions: 10
-      },
-      scan_metadata: {
-        scan_id: 'test-123',
-        duration_seconds: 2.5
-      }
-    };
-
-    const cached = await scanCache.cacheScan(testRepoPath, testCommit, mockScanResult);
+    const cached = await scanCache.cacheScan(testRepoPath, testCommit, MOCK_SCAN_RESULT);
     console.log(`   ✅ Caching attempted: ${cached ? 'success' : 'failed (expected with mock Redis)'}\n`);
 
     return true;
@@ -193,6 +180,20 @@ async function testScanCache() {
     console.error('   ❌ Test failed:', error.message);
     return false;
   }
+}
+
+function printCacheStatus(status: { is_cached: boolean; repository_status: { is_git_repository: boolean; short_commit: string; has_uncommitted_changes: boolean } }) {
+  console.log(`   Is Cached: ${status.is_cached}`);
+  console.log(`   Is Git Repo: ${status.repository_status.is_git_repository}`);
+  console.log(`   Current Commit: ${status.repository_status.short_commit}`);
+  console.log(`   Has Uncommitted: ${status.repository_status.has_uncommitted_changes}\n`);
+}
+
+function printScannerStats(stats: { cache_enabled: boolean; force_refresh: boolean; track_uncommitted: boolean; cache_initialized: boolean }) {
+  console.log(`   Cache Enabled: ${stats.cache_enabled}`);
+  console.log(`   Force Refresh: ${stats.force_refresh}`);
+  console.log(`   Track Uncommitted: ${stats.track_uncommitted}`);
+  console.log(`   Cache Initialized: ${stats.cache_initialized}\n`);
 }
 
 /**
@@ -203,44 +204,20 @@ async function testCachedScanner() {
   console.log('║                TEST 3: CACHED SCANNER                    ║');
   console.log('╚══════════════════════════════════════════════════════════╝\n');
 
-  const cachedScanner = new CachedScanner({
-    cacheEnabled: true,
-    forceRefresh: false,
-    trackUncommitted: true
-  });
-
-  // Initialize with mock Redis
-  cachedScanner.initializeCache(mockRedisClient, {
-    ttl: 2592000,
-    keyPrefix: 'test:scan:'
-  });
+  const cachedScanner = new CachedScanner({ cacheEnabled: true, forceRefresh: false, trackUncommitted: true });
+  cachedScanner.initializeCache(mockRedisClient, { ttl: 2592000, keyPrefix: 'test:scan:' });
 
   try {
     const testRepoPath = path.join(process.cwd(), 'sidequest');
 
-    // Test 3.1: Get cache status
     console.log('📝 Test 3.1: Get cache status for repository\n');
+    printCacheStatus(await cachedScanner.getCacheStatus(testRepoPath));
 
-    const cacheStatus = await cachedScanner.getCacheStatus(testRepoPath);
-    console.log(`   Is Cached: ${cacheStatus.is_cached}`);
-    console.log(`   Is Git Repo: ${cacheStatus.repository_status.is_git_repository}`);
-    console.log(`   Current Commit: ${cacheStatus.repository_status.short_commit}`);
-    console.log(`   Has Uncommitted: ${cacheStatus.repository_status.has_uncommitted_changes}\n`);
-
-    // Test 3.2: Get scanner statistics
     console.log('📝 Test 3.2: Get scanner statistics\n');
+    printScannerStats(await cachedScanner.getStats());
 
-    const stats = await cachedScanner.getStats();
-    console.log(`   Cache Enabled: ${stats.cache_enabled}`);
-    console.log(`   Force Refresh: ${stats.force_refresh}`);
-    console.log(`   Track Uncommitted: ${stats.track_uncommitted}`);
-    console.log(`   Cache Initialized: ${stats.cache_initialized}\n`);
-
-    // Test 3.3: Scan repository (will use actual scanner)
     console.log('📝 Test 3.3: Scan repository with caching\n');
     console.log('   Note: This will run an actual scan since cache is mock\n');
-
-    // Skip actual scan in test mode
     console.log('   ⏭️  Skipping actual scan (would take too long)\n');
 
     return true;
