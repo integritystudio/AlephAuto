@@ -11,7 +11,7 @@ import { filterReservedJobKeys } from '../../api/utils/job-helpers.ts';
 
 /**
  * Validate and sanitize job ID from URL parameter
- * (Copied from api/routes/jobs.js for testing)
+ * (Copied from api/routes/jobs.ts for testing)
  */
 function validateJobId(jobId) {
   if (!jobId) {
@@ -30,7 +30,7 @@ function validateJobId(jobId) {
 
 /**
  * Sanitize pagination parameters
- * (Copied from api/routes/jobs.js for testing)
+ * (Copied from api/routes/jobs.ts for testing)
  */
 function sanitizePaginationParams(limit, offset) {
   const limitStr = String(limit);
@@ -188,7 +188,6 @@ describe('Input Sanitization - M7: Pagination Parameters', () => {
   it('should prevent huge offsets from causing issues', () => {
     const result = sanitizePaginationParams(50, Number.MAX_SAFE_INTEGER);
     assert.strictEqual(result.offset, Number.MAX_SAFE_INTEGER);
-    assert.ok(Number.isSafeInteger(result.offset));
   });
 });
 
