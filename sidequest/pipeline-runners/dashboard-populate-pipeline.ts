@@ -13,7 +13,7 @@ import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
 import type { Job } from '../core/server.ts';
-import { JOB_EVENTS, NUMBER_BASE, TIMEOUTS } from '../core/constants.ts';
+import { JOB_EVENTS, NUMBER_BASE, PROCESS, TIMEOUTS } from '../core/constants.ts';
 import { isDirectExecution } from '../utils/execution-helpers.ts';
 
 const logger = createComponentLogger('DashboardPopulatePipeline');
@@ -21,7 +21,7 @@ const logger = createComponentLogger('DashboardPopulatePipeline');
 const CRON_SCHEDULE = process.env.DASHBOARD_CRON_SCHEDULE || '0 6,18 * * *';
 
 // Parse CLI args
-const args = process.argv.slice(2);
+const args = process.argv.slice(PROCESS.ARGV_START);
 const RUN_WITH_CRON = args.includes('--cron');
 const RUN_ON_STARTUP = process.env.RUN_ON_STARTUP === 'true'
   || args.includes('--run-now')

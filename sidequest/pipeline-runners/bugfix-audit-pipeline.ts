@@ -2,6 +2,7 @@
 import { BugfixAuditWorker } from '../workers/bugfix-audit-worker.ts';
 import { config } from '../core/config.ts';
 import { TIME_MS } from '../core/units.ts';
+import { FORMATTING, PROCESS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 import fs from 'fs/promises';
@@ -138,7 +139,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
     await fs.mkdir(logsDir, { recursive: true });
 
     const summaryPath = path.join(logsDir, `run-summary-${Date.now()}.json`);
-    await fs.writeFile(summaryPath, JSON.stringify(summary, null, 2));
+    await fs.writeFile(summaryPath, JSON.stringify(summary, null, FORMATTING.JSON_INDENT));
 
     logger.info({ summaryPath }, 'Run summary saved');
   }
@@ -182,7 +183,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
 
 // CLI entry point
 if (isDirectExecution(import.meta.url)) {
-  const args = process.argv.slice(2);
+  const args = process.argv.slice(PROCESS.ARGV_START);
 
   const runNow = args.includes('--run-now') || args.includes('--now');
   const once = args.includes('--once') || args.includes('--one-time');

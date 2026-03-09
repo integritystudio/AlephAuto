@@ -8,6 +8,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import * as Sentry from '@sentry/node';
+import { FORMATTING } from '../core/constants.ts';
 import { createComponentLogger, logError } from './logger.ts';
 import { TIME_MS } from '../core/units.ts';
 import { formatDuration } from './time-helpers.ts';
@@ -105,7 +106,7 @@ export async function generateReport(options: ReportOptions): Promise<ReportPath
       metadata,
       timestamp
     });
-    await fs.writeFile(jsonPath, JSON.stringify(jsonContent, null, 2));
+    await fs.writeFile(jsonPath, JSON.stringify(jsonContent, null, FORMATTING.JSON_INDENT));
     reportPaths.json = jsonPath;
     logger.info({ path: jsonPath }, 'JSON report generated');
 
@@ -309,7 +310,7 @@ function generateDetailsSection(details: Record<string, unknown>): string {
   return `
     <div class="details-section">
         <h3>Details</h3>
-        <pre class="details-content">${escapeHtml(JSON.stringify(details, null, 2))}</pre>
+        <pre class="details-content">${escapeHtml(JSON.stringify(details, null, FORMATTING.JSON_INDENT))}</pre>
     </div>`;
 }
 

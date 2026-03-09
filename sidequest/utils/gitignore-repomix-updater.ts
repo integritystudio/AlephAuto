@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
+import { FORMATTING, PROCESS } from '../core/constants.ts';
 import { createComponentLogger, logError, logWarn } from './logger.ts';
 
 const logger = createComponentLogger('GitignoreRepomixUpdater');
@@ -275,7 +276,7 @@ export class GitignoreRepomixUpdater {
       ...results,
     };
 
-    await fs.writeFile(outputPath, JSON.stringify(report, null, 2));
+    await fs.writeFile(outputPath, JSON.stringify(report, null, FORMATTING.JSON_INDENT));
     logger.info({ outputPath }, 'Results saved');
 
     return report;
@@ -286,7 +287,7 @@ export class GitignoreRepomixUpdater {
  * Main execution function
  */
 export async function main(): Promise<void> {
-  const args = process.argv.slice(2);
+  const args = process.argv.slice(PROCESS.ARGV_START);
   const dryRun = args.includes('--dry-run') || args.includes('-d');
   const baseDir = args.find(arg => !arg.startsWith('-')) ?? path.join(os.homedir(), 'code');
 

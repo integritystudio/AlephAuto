@@ -1,6 +1,7 @@
 #!/usr/bin/env -S node --strip-types
 import { SchemaEnhancementWorker } from '../workers/schema-enhancement-worker.ts';
 import { config } from '../core/config.ts';
+import { CONCURRENCY, PROCESS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type JobStats } from './base-pipeline.ts';
 import fs from 'fs/promises';
@@ -60,7 +61,7 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
   constructor(options: SchemaEnhancementOptions = {}) {
     super(new SchemaEnhancementWorker({
       ...options,
-      maxConcurrent: config.maxConcurrent ?? 2,
+      maxConcurrent: config.maxConcurrent ?? CONCURRENCY.DEFAULT_IO_BOUND,
       logDir: config.logDir,
       sentryDsn: config.sentryDsn,
       gitWorkflowEnabled: options.gitWorkflowEnabled ?? config.enableGitWorkflow,
@@ -235,7 +236,7 @@ if (isDirectExecution(import.meta.url)) {
   const cronSchedule = process.env.SCHEMA_ENHANCEMENT_CRON_SCHEDULE || '0 3 * * 0'; // Sunday 3 AM
 
   // Parse command line arguments
-  const args = process.argv.slice(2);
+  const args = process.argv.slice(PROCESS.ARGV_START);
   const options: SchemaEnhancementOptions = {
     dryRun: false,
     gitWorkflowEnabled: config.enableGitWorkflow

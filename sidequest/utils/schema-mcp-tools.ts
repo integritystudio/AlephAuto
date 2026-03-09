@@ -1,4 +1,5 @@
 import { config } from '../core/config.ts';
+import { FORMATTING } from '../core/constants.ts';
 import { SCHEMA_RATING_THRESHOLDS } from '../core/score-thresholds.ts';
 
 interface SchemaContext {
@@ -367,7 +368,7 @@ function analyzeSchemaImpactData(originalContent: string, enhancedContent: strin
  * createJsonLdScriptTag.
  */
 function createJsonLdScriptTag(schema: SchemaObject): string {
-  const jsonString = JSON.stringify(schema, null, 2);
+  const jsonString = JSON.stringify(schema, null, FORMATTING.JSON_INDENT);
   return `<script type="application/ld+json">\n${jsonString}\n</script>`;
 }
 

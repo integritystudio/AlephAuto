@@ -7,6 +7,7 @@ import { SchemaMCPTools, type SchemaObject } from '../utils/schema-mcp-tools.ts'
 import { generateReport } from '../utils/report-generator.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
+import { FORMATTING } from '../core/constants.ts';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -265,7 +266,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
       timestamp: new Date().toISOString(),
     };
 
-    await fs.writeFile(reportPath, JSON.stringify(report, null, 2));
+    await fs.writeFile(reportPath, JSON.stringify(report, null, FORMATTING.JSON_INDENT));
   }
 
   /**
@@ -452,7 +453,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
       ...this.stats,
       total: this.stats.enhanced + this.stats.skipped + this.stats.failed,
       successRate: this.stats.enhanced > 0
-        ? ((this.stats.enhanced / (this.stats.enhanced + this.stats.failed)) * 100).toFixed(2)
+        ? ((this.stats.enhanced / (this.stats.enhanced + this.stats.failed)) * 100).toFixed(FORMATTING.DECIMAL_PLACES)
         : 0,
     };
   }
@@ -477,7 +478,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
     );
 
     await fs.mkdir(this.outputBaseDir, { recursive: true });
-    await fs.writeFile(summaryPath, JSON.stringify(summary, null, 2));
+    await fs.writeFile(summaryPath, JSON.stringify(summary, null, FORMATTING.JSON_INDENT));
 
     return summary;
   }

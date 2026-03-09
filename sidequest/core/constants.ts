@@ -69,6 +69,7 @@ export const RETRY = {
   DEFAULT_DELAY_MS: DURATION_MS.FIVE_SECONDS,
 
   /** Exponential backoff policy */
+  BACKOFF_MULTIPLIER: 2,
   BASE_BACKOFF_MS: DURATION_MS.SECOND,
   MAX_BACKOFF_MS: DURATION_MS.TEN_SECONDS,
 
@@ -190,6 +191,28 @@ export const WORKER_EVENTS = {
 } as const;
 
 /**
+ * Output formatting constants
+ */
+export const FORMATTING = {
+  /** Indentation level for JSON.stringify pretty-print */
+  JSON_INDENT: 2,
+
+  /** Default decimal places for .toFixed() display */
+  DECIMAL_PLACES: 2,
+} as const;
+
+/**
+ * Process-level constants
+ */
+export const PROCESS = {
+  /** Index where user-supplied arguments begin in process.argv */
+  ARGV_START: 2,
+
+  /** File descriptor number for stderr */
+  STDERR_FD: 2,
+} as const;
+
+/**
  * Numeric parsing radix values
  */
 // -----------------------------------------------------------------------------
@@ -215,6 +238,9 @@ export const MAX_SCORE = 100;
 export const CONCURRENCY = {
   /** Default maximum concurrent jobs per worker */
   DEFAULT_MAX_JOBS: 5,
+
+  /** Default concurrency for I/O-bound pipelines (git, schema, etc.) */
+  DEFAULT_IO_BOUND: 2,
 
   /** Maximum concurrent worker initializations */
   MAX_WORKER_INITS: 3,

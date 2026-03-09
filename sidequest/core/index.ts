@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { RepomixWorker } from '../workers/repomix-worker.ts';
 import { DirectoryScanner } from '../utils/directory-scanner.ts';
 import { config } from './config.ts';
-import { JOB_EVENTS, TIMEOUTS } from './constants.ts';
+import { FORMATTING, JOB_EVENTS, TIMEOUTS } from './constants.ts';
 import { TIME_MS } from './units.ts';
 import path from 'path';
 import fs from 'fs/promises';
@@ -187,7 +187,7 @@ export class RepomixCronApp {
     };
 
     const summaryPath = path.join(this.worker.logDir, `run-summary-${Date.now()}.json`);
-    await fs.writeFile(summaryPath, JSON.stringify(summary, null, 2));
+    await fs.writeFile(summaryPath, JSON.stringify(summary, null, FORMATTING.JSON_INDENT));
   }
 
   private setupCronJob(schedule: string = '0 2 * * *'): void {

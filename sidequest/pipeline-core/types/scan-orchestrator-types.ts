@@ -9,6 +9,7 @@
  */
 
 import { z } from 'zod';
+import { INTER_PROJECT_SCAN } from '../../core/constants.ts';
 
 // ============================================================================
 // Zod Schemas for Runtime Validation
@@ -117,7 +118,7 @@ export const DuplicateGroupSchema = z.object({
   group_id: z.string()
     .min(1, 'Group ID must not be empty'),
   block_ids: z.array(z.string())
-    .min(2, 'Duplicate group must have at least 2 blocks'),
+    .min(INTER_PROJECT_SCAN.MIN_BLOCKS_PER_HASH_GROUP, 'Duplicate group must have at least 2 blocks'),
   similarity_score: z.number()
     .min(0, 'Similarity score must be between 0 and 1')
     .max(1, 'Similarity score must be between 0 and 1'),

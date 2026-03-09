@@ -1,7 +1,7 @@
 #!/usr/bin/env -S node --strip-types
 import { GitActivityWorker } from '../workers/git-activity-worker.ts';
 import { config } from '../core/config.ts';
-import { GIT_ACTIVITY, NUMBER_BASE } from '../core/constants.ts';
+import { CONCURRENCY, GIT_ACTIVITY, NUMBER_BASE, PROCESS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 import { isDirectExecution } from '../utils/execution-helpers.ts';
@@ -83,7 +83,7 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
    */
   constructor(options: Record<string, unknown> = {}) {
     super(new GitActivityWorker({
-      maxConcurrent: config.maxConcurrent ?? 2,
+      maxConcurrent: config.maxConcurrent ?? CONCURRENCY.DEFAULT_IO_BOUND,
       logDir: config.logDir,
       sentryDsn: config.sentryDsn,
       codeBaseDir: config.codeBaseDir,
@@ -284,7 +284,7 @@ if (isDirectExecution(import.meta.url)) {
   const weeklyCronSchedule = process.env.GIT_CRON_SCHEDULE || GIT_ACTIVITY.DEFAULT_WEEKLY_CRON; // Sunday 8 PM
   const monthlyCronSchedule = process.env.GIT_MONTHLY_CRON_SCHEDULE || GIT_ACTIVITY.DEFAULT_MONTHLY_CRON; // 1st of month 8 AM
 
-  const args = process.argv.slice(2);
+  const args = process.argv.slice(PROCESS.ARGV_START);
   const { options, runNow, errors } = parseGitActivityCliArgs(args, config.runOnStartup);
   if (errors.length > 0) {
     logger.error({ args, errors }, 'Invalid CLI options');

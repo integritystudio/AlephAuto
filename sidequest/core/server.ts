@@ -8,7 +8,7 @@ import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.ts';
 import { BranchManager } from '../pipeline-core/git/branch-manager.ts';
 import type { BranchManagerOptions, JobBranchContext, PRContext } from '../pipeline-core/git/branch-manager.ts';
 import { jobRepository } from './job-repository.ts';
-import { CONCURRENCY, JOB_EVENTS, RETRY, RETRY_EVENTS } from './constants.ts';
+import { CONCURRENCY, FORMATTING, JOB_EVENTS, RETRY, RETRY_EVENTS } from './constants.ts';
 import { TIME_MS } from './units.ts';
 import { isRetryable, classifyError } from '../pipeline-core/errors/error-classifier.ts';
 import { toISOString } from '../utils/time-helpers.ts';
@@ -693,7 +693,7 @@ export class SidequestServer extends EventEmitter {
       await fs.mkdir(this.logDir, { recursive: true });
       const sanitizedId = path.basename(job.id);
       const logPath = path.join(this.logDir, `${sanitizedId}${suffix}`);
-      await fs.writeFile(logPath, JSON.stringify(extra ? { ...job, ...extra } : job, null, 2));
+      await fs.writeFile(logPath, JSON.stringify(extra ? { ...job, ...extra } : job, null, FORMATTING.JSON_INDENT));
     } catch (writeError) {
       logError(logger, writeError, `Failed to write ${suffix} log file`, { jobId: job.id });
     }

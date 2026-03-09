@@ -2,6 +2,7 @@ import { SidequestServer, type Job, type SidequestServerOptions } from '../core/
 import { BranchManager } from '../pipeline-core/git/branch-manager.ts';
 import { execCommand } from '@shared/process-io';
 import { createComponentLogger, logError, logStage } from '../utils/logger.ts';
+import { FORMATTING } from '../core/constants.ts';
 import { config } from '../core/config.ts';
 import fs from 'fs/promises';
 import path from 'path';
@@ -304,7 +305,7 @@ export class BugfixAuditWorker extends SidequestServer {
       logger.info({ prUrl }, 'Pull request created');
 
       // Save final results summary
-      await fs.writeFile(path.join(outputDir, 'workflow-summary.json'), JSON.stringify(results, null, 2));
+      await fs.writeFile(path.join(outputDir, 'workflow-summary.json'), JSON.stringify(results, null, FORMATTING.JSON_INDENT));
 
       return results;
     } catch (error) {
@@ -312,7 +313,7 @@ export class BugfixAuditWorker extends SidequestServer {
 
       await fs.writeFile(
         path.join(outputDir, 'workflow-error.json'),
-        JSON.stringify({ ...results, error: (error as Error).message, stack: (error as Error).stack }, null, 2)
+        JSON.stringify({ ...results, error: (error as Error).message, stack: (error as Error).stack }, null, FORMATTING.JSON_INDENT)
       );
 
       throw error;

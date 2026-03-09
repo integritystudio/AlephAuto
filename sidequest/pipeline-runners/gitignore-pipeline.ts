@@ -2,7 +2,7 @@
 import { GitignoreWorker } from '../workers/gitignore-worker.ts';
 import type { Job } from '../core/server.ts';
 import { config } from '../core/config.ts';
-import { JOB_EVENTS, NUMBER_BASE, TIMEOUTS } from '../core/constants.ts';
+import { JOB_EVENTS, NUMBER_BASE, PROCESS, TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
@@ -56,7 +56,7 @@ const MAX_DEPTH = parseInt(process.env.GITIGNORE_MAX_DEPTH || '10', NUMBER_BASE.
 const DRY_RUN = process.env.GITIGNORE_DRY_RUN === 'true';
 
 // Support both env var and --run-now flag
-const args = process.argv.slice(2);
+const args = process.argv.slice(PROCESS.ARGV_START);
 const RUN_WITH_CRON = args.includes('--cron');
 // || is correct here: CLI flags must also trigger when config.runOnStartup is false (boolean OR, not nullish coalescing)
 const RUN_ON_STARTUP = config.runOnStartup || args.includes('--run-now') || args.includes('--run');
