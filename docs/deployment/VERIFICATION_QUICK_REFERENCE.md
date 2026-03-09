@@ -311,7 +311,7 @@ npm install -g wscat pm2               # Optional
 
 ## Related Docs
 
-- `docs/deployment/BUGFIX_VERIFICATION.md` - Full guide
+- `docs/archive/BUGFIX_VERIFICATION.md` - Full guide (archived)
 - `docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md` - Deployment guide
 - `scripts/verify-bugfixes.sh` - Verification script
 - `scripts/rollback-bugfixes.sh` - Rollback script (auto-generated)

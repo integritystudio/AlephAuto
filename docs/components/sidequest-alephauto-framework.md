@@ -221,7 +221,8 @@ class RepomixPipeline extends BasePipeline<RepomixWorker> {
 All database access goes through `jobRepository` (singleton facade), never `database.ts` directly:
 
 ```typescript
-import { jobRepository } from '../sidequest/core/job-repository.ts';
+// Root-relative (from project root)
+import { jobRepository } from './sidequest/core/job-repository.ts';
 
 await jobRepository.saveJob(job);                      // persist
 const job = jobRepository.getJob(id);                  // returns camelCase
@@ -241,7 +242,8 @@ units.ts (primitives: TIME_MS, SECONDS, BYTES, PERCENTILE)
 Import from `constants.ts` for all timeout/limit/retry values:
 
 ```typescript
-import { TIMEOUTS, RETRY, CONCURRENCY } from '../sidequest/core/constants.ts';
+// Root-relative (from project root)
+import { TIMEOUTS, RETRY, CONCURRENCY } from './sidequest/core/constants.ts';
 const timeout = TIMEOUTS.PYTHON_PIPELINE_BASE_MS;
 ```
 

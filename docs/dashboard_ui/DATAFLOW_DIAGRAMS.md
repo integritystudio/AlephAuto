@@ -767,7 +767,7 @@ sequenceDiagram
     participant EventBus as Event Broadcaster
     participant Worker as Job Worker
 
-    Client->>WSServer: Connect ws://localhost:3000/ws
+    Client->>WSServer: Connect ws://localhost:8080/ws
     WSServer->>WSServer: Generate client_id
     WSServer->>Client: { type: 'connected', client_id, timestamp }
 

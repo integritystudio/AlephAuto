@@ -271,6 +271,6 @@ Repomix-explorer analysis of 22 scripts (~42K tokens): shell (13), TypeScript (6
 
 ## Document Updates — Staleness Audit (2026-03-09)
 
-> All items completed and migrated to [v2.3.24](changelog/2.3/CHANGELOG.md).
+> All items completed (2026-03-09). See commits 6634551–8ea84c0.
 
 Audit of docs/ against current codebase (v2.3.20). Source: repomix-docs.xml index.

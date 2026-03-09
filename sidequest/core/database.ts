@@ -166,7 +166,7 @@ function tryParseJson(str: string): { ok: true; value: unknown } | { ok: false; 
   try {
     return { ok: true, value: JSON.parse(str) };
   } catch (e) {
-    return { ok: false, error: e as Error };
+    return { ok: false, error: e instanceof Error ? e : new Error(String(e)) };
   }
 }
 
