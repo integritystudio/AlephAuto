@@ -38,7 +38,6 @@ CANDIDATES+=(
   "python3"
   "python"
   "$HOME/.pyenv/versions/3.13.7/bin/python"
-  "/Users/alyshialedlie/code-env/python/pyenv/versions/3.13.7/bin/python"
 )
 
 declare -a UNIQUE_BINS=()
