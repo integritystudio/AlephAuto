@@ -15,6 +15,7 @@ import { JobLogsModal } from './components/JobLogsModal/JobLogsModal';
 import { useWebSocketConnection } from './hooks/useWebSocketConnection';
 import { useDashboardStore } from './store/dashboard';
 import { apiService } from './services/api';
+import { JobStatus } from './types';
 import './App.css';
 
 /**
@@ -119,7 +120,7 @@ function App() {
       if (result.success) {
         console.log('[App] Job cancelled successfully:', result);
         // Update job status in store
-        updateJob(jobId, { status: 'cancelled' as any });
+        updateJob(jobId, { status: JobStatus.CANCELLED });
       } else {
         throw new Error('Failed to cancel job');
       }
@@ -141,7 +142,7 @@ function App() {
       if (result.success) {
         console.log('[App] Job retried successfully:', result);
         // Update job status in store to queued
-        updateJob(jobId, { status: 'queued' as any, retryCount: (activeJobs.find(j => j.id === jobId)?.retryCount ?? 0) + 1 });
+        updateJob(jobId, { status: JobStatus.QUEUED, retryCount: (activeJobs.find(j => j.id === jobId)?.retryCount ?? 0) + 1 });
       } else {
         throw new Error('Failed to retry job');
       }
