@@ -161,29 +161,33 @@ export interface BulkImportJob {
   git?: unknown;
 }
 
+/** Attempt to parse a JSON string. Returns `{ ok: true, value }` or `{ ok: false, error }`. */
+function tryParseJson(str: string): { ok: true; value: unknown } | { ok: false; error: Error } {
+  try {
+    return { ok: true, value: JSON.parse(str) };
+  } catch (e) {
+    return { ok: false, error: e as Error };
+  }
+}
+
 /**
  * Safely parse JSON with fallback on error
  */
 function safeJsonParse(str: string | null, fallback: unknown = null): unknown {
   if (!str) return fallback;
-  try {
-    return JSON.parse(str);
-  } catch (error) {
-    logger.error({ error: (error as Error).message, preview: str.substring(0, LIMITS.LOG_PREVIEW_CHARS) }, 'Failed to parse JSON from database');
+  const result = tryParseJson(str);
+  if (!result.ok) {
+    logger.error({ error: result.error.message, preview: str.substring(0, LIMITS.LOG_PREVIEW_CHARS) }, 'Failed to parse JSON from database');
     return fallback;
   }
+  return result.value;
 }
 
 /**
  * Returns true if the string is valid JSON (non-null, parseable).
  */
 function isValidJsonString(str: string): boolean {
-  try {
-    JSON.parse(str);
-    return true;
-  } catch {
-    return false;
-  }
+  return tryParseJson(str).ok;
 }
 
 /**
