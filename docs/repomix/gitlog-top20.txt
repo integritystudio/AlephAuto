@@ -1,3 +1,20 @@
+c75496c 2026-03-06 Address CONST9 magic numbers in hotspot tests
+  tests/unit/activity-feed.test.ts
+
+f24ac67 2026-03-06 Refresh magic-number categorization snapshot
+  docs/magic-number-categories.json
+
+d5a50a8 2026-03-06 refactor: consolidate max score constant across core and pipeline
+  sidequest/pipeline-core/extractors/extract_blocks.py
+
+0523cd5 2026-03-06 (chore) const and doc update
+  docs/magic-number-categories.json
+  docs/no-magic-numbers-context.after-fixes.txt
+  docs/no-magic-numbers-context.txt
+  docs/repomix/repo-compressed.xml
+  docs/repomix/repomix-git-ranked.xml
+  docs/repomix/repomix.xml
+
 9531c47 2026-03-05 (chore) repomix regen
   docs/repomix/repo-compressed.xml
   docs/repomix/repomix-docs.xml
@@ -47,7 +64,6 @@ e6bad80 2026-03-04 chore(repomix): refresh gitlog and compressed artifacts
 
 fcfec59 2026-03-04 refactor: centralize session-introduced magic literals
   sidequest/pipeline-runners/collect_git_activity.py
-  sidequest/utils/refactor-test-suite.ts
 
 484deb1 2026-03-04 chore: regenerate repomix and git history artifacts
   docs/repomix/gitlog-sidequest.txt
@@ -72,7 +88,6 @@ d89062e 2026-03-04 test: gate env-sensitive suites and update repomix wrappers
   sidequest/docs/gitlog-sidequest.txt
 
 b150b8a 2026-03-04 chore: refresh docs, repomix artifacts, and test coverage
-  docs/architecture/similarity-algorithm.md
   docs/dashboard_ui/DATAFLOW_DIAGRAMS.md
   docs/repomix/repo-compressed.xml
   docs/repomix/repomix.xml
@@ -99,7 +114,6 @@ ab0c7f9 2026-03-04 refactor(sidequest): relocate duplicate detection types and a
 
 19bd111 2026-03-04 docs: refresh stale references across docs 7-15
   docs/architecture/ERROR_HANDLING.md
-  docs/architecture/SYSTEM-DATA-FLOW.md
 
 8028340 2026-03-04 docs: refresh runbooks/components and regenerate repomix artifacts
   docs/repomix/repo-compressed.xml
@@ -114,16 +128,13 @@ ab0c7f9 2026-03-04 refactor(sidequest): relocate duplicate detection types and a
 fa5bd57 2026-03-04 docs(architecture): align git activity flow with current scheduling and date args
   docs/architecture/pipeline-data-flow.md
 
-8c9eafd 2026-03-04 refactor(logging): migrate remaining SV1 console.log usage
-  sidequest/utils/refactor-test-suite.ts
-
 6bde636 2026-03-04 docs(architecture): refresh pipeline data flow staleness fixes
   docs/architecture/pipeline-data-flow.md
 
 1e2581f 2026-03-04 chore: commit pending workspace updates
   sidequest/docs/gitlog-sidequest.txt
   sidequest/repomix-output.xml
-  sidequest/utils/refactor-test-suite.ts
+  tests/unit/activity-feed.test.ts
 
 4287dd6 2026-03-04 fix(git-activity): harden subprocess argv/cwd and refresh repomix
   sidequest/pipeline-runners/collect_git_activity.py
@@ -183,9 +194,6 @@ d71098e 2026-03-01 refactor(pipeline): extract remaining magic numbers to consta
   sidequest/pipeline-core/extractors/extract_blocks.py
   sidequest/pipeline-runners/collect_git_activity.py
 
-a9e0a56 2026-02-26 refactor: extract helpers to reduce complexity in test/script files (CX2-CX10)
-  sidequest/utils/refactor-test-suite.ts
-
 1ab61a0 2026-02-26 docs(architecture): annotate PluginManagerWorker non-standard location in diagram
   docs/architecture/pipeline-data-flow.md
 
@@ -208,8 +216,15 @@ e1fc1eb 2026-02-25 chore: remove completed migration audit doc and update repomi
 8ddeb49 2026-02-25 chore(lint): add ESLint config with TypeScript support
   pnpm-lock.yaml
 
+9a450fa 2026-02-24 test(review-fixes): address high/medium/low findings from code review
+  tests/unit/activity-feed.test.ts
+
+6196f96 2026-02-24 test(tst-m10,m11,m15): extract factory, parameterize constructor tests, de-flakify port test
+  tests/unit/activity-feed.test.ts
+
 75b3bc2 2026-02-24 test(database): replace assert.ok(true) with meaningful assertions
   sidequest/repomix-output.xml
+  tests/unit/activity-feed.test.ts
 
 23caae1 2026-02-24 feat(ts-migration): migrate Phase 9 API layer to TypeScript
   pnpm-lock.yaml
@@ -288,17 +303,8 @@ e6a9044 2026-02-01 fix(security): address critical and high priority code review
 c07f736 2026-02-01 feat(pipeline): implement Layer 3 semantic similarity detection
   sidequest/pipeline-core/extractors/extract_blocks.py
 
-ec8a3be 2026-02-01 docs: complete L6-L8 documentation backlog items
-  docs/architecture/similarity-algorithm.md
-
-8aaf80f 2026-02-01 feat: auto-categorize extracted strings in test refactoring tools
-  sidequest/utils/refactor-test-suite.ts
-
 c4c9e02 2026-01-29 docs: update documentation for v1.8.1 code review fixes
   docs/architecture/ERROR_HANDLING.md
-
-fa824de 2026-01-29 docs: update system data flow documentation to v1.1
-  docs/architecture/SYSTEM-DATA-FLOW.md
 
 d0c5cab 2026-01-29 chore: update scan history and regenerate repomix output
   sidequest/repomix-output.xml
@@ -328,7 +334,6 @@ d6432d8 2025-12-24 chore: remove frontend folder from version control
   frontend/package-lock.json
 
 ce78343 2025-12-24 docs: sync date stamps with git commit history
-  docs/architecture/SYSTEM-DATA-FLOW.md
   docs/archive/DASHBOARD_IMPLEMENTATION_GUIDE.md
 
 6bb434e 2025-12-24 chore(build): update repomix output and configurations
@@ -338,26 +343,14 @@ ce78343 2025-12-24 docs: sync date stamps with git commit history
 2098df8 2025-12-08 manual check
   sidequest/repomix-output.xml
 
-bee76a0 2025-12-03 fix(docs): update relative links to absolute GitHub URLs
-  docs/architecture/SYSTEM-DATA-FLOW.md
-
 3b92e44 2025-12-03 feat(database): switch from better-sqlite3 to sql.js (pure JS)
   pnpm-lock.yaml
 
 d95d551 2025-12-02 fix(deps): update repomix to 1.9.2 to fix high severity vulnerability
   pnpm-lock.yaml
 
-7d80c27 2025-12-02 fix(docs): resolve Mermaid diagram syntax errors in SYSTEM-DATA-FLOW.md
-  docs/architecture/SYSTEM-DATA-FLOW.md
-
-74980d4 2025-12-02 docs(architecture): add comprehensive system data flow documentation
-  docs/architecture/SYSTEM-DATA-FLOW.md
-
 f1cdb81 2025-12-02 feat: add Render deployment configuration for backend API
   pnpm-lock.yaml
-
-13c959e 2025-11-26 docs(test): add comprehensive test infrastructure improvement guide
-  docs/testing/TEST_INFRASTRUCTURE_IMPROVEMENTS.md
 
 2b82411 2025-11-25 fix(ci): resolve 7 critical test failures identified by auto-error-resolver
   sidequest/pipeline-core/extractors/extract_blocks.py
@@ -391,7 +384,6 @@ bcb1bb1 2025-11-23 refactor: move lib to sidequest/pipeline-core and migrate to 
 
 291a13c 2025-11-23 organize pipelines
   docs/architecture/ERROR_HANDLING.md
-  sidequest/utils/refactor-test-suite.ts
 
 555662f 2025-11-23 chore: add pnpm lockfile
   pnpm-lock.yaml
@@ -413,7 +405,6 @@ af567f3 2025-11-18 feat(api): add Zod validation for all API routes and reorgani
 
 a2dd9d0 2025-11-17 test update
   docs/architecture/pipeline-data-flow.md
-  docs/architecture/similarity-algorithm.md
 
 54e809f 2025-11-09 init
   sidequest/repomix-output.xml

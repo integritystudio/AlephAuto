@@ -8,7 +8,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 11 pipelines: Duplicate Detection (JS+Python), Schema Enhancement, Git Activity Reporter, Repository Cleanup, Repomix, Codebase Health, Dashboard Populate, Bugfix Audit, Gitignore Update, Plugin Management, Test Refactor.
 
+## Efficient read operations
+(file tree w/ token count)[docs/repomix/token-tree.txt]
+lossless codebase packed at docs/repomix/repomix.xml
+compressed, loss-y codebase packed at docs/repomix/repo-compressed.xml
+
+
 ## Quick Reference
+
+file tree with token count at docs/
 
 ```bash
 # Development
@@ -206,4 +214,4 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 
 ---
 
-**Version:** 2.3.18 | **Updated:** 2026-03-09 | **Status:** Production Ready
+**Version:** 2.3.20 | **Updated:** 2026-03-08 | **Status:** Production Ready
