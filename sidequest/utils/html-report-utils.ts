@@ -83,7 +83,7 @@ export function getBaseStyles(): string {
         margin-bottom: var(--space-lg);
         color: #2d3748;
         border-bottom: 2px solid #e2e8f0;
-        padding-bottom: var(--space-xs);
+        padding-bottom: var(--space-sm);
     }
     .metrics-grid {
         display: grid;
