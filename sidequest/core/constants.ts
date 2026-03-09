@@ -87,6 +87,9 @@ export const PORT = {
 
   /** Default shutdown timeout for graceful shutdown (10 seconds) */
   DEFAULT_SHUTDOWN_TIMEOUT_MS: DURATION_MS.TEN_SECONDS,
+
+  /** Number of consecutive ports to try when preferred port is busy */
+  FALLBACK_RANGE: 10,
 } as const;
 
 /**
@@ -283,6 +286,15 @@ export const LIMITS = {
 
   /** Minimum hardcoded string occurrences before surfacing in analysis output */
   HARD_CODED_STRING_MIN_OCCURRENCES: 3,
+
+  /** Default number of items to display in top-N lists and truncated output */
+  DISPLAY_TOP_N: 10,
+
+  /** Default maximum directory traversal depth */
+  DEFAULT_MAX_DEPTH: 10,
+
+  /** Maximum child process buffer size in megabytes */
+  MAX_BUFFER_MB: 10,
 } as const;
 
 /**
