@@ -10,9 +10,8 @@
 
 import { execSync } from 'child_process';
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -27,7 +26,7 @@ if (existsSync(typesNodePath)) {
 
   // Verify it's working
   try {
-    execSync('npm run typecheck', {
+    execSync('pnpm run typecheck', {
       cwd: projectRoot,
       stdio: 'pipe'
     });
@@ -39,7 +38,7 @@ if (existsSync(typesNodePath)) {
   console.log('@types/node is missing — fixing installation...\n');
 
   try {
-    // Remove pnpm store cache for this package
+    // Prune unreferenced packages from the global pnpm store
     console.log('1. Clearing pnpm cache...');
     execSync('pnpm store prune', {
       cwd: projectRoot,
@@ -65,7 +64,7 @@ if (existsSync(typesNodePath)) {
       // Test TypeScript compilation
       console.log('Testing TypeScript compilation...');
       try {
-        execSync('npm run typecheck', {
+        execSync('pnpm run typecheck', {
           cwd: projectRoot,
           stdio: 'pipe'
         });
