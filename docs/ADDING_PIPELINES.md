@@ -6,7 +6,7 @@ Step-by-step guide for integrating a new job type into the AlephAuto framework. 
 
 Familiarity with:
 - `sidequest/core/server.ts` — `SidequestServer` base class
-- `sidequest/core/git-workflow-manager.ts` — `GitWorkflowManager`
+- `sidequest/pipeline-core/git/branch-manager.ts` — `BranchManager`
 - `api/utils/worker-registry.ts` — `PIPELINE_CONFIGS`
 
 ## Overview
@@ -84,15 +84,15 @@ super({
 Override `_generateCommitMessage(job)` and `_generatePRContext(job)` to customise messages. See `schema-enhancement-worker.ts` for an example.
 
 **Option B — Manual multi-commit (advanced):**
-Disable the base-class flow and instantiate `GitWorkflowManager` yourself. Use this when your pipeline makes multiple intermediate commits.
+Disable the base-class flow and instantiate `BranchManager` yourself. Use this when your pipeline makes multiple intermediate commits.
 
-```javascript
-import { GitWorkflowManager } from '../core/git-workflow-manager.ts';
+```typescript
+import { BranchManager } from '../pipeline-core/git/branch-manager.ts';
 
 constructor(options = {}) {
   super({ ...options, jobType: 'my-pipeline', gitWorkflowEnabled: false });
 
-  this.gitWorkflowManager = new GitWorkflowManager({
+  this.branchManager = new BranchManager({
     baseBranch: config.gitBaseBranch,
     branchPrefix: 'my-prefix',
     dryRun: options.gitDryRun ?? config.gitDryRun,
@@ -100,12 +100,12 @@ constructor(options = {}) {
 }
 
 async runJobHandler(job) {
-  const branchInfo = await this.gitWorkflowManager.createJobBranch(repoPath, {
+  const branchInfo = await this.branchManager.createJobBranch(repoPath, {
     jobId: job.id, jobType: 'my-pipeline',
   });
 
   // ... stage 1 work ...
-  await this.gitWorkflowManager.commitChanges(repoPath, {
+  await this.branchManager.commitChanges(repoPath, {
     message: 'chore: stage 1 complete', jobId: job.id,
   });
 
@@ -308,7 +308,7 @@ If OpenTelemetry is configured, traces and metrics export to the configured coll
 | Resource | Path |
 |----------|------|
 | Base class | `sidequest/core/server.ts` |
-| Git workflow manager | `sidequest/core/git-workflow-manager.ts` |
+| Branch manager | `sidequest/pipeline-core/git/branch-manager.ts` |
 | Worker registry | `api/utils/worker-registry.ts` |
 | Constants | `sidequest/core/constants.ts` |
 | Config | `sidequest/core/config.ts` |

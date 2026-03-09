@@ -6,7 +6,7 @@ Automated 5-stage bug detection, security audit, and fix implementation pipeline
 
 - **5-Stage Workflow** - Planner, detective, audit, quality control, refactor
 - **Multi-Commit Git** - Intermediate commits after audit, QC, and fix stages
-- **Automatic PRs** - Branch creation, push, and PR via GitWorkflowManager
+- **Automatic PRs** - Branch creation, push, and PR via BranchManager
 - **Markdown-Driven** - Discovers work items from `~/dev/active/<project>/*.md`
 - **Repository Resolution** - Maps project names to `~/code/` repo paths
 - **Scheduling** - Immediate, one-time tonight, or recurring cron
@@ -33,14 +33,14 @@ All commands require Doppler (`doppler run --` is baked into the npm scripts).
 
 ```
 Bugfix Audit System
-├── bugfix-audit-worker.js              # AlephAuto worker (Node.js)
+├── bugfix-audit-worker.ts              # AlephAuto worker (Node.js)
 │   ├── Extends SidequestServer (jobType: 'bugfix-audit')
-│   ├── Manual GitWorkflowManager (multi-commit)
+│   ├── Manual BranchManager (multi-commit)
 │   ├── 5-stage orchestration
 │   ├── execCommand() for Claude CLI calls
 │   └── Sentry integration
 │
-├── bugfix-audit-pipeline.js            # Pipeline orchestrator
+├── bugfix-audit-pipeline.ts            # Pipeline orchestrator
 │   ├── CLI interface (--run-now, --once, --recurring, --schedule)
 │   ├── Markdown file scanning
 │   ├── Repository resolution
@@ -75,7 +75,7 @@ worker.on('job:completed', (job) => {
 
 ### Why Multi-Commit (Option B)?
 
-Most AlephAuto workers use the base class's single-commit-at-end flow (`gitWorkflowEnabled: true`). Bugfix audit makes **3 intermediate commits** — after the audit stages, after quality control, and after implementing fixes — so the PR history shows the progression from analysis to implementation. This requires managing `GitWorkflowManager` directly rather than relying on the base class lifecycle.
+Most AlephAuto workers use the base class's single-commit-at-end flow (`gitWorkflowEnabled: true`). Bugfix audit makes **3 intermediate commits** — after the audit stages, after quality control, and after implementing fixes — so the PR history shows the progression from analysis to implementation. This requires managing `BranchManager` directly rather than relying on the base class lifecycle.
 
 See [Adding New Pipelines - Git Workflow Strategies](../ADDING_PIPELINES.md) for full documentation of both approaches.
 
@@ -162,9 +162,9 @@ A project is skipped if:
 ### npm Scripts
 
 ```bash
-npm run bugfix:once       # doppler run -- node .../bugfix-audit-pipeline.js --run-now
-npm run bugfix:tonight    # doppler run -- node .../bugfix-audit-pipeline.js --once
-npm run bugfix:schedule   # doppler run -- node .../bugfix-audit-pipeline.js --recurring
+npm run bugfix:once       # doppler run -- node .../bugfix-audit-pipeline.ts --run-now
+npm run bugfix:tonight    # doppler run -- node .../bugfix-audit-pipeline.ts --once
+npm run bugfix:schedule   # doppler run -- node .../bugfix-audit-pipeline.ts --recurring
 ```
 
 ## Output Structure
@@ -227,7 +227,7 @@ curl http://localhost:8080/api/pipelines/bugfix-audit/jobs?limit=10
 
 - **Stage failure:** If any stage throws, the error is captured in `workflow-error.json` with partial results, then the job is marked failed
 - **Branch creation failure:** Job fails immediately (cannot proceed without a branch)
-- **Push/PR failure:** GitWorkflowManager logs the error but does not throw — commits are preserved locally
+- **Push/PR failure:** BranchManager logs the error but does not throw — commits are preserved locally
 - **Retryable errors:** Inherits SidequestServer retry logic (ETIMEDOUT, ECONNRESET auto-retry; ENOENT, EACCES fail fast)
 
 ## Convenience Methods
@@ -279,7 +279,7 @@ claude --version
 
 ### Git Branch Already Exists
 
-GitWorkflowManager generates timestamped branch names (`bugfix/bugfix-audit-<project>-<timestamp>`) so collisions are unlikely. If a branch does exist, `createJobBranch` returns null and the job fails with a descriptive error.
+BranchManager generates timestamped branch names (`bugfix/bugfix-audit-<project>-<timestamp>`) so collisions are unlikely. If a branch does exist, `createJobBranch` returns null and the job fails with a descriptive error.
 
 ### Dry Run Mode
 

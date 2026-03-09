@@ -2,7 +2,7 @@
 
 **Base URL:** `http://localhost:8080`
 **WebSocket:** `ws://localhost:8080/ws`
-**Version:** 1.9.0
+**Version:** 2.3.20
 
 ## Table of Contents
 
@@ -961,4 +961,4 @@ curl -X POST http://localhost:8080/api/pipelines/duplicate-detection/trigger \
 ---
 
 **Last Updated:** 2026-03-09
-**Version:** 1.9.0
+**Version:** 2.3.20

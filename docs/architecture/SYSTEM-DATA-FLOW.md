@@ -117,7 +117,7 @@ graph TB
         BaseServer["SidequestServer"]
         Queue["Job Queue"]
         EventEmitter["Event Emitter"]
-        GitWorkflow["GitWorkflowManager"]
+        GitWorkflow["BranchManager"]
         JobRepo["JobRepository"]
     end
 
@@ -600,7 +600,7 @@ The following abstractions were added to improve modularity and maintainability:
 flowchart TB
     subgraph Core["Core Abstractions"]
         JobRepo["JobRepository<br/>sidequest/core/job-repository.ts"]
-        GitWF["GitWorkflowManager<br/>sidequest/core/git-workflow-manager.ts"]
+        GitWF["BranchManager<br/>sidequest/pipeline-core/git/branch-manager.ts"]
         Constants["Constants<br/>sidequest/core/constants.ts"]
     end
 
@@ -634,12 +634,11 @@ flowchart TB
 - `getJobCounts(pipelineId)` - Get job statistics
 - `getAllPipelineStats()` - Aggregate stats across pipelines
 
-**GitWorkflowManager** - Encapsulates git operations:
+**BranchManager** - Encapsulates git operations:
 - `createJobBranch()` - Create feature branch for job
 - `commitChanges()` - Commit job results
 - `pushBranch()` - Push to remote
 - `createPullRequest()` - Create PR via GitHub API
-- `executeWorkflow()` - Full commit/push/PR workflow
 
 **Constants** - Centralized configuration values:
 - `TIMEOUTS.PYTHON_PIPELINE_MS` (600000ms)
