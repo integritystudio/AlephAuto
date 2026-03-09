@@ -6,6 +6,43 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.23] - 2026-03-09
+
+### Summary
+
+Standards & conventions fixes from CX15 code review. Migrated CommonJS test file to ESM, replaced direct `process.env` access with config module, and consolidated dynamic imports to static imports for consistency with project conventions.
+
+### Changed
+
+- **SV4** — Migrate `test-discord-webhook.ts` from CommonJS to ESM
+  - `tests/scripts/test-discord-webhook.ts`: Converted `require('https')` and `require('dotenv').config()` to ES module imports.
+  - Aligns with project convention (all other files use ESM).
+
+- **SV5** — Replace direct `process.env` access in test scripts
+  - `tests/scripts/test-sentry-connection.ts`: Replaced `process.env.SENTRY_DSN` with `config.sentryDsn` in `checkSentryDsn()` and `Sentry.init()`.
+  - `tests/scripts/test-single-job.ts`: Updated worker initialization to use config module.
+  - Resolves Critical Pattern #2 violation (use `config` module, not raw `process.env`).
+
+- **SV6** — Replace dynamic imports with static imports in `test-repomix-fix.ts`
+  - `tests/scripts/test-repomix-fix.ts`: Converted `await import('child_process')` and `await import('fs/promises')` to top-level static imports.
+  - File is not a lazy-loading module; static imports improve clarity and performance.
+
+### Validation
+
+- `npm run typecheck` (pass)
+- `npm test` — 1169/1169 pass
+
+### Commits
+
+```
+3211c80 chore(backlog): mark SV4, SV5, SV6 as Done
+6439fb9 fix(tests): replace dynamic imports with static imports in test-repomix-fix.ts (SV6)
+031c9ff fix(tests): replace direct process.env access with config module (SV5)
+9893fcf fix(tests): migrate test-discord-webhook.ts from CommonJS to ESM (SV4)
+```
+
+---
+
 ## [2.3.22] - 2026-03-08
 
 ### Summary
