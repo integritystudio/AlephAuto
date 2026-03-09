@@ -23,6 +23,7 @@ import * as Sentry from '@sentry/node';
 import { jobRepository } from '#sidequest/core/job-repository.ts';
 import { workerRegistry } from '../utils/worker-registry.ts';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
+import { PAGINATION } from '#sidequest/core/constants.ts';
 
 const RESERVED_PARAM_KEYS = new Set(['triggeredBy', 'triggeredAt', 'retriedFrom', 'retryCount']);
 
@@ -190,7 +191,7 @@ async function fetchJobsForPipeline(
   // Query SQLite database with total count (FIXED: Now includes actual DB count)
   const dbResult = jobRepository.getJobs(pipelineId, {
     status,
-    limit: limit ?? 10,
+    limit: limit ?? PAGINATION.DEFAULT_QUERY_LIMIT,
     offset: offset ?? 0,
     tab,
     includeTotal: true // Request total count from database

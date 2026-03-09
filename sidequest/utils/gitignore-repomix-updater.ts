@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { FORMATTING, PROCESS } from '../core/constants.ts';
+import { FORMATTING, LIMITS, PROCESS } from '../core/constants.ts';
 import { createComponentLogger, logError, logWarn } from './logger.ts';
 
 const logger = createComponentLogger('GitignoreRepomixUpdater');
@@ -72,7 +72,7 @@ export class GitignoreRepomixUpdater {
       '.venv',
       'venv',
     ]);
-    this.maxDepth = options.maxDepth ?? 10;
+    this.maxDepth = options.maxDepth ?? LIMITS.DEFAULT_MAX_DEPTH;
     this.dryRun = options.dryRun ?? false;
     this.gitignoreEntry = 'repomix-output.xml';
   }

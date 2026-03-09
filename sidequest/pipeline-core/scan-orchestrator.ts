@@ -25,7 +25,7 @@ import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import * as Sentry from '@sentry/node';
-import { TIMEOUTS } from '../core/constants.ts';
+import { TIMEOUTS, MARKDOWN_REPORT } from '../core/constants.ts';
 import { TIME_MS } from '../core/units.ts';
 
 const logger = createComponentLogger('ScanOrchestrator');
@@ -721,8 +721,8 @@ export class ScanOrchestrator {
 
         await MarkdownReportGenerator.saveReport(scanResult as unknown as ReportScanResult, markdownPath, {
           includeDetails: options.includeDetails !== false,
-          maxDuplicates: options.maxDuplicates || 10,
-          maxSuggestions: options.maxSuggestions || 10
+          maxDuplicates: options.maxDuplicates || MARKDOWN_REPORT.DEFAULT_MAX_DUPLICATES,
+          maxSuggestions: options.maxSuggestions || MARKDOWN_REPORT.DEFAULT_MAX_SUGGESTIONS
         });
 
         reportPaths.markdown = markdownPath;

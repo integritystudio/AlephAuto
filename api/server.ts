@@ -434,7 +434,7 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
     // Setup server with automatic port fallback
     const actualPort = await setupServerWithPortFallback(httpServer, {
       preferredPort: PREFERRED_PORT,
-      maxPort: PREFERRED_PORT + 10,
+      maxPort: PREFERRED_PORT + PORT.FALLBACK_RANGE,
       host: '0.0.0.0',
       killExisting: false // Set to true in development if needed
     });

@@ -1,5 +1,6 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { LIMITS } from '../../core/constants.ts';
 
 // ============================================================================
 // Type Definitions
@@ -638,9 +639,9 @@ export class RootDirectoryAnalyzer {
 
       lines.push('**Commands:**', '```bash');
       lines.push(`mkdir -p ${rec.target_directory}`);
-      rec.commands.slice(0, 10).forEach(cmd => lines.push(cmd));
-      if (rec.commands.length > 10) {
-        lines.push(`# ... and ${rec.commands.length - 10} more files`);
+      rec.commands.slice(0, LIMITS.DISPLAY_TOP_N).forEach(cmd => lines.push(cmd));
+      if (rec.commands.length > LIMITS.DISPLAY_TOP_N) {
+        lines.push(`# ... and ${rec.commands.length - LIMITS.DISPLAY_TOP_N} more files`);
       }
       lines.push('```', '');
     });

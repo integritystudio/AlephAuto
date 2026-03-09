@@ -30,7 +30,7 @@ export type TabFilter = z.infer<typeof TabFilterSchema>;
  */
 export const JobQueryParamsSchema = z.object({
   status: JobStatusSchema.optional(),
-  limit: z.coerce.number().int().positive().max(PAGINATION.DEFAULT_ALL_LIMIT).default(10),
+  limit: z.coerce.number().int().positive().max(PAGINATION.DEFAULT_ALL_LIMIT).default(PAGINATION.DEFAULT_QUERY_LIMIT),
   offset: z.coerce.number().int().min(0).default(0),
   tab: TabFilterSchema.optional()
 }).strict();

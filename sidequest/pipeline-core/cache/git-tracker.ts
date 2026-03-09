@@ -11,6 +11,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { createComponentLogger } from '../../utils/logger.ts';
 import { TIME_MS } from '../../core/units.ts';
+import { PAGINATION } from '../../core/constants.ts';
 
 const execPromise = promisify(exec);
 const logger = createComponentLogger('GitCommitTracker');
@@ -366,7 +367,7 @@ export class GitCommitTracker {
    * @returns {Promise<CommitMetadata[]>} The commit history
    * @async
    */
-  async getCommitHistory(repoPath: string, limit = 10): Promise<CommitMetadata[]> {
+  async getCommitHistory(repoPath: string, limit = PAGINATION.DEFAULT_QUERY_LIMIT): Promise<CommitMetadata[]> {
     try {
       const { stdout } = await execPromise(
         `git log -${limit} --format='%H|%an|%ae|%at|%s'`,

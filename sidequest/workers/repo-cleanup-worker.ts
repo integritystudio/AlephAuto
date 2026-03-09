@@ -22,7 +22,7 @@ import path from 'path';
 import os from 'os';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
-import { BYTES_PER_KB, NUMBER_BASE } from '../core/constants.ts';
+import { BYTES_PER_KB, LIMITS, NUMBER_BASE } from '../core/constants.ts';
 
 const execFileAsync = promisify(execFile);
 const logger = createComponentLogger('RepoCleanupWorker');
@@ -218,7 +218,7 @@ export class RepoCleanupWorker extends SidequestServer {
       try {
         const { stdout } = await execFileAsync('find', [
           targetDir, '-maxdepth', '3', '-type', 'd', '-name', pattern
-        ], { maxBuffer: 10 * BYTES_PER_KB * BYTES_PER_KB });
+        ], { maxBuffer: LIMITS.MAX_BUFFER_MB * BYTES_PER_KB * BYTES_PER_KB });
         const dirs = stdout.trim().split('\n').filter(Boolean);
         categories.venvs.push(...dirs);
       } catch {
@@ -232,7 +232,7 @@ export class RepoCleanupWorker extends SidequestServer {
       try {
         const { stdout } = await execFileAsync('find', [
           targetDir, '-name', pattern
-        ], { maxBuffer: 10 * BYTES_PER_KB * BYTES_PER_KB });
+        ], { maxBuffer: LIMITS.MAX_BUFFER_MB * BYTES_PER_KB * BYTES_PER_KB });
         const files = stdout.trim().split('\n').filter(Boolean);
         categories.tempFiles.push(...files);
       } catch {

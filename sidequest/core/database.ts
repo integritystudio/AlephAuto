@@ -344,7 +344,7 @@ function queryOne<T = Record<string, unknown>>(sql: string, params: (string | nu
  * @returns Job array or `{ jobs, total }` when `includeTotal` is enabled.
  */
 export function getJobs(pipelineId: string, options: JobQueryOptions = {}): ParsedJob[] | { jobs: ParsedJob[]; total: number } {
-  const { status, limit = 10, offset = 0, tab, includeTotal = false } = options;
+  const { status, limit = PAGINATION.DEFAULT_QUERY_LIMIT, offset = 0, tab, includeTotal = false } = options;
 
   // Build count query (only if includeTotal requested)
   let totalCount: number | null = null;

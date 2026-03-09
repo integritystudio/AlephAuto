@@ -19,6 +19,7 @@ import { glob } from 'glob';
 import path from 'path';
 import fs from 'fs/promises';
 import { readFileSync } from 'fs';
+import { LIMITS } from '../core/constants.ts';
 const logger = createComponentLogger('TestRefactorWorker');
 
 // Type definitions
@@ -331,7 +332,7 @@ export class TestRefactorWorker extends SidequestServer {
     if (result.patterns.formInteractions > 5) {
       result.recommendations.push('Create form helpers (fillContactForm, expectFormAccessibility, etc.)');
     }
-    if (result.patterns.hardcodedStrings.length > 10) {
+    if (result.patterns.hardcodedStrings.length > LIMITS.DISPLAY_TOP_N) {
       result.recommendations.push('Extract hardcoded strings to test-constants.ts');
     }
 

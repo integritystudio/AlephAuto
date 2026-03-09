@@ -253,6 +253,9 @@ export const CONCURRENCY = {
  * Pagination defaults
  */
 export const PAGINATION = {
+  /** Default page size for short queries (jobs by pipeline, commit history) */
+  DEFAULT_QUERY_LIMIT: 10,
+
   /** Default page size for job listings */
   DEFAULT_LIMIT: 50,
 

@@ -239,7 +239,7 @@ export function setupGracefulShutdown(httpServer: HttpServer, options: GracefulS
 export async function setupServerWithPortFallback(httpServer: HttpServer, options: PortFallbackOptions): Promise<number> {
   const {
     preferredPort,
-    maxPort = preferredPort + 10,
+    maxPort = preferredPort + PORT.FALLBACK_RANGE,
     host = '0.0.0.0',
     killExisting = false
   } = options;

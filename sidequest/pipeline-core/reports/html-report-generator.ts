@@ -8,6 +8,7 @@ import { saveGeneratedReport } from '../utils/index.ts';
 import { REPORT_SCORE_CLASS_THRESHOLDS } from '../../core/score-thresholds.ts';
 import { formatDuration } from '../../utils/time-helpers.ts';
 import { escapeHtml, getBaseStyles } from '../../utils/html-report-utils.ts';
+import { LIMITS } from '../../core/constants.ts';
 import type { ScanResult } from './json-report-generator.ts';
 
 export interface HTMLReportOptions {
@@ -251,7 +252,7 @@ export class HTMLReportGenerator {
 
     const topGroups = groups
       .sort((a, b) => b.impact_score - a.impact_score)
-      .slice(0, 10);
+      .slice(0, LIMITS.DISPLAY_TOP_N);
 
     if (topGroups.length === 0) {
       return `
@@ -319,7 +320,7 @@ export class HTMLReportGenerator {
 
     const topSuggestions = suggestions
       .sort((a, b) => b.roi_score - a.roi_score)
-      .slice(0, 10);
+      .slice(0, LIMITS.DISPLAY_TOP_N);
 
     if (topSuggestions.length === 0) {
       return `
