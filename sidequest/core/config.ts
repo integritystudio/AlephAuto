@@ -80,7 +80,7 @@ function safeParseRetentionByType(value: string | undefined): Record<string, num
  */
 export const config = {
   // Base directories
-  codeBaseDir: process.env.CODE_BASE_DIR || path.join(os.homedir(), 'code'),
+  codeBaseDir: process.env.CODE_BASE_DIR ?? path.join(os.homedir(), 'code'),
 
   // Output directories (relative to project root or absolute)
   outputBaseDir: process.env.OUTPUT_BASE_DIR
