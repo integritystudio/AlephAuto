@@ -73,7 +73,7 @@ const corsOptions = {
       callback(null, true);
     } else {
       logger.warn({ origin }, 'CORS blocked request from unauthorized origin');
-      callback(null, true); // Still allow for now, but log it
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
