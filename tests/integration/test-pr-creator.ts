@@ -389,7 +389,7 @@ async function testFileCreation() {
 
 function printResult(index, label, passed, detail) {
   console.log(`${index}. ${label}: ${passed ? '✓ PASS' : '✗ FAIL'}`);
-  if (passed && detail) {
+  if (detail) {
     console.log(`   ${detail}`);
   }
 }

@@ -2,8 +2,9 @@ import { DirectoryScanner } from '../../sidequest/utils/directory-scanner.ts';
 import path from 'path';
 import os from 'os';
 
+const PREVIEW_COUNT = 10;
+
 function printRepoList(directories: { relativePath: string; fullPath: string; depth: number }[]) {
-  const PREVIEW_COUNT = 10;
   console.log('📁 Git repositories found:');
   directories.slice(0, PREVIEW_COUNT).forEach((dir, index) => {
     console.log(`   ${index + 1}. ${dir.relativePath}`);
