@@ -177,6 +177,18 @@ function safeJsonParse(str: string | null, fallback: unknown = null): unknown {
 }
 
 /**
+ * Returns true if the string is valid JSON (non-null, parseable).
+ */
+function isValidJsonString(str: string): boolean {
+  try {
+    JSON.parse(str);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Serialize a value for JSON TEXT storage.
  * Preserves falsy primitives (`0`, `false`, `''`) and only maps `undefined` to SQL NULL.
  */
@@ -738,6 +750,16 @@ export function bulkImportJobs(jobs: BulkImportJob[]): BulkImportResult {
         // Validate job status
         if (!isValidJobStatus(job.status)) {
           errors.push(`Job ${job.id}: Invalid status '${job.status}'`);
+          continue;
+        }
+
+        // Validate pre-serialized JSON string fields
+        const jsonFields = { data: job.data, result: job.result, error: job.error, git: job.git } as const;
+        const invalidField = Object.entries(jsonFields).find(
+          ([, val]) => typeof val === 'string' && !isValidJsonString(val)
+        );
+        if (invalidField) {
+          errors.push(`Job ${job.id}: field '${invalidField[0]}' is a string but not valid JSON`);
           continue;
         }
 
