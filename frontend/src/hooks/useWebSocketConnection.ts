@@ -14,6 +14,39 @@ import { useDashboardStore } from '../store/dashboard';
 import { PipelineType, ActivityType } from '../types';
 import type { Pipeline, SystemHealth } from '../types';
 
+interface ApiJob {
+  id: string;
+  pipelineId: string;
+  pipelineName: string;
+  status: string;
+  createdAt: string;
+  startedAt?: string;
+  progress?: number;
+  currentOperation?: string;
+}
+
+interface ApiPipeline {
+  id: string;
+  name: string;
+  description?: string;
+  status?: string;
+  completedJobs?: number;
+  failedJobs?: number;
+  lastRun?: string;
+  nextRun?: string;
+}
+
+interface ApiActivity {
+  id?: string;
+  type: string;
+  pipelineId?: string;
+  jobType?: string;
+  pipelineName?: string;
+  message?: string;
+  timestamp?: string;
+  jobId?: string;
+}
+
 const ACTIVITY_TYPE_MAP: Record<string, ActivityType> = {
   'job:created': ActivityType.QUEUED,
   'job:started': ActivityType.STARTED,
@@ -52,7 +85,7 @@ async function fetchStatus() {
 /**
  * mapActiveJob.
  */
-function mapActiveJob(j: any) {
+function mapActiveJob(j: ApiJob) {
   return {
     '@type': 'https://schema.org/Action' as const,
     id: j.id,
@@ -69,7 +102,7 @@ function mapActiveJob(j: any) {
 /**
  * mapQueuedJob.
  */
-function mapQueuedJob(j: any) {
+function mapQueuedJob(j: ApiJob) {
   return {
     '@type': 'https://schema.org/Action' as const,
     id: j.id,
@@ -83,7 +116,7 @@ function mapQueuedJob(j: any) {
 /**
  * mapPipeline.
  */
-function mapPipeline(p: any): Pipeline {
+function mapPipeline(p: ApiPipeline): Pipeline {
   return {
     '@type': 'https://schema.org/SoftwareApplication' as const,
     id: p.id,
@@ -144,11 +177,11 @@ async function loadInitialData() {
     });
 
     if (statusData.recentActivity?.length > 0) {
-      statusData.recentActivity.forEach((activity: any) => {
+      statusData.recentActivity.forEach((activity: ApiActivity) => {
         const pipelineId = activity.pipelineId || activity.jobType || 'unknown';
         store.addActivityItem({
           '@type': 'https://schema.org/Event',
-          id: activity.id || `activity-${Date.now()}`,
+          id: activity.id || crypto.randomUUID(),
           type: ACTIVITY_TYPE_MAP[activity.type] ?? ActivityType.PROGRESS,
           pipelineId,
           pipelineName: activity.pipelineName || pipelineId || 'Unknown',
@@ -199,11 +232,11 @@ async function pollForUpdates() {
 
     // Refresh activity feed during polling (WS disconnected)
     if (statusData.recentActivity?.length > 0 && store.activity.length === 0) {
-      statusData.recentActivity.forEach((activity: any) => {
+      statusData.recentActivity.forEach((activity: ApiActivity) => {
         const pipelineId = activity.pipelineId || activity.jobType || 'unknown';
         store.addActivityItem({
           '@type': 'https://schema.org/Event',
-          id: activity.id || `activity-${Date.now()}`,
+          id: activity.id || crypto.randomUUID(),
           type: ACTIVITY_TYPE_MAP[activity.type] ?? ActivityType.PROGRESS,
           pipelineId,
           pipelineName: activity.pipelineName || pipelineId || 'Unknown',
@@ -236,7 +269,8 @@ export const useWebSocketConnection = () => {
   const isInitialized = useRef(false);
 
   useEffect(() => {
-    // Prevent double initialization in React StrictMode
+    // Guard against double initialization (e.g. strict mode dev double-invoke)
+    // Note: ref is intentionally NOT reset in cleanup so the guard remains effective
     if (isInitialized.current) return;
     isInitialized.current = true;
 
@@ -251,7 +285,6 @@ export const useWebSocketConnection = () => {
       console.log('[Dashboard] Cleaning up...');
       clearInterval(pollInterval);
       wsService.disconnect();
-      isInitialized.current = false;
     };
   }, []);
 };
