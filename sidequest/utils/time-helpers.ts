@@ -8,6 +8,8 @@
 
 import { TIME_MS } from '../core/units.ts';
 
+export const DURATION_UNKNOWN_LABEL = 'unknown';
+
 /**
  * Normalize a value to ISO string format
  *
@@ -38,7 +40,7 @@ export function calculateDurationSeconds(startTime: Date | string | null, endTim
  * Format duration for human-readable display
  */
 export function formatDuration(seconds: number | null | undefined): string {
-  if (seconds === null || seconds === undefined) return 'unknown';
+  if (seconds === null || seconds === undefined) return DURATION_UNKNOWN_LABEL;
 
   if (seconds < TIME_MS.MINUTE / TIME_MS.SECOND) return `${seconds}s`;
 

@@ -10,6 +10,8 @@ import assert from 'node:assert';
 import { EventEmitter } from 'node:events';
 import { ActivityFeedManager } from '../../api/activity-feed.ts';
 import { RETRY, TIMEOUTS } from '../../sidequest/core/constants.ts';
+import { TIME_MS } from '../../sidequest/core/units.ts';
+import { DURATION_UNKNOWN_LABEL } from '../../sidequest/utils/time-helpers.ts';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 const DEFAULT_MAX_ACTIVITIES = 50;
@@ -31,9 +33,9 @@ const TRIM_TEST_RETAINED_COUNT = CORE_TEST_MAX_ACTIVITIES;
 const JOB_DURATION_FROM_RESULT_SECONDS = 5.25;
 const JOB_DURATION_FROM_RESULT_LABEL = '5.25s';
 const JOB_DURATION_FROM_TIMESTAMPS_MS = TIMEOUTS.TWO_SECONDS_MS + TIMEOUTS.POLL_INTERVAL_MS;
-const JOB_DURATION_FROM_TIMESTAMPS_SECONDS = THIRD_ACTIVITY_ID;
-const JOB_DURATION_FROM_TIMESTAMPS_LABEL = '3.00s';
-const JOB_DURATION_FROM_STRING_SECONDS = 5.5;
+const JOB_DURATION_FROM_TIMESTAMPS_SECONDS = Math.round(JOB_DURATION_FROM_TIMESTAMPS_MS / TIME_MS.SECOND);
+const JOB_DURATION_FROM_TIMESTAMPS_LABEL = '3s';
+const JOB_DURATION_FROM_STRING_SECONDS = 6;
 const WORKFLOW_DURATION_SECONDS = 10.5;
 const RETRY_WORKFLOW_EVENT_COUNT = 8;
 
@@ -826,7 +828,7 @@ describe('ActivityFeedManager - Worker Events', () => {
       mockWorker.emit('job:completed', job);
 
       const activities = activityFeed.getRecentActivities(1);
-      assert.ok(activities[0].message.includes('unknown duration'));
+      assert.ok(activities[0].message.includes(DURATION_UNKNOWN_LABEL));
       assert.strictEqual(activities[0].duration, undefined);
     });
   });
