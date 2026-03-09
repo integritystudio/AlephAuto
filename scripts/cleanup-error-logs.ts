@@ -33,6 +33,28 @@ import { createComponentLogger, logError } from '../sidequest/utils/logger.ts';
 
 const logger = createComponentLogger('ErrorLogCleanup');
 
+interface ErrorLogEntry {
+  path: string;
+  name: string;
+  ageDays: number;
+  sizeBytes: number;
+  directory: string;
+}
+
+interface ArchivedLogEntry {
+  path: string;
+  name: string;
+  ageDays: number;
+  sizeBytes: number;
+}
+
+interface CleanupOptions {
+  retentionDays: number;
+  dryRun: boolean;
+  verbose: boolean;
+  help: boolean;
+}
+
 // Configuration
 const DEFAULT_RETENTION_DAYS = 7;      // Keep error logs for 7 days
 const ARCHIVE_RETENTION_DAYS = 30;     // Keep archives for 30 days
@@ -42,7 +64,7 @@ const DECIMAL_RADIX = 10;
 /**
  * Parse command line arguments
  */
-function parseArgs() {
+function parseArgs(): CleanupOptions {
   const args = {
     dryRun: false,
     retentionDays: DEFAULT_RETENTION_DAYS,
@@ -99,7 +121,7 @@ Cron Setup (weekly, Sunday 3 AM):
 /**
  * Get file age in days
  */
-async function getFileAgeDays(filePath) {
+async function getFileAgeDays(filePath: string): Promise<number> {
   const stats = await fs.stat(filePath);
   const ageMs = Date.now() - stats.mtimeMs;
   return ageMs / TIMEOUTS.ONE_DAY_MS;
@@ -108,7 +130,7 @@ async function getFileAgeDays(filePath) {
 /**
  * Compress a file using gzip
  */
-async function compressFile(inputPath, outputPath) {
+async function compressFile(inputPath: string, outputPath: string): Promise<void> {
   const gzip = createGzip();
   const source = createReadStream(inputPath);
   const destination = createWriteStream(outputPath);
@@ -119,13 +141,13 @@ async function compressFile(inputPath, outputPath) {
 /**
  * Scan directory for error log files
  */
-async function scanErrorLogs(baseDir) {
-  const errorLogs = [];
+async function scanErrorLogs(baseDir: string): Promise<ErrorLogEntry[]> {
+  const errorLogs: ErrorLogEntry[] = [];
 
   /**
    * scanDir.
    */
-  async function scanDir(dir) {
+  async function scanDir(dir: string): Promise<void> {
     const entries = await fs.readdir(dir, { withFileTypes: true });
 
     for (const entry of entries) {
@@ -155,14 +177,14 @@ async function scanErrorLogs(baseDir) {
 /**
  * Scan for archived logs
  */
-async function scanArchivedLogs(archiveDir) {
+async function scanArchivedLogs(archiveDir: string): Promise<ArchivedLogEntry[]> {
   try {
     await fs.access(archiveDir);
   } catch {
     return [];
   }
 
-  const archivedLogs = [];
+  const archivedLogs: ArchivedLogEntry[] = [];
   const entries = await fs.readdir(archiveDir, { withFileTypes: true });
 
   for (const entry of entries) {
@@ -186,7 +208,7 @@ async function scanArchivedLogs(archiveDir) {
 /**
  * Format bytes to human-readable size
  */
-function formatBytes(bytes) {
+function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
   const k = BYTES_PER_KB;
   const sizes = ['B', 'KB', 'MB', 'GB'];
@@ -197,7 +219,7 @@ function formatBytes(bytes) {
 /**
  * Archive old error logs
  */
-async function archiveOldLogs(errorLogs, retentionDays, dryRun, verbose) {
+async function archiveOldLogs(errorLogs: ErrorLogEntry[], retentionDays: number, dryRun: boolean, verbose: boolean): Promise<{ archived: number; totalSize: number }> {
   const archiveDir = path.join(LOGS_BASE_DIR, 'archive');
   const toArchive = errorLogs.filter(log => log.ageDays > retentionDays);
 
@@ -248,7 +270,7 @@ async function archiveOldLogs(errorLogs, retentionDays, dryRun, verbose) {
 /**
  * Delete very old archives
  */
-async function deleteOldArchives(archivedLogs, retentionDays, dryRun, verbose) {
+async function deleteOldArchives(archivedLogs: ArchivedLogEntry[], retentionDays: number, dryRun: boolean, verbose: boolean): Promise<{ deleted: number; totalSize: number }> {
   const toDelete = archivedLogs.filter(log => log.ageDays > retentionDays);
 
   if (toDelete.length === 0) {
@@ -302,7 +324,7 @@ function printCleanupSummary(archiveResult: { archived: number; totalSize: numbe
 /**
  * Main cleanup function
  */
-async function cleanup(options) {
+async function cleanup(options: CleanupOptions): Promise<void> {
   console.log('\n🧹 Error Log Cleanup\n');
   console.log('='.repeat(50));
   console.log(`Retention period: ${options.retentionDays} days`);
