@@ -11,7 +11,7 @@
 import { useEffect, useRef } from 'react';
 import { wsService } from '../services/websocket';
 import { useDashboardStore } from '../store/dashboard';
-import { PipelineType, ActivityType } from '../types';
+import { PipelineType, ActivityType, JobStatus, PipelineStatus } from '../types';
 import type { Pipeline, SystemHealth } from '../types';
 
 interface ApiJob {
@@ -101,7 +101,7 @@ function mapActiveJob(j: ApiJob) {
     id: j.id,
     pipelineId: j.pipelineId,
     pipelineName: j.pipelineName,
-    status: j.status,
+    status: j.status as JobStatus,
     createdAt: j.createdAt,
     startedAt: j.startedAt,
     progress: j.progress,
@@ -118,7 +118,7 @@ function mapQueuedJob(j: ApiJob) {
     id: j.id,
     pipelineId: j.pipelineId,
     pipelineName: j.pipelineName,
-    status: j.status,
+    status: j.status as JobStatus,
     createdAt: j.createdAt,
   };
 }
@@ -134,11 +134,11 @@ function mapPipeline(p: ApiPipeline): Pipeline {
     description: p.description,
     icon: getPipelineIcon(p.id),
     color: getPipelineColor(p.id),
-    status: p.status || 'idle',
+    status: (p.status ?? 'idle') as PipelineStatus,
     type: PIPELINE_TYPE_MAP[p.id] ?? PipelineType.DUPLICATE_DETECTION,
-    totalJobs: (p.completedJobs || 0) + (p.failedJobs || 0),
-    successRate: p.completedJobs > 0
-      ? p.completedJobs / ((p.completedJobs || 0) + (p.failedJobs || 0))
+    totalJobs: (p.completedJobs ?? 0) + (p.failedJobs ?? 0),
+    successRate: (p.completedJobs ?? 0) > 0
+      ? (p.completedJobs ?? 0) / ((p.completedJobs ?? 0) + (p.failedJobs ?? 0))
       : 1,
     lastRunAt: p.lastRun,
     nextRun: p.nextRun,
@@ -186,7 +186,7 @@ async function loadInitialData() {
       retryQueueSize: statusData.retryMetrics?.activeRetries || 0,
     });
 
-    if (statusData.recentActivity?.length > 0) {
+    if (statusData.recentActivity && statusData.recentActivity.length > 0) {
       statusData.recentActivity.forEach((activity: ApiActivity) => {
         const pipelineId = activity.pipelineId || activity.jobType || 'unknown';
         store.addActivityItem({
@@ -241,7 +241,7 @@ async function pollForUpdates() {
     }
 
     // Refresh activity feed during polling (WS disconnected)
-    if (statusData.recentActivity?.length > 0 && store.activity.length === 0) {
+    if (statusData.recentActivity && statusData.recentActivity.length > 0 && store.activity.length === 0) {
       statusData.recentActivity.forEach((activity: ApiActivity) => {
         const pipelineId = activity.pipelineId || activity.jobType || 'unknown';
         store.addActivityItem({
