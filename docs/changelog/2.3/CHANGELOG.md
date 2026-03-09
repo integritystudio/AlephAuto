@@ -6,6 +6,80 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.22] - 2026-03-08
+
+### Summary
+
+Completed CX15 refactoring: resolved all 22 long test functions (≤50 lines) by extracting per-test helpers, constants, and print utilities. All complexity thresholds now met across 234 analyzed TypeScript files.
+
+### Changed
+
+- **CX15** (complete) — Extracted helpers from 16 remaining long test functions across 9 files:
+  - `tests/integration/test-pr-creator.ts`: Extracted `verifyDryRunBranches()`, `printResult()` helpers (runTests 76→32, testDryRunMode 60→35 lines).
+  - `tests/integration/test-retry-metrics.ts`: Extracted `checkApiHealth()`, `printFinalMetrics()` helpers (runTests 69→34 lines).
+  - `tests/integration/test-gitignore-manager.ts`: Extracted `createTestRepos()`, `createGitignoreWorker()`, `countGitignoreMatches()`, `readGitignoreContains()`, `printResult()` shared helpers (6 functions: 61-80→27-35 lines).
+  - `tests/scripts/test-discord-webhook.ts`: Extracted `INFO_EMBED`, `ERROR_EMBED`, `WARNING_EMBED`, `RATE_LIMIT_DELAY_MS` constants and `printSuccess()`, `printTroubleshooting()` helpers (testDiscordIntegration 93→30 lines).
+  - `tests/scripts/test-single-job.ts`: Extracted `resolveRelativePath()`, `setupWorkerEventListeners()` helpers (testSingleJob 74→24 lines).
+  - `tests/scripts/test-sentry-connection.ts`: Extracted `checkSentryDsn()`, `sendTestEvents()`, `printSentryResults()` helpers (testSentryConnection 63→19 lines).
+  - `tests/scripts/test-repomix-fix.ts`: Extracted `checkNpxRepomix()`, `checkErrorLogs()` helpers (testRepomixFix 60→27 lines).
+  - `tests/integration/test-git-repo-scanner.ts`: Extracted `printRepoList()`, `printScanStats()` helpers with module-level `PREVIEW_COUNT` constant (testGitRepoScanner 57→26 lines).
+  - `tests/scripts/test-repo-cleanup.ts`: Extracted `setupCleanupEventListeners()`, `TEST_TIMEOUT_MS` constant (main 52→29 lines).
+  - `tests/integration/test-cache-layer.ts`: Extracted `MOCK_SCAN_RESULT`, `CACHE_CONFIG` constants and `printCacheStats()`, `printCacheStatus()`, `printScannerStats()` helpers (testScanCache 61→41, testCachedScanner 51→33 lines).
+  - CX15 progress: All 22 of 22 fixed. Functions exceeding thresholds: 24 → 0.
+
+### Validation
+
+- `npm run typecheck` (pass)
+- `npm test` — 1169/1169 pass
+- Complexity thresholds met: cyclomatic ≤10, cognitive ≤15, length ≤50 lines (0 violations)
+
+### Commits
+
+```
+8cf5dca fix(tests): address final review findings in CX15 refactor
+6a7fd3d docs(backlog): add SV4-SV6 findings from CX15 code reviews
+b51fc67 docs(backlog): complete CX15 — all 22 long test functions resolved (v2.3.22)
+6909a21 refactor(tests): fix CX15 — extract helpers from test-cache-layer
+7b643f2 refactor(tests): fix CX15 — extract helpers from 4 test scripts
+52149bf refactor(tests): fix CX15 — extract embed constants from test-discord-webhook
+99567dc refactor(tests): fix CX15 — extract helpers from test-single-job
+1115042 refactor(tests): fix CX15 — extract helpers from test-gitignore-manager
+3d0a16a fix(tests): address review findings in test-gitignore-manager
+2497fea refactor(tests): fix CX15 — extract helpers from test-retry-metrics
+f79ca11 refactor(tests): fix CX15 — extract helpers from test-pr-creator
+```
+
+---
+
+## [2.3.21] - 2026-03-08
+
+### Summary
+
+Continued CX15 progress: extracted helpers from `test-directory-scanner.ts`, improving function length from 86 to 30 lines. Improved code organization by extracting factory and utility functions.
+
+### Changed
+
+- **CX15** (partial) — Extracted helpers from `tests/scripts/test-directory-scanner.ts`:
+  - Extracted `createScanner()` factory function to consolidate DirectoryScanner instantiation.
+  - Extracted `logStats()` helper to format and print scan statistics.
+  - Extracted `logTreePreview()` helper to display directory tree with configurable line count.
+  - Extracted `EXCLUDED_DIRS` and `TREE_PREVIEW_LINES` constants.
+  - `testDirectoryScanner()` reduced from 86 → 30 lines.
+  - CX15 progress: 7 of 22 fixed (15 remaining).
+
+### Validation
+
+- `npm run typecheck` (pass)
+- `npm test` — 1169/1169 pass
+
+### Commits
+
+```
+48e1fab refactor(tests): extract helpers from test-error-classification-ui to fix CX15
+```
+
+---
+
 ## [2.3.20] - 2026-03-09
 
 ### Summary

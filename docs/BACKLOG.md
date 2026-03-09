@@ -122,13 +122,10 @@ No active critical-complexity backlog items.
 
 ### Medium
 
-#### CX15: Break up long integration test runners
-**Priority**: P2 | **Source**: ast-grep `analyze_complexity` | **Status**: **Complete** (v2.3.22)
-22 test functions exceeded 50-line length threshold. All 22 fixed across v2.3.19–v2.3.22:
-- v2.3.19: `main` in `test-automated-pipeline.ts` (133→28), `testGitignoreRespect` in `test-gitignore-respect.ts` (121→26), `main` in `test-report-generation.ts` (120→30). Also replaced hand-rolled poll in `test-single-job.ts` with existing `waitForJobCompletion()` utility (DRY).
-- v2.3.20: `testErrorMessages` in `test-error-classification-ui.ts` (67→13), `testActivityFeed` in `test-error-classification-ui.ts` (68→36). Extracted `evaluateErrorScenario()`, `validateActivityStructure()` helpers plus `ErrorScenario` interface and `ERROR_SCENARIOS` constant.
-- v2.3.21: `testDirectoryScanner` in `test-directory-scanner.ts` (86→30). Extracted `createScanner()`, `logStats()`, `logTreePreview()` helpers plus `EXCLUDED_DIRS` and `TREE_PREVIEW_LINES` constants.
-- v2.3.22: Remaining 16 functions across 9 files. Extracted per-file helpers (verifyDryRunBranches, printResult, checkApiHealth, printFinalMetrics, createTestRepos, createGitignoreWorker, countGitignoreMatches, readGitignoreContains, embed constants, resolveRelativePath, setupWorkerEventListeners, printRepoList, printScanStats, setupCleanupEventListeners, printCacheStats, printCacheStatus, printScannerStats, MOCK_SCAN_RESULT, CACHE_CONFIG, etc.).
+No active medium-priority backlog items.
+
+> CX15 completed and migrated to [v2.3.22](changelog/2.3/CHANGELOG.md).
+
 
 ### Low
 
