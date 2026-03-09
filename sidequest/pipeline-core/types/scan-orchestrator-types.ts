@@ -9,7 +9,7 @@
  */
 
 import { z } from 'zod';
-import { INTER_PROJECT_SCAN } from '../../core/constants.ts';
+import { INTER_PROJECT_SCAN, MAX_SCORE } from '../../core/constants.ts';
 
 // ============================================================================
 // Zod Schemas for Runtime Validation
@@ -164,8 +164,8 @@ export const ScanMetricsSchema = z.object({
     .int('Potential LOC reduction must be an integer')
     .nonnegative('Potential LOC reduction must be non-negative'),
   duplication_percentage: z.number()
-    .min(0, 'Duplication percentage must be between 0 and 100')
-    .max(100, 'Duplication percentage must be between 0 and 100').optional(),
+    .min(0, `Duplication percentage must be between 0 and ${MAX_SCORE}`)
+    .max(MAX_SCORE, `Duplication percentage must be between 0 and ${MAX_SCORE}`).optional(),
   total_cross_repository_groups: z.number()
     .int().nonnegative().optional()
 }).strict();

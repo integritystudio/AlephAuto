@@ -7,7 +7,7 @@ import { SchemaMCPTools, type SchemaObject } from '../utils/schema-mcp-tools.ts'
 import { generateReport } from '../utils/report-generator.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
-import { FORMATTING, LIMITS } from '../core/constants.ts';
+import { FORMATTING, LIMITS, MAX_SCORE } from '../core/constants.ts';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -453,7 +453,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
       ...this.stats,
       total: this.stats.enhanced + this.stats.skipped + this.stats.failed,
       successRate: this.stats.enhanced > 0
-        ? ((this.stats.enhanced / (this.stats.enhanced + this.stats.failed)) * 100).toFixed(FORMATTING.DECIMAL_PLACES)
+        ? ((this.stats.enhanced / (this.stats.enhanced + this.stats.failed)) * MAX_SCORE).toFixed(FORMATTING.DECIMAL_PLACES)
         : 0,
     };
   }

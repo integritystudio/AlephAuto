@@ -8,7 +8,7 @@ import { saveGeneratedReport } from '../utils/index.ts';
 import { REPORT_SCORE_CLASS_THRESHOLDS } from '../../core/score-thresholds.ts';
 import { formatDuration } from '../../utils/time-helpers.ts';
 import { escapeHtml, getBaseStyles } from '../../utils/html-report-utils.ts';
-import { LIMITS, MARKDOWN_REPORT } from '../../core/constants.ts';
+import { LIMITS, MARKDOWN_REPORT, MAX_SCORE } from '../../core/constants.ts';
 import type { ScanResult } from './json-report-generator.ts';
 
 export interface HTMLReportOptions {
@@ -188,7 +188,7 @@ export class HTMLReportGenerator {
                     <div class="chart-bar-row">
                         <span class="chart-label">${strategy.replace('_', ' ')}</span>
                         <div class="chart-bar-container">
-                            <div class="chart-bar strategy-${strategy}" style="width: ${(count / suggestions.length * 100).toFixed(1)}%"></div>
+                            <div class="chart-bar strategy-${strategy}" style="width: ${(count / suggestions.length * MAX_SCORE).toFixed(1)}%"></div>
                         </div>
                         <span class="chart-count">${count}</span>
                     </div>
@@ -202,7 +202,7 @@ export class HTMLReportGenerator {
                     <div class="chart-bar-row">
                         <span class="chart-label">${complexity}</span>
                         <div class="chart-bar-container">
-                            <div class="chart-bar complexity-${complexity}" style="width: ${(count / suggestions.length * 100).toFixed(1)}%"></div>
+                            <div class="chart-bar complexity-${complexity}" style="width: ${(count / suggestions.length * MAX_SCORE).toFixed(1)}%"></div>
                         </div>
                         <span class="chart-count">${count}</span>
                     </div>

@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { LIMITS, MARKDOWN_REPORT } from '../../core/constants.ts';
+import { LIMITS, MARKDOWN_REPORT, MAX_SCORE } from '../../core/constants.ts';
 
 // ============================================================================
 // Type Definitions
@@ -159,7 +159,7 @@ export class RootDirectoryAnalyzer {
         reduction_potential: reductionPotential,
         final_root_files: rootFiles.length - reductionPotential,
         reduction_percentage: rootFiles.length > 0
-          ? Math.round((reductionPotential / rootFiles.length) * 100)
+          ? Math.round((reductionPotential / rootFiles.length) * MAX_SCORE)
           : 0,
         scan_duration_ms: Date.now() - startTime
       };

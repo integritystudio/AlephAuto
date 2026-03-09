@@ -6,7 +6,7 @@
  */
 
 import { createComponentLogger, logError } from './logger.ts';
-import { CONFIG_POLICY, TIMEOUTS, RETRY, CACHE, FORMATTING } from '../core/constants.ts';
+import { CONFIG_POLICY, MAX_SCORE, TIMEOUTS, RETRY, CACHE, FORMATTING } from '../core/constants.ts';
 import Sentry from '@sentry/node';
 import fs from 'fs/promises';
 import path from 'path';
@@ -342,7 +342,7 @@ export class DopplerResilience {
         totalFailures: this.metrics.totalFailures,
         totalSuccesses: this.metrics.totalSuccesses,
         successRate: this.metrics.totalRequests > 0
-          ? (this.metrics.totalSuccesses / this.metrics.totalRequests * 100).toFixed(FORMATTING.DECIMAL_PLACES) + '%'
+          ? (this.metrics.totalSuccesses / this.metrics.totalRequests * MAX_SCORE).toFixed(FORMATTING.DECIMAL_PLACES) + '%'
           : 'N/A',
         lastError: this.metrics.lastError
       },

@@ -310,6 +310,12 @@ export const LIMITS = {
 
   /** Short preview list size for inline truncated displays */
   SHORT_PREVIEW_COUNT: 3,
+
+  /** Number of characters to include in error log previews */
+  LOG_PREVIEW_CHARS: 100,
+
+  /** Minimum required disk space in megabytes */
+  MIN_DISK_SPACE_MB: 100,
 } as const;
 
 /**

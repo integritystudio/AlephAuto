@@ -1,5 +1,5 @@
 import { config } from '../core/config.ts';
-import { FORMATTING } from '../core/constants.ts';
+import { FORMATTING, MAX_SCORE } from '../core/constants.ts';
 import { SCHEMA_RATING_THRESHOLDS } from '../core/score-thresholds.ts';
 
 interface SchemaContext {
@@ -317,7 +317,7 @@ function computeImpactScore(impact: SchemaImpact, schema: SchemaObject): number 
   score += impact.richResultsEligibility.length * 20;
   score += schema.description ? 20 : 0;
   score += schema.codeRepository ? 15 : 0;
-  return Math.min(100, score);
+  return Math.min(MAX_SCORE, score);
 }
 
 /**

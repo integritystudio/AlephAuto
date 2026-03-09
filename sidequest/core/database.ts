@@ -15,7 +15,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createComponentLogger, logMetrics } from '../utils/logger.ts';
 import { isValidJobStatus } from '#api/types/job-status.ts';
-import { DATABASE, PAGINATION, VALIDATION } from './constants.ts';
+import { DATABASE, LIMITS, PAGINATION, VALIDATION } from './constants.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logger = createComponentLogger('Database');
@@ -171,7 +171,7 @@ function safeJsonParse(str: string | null, fallback: unknown = null): unknown {
   try {
     return JSON.parse(str);
   } catch (error) {
-    logger.error({ error: (error as Error).message, preview: str.substring(0, 100) }, 'Failed to parse JSON from database');
+    logger.error({ error: (error as Error).message, preview: str.substring(0, LIMITS.LOG_PREVIEW_CHARS) }, 'Failed to parse JSON from database');
     return fallback;
   }
 }
