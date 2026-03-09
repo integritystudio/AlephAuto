@@ -114,9 +114,7 @@ export interface BulkImportResult {
 /** Health status */
 export interface HealthStatus {
   initialized: boolean;
-  degradedMode: boolean;
   persistenceWorking: boolean;
-  persistFailureCount: number;
   recoveryAttempts: number;
   queuedWrites: number;
   queueStalenessMs: number;
@@ -680,9 +678,7 @@ export function getHealthStatus(): HealthStatus {
 
   return {
     initialized: db !== null,
-    degradedMode: false,
     persistenceWorking: db !== null,
-    persistFailureCount: 0,
     recoveryAttempts: 0,
     queuedWrites: 0,
     queueStalenessMs: 0,

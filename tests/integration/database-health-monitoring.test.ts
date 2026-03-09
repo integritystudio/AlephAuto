@@ -38,7 +38,6 @@ describe('Database Health Monitoring Integration', () => {
       assert.ok(['healthy', 'degraded', 'not_initialized'].includes(health.status));
 
       // Metrics for dashboards
-      assert.ok(typeof health.persistFailureCount === 'number');
       assert.ok(typeof health.recoveryAttempts === 'number');
       assert.ok(typeof health.queuedWrites === 'number');
 
@@ -52,13 +51,11 @@ describe('Database Health Monitoring Integration', () => {
 
       // In healthy state, no action needed
       if (health.status === 'healthy') {
-        assert.strictEqual(health.degradedMode, false);
         assert.strictEqual(health.persistenceWorking, true);
       }
 
       // If degraded, action may be needed
       if (health.status === 'degraded') {
-        assert.strictEqual(health.degradedMode, true);
         assert.strictEqual(health.persistenceWorking, false);
         // Should have queued writes or be attempting recovery
         assert.ok(health.queuedWrites >= 0);
@@ -74,8 +71,6 @@ describe('Database Health Monitoring Integration', () => {
       // These could be exposed as Prometheus metrics
       const metrics = {
         'database_initialized': health.initialized ? 1 : 0,
-        'database_degraded_mode': health.degradedMode ? 1 : 0,
-        'database_persist_failures_total': health.persistFailureCount,
         'database_recovery_attempts_total': health.recoveryAttempts,
         'database_queued_writes': health.queuedWrites
       };
@@ -91,12 +86,6 @@ describe('Database Health Monitoring Integration', () => {
 
       // Example alerting rules
       const alerts = {
-        // Alert if database is in degraded mode
-        'DatabaseDegraded': health.degradedMode,
-
-        // Alert if persistence failures exceed threshold
-        'HighPersistenceFailures': health.persistFailureCount > 3,
-
         // Alert if write queue is growing too large
         'LargeWriteQueue': health.queuedWrites > 100,
 
@@ -123,10 +112,8 @@ describe('Database Health Monitoring Integration', () => {
           status: 'ok',
           component: 'database',
           details: {
-            mode: health.degradedMode ? 'degraded' : 'normal',
             persistence: health.persistenceWorking ? 'working' : 'failed',
             metrics: {
-              failureCount: health.persistFailureCount,
               recoveryAttempts: health.recoveryAttempts,
               queuedWrites: health.queuedWrites
             }
@@ -154,7 +141,6 @@ describe('Database Health Monitoring Integration', () => {
             dataLoss: false, // In-memory operations continue
             autoRecovery: true,
             metrics: {
-              failureCount: health.persistFailureCount,
               recoveryAttempts: health.recoveryAttempts,
               queuedWrites: health.queuedWrites
             }
