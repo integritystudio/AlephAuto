@@ -12,9 +12,6 @@ import type { Job, JobStats } from './server.ts';
 
 const logger = createComponentLogger('RepomixCronApp');
 
-// Cast config to access dynamic properties
-const cfg = config as Record<string, unknown>;
-
 /** Typed shapes for JS classes (pending Phase 7-10 migration) */
 interface ScanDirectory {
   fullPath: string;
@@ -62,17 +59,17 @@ export class RepomixCronApp {
    */
   constructor() {
     this.worker = new RepomixWorker({
-      maxConcurrent: cfg.maxConcurrent as number,
-      outputBaseDir: cfg.outputBaseDir as string,
-      codeBaseDir: cfg.codeBaseDir as string,
-      logDir: cfg.logDir as string,
-      sentryDsn: cfg.sentryDsn as string,
+      maxConcurrent: config.maxConcurrent,
+      outputBaseDir: config.outputBaseDir,
+      codeBaseDir: config.codeBaseDir,
+      logDir: config.logDir,
+      sentryDsn: config.sentryDsn,
     }) as unknown as TypedRepomixWorker;
 
     this.scanner = new DirectoryScanner({
-      baseDir: cfg.codeBaseDir as string,
-      outputDir: cfg.scanReportsDir as string,
-      excludeDirs: cfg.excludeDirs as string[],
+      baseDir: config.codeBaseDir,
+      outputDir: config.scanReportsDir,
+      excludeDirs: config.excludeDirs,
     }) as unknown as TypedDirectoryScanner;
 
     this.setupEventListeners();
@@ -215,9 +212,9 @@ export class RepomixCronApp {
       logDirectory: this.worker.logDir
     }, 'Repomix Cron Sidequest Server starting');
 
-    this.setupCronJob(cfg.repomixSchedule as string);
+    this.setupCronJob(config.repomixSchedule);
 
-    if (cfg.runOnStartup) {
+    if (config.runOnStartup) {
       logger.info('Running immediately (RUN_ON_STARTUP=true)');
       await this.runRepomixOnAllDirectories();
     }
