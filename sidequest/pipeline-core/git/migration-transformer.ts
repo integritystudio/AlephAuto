@@ -36,7 +36,7 @@ export class MigrationTransformer {
   constructor(options: MigrationTransformerOptions = {}) {
     this.dryRun = options.dryRun ?? false;
     this.astTransformer = new MigrationAstTransformer(this.dryRun);
-    this.fileResolver = new MigrationFileResolver(this.dryRun);
+    this.fileResolver = new MigrationFileResolver(this.dryRun, this.astTransformer);
     this.gitManager = new MigrationGitManager(this.dryRun);
   }
 

@@ -17,9 +17,9 @@ export class MigrationFileResolver {
   private readonly dryRun: boolean;
   private readonly astTransformer: MigrationAstTransformer;
 
-  constructor(dryRun: boolean) {
+  constructor(dryRun: boolean, astTransformer?: MigrationAstTransformer) {
     this.dryRun = dryRun;
-    this.astTransformer = new MigrationAstTransformer(dryRun);
+    this.astTransformer = astTransformer ?? new MigrationAstTransformer(dryRun);
   }
 
   async groupStepsByFile(
