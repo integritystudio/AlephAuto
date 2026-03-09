@@ -1,6 +1,10 @@
-# Gitignore Repomix Updater
+# Gitignore Updater
 
 Automatically adds `repomix-output.xml` to the `.gitignore` file in all git repositories found in a directory tree.
+
+**Entry points:**
+- Pipeline runner: `sidequest/pipeline-runners/gitignore-pipeline.ts`
+- Worker: `sidequest/workers/gitignore-worker.ts`
 
 ## Features
 
@@ -16,7 +20,7 @@ Automatically adds `repomix-output.xml` to the `.gitignore` file in all git repo
 ### Basic Usage
 
 ```bash
-node gitignore-repomix-updater.js
+doppler run -- node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts
 ```
 
 This will scan the default directory (`~/code`) and update all found repositories.
@@ -24,13 +28,7 @@ This will scan the default directory (`~/code`) and update all found repositorie
 ### Dry Run (Recommended First)
 
 ```bash
-node gitignore-repomix-updater.js --dry-run
-```
-
-or
-
-```bash
-node gitignore-repomix-updater.js -d
+doppler run -- DRY_RUN=true node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts
 ```
 
 This will show what changes would be made without actually modifying any files.
@@ -38,13 +36,13 @@ This will show what changes would be made without actually modifying any files.
 ### Custom Base Directory
 
 ```bash
-node gitignore-repomix-updater.js /path/to/your/projects
+doppler run -- CODE_BASE_DIR=/path/to/your/projects node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts
 ```
 
 ### Dry Run with Custom Directory
 
 ```bash
-node gitignore-repomix-updater.js /path/to/your/projects --dry-run
+doppler run -- DRY_RUN=true CODE_BASE_DIR=/path/to/your/projects node --strip-types sidequest/pipeline-runners/gitignore-pipeline.ts
 ```
 
 ## Output
@@ -105,36 +103,25 @@ If the entry already exists (in any of these forms), the file is skipped:
 
 ## Configuration Options
 
-Edit the script to customize:
+Configure via environment variables (Doppler):
 
-```javascript
-const updater = new GitignoreRepomixUpdater({
-  baseDir: '/your/custom/path',  // Base directory to scan
-  dryRun: false,                  // Set to true for dry-run
-  maxDepth: 10,                   // Maximum directory depth
-  excludeDirs: [                  // Directories to skip
-    'node_modules',
-    '.git',
-    'dist',
-    // ... add more
-  ]
-});
-```
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CODE_BASE_DIR` | `~/code` | Base directory to scan |
+| `DRY_RUN` | `false` | Preview changes without modifying files |
 
 ## Programmatic Usage
 
-You can also use it as a module:
+You can also use the worker directly:
 
-```javascript
-import { GitignoreRepomixUpdater } from './gitignore-repomix-updater.js';
+```typescript
+import { GitignoreWorker } from './sidequest/workers/gitignore-worker.ts';
 
-const updater = new GitignoreRepomixUpdater({
+const worker = new GitignoreWorker();
+const jobId = await worker.createJob('gitignore-update', {
   baseDir: '/path/to/projects',
   dryRun: true,
 });
-
-const results = await updater.processRepositories();
-console.log(results.summary);
 ```
 
 ## Report Format

@@ -24,7 +24,7 @@
 
 ## System Overview
 
-AlephAuto is a **job queue framework** with real-time dashboard for automation pipelines. The system processes 8 different pipeline types across TypeScript and Python, with real-time monitoring via WebSocket and comprehensive error tracking via Sentry.
+AlephAuto is a **job queue framework** with real-time dashboard for automation pipelines. The system processes 11 different pipeline types across TypeScript and Python, with real-time monitoring via WebSocket and comprehensive error tracking via Sentry.
 
 ### System Characteristics
 
@@ -526,6 +526,8 @@ flowchart TB
         CH["claude-health"]
         TR["test-refactor"]
         RM["repomix"]
+        BA["bugfix-audit"]
+        DP["dashboard-populate"]
     end
 
     subgraph API["API Routes"]
@@ -534,16 +536,16 @@ flowchart TB
         Status["GET jobs by id"]
     end
 
-    Register --> DD & SE & GA & GI & RC & CH & TR & RM
+    Register --> DD & SE & GA & GI & RC & CH & TR & RM & BA & DP
 
     Start --> Get
     Get --> DD
 
     List --> All
-    All --> DD & SE & GA & GI & RC & CH & TR & RM
+    All --> DD & SE & GA & GI & RC & CH & TR & RM & BA & DP
 
     Status --> Stats
-    Stats --> DD & SE & GA & GI & RC & CH & TR & RM
+    Stats --> DD & SE & GA & GI & RC & CH & TR & RM & BA & DP
 
     style Registry fill:#bbf,stroke:#333
 ```
@@ -969,7 +971,7 @@ server {
 | WebSocket | `api/websocket.ts` |
 | Base Queue | `sidequest/core/server.ts` |
 | Job Repository | `sidequest/core/job-repository.ts` |
-| Git Workflow Manager | `sidequest/core/git-workflow-manager.ts` |
+| Branch Manager | `sidequest/pipeline-core/git/branch-manager.ts` |
 | Constants | `sidequest/core/constants.ts` |
 | Database | `sidequest/core/database.ts` |
 | Config | `sidequest/core/config.ts` |
@@ -992,6 +994,6 @@ server {
 
 ---
 
-**Document Version:** 1.2
-**Last Updated:** 2026-03-04
+**Document Version:** 2.3.20
+**Last Updated:** 2026-03-09
 **Maintainer:** Architecture Team

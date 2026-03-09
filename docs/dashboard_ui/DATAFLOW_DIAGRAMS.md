@@ -30,15 +30,21 @@ graph TB
     end
 
     subgraph "API Gateway Layer"
-        EXPRESS[Express Server<br/>Port 3000]
-        WSSERVER[WebSocket Server<br/>ws://localhost:3000/ws]
+        EXPRESS[Express Server<br/>Port 8080]
+        WSSERVER[WebSocket Server<br/>ws://localhost:8080/ws]
     end
 
     subgraph "Job Queue Layer - AlephAuto Framework"
         DUPWORKER[Duplicate Detection<br/>Worker]
-        DOCWORKER[Doc Enhancement<br/>Worker]
+        DOCWORKER[Schema Enhancement<br/>Worker]
         GITWORKER[Git Activity<br/>Worker]
         GIWORKER[Gitignore<br/>Worker]
+        REPOMIXWORKER[Repomix<br/>Worker]
+        CLEANUPWORKER[Repo Cleanup<br/>Worker]
+        HEALTHWORKER[Claude Health<br/>Worker]
+        BUGFIXWORKER[Bugfix Audit<br/>Worker]
+        DASHWORKER[Dashboard Populate<br/>Worker]
+        TESTWORKER[Test Refactor<br/>Worker]
     end
 
     subgraph "Processing Layer"
@@ -110,7 +116,7 @@ graph TB
 |-------|-----------|---------|
 | **Client** | REST API, WebSocket | User/system interaction |
 | **API Gateway** | Express.js, WebSocket Server | Request routing, real-time updates |
-| **Job Queue** | 4 Worker Types | Job management & execution |
+| **Job Queue** | 10 Worker Types | Job management & execution |
 | **Processing** | Orchestrator, JS/Python Processors | Code analysis pipeline |
 | **Data** | Redis (optional), File System | Caching & persistence |
 | **External** | Sentry, repomix, ast-grep, MCP | Monitoring & tools |
