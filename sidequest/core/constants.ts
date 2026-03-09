@@ -189,6 +189,13 @@ export const RETRY_EVENTS = {
   CREATED: 'retry:created',
 } as const;
 
+export const PERSIST_CONTEXT = {
+  CREATE: 'create',
+  STARTED: 'started',
+  RETRY_QUEUED: 'retry_queued',
+  FAILED: 'failed',
+} as const;
+
 export const WORKER_EVENTS = {
   METRICS_UPDATED: 'metrics:updated',
 } as const;
@@ -275,6 +282,8 @@ export const PAGINATION = {
 export const VALIDATION = {
   /** Job ID pattern - alphanumeric, hyphens, underscores, max 100 chars */
   JOB_ID_PATTERN: /^[a-zA-Z0-9_-]{1,100}$/,
+  /** Replaces characters not allowed in job IDs (for log filename sanitization) */
+  JOB_ID_SANITIZE_PATTERN: /[^a-zA-Z0-9_-]/g,
 } as const;
 
 /**
@@ -316,6 +325,14 @@ export const LIMITS = {
 
   /** Minimum required disk space in megabytes */
   MIN_DISK_SPACE_MB: 100,
+} as const;
+
+/**
+ * General git operation constants
+ */
+export const GIT = {
+  /** Standard short hash character length (git log --short default) */
+  SHORT_HASH_LENGTH: 7,
 } as const;
 
 /**
