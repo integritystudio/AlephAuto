@@ -10,7 +10,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Summary
 
-Resolved 19 open backlog items across test coverage gaps and code review findings from prior sessions. All tests passing; typecheck clean. Includes TypeScript type annotations for helper functions, file guards, CSS fixes, and documentation improvements. No breaking changes.
+Resolved 22 open backlog items (19 initial + 3 main ast-grep items) across test coverage gaps, code review findings, and architecture improvements. All tests passing; typecheck clean. Includes TypeScript type annotations for helper functions, file guards, CSS fixes, documentation improvements, and major refactoring (structured logger adoption, MigrationTransformer decomposition, HTML template extraction). No breaking changes.
 
 ### Added
 
@@ -37,6 +37,11 @@ Resolved 19 open backlog items across test coverage gaps and code review finding
 - **AG-W1-L1:** Removed 4 duplicate JSDoc stub blocks in websocket.ts (connect, send, disconnect, isConnected)
 - **AG-CS1-M1:** Added optional astTransformer constructor injection to MigrationFileResolver; MigrationTransformer passes shared instance (eliminates duplicate instantiation)
 
+**Refactoring & Architecture** (AG-W1, AG-CS1, AG-CS2)
+- **AG-W1:** Replaced 14 `console.log`/`console.error` calls with structured logger via `createLogger` factory; App.tsx + websocket.ts + useWebSocketConnection.ts (commits 848138c, 4180196)
+- **AG-CS1:** Decomposed MigrationTransformer (627 lines, 44 methods) into 3 focused helpers: MigrationAstTransformer, MigrationFileResolver, MigrationGitManager (commits e9530ba, a8c24d4)
+- **AG-CS2:** Extracted HTML/CSS templates from HtmlReportGenerator into getScanReportStyles() in html-report-utils.ts; reduced file from 625 to 435 lines (commit e8ef72a)
+
 ### Validation
 
 - `npm run typecheck` (pass)
@@ -55,7 +60,7 @@ Resolved 19 open backlog items across test coverage gaps and code review finding
 
 ### Related
 
-- Items migrated from: Test Coverage Gaps, Code Review Findings — sidequest/utils (Final Review), Code Review Findings — ast-grep Implementation Session
+- Items migrated from: Test Coverage Gaps, Code Review Findings — sidequest/utils (Final Review), Code Review Findings — ast-grep Implementation Session, ast-grep Full Analysis (main items AG-W1, AG-CS1, AG-CS2)
 - Deferred: SU-L2 (DopplerResilience abstract refactor; broad test changes needed), SU-FR-M4 (lint rule requires cast; functionally equivalent)
 
 ---

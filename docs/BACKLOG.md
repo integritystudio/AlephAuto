@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-09 | **Last Session:** 2026-03-09 (backlog-migrate: 61 items to v2.3.24)
+**Last Updated:** 2026-03-09 | **Last Session:** 2026-03-09 (backlog-migrate: 3 items to v2.3.25, 61 to v2.3.24)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -13,6 +13,9 @@ Technical debt and planned improvements.
 No active deferred items.
 
 Closed items migrated to changelog:
+- [v2.3.25](changelog/2.3/CHANGELOG.md) (TC-C1-C2, TC-H1-H3, TC-M1-M5, SU-FR-M1-M4, SU-FR-L1-L3, AG-W1-L1, AG-CS1-M1, AG-W1, AG-CS1, AG-CS2)
+- [v2.3.24](changelog/2.3/CHANGELOG.md) (SU-C1, SU-M1-M3, SU-L1, SU-H1-H4, SU-M4-M9, SU-L3-L5, plus 1 post-review)
+- [v2.3.23](changelog/2.3/CHANGELOG.md) (SV4-SV6)
 - [v2.3.20](changelog/2.3/CHANGELOG.md) (`CS9`, `DUP1`)
 - [v2.3.19](changelog/2.3/CHANGELOG.md) (`CX14`, `CX15` partial, `CX16`)
 - [v2.3.18](changelog/2.3/CHANGELOG.md) (`UI review: M43-M44, L19-L22`)
@@ -135,15 +138,8 @@ No active backlog items.
 
 ## ast-grep Full Analysis (2026-03-09)
 
-Full report: [ast-grep-analysis-2026-03-09.md](ast-grep-analysis-2026-03-09.md)
+> All items completed and migrated to [v2.3.25](changelog/2.3/CHANGELOG.md) (AG-W1, AG-CS1, AG-CS2).
 
-**Scan:** 239 TS files, 205 functions, 25 API routes. 6 tools: complexity, code smells, security, standards, duplication, API docs.
-
-| ID | Priority | Title | File | Detail |
-|----|----------|-------|------|--------|
-| ~~AG-W1~~ | ~~Medium~~ | ~~Replace 14 `console.log` with structured logger~~ | ~~Done v2.3.25~~ | ~~`createLogger` factory; App.tsx + websocket.ts + useWebSocketConnection.ts~~ |
-| ~~AG-CS1~~ | ~~Medium~~ | ~~Decompose `MigrationTransformer` (627 lines, 44 methods)~~ | ~~Done v2.3.25~~ | ~~Extracted `migration-ast-transformer.ts`, `migration-file-resolver.ts`, `migration-git-manager.ts`~~ |
-| ~~AG-CS2~~ | ~~Low~~ | ~~Extract HTML templates from `HtmlReportGenerator` (607 lines)~~ | ~~Done v2.3.25~~ | ~~CSS extracted to `getScanReportStyles()` in html-report-utils.ts; 625→435 lines~~ |
 
 ---
 
