@@ -18,9 +18,7 @@ import { TIMEOUTS } from '../core/constants.ts';
 // @ts-ignore - no declaration file for node-cron
 import cron from 'node-cron';
 import * as Sentry from '@sentry/node';
-import { realpathSync } from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { isDirectExecution } from '../utils/execution-helpers.ts';
 
 import type { Logger } from 'pino';
 
@@ -120,22 +118,9 @@ async function main(): Promise<void> {
   }
 }
 
-function isDirectExecution(): boolean {
-  const currentModulePath = fileURLToPath(import.meta.url);
-  // PM2 uses dynamic import() so process.argv[1] points to PM2's fork container,
-  // not the actual script. Check pm_exec_path env var as fallback.
-  const entryPath = process.argv[1] || process.env.pm_exec_path;
-  if (!entryPath) return false;
-  try {
-    return realpathSync(path.resolve(entryPath)) === realpathSync(currentModulePath);
-  } catch {
-    return false;
-  }
-}
-
 // PM2 loads this file via dynamic import(), so process.argv[1] points to
 // PM2's ProcessContainerFork, not this script. Detect PM2 via pm_id env var.
-if (isDirectExecution() || process.env.pm_id !== undefined) {
+if (isDirectExecution(import.meta.url) || process.env.pm_id !== undefined) {
   main().catch((error) => {
     logger.error({ error }, 'Fatal error in duplicate detection pipeline');
     process.exit(1);

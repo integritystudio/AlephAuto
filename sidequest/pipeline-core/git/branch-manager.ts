@@ -8,6 +8,7 @@
 import { runCommand } from '@shared/process-io'; // non-git CLI calls (gh)
 import { runGitCommand } from '../utils/process-helpers.ts'; // git operations
 import { createComponentLogger, logError } from '../../utils/logger.ts';
+import { GIT } from '../../core/constants.ts';
 import * as Sentry from '@sentry/node';
 
 const logger = createComponentLogger('BranchManager');
@@ -426,7 +427,7 @@ export class BranchManager {
     const timestamp = Date.now();
     const jobType = (jobContext.jobType || 'job').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
     const description = jobContext.description
-      ? `-${jobContext.description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 30).replace(/-+$/, '')}`
+      ? `-${jobContext.description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, GIT.BRANCH_DESCRIPTION_MAX_CHARS).replace(/-+$/, '')}`
       : '';
 
     return `${this.branchPrefix}/${jobType}${description}-${timestamp}`;

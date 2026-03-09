@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
+import { FORMATTING, LIMITS } from '../core/constants.ts';
 import { createComponentLogger, logWarn } from './logger.ts';
 
 const logger = createComponentLogger('DirectoryScanner');
@@ -89,7 +90,7 @@ export class DirectoryScanner {
       'rust',
       'recovery',
     ]);
-    this.maxDepth = options.maxDepth ?? 10;
+    this.maxDepth = options.maxDepth ?? LIMITS.DEFAULT_MAX_DEPTH;
   }
 
   /**
@@ -210,7 +211,7 @@ export class DirectoryScanner {
 
     const sortedNames = Object.entries(stats.byName)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 10);
+      .slice(0, LIMITS.DISPLAY_TOP_N);
 
     stats.topDirectoryNames = sortedNames.map(([name, count]) => ({ name, count }));
 
@@ -236,7 +237,7 @@ export class DirectoryScanner {
     };
 
     const reportPath = path.join(this.outputDir, `scan-report-${timestamp}.json`);
-    await fs.writeFile(reportPath, JSON.stringify(report, null, 2));
+    await fs.writeFile(reportPath, JSON.stringify(report, null, FORMATTING.JSON_INDENT));
 
     return reportPath;
   }
@@ -301,7 +302,7 @@ export class DirectoryScanner {
     };
 
     const summaryPath = path.join(this.outputDir, `scan-summary-${Date.now()}.json`);
-    await fs.writeFile(summaryPath, JSON.stringify(summary, null, 2));
+    await fs.writeFile(summaryPath, JSON.stringify(summary, null, FORMATTING.JSON_INDENT));
 
     return {
       summary,

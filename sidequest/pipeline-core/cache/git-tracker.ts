@@ -11,6 +11,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { createComponentLogger } from '../../utils/logger.ts';
 import { TIME_MS } from '../../core/units.ts';
+import { GIT, PAGINATION } from '../../core/constants.ts';
 
 const execPromise = promisify(exec);
 const logger = createComponentLogger('GitCommitTracker');
@@ -108,8 +109,8 @@ export class GitCommitTracker {
 
     logger.info({
       repoPath,
-      lastCommit: lastCommit.substring(0, 7),
-      currentCommit: currentCommit.substring(0, 7),
+      lastCommit: lastCommit.substring(0, GIT.SHORT_HASH_LENGTH),
+      currentCommit: currentCommit.substring(0, GIT.SHORT_HASH_LENGTH),
       changed
     }, 'Checked repository for changes');
 
@@ -147,8 +148,8 @@ export class GitCommitTracker {
 
       logger.info({
         repoPath,
-        fromCommit: fromCommit.substring(0, 7),
-        toCommit: currentCommit.substring(0, 7),
+        fromCommit: fromCommit.substring(0, GIT.SHORT_HASH_LENGTH),
+        toCommit: currentCommit.substring(0, GIT.SHORT_HASH_LENGTH),
         filesChanged: changedFiles.length
       }, 'Retrieved changed files');
 
@@ -179,7 +180,7 @@ export class GitCommitTracker {
 
       const metadata: CommitMetadata = {
         hash,
-        shortHash: hash.substring(0, 7),
+        shortHash: hash.substring(0, GIT.SHORT_HASH_LENGTH),
         author,
         email,
         date: new Date(parseInt(timestamp) * TIME_MS.SECOND).toISOString(),
@@ -345,7 +346,7 @@ export class GitCommitTracker {
     const status: RepositoryStatus = {
       is_git_repository: isGit,
       current_commit: currentCommit,
-      short_commit: currentCommit ? currentCommit.substring(0, 7) : null,
+      short_commit: currentCommit ? currentCommit.substring(0, GIT.SHORT_HASH_LENGTH) : null,
       branch: branchName,
       has_uncommitted_changes: hasUncommitted,
       remote_url: remoteUrl,
@@ -366,7 +367,7 @@ export class GitCommitTracker {
    * @returns {Promise<CommitMetadata[]>} The commit history
    * @async
    */
-  async getCommitHistory(repoPath: string, limit = 10): Promise<CommitMetadata[]> {
+  async getCommitHistory(repoPath: string, limit = PAGINATION.DEFAULT_QUERY_LIMIT): Promise<CommitMetadata[]> {
     try {
       const { stdout } = await execPromise(
         `git log -${limit} --format='%H|%an|%ae|%at|%s'`,
@@ -380,7 +381,7 @@ export class GitCommitTracker {
           const [hash, author, email, timestamp, message] = line.split('|');
           return {
             hash,
-            shortHash: hash.substring(0, 7),
+            shortHash: hash.substring(0, GIT.SHORT_HASH_LENGTH),
             author,
             email,
           date: new Date(parseInt(timestamp) * TIME_MS.SECOND).toISOString(),

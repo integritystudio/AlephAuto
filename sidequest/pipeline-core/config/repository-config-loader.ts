@@ -9,7 +9,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import os from 'os';
-import { LIMITS } from '../../core/constants.ts';
+import { FORMATTING, LIMITS } from '../../core/constants.ts';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -481,7 +481,7 @@ export class RepositoryConfigLoader {
       try {
         await fs.writeFile(
           this.configPath,
-          JSON.stringify(this.config, null, 2),
+          JSON.stringify(this.config, null, FORMATTING.JSON_INDENT),
           'utf-8'
         );
 

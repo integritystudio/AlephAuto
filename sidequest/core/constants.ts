@@ -18,6 +18,7 @@ const DURATION_MS = {
   FIVE_MINUTES: 5 * TIME_MS.MINUTE,
   TEN_MINUTES: 10 * TIME_MS.MINUTE,
   FIFTEEN_MINUTES: 15 * TIME_MS.MINUTE,
+  THIRTY_MINUTES: 30 * TIME_MS.MINUTE,
   HOUR: TIME_MS.HOUR,
   TWELVE_HOURS: 12 * TIME_MS.HOUR,
   DAY: HOURS_PER_DAY * TIME_MS.HOUR,
@@ -28,8 +29,8 @@ const DURATION_MS = {
 export const TIMEOUTS = {
   /** Pipeline and worker execution */
   PYTHON_PIPELINE_BASE_MS: DURATION_MS.TEN_MINUTES,
-  PYTHON_PIPELINE_PER_PATTERN_MS: 100,
-  PYTHON_PIPELINE_PER_FILE_MS: 10,
+  PYTHON_PIPELINE_PER_PATTERN_MS: 100 * TIME_MS.MS,
+  PYTHON_PIPELINE_PER_FILE_MS: 10 * TIME_MS.MS,
   REPOMIX_MS: DURATION_MS.TEN_MINUTES,
   GIT_REPORT_MS: DURATION_MS.FIVE_MINUTES,
   WORKER_INIT_MS: DURATION_MS.THIRTY_SECONDS,
@@ -50,6 +51,12 @@ export const TIMEOUTS = {
   DATABASE_SAVE_INTERVAL_MS: DURATION_MS.THIRTY_SECONDS,
   DEPENDENCY_CHECK_MS: DURATION_MS.THIRTY_SECONDS,
   VERSION_CHECK_MS: DURATION_MS.FIVE_SECONDS,
+
+  /** Maximum wait time for async pipeline completion */
+  SCAN_COMPLETION_WAIT_MS: DURATION_MS.THIRTY_MINUTES,
+
+  /** Doppler health monitor polling interval in minutes */
+  DOPPLER_MONITOR_INTERVAL_MIN: 15,
 } as const;
 
 /**
@@ -69,6 +76,7 @@ export const RETRY = {
   DEFAULT_DELAY_MS: DURATION_MS.FIVE_SECONDS,
 
   /** Exponential backoff policy */
+  BACKOFF_MULTIPLIER: 2,
   BASE_BACKOFF_MS: DURATION_MS.SECOND,
   MAX_BACKOFF_MS: DURATION_MS.TEN_SECONDS,
 
@@ -86,6 +94,9 @@ export const PORT = {
 
   /** Default shutdown timeout for graceful shutdown (10 seconds) */
   DEFAULT_SHUTDOWN_TIMEOUT_MS: DURATION_MS.TEN_SECONDS,
+
+  /** Number of consecutive ports to try when preferred port is busy */
+  FALLBACK_RANGE: 10,
 } as const;
 
 /**
@@ -185,8 +196,40 @@ export const RETRY_EVENTS = {
   CREATED: 'retry:created',
 } as const;
 
+export const PERSIST_CONTEXT = {
+  CREATE: 'create',
+  STARTED: 'started',
+  RETRY_QUEUED: 'retry_queued',
+  FAILED: 'failed',
+} as const;
+
 export const WORKER_EVENTS = {
   METRICS_UPDATED: 'metrics:updated',
+} as const;
+
+/**
+ * Output formatting constants
+ */
+export const FORMATTING = {
+  /** Indentation level for JSON.stringify pretty-print */
+  JSON_INDENT: 2,
+
+  /** Default decimal places for .toFixed() display */
+  DECIMAL_PLACES: 2,
+} as const;
+
+/**
+ * Process-level constants
+ */
+export const PROCESS = {
+  /** Index where user-supplied arguments begin in process.argv */
+  ARGV_START: 2,
+
+  /** File descriptor number for stderr */
+  STDERR_FD: 2,
+
+  /** Maximum EventEmitter listeners to register before Node.js warns */
+  MAX_LISTENERS: 20,
 } as const;
 
 /**
@@ -216,14 +259,23 @@ export const CONCURRENCY = {
   /** Default maximum concurrent jobs per worker */
   DEFAULT_MAX_JOBS: 5,
 
+  /** Default concurrency for I/O-bound pipelines (git, schema, etc.) */
+  DEFAULT_IO_BOUND: 2,
+
   /** Maximum concurrent worker initializations */
   MAX_WORKER_INITS: 3,
+
+  /** Default max concurrent jobs for analysis pipelines (test-refactor, duplicate-detection, etc.) */
+  DEFAULT_PIPELINE_CONCURRENCY: 3,
 } as const;
 
 /**
  * Pagination defaults
  */
 export const PAGINATION = {
+  /** Default page size for short queries (jobs by pipeline, commit history) */
+  DEFAULT_QUERY_LIMIT: 10,
+
   /** Default page size for job listings */
   DEFAULT_LIMIT: 50,
 
@@ -232,6 +284,9 @@ export const PAGINATION = {
 
   /** Maximum allowed page size to prevent memory issues */
   MAX_LIMIT: 1000,
+
+  /** Number of recent activities to show in the activity feed */
+  ACTIVITY_FEED_LIMIT: 20,
 } as const;
 
 /**
@@ -240,6 +295,10 @@ export const PAGINATION = {
 export const VALIDATION = {
   /** Job ID pattern - alphanumeric, hyphens, underscores, max 100 chars */
   JOB_ID_PATTERN: /^[a-zA-Z0-9_-]{1,100}$/,
+  /** Maximum allowed length for job IDs */
+  JOB_ID_MAX_LENGTH: 100,
+  /** Replaces characters not allowed in job IDs (for log filename sanitization) */
+  JOB_ID_SANITIZE_PATTERN: /[^a-zA-Z0-9_-]/g,
 } as const;
 
 /**
@@ -257,6 +316,71 @@ export const LIMITS = {
 
   /** Minimum hardcoded string occurrences before surfacing in analysis output */
   HARD_CODED_STRING_MIN_OCCURRENCES: 3,
+
+  /** Default number of items to display in top-N lists and truncated output */
+  DISPLAY_TOP_N: 10,
+
+  /** Default maximum directory traversal depth */
+  DEFAULT_MAX_DEPTH: 10,
+
+  /** Maximum child process buffer size in megabytes */
+  MAX_BUFFER_MB: 10,
+
+  /** Maximum slow hook entries to display in health reports */
+  MAX_SLOW_HOOKS_DISPLAY: 5,
+
+  /** Default maximum suggestions grouped per PR */
+  DEFAULT_MAX_SUGGESTIONS_PER_PR: 5,
+
+  /** Short preview list size for inline truncated displays */
+  SHORT_PREVIEW_COUNT: 3,
+
+  /** Number of characters to include in error log previews */
+  LOG_PREVIEW_CHARS: 100,
+
+  /** Minimum required disk space in megabytes */
+  MIN_DISK_SPACE_MB: 100,
+
+  /** Default maximum number of root files before flagging for cleanup */
+  DEFAULT_MAX_ROOT_FILES: 20,
+
+  /** Number of trailing stderr/stdout characters to include in error logs */
+  STDERR_TAIL_CHARS: 500,
+
+  /** Number of trailing stderr characters for inline error message snippets */
+  STDERR_SHORT_TAIL_CHARS: 200,
+
+  /** Maximum number of recent activities to buffer in the activity feed */
+  ACTIVITY_BUFFER_SIZE: 50,
+
+  /** Maximum unique strings to include when generating a constants file */
+  UNIQUE_STRINGS_LIMIT: 50,
+
+  /** Length of the path hash prefix used in cache keys */
+  CACHE_PATH_HASH_LENGTH: 16,
+
+  /** Number of random bytes used to generate WebSocket client IDs */
+  CLIENT_ID_BYTES: 16,
+
+  /** Characters of API key to include in log prefixes */
+  API_KEY_LOG_PREFIX: 8,
+
+  /** Number of recent performance log entries to analyze */
+  PERF_LOG_RECENT_ENTRIES: 100,
+
+  /** Minimum health score to consider a system healthy (no recommendations) */
+  HIGH_HEALTH_SCORE: 90,
+} as const;
+
+/**
+ * General git operation constants
+ */
+export const GIT = {
+  /** Standard short hash character length (git log --short default) */
+  SHORT_HASH_LENGTH: 7,
+
+  /** Maximum characters from branch description slug */
+  BRANCH_DESCRIPTION_MAX_CHARS: 30,
 } as const;
 
 /**
@@ -343,6 +467,40 @@ export const MARKDOWN_REPORT = {
 
   HIGH_SCORE_MIN: 75,
   MEDIUM_SCORE_MIN: 50,
+
+  /** Default max duplicates when coordinating across report formats */
+  COORDINATOR_MAX_DUPLICATES: 20,
+
+  /** Default max suggestions when coordinating across report formats */
+  COORDINATOR_MAX_SUGGESTIONS: 20,
+} as const;
+
+/**
+ * Schema scoring point weights
+ */
+export const SCHEMA_SCORING = {
+  /** Points per SEO improvement */
+  SEO_IMPROVEMENTS_WEIGHT: 15,
+
+  /** Points per rich results eligibility entry */
+  RICH_RESULTS_WEIGHT: 20,
+
+  /** Bonus for schema having a description field */
+  DESCRIPTION_BONUS: 20,
+
+  /** Bonus for schema having a code repository field */
+  CODE_REPO_BONUS: 15,
+} as const;
+
+/**
+ * Test refactor analysis thresholds
+ */
+export const TEST_REFACTOR = {
+  /** Minimum hardcoded string length to flag for extraction */
+  MIN_HARDCODED_STRING_LENGTH: 5,
+
+  /** Minimum pattern count before generating a recommendation */
+  PATTERN_RECOMMENDATION_THRESHOLD: 5,
 } as const;
 
 /**

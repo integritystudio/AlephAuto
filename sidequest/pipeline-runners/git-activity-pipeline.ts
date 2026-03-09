@@ -1,12 +1,10 @@
 #!/usr/bin/env -S node --strip-types
 import { GitActivityWorker } from '../workers/git-activity-worker.ts';
 import { config } from '../core/config.ts';
-import { GIT_ACTIVITY, JOB_EVENTS, NUMBER_BASE } from '../core/constants.ts';
+import { CONCURRENCY, GIT_ACTIVITY, NUMBER_BASE, PROCESS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
-import { realpathSync } from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { isDirectExecution } from '../utils/execution-helpers.ts';
 
 const logger = createComponentLogger('GitActivityPipeline');
 
@@ -85,7 +83,7 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
    */
   constructor(options: Record<string, unknown> = {}) {
     super(new GitActivityWorker({
-      maxConcurrent: config.maxConcurrent ?? 2,
+      maxConcurrent: config.maxConcurrent ?? CONCURRENCY.DEFAULT_IO_BOUND,
       logDir: config.logDir,
       sentryDsn: config.sentryDsn,
       codeBaseDir: config.codeBaseDir,
@@ -96,54 +94,27 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
     this.reportType = isDefaultReportType(configuredReportType)
       ? configuredReportType
       : GIT_ACTIVITY.DEFAULT_REPORT_TYPE;
-    this.setupEventListeners();
-  }
-
-  /**
-   * Setup event listeners for job events
-   */
-  private setupEventListeners(): void {
-    this.worker.on(JOB_EVENTS.CREATED, (job: Job) => {
-      const data = job.data as unknown as JobData;
-      logger.info({ jobId: job.id, reportType: data.reportType }, 'Job created');
-    });
-
-    this.worker.on(JOB_EVENTS.STARTED, (job: Job) => {
-      const data = job.data as unknown as JobData;
-      logger.info({
-        jobId: job.id,
-        reportType: data.reportType,
-        days: data.days
-      }, 'Job started');
-    });
-
-    this.worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
-      const result = job.result as unknown as JobResult;
-      const duration = job.completedAt && job.startedAt
-        ? job.completedAt.getTime() - job.startedAt.getTime()
-        : undefined;
-      logger.info({
-        jobId: job.id,
-        duration,
-        reportType: result.reportType,
-        totalCommits: result.stats.totalCommits,
-        totalRepositories: result.stats.totalRepositories,
-        filesGenerated: result.outputFiles.length
-      }, 'Job completed');
-
-      // Log output file locations
-      result.outputFiles.forEach((file: OutputFile) => {
-        if (file.exists) {
-          logger.info({
-            path: file.path,
-            size: file.size
-          }, 'Output file generated');
-        }
-      });
-    });
-
-    this.worker.on(JOB_EVENTS.FAILED, (job: Job) => {
-      logError(logger, job.error, 'Job failed', { jobId: job.id });
+    this.setupDefaultEventListeners(logger, {
+      onCreated: (job) => ({ reportType: (job.data as unknown as JobData).reportType }),
+      onStarted: (job) => {
+        const data = job.data as unknown as JobData;
+        return { reportType: data.reportType, days: data.days };
+      },
+      onCompleted: (job) => {
+        const result = job.result as unknown as JobResult;
+        // Log output file locations
+        result.outputFiles.forEach((file: OutputFile) => {
+          if (file.exists) {
+            logger.info({ path: file.path, size: file.size }, 'Output file generated');
+          }
+        });
+        return {
+          reportType: result.reportType,
+          totalCommits: result.stats.totalCommits,
+          totalRepositories: result.stats.totalRepositories,
+          filesGenerated: result.outputFiles.length,
+        };
+      },
     });
   }
 
@@ -306,25 +277,14 @@ export function parseGitActivityCliArgs(args: string[], runOnStartup: boolean): 
   return { options, runNow, errors };
 }
 
-function isDirectExecution(): boolean {
-  const currentModulePath = fileURLToPath(import.meta.url);
-  const entryPath = process.argv[1];
-  if (!entryPath) return false;
-  try {
-    return realpathSync(path.resolve(entryPath)) === realpathSync(currentModulePath);
-  } catch {
-    return false;
-  }
-}
-
 // Run if executed directly
-if (isDirectExecution()) {
+if (isDirectExecution(import.meta.url)) {
   const pipeline = new GitActivityPipeline();
 
   const weeklyCronSchedule = process.env.GIT_CRON_SCHEDULE || GIT_ACTIVITY.DEFAULT_WEEKLY_CRON; // Sunday 8 PM
   const monthlyCronSchedule = process.env.GIT_MONTHLY_CRON_SCHEDULE || GIT_ACTIVITY.DEFAULT_MONTHLY_CRON; // 1st of month 8 AM
 
-  const args = process.argv.slice(2);
+  const args = process.argv.slice(PROCESS.ARGV_START);
   const { options, runNow, errors } = parseGitActivityCliArgs(args, config.runOnStartup);
   if (errors.length > 0) {
     logger.error({ args, errors }, 'Invalid CLI options');

@@ -2,14 +2,13 @@
 import { RepoCleanupWorker } from '../workers/repo-cleanup-worker.ts';
 import type { Job } from '../core/server.ts';
 import { config } from '../core/config.ts';
-import { JOB_EVENTS, TIMEOUTS } from '../core/constants.ts';
+import { JOB_EVENTS, PROCESS, TIMEOUTS } from '../core/constants.ts';
 import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
-import { realpathSync } from 'fs';
 import path from 'path';
 import os from 'os';
-import { fileURLToPath } from 'url';
+import { isDirectExecution } from '../utils/execution-helpers.ts';
 
 const logger = createComponentLogger('RepoCleanupPipeline');
 
@@ -64,7 +63,7 @@ const TARGET_DIR = process.env.CLEANUP_TARGET_DIR || path.join(os.homedir(), 'co
 const DRY_RUN = process.env.CLEANUP_DRY_RUN === 'true';
 
 // Support both env var and --run-now flag
-const args = process.argv.slice(2);
+const args = process.argv.slice(PROCESS.ARGV_START);
 const RUN_WITH_CRON = args.includes('--cron');
 // || is correct here: CLI flags must also trigger when config.runOnStartup is false (boolean OR, not nullish coalescing)
 const RUN_ON_STARTUP = config.runOnStartup || args.includes('--run-now') || args.includes('--run');
@@ -277,18 +276,7 @@ async function main(): Promise<void> {
   });
 }
 
-function isDirectExecution(): boolean {
-  const currentModulePath = fileURLToPath(import.meta.url);
-  const entryPath = process.argv[1];
-  if (!entryPath) return false;
-  try {
-    return realpathSync(path.resolve(entryPath)) === realpathSync(currentModulePath);
-  } catch {
-    return false;
-  }
-}
-
-if (isDirectExecution()) {
+if (isDirectExecution(import.meta.url)) {
   main().catch((error: unknown) => {
     logError(logger, error, 'Fatal error in cleanup pipeline');
     Sentry.captureException(error, {

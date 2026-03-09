@@ -1,6 +1,8 @@
 import pino from 'pino';
 import type { Logger } from 'pino';
 
+const STDERR_FD = 2;
+
 export interface LoggerConfig {
   /** Log level (trace, debug, info, warn, error, fatal). Defaults to 'info'. */
   level?: string;
@@ -49,10 +51,10 @@ export function createLogger(config: LoggerConfig = {}): Logger {
         ignore: 'pid,hostname',
         singleLine: false,
         messageFormat: '{levelLabel} - {msg}',
-        destination: 2, // stderr (fd 2) for MCP compatibility
+        destination: STDERR_FD, // stderr for MCP compatibility
       }
     } : undefined,
-  }, isProduction ? pino.destination(2) : undefined);
+  }, isProduction ? pino.destination(STDERR_FD) : undefined);
 }
 
 /**

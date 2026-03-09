@@ -1,14 +1,13 @@
 #!/usr/bin/env -S node --strip-types
 import { BugfixAuditWorker } from '../workers/bugfix-audit-worker.ts';
 import { config } from '../core/config.ts';
-import { JOB_EVENTS } from '../core/constants.ts';
 import { TIME_MS } from '../core/units.ts';
+import { CONCURRENCY, FORMATTING, PROCESS } from '../core/constants.ts';
 import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
-import { realpathSync } from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { isDirectExecution } from '../utils/execution-helpers.ts';
 
 const logger = createComponentLogger('BugfixAuditPipeline');
 
@@ -55,7 +54,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
   constructor(options: BugfixAuditOptions = {}) {
     super(new BugfixAuditWorker({
       ...options,
-      maxConcurrent: options.maxConcurrent ?? 3,
+      maxConcurrent: options.maxConcurrent ?? CONCURRENCY.DEFAULT_PIPELINE_CONCURRENCY,
       logDir: config.logDir,
       sentryDsn: config.sentryDsn,
       activeDocsDir: options.activeDocsDir ?? path.join(config.homeDir, 'dev', 'active'),
@@ -65,47 +64,20 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
       gitDryRun: options.gitDryRun ?? config.gitDryRun,
     }));
 
-    this.setupEventListeners();
-  }
-
-  private setupEventListeners(): void {
-    this.worker.on(JOB_EVENTS.CREATED, (job: Job) => {
-      const data = job.data as unknown as JobData;
-      logger.info({
-        jobId: job.id,
-        projectName: data.projectName,
-        markdownFile: data.markdownFile,
-      }, 'Bugfix audit job created');
-    });
-
-    this.worker.on(JOB_EVENTS.STARTED, (job: Job) => {
-      const data = job.data as unknown as JobData;
-      logger.info({
-        jobId: job.id,
-        projectName: data.projectName,
-      }, 'Bugfix audit job started');
-    });
-
-    this.worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
-      const data = job.data as unknown as JobData;
-      const result = job.result as unknown as JobResult | undefined;
-      const duration = job.completedAt && job.startedAt
-        ? job.completedAt.getTime() - job.startedAt.getTime()
-        : undefined;
-      logger.info({
-        jobId: job.id,
-        projectName: data.projectName,
-        pullRequestUrl: result?.pullRequestUrl,
-        duration,
-      }, 'Bugfix audit job completed');
-    });
-
-    this.worker.on(JOB_EVENTS.FAILED, (job: Job) => {
-      const data = job.data as unknown as JobData;
-      logError(logger, job.error, 'Bugfix audit job failed', {
-        jobId: job.id,
-        projectName: data.projectName,
-      });
+    this.setupDefaultEventListeners(logger, {
+      onCreated: (job) => {
+        const data = job.data as unknown as JobData;
+        return { projectName: data.projectName, markdownFile: data.markdownFile };
+      },
+      onStarted: (job) => ({ projectName: (job.data as unknown as JobData).projectName }),
+      onCompleted: (job) => {
+        const result = job.result as unknown as JobResult | undefined;
+        return {
+          projectName: (job.data as unknown as JobData).projectName,
+          pullRequestUrl: result?.pullRequestUrl,
+        };
+      },
+      onFailed: (job) => ({ projectName: (job.data as unknown as JobData).projectName }),
     });
   }
 
@@ -167,7 +139,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
     await fs.mkdir(logsDir, { recursive: true });
 
     const summaryPath = path.join(logsDir, `run-summary-${Date.now()}.json`);
-    await fs.writeFile(summaryPath, JSON.stringify(summary, null, 2));
+    await fs.writeFile(summaryPath, JSON.stringify(summary, null, FORMATTING.JSON_INDENT));
 
     logger.info({ summaryPath }, 'Run summary saved');
   }
@@ -209,20 +181,9 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
   }
 }
 
-function isDirectExecution(): boolean {
-  const currentModulePath = fileURLToPath(import.meta.url);
-  const entryPath = process.argv[1];
-  if (!entryPath) return false;
-  try {
-    return realpathSync(path.resolve(entryPath)) === realpathSync(currentModulePath);
-  } catch {
-    return false;
-  }
-}
-
 // CLI entry point
-if (isDirectExecution()) {
-  const args = process.argv.slice(2);
+if (isDirectExecution(import.meta.url)) {
+  const args = process.argv.slice(PROCESS.ARGV_START);
 
   const runNow = args.includes('--run-now') || args.includes('--now');
   const once = args.includes('--once') || args.includes('--one-time');

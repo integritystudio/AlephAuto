@@ -9,6 +9,7 @@ import { SidequestServer, type Job, type SidequestServerOptions } from '../core/
 import { GitignoreRepomixUpdater } from '../utils/gitignore-repomix-updater.ts';
 import { generateReport } from '../utils/report-generator.ts';
 import { createComponentLogger } from '../utils/logger.ts';
+import { LIMITS } from '../core/constants.ts';
 import * as Sentry from '@sentry/node';
 import path from 'path';
 import os from 'os';
@@ -99,7 +100,7 @@ export class GitignoreWorker extends SidequestServer {
       '.venv',
       'venv',
     ];
-    this.maxDepth = options.maxDepth ?? 10;
+    this.maxDepth = options.maxDepth ?? LIMITS.DEFAULT_MAX_DEPTH;
     this.gitignoreEntry = options.gitignoreEntry ?? 'repomix-output.xml';
   }
 

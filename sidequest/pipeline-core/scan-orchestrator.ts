@@ -25,7 +25,7 @@ import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import * as Sentry from '@sentry/node';
-import { TIMEOUTS } from '../core/constants.ts';
+import { LIMITS, TIMEOUTS, MARKDOWN_REPORT } from '../core/constants.ts';
 import { TIME_MS } from '../core/units.ts';
 
 const logger = createComponentLogger('ScanOrchestrator');
@@ -533,7 +533,7 @@ export class ScanOrchestrator {
       return { success: true, data: result };
     } catch (error) {
       logger.error(
-        { stdout: stdout.slice(-500), stderr: stderr.slice(-500) },
+        { stdout: stdout.slice(-LIMITS.STDERR_TAIL_CHARS), stderr: stderr.slice(-LIMITS.STDERR_TAIL_CHARS) },
         'Failed to parse Python pipeline output'
       );
       return {
@@ -556,7 +556,7 @@ export class ScanOrchestrator {
       try {
         const result: PythonPipelineOutput = JSON.parse(stdout);
         logger.warn(
-          { signal, stderrTail: stderr.slice(-200) },
+          { signal, stderrTail: stderr.slice(-LIMITS.STDERR_SHORT_TAIL_CHARS) },
           `Python pipeline was killed by signal ${signal} but produced valid output - treating as success`
         );
         return { success: true, data: result };
@@ -569,12 +569,12 @@ export class ScanOrchestrator {
     const timeoutMsg = signal === 'SIGTERM'
       ? ' (likely due to timeout - consider increasing timeout or optimizing the scan)'
       : '';
-    logger.error({ signal, stderrTail: stderr.slice(-500) }, `Python pipeline killed by signal: ${signal}`);
+    logger.error({ signal, stderrTail: stderr.slice(-LIMITS.STDERR_TAIL_CHARS) }, `Python pipeline killed by signal: ${signal}`);
     return {
       success: false,
       error: new Error(
         `Python pipeline was killed by signal ${signal}${timeoutMsg}\n` +
-        `stderr (last 200 chars): ${stderr.slice(-200)}`
+        `stderr (last 200 chars): ${stderr.slice(-LIMITS.STDERR_SHORT_TAIL_CHARS)}`
       )
     };
   }
@@ -586,10 +586,10 @@ export class ScanOrchestrator {
     code: number,
     stderr: string
   ): { success: boolean; data?: PythonPipelineOutput; error?: Error } {
-    logger.error({ code, stderrTail: stderr.slice(-500) }, 'Python pipeline failed');
+    logger.error({ code, stderrTail: stderr.slice(-LIMITS.STDERR_TAIL_CHARS) }, 'Python pipeline failed');
     return {
       success: false,
-      error: new Error(`Python pipeline exited with code ${code}: ${stderr.slice(-500)}`)
+      error: new Error(`Python pipeline exited with code ${code}: ${stderr.slice(-LIMITS.STDERR_TAIL_CHARS)}`)
     };
   }
 
@@ -721,8 +721,8 @@ export class ScanOrchestrator {
 
         await MarkdownReportGenerator.saveReport(scanResult as unknown as ReportScanResult, markdownPath, {
           includeDetails: options.includeDetails !== false,
-          maxDuplicates: options.maxDuplicates || 10,
-          maxSuggestions: options.maxSuggestions || 10
+          maxDuplicates: options.maxDuplicates || MARKDOWN_REPORT.DEFAULT_MAX_DUPLICATES,
+          maxSuggestions: options.maxSuggestions || MARKDOWN_REPORT.DEFAULT_MAX_SUGGESTIONS
         });
 
         reportPaths.markdown = markdownPath;

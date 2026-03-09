@@ -213,7 +213,7 @@ export class AstGrepPatternDetector {
 
           const err: ProcessError = new Error(
             `ast-grep exited with code ${code}\n` +
-            `stderr: ${stderr.slice(-200)}\n` +
+            `stderr: ${stderr.slice(-LIMITS.STDERR_SHORT_TAIL_CHARS)}\n` +
             (code === 127 ? 'Binary not found. Install: npm install -g @ast-grep/cli\n' : '') +
             `Reproduce: cd ${repoPath} && sg ${args.join(' ')}`
           );

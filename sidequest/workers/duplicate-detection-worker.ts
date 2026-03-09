@@ -24,7 +24,7 @@ import path from 'path';
 import * as Sentry from '@sentry/node';
 import type { RetryMetrics, WorkerScanMetrics as ScanMetrics, DuplicateDetectionWorkerOptions } from '../pipeline-core/types/duplicate-detection-types.ts';
 import { config } from '../core/config.ts';
-import { RETRY, WORKER_EVENTS } from '../core/constants.ts';
+import { CONCURRENCY, LIMITS, MARKDOWN_REPORT, RETRY, WORKER_EVENTS } from '../core/constants.ts';
 
 const logger = createComponentLogger('DuplicateDetectionWorker');
 
@@ -115,7 +115,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
     super({
       ...options,
       jobType: 'duplicate-detection',
-      maxConcurrent: options.maxConcurrentScans ?? 3,
+      maxConcurrent: options.maxConcurrentScans ?? CONCURRENCY.DEFAULT_PIPELINE_CONCURRENCY,
       logDir: path.join(process.cwd(), 'logs', 'duplicate-detection'),
     });
 
@@ -138,7 +138,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
       baseBranch: options.baseBranch ?? 'main',
       branchPrefix: options.branchPrefix ?? 'consolidate',
       dryRun: options.dryRun ?? config.prDryRun,
-      maxSuggestionsPerPR: options.maxSuggestionsPerPR ?? 5
+      maxSuggestionsPerPR: options.maxSuggestionsPerPR ?? LIMITS.DEFAULT_MAX_SUGGESTIONS_PER_PR
     });
 
     this.scanMetrics = {
@@ -441,7 +441,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
 
       // Count high-impact duplicates
       const highImpactDuplicates = (scanResult.cross_repository_duplicates ?? [])
-        .filter(dup => dup.impact_score >= 75);
+        .filter(dup => dup.impact_score >= MARKDOWN_REPORT.HIGH_SCORE_MIN);
       this.scanMetrics.highImpactDuplicates += highImpactDuplicates.length;
     } else {
       this.scanMetrics.totalDuplicatesFound += scanResult.metrics.total_duplicate_groups ?? 0;
@@ -449,7 +449,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
 
       // Count high-impact duplicates
       const highImpactDuplicates = (scanResult.duplicate_groups ?? [])
-        .filter(dup => dup.impact_score >= 75);
+        .filter(dup => dup.impact_score >= MARKDOWN_REPORT.HIGH_SCORE_MIN);
       this.scanMetrics.highImpactDuplicates += highImpactDuplicates.length;
     }
   }
@@ -493,7 +493,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
       return;
     }
 
-    const threshold = notificationSettings.highImpactThreshold ?? 75;
+    const threshold = notificationSettings.highImpactThreshold ?? MARKDOWN_REPORT.HIGH_SCORE_MIN;
     const duplicates: DuplicateEntry[] = scanResult.scan_type === 'inter-project'
       ? scanResult.cross_repository_duplicates ?? []
       : scanResult.duplicate_groups ?? [];

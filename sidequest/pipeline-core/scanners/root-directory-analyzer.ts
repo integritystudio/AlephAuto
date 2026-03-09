@@ -1,5 +1,6 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { LIMITS, MARKDOWN_REPORT, MAX_SCORE } from '../../core/constants.ts';
 
 // ============================================================================
 // Type Definitions
@@ -114,7 +115,7 @@ export class RootDirectoryAnalyzer {
    */
   constructor(options: RootDirectoryAnalyzerOptions = {}) {
     this.logger = options.logger ?? console;
-    this.maxRootFiles = options.maxRootFiles ?? 20;
+    this.maxRootFiles = options.maxRootFiles ?? LIMITS.DEFAULT_MAX_ROOT_FILES;
     this.thresholds = {
       pythonFiles: 3,
       shellScripts: 3,
@@ -158,7 +159,7 @@ export class RootDirectoryAnalyzer {
         reduction_potential: reductionPotential,
         final_root_files: rootFiles.length - reductionPotential,
         reduction_percentage: rootFiles.length > 0
-          ? Math.round((reductionPotential / rootFiles.length) * 100)
+          ? Math.round((reductionPotential / rootFiles.length) * MAX_SCORE)
           : 0,
         scan_duration_ms: Date.now() - startTime
       };
@@ -627,20 +628,20 @@ export class RootDirectoryAnalyzer {
 
       if (rec.import_changes && rec.import_changes.length > 0) {
         lines.push('**Import Changes Required:**', '');
-        rec.import_changes.slice(0, 5).forEach(change => {
+        rec.import_changes.slice(0, MARKDOWN_REPORT.MAX_MIGRATION_STEPS).forEach(change => {
           lines.push(`- \`${change.file}\`: \`${change.old_import}\` -> \`${change.new_import}\``);
         });
-        if (rec.import_changes.length > 5) {
-          lines.push(`- ... and ${rec.import_changes.length - 5} more`);
+        if (rec.import_changes.length > MARKDOWN_REPORT.MAX_MIGRATION_STEPS) {
+          lines.push(`- ... and ${rec.import_changes.length - MARKDOWN_REPORT.MAX_MIGRATION_STEPS} more`);
         }
         lines.push('');
       }
 
       lines.push('**Commands:**', '```bash');
       lines.push(`mkdir -p ${rec.target_directory}`);
-      rec.commands.slice(0, 10).forEach(cmd => lines.push(cmd));
-      if (rec.commands.length > 10) {
-        lines.push(`# ... and ${rec.commands.length - 10} more files`);
+      rec.commands.slice(0, LIMITS.DISPLAY_TOP_N).forEach(cmd => lines.push(cmd));
+      if (rec.commands.length > LIMITS.DISPLAY_TOP_N) {
+        lines.push(`# ... and ${rec.commands.length - LIMITS.DISPLAY_TOP_N} more files`);
       }
       lines.push('```', '');
     });

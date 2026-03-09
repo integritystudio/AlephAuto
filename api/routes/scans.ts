@@ -5,21 +5,22 @@
  */
 
 import express, { type Request, type Response, type NextFunction } from 'express';
-import { CachedScanner } from '#sidequest/pipeline-core/cache/cached-scanner.ts';
-import { InterProjectScanner } from '#sidequest/pipeline-core/inter-project-scanner.ts';
 import { DuplicateDetectionWorker } from '#sidequest/workers/duplicate-detection-worker.ts';
 import { createComponentLogger, logStart } from '#sidequest/utils/logger.ts';
 import { strictRateLimiter } from '../middleware/rate-limit.ts';
 import { validateRequest } from '../middleware/validation.ts';
+import { workerRegistry } from '../utils/worker-registry.ts';
 import {
   StartScanRequestSchema,
+  StartMultiScanRequestSchema,
   type StartScanRequest,
+  type StartMultiScanRequest,
   type ScanResponse,
   type ScanResults
 } from '../types/scan-requests.ts';
-import { getJobs, type ParsedJob } from '#sidequest/core/database.ts';
 import { JOB_STATUS } from '../types/job-status.ts';
-import { PAGINATION } from '#sidequest/core/constants.ts';
+import { VALIDATION } from '#sidequest/core/constants.ts';
+import { jobRepository } from '#sidequest/core/job-repository.ts';
 import { type RepositoryConfig } from '#sidequest/pipeline-core/config/repository-config-loader.ts';
 import path from 'path';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
@@ -27,16 +28,16 @@ import { HttpStatus } from '../../shared/constants/http-status.ts';
 const router = express.Router();
 const logger = createComponentLogger('ScanRoutes');
 
-// Initialize scanners
-const _cachedScanner = new CachedScanner({ cacheEnabled: true });
-const _interProjectScanner = new InterProjectScanner();
+// Create standalone worker and register it with the registry for lifecycle management
 const worker = new DuplicateDetectionWorker({ maxConcurrentScans: 3 });
 
-// Export worker for use in status endpoint
+// Export worker so tests can control it (stop, cancel jobs)
 export { worker };
 
-// Initialize worker
-worker.initialize().catch(error => {
+// Initialize worker and register with registry for activity feed + graceful shutdown
+worker.initialize().then(() => {
+  workerRegistry.registerWorker('duplicate-detection', worker);
+}).catch(error => {
   logger.error({ error }, 'Failed to initialize worker');
 });
 
@@ -79,61 +80,89 @@ router.post(
  * POST /api/scans/start-multi
  * Start an inter-project scan across multiple repositories
  */
-router.post('/start-multi', strictRateLimiter, async (req, res, next) => {
-  try {
-    const { repositoryPaths, groupName } = req.body;
+router.post(
+  '/start-multi',
+  strictRateLimiter,
+  validateRequest(StartMultiScanRequestSchema),
+  async (req: Request<{}, {}, StartMultiScanRequest>, res: Response, next: NextFunction) => {
+    try {
+      const { repositoryPaths, groupName } = req.body;
 
-    if (!repositoryPaths || !Array.isArray(repositoryPaths) || repositoryPaths.length < 2) {
-      return res.status(HttpStatus.BAD_REQUEST).json({
-        error: 'Bad Request',
-        message: 'repositoryPaths must be an array with at least 2 repositories',
+      // Validate all paths are absolute and don't contain null bytes or path traversal
+      for (const repoPath of repositoryPaths) {
+        if (!path.isAbsolute(repoPath) || repoPath.includes('\0')) {
+          return res.status(HttpStatus.BAD_REQUEST).json({
+            error: 'Bad Request',
+            message: `Invalid repository path: must be absolute with no null bytes`,
+            timestamp: new Date().toISOString()
+          });
+        }
+        const normalized = path.normalize(repoPath);
+        if (normalized !== repoPath) {
+          return res.status(HttpStatus.BAD_REQUEST).json({
+            error: 'Bad Request',
+            message: `Invalid repository path: path traversal not allowed`,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
+      logStart(logger, 'inter-project scan via API', { repositoryPaths, groupName });
+
+      const repositories = repositoryPaths.map(repoPath => ({
+        name: path.basename(repoPath),
+        path: repoPath
+      }));
+
+      const job = worker.scheduleScan('inter-project', repositories as RepositoryConfig[]);
+
+      res.status(HttpStatus.CREATED).json({
+        success: true,
+        job_id: job.id,
+        group_name: groupName || 'unnamed-group',
+        repository_count: repositoryPaths.length,
+        status_url: `/api/scans/${job.id}/status`,
+        results_url: `/api/scans/${job.id}/results`,
+        message: 'Inter-project scan started successfully',
         timestamp: new Date().toISOString()
       });
+    } catch (error) {
+      next(error);
     }
-
-    logStart(logger, 'inter-project scan via API', { repositoryPaths, groupName });
-
-    // Start inter-project scan
-    const repositories = repositoryPaths.map(repoPath => ({
-      name: path.basename(repoPath),
-      path: repoPath
-    }));
-
-    const job = worker.scheduleScan('inter-project', repositories as RepositoryConfig[]);
-
-    res.status(HttpStatus.CREATED).json({
-      success: true,
-      job_id: job.id, // Use the actual job ID from scheduleScan
-      group_name: groupName || 'unnamed-group',
-      repository_count: repositoryPaths.length,
-      status_url: `/api/scans/${job.id}/status`,
-      results_url: `/api/scans/${job.id}/results`,
-      message: 'Inter-project scan started successfully',
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 /**
  * GET /api/scans/:scanId/status
- * Get scan status
+ * Get scan status for a specific scan job
  */
 router.get('/:scanId/status', async (req, res, next) => {
   try {
     const { scanId } = req.params;
 
-    const scanMetrics = worker.getScanMetrics();
-    const queueStats = worker.getStats();
+    if (!VALIDATION.JOB_ID_PATTERN.test(scanId)) {
+      return res.status(HttpStatus.BAD_REQUEST).json({
+        error: 'Bad Request',
+        message: 'Invalid scan ID format',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const job = jobRepository.getJob(scanId);
+
+    if (!job) {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        error: 'Not Found',
+        message: `Scan with ID '${scanId}' not found`,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     res.json({
       scan_id: scanId,
-      status: queueStats.active > 0 ? 'running' : 'idle',
-      active_jobs: queueStats.active,
-      queued_jobs: queueStats.queued,
-      completed_scans: scanMetrics.totalScans || 0,
-      failed_scans: scanMetrics.failedScans || 0,
+      status: job.status,
+      started_at: job.startedAt,
+      completed_at: job.completedAt,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -151,32 +180,17 @@ router.get('/:scanId/results', async (req, res, next) => {
 
     logger.debug({ scanId }, 'Fetching scan results');
 
-    // Query database for the scan job
-    // First try duplicate-detection pipeline (most scans)
-    /**
-     * Get the jobs array.
-     *
-     * @param {ReturnType<typeof getJobs>} result - The result
-     *
-     * @returns {ParsedJob[]} The jobs array
-     */
-    const getJobsArray = (result: ReturnType<typeof getJobs>): ParsedJob[] =>
-      Array.isArray(result) ? result : result.jobs;
-
-    let jobs = getJobsArray(getJobs('duplicate-detection', { limit: PAGINATION.MAX_LIMIT }));
-    let job = jobs.find((j) => j.id === scanId);
-
-    // If not found, check all pipeline types in the database
-    if (!job) {
-      const allPipelines = ['repomix', 'schema-enhancement', 'git-activity', 'gitignore-manager', 'plugin-manager', 'claude-health'];
-      for (const pipelineId of allPipelines) {
-        jobs = getJobsArray(getJobs(pipelineId, { limit: PAGINATION.MAX_LIMIT }));
-        job = jobs.find((j) => j.id === scanId);
-        if (job) break;
-      }
+    if (!VALIDATION.JOB_ID_PATTERN.test(scanId)) {
+      return res.status(HttpStatus.BAD_REQUEST).json({
+        error: 'Bad Request',
+        message: 'Invalid scan ID format',
+        timestamp: new Date().toISOString()
+      });
     }
 
-    // Return 404 if scan not found
+    // Direct primary-key lookup instead of scanning all pipelines
+    const job = jobRepository.getJob(scanId);
+
     if (!job) {
       return res.status(HttpStatus.NOT_FOUND).json({
         error: 'Not Found',

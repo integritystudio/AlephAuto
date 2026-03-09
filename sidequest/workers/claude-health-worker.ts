@@ -15,7 +15,7 @@
 
 import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
 import { config } from '../core/config.ts';
-import { BYTES_PER_KB, TIMEOUTS } from '../core/constants.ts';
+import { BYTES_PER_KB, LIMITS, MAX_SCORE, TIMEOUTS } from '../core/constants.ts';
 import { HEALTH_SCORE_THRESHOLDS } from '../core/score-thresholds.ts';
 import { createComponentLogger, logError, logWarn, logStart } from '../utils/logger.ts';
 import { generateReport } from '../utils/report-generator.ts';
@@ -199,8 +199,8 @@ class ClaudeHealthWorker extends SidequestServer {
       maxPlugins: 30,
       warnPlugins: 20,
       maxHookExecutionTime: TIMEOUTS.POLL_INTERVAL_MS, // Max hook execution time
-      minDiskSpace: BYTES_PER_KB * BYTES_PER_KB * 100, // 100MB
-      maxLogSize: BYTES_PER_KB * BYTES_PER_KB * 10 // 10MB
+      minDiskSpace: BYTES_PER_KB * BYTES_PER_KB * LIMITS.MIN_DISK_SPACE_MB,
+      maxLogSize: LIMITS.MAX_BUFFER_MB * BYTES_PER_KB * BYTES_PER_KB // 10MB
     };
 
     logger.info({
@@ -643,7 +643,7 @@ class ClaudeHealthWorker extends SidequestServer {
       // Read recent entries
       const data = await fs.readFile(perfLogPath, 'utf-8');
       const lines = data.split('\n').filter(l => l.trim());
-      const recentEntries = lines.slice(-100); // Last 100 entries
+      const recentEntries = lines.slice(-LIMITS.PERF_LOG_RECENT_ENTRIES);
 
       // Parse slow hooks
       const slowHooks: SlowHookDetail[] = recentEntries
@@ -664,7 +664,7 @@ class ClaudeHealthWorker extends SidequestServer {
         recentEntries: recentEntries.length,
         slowHooks: slowHooks.length,
         failures,
-        slowHookDetails: slowHooks.slice(0, 5) // Top 5 slowest
+        slowHookDetails: slowHooks.slice(0, LIMITS.MAX_SLOW_HOOKS_DISPLAY) // Top slowest
       };
     } catch (error) {
       const err = error as NodeJS.ErrnoException;
@@ -788,7 +788,7 @@ class ClaudeHealthWorker extends SidequestServer {
    */
   calculateHealthScore(issues: Issue[], warnings: Issue[], successes: Issue[]): number {
     const totalChecks = issues.length + warnings.length + successes.length;
-    if (totalChecks === 0) return 100;
+    if (totalChecks === 0) return MAX_SCORE;
 
     const issueWeight = 20;
     const warningWeight = 5;
@@ -797,7 +797,7 @@ class ClaudeHealthWorker extends SidequestServer {
     const deductions = (issues.length * issueWeight) + (warnings.length * warningWeight);
     const additions = successes.length * successWeight;
 
-    return Math.max(0, Math.min(100, 100 - deductions + (additions / totalChecks)));
+    return Math.max(0, Math.min(MAX_SCORE, MAX_SCORE - deductions + (additions / totalChecks)));
   }
 
   /**
@@ -827,7 +827,7 @@ class ClaudeHealthWorker extends SidequestServer {
     }
 
     // Success message if health score is high
-    if (analysis.healthScore >= 90 && recommendations.length === 0) {
+    if (analysis.healthScore >= LIMITS.HIGH_HEALTH_SCORE && recommendations.length === 0) {
       recommendations.push({
         priority: 'info',
         type: 'healthy',

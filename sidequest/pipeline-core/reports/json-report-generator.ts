@@ -3,9 +3,15 @@
  *
  * Generates structured JSON exports of duplicate detection scan results.
  * Suitable for programmatic consumption, API integration, and data analysis.
+ *
+ * NOTE: The types defined here (ScanResult, DuplicateGroup, Suggestion, etc.)
+ * represent the Python pipeline's raw JSON output shape. They differ from the
+ * similarly named types in types/duplicate-detection-types.ts which model the
+ * TypeScript worker's job lifecycle and internal scan metadata.
  */
 
 import { saveGeneratedReport } from '../utils/index.ts';
+import { FORMATTING } from '../../core/constants.ts';
 import type { MigrationStep } from '../types/migration-types.ts';
 
 export interface ScanMetadata {
@@ -250,7 +256,7 @@ export class JSONReportGenerator {
    */
   static async saveReport(scanResult: ScanResult, outputPath: string, options: JSONReportOptions = {}): Promise<string> {
     const report = this.generateReport(scanResult, options);
-    const json = options.prettyPrint !== false ? JSON.stringify(report, null, 2) : JSON.stringify(report);
+    const json = options.prettyPrint !== false ? JSON.stringify(report, null, FORMATTING.JSON_INDENT) : JSON.stringify(report);
     return saveGeneratedReport(outputPath, json);
   }
 
@@ -258,7 +264,7 @@ export class JSONReportGenerator {
    * Save concise summary to file
    */
   static async saveSummary(scanResult: ScanResult, outputPath: string): Promise<string> {
-    return saveGeneratedReport(outputPath, JSON.stringify(this.generateSummary(scanResult), null, 2));
+    return saveGeneratedReport(outputPath, JSON.stringify(this.generateSummary(scanResult), null, FORMATTING.JSON_INDENT));
   }
 
   // Private helper methods

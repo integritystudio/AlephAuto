@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod';
+import { INTER_PROJECT_SCAN } from '#sidequest/core/constants.ts';
 
 /**
  * Scan Options Schema
@@ -86,5 +87,15 @@ export const ScanResultsSchema = z.object({
 }).strict();
 
 export type ScanResults = z.infer<typeof ScanResultsSchema>;
+
+/**
+ * Start Multi Scan Request Schema
+ */
+export const StartMultiScanRequestSchema = z.object({
+  repositoryPaths: z.array(z.string().min(1)).min(INTER_PROJECT_SCAN.MIN_REPOSITORIES_PER_GROUP, `At least ${INTER_PROJECT_SCAN.MIN_REPOSITORIES_PER_GROUP} repository paths required`),
+  groupName: z.string().optional()
+}).strict();
+
+export type StartMultiScanRequest = z.infer<typeof StartMultiScanRequestSchema>;
 
 export { createErrorResponse } from './shared-schemas.ts';

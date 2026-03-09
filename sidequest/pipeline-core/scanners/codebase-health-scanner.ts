@@ -22,6 +22,7 @@ import { TimeoutPatternDetector } from './timeout-pattern-detector.ts';
 import type { TimeoutFindings } from './timeout-pattern-detector.ts';
 import { RootDirectoryAnalyzer } from './root-directory-analyzer.ts';
 import type { RootDirectoryAnalysis } from './root-directory-analyzer.ts';
+import { FORMATTING, PROCESS } from '../../core/constants.ts';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -70,7 +71,7 @@ function printUsage(): void {
  * @async
  */
 async function main(): Promise<void> {
-  const args = process.argv.slice(2);
+  const args = process.argv.slice(PROCESS.ARGV_START);
 
   // Parse arguments
   const repoPath = args[0];
@@ -126,7 +127,7 @@ async function main(): Promise<void> {
 
     // Generate output
     if (jsonOutput) {
-      const output = JSON.stringify(results, null, 2);
+      const output = JSON.stringify(results, null, FORMATTING.JSON_INDENT);
       if (outputFile) {
         await fs.writeFile(outputFile, output);
         logger.info(`JSON report saved to: ${outputFile}`);

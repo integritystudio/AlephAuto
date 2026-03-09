@@ -10,6 +10,7 @@ import { MarkdownReportGenerator } from './markdown-report-generator.ts';
 import { JSONReportGenerator } from './json-report-generator.ts';
 import type { ScanResult } from './json-report-generator.ts';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
+import { MARKDOWN_REPORT } from '../../core/constants.ts';
 import { createTimer, ensureDir } from '../utils/index.ts';
 import path from 'path';
 
@@ -148,8 +149,8 @@ export class ReportCoordinator {
 
     const markdownOptions = {
       includeDetails: options.includeDetails !== false,
-      maxDuplicates: options.maxDuplicates ?? 20,
-      maxSuggestions: options.maxSuggestions ?? 20,
+      maxDuplicates: options.maxDuplicates ?? MARKDOWN_REPORT.COORDINATOR_MAX_DUPLICATES,
+      maxSuggestions: options.maxSuggestions ?? MARKDOWN_REPORT.COORDINATOR_MAX_SUGGESTIONS,
       ...options.markdown
     };
 

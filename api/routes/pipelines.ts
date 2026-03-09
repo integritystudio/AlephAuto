@@ -23,6 +23,9 @@ import * as Sentry from '@sentry/node';
 import { jobRepository } from '#sidequest/core/job-repository.ts';
 import { workerRegistry } from '../utils/worker-registry.ts';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
+import { PAGINATION } from '#sidequest/core/constants.ts';
+
+const RESERVED_PARAM_KEYS = new Set(['triggeredBy', 'triggeredAt', 'retriedFrom', 'retryCount']);
 
 const router = express.Router();
 const logger = createComponentLogger('PipelineRoutes');
@@ -48,8 +51,8 @@ router.get(
     next: NextFunction
   ) => {
     const { pipelineId } = req.params;
-    // Use validatedQuery from validation middleware
-    const { status, limit, offset, tab } = (req as unknown as { validatedQuery: JobQueryParams }).validatedQuery;
+    // Use validatedQuery from validation middleware (typed via Express module augmentation)
+    const { status, limit, offset, tab } = req.validatedQuery as JobQueryParams;
 
     try {
       logger.info({
@@ -71,8 +74,8 @@ router.get(
       const response: JobsListResponse = {
         pipelineId,
         jobs: result.jobs,
-        total: result.total, // FIXED: Use database total, not page size
-        hasMore: result.jobs.length === limit,
+        total: result.total,
+        hasMore: (offset + result.jobs.length) < result.total,
         timestamp: new Date().toISOString()
       };
 
@@ -188,7 +191,7 @@ async function fetchJobsForPipeline(
   // Query SQLite database with total count (FIXED: Now includes actual DB count)
   const dbResult = jobRepository.getJobs(pipelineId, {
     status,
-    limit: limit ?? 10,
+    limit: limit ?? PAGINATION.DEFAULT_QUERY_LIMIT,
     offset: offset ?? 0,
     tab,
     includeTotal: true // Request total count from database
@@ -286,9 +289,17 @@ async function triggerPipelineJob(
   const timestamp = Date.now();
   const jobId = `${pipelineId}-manual-${timestamp}`;
 
+  // Strip system-controlled fields from parameters before spreading
+  const safeParameters: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(parameters)) {
+    if (!RESERVED_PARAM_KEYS.has(key)) {
+      safeParameters[key] = value;
+    }
+  }
+
   // Create job with worker
   const job = worker.createJob(jobId, {
-    ...parameters,
+    ...safeParameters,
     triggeredBy: 'api',
     triggeredAt: new Date().toISOString()
   });

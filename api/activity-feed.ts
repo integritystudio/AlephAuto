@@ -7,7 +7,7 @@
 
 import type { SidequestServer, Job } from '../sidequest/core/server.ts';
 import { createComponentLogger, logError } from '../sidequest/utils/logger.ts';
-import { TIMEOUTS } from '../sidequest/core/constants.ts';
+import { LIMITS, TIMEOUTS } from '../sidequest/core/constants.ts';
 import { calculateDurationSeconds, formatDuration } from '../sidequest/utils/time-helpers.ts';
 import * as Sentry from '@sentry/node';
 import { safeErrorMessage, toErrorObject } from '../sidequest/pipeline-core/utils/error-helpers.ts';
@@ -53,7 +53,7 @@ export class ActivityFeedManager {
    */
   constructor(broadcaster: ScanEventBroadcaster | null, options: { maxActivities?: number } = {}) {
     this.broadcaster = broadcaster;
-    this.maxActivities = options.maxActivities ?? 50; // Keep last 50 activities
+    this.maxActivities = options.maxActivities ?? LIMITS.ACTIVITY_BUFFER_SIZE;
     this.activities = [];
     this.activityId = 0;
 

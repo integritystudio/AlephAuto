@@ -19,6 +19,7 @@ import { glob } from 'glob';
 import path from 'path';
 import fs from 'fs/promises';
 import { readFileSync } from 'fs';
+import { CONCURRENCY, LIMITS, TEST_REFACTOR } from '../core/constants.ts';
 const logger = createComponentLogger('TestRefactorWorker');
 
 // Type definitions
@@ -99,7 +100,7 @@ export class TestRefactorWorker extends SidequestServer {
    */
   constructor(options: TestRefactorWorkerOptions = {}) {
     super({
-      maxConcurrent: options.maxConcurrent || 3,
+      maxConcurrent: options.maxConcurrent || CONCURRENCY.DEFAULT_PIPELINE_CONCURRENCY,
       logDir: path.join(process.cwd(), 'logs', 'test-refactor'),
       gitWorkflowEnabled: options.gitWorkflowEnabled ?? false,
       gitBranchPrefix: options.gitBranchPrefix || 'test-refactor',
@@ -306,32 +307,32 @@ export class TestRefactorWorker extends SidequestServer {
 
     // Find duplicated strings (3+ occurrences)
     for (const [str, count] of stringCounts) {
-      if (count >= 3 && str.length > 5) {
+      if (count >= LIMITS.HARD_CODED_STRING_MIN_OCCURRENCES && str.length > TEST_REFACTOR.MIN_HARDCODED_STRING_LENGTH) {
         result.patterns.hardcodedStrings.push(str);
       }
     }
 
     // Find duplicated assertions (3+ occurrences)
     for (const [assertion, count] of assertionCounts) {
-      if (count >= 3) {
+      if (count >= LIMITS.HARD_CODED_STRING_MIN_OCCURRENCES) {
         result.patterns.duplicateAssertions.push(assertion);
       }
     }
 
     // Generate recommendations
-    if (result.patterns.renderWaitFor > 5) {
+    if (result.patterns.renderWaitFor > TEST_REFACTOR.PATTERN_RECOMMENDATION_THRESHOLD) {
       result.recommendations.push('Create renderAndWait helper to reduce render + waitFor boilerplate');
     }
-    if (result.patterns.linkValidation > 5) {
+    if (result.patterns.linkValidation > TEST_REFACTOR.PATTERN_RECOMMENDATION_THRESHOLD) {
       result.recommendations.push('Create link assertion helpers (expectExternalLink, expectInternalLink, etc.)');
     }
-    if (result.patterns.semanticChecks > 5) {
+    if (result.patterns.semanticChecks > TEST_REFACTOR.PATTERN_RECOMMENDATION_THRESHOLD) {
       result.recommendations.push('Create semantic validators (expectSectionWithId, expectHeadingLevel, etc.)');
     }
-    if (result.patterns.formInteractions > 5) {
+    if (result.patterns.formInteractions > TEST_REFACTOR.PATTERN_RECOMMENDATION_THRESHOLD) {
       result.recommendations.push('Create form helpers (fillContactForm, expectFormAccessibility, etc.)');
     }
-    if (result.patterns.hardcodedStrings.length > 10) {
+    if (result.patterns.hardcodedStrings.length > LIMITS.DISPLAY_TOP_N) {
       result.recommendations.push('Extract hardcoded strings to test-constants.ts');
     }
 
@@ -700,7 +701,7 @@ export async function waitForForm() {
    * Generate test-constants.ts content
    */
   generateConstantsContent(hardcodedStrings: string[]): string {
-    const uniqueStrings = [...new Set(hardcodedStrings)].slice(0, 50);
+    const uniqueStrings = [...new Set(hardcodedStrings)].slice(0, LIMITS.UNIQUE_STRINGS_LIMIT);
     const categories = this.categorizeStrings(uniqueStrings);
 
     const sections: string[] = [];

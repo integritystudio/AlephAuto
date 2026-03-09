@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { RepomixWorker } from '../workers/repomix-worker.ts';
 import { DirectoryScanner } from '../utils/directory-scanner.ts';
 import { config } from './config.ts';
-import { JOB_EVENTS, TIMEOUTS } from './constants.ts';
+import { FORMATTING, JOB_EVENTS, LIMITS, TIMEOUTS } from './constants.ts';
 import { TIME_MS } from './units.ts';
 import path from 'path';
 import fs from 'fs/promises';
@@ -11,9 +11,6 @@ import { createComponentLogger, logError, logStart } from '../utils/logger.ts';
 import type { Job, JobStats } from './server.ts';
 
 const logger = createComponentLogger('RepomixCronApp');
-
-// Cast config to access dynamic properties
-const cfg = config as Record<string, unknown>;
 
 /** Typed shapes for JS classes (pending Phase 7-10 migration) */
 interface ScanDirectory {
@@ -62,17 +59,17 @@ export class RepomixCronApp {
    */
   constructor() {
     this.worker = new RepomixWorker({
-      maxConcurrent: cfg.maxConcurrent as number,
-      outputBaseDir: cfg.outputBaseDir as string,
-      codeBaseDir: cfg.codeBaseDir as string,
-      logDir: cfg.logDir as string,
-      sentryDsn: cfg.sentryDsn as string,
+      maxConcurrent: config.maxConcurrent,
+      outputBaseDir: config.outputBaseDir,
+      codeBaseDir: config.codeBaseDir,
+      logDir: config.logDir,
+      sentryDsn: config.sentryDsn,
     }) as unknown as TypedRepomixWorker;
 
     this.scanner = new DirectoryScanner({
-      baseDir: cfg.codeBaseDir as string,
-      outputDir: cfg.scanReportsDir as string,
-      excludeDirs: cfg.excludeDirs as string[],
+      baseDir: config.codeBaseDir,
+      outputDir: config.scanReportsDir,
+      excludeDirs: config.excludeDirs,
     }) as unknown as TypedDirectoryScanner;
 
     this.setupEventListeners();
@@ -129,7 +126,7 @@ export class RepomixCronApp {
         treePath: scanResults.treePath,
         summaryPath: scanResults.summaryPath,
         maxDepth: summary.maxDepth,
-        topDirectories: summary.stats.topDirectoryNames.slice(0, 3).map(d => d.name)
+        topDirectories: summary.stats.topDirectoryNames.slice(0, LIMITS.SHORT_PREVIEW_COUNT).map(d => d.name)
       }, 'Scan results saved');
 
       let jobCount = 0;
@@ -161,7 +158,7 @@ export class RepomixCronApp {
   }
 
   private async waitForCompletion(): Promise<void> {
-    const maxWaitMs = 30 * 60 * TIME_MS.SECOND;
+    const maxWaitMs = TIMEOUTS.SCAN_COMPLETION_WAIT_MS;
     return new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
         clearInterval(checkInterval);
@@ -187,7 +184,7 @@ export class RepomixCronApp {
     };
 
     const summaryPath = path.join(this.worker.logDir, `run-summary-${Date.now()}.json`);
-    await fs.writeFile(summaryPath, JSON.stringify(summary, null, 2));
+    await fs.writeFile(summaryPath, JSON.stringify(summary, null, FORMATTING.JSON_INDENT));
   }
 
   private setupCronJob(schedule: string = '0 2 * * *'): void {
@@ -215,9 +212,9 @@ export class RepomixCronApp {
       logDirectory: this.worker.logDir
     }, 'Repomix Cron Sidequest Server starting');
 
-    this.setupCronJob(cfg.repomixSchedule as string);
+    this.setupCronJob(config.repomixSchedule);
 
-    if (cfg.runOnStartup) {
+    if (config.runOnStartup) {
       logger.info('Running immediately (RUN_ON_STARTUP=true)');
       await this.runRepomixOnAllDirectories();
     }

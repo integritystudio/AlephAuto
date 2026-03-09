@@ -11,11 +11,14 @@ import { ReportQuerySchema } from '../types/report-requests.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
+import { VALIDATION } from '#sidequest/core/constants.ts';
+import { sendError, ERROR_CODES } from '../utils/api-error.ts';
+import { config } from '#sidequest/core/config.ts';
 
 const router = express.Router();
 const logger = createComponentLogger('ReportRoutes');
 
-const REPORTS_DIR = path.join(process.cwd(), 'output', 'reports');
+const REPORTS_DIR = path.join(config.scanReportsDir, 'reports');
 
 /**
  * GET /api/reports
@@ -28,7 +31,13 @@ router.get('/', validateQuery(ReportQuerySchema), async (req, res, next) => {
 
     logger.debug({ limit, format, type }, 'Listing reports');
 
-    const files = await fs.readdir(REPORTS_DIR);
+    let files: string[];
+    try {
+      files = await fs.readdir(REPORTS_DIR);
+    } catch {
+      res.json({ total: 0, reports: [], timestamp: new Date().toISOString() });
+      return;
+    }
 
     let reportFiles = files;
 
@@ -108,6 +117,20 @@ router.get('/:filename', async (req, res, next) => {
     }
 
     let reportPath = path.join(REPORTS_DIR, filename);
+
+    // Security: verify resolved path stays within REPORTS_DIR
+    const resolvedReportPath = path.resolve(reportPath);
+    const resolvedReportsDir = path.resolve(REPORTS_DIR);
+    if (!resolvedReportPath.startsWith(resolvedReportsDir + path.sep)) {
+      return res.status(HttpStatus.BAD_REQUEST).json({
+        success: false,
+        error: {
+          code: 'INVALID_REQUEST',
+          message: 'Invalid filename'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
 
     // Check if exact file exists
     try {
@@ -206,6 +229,20 @@ router.delete('/:filename', async (req, res, next) => {
 
     const reportPath = path.join(REPORTS_DIR, filename);
 
+    // Security: verify resolved path stays within REPORTS_DIR
+    const resolvedReportPath = path.resolve(reportPath);
+    const resolvedReportsDir = path.resolve(REPORTS_DIR);
+    if (!resolvedReportPath.startsWith(resolvedReportsDir + path.sep)) {
+      return res.status(HttpStatus.BAD_REQUEST).json({
+        success: false,
+        error: {
+          code: 'INVALID_REQUEST',
+          message: 'Invalid filename'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Check if file exists
     try {
       await fs.access(reportPath);
@@ -240,6 +277,10 @@ router.delete('/:filename', async (req, res, next) => {
 router.get('/:scanId/summary', async (req, res, next) => {
   try {
     const { scanId } = req.params;
+
+    if (!VALIDATION.JOB_ID_PATTERN.test(scanId)) {
+      return sendError(res, ERROR_CODES.INVALID_REQUEST, 'Invalid scanId format', HttpStatus.BAD_REQUEST);
+    }
 
     logger.debug({ scanId }, 'Getting scan summary');
 

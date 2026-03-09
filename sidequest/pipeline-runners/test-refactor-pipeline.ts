@@ -16,10 +16,10 @@ import type { Job as BaseJob } from '../core/server.ts';
 import { DirectoryScanner } from '../utils/directory-scanner.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
-import { JOB_EVENTS, RETRY_EVENTS, TIMEOUTS } from '../core/constants.ts';
+import { CONCURRENCY, JOB_EVENTS, RETRY_EVENTS, TIMEOUTS } from '../core/constants.ts';
 import cron from 'node-cron';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { isDirectExecution } from '../utils/execution-helpers.ts';
 
 const logger = createComponentLogger('TestRefactorPipeline');
 
@@ -66,7 +66,7 @@ async function runPipeline(targetPath: string | null = null): Promise<PipelineRe
   const worker = new TestRefactorWorker({
     dryRun: DRY_RUN,
     gitWorkflowEnabled: ENABLE_GIT_WORKFLOW,
-    maxConcurrent: config.maxConcurrent ?? 3
+    maxConcurrent: config.maxConcurrent ?? CONCURRENCY.DEFAULT_PIPELINE_CONCURRENCY
   });
 
   // Set up event handlers
@@ -240,13 +240,7 @@ async function main(): Promise<void> {
   }
 }
 
-function isDirectExecution(): boolean {
-  const currentModulePath = fileURLToPath(import.meta.url);
-  const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
-  return entryPath === currentModulePath;
-}
-
-if (isDirectExecution()) {
+if (isDirectExecution(import.meta.url)) {
   main().catch(error => {
     logger.error({ err: error }, 'Fatal error');
     process.exit(1);

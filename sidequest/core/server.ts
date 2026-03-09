@@ -5,9 +5,10 @@ import fs from 'fs/promises';
 import path from 'path';
 import { createComponentLogger, logError, logWarn } from '../utils/logger.ts';
 import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.ts';
-import { GitWorkflowManager } from './git-workflow-manager.ts';
+import { BranchManager } from '../pipeline-core/git/branch-manager.ts';
+import type { BranchManagerOptions, JobBranchContext, PRContext } from '../pipeline-core/git/branch-manager.ts';
 import { jobRepository } from './job-repository.ts';
-import { CONCURRENCY, JOB_EVENTS, RETRY, RETRY_EVENTS } from './constants.ts';
+import { CONCURRENCY, FORMATTING, JOB_EVENTS, PERSIST_CONTEXT, RETRY, RETRY_EVENTS, VALIDATION } from './constants.ts';
 import { TIME_MS } from './units.ts';
 import { isRetryable, classifyError } from '../pipeline-core/errors/error-classifier.ts';
 import { toISOString } from '../utils/time-helpers.ts';
@@ -100,8 +101,9 @@ export class SidequestServer extends EventEmitter {
   gitDryRun: boolean;
   jobType: string;
   jobRetentionDays: number;
-  gitWorkflowManager: GitWorkflowManager | undefined;
+  branchManager: BranchManager | undefined;
   private _dbReady: Promise<void>;
+  private _queueDraining = false;
 
   /**
    * Creates a Sidequest worker instance.
@@ -137,9 +139,9 @@ export class SidequestServer extends EventEmitter {
       ? Math.floor(requestedRetention)
       : defaultRetentionDays;
 
-    // Initialize GitWorkflowManager if git workflow is enabled
+    // Initialize BranchManager if git workflow is enabled
     if (this.gitWorkflowEnabled) {
-      this.gitWorkflowManager = new GitWorkflowManager({
+      this.branchManager = new BranchManager({
         baseBranch: this.gitBaseBranch,
         branchPrefix: this.gitBranchPrefix,
         dryRun: this.gitDryRun
@@ -165,7 +167,7 @@ export class SidequestServer extends EventEmitter {
       Sentry.init({
         dsn: options.sentryDsn ?? config.sentryDsn,
         environment: config.nodeEnv,
-        tracesSampleRate: 1.0,
+        tracesSampleRate: config.sentryTracesSampleRate,
       });
       sentryInitialized = true;
     }
@@ -179,6 +181,9 @@ export class SidequestServer extends EventEmitter {
    * @returns Created in-memory job object.
    */
   createJob(jobId: string, jobData: Record<string, unknown>): Job {
+    if (!VALIDATION.JOB_ID_PATTERN.test(jobId)) {
+      throw new Error(`Invalid job ID: must match ${VALIDATION.JOB_ID_PATTERN}`);
+    }
     const resolvedJobId = this._resolveUniqueJobId(jobId);
     const job: Job = {
       id: resolvedJobId,
@@ -203,11 +208,7 @@ export class SidequestServer extends EventEmitter {
     this.queue.push(resolvedJobId);
 
     // Persist to SQLite immediately so job is visible in dashboard
-    try {
-      this._persistJob(job);
-    } catch {
-      // Non-critical: job exists in-memory and will be persisted on next state change
-    }
+    this._trySilentPersist(job, PERSIST_CONTEXT.CREATE);
 
     Sentry.addBreadcrumb({
       category: 'job',
@@ -246,21 +247,26 @@ export class SidequestServer extends EventEmitter {
    * Drains queued jobs up to configured concurrency.
    */
   async processQueue(): Promise<void> {
-    if (this.isRunning === false) {
+    if (!this.isRunning || this._queueDraining) {
       return;
     }
 
-    while (this.queue.length > 0 && this.activeJobs < this.maxConcurrent) {
-      const jobId = this.queue.shift();
-      if (!jobId) continue;
-      const job = this.jobs.get(jobId);
+    this._queueDraining = true;
+    try {
+      while (this.queue.length > 0 && this.activeJobs < this.maxConcurrent) {
+        const jobId = this.queue.shift();
+        if (!jobId) continue;
+        const job = this.jobs.get(jobId);
 
-      if (!job) continue;
+        if (!job) continue;
 
-      this.activeJobs++;
-      this.executeJob(jobId).catch(error => {
-        logError(logger, error, 'Error executing job', { jobId });
-      });
+        this.activeJobs++;
+        this.executeJob(jobId).catch(error => {
+          logError(logger, error, 'Error executing job', { jobId });
+        });
+      }
+    } finally {
+      this._queueDraining = false;
     }
   }
 
@@ -333,6 +339,17 @@ export class SidequestServer extends EventEmitter {
     }
   }
 
+  private _trySilentPersist(job: Job, context: string): void {
+    try {
+      this._persistJob(job);
+    } catch (err) {
+      logError(logger, err, `Failed to persist job (${context})`, { jobId: job.id, status: job.status });
+      Sentry.captureException(err, {
+        tags: { jobId: job.id, operation: `persist_${context}` }
+      });
+    }
+  }
+
   private _prepareJobForExecution(job: Job): boolean {
     if (job.status !== JOB_STATUS.QUEUED) {
       logger.debug({
@@ -346,11 +363,7 @@ export class SidequestServer extends EventEmitter {
     job.startedAt = new Date();
     job.retryPending = false;
     this.emit(JOB_EVENTS.STARTED, job);
-    try {
-      this._persistJob(job);
-    } catch {
-      // Non-critical: will be persisted on completion/failure
-    }
+    this._trySilentPersist(job, PERSIST_CONTEXT.STARTED);
 
     Sentry.addBreadcrumb({
       category: 'job',
@@ -362,12 +375,12 @@ export class SidequestServer extends EventEmitter {
   }
 
   private async _setupGitBranchIfEnabled(job: Job): Promise<boolean> {
-    if (!this.gitWorkflowEnabled || !this.gitWorkflowManager || !job.data.repositoryPath) {
+    if (!this.gitWorkflowEnabled || !this.branchManager || !job.data.repositoryPath) {
       return false;
     }
 
     try {
-      const branchInfo = await this.gitWorkflowManager.createJobBranch(
+      const branchInfo = await this.branchManager.createJobBranch(
         job.data.repositoryPath as string,
         {
           jobId: job.id,
@@ -453,11 +466,7 @@ export class SidequestServer extends EventEmitter {
         delay: retryDelay
       });
 
-      try {
-        this._persistJob(job);
-      } catch {
-        // Non-critical
-      }
+      this._trySilentPersist(job, PERSIST_CONTEXT.RETRY_QUEUED);
 
       const jobId = job.id;
       setTimeout(() => {
@@ -492,9 +501,9 @@ export class SidequestServer extends EventEmitter {
     job.completedAt = new Date();
     job.error = { message: safeErrorMessage(error) };
 
-    if (branchCreated && this.gitWorkflowEnabled && this.gitWorkflowManager && job.git.branchName && job.git.originalBranch && typeof job.data.repositoryPath === 'string') {
+    if (branchCreated && this.gitWorkflowEnabled && this.branchManager && job.git.branchName && job.git.originalBranch && typeof job.data.repositoryPath === 'string') {
       try {
-        await this.gitWorkflowManager.cleanupBranch(
+        await this.branchManager.cleanupBranch(
           job.data.repositoryPath,
           job.git.branchName,
           job.git.originalBranch
@@ -508,11 +517,7 @@ export class SidequestServer extends EventEmitter {
     this.emit(JOB_EVENTS.FAILED, job, error);
     this.jobHistory.push({ ...job });
     this._pruneExpiredJobs();
-    try {
-      this._persistJob(job);
-    } catch {
-      // Guard: already in catch block
-    }
+    this._trySilentPersist(job, PERSIST_CONTEXT.FAILED);
 
     Sentry.captureException(error, {
       tags: { jobId: job.id, jobType: this.jobType },
@@ -526,8 +531,8 @@ export class SidequestServer extends EventEmitter {
   }
 
   private async _handleGitWorkflowSuccess(job: Job): Promise<void> {
-    if (!this.gitWorkflowManager) {
-      logger.warn({ jobId: job.id }, 'Git workflow manager not initialized, skipping git workflow');
+    if (!this.branchManager) {
+      logger.warn({ jobId: job.id }, 'Branch manager not initialized, skipping git workflow');
       return;
     }
     if (!job.git.branchName || !job.git.originalBranch) {
@@ -541,11 +546,11 @@ export class SidequestServer extends EventEmitter {
       return;
     }
 
-    const hasChanges = await this.gitWorkflowManager.hasChanges(repositoryPath);
+    const hasChanges = await this.branchManager.hasChanges(repositoryPath);
     if (!hasChanges) {
       logger.info({ jobId: job.id }, 'No changes to commit, cleaning up branch');
 
-      await this.gitWorkflowManager.cleanupBranch(
+      await this.branchManager.cleanupBranch(
         repositoryPath,
         job.git.branchName,
         job.git.originalBranch
@@ -554,7 +559,7 @@ export class SidequestServer extends EventEmitter {
       return;
     }
 
-    job.git.changedFiles = await this.gitWorkflowManager.getChangedFiles(repositoryPath);
+    job.git.changedFiles = await this.branchManager.getChangedFiles(repositoryPath);
 
     logger.info({
       jobId: job.id,
@@ -568,12 +573,12 @@ export class SidequestServer extends EventEmitter {
       jobId: job.id
     };
 
-    job.git.commitSha = await this.gitWorkflowManager.commitChanges(
+    job.git.commitSha = await this.branchManager.commitChanges(
       repositoryPath,
       commitContext
     );
 
-    const pushed = await this.gitWorkflowManager.pushBranch(
+    const pushed = await this.branchManager.pushBranch(
       repositoryPath,
       job.git.branchName
     );
@@ -584,7 +589,7 @@ export class SidequestServer extends EventEmitter {
     }
 
     const prContext = await this._generatePRContext(job, commitMessage);
-    job.git.prUrl = await this.gitWorkflowManager.createPullRequest(
+    job.git.prUrl = await this.branchManager.createPullRequest(
       repositoryPath,
       prContext
     );
@@ -690,9 +695,9 @@ export class SidequestServer extends EventEmitter {
   private async _writeJobLog(job: Job, suffix: string, extra?: Record<string, unknown>): Promise<void> {
     try {
       await fs.mkdir(this.logDir, { recursive: true });
-      const sanitizedId = path.basename(job.id);
+      const sanitizedId = job.id.replace(VALIDATION.JOB_ID_SANITIZE_PATTERN, '_');
       const logPath = path.join(this.logDir, `${sanitizedId}${suffix}`);
-      await fs.writeFile(logPath, JSON.stringify(extra ? { ...job, ...extra } : job, null, 2));
+      await fs.writeFile(logPath, JSON.stringify(extra ? { ...job, ...extra } : job, null, FORMATTING.JSON_INDENT));
     } catch (writeError) {
       logError(logger, writeError, `Failed to write ${suffix} log file`, { jobId: job.id });
     }
@@ -814,7 +819,7 @@ export class SidequestServer extends EventEmitter {
       this._pruneExpiredJobs();
     }
 
-    try { this._persistJob(job); } catch { /* Non-critical */ }
+    this._trySilentPersist(job, config.action);
 
     this.emit(`job:${config.action}`, job);
 

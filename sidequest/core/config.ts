@@ -80,7 +80,7 @@ function safeParseRetentionByType(value: string | undefined): Record<string, num
  */
 export const config = {
   // Base directories
-  codeBaseDir: process.env.CODE_BASE_DIR || path.join(os.homedir(), 'code'),
+  codeBaseDir: process.env.CODE_BASE_DIR ?? path.join(os.homedir(), 'code'),
 
   // Output directories (relative to project root or absolute)
   outputBaseDir: process.env.OUTPUT_BASE_DIR
@@ -111,6 +111,7 @@ export const config = {
   // Sentry monitoring
   sentryDsn: process.env.SENTRY_DSN,
   nodeEnv: process.env.NODE_ENV || 'production',
+  sentryTracesSampleRate: safeParseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE, 0.1, 0, 1),
 
   // Cron schedules (default: 2 AM for repomix, 3 AM for docs)
   repomixSchedule: process.env.CRON_SCHEDULE || '0 2 * * *',
@@ -277,6 +278,15 @@ export const config = {
 
   // System paths
   homeDir: process.env.HOME || os.homedir(),
+
+  // API key for authenticating protected API endpoints.
+  // Implemented as a getter so test overrides of process.env.API_KEY take effect.
+  get apiKey(): string | null {
+    const value = process.env.API_KEY;
+    if (!value) return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  },
 };
 
 /**

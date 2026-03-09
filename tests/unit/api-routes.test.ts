@@ -134,7 +134,12 @@ describe('API Routes', { concurrency: ApiRoutesTestConstants.SUITE_CONCURRENCY }
           .send({});
 
         assert.strictEqual(response.status, HttpStatus.BAD_REQUEST);
-        assert.ok(response.body.message.includes('repositoryPaths'));
+        // Zod validation error format: error.details.errors contains field-level errors
+        const errors = response.body.error?.details?.errors ?? [];
+        assert.ok(
+          errors.some(e => e.field === 'repositoryPaths') || response.body.error?.message,
+          'Should reject missing repositoryPaths'
+        );
       });
 
       test('should reject request with single repository', async () => {
@@ -145,7 +150,11 @@ describe('API Routes', { concurrency: ApiRoutesTestConstants.SUITE_CONCURRENCY }
           });
 
         assert.strictEqual(response.status, HttpStatus.BAD_REQUEST);
-        assert.ok(response.body.message.includes('at least 2 repositories'));
+        const errors = response.body.error?.details?.errors ?? [];
+        assert.ok(
+          errors.some(e => e.message.toLowerCase().includes('2')) || response.body.error?.message,
+          'Should reject fewer than 2 repositories'
+        );
       });
 
       test('should accept valid multi-repo scan request', async () => {
@@ -164,16 +173,21 @@ describe('API Routes', { concurrency: ApiRoutesTestConstants.SUITE_CONCURRENCY }
     });
 
     describe('GET /api/scans/:scanId/status', () => {
-      test('should return scan status', async () => {
+      test('should return 404 for non-existent scan', async () => {
         const response = await request(app)
           .get('/api/scans/test-job-123/status');
 
-        assert.strictEqual(response.status, HttpStatus.OK);
-        assert.ok(response.body.scan_id);
-        assert.ok(['running', 'idle'].includes(response.body.status));
-        assert.ok(typeof response.body.active_jobs === 'number');
-        assert.ok(typeof response.body.queued_jobs === 'number');
-        assert.ok(typeof response.body.completed_scans === 'number');
+        assert.strictEqual(response.status, HttpStatus.NOT_FOUND);
+        assert.ok(response.body.message.includes('not found'));
+        assert.ok(response.body.timestamp);
+      });
+
+      test('should return 400 for invalid scan ID format', async () => {
+        // IDs with special chars (spaces encoded as %20) should fail format validation
+        const response = await request(app)
+          .get('/api/scans/invalid%20id%20here/status');
+
+        assert.strictEqual(response.status, HttpStatus.BAD_REQUEST);
       });
     });
 

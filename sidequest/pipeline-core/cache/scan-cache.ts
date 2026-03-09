@@ -7,7 +7,7 @@
 
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 import crypto from 'crypto';
-import { GIT_ACTIVITY, LIMITS, PAGINATION } from '../../core/constants.ts';
+import { GIT, GIT_ACTIVITY, LIMITS, PAGINATION } from '../../core/constants.ts';
 import { TIME_MS } from '../../core/units.ts';
 
 const logger = createComponentLogger('ScanResultCache');
@@ -104,9 +104,9 @@ export class ScanResultCache {
       .createHash('sha256')
       .update(repoPath)
       .digest('hex')
-      .substring(0, 16);
+      .substring(0, LIMITS.CACHE_PATH_HASH_LENGTH);
 
-    const shortCommit = commitHash ? commitHash.substring(0, 7) : 'no-git';
+    const shortCommit = commitHash ? commitHash.substring(0, GIT.SHORT_HASH_LENGTH) : 'no-git';
 
     return `${this.keyPrefix}${pathHash}:${shortCommit}`;
   }
@@ -194,7 +194,7 @@ export class ScanResultCache {
       const metadata: CacheMetadata = {
         repository_path: repoPath,
         commit_hash: commitHash,
-        short_commit: commitHash ? commitHash.substring(0, 7) : null,
+        short_commit: commitHash ? commitHash.substring(0, GIT.SHORT_HASH_LENGTH) : null,
         cached_at: new Date().toISOString(),
         ttl: this.ttl,
         scan_type: (scanResult.scan_type as string) ?? 'unknown',
@@ -232,7 +232,7 @@ export class ScanResultCache {
       logger.info({
         cacheKey,
         repoPath,
-        commitHash: commitHash ? commitHash.substring(0, 7) : null,
+        commitHash: commitHash ? commitHash.substring(0, GIT.SHORT_HASH_LENGTH) : null,
         ttl: this.ttl,
         duplicates: metadata.total_duplicates
       }, 'Scan result cached successfully');
@@ -288,7 +288,7 @@ export class ScanResultCache {
         .createHash('sha256')
         .update(repoPath)
         .digest('hex')
-        .substring(0, 16);
+        .substring(0, LIMITS.CACHE_PATH_HASH_LENGTH);
 
       const pattern = `${this.keyPrefix}${pathHash}:*`;
 

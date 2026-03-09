@@ -9,6 +9,7 @@
  */
 
 import { z } from 'zod';
+import { INTER_PROJECT_SCAN, MAX_SCORE } from '../../core/constants.ts';
 
 // ============================================================================
 // Zod Schemas for Runtime Validation
@@ -117,7 +118,7 @@ export const DuplicateGroupSchema = z.object({
   group_id: z.string()
     .min(1, 'Group ID must not be empty'),
   block_ids: z.array(z.string())
-    .min(2, 'Duplicate group must have at least 2 blocks'),
+    .min(INTER_PROJECT_SCAN.MIN_BLOCKS_PER_HASH_GROUP, 'Duplicate group must have at least 2 blocks'),
   similarity_score: z.number()
     .min(0, 'Similarity score must be between 0 and 1')
     .max(1, 'Similarity score must be between 0 and 1'),
@@ -163,8 +164,8 @@ export const ScanMetricsSchema = z.object({
     .int('Potential LOC reduction must be an integer')
     .nonnegative('Potential LOC reduction must be non-negative'),
   duplication_percentage: z.number()
-    .min(0, 'Duplication percentage must be between 0 and 100')
-    .max(100, 'Duplication percentage must be between 0 and 100').optional(),
+    .min(0, `Duplication percentage must be between 0 and ${MAX_SCORE}`)
+    .max(MAX_SCORE, `Duplication percentage must be between 0 and ${MAX_SCORE}`).optional(),
   total_cross_repository_groups: z.number()
     .int().nonnegative().optional()
 }).strict();

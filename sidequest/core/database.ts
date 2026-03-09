@@ -15,7 +15,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createComponentLogger, logMetrics } from '../utils/logger.ts';
 import { isValidJobStatus } from '#api/types/job-status.ts';
-import { DATABASE, PAGINATION, VALIDATION } from './constants.ts';
+import { DATABASE, LIMITS, PAGINATION, VALIDATION } from './constants.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logger = createComponentLogger('Database');
@@ -114,9 +114,7 @@ export interface BulkImportResult {
 /** Health status */
 export interface HealthStatus {
   initialized: boolean;
-  degradedMode: boolean;
   persistenceWorking: boolean;
-  persistFailureCount: number;
   recoveryAttempts: number;
   queuedWrites: number;
   queueStalenessMs: number;
@@ -171,8 +169,20 @@ function safeJsonParse(str: string | null, fallback: unknown = null): unknown {
   try {
     return JSON.parse(str);
   } catch (error) {
-    logger.error({ error: (error as Error).message, preview: str.substring(0, 100) }, 'Failed to parse JSON from database');
+    logger.error({ error: (error as Error).message, preview: str.substring(0, LIMITS.LOG_PREVIEW_CHARS) }, 'Failed to parse JSON from database');
     return fallback;
+  }
+}
+
+/**
+ * Returns true if the string is valid JSON (non-null, parseable).
+ */
+function isValidJsonString(str: string): boolean {
+  try {
+    JSON.parse(str);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -344,7 +354,7 @@ function queryOne<T = Record<string, unknown>>(sql: string, params: (string | nu
  * @returns Job array or `{ jobs, total }` when `includeTotal` is enabled.
  */
 export function getJobs(pipelineId: string, options: JobQueryOptions = {}): ParsedJob[] | { jobs: ParsedJob[]; total: number } {
-  const { status, limit = 10, offset = 0, tab, includeTotal = false } = options;
+  const { status, limit = PAGINATION.DEFAULT_QUERY_LIMIT, offset = 0, tab, includeTotal = false } = options;
 
   // Build count query (only if includeTotal requested)
   let totalCount: number | null = null;
@@ -539,7 +549,7 @@ export async function importReportsToDatabase(reportsDir: string): Promise<numbe
       const dateStr = dateMatch ? dateMatch[1] : stats.mtime.toISOString().split('T')[0];
 
       // Create job ID from filename (sanitize for isValidJobId)
-      const jobId = file.replace('-summary.json', '').replace(/[^a-zA-Z0-9_-]/g, '-');
+      const jobId = file.replace('-summary.json', '').replace(/[^a-zA-Z0-9_-]/g, '-').substring(0, VALIDATION.JOB_ID_MAX_LENGTH);
 
       // Check if already imported
       const existing = queryOne<{ id: string }>('SELECT id FROM jobs WHERE id = ?', [jobId]);
@@ -619,7 +629,7 @@ export async function importLogsToDatabase(logsDir: string): Promise<number> {
       }
 
       // Create job ID from filename (sanitize for isValidJobId)
-      const jobId = file.replace('.json', '').replace(/[^a-zA-Z0-9_-]/g, '-');
+      const jobId = file.replace('.json', '').replace(/[^a-zA-Z0-9_-]/g, '-').substring(0, VALIDATION.JOB_ID_MAX_LENGTH);
 
       // Check if already imported
       const existing = queryOne<{ id: string }>('SELECT id FROM jobs WHERE id = ?', [jobId]);
@@ -668,9 +678,7 @@ export function getHealthStatus(): HealthStatus {
 
   return {
     initialized: db !== null,
-    degradedMode: false,
     persistenceWorking: db !== null,
-    persistFailureCount: 0,
     recoveryAttempts: 0,
     queuedWrites: 0,
     queueStalenessMs: 0,
@@ -738,6 +746,16 @@ export function bulkImportJobs(jobs: BulkImportJob[]): BulkImportResult {
         // Validate job status
         if (!isValidJobStatus(job.status)) {
           errors.push(`Job ${job.id}: Invalid status '${job.status}'`);
+          continue;
+        }
+
+        // Validate pre-serialized JSON string fields
+        const jsonFields = { data: job.data, result: job.result, error: job.error, git: job.git } as const;
+        const invalidField = Object.entries(jsonFields).find(
+          ([, val]) => typeof val === 'string' && !isValidJsonString(val)
+        );
+        if (invalidField) {
+          errors.push(`Job ${job.id}: field '${invalidField[0]}' is a string but not valid JSON`);
           continue;
         }
 

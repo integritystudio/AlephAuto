@@ -6,7 +6,7 @@
  */
 
 import { createComponentLogger, logError } from './logger.ts';
-import { TIMEOUTS, RETRY, CACHE } from '../core/constants.ts';
+import { CONFIG_POLICY, MAX_SCORE, TIMEOUTS, RETRY, CACHE, FORMATTING } from '../core/constants.ts';
 import Sentry from '@sentry/node';
 import fs from 'fs/promises';
 import path from 'path';
@@ -87,13 +87,13 @@ export class DopplerResilience {
    * constructor.
    */
   constructor(options: DopplerResilienceOptions = {}) {
-    this.failureThreshold = options.failureThreshold ?? 3;
+    this.failureThreshold = options.failureThreshold ?? CONFIG_POLICY.DOPPLER.DEFAULT_FAILURE_THRESHOLD;
     this.successThreshold = options.successThreshold ?? 2;
     this.timeout = options.timeout ?? TIMEOUTS.SHORT_MS;
     this.maxBackoffMs = options.maxBackoffMs ?? RETRY.MAX_BACKOFF_MS;
 
     this.baseDelayMs = options.baseDelayMs ?? RETRY.BASE_BACKOFF_MS;
-    this.backoffMultiplier = options.backoffMultiplier ?? 2;
+    this.backoffMultiplier = options.backoffMultiplier ?? RETRY.BACKOFF_MULTIPLIER;
     this.staleThresholdMs = options.staleThresholdMs ?? CACHE.STALE_THRESHOLD_MS; // Add this line
 
     this.state = CircuitState.CLOSED;
@@ -342,7 +342,7 @@ export class DopplerResilience {
         totalFailures: this.metrics.totalFailures,
         totalSuccesses: this.metrics.totalSuccesses,
         successRate: this.metrics.totalRequests > 0
-          ? (this.metrics.totalSuccesses / this.metrics.totalRequests * 100).toFixed(2) + '%'
+          ? (this.metrics.totalSuccesses / this.metrics.totalRequests * MAX_SCORE).toFixed(FORMATTING.DECIMAL_PLACES) + '%'
           : 'N/A',
         lastError: this.metrics.lastError
       },

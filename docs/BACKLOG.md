@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-08 | **Last Session:** 2026-03-08 (CX15 complete v2.3.22, added SV4-SV6)
+**Last Updated:** 2026-03-09 | **Last Session:** 2026-03-09 (backlog-implementer: SC-M1–M4, SC-M6, SC-L1–L4, SC-L6; follow-up: SC-M7–M8, SC-L7–L9)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -132,3 +132,113 @@ No active medium-priority backlog items.
 No active low-priority backlog items.
 
 > SV4-SV6 migrated to [v2.3.23](changelog/2.3/CHANGELOG.md#2323---2026-03-09).
+
+---
+
+## Consolidation / Deduplication Audit (2026-03-09)
+
+Full codebase analysis using repomix token-tree + code-simplifier agent.
+
+### Done
+
+| ID | Area | Description | Savings |
+|----|------|-------------|---------|
+| CD1 | `isDirectExecution` x10 | Extracted to `sidequest/utils/execution-helpers.ts`, replaced 10 inline copies | ~900 tok |
+| CD2 | HTML report CSS + `escapeHtml` | Extracted to `sidequest/utils/html-report-utils.ts`, shared by `report-generator.ts` and `html-report-generator.ts` | ~2700 tok |
+| CD3 | `GitWorkflowManager` wrapper | Eliminated; `server.ts` and `bugfix-audit-worker.ts` now use `BranchManager` directly | ~1100 tok |
+| CD4 | `setupEventListeners` boilerplate | Added `setupDefaultEventListeners` to `BasePipeline`; 5 subclasses consolidated | ~700 tok |
+| CD5 | Scan result type shapes | Documented intentional divergence between `duplicate-detection-types.ts` (worker lifecycle) and `json-report-generator.ts` (Python output shape) | 0 (docs only) |
+
+### Not actionable (confirmed no duplication)
+
+- TS vs Python constants (`constants.ts` / `constants.py`) — different runtimes, no overlap
+- `error-classifier.ts` vs `error-helpers.ts` — complementary, not duplicated
+- `timing-helpers.ts` vs `time-helpers.ts` — already properly layered
+- `sidequest/utils/time-helpers.ts` uses `TIME_MS` divisions instead of `SECONDS` constants from `units.ts` — minor (~100 tok), low priority
+
+---
+
+## Code Review Findings — API Routes (2026-03-09)
+
+Full review: [code-reviewer agent findings](REMOVED_AFTER_SESSION)
+
+**Scan:** 23 TS files (server, routes, middleware, utils, types). **Critical fixes applied:** C1 (CORS), C2 (directory traversal), C3 (scanId validation).
+
+### Done
+
+| ID | Title | Fix |
+|----|-------|-----|
+| H4 | `start-multi` accepts arbitrary filesystem paths | Added `StartMultiScanRequestSchema` with Zod validation; absolute path + null-byte + traversal checks in `scans.ts` |
+| H5 | Retry endpoint re-executes unsanitized job parameters | Strip `RESERVED_JOB_KEYS` before spreading into new job in `jobs.ts` |
+| H6 | Manual pipeline trigger bypasses parameter validation | Strip `RESERVED_PARAM_KEYS` before spreading into job in `pipelines.ts` |
+| H7 | REPORTS_DIR hardcoded, violates config pattern | Use `config.scanReportsDir` + graceful empty response on missing dir in `reports.ts` |
+| H8 | Auth key falls back to raw process.env | Added `apiKey` getter to config; `auth.ts` uses `config.apiKey` directly |
+| H9 | timingSafeEqual leaks length | Padding approach in both `jobs.ts` and `auth.ts` prevents length oracle |
+| M10 | Duplicate worker bypasses registry | `scans.ts` registers standalone worker with `workerRegistry.registerWorker()` after init |
+| M11 | `/:scanId/status` returns aggregate stats | Now uses `jobRepository.getJob(scanId)` for scan-specific lookup, returns 404 for unknown |
+| M12 | `hasMore` pagination off-by-one | Fixed to `(offset + result.jobs.length) < result.total` in `pipelines.ts` |
+| M13 | Sentry captures raw headers | Redact `SENSITIVE_KEYS` headers before sending to Sentry in `error-handler.ts` |
+| M14 | Shell injection in port-cleanup | Replaced `exec` with `execFile` + numeric PID validation in `port-manager.ts` |
+| M15 | WebSocket unconstrained channels | Added `VALID_CHANNEL_PATTERN`, `MAX_CHANNEL_NAME_LENGTH`, `MAX_SUBSCRIPTIONS_PER_CLIENT` in `websocket.ts` |
+| L16 | validateQuery double-cast | Express module augmentation for `req.validatedQuery` in `validation.ts` |
+| L17 | 7 serial table reads | Replaced with `jobRepository.getJob(scanId)` direct lookup in `scans.ts` |
+| L18 | retryCount from wrong location | Validate `retryCount` is non-negative number before use in `jobs.ts` |
+
+---
+
+## Code Review Findings — sidequest/core (2026-03-09)
+
+**Scan:** 13 TS files (server, database, job-repository, config, constants, units, git-workflow, index).
+
+### Done
+
+| ID | File | Title | Fix |
+|----|------|-------|-----|
+| SC-H1 | `server.ts` | Silent persist-error swallow | Added `_trySilentPersist` helper with logging + Sentry; replaced 5 silent `catch {}` blocks |
+| SC-H2 | `server.ts` | `processQueue` re-entrant overshoot | Added `_queueDraining` guard flag to prevent re-entrant calls |
+| SC-M5 | `server.ts` | Log path traversal via unvalidated job ID | Added `VALIDATION.JOB_ID_PATTERN` check in `createJob`; replaced `path.basename` with regex sanitize in `_writeJobLog` |
+| SC-M1 | `database.ts` | Filename-derived job ID exceeds 100-char max | Added `VALIDATION.JOB_ID_MAX_LENGTH`; truncate after sanitization in import functions |
+| SC-M2 | `database.ts` | `bulkImportJobs` string bypass unparseable | Added `isValidJsonString` helper; reject records with invalid JSON string fields |
+| SC-M3 | `index.ts` | Magic number `30 * 60` for `maxWaitMs` | Already resolved — uses `TIMEOUTS.SCAN_COMPLETION_WAIT_MS` |
+| SC-M4 | `config.ts` | `codeBaseDir` uses `\|\|` not `??` | Changed to nullish coalescing `??` |
+| SC-M6 | `job-repository.ts` | `close()`/`reset()` guard asymmetry | Removed redundant `_initialized = false` in `reset()` |
+| SC-L1 | `constants.ts` | Timeout literals without unit derivation | Derived from `TIME_MS.MS` (100 * TIME_MS.MS, 10 * TIME_MS.MS) |
+| SC-L2 | `server.ts` | `tracesSampleRate: 1.0` hardcoded | Added `config.sentryTracesSampleRate` (env: SENTRY_TRACES_SAMPLE_RATE, default 0.1) |
+| SC-L3 | `index.ts` | Config cast to `Record<string, unknown>` | Removed `cfg` cast; access `config.xxx` properties directly |
+| SC-L4 | `database.ts` | `degradedMode`/`persistFailureCount` vestigial | Removed from HealthStatus interface and getHealthStatus return |
+| SC-L6 | `units.ts` | `DECIMAL_KB` coupled to `EXPORT_MAX_BATCH_SIZE_LIMIT` | Replaced with independent `1_000` literal |
+
+### High
+
+No active high-priority backlog items.
+
+### Medium
+
+No active medium-priority backlog items.
+
+### Low
+
+| ID | File | Title | Description |
+|----|------|-------|-------------|
+| SC-L5 | `server.ts` | `_generateCommitMessage`/`_generatePRContext` public | Should be `protected`; currently exposed on external API surface. Skipped — 6+ test call sites require public access. |
+
+---
+
+## Code Review Follow-up (2026-03-09)
+
+Session code-reviewer findings from SC backlog implementation batch. Medium/Low items deferred for future refactoring.
+
+### Medium
+
+| ID | File | Title | Description |
+|----|------|-------|-------------|
+| SC-M7 | `constants.ts:32-33` | `TIME_MS.MS` multiplication semantically inert | `100 * TIME_MS.MS` and `10 * TIME_MS.MS` evaluate to plain numbers since `TIME_MS.MS = 1`. Looks like unit derivation but carries no semantic weight. Impacts readability and future refactorings. |
+| SC-M8 | `database.ts:307` | `saveJob` lacks JSON validation like `bulkImportJobs` | `saveJob` uses same `typeof x === 'string' ? x : serialize` pattern as `bulkImportJobs`, but lacks the new JSON string validation guard. Inconsistent error handling for pre-serialized fields. |
+
+### Low
+
+| ID | File | Title | Description |
+|----|------|-------|-------------|
+| SC-L7 | `units.ts:42` | `EXPORT_MAX_BATCH_SIZE_LIMIT` is unused export | After SC-L6 decoupling, `EXPORT_MAX_BATCH_SIZE_LIMIT` has zero consumers (confirmed by grep). Should either be removed as dead export or documented as intentional public API constant. |
+| SC-L8 | `database.ts:180-187` | `isValidJsonString` duplicates `safeJsonParse` logic | New helper duplicates try/catch pattern from existing `safeJsonParse`. Could refactor `safeJsonParse` to return boolean or extend with overload instead of duplicating implementation. |
+| SC-L9 | `database.ts` | Missing unit tests for SC-M1/SC-M2 data-integrity paths | No dedicated unit tests for: (1) filename truncation to 100-char max + isValidJobId pass, (2) rejected record error messages for invalid JSON strings. Existing integration tests cover indirectly; targeted unit tests would harden regressions. |

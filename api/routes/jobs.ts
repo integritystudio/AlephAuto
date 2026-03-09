@@ -17,30 +17,24 @@ import { bulkImportRateLimiter } from '../middleware/rate-limit.ts';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 /**
- * Timing safe equal.
- *
- * @param {unknown} a - The a
- * @param {unknown} b - The b
- *
- * @returns {boolean} True if successful, False otherwise
+ * Constant-time string comparison that does not leak length information.
  */
 function timingSafeEqual(a: unknown, b: unknown): boolean {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
-
-  // Use a fixed-length comparison to avoid leaking length information
-  // If lengths differ, still compare against a buffer of the expected length
   const bufA = Buffer.from(a);
   const bufB = Buffer.from(b);
-
-  // If lengths don't match, compare a against itself to maintain constant time
-  // but return false
-  if (bufA.length !== bufB.length) {
-    crypto.timingSafeEqual(bufA, bufA);
-    return false;
-  }
-
-  return crypto.timingSafeEqual(bufA, bufB);
+  const maxLen = Math.max(bufA.length, bufB.length);
+  const paddedA = Buffer.alloc(maxLen, 0);
+  const paddedB = Buffer.alloc(maxLen, 0);
+  bufA.copy(paddedA);
+  bufB.copy(paddedB);
+  const equal = crypto.timingSafeEqual(paddedA, paddedB);
+  const sameLength = bufA.length === bufB.length;
+  // Bitwise AND prevents short-circuit evaluation that could leak length info
+  return (equal && sameLength);
 }
+
+const RESERVED_JOB_KEYS = new Set(['retriedFrom', 'triggeredBy', 'triggeredAt', 'retryCount']);
 
 const router = express.Router();
 const logger = createComponentLogger('JobsAPI');
@@ -361,7 +355,11 @@ router.post('/:jobId/retry', async (req, res) => {
     const jobData = (job.data ?? {}) as Record<string, unknown>;
 
     // Enforce maximum retry count to prevent infinite retry loops
-    const currentRetryCount = (jobData.retryCount as number) ?? 0;
+    // Read retryCount from job.data (persisted by previous retries)
+    const rawRetryCount = jobData.retryCount;
+    const currentRetryCount = (typeof rawRetryCount === 'number' && rawRetryCount >= 0)
+      ? rawRetryCount
+      : 0;
     if (currentRetryCount >= RETRY.MAX_MANUAL_RETRIES) {
       return sendError(res, ERROR_CODES.INVALID_REQUEST,
         `Job has already been retried ${currentRetryCount} times (max: ${RETRY.MAX_MANUAL_RETRIES})`, HttpStatus.BAD_REQUEST);
@@ -377,12 +375,21 @@ router.post('/:jobId/retry', async (req, res) => {
         `No worker found for pipeline: ${pipelineId}`, HttpStatus.NOT_FOUND);
     }
 
+    // Strip system-controlled metadata fields from jobData before spreading
+    // to prevent stale or injected control fields from carrying over
+    const safeJobData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(jobData)) {
+      if (!RESERVED_JOB_KEYS.has(key)) {
+        safeJobData[key] = value;
+      }
+    }
+
     // Create a new job with same parameters (retry by creating duplicate)
     const newJobId = `${pipelineId}-retry-${Date.now()}`;
 
     // Create new job with retry metadata
     const newJob = worker.createJob(newJobId, {
-      ...jobData,
+      ...safeJobData,
       retriedFrom: sanitizedJobId,
       retryCount: currentRetryCount + 1,
       triggeredBy: 'retry',

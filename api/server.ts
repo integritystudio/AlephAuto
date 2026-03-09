@@ -2,7 +2,7 @@
 
 // MUST be first: Increase EventEmitter listener limit before any imports
 // Multiple components (Sentry, WebSocket, ActivityFeed, Workers, etc.) add listeners during import
-process.setMaxListeners(20);
+process.setMaxListeners(PROCESS.MAX_LISTENERS);
 
 /**
  * REST API Server for Duplicate Detection
@@ -19,7 +19,7 @@ import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 import { createComponentLogger, logError, logStart } from '../sidequest/utils/logger.ts';
 import { config } from '../sidequest/core/config.ts';
-import { CACHE, CONCURRENCY, MAX_SCORE, PORT } from '../sidequest/core/constants.ts';
+import { CACHE, CONCURRENCY, MAX_SCORE, PAGINATION, PORT, PROCESS, TIMEOUTS } from '../sidequest/core/constants.ts';
 import { TIME_MS } from '../sidequest/core/units.ts';
 import { authMiddleware } from './middleware/auth.ts';
 import { rateLimiter } from './middleware/rate-limit.ts';
@@ -73,7 +73,7 @@ const corsOptions = {
       callback(null, true);
     } else {
       logger.warn({ origin }, 'CORS blocked request from unauthorized origin');
-      callback(null, true); // Still allow for now, but log it
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
@@ -159,7 +159,7 @@ app.get('/api/status', (req: Request, res: Response) => {
 
     // Get activity feed
     const activityFeed = req.app.get('activityFeed');
-    const recentActivity = activityFeed ? activityFeed.getRecentActivities(20) : [];
+    const recentActivity = activityFeed ? activityFeed.getRecentActivities(PAGINATION.ACTIVITY_FEED_LIMIT) : [];
 
     // Create a map of database stats by pipelineId
     const statsMap = new Map(pipelineStats.map(s => [s.pipelineId, s]));
@@ -434,7 +434,7 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
     // Setup server with automatic port fallback
     const actualPort = await setupServerWithPortFallback(httpServer, {
       preferredPort: PREFERRED_PORT,
-      maxPort: PREFERRED_PORT + 10,
+      maxPort: PREFERRED_PORT + PORT.FALLBACK_RANGE,
       host: '0.0.0.0',
       killExisting: false // Set to true in development if needed
     });
@@ -456,7 +456,7 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
     }, 'Service endpoints');
 
     // Start Doppler health monitoring (check every 15 minutes)
-    await dopplerMonitor.startMonitoring(15);
+    await dopplerMonitor.startMonitoring(TIMEOUTS.DOPPLER_MONITOR_INTERVAL_MIN);
 
     // Setup graceful shutdown handlers
     setupGracefulShutdown(httpServer, {
