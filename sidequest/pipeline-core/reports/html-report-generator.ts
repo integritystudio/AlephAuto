@@ -6,6 +6,7 @@
 
 import { saveGeneratedReport } from '../utils/index.ts';
 import { REPORT_SCORE_CLASS_THRESHOLDS } from '../../core/score-thresholds.ts';
+import { formatDuration } from '../../utils/time-helpers.ts';
 import type { ScanResult } from './json-report-generator.ts';
 
 export interface HTMLReportOptions {
@@ -75,7 +76,7 @@ export class HTMLReportGenerator {
                 <strong>Date:</strong> ${scanDate.toLocaleString()}
             </span>
             <span class="meta-item">
-                <strong>Duration:</strong> ${duration.toFixed(2)}s
+                <strong>Duration:</strong> ${formatDuration(duration)}
             </span>
         </div>
     </header>`;

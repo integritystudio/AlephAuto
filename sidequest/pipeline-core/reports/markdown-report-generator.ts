@@ -7,6 +7,7 @@
 
 import { saveGeneratedReport } from '../utils/index.ts';
 import { MARKDOWN_REPORT } from '../../core/constants.ts';
+import { formatDuration } from '../../utils/time-helpers.ts';
 import type { ScanResult } from './json-report-generator.ts';
 
 export interface MarkdownReportOptions {
@@ -120,7 +121,7 @@ export class MarkdownReportGenerator {
     }
 
     header += `**Scanned:** ${new Date(metadata.scanned_at ?? Date.now()).toLocaleString()}\n`;
-    header += `**Duration:** ${metadata.duration_seconds?.toFixed(MARKDOWN_REPORT.DURATION_DECIMAL_PLACES) ?? 0}s\n`;
+    header += `**Duration:** ${formatDuration(metadata.duration_seconds ?? null)}\n`;
 
     return header;
   }

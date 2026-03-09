@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-08 | **Last Session:** 2026-03-08 (added dashboard UI review findings)
+**Last Updated:** 2026-03-08 | **Last Session:** 2026-03-08 (migrated CS9, DUP1 to v2.3.20)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -13,6 +13,8 @@ Technical debt and planned improvements.
 No active deferred items.
 
 Closed items migrated to changelog:
+- [v2.3.19](changelog/2.3/CHANGELOG.md) (`CX14`, `CX15` partial, `CX16`)
+- [v2.3.18](changelog/2.3/CHANGELOG.md) (`UI review: M43-M44, L19-L22`)
 - [v2.3.17](changelog/2.3/CHANGELOG.md) (`CONST10`)
 - [v2.3.16](changelog/2.3/CHANGELOG.md) (`CONST9`)
 - [v2.3.15](changelog/2.3/CHANGELOG.md) (`CONST4`, `CONST6`, `CONST7`, `CONST8`)
@@ -115,24 +117,14 @@ Full report: [complexity-report-2026-03-08.md](complexity-report-2026-03-08.md)
 
 No active critical-complexity backlog items.
 
-> CX14 completed in v2.3.19 (extracted `mapApiActivity`, `buildSystemStatus`, `applyActivityFeed` helpers).
+> CX14 completed and migrated to [v2.3.19](changelog/2.3/CHANGELOG.md).
 
 ### Medium
 
 #### CX15: Break up long integration test runners
-**Priority**: P2 | **Source**: ast-grep `analyze_complexity`
-22 test functions exceed 50-line length threshold. Top 3 offenders fixed (v2.3.19): `main` in `test-automated-pipeline.ts` (133→28), `testGitignoreRespect` in `test-gitignore-respect.ts` (121→26), `main` in `test-report-generation.ts` (120→30). Also replaced hand-rolled poll in `test-single-job.ts` with existing `waitForJobCompletion()` utility (DRY). Remaining 19 functions still exceed threshold.
-
-#### CX16: Shorten setup scripts
-**Priority**: P2 | **Source**: ast-grep `analyze_complexity` | **Status**: Done (v2.3.19)
-`setupDopplerSentry` (136→18 lines), `setupSentry` (128→16 lines), and `main` in `configure-discord-alerts.js` (73→14 lines). Extracted step functions: check/validate/prompt/update/test/print helpers from each procedural script. Also extracted `WEBHOOK_ACTION_ID` constant, `ruleHasWebhook()` helper, `validateEnvironment()`, `updateAllRules()`, and `printSummary()` in discord-alerts.
+**Priority**: P2 | **Source**: ast-grep `analyze_complexity` | **Status**: Partial (v2.3.19)
+22 test functions exceed 50-line length threshold. Top 3 offenders fixed (v2.3.19): `main` in `test-automated-pipeline.ts` (133→28), `testGitignoreRespect` in `test-gitignore-respect.ts` (121→26), `main` in `test-report-generation.ts` (120→30). Also replaced hand-rolled poll in `test-single-job.ts` with existing `waitForJobCompletion()` utility (DRY). Remaining 19 functions still exceed threshold. Deferred for future sprint.
 
 ### Low
 
-#### CS9: Replace 95 `let` declarations with `const`
-**Priority**: P3 | **Source**: ast-grep `enforce_standards`
-95 `prefer-const` violations across 30 files. Top offenders: `markdown-report-generator.ts` (9), `categorize-magic-numbers.ts` (12), `validate-backlog.ts` (8). Bulk-fixable with `eslint --fix`.
-
-#### DUP1: Deduplicate destructuring in report-generator
-**Priority**: P3 | **Source**: ast-grep `find_duplication`
-Identical 11-line destructuring block at `sidequest/utils/report-generator.ts:127-137` and `169-179`. Extract into a shared helper.
+No active low-priority backlog items.

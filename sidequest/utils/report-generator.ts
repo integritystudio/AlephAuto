@@ -10,6 +10,7 @@ import path from 'path';
 import * as Sentry from '@sentry/node';
 import { createComponentLogger, logError } from './logger.ts';
 import { TIME_MS } from '../core/units.ts';
+import { formatDuration } from './time-helpers.ts';
 
 const logger = createComponentLogger('ReportGenerator');
 
@@ -124,19 +125,9 @@ export async function generateReport(options: ReportOptions): Promise<ReportPath
  * generateHTMLReport.
  */
 function generateHTMLReport(data: ReportData): string {
-  const {
-    jobId,
-    jobType,
-    status,
-    result,
-    startTime,
-    endTime,
-    parameters,
-    metadata,
-    timestamp
-  } = data;
-
-  const duration = endTime && startTime ? ((endTime - startTime) / TIME_MS.SECOND).toFixed(2) : 'N/A';
+  const { jobId, jobType, status, result, startTime, endTime, parameters, metadata, timestamp } = data;
+  const durationSec = endTime && startTime ? (endTime - startTime) / TIME_MS.SECOND : null;
+  const duration = durationSec !== null ? formatDuration(durationSec) : 'N/A';
   const title = getJobTypeTitle(jobType);
   const statusClass = status === 'completed' ? 'success' : status === 'failed' ? 'error' : 'warning';
 
@@ -166,17 +157,7 @@ function generateHTMLReport(data: ReportData): string {
  * generateJSONReport.
  */
 function generateJSONReport(data: ReportData): object {
-  const {
-    jobId,
-    jobType,
-    status,
-    result,
-    startTime,
-    endTime,
-    parameters,
-    metadata,
-    timestamp
-  } = data;
+  const { jobId, jobType, status, result, startTime, endTime, parameters, metadata, timestamp } = data;
 
   return {
     report_version: '1.0.0',
@@ -213,7 +194,7 @@ function generateHTMLHeader(title: string, jobId: string, status: string, status
                 <strong>Generated:</strong> ${new Date(timestamp).toLocaleString()}
             </span>
             <span class="meta-item">
-                <strong>Duration:</strong> ${duration}s
+                <strong>Duration:</strong> ${duration}
             </span>
         </div>
     </header>`;

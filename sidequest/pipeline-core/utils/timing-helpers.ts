@@ -7,6 +7,7 @@
  */
 
 import { TIME_MS } from '../../core/units.ts';
+import { formatDuration } from '../../utils/time-helpers.ts';
 
 interface Timer {
   /** Returns elapsed time in seconds */
@@ -28,12 +29,7 @@ export function createTimer(): Timer {
   return {
     elapsed: () => (Date.now() - startTime) / TIME_MS.SECOND,
     elapsedMs: () => Date.now() - startTime,
-    elapsedFormatted: () => {
-      const ms = Date.now() - startTime;
-      if (ms < TIME_MS.SECOND) return `${ms}ms`;
-      if (ms < TIME_MS.MINUTE) return `${(ms / TIME_MS.SECOND).toFixed(2)}s`;
-      return `${(ms / TIME_MS.MINUTE).toFixed(2)}m`;
-    }
+    elapsedFormatted: () => formatDuration((Date.now() - startTime) / TIME_MS.SECOND)
   };
 }
 
