@@ -57,7 +57,7 @@ interface ApiStatusData {
   retryMetrics?: { activeRetries: number };
 }
 
-const ACTIVITY_TYPE_MAP: Record<string, ActivityType> = {
+export const ACTIVITY_TYPE_MAP: Record<string, ActivityType> = {
   'job:created': ActivityType.QUEUED,
   'job:started': ActivityType.STARTED,
   'job:completed': ActivityType.COMPLETED,
