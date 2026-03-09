@@ -180,9 +180,8 @@ class JobRepository {
    */
   reset(): void {
     if (this._initialized) {
-      this.close();
+      this.close(); // also sets _initialized = false
     }
-    this._initialized = false;
     logger.debug('JobRepository reset');
   }
 }
