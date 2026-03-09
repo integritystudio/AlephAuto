@@ -539,7 +539,7 @@ export async function importReportsToDatabase(reportsDir: string): Promise<numbe
       const dateStr = dateMatch ? dateMatch[1] : stats.mtime.toISOString().split('T')[0];
 
       // Create job ID from filename (sanitize for isValidJobId)
-      const jobId = file.replace('-summary.json', '').replace(/[^a-zA-Z0-9_-]/g, '-');
+      const jobId = file.replace('-summary.json', '').replace(/[^a-zA-Z0-9_-]/g, '-').substring(0, VALIDATION.JOB_ID_MAX_LENGTH);
 
       // Check if already imported
       const existing = queryOne<{ id: string }>('SELECT id FROM jobs WHERE id = ?', [jobId]);
@@ -619,7 +619,7 @@ export async function importLogsToDatabase(logsDir: string): Promise<number> {
       }
 
       // Create job ID from filename (sanitize for isValidJobId)
-      const jobId = file.replace('.json', '').replace(/[^a-zA-Z0-9_-]/g, '-');
+      const jobId = file.replace('.json', '').replace(/[^a-zA-Z0-9_-]/g, '-').substring(0, VALIDATION.JOB_ID_MAX_LENGTH);
 
       // Check if already imported
       const existing = queryOne<{ id: string }>('SELECT id FROM jobs WHERE id = ?', [jobId]);
