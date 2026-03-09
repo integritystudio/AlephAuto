@@ -657,17 +657,29 @@ function generateConstantsTemplate(hardcodedStrings: string[]): string {
   );
   const categories = categorizeStrings(uniqueStrings);
 
+  const categoryDefs: Array<[string, string[], string]> = [
+    ['NAV_STRINGS', categories.navigation, 'Navigation labels'],
+    ['ACTION_STRINGS', categories.actions, 'Button and action labels'],
+    ['A11Y_STRINGS', categories.accessibility, 'Accessibility labels'],
+    ['MESSAGE_STRINGS', categories.messages, 'User-facing messages'],
+    ['HEADING_STRINGS', categories.headings, 'Headings and titles'],
+    ['LABEL_STRINGS', categories.labels, 'Form field labels'],
+    ['MISC_STRINGS', categories.misc, 'Other extracted strings'],
+  ];
+
   const sections: string[] = [];
+  const emittedNames: string[] = [];
 
-  sections.push(generateArrayExport('NAV_STRINGS', categories.navigation, 'Navigation labels'));
-  sections.push(generateArrayExport('ACTION_STRINGS', categories.actions, 'Button and action labels'));
-  sections.push(generateArrayExport('A11Y_STRINGS', categories.accessibility, 'Accessibility labels'));
-  sections.push(generateArrayExport('MESSAGE_STRINGS', categories.messages, 'User-facing messages'));
-  sections.push(generateArrayExport('HEADING_STRINGS', categories.headings, 'Headings and titles'));
-  sections.push(generateArrayExport('LABEL_STRINGS', categories.labels, 'Form field labels'));
-  sections.push(generateArrayExport('MISC_STRINGS', categories.misc, 'Other extracted strings'));
+  for (const [name, strings, comment] of categoryDefs) {
+    const exported = generateArrayExport(name, strings, comment);
+    if (exported) {
+      sections.push(exported);
+      emittedNames.push(name);
+    }
+  }
 
-  const nonEmpty = sections.filter(s => s.length > 0).join('\n');
+  const nonEmpty = sections.join('\n');
+  const allStringsSpread = emittedNames.map(n => `  ...${n},`).join('\n');
 
   return `/**
  * Test Constants
@@ -680,13 +692,7 @@ function generateConstantsTemplate(hardcodedStrings: string[]): string {
 ${nonEmpty}
 // Combined export for convenience
 export const ALL_STRINGS = [
-  ...NAV_STRINGS,
-  ...ACTION_STRINGS,
-  ...A11Y_STRINGS,
-  ...MESSAGE_STRINGS,
-  ...HEADING_STRINGS,
-  ...LABEL_STRINGS,
-  ...MISC_STRINGS,
+${allStringsSpread}
 ] as const;
 `;
 }
@@ -723,12 +729,13 @@ export async function renderAndWaitForElement(
 ): Promise<HTMLElement> {
   const { waitFor } = await import('@testing-library/react');
   render(ui);
-  let element: HTMLElement;
+  let element: HTMLElement | undefined;
   await waitFor(() => {
     element = elementQuery();
     expect(element).toBeInTheDocument();
   });
-  return element!;
+  if (!element) throw new Error('renderAndWaitForElement: element not found after waitFor');
+  return element;
 }
 `;
 }

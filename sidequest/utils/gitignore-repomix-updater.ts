@@ -138,7 +138,6 @@ export class GitignoreRepomixUpdater {
       return lines.some(line =>
         line === this.gitignoreEntry ||
         line === `/${this.gitignoreEntry}` ||
-        line === `**/${this.gitignoreEntry}` ||
         line === `**/${this.gitignoreEntry}`
       );
     } catch (error) {

@@ -176,7 +176,10 @@ export class DopplerResilience {
         logger.info('Fallback secrets loaded successfully');
       }
 
-      return this.cachedSecrets!;
+      if (!this.cachedSecrets) {
+        throw new Error('Cache load appeared to succeed but cachedSecrets is null');
+      }
+      return this.cachedSecrets;
     } catch (error) {
       logError(logger, error, 'Failed to load fallback secrets', { cacheFile: this.cacheFile });
 
