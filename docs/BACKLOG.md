@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-09 | **Last Session:** 2026-03-09 (backlog-migrate: 3 items to v2.3.25, 61 to v2.3.24)
+**Last Updated:** 2026-03-10 | **Last Session:** 2026-03-10 (backlog-implementer: 1 item implemented [SU-L2], 2 review findings appended)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -64,4 +64,6 @@ No active low-priority backlog items.
 |----|----------|------|-------|-------------|
 | SU-FR-M4 | Low | `report-generator.ts:361` | Unnecessary `as readonly string[]` cast on `METRIC_KEYS` | Reverted by linter; cast required by project lint rules. Accepted as-is. |
 | SU-L2 | Low | `doppler-resilience.ts` | Class uses runtime throw instead of abstract method | Done — class made `abstract`, `fetchFromDoppler` made `abstract`; `TestDopplerResilience` added to `tests/fixtures/` for the 3 test files. |
+| SU-L3 | Low | `tests/unit/doppler-resilience.test.ts:20` | Untyped `doppler` variable in beforeEach | `let doppler;` has no type annotation. Should be `let doppler: TestDopplerResilience;` with import. Pre-existing but exposed by SU-L2 refactor. |
+| SU-L4 | Low | `docs/runbooks/DOPPLER_CIRCUIT_BREAKER.md` | Runbook examples show `new DopplerResilience()` directly | DopplerResilience is now abstract; examples fail at runtime. Update to show abstract class pattern or extend for concrete usage. |
 
