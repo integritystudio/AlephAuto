@@ -17,9 +17,9 @@ import path from 'path';
 import os from 'os';
 
 describe('DopplerResilience', () => {
-  let doppler;
-  let testCacheDir;
-  let testCacheFile;
+  let doppler: DopplerResilience;
+  let testCacheDir: string;
+  let testCacheFile: string;
 
   beforeEach(async () => {
     // Create temporary cache directory and file
