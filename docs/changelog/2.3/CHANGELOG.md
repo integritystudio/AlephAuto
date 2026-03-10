@@ -6,6 +6,37 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.26] - 2026-03-10
+
+### Summary
+
+Type safety and documentation fixes for DopplerResilience abstract class refactor. Added type annotations to test fixtures and updated runbook examples to use concrete subclass pattern.
+
+### Fixed
+
+**Type Safety & Documentation** (SU-L2, SU-L3, SU-L4)
+- **SU-L2:** Made `DopplerResilience` abstract class with abstract `fetchFromDoppler()` method instead of runtime throw pattern; created `TestDopplerResilience` concrete subclass in test fixtures
+- **SU-L3:** Added type annotations to untyped variables in `tests/unit/doppler-resilience.test.ts:20-22` — `doppler: DopplerResilience`, `testCacheDir: string`, `testCacheFile: string`
+- **SU-L4:** Updated `docs/runbooks/DOPPLER_CIRCUIT_BREAKER.md` code examples (Basic Integration, Express Health Endpoint, Integration Testing, Migration Guide) from direct `new DopplerResilience(...)` calls to concrete subclass instantiation pattern
+
+### Changed
+
+**Documentation** (SU-L4 cleanup)
+- Fixed stale JSDoc in `tests/fixtures/test-doppler-resilience.ts` — now accurately describes abstract class relationship and default-throwing behavior
+
+### Validation
+
+- `npm run typecheck` (pass)
+- `npm test` — 1234/1234 pass
+
+### Commits
+
+- d347822 — fix(SU-L3): add type annotations to doppler-resilience test variables
+- 70decb0 — docs(SU-L4): update runbook to use abstract class pattern for DopplerResilience
+- c3d7d72 — chore(backlog): mark SU-L3, SU-L4 Done
+
+---
+
 ## [2.3.25] - 2026-03-09
 
 ### Summary

@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-10 | **Last Session:** 2026-03-10 (backlog-implementer: 2 items implemented [SU-L3, SU-L4])
+**Last Updated:** 2026-03-10 | **Last Session:** 2026-03-10 (backlog-migrate: 3 items migrated to v2.3.26 [SU-L2, SU-L3, SU-L4])
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -63,7 +63,4 @@ No active low-priority backlog items.
 | ID | Priority | File | Title | Description |
 |----|----------|------|-------|-------------|
 | SU-FR-M4 | Low | `report-generator.ts:361` | Unnecessary `as readonly string[]` cast on `METRIC_KEYS` | Reverted by linter; cast required by project lint rules. Accepted as-is. |
-| SU-L2 | Low | `doppler-resilience.ts` | Class uses runtime throw instead of abstract method | Done — class made `abstract`, `fetchFromDoppler` made `abstract`; `TestDopplerResilience` added to `tests/fixtures/` for the 3 test files. |
-| SU-L3 | Low | `tests/unit/doppler-resilience.test.ts:20` | Untyped `doppler` variable in beforeEach | Done — added type annotations: `doppler: DopplerResilience`, `testCacheDir: string`, `testCacheFile: string`. |
-| SU-L4 | Low | `docs/runbooks/DOPPLER_CIRCUIT_BREAKER.md` | Runbook examples show `new DopplerResilience()` directly | Done — all four code blocks updated to use concrete subclass pattern extending DopplerResilience. |
 
