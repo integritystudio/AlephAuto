@@ -33,12 +33,18 @@
         "*.test.js",
         "*.spec.js"
       ],
-      "lastScannedAt": "2026-03-09T07:00:39.037Z",
+      "lastScannedAt": "2026-03-10T07:00:10.509Z",
       "scanHistory": [
         {
-          "timestamp": "2026-03-09T07:00:39.037Z",
+          "timestamp": "2026-03-10T07:00:10.509Z",
           "status": "success",
-          "duration": 6.327,
+          "duration": 2.794,
+          "duplicatesFound": 0
+        },
+        {
+          "timestamp": "2026-03-09T07:00:39.035Z",
+          "status": "success",
+          "duration": 6.245,
           "duplicatesFound": 0
         },
         {
@@ -88,12 +94,6 @@
           "status": "success",
           "duration": 102.727,
           "duplicatesFound": 342
-        },
-        {
-          "timestamp": "2026-02-22T07:01:20.353Z",
-          "status": "success",
-          "duration": 79.844,
-          "duplicatesFound": 131
         }
       ]
     },
@@ -111,12 +111,18 @@
         "*.test.js",
         "*.spec.js"
       ],
-      "lastScannedAt": "2026-03-09T07:00:39.039Z",
+      "lastScannedAt": "2026-03-10T07:00:10.510Z",
       "scanHistory": [
         {
-          "timestamp": "2026-03-09T07:00:39.039Z",
+          "timestamp": "2026-03-10T07:00:10.510Z",
           "status": "success",
-          "duration": 6.327,
+          "duration": 2.794,
+          "duplicatesFound": 0
+        },
+        {
+          "timestamp": "2026-03-09T07:00:39.035Z",
+          "status": "success",
+          "duration": 6.245,
           "duplicatesFound": 0
         },
         {
@@ -166,12 +172,6 @@
           "status": "success",
           "duration": 102.727,
           "duplicatesFound": 342
-        },
-        {
-          "timestamp": "2026-02-22T07:00:55.972Z",
-          "status": "success",
-          "duration": 55.449,
-          "duplicatesFound": 60
         }
       ]
     },
