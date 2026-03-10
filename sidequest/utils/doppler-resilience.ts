@@ -94,7 +94,7 @@ export abstract class DopplerResilience {
 
     this.baseDelayMs = options.baseDelayMs ?? RETRY.BASE_BACKOFF_MS;
     this.backoffMultiplier = options.backoffMultiplier ?? RETRY.BACKOFF_MULTIPLIER;
-    this.staleThresholdMs = options.staleThresholdMs ?? CACHE.STALE_THRESHOLD_MS; // Add this line
+    this.staleThresholdMs = options.staleThresholdMs ?? CACHE.STALE_THRESHOLD_MS;
 
     this.state = CircuitState.CLOSED;
     this.failureCount = 0;
