@@ -1,8 +1,8 @@
 import { DopplerResilience } from '../../sidequest/utils/doppler-resilience.ts';
 
 /**
- * Concrete subclass for testing. Override fetchFromDoppler via assignment:
- *   instance.fetchFromDoppler = async () => ({ ... });
+ * Concrete subclass of abstract DopplerResilience for testing.
+ * Default fetchFromDoppler throws; override via assignment in tests.
  */
 export class TestDopplerResilience extends DopplerResilience {
   override async fetchFromDoppler(): Promise<Record<string, unknown>> {
