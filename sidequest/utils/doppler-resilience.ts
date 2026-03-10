@@ -63,7 +63,7 @@ interface HealthStatus {
   cacheLoadedAt: string | null;
 }
 
-export class DopplerResilience {
+export abstract class DopplerResilience {
   failureThreshold: number;
   successThreshold: number;
   timeout: number;
@@ -155,11 +155,9 @@ export class DopplerResilience {
   }
 
   /**
-   * Fetch secrets from Doppler API (to be implemented by consumer)
+   * Fetch secrets from Doppler API — must be implemented by subclass
    */
-  async fetchFromDoppler(): Promise<Record<string, unknown>> {
-    throw new Error('fetchFromDoppler must be implemented by consumer');
-  }
+  abstract fetchFromDoppler(): Promise<Record<string, unknown>>;
 
   /**
    * Get fallback secrets from cache file
