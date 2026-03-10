@@ -30,7 +30,7 @@ interface DopplerResilienceOptions {
   baseDelayMs?: number;
   backoffMultiplier?: number;
   cacheFile?: string;
-  staleThresholdMs?: number; // Add this line
+  staleThresholdMs?: number;
 }
 
 interface ResilienceMetrics {
@@ -80,7 +80,7 @@ export abstract class DopplerResilience {
   cacheFile: string;
   cachedSecrets: Record<string, unknown> | null;
   cacheLoadedAt: number | null;
-  staleThresholdMs: number; // Add this line
+  staleThresholdMs: number;
   metrics: ResilienceMetrics;
 
   /**
