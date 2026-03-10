@@ -96,19 +96,21 @@ const {
 
 ### Basic Integration
 
+`DopplerResilience` is an abstract class. Extend it and implement `fetchFromDoppler`:
+
 ```javascript
 import { DopplerResilience } from './sidequest/utils/doppler-resilience.ts';
 import { config } from './sidequest/core/config.ts';
 
-// Create instance with configuration
-const doppler = new DopplerResilience(config.doppler);
+class AppDopplerResilience extends DopplerResilience {
+  async fetchFromDoppler() {
+    // Your Doppler API call here
+    // Typically: return process.env (when using `doppler run`)
+    return process.env;
+  }
+}
 
-// Override fetchFromDoppler to use your Doppler integration
-doppler.fetchFromDoppler = async () => {
-  // Your Doppler API call here
-  // Typically: return process.env (when using `doppler run`)
-  return process.env;
-};
+const doppler = new AppDopplerResilience(config.doppler);
 
 // Get secrets with circuit breaker protection
 try {
@@ -145,8 +147,12 @@ if (health.circuitState === 'OPEN') {
 import express from 'express';
 import { DopplerResilience } from './sidequest/utils/doppler-resilience.ts';
 
+class AppDopplerResilience extends DopplerResilience {
+  async fetchFromDoppler() { return process.env; }
+}
+
 const app = express();
-const doppler = new DopplerResilience(config.doppler);
+const doppler = new AppDopplerResilience(config.doppler);
 
 app.get('/api/health/doppler', (req, res) => {
   const health = doppler.getHealth();
@@ -334,15 +340,16 @@ npm test tests/unit/doppler-resilience.test.ts
 // Simulate Doppler API failure
 import { DopplerResilience } from './sidequest/utils/doppler-resilience.ts';
 
-const doppler = new DopplerResilience({
+class TestDoppler extends DopplerResilience {
+  async fetchFromDoppler() {
+    throw new Error('Doppler API HTTP 500');
+  }
+}
+
+const doppler = new TestDoppler({
   failureThreshold: 3,
   timeout: 5000
 });
-
-// Simulate HTTP 500 errors
-doppler.fetchFromDoppler = async () => {
-  throw new Error('Doppler API HTTP 500');
-};
 
 // Test circuit breaker behavior
 async function testCircuitBreaker() {
@@ -512,9 +519,11 @@ const dbPassword = process.env.DB_PASSWORD;
 ```javascript
 import { DopplerResilience } from './sidequest/utils/doppler-resilience.ts';
 
-const doppler = new DopplerResilience(config.doppler);
-doppler.fetchFromDoppler = async () => process.env;
+class AppDopplerResilience extends DopplerResilience {
+  async fetchFromDoppler() { return process.env; }
+}
 
+const doppler = new AppDopplerResilience(config.doppler);
 const secrets = await doppler.getSecrets();
 const apiKey = secrets.API_KEY;
 const dbPassword = secrets.DB_PASSWORD;
