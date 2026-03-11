@@ -66,6 +66,7 @@ export interface JobStats {
 export interface SidequestServerOptions {
   maxConcurrent?: number;
   maxRetries?: number;
+  retryDelayMs?: number;
   logDir?: string;
   autoStart?: boolean;
   gitWorkflowEnabled?: boolean;
@@ -95,6 +96,7 @@ export class SidequestServer extends EventEmitter {
   logDir: string;
   isRunning: boolean;
   maxRetries: number;
+  retryDelayMs: number;
   gitWorkflowEnabled: boolean;
   gitBranchPrefix: string;
   gitBaseBranch: string;
@@ -124,6 +126,7 @@ export class SidequestServer extends EventEmitter {
 
     // Retry configuration
     this.maxRetries = options.maxRetries ?? RETRY.MAX_ABSOLUTE_ATTEMPTS;
+    this.retryDelayMs = options.retryDelayMs ?? RETRY.DEFAULT_DELAY_MS;
 
     // Git workflow options
     this.gitWorkflowEnabled = options.gitWorkflowEnabled ?? false;
@@ -444,7 +447,7 @@ export class SidequestServer extends EventEmitter {
       job.retryCount++;
 
       const classification = classifyError(error as Error);
-      const retryDelay = classification?.suggestedDelay ?? RETRY.DEFAULT_DELAY_MS;
+      const retryDelay = classification?.suggestedDelay ?? this.retryDelayMs;
 
       logger.info({
         jobId: job.id,
