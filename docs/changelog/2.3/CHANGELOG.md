@@ -6,6 +6,37 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.27] - 2026-03-11
+
+### Summary
+
+Dashboard populate pipeline infrastructure and regression tests. PM2 ecosystem config refactored to register missing `aleph-populate` process (Dashboard Populate Pipeline bug recovery). Added comprehensive unit tests to prevent regressions. All 3 PM2 processes now running.
+
+### Added
+
+**Test Coverage** (DP-H1, DP-M2)
+- **tests/unit/ecosystem-config.test.ts** — 8 regression tests verifying PM2 ecosystem config structure: process registration (DP-H1), script + `--cron` args, env var isolation (DP-M2 orphaned var removal). Includes runtime guard on CJS `require` output validation.
+
+### Fixed
+
+**PM2 Infrastructure** (DP-H1, DP-H2, DP-M1, DP-M2)
+- **DP-H1:** Extracted `config/populate.config.cjs` as standalone PM2 process config; imported into `ecosystem.config.cjs` as `aleph-populate` process. Dashboard populate cron (`0 6,18 * * *`) now registered as persistent PM2 process, no longer depends on manual runs. Running online since 2026-03-11.
+- **DP-H2:** All 3 PM2 processes restarted via `doppler run -- pm2 start config/ecosystem.config.cjs`. Online: aleph-dashboard, aleph-worker, aleph-populate.
+- **DP-M1:** Doppler secrets refreshed on PM2 restart via `doppler run --` wrapper (was stale since 2026-03-08). Secrets injected at startup.
+- **DP-M2:** Removed orphaned `DASHBOARD_CRON_SCHEDULE` from `aleph-worker` env (was never read by `duplicate-detection-pipeline.ts`). Moved to `aleph-populate` env in `populate.config.cjs`.
+
+### Validation
+
+- `npm run typecheck` (pass)
+- `npm test` — 1242/1242 pass
+- `node --strip-types --test tests/unit/ecosystem-config.test.ts` — 8/8 pass
+
+### Commits
+
+- 519af16 — test(ecosystem): add PM2 config regression tests; mark DP-H1, DP-H2, DP-M1, DP-M2 Done
+
+---
+
 ## [2.3.26] - 2026-03-10
 
 ### Summary
@@ -18,6 +49,9 @@ Type safety and documentation fixes for DopplerResilience abstract class refacto
 - **SU-L2:** Made `DopplerResilience` abstract class with abstract `fetchFromDoppler()` method instead of runtime throw pattern; created `TestDopplerResilience` concrete subclass in test fixtures
 - **SU-L3:** Added type annotations to untyped variables in `tests/unit/doppler-resilience.test.ts:20-22` — `doppler: DopplerResilience`, `testCacheDir: string`, `testCacheFile: string`
 - **SU-L4:** Updated `docs/runbooks/DOPPLER_CIRCUIT_BREAKER.md` code examples (Basic Integration, Express Health Endpoint, Integration Testing, Migration Guide) from direct `new DopplerResilience(...)` calls to concrete subclass instantiation pattern
+
+**Dashboard Operations** (DP-D2)
+- **DP-D2:** Deleted stale KV sync state file (`dashboard/scripts/.kv-sync-state.json`) containing 157K orphaned entries; re-synced to resolve 22 active KV keys. Trend data now persists correctly to Cloudflare KV.
 
 ### Changed
 
@@ -55,10 +89,11 @@ Resolved 22 open backlog items (19 initial + 3 main ast-grep items) across test 
 - **SU-FR-M1:** Added fsPromises.access guard before writing render-helpers.ts (was unconditionally overwritten; now skips if exists)
 - **SU-FR-M3:** Restored `section h2` padding-bottom from var(--space-xs) (5px) to var(--space-sm) (8px) to approximate original 10px visual intent
 
-**Errors & Type Safety** (SU-FR-L1, SU-FR-L3)
+**Errors & Type Safety** (SU-FR-L1, SU-FR-L3, DP-D1)
 - **SU-FR-L1:** Clarified crypto-helpers.ts `&&` short-circuit comment — sameLength intentionally distinguishes wrong-length from wrong-content inputs
 - **SU-FR-L3:** Documented removed isSafeInteger assertion in input-validation.test.ts (was vacuously true on MAX_SAFE_INTEGER)
 - Guard error.message access with instanceof check in cleanup-error-logs.ts main() (unknown catch type)
+- **DP-D1:** Replaced `export enum SECONDS` with `as const` object in constants.ts (enum syntax incompatible with Node `--strip-types`; fixed aleph-worker crash-loop from 2026-03-07 23:58 onward)
 
 ### Changed
 

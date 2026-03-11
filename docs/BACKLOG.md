@@ -72,15 +72,6 @@ No active low-priority backlog items.
 
 Root cause investigation: relevance evaluations stopped on 2026-03-03. Session: bug-detective.
 
-### Done
-
-| ID | Priority | File | Title | Resolution |
-|----|----------|------|-------|------------|
-| DP-H1 | P0 | `config/populate.config.cjs` | Add `dashboard-populate-pipeline.ts` to PM2 ecosystem | Extracted to `config/populate.config.cjs`; imported into `ecosystem.config.cjs` as `aleph-populate`. Running online since 2026-03-11. Regression test: `tests/unit/ecosystem-config.test.ts`. |
-| DP-H2 | P1 | PM2 | Restart PM2 processes | All 3 processes restarted via `doppler run -- pm2 start config/ecosystem.config.cjs` on 2026-03-11. Online: aleph-dashboard, aleph-worker, aleph-populate. |
-| DP-M1 | P2 | PM2 / Doppler | Refresh Doppler secrets on PM2 restart | Doppler secrets injected at PM2 start on 2026-03-11 via `doppler run --` wrapper. |
-| DP-M2 | P2 | `config/ecosystem.config.cjs` | Remove orphaned `DASHBOARD_CRON_SCHEDULE` from `aleph-worker` env | Removed from `aleph-worker` env; moved to `aleph-populate` env in `populate.config.cjs`. Regression test: `tests/unit/ecosystem-config.test.ts`. |
-
 ---
 
 ## Scan Configuration Findings (2026-03-11)
