@@ -76,7 +76,7 @@ Error tracking and performance monitoring integration with Sentry.
 
 1. **Ensure Doppler is Configured**
    ```bash
-   doppler setup --project bottleneck --config dev
+   doppler setup --project integrity-studio --config dev
    ```
 
 2. **Verify SENTRY_API_TOKEN in Doppler**

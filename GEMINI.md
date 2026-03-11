@@ -146,7 +146,7 @@ api/types/*.ts (Zod schemas) → api/middleware/validation.js → api/routes/*.t
 
 ## Environment Variables (Doppler)
 
-**Project:** `bottleneck` | **Environments:** `dev`, `prd`
+**Project:** `integrity-studio` | **Environments:** `dev`, `prd`
 
 Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENABLE_PR_CREATION`
 

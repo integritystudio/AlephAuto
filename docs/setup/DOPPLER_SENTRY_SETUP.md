@@ -19,7 +19,7 @@ This keeps all your secrets centralized in Doppler.
 ```bash
 # Add the Sentry DSN to Doppler
 doppler secrets set SENTRY_DSN="your_actual_sentry_dsn_here" \
-  --project bottleneck \
+  --project integrity-studio \
   --config dev
 ```
 
@@ -29,10 +29,10 @@ All secrets are injected automatically by `doppler run`. No `.env` file is neede
 
 ```bash
 # Run repomix cron with Doppler
-doppler run --project bottleneck --config dev -- npm start
+doppler run --project integrity-studio --config dev -- npm start
 
 # Run docs enhancement with Doppler
-doppler run --project bottleneck --config dev -- npm run docs:enhance
+doppler run --project integrity-studio --config dev -- npm run docs:enhance
 ```
 
 ## Option 2: Quick Local Setup (No Doppler)
@@ -65,7 +65,7 @@ npm run setup:sentry
 
 ## Option 3: Use Existing Sentry Project
 
-If you already have a Sentry project in the bottleneck workspace:
+If you already have a Sentry project in the integrity-studio workspace:
 
 1. Go to https://sentry.io/
 2. Select your organization

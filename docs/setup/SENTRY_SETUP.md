@@ -11,11 +11,11 @@ This project uses **Doppler** for all secrets. Never write secrets to `.env` fil
 ```bash
 # Add SENTRY_DSN to Doppler
 doppler secrets set SENTRY_DSN="your_actual_dsn_here" \
-  --project bottleneck \
+  --project integrity-studio \
   --config dev
 
 # Verify it's set
-doppler secrets get SENTRY_DSN --project bottleneck --config dev
+doppler secrets get SENTRY_DSN --project integrity-studio --config dev
 ```
 
 Then run with Doppler to inject the secret:
@@ -51,7 +51,7 @@ const dsn = config.sentryDsn;  // Correct
 
 4. **Add to Doppler**
    ```bash
-   doppler secrets set SENTRY_DSN="your_dsn_here" --project bottleneck --config dev
+   doppler secrets set SENTRY_DSN="your_dsn_here" --project integrity-studio --config dev
    ```
 
 5. **Test the Connection**
@@ -281,7 +281,7 @@ You should see transaction data in Sentry.
 1. **Check DSN**
    ```bash
    # Verify DSN is set in Doppler:
-   doppler secrets get SENTRY_DSN --project bottleneck --config dev
+   doppler secrets get SENTRY_DSN --project integrity-studio --config dev
    ```
 
 2. **Test Connection**
@@ -381,7 +381,7 @@ Tracks:
 
 ```bash
 # Add/update Sentry DSN in Doppler
-doppler secrets set SENTRY_DSN="your_dsn" --project bottleneck --config dev
+doppler secrets set SENTRY_DSN="your_dsn" --project integrity-studio --config dev
 
 # Run server with Doppler (injects SENTRY_DSN automatically)
 doppler run -- node --strip-types api/server.ts

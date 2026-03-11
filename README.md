@@ -68,7 +68,7 @@ graph TD
 ```bash
 pnpm install
 npm run build:frontend
-doppler setup --project bottleneck --config dev
+doppler setup --project integrity-studio --config dev
 ```
 
 ```bash

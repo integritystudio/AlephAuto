@@ -118,7 +118,7 @@ doppler run -- node -e "console.log(process.env.JOBS_API_PORT)"
 ```bash
 # Setup Doppler project
 cd /path/to/jobs
-doppler setup --project bottleneck --config dev
+doppler setup --project integrity-studio --config dev
 
 # Verify setup
 doppler configure
@@ -178,7 +178,7 @@ npm run dashboard
 doppler configure
 
 # Switch to production config
-doppler setup --project bottleneck --config prd
+doppler setup --project integrity-studio --config prd
 
 # Or use inline config override
 doppler run --config prd -- npm run dashboard
