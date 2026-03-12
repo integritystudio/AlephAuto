@@ -78,11 +78,11 @@ Root cause investigation: relevance evaluations stopped on 2026-03-03. Session: 
 
 Code review (`config/scan-repositories.json`): Portability and validation issues.
 
-### Open
+### Done
 
-| ID | Priority | File | Title | Description |
-|----|----------|------|-------|-------------|
-| SR-M1 | P2 | `config/scan-repositories.json:24,102,180` | Hardcoded absolute paths tied to user's machine | All `path` values use `/Users/alyshialedlie/code/jobs/...` (user-specific). If consumed outside this machine or in CI/CD, paths will fail. Solution: Use relative paths from a known root (e.g., `./sidequest`, `./sidequest/pipeline-core`) or resolve at runtime via env var like `$JOBS_ROOT`. |
-| SR-L1 | P3 | `config/scan-repositories.json:189` | `_comment` field may fail schema validation | Non-standard JSON comment workaround on `tests` entry. If `scan-repositories.schema.json` uses `additionalProperties: false`, validation will fail. Solution: Either add `_comment` to allowed properties in schema or move comment to a separate `.comments.json` file. |
-| SR-L2 | P3 | `sidequest/pipeline-core/config/repository-config-loader.ts` | Redis provider availability not validated at startup | `cacheConfig.provider: "redis"` set in config, but no runtime check confirms Redis is running. May silently fail or degrade if Redis is unavailable. Solution: Add provider validation in `RepositoryConfigLoader` constructor or `cacheConfig` getter. |
+| ID | Priority | File | Title | Commit |
+|----|----------|------|-------|--------|
+| SR-M1 | P2 | `config/scan-repositories.json` | Hardcoded absolute paths replaced with `~` | 1e5da1a |
+| SR-L1 | P3 | `config/scan-repositories.schema.json` | `_comment` added to schema properties | ac47d15 |
+| SR-L2 | P3 | `sidequest/pipeline-core/config/repository-config-loader.ts` | Warn on Redis provider unavailable at startup | aacc26f |
 
