@@ -41,6 +41,7 @@ export interface RepositoryConfig {
   excludePatterns?: string[];
   lastScannedAt?: string;
   scanHistory?: ScanHistoryEntry[];
+  _comment?: string;
 }
 
 export interface RepositoryGroup {
@@ -626,7 +627,7 @@ export class RepositoryConfigLoader {
 
     this.config!.repositories.forEach(repo => {
       if (repo.path.startsWith('~')) {
-        repo.path = repo.path.replace('~', homeDir);
+        repo.path = homeDir + repo.path.slice(1);
       }
     });
   }
