@@ -21,7 +21,7 @@
   "repositories": [
     {
       "name": "sidequest",
-      "path": "/Users/alyshialedlie/code/jobs/sidequest",
+      "path": "~/code/jobs/sidequest",
       "priority": "high",
       "scanFrequency": "daily",
       "enabled": true,
@@ -100,7 +100,7 @@
     },
     {
       "name": "pipeline-core",
-      "path": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-core",
+      "path": "~/code/jobs/sidequest/pipeline-core",
       "priority": "high",
       "scanFrequency": "daily",
       "enabled": true,
@@ -178,7 +178,7 @@
     },
     {
       "name": "tests",
-      "path": "/Users/alyshialedlie/code/jobs/tests",
+      "path": "~/code/jobs/tests",
       "priority": "low",
       "scanFrequency": "weekly",
       "enabled": false,
