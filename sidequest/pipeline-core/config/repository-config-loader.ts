@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 import os from 'os';
 import { FORMATTING, LIMITS } from '../../core/constants.ts';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
+import { config } from '../../core/config.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logger = createComponentLogger('RepositoryConfigLoader');
@@ -156,6 +157,13 @@ export class RepositoryConfigLoader {
 
       // Expand paths (handle ~ for home directory)
       this._expandPaths();
+
+      // Warn if Redis provider is configured but Redis env vars are absent
+      if (this.config.cacheConfig?.enabled && this.config.cacheConfig?.provider === 'redis' && !config.redis.enabled) {
+        logger.warn(
+          'cacheConfig.provider is "redis" but neither REDIS_URL nor REDIS_HOST is set — cache will silently degrade'
+        );
+      }
 
       logger.info({
         configPath: this.configPath,
