@@ -49,10 +49,12 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 
 ## Critical Patterns
 
-### 1. Doppler Required for ALL Commands
+### 1. Environment Configuration
+- **Dev**: Use `.env` file directly — `npm start` loads it automatically
+- **Production**: Use Doppler — `doppler run -- node --strip-types api/server.ts`
 ```bash
-doppler run -- node --strip-types api/server.ts  # Correct
-node api/server.ts                                 # Wrong - secrets won't load
+npm start                                          # Dev - reads .env
+doppler run -- node --strip-types api/server.ts    # Production - reads Doppler
 ```
 
 ### 2. Configuration: NEVER use process.env directly
