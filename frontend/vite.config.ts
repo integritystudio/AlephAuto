@@ -1,9 +1,14 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_API_PORT = '8080';
+
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd() + '/..', '');
-  const apiPort = env.JOBS_API_PORT ?? '3002';
+  const env = loadEnv(mode, path.resolve(__dirname, '..'), '');
+  const apiPort = env.JOBS_API_PORT || DEFAULT_API_PORT;
   const apiBase = `http://localhost:${apiPort}`;
   const wsBase = `ws://localhost:${apiPort}`;
 
