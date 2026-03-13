@@ -15,6 +15,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createComponentLogger, logMetrics } from '../utils/logger.ts';
 import { isValidJobStatus } from '#api/types/job-status.ts';
+import type { JobStatus } from '#api/types/job-status.ts';
 import { DATABASE, LIMITS, PAGINATION, VALIDATION } from './constants.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -460,10 +461,10 @@ export function getJobCount(options: { status?: string } = {}): number {
  * jobs from a disabled or restarted pipeline.
  *
  * @param pipelineId Pipeline identifier.
- * @param statuses Status values to target (e.g. ['queued', 'created']).
+ * @param statuses Status values to target (e.g. ['queued', 'running']).
  * @returns Number of rows updated.
  */
-export function bulkCancelJobsByPipeline(pipelineId: string, statuses: string[]): number {
+export function bulkCancelJobsByPipeline(pipelineId: string, statuses: JobStatus[]): number {
   if (statuses.length === 0) return 0;
   const database = getDatabase();
   const placeholders = statuses.map(() => '?').join(', ');
