@@ -464,13 +464,15 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
     await jobRepository.initialize();
     logger.info('Job repository initialized');
 
-    // Cancel stale queued jobs for disabled pipelines so the dashboard
+    // Cancel stale queued jobs for all disabled pipelines so the dashboard
     // doesn't show permanently-stuck entries from previous sessions.
     // Root cause: the in-memory SidequestServer queue is not re-hydrated from DB
     // on restart, so queued jobs from a prior session never transition to running.
-    const cancelledRepomix = jobRepository.cancelPipelineJobs('repomix');
-    if (cancelledRepomix > 0) {
-      logger.info({ count: cancelledRepomix }, 'Cancelled stale queued repomix jobs from previous session');
+    for (const pipelineId of workerRegistry.getDisabledPipelines()) {
+      const cancelled = jobRepository.cancelPipelineJobs(pipelineId);
+      if (cancelled > 0) {
+        logger.info({ pipelineId, count: cancelled }, 'Cancelled stale queued jobs for disabled pipeline');
+      }
     }
 
     // Setup server with automatic port fallback

@@ -1,4 +1,8 @@
-import 'dotenv/config';
+// In production, secrets are injected by Doppler (doppler run --).
+// In development, load .env as a fallback for local-only runs.
+if (process.env.NODE_ENV !== 'production') {
+  await import('dotenv/config');
+}
 import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';

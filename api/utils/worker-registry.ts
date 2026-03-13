@@ -570,6 +570,15 @@ class WorkerRegistry {
   }
 
   /**
+   * Get IDs of all disabled pipelines
+   */
+  getDisabledPipelines(): string[] {
+    return Object.entries(PIPELINE_CONFIGS)
+      .filter(([, cfg]) => cfg.disabled)
+      .map(([id]) => id);
+  }
+
+  /**
    * Get aggregated stats from all initialized workers
    */
   getAllStats(): WorkerStats {
