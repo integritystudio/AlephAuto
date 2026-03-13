@@ -589,6 +589,19 @@ class WorkerRegistry {
   }
 
   /**
+   * Get total system capacity (sum of maxConcurrent across all enabled pipelines)
+   */
+  getTotalCapacity(): number {
+    return Object.values(PIPELINE_CONFIGS)
+      .filter(cfg => !cfg.disabled)
+      .reduce((sum, cfg) => {
+        const opts = cfg.getOptions() as Record<string, unknown>;
+        const max = (opts.maxConcurrentScans ?? opts.maxConcurrent ?? CONCURRENCY.DEFAULT_MAX_JOBS) as number;
+        return sum + max;
+      }, 0);
+  }
+
+  /**
    * Shutdown all workers gracefully
    */
   async shutdown(): Promise<void> {
