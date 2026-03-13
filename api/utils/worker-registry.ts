@@ -98,7 +98,9 @@ const PIPELINE_CONFIGS: Record<string, PipelineConfig> = {
       maxConcurrent: config.maxConcurrent ?? CONCURRENCY.MAX_WORKER_INITS,
       logDir: config.logDir,
       sentryDsn: config.sentryDsn
-    })
+    }),
+    disabled: true,
+    disabledReason: 'Paused pending refactor — see BACKLOG.md'
   },
   'claude-health': {
     WorkerClass: ClaudeHealthWorker as unknown as WorkerConstructor,
