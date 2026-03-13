@@ -24,6 +24,7 @@ import { jobRepository } from '#sidequest/core/job-repository.ts';
 import { workerRegistry } from '../utils/worker-registry.ts';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
 import { LIMITS, PAGINATION } from '#sidequest/core/constants.ts';
+import { sendError } from '../utils/api-error.ts';
 
 const RESERVED_PARAM_KEYS = new Set(['triggeredBy', 'triggeredAt', 'retriedFrom', 'retryCount']);
 
@@ -135,6 +136,19 @@ router.post(
         pipelineId,
         parameters
       }, 'Manually triggering pipeline job');
+
+      // Guard: reject trigger when queue is already deep to prevent accumulation
+      const counts = jobRepository.getJobCounts(pipelineId);
+      if (counts && counts.queued >= LIMITS.MAX_QUEUED_JOBS_PER_PIPELINE) {
+        sendError(
+          res,
+          'QUEUE_FULL',
+          `Pipeline ${pipelineId} has ${counts.queued} queued jobs. ` +
+          `Wait for the queue to drain below ${LIMITS.MAX_QUEUED_JOBS_PER_PIPELINE} before triggering new jobs.`,
+          429
+        );
+        return;
+      }
 
       // Trigger the job
       const jobId = await triggerPipelineJob(pipelineId, parameters);
@@ -274,15 +288,6 @@ async function triggerPipelineJob(
     throw new Error(
       `Unknown pipeline: ${pipelineId}. ` +
       `Supported pipelines: ${workerRegistry.getSupportedPipelines().join(', ')}`
-    );
-  }
-
-  // Guard: reject trigger when queue is already deep to prevent accumulation
-  const counts = jobRepository.getJobCounts(pipelineId);
-  if (counts && counts.queued >= LIMITS.MAX_QUEUED_JOBS_PER_PIPELINE) {
-    throw new Error(
-      `Pipeline ${pipelineId} has ${counts.queued} queued jobs. ` +
-      `Wait for the queue to drain below ${LIMITS.MAX_QUEUED_JOBS_PER_PIPELINE} before triggering new jobs.`
     );
   }
 
