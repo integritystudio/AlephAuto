@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-12 | **Last Session:** 2026-03-12 (code-review: 7 items from activity feed DB fallback fix review; 3 fixed, 4 deferred)
+**Last Updated:** 2026-03-13 | **Last Session:** 2026-03-13 (backlog-implementer: 4 items implemented, code-review findings appended to backlog)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -108,4 +108,14 @@ Code review of commit 501e079 (`fix(api): restore activity feed from DB after se
 | AS-M5 | P2 | `sidequest/core/database.ts:470` | Sort order divergence between in-memory and DB fallback | 43a633c |
 | AS-L6 | P3 | `api/server.ts:174-177` | `event` field uses magic strings instead of constants | 43a633c |
 | AS-L7 | P3 | `tests/unit/api-status-activity-fallback.test.ts` | Missing test coverage for `running` status branch | 43a633c |
+
+### Open — Code Review Findings (Commit 43a633c)
+
+| ID | Priority | File | Title | Description |
+|----|----------|------|-------|-------------|
+| AS-M6 | P2 | `api/utils/job-helpers.ts:4,12` | `status` parameter should be union type, not string | `jobStatusToEventType` and `jobStatusToLabel` accept `string`, but job status domain is finite (`'completed' | 'failed' | 'running' | 'queued' | 'created'`). Use union type to catch stale status at call sites and eliminate `as string` cast in tests. |
+| AS-M7 | P2 | `api/server.ts:171` | `id: index` in DB fallback diverges from ActivityEntry.id contract | DB fallback uses array index `(0, 1, 2, ...)` for activity ID, collides with auto-incremented counter from in-memory feed. Consumers that deduplicate by `id` will silently drop duplicates. Pre-existing issue surfaced by activity feed fallback code path becoming more prominent. |
+| AS-M8 | P2 | `sidequest/core/database.ts:472-474` | SQL ORDER BY interpolation should have defensive comment | Currently uses template string for `ORDER BY` clause; hardcoded conditionals make it safe, but if `AllJobsQueryOptions` ever gains caller-supplied sort field, this becomes an injection risk. Add comment documenting the constraint. |
+| AS-L8 | P3 | `api/server.ts:217-218` | Use `??` instead of `||` for DB fallback queue stats | `workerStats.active || dbRunningCount` substitutes DB count when active is legitimately `0`. Per CLAUDE.md Critical Pattern #4, use nullish coalescing: `active: workerStats.active ?? dbRunningCount`. |
+| AS-L9 | P3 | `api/server.ts:219` | Add comment clarifying `capacity` is raw count, not percentage | Capacity field changed from percentage `(active / maxJobs) * 100` to raw concurrency ceiling. Frontend math is correct with new value, but semantic change isn't documented. If `CONCURRENCY.DEFAULT_MAX_JOBS` diverges from actual worker limit, capacity bar shows inaccurate ceiling. Suggest: add comment or derive from `workerStats.maxJobs ?? CONCURRENCY.DEFAULT_MAX_JOBS`. |
 
