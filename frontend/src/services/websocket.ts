@@ -22,21 +22,23 @@ interface ActivityEventPayload {
   timestamp?: string;
 }
 
+/** Partial job shape broadcast by the server (subset of the full Job interface) */
+type JobBroadcast = Pick<Job, 'id'> & Partial<Omit<Job, 'id'>>;
+
 type WebSocketMessage =
   | { type: 'connected'; message: string }
   | { type: 'subscribed'; channels: string[] }
   | { type: 'pong' }
-  | { type: 'job:created'; data: Job }
-  | { type: 'job:started'; data: Job }
+  | { type: 'job:created'; job: JobBroadcast }
+  | { type: 'job:started'; job: JobBroadcast }
   | { type: 'job:progress'; data: { jobId: string; progress: number; currentOperation?: string } }
-  | { type: 'job:completed'; data: Job }
-  | { type: 'job:failed'; data: Job }
-  | { type: 'job:cancelled'; data: Job }
+  | { type: 'job:completed'; job: JobBroadcast }
+  | { type: 'job:failed'; job: JobBroadcast }
+  | { type: 'job:cancelled'; job: JobBroadcast }
   | { type: 'pipeline:status'; data: Pipeline }
   | { type: 'system:status'; data: SystemStatus }
   | { type: 'activity:new'; activity: ActivityEventPayload }
-  | { type: 'error'; error: string }
-  | { type: string };
+  | { type: 'error'; error: string };
 
 type OutboundMessage =
   | { type: 'ping' }
@@ -136,11 +138,11 @@ class WebSocketService {
         break;
 
       case 'job:created':
-        this.handleJobCreated(message.data);
+        this.handleJobCreated(message.job);
         break;
 
       case 'job:started':
-        this.handleJobStarted(message.data);
+        this.handleJobStarted(message.job);
         break;
 
       case 'job:progress':
@@ -148,15 +150,15 @@ class WebSocketService {
         break;
 
       case 'job:completed':
-        this.handleJobCompleted(message.data);
+        this.handleJobCompleted(message.job);
         break;
 
       case 'job:failed':
-        this.handleJobFailed(message.data);
+        this.handleJobFailed(message.job);
         break;
 
       case 'job:cancelled':
-        this.handleJobCancelled(message.data);
+        this.handleJobCancelled(message.job);
         break;
 
       case 'pipeline:status':
@@ -241,7 +243,7 @@ class WebSocketService {
   /**
    * Handle job created event
    */
-  private handleJobCreated(job: Job): void {
+  private handleJobCreated(job: JobBroadcast): void {
     const store = useDashboardStore.getState();
 
     // Add to queued jobs
@@ -262,7 +264,7 @@ class WebSocketService {
   /**
    * Handle job started event
    */
-  private handleJobStarted(job: Job): void {
+  private handleJobStarted(job: JobBroadcast): void {
     const store = useDashboardStore.getState();
 
     // Move from queued to active
@@ -301,7 +303,7 @@ class WebSocketService {
   /**
    * Handle job completed event
    */
-  private handleJobCompleted(job: Job): void {
+  private handleJobCompleted(job: JobBroadcast): void {
     const store = useDashboardStore.getState();
 
     // Remove from active jobs
@@ -324,7 +326,7 @@ class WebSocketService {
   /**
    * Handle job failed event
    */
-  private handleJobFailed(job: Job): void {
+  private handleJobFailed(job: JobBroadcast): void {
     const store = useDashboardStore.getState();
 
     // Remove from active jobs
@@ -356,7 +358,7 @@ class WebSocketService {
   /**
    * Handle job cancelled event
    */
-  private handleJobCancelled(job: Job): void {
+  private handleJobCancelled(job: JobBroadcast): void {
     const store = useDashboardStore.getState();
 
     // Remove from active/queued jobs
@@ -386,7 +388,7 @@ class WebSocketService {
    * Handle activity event from backend ActivityFeed
    */
   private handleActivityEvent(activity: ActivityEventPayload): void {
-    const activityType = ACTIVITY_TYPE_MAP[activity.type] ?? ActivityType.PROGRESS;
+    const activityType = (activity.type ? ACTIVITY_TYPE_MAP[activity.type] : undefined) ?? ActivityType.PROGRESS;
 
     // Add activity to the feed
     this.addActivity({
