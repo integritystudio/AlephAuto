@@ -7,10 +7,40 @@
 
 import { useDashboardStore } from '../store/dashboard';
 import { ActivityType } from '../types';
-import type { Job, Pipeline, ActivityItem } from '../types';
+import type { Job, Pipeline, ActivityItem, SystemStatus } from '../types';
 import { ACTIVITY_TYPE_MAP } from '../hooks/useWebSocketConnection';
 import { createLogger } from '../utils/logger';
 import { DASHBOARD_WEBSOCKET } from '../constants/timing';
+
+interface ActivityEventPayload {
+  id?: string | number;
+  type?: string;
+  event?: string;
+  jobId?: string;
+  jobType?: string;
+  message?: string;
+  timestamp?: string;
+}
+
+type WebSocketMessage =
+  | { type: 'connected'; message: string }
+  | { type: 'subscribed'; channels: string[] }
+  | { type: 'pong' }
+  | { type: 'job:created'; data: Job }
+  | { type: 'job:started'; data: Job }
+  | { type: 'job:progress'; data: { jobId: string; progress: number; currentOperation?: string } }
+  | { type: 'job:completed'; data: Job }
+  | { type: 'job:failed'; data: Job }
+  | { type: 'job:cancelled'; data: Job }
+  | { type: 'pipeline:status'; data: Pipeline }
+  | { type: 'system:status'; data: SystemStatus }
+  | { type: 'activity:new'; activity: ActivityEventPayload }
+  | { type: 'error'; error: string }
+  | { type: string };
+
+type OutboundMessage =
+  | { type: 'ping' }
+  | { type: 'subscribe'; channels: string[] };
 
 const logger = createLogger('WebSocket');
 
@@ -84,7 +114,7 @@ class WebSocketService {
   /**
    * Handle incoming message
    */
-  private handleMessage(message: any): void {
+  private handleMessage(message: WebSocketMessage): void {
     logger.log('Received:', message.type);
 
     switch (message.type) {
@@ -137,13 +167,15 @@ class WebSocketService {
         useDashboardStore.getState().setSystemStatus(message.data);
         break;
 
-      case 'activity:new':
+      case 'activity:new': {
         // Handle real-time activity from backend
-        logger.log('New activity:', message.activity);
-        if (message.activity) {
-          this.handleActivityEvent(message.activity);
+        const activity = message.activity;
+        logger.log('New activity:', activity);
+        if (activity) {
+          this.handleActivityEvent(activity);
         }
         break;
+      }
 
       case 'error':
         logger.error('Server error:', message.error);
@@ -353,7 +385,7 @@ class WebSocketService {
   /**
    * Handle activity event from backend ActivityFeed
    */
-  private handleActivityEvent(activity: any): void {
+  private handleActivityEvent(activity: ActivityEventPayload): void {
     const activityType = ACTIVITY_TYPE_MAP[activity.type] ?? ActivityType.PROGRESS;
 
     // Add activity to the feed
@@ -382,7 +414,7 @@ class WebSocketService {
   /**
    * Send message to server
    */
-  send(message: any): void {
+  send(message: OutboundMessage): void {
     if (this.socket?.readyState === WebSocket.OPEN) {
       this.socket.send(JSON.stringify(message));
     }
