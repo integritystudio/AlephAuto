@@ -19,7 +19,7 @@ import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 import { createComponentLogger, logError, logStart } from '../sidequest/utils/logger.ts';
 import { config } from '../sidequest/core/config.ts';
-import { CACHE, CONCURRENCY, MAX_SCORE, PAGINATION, PORT, PROCESS, TIMEOUTS } from '../sidequest/core/constants.ts';
+import { CACHE, CONCURRENCY, JOB_EVENTS, MAX_SCORE, PAGINATION, PORT, PROCESS, TIMEOUTS } from '../sidequest/core/constants.ts';
 import { TIME_MS } from '../sidequest/core/units.ts';
 import { authMiddleware } from './middleware/auth.ts';
 import { rateLimiter } from './middleware/rate-limit.ts';
@@ -157,9 +157,33 @@ app.get('/api/status', (req: Request, res: Response) => {
     const workerStats = workerRegistry.getAllStats();
     const scanMetrics = workerRegistry.getScanMetrics('duplicate-detection') || {};
 
-    // Get activity feed
+    // Get activity feed — fall back to database history when in-memory feed is empty
+    // (e.g. after server restart, the in-memory ActivityFeedManager starts empty)
     const activityFeed = req.app.get('activityFeed');
-    const recentActivity = activityFeed ? activityFeed.getRecentActivities(PAGINATION.ACTIVITY_FEED_LIMIT) : [];
+    const inMemoryActivity = activityFeed ? activityFeed.getRecentActivities(PAGINATION.ACTIVITY_FEED_LIMIT) : [];
+    let recentActivity = inMemoryActivity;
+
+    if (inMemoryActivity.length === 0) {
+      const recentJobs = jobRepository.getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
+      recentActivity = recentJobs.map(job => ({
+        id: job.id,
+        type: job.status === 'completed' ? JOB_EVENTS.COMPLETED
+          : job.status === 'failed' ? JOB_EVENTS.FAILED
+          : job.status === 'running' ? JOB_EVENTS.STARTED
+          : JOB_EVENTS.CREATED,
+        event: job.status === 'completed' ? 'Job Completed'
+          : job.status === 'failed' ? 'Job Failed'
+          : job.status === 'running' ? 'Job Started'
+          : 'Job Created',
+        message: `Job ${job.id} ${job.status}`,
+        jobId: job.id,
+        jobType: job.pipelineId,
+        pipelineId: job.pipelineId,
+        pipelineName: getPipelineName(job.pipelineId),
+        status: job.status,
+        timestamp: job.completedAt ?? job.startedAt ?? job.createdAt,
+      }));
+    }
 
     // Create a map of database stats by pipelineId
     const statsMap = new Map(pipelineStats.map(s => [s.pipelineId, s]));

@@ -109,6 +109,8 @@ Doppler secrets health check (no auth required).
 
 System status with pipeline metrics and activity feed.
 
+**Activity Feed Behavior:** The `recentActivity` field returns events from the in-memory `ActivityFeedManager` when available. After a server restart (when the in-memory feed is empty), it falls back to recent jobs from the SQLite database, mapped to the same activity format. This ensures the dashboard always shows job history even after deploys or restarts.
+
 **Response:**
 ```json
 {
@@ -147,7 +149,20 @@ System status with pipeline metrics and activity feed.
     "successfulRetries": 4,
     "failedRetries": 1
   },
-  "recentActivity": []
+  "recentActivity": [
+    {
+      "id": "duplicate-detection-1705312200000",
+      "type": "job:completed",
+      "event": "Job Completed",
+      "message": "Job duplicate-detection-1705312200000 completed",
+      "jobId": "duplicate-detection-1705312200000",
+      "jobType": "duplicate-detection",
+      "pipelineId": "duplicate-detection",
+      "pipelineName": "Duplicate Detection",
+      "status": "completed",
+      "timestamp": "2024-01-15T10:00:45.000Z"
+    }
+  ]
 }
 ```
 

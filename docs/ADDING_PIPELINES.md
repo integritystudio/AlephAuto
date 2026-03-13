@@ -64,6 +64,8 @@ export class MyNewWorker extends SidequestServer {
 | Use config, not `process.env` | `config.homeDir` | `process.env.HOME` |
 | Use `@shared/process-io` for child processes | `execCommand('cmd', args, { cwd })` | `spawn('cmd', args)` |
 | Use `??` for numeric defaults | `options.limit ?? 10` | `options.limit \|\| 10` |
+| Entry point guard | `isDirectExecution(import.meta.url)` | `import.meta.url === \`file://${process.argv[1]}\`` (fails under PM2) |
+| PM2 `node_args` for pipeline runners | `--strip-types` | `--strip-types --import ./api/preload.ts` (causes crash loops) |
 
 ### Choosing a Git Workflow Strategy
 
@@ -190,8 +192,12 @@ class MyNewPipeline {
   }
 }
 
-// CLI entry point
-if (import.meta.url === `file://${process.argv[1]}`) {
+// CLI entry point — use isDirectExecution() for PM2 6.x compatibility
+// (process.argv[1] points to ProcessContainerFork.js under PM2;
+//  isDirectExecution checks pm_exec_path as fallback)
+import { isDirectExecution } from '../utils/execution-helpers.ts';
+
+if (isDirectExecution(import.meta.url)) {
   const args = process.argv.slice(2);
   const pipeline = new MyNewPipeline();
 
@@ -283,7 +289,7 @@ npm run mypipeline:once
 - [ ] `createJob()` called with 2 args: `(jobId, data)`
 - [ ] No direct `process.env` access — use `config.*`
 - [ ] No raw `spawn()` — use `execCommand` from `@shared/process-io`
-- [ ] Pipeline runner has CLI entry point with `import.meta.url` guard
+- [ ] Pipeline runner has CLI entry point with `isDirectExecution(import.meta.url)` guard
 - [ ] Cron scheduling validates with `cron.validate()`
 - [ ] `waitForCompletion()` uses `TIMEOUTS.POLL_INTERVAL_MS`
 - [ ] Registered in `PIPELINE_CONFIGS` in `worker-registry.ts`
@@ -297,7 +303,7 @@ Pipelines registered in the worker registry automatically get:
 
 - **Sentry** — error tracking, breadcrumbs on branch/PR creation, job lifecycle events
 - **SQLite persistence** — job history queryable via `GET /api/pipelines/:id/jobs`
-- **Dashboard** — real-time status via WebSocket activity feed
+- **Dashboard** — real-time status via WebSocket activity feed; after server restart, `/api/status` falls back to SQLite job history so the dashboard always shows recent activity
 - **Structured logging** — Pino logger with component context (`createComponentLogger`)
 - **Retry with circuit breaker** — retryable errors (ETIMEDOUT, 5xx) auto-retry; non-retryable (ENOENT, 4xx) fail immediately
 
