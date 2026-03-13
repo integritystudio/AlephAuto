@@ -374,6 +374,9 @@ export const LIMITS = {
   /** Maximum number of recent activities to buffer in the activity feed */
   ACTIVITY_BUFFER_SIZE: 50,
 
+  /** Maximum queued jobs allowed per pipeline before new triggers are rejected */
+  MAX_QUEUED_JOBS_PER_PIPELINE: 10,
+
   /** Maximum unique strings to include when generating a constants file */
   UNIQUE_STRINGS_LIMIT: 50,
 
