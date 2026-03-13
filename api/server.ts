@@ -172,7 +172,7 @@ app.get('/api/status', (req: Request, res: Response) => {
           .sort((a, b) => (b.completedAt ?? b.createdAt).localeCompare(a.completedAt ?? a.createdAt))
           .slice(0, PAGINATION.ACTIVITY_FEED_LIMIT);
         recentActivity = recentJobs.map((job, index) => ({
-          id: index,
+          id: -(index + 1), // Negative range avoids collision with in-memory counter (starts at 1, increments)
           type: jobStatusToEventType(job.status),
           event: jobStatusToLabel(job.status),
           message: `Job ${job.id} ${job.status}`,
