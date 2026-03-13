@@ -191,7 +191,13 @@ export class MigrationAstTransformer {
       specifiers = [t.importDefaultSpecifier(t.identifier(imported))];
     }
 
-    ast.program.body.unshift(t.importDeclaration(specifiers, t.stringLiteral(source)));
+    // Insert after any leading directive prologues (e.g. 'use strict') so the
+    // import lands at the first non-directive position instead of position 0.
+    const firstNonDirective = ast.program.body.findIndex(
+      (node): boolean => !(t.isExpressionStatement(node) && t.isStringLiteral((node as t.ExpressionStatement).expression))
+    );
+    const insertIdx = firstNonDirective === -1 ? 0 : firstNonDirective;
+    ast.program.body.splice(insertIdx, 0, t.importDeclaration(specifiers, t.stringLiteral(source)));
     logger.debug({ imported, source }, 'Added import statement');
     return true;
   }

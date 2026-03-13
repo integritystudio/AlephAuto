@@ -14,7 +14,6 @@ import { config } from '../../core/config.ts';
 
 const logger = createComponentLogger('RepositoryConfigLoader');
 
-
 export type ScanFrequency = 'daily' | 'weekly' | 'monthly' | 'on-demand';
 export type Priority = 'critical' | 'high' | 'medium' | 'low';
 

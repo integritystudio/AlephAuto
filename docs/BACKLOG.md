@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-13 | **Last Session:** 2026-03-13 (backlog-implementer: 9 items implemented — AS-M6/M7/M8/L8/L9, RP-H1/M2/M3/L4)
+**Last Updated:** 2026-03-13 | **Last Session:** 2026-03-13 (code-reviewer: 4 items from d088157 review — QF-M9/M10/L13/L14)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -152,18 +152,18 @@ No active medium-priority backlog items.
 
 Session code-reviewer findings from SC backlog implementation batch. Medium/Low items deferred for future refactoring.
 
-### Medium
+### Done
 
-| ID | File | Title | Description |
-|----|------|-------|-------------|
-| SC-M7 | `constants.ts:32-33` | `TIME_MS.MS` multiplication semantically inert | `100 * TIME_MS.MS` and `10 * TIME_MS.MS` evaluate to plain numbers since `TIME_MS.MS = 1`. Looks like unit derivation but carries no semantic weight. Impacts readability and future refactorings. |
-| SC-M8 | `database.ts:307` | `saveJob` lacks JSON validation like `bulkImportJobs` | `saveJob` uses same `typeof x === 'string' ? x : serialize` pattern as `bulkImportJobs`, but lacks the new JSON string validation guard. Inconsistent error handling for pre-serialized fields. |
+| ID | File | Title | Fix |
+|----|------|-------|-----|
+| SC-M7 | `constants.ts:32-33` | `TIME_MS.MS` multiplication semantically inert | Resolved when DURATION_MS group introduced — uses `TIME_MS.SECOND / 100` semantic divisions |
+| SC-M8 | `database.ts:307` | `saveJob` lacks JSON validation like `bulkImportJobs` | JSON validation guard already present (lines 318-324) |
+| SC-L7 | `units.ts:42` | `EXPORT_MAX_BATCH_SIZE_LIMIT` is unused export | Removed from units.ts as part of SC-L6 |
 
 ### Low
 
 | ID | File | Title | Description |
 |----|------|-------|-------------|
-| SC-L7 | `units.ts:42` | `EXPORT_MAX_BATCH_SIZE_LIMIT` is unused export | After SC-L6 decoupling, `EXPORT_MAX_BATCH_SIZE_LIMIT` has zero consumers (confirmed by grep). Should either be removed as dead export or documented as intentional public API constant. |
 | SC-L8 | `database.ts:180-187` | `isValidJsonString` duplicates `safeJsonParse` logic | New helper duplicates try/catch pattern from existing `safeJsonParse`. Could refactor `safeJsonParse` to return boolean or extend with overload instead of duplicating implementation. |
 | SC-L9 | `database.ts` | Missing unit tests for SC-M1/SC-M2 data-integrity paths | No dedicated unit tests for: (1) filename truncation to 100-char max + isValidJobId pass, (2) rejected record error messages for invalid JSON strings. Existing integration tests cover indirectly; targeted unit tests would harden regressions. |
 
@@ -228,11 +228,13 @@ Code review of merge commit `86fbc07` (main into feature/quality-fixes). 3 High 
 
 | ID | Priority | File | Title | Description |
 |----|----------|------|-------|-------------|
-| QF-M4 | P2 | `api/routes/pipelines.ts:280` | Queue depth guard throws plain Error instead of 429 | `triggerPipelineJob` throws generic `Error` when queue full; reaches outer catch and returns 500 instead of 429. Should use `sendError(res, 'QUEUE_FULL', ..., 429)` at the route handler level. |
-| QF-M5 | P2 | `sidequest/utils/doppler-resilience.ts:165` | getFallbackSecrets null guard reachable on non-stale path | Post-try null check throws if `cachedSecrets` is null on non-stale path. Needs early return when cache is fresh and populated. |
+| QF-M4 | P2 | `api/routes/pipelines.ts:280` | Queue depth guard throws plain Error instead of 429 | Done — c00ef5f, 4c20f95 |
+| QF-M5 | P2 | `sidequest/utils/doppler-resilience.ts:165` | getFallbackSecrets null guard reachable on non-stale path | Done — 9006bce |
 | QF-M6 | P2 | `frontend/src/services/websocket.ts:87` | `handleMessage(message: any)` uses untyped any | Define discriminated union `WebSocketMessage` and use type guards instead of raw `any` access. |
-| QF-M7 | P2 | `sidequest/utils/refactor-test-suite.ts:978` | render-helpers.ts missing existence guard — silently overwrites | Other generated files have `try { access() } catch { write }` guard; render-helpers.ts skips it. |
-| QF-M8 | P2 | `frontend/vite.config.ts:8` | Vite proxy port hardcoded to 3002 | Should derive from env or match `.env` `JOBS_API_PORT` so proxy stays in sync with server config. |
+| QF-M7 | P2 | `sidequest/utils/refactor-test-suite.ts:978` | render-helpers.ts missing existence guard — silently overwrites | Done — fd8b213 (already fixed) |
+| QF-M8 | P2 | `frontend/vite.config.ts:8` | Vite proxy port hardcoded to 3002 | Done — 03d54bb, 34574d9 |
+| QF-M9 | P2 | `sidequest/pipeline-core/reports/html-report-generator.ts:177,319-342` | HTML string interpolation without escaping XSS vectors | Done — 928ae85, 8517352 |
+| QF-M10 | P2 | `sidequest/utils/html-report-utils.ts:11` | escapeHtml accepts string but callers pass JSON-sourced values | Done — 928ae85, 8517352 |
 
 ### Low
 
@@ -242,6 +244,8 @@ Code review of merge commit `86fbc07` (main into feature/quality-fixes). 3 High 
 | QF-L10 | P3 | `sidequest/pipeline-core/git/migration-ast-transformer.ts:200` | Import inserted before 'use strict' directive | `ast.program.body.unshift()` places new imports at position 0, before any `'use strict'` directive. Find first non-directive position. |
 | QF-L11 | P3 | `sidequest/utils/html-report-utils.ts:49` | Scan-specific CSS uses hardcoded px values | `getScanReportStyles()` uses `gap: 15px`, `padding: 20px` etc. while `getBaseStyles()` uses CSS custom properties. Extend `--space-*` variables to cover scan styles. |
 | QF-L12 | P3 | `frontend/src/utils/logger.ts:12` | error() logs unconditionally in production | `warn()` and `log()` are gated on `isDev` but `error()` always logs. Document or gate consistently. |
+| QF-L13 | P3 | `sidequest/pipeline-core/git/migration-file-resolver.ts:64` | Redundant map lookup in condition | Condition `(resolved.get(step.index)?.length ?? 0) === 0` duplicates the map lookup on the next line. Consolidate into single lookup. |
+| QF-L14 | P3 | `sidequest/pipeline-core/config/repository-config-loader.ts:17` | Double blank line after section header removal | Removal of `// === Type Definitions ===` left double blank line. Inconsistent with file style. |
 
 ---
 

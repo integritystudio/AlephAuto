@@ -61,8 +61,9 @@ export class MigrationFileResolver {
       }
 
       for (const step of unresolvedSteps) {
-        const isUnresolvedAddImport = step.parsed?.type === 'add-import' && (resolved.get(step.index)?.length ?? 0) === 0;
-        const paths = isUnresolvedAddImport ? [...associatedFiles] : (resolved.get(step.index) ?? []);
+        const resolvedPaths = resolved.get(step.index) ?? [];
+        const isUnresolvedAddImport = step.parsed?.type === 'add-import' && resolvedPaths.length === 0;
+        const paths = isUnresolvedAddImport ? [...associatedFiles] : resolvedPaths;
         for (const filePath of paths) {
           if (!fileGroups[filePath]) fileGroups[filePath] = [];
           fileGroups[filePath].push(step);

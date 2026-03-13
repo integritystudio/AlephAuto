@@ -435,6 +435,7 @@ class WorkerRegistry {
   _initializing: Map<string, Promise<SidequestServer>>;
   _activityFeed: ActivityFeedManager | null;
   _activeInits: number;
+  _cachedTotalCapacity: number | null;
   _maxConcurrentInits: number;
   _initQueue: Array<(value?: unknown) => void>;
 
@@ -446,6 +447,7 @@ class WorkerRegistry {
     this._initializing = new Map();
     this._activityFeed = null;
     this._activeInits = 0;
+    this._cachedTotalCapacity = null;
     this._maxConcurrentInits = CONCURRENCY.MAX_WORKER_INITS;
     this._initQueue = [];
   }
@@ -600,16 +602,19 @@ class WorkerRegistry {
   }
 
   /**
-   * Get total system capacity (sum of maxConcurrent across all enabled pipelines)
+   * Get total system capacity (sum of maxConcurrent across all enabled pipelines).
+   * Cached on first call since PIPELINE_CONFIGS.disabled is never mutated at runtime.
    */
   getTotalCapacity(): number {
-    return Object.values(PIPELINE_CONFIGS)
+    if (this._cachedTotalCapacity !== null) return this._cachedTotalCapacity;
+    this._cachedTotalCapacity = Object.values(PIPELINE_CONFIGS)
       .filter(cfg => !cfg.disabled)
       .reduce((sum, cfg) => {
         const opts = cfg.getOptions() as Record<string, unknown>;
         const max = (opts.maxConcurrentScans ?? opts.maxConcurrent ?? CONCURRENCY.DEFAULT_MAX_JOBS) as number;
         return sum + max;
       }, 0);
+    return this._cachedTotalCapacity;
   }
 
   /**
