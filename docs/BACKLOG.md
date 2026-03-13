@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-13 | **Last Session:** 2026-03-13 (backlog-implementer: 4 items implemented, code-review findings appended to backlog)
+**Last Updated:** 2026-03-13 | **Last Session:** 2026-03-13 (backlog-implementer: 9 items implemented — AS-M6/M7/M8/L8/L9, RP-H1/M2/M3/L4)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -92,12 +92,14 @@ Code review (`config/scan-repositories.json`): Portability and validation issues
 
 Pipeline disabled in `worker-registry.ts` on 2026-03-12. 914 queued jobs accumulated from repeated cron triggers without draining. Needs refactor before re-enabling.
 
-| ID | Priority | Title | Description |
-|----|----------|-------|-------------|
-| RP-H1 | P1 | Drain or purge stale queued jobs | 914 queued repomix jobs in DB from prior runs. Decide: bulk-cancel or let them drain after re-enable. |
-| RP-M2 | P2 | ~~Investigate why queued jobs never started~~ **Done** | Root cause: `SidequestServer` queue is in-memory only. Jobs persisted as `queued` in the DB are not re-hydrated on server restart. Each restart starts with an empty in-memory queue, leaving previously queued jobs permanently stuck. Fix: RP-H1 (bulk-cancel on startup) resolves the symptom. Full fix would require DB → in-memory queue re-hydration on startup. |
-| RP-M3 | P2 | Add queue depth guard to cron trigger | Prevent cron from enqueuing new jobs when existing queued count exceeds threshold. |
-| RP-L4 | P3 | Re-enable pipeline after fixes | Remove `disabled`/`disabledReason` from repomix config in `worker-registry.ts`. |
+### Done
+
+| ID | Priority | Title | Commit |
+|----|----------|-------|--------|
+| RP-H1 | P1 | Bulk-cancel stale queued repomix jobs on startup | a26f246 |
+| RP-M2 | P2 | Root cause documented: in-memory queue not re-hydrated on restart | f8cb450 |
+| RP-M3 | P2 | Queue depth guard added to pipeline trigger endpoint | e87ebb9 |
+| RP-L4 | P3 | Repomix pipeline re-enabled | 4c50996 |
 
 ---
 
@@ -122,13 +124,13 @@ Code review of commit 501e079 (`fix(api): restore activity feed from DB after se
 | AS-L6 | P3 | `api/server.ts:174-177` | `event` field uses magic strings instead of constants | 43a633c |
 | AS-L7 | P3 | `tests/unit/api-status-activity-fallback.test.ts` | Missing test coverage for `running` status branch | 43a633c |
 
-### Open — Code Review Findings (Commit 43a633c)
+### Done — Code Review Findings (Commit 43a633c)
 
-| ID | Priority | File | Title | Description |
-|----|----------|------|-------|-------------|
-| AS-M6 | P2 | `api/utils/job-helpers.ts:4,12` | `status` parameter should be union type, not string | `jobStatusToEventType` and `jobStatusToLabel` accept `string`, but job status domain is finite (`'completed' | 'failed' | 'running' | 'queued' | 'created'`). Use union type to catch stale status at call sites and eliminate `as string` cast in tests. |
-| AS-M7 | P2 | `api/server.ts:171` | `id: index` in DB fallback diverges from ActivityEntry.id contract | DB fallback uses array index `(0, 1, 2, ...)` for activity ID, collides with auto-incremented counter from in-memory feed. Consumers that deduplicate by `id` will silently drop duplicates. Pre-existing issue surfaced by activity feed fallback code path becoming more prominent. |
-| AS-M8 | P2 | `sidequest/core/database.ts:472-474` | SQL ORDER BY interpolation should have defensive comment | Currently uses template string for `ORDER BY` clause; hardcoded conditionals make it safe, but if `AllJobsQueryOptions` ever gains caller-supplied sort field, this becomes an injection risk. Add comment documenting the constraint. |
-| AS-L8 | P3 | `api/server.ts:217-218` | Use `??` instead of `||` for DB fallback queue stats | `workerStats.active || dbRunningCount` substitutes DB count when active is legitimately `0`. Per CLAUDE.md Critical Pattern #4, use nullish coalescing: `active: workerStats.active ?? dbRunningCount`. |
-| AS-L9 | P3 | `api/server.ts:219` | Add comment clarifying `capacity` is raw count, not percentage | Capacity field changed from percentage `(active / maxJobs) * 100` to raw concurrency ceiling. Frontend math is correct with new value, but semantic change isn't documented. If `CONCURRENCY.DEFAULT_MAX_JOBS` diverges from actual worker limit, capacity bar shows inaccurate ceiling. Suggest: add comment or derive from `workerStats.maxJobs ?? CONCURRENCY.DEFAULT_MAX_JOBS`. |
+| ID | Priority | File | Title | Commit |
+|----|----------|------|-------|--------|
+| AS-M6 | P2 | `api/utils/job-helpers.ts:4,12` | `status` parameter narrowed to `JobStatus` union type | 5b0ed9f |
+| AS-M7 | P2 | `api/server.ts:171` | DB-fallback activity IDs use `-(index + 1)` to avoid collision | 4e87690 |
+| AS-M8 | P2 | `sidequest/core/database.ts:472-474` | Defensive comment added to ORDER BY interpolation | a0ee6da |
+| AS-L8 | P3 | `api/server.ts:217-218` | Fixed `||` → `??` for DB fallback queue stats | 6b78ed7 |
+| AS-L9 | P3 | `api/server.ts:219` | Added comment clarifying `capacity` is raw count | 6b78ed7 |
 
