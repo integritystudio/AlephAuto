@@ -61,11 +61,13 @@ export function getBaseStyles(): string {
         --max-width-container: 1200px;
         --space-xs: 5px;
         --space-sm: 8px;
+        --space-10: 10px;
         --space-md: 15px;
         --space-lg: 20px;
         --space-xl: 25px;
         --space-2xl: 30px;
         --space-3xl: 40px;
+        --radius-xs: 4px;
         --radius-sm: 5px;
         --radius-md: 8px;
         --radius-lg: 10px;
@@ -165,7 +167,7 @@ export function getScanReportStyles(): string {
         .charts-grid, .repo-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
+            gap: var(--space-md);
         }
         .metric-card.highlight {
             background: #ebf8ff;
@@ -176,19 +178,19 @@ export function getScanReportStyles(): string {
             border-color: #48bb78;
         }
         .chart-card {
-            padding: 20px;
+            padding: var(--space-lg);
             background: #f7fafc;
-            border-radius: 8px;
+            border-radius: var(--radius-md);
         }
         .chart-card h3 {
-            margin-bottom: 15px;
+            margin-bottom: var(--space-md);
             color: #4a5568;
         }
-        .chart-bars { display: flex; flex-direction: column; gap: 10px; }
+        .chart-bars { display: flex; flex-direction: column; gap: var(--space-10); }
         .chart-bar-row {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: var(--space-10);
         }
         .chart-label {
             min-width: 120px;
@@ -200,7 +202,7 @@ export function getScanReportStyles(): string {
             flex: 1;
             background: #e2e8f0;
             height: 24px;
-            border-radius: 4px;
+            border-radius: var(--radius-xs);
             overflow: hidden;
         }
         .chart-bar {
@@ -223,9 +225,9 @@ export function getScanReportStyles(): string {
             color: #4a5568;
         }
         .repo-card {
-            padding: 15px;
+            padding: var(--space-md);
             background: #f7fafc;
-            border-radius: 8px;
+            border-radius: var(--radius-md);
             border: 2px solid #e2e8f0;
         }
         .repo-card.error {
@@ -235,11 +237,11 @@ export function getScanReportStyles(): string {
         .repo-name {
             font-weight: bold;
             color: #2d3748;
-            margin-bottom: 8px;
+            margin-bottom: var(--space-sm);
         }
         .repo-stats {
             display: flex;
-            gap: 15px;
+            gap: var(--space-md);
             font-size: 0.9em;
             color: #718096;
         }
@@ -250,12 +252,12 @@ export function getScanReportStyles(): string {
         .duplicates-list, .suggestions-list {
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: var(--space-md);
         }
         .duplicate-card, .suggestion-card {
             border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 20px;
+            border-radius: var(--radius-md);
+            padding: var(--space-lg);
             background: #fafafa;
         }
         .suggestion-card.breaking {
@@ -264,8 +266,8 @@ export function getScanReportStyles(): string {
         .duplicate-header, .suggestion-header {
             display: flex;
             align-items: center;
-            gap: 15px;
-            margin-bottom: 15px;
+            gap: var(--space-md);
+            margin-bottom: var(--space-md);
         }
         .duplicate-rank, .suggestion-rank {
             font-size: 1.5em;
@@ -280,9 +282,9 @@ export function getScanReportStyles(): string {
             display: inline-block;
             background: #edf2f7;
             padding: 4px 10px;
-            border-radius: 4px;
+            border-radius: var(--radius-xs);
             font-size: 0.85em;
-            margin-left: 10px;
+            margin-left: var(--space-10);
         }
         .suggestion-strategy.strategy-local_util { background: #c6f6d5; color: #22543d; }
         .suggestion-strategy.strategy-shared_package { background: #bee3f8; color: #2c5282; }
@@ -300,13 +302,13 @@ export function getScanReportStyles(): string {
         .duplicate-stats, .suggestion-metrics {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 15px;
+            gap: var(--space-10);
+            margin-bottom: var(--space-md);
         }
         .stat-badge, .metric-badge {
             background: #edf2f7;
             padding: 6px 12px;
-            border-radius: 4px;
+            border-radius: var(--radius-xs);
             font-size: 0.85em;
             color: #4a5568;
         }
@@ -319,19 +321,19 @@ export function getScanReportStyles(): string {
         .metric-badge.risk-medium { background: #feebc8; color: #7c2d12; }
         .metric-badge.risk-high { background: #fed7d7; color: #742a2a; }
         .duplicate-files ul {
-            margin-top: 10px;
-            padding-left: 20px;
+            margin-top: var(--space-10);
+            padding-left: var(--space-lg);
         }
         .duplicate-files li {
             margin: 5px 0;
             font-size: 0.9em;
         }
         .suggestion-rationale {
-            margin-bottom: 10px;
+            margin-bottom: var(--space-10);
             color: #4a5568;
         }
         .suggestion-target {
-            margin-bottom: 10px;
+            margin-bottom: var(--space-10);
             font-size: 0.9em;
         }
         .warning-box {
