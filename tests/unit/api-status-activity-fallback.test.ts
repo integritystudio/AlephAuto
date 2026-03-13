@@ -13,6 +13,7 @@ import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert';
 import { DURATION_MS, JOB_EVENTS, PAGINATION } from '../../sidequest/core/constants.ts';
 import { TIME_MS } from '../../sidequest/core/units.ts';
+import { jobStatusToEventType } from '../../api/utils/job-helpers.ts';
 
 const COMPLETED_JOB_COUNT = 3;
 const FAILED_JOB_COUNT = 1;
@@ -64,7 +65,7 @@ describe('GET /api/status — activity feed database fallback', () => {
         data: JSON.stringify({ type: 'schema-enhancement' }),
         error: JSON.stringify({ message: 'ENOENT: no such file' }),
         createdAt: new Date(Date.now() - DURATION_MS.TEN_SECONDS).toISOString(),
-        startedAt: new Date(Date.now() - DURATION_MS.NINE_SECONDS).toISOString(),
+        startedAt: new Date(Date.now() - 9 * TIME_MS.SECOND).toISOString(),
         completedAt: new Date(Date.now() - DURATION_MS.FIVE_SECONDS).toISOString(),
       });
     });
@@ -79,13 +80,8 @@ describe('GET /api/status — activity feed database fallback', () => {
       const completedJobs = jobs.filter(j => j.status === 'completed');
       assert.strictEqual(completedJobs.length, COMPLETED_JOB_COUNT);
 
-      // Verify the mapping logic matches server.ts
       for (const job of completedJobs) {
-        const activityType = job.status === 'completed' ? JOB_EVENTS.COMPLETED
-          : job.status === 'failed' ? JOB_EVENTS.FAILED
-          : job.status === 'running' ? JOB_EVENTS.STARTED
-          : JOB_EVENTS.CREATED;
-        assert.strictEqual(activityType, JOB_EVENTS.COMPLETED);
+        assert.strictEqual(jobStatusToEventType(job.status as string), JOB_EVENTS.COMPLETED);
       }
     });
 
@@ -95,11 +91,26 @@ describe('GET /api/status — activity feed database fallback', () => {
       assert.strictEqual(failedJobs.length, FAILED_JOB_COUNT);
 
       for (const job of failedJobs) {
-        const activityType = job.status === 'completed' ? JOB_EVENTS.COMPLETED
-          : job.status === 'failed' ? JOB_EVENTS.FAILED
-          : job.status === 'running' ? JOB_EVENTS.STARTED
-          : JOB_EVENTS.CREATED;
-        assert.strictEqual(activityType, JOB_EVENTS.FAILED);
+        assert.strictEqual(jobStatusToEventType(job.status as string), JOB_EVENTS.FAILED);
+      }
+    });
+
+    it('should map running jobs to job:started activity type', () => {
+      saveJob({
+        id: 'test-running-0',
+        pipelineId: 'duplicate-detection',
+        status: 'running',
+        data: JSON.stringify({ type: 'duplicate-detection' }),
+        createdAt: new Date().toISOString(),
+        startedAt: new Date().toISOString(),
+      });
+
+      const jobs = getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
+      const runningJobs = jobs.filter(j => j.status === 'running');
+      assert.ok(runningJobs.length > 0, 'Expected at least one running job');
+
+      for (const job of runningJobs) {
+        assert.strictEqual(jobStatusToEventType(job.status as string), JOB_EVENTS.STARTED);
       }
     });
 

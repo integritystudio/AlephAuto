@@ -19,7 +19,7 @@ import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 import { createComponentLogger, logError, logStart } from '../sidequest/utils/logger.ts';
 import { config } from '../sidequest/core/config.ts';
-import { CACHE, CONCURRENCY, JOB_EVENTS, MAX_SCORE, PAGINATION, PORT, PROCESS, TIMEOUTS } from '../sidequest/core/constants.ts';
+import { CACHE, CONCURRENCY, MAX_SCORE, PAGINATION, PORT, PROCESS, TIMEOUTS } from '../sidequest/core/constants.ts';
 import { TIME_MS } from '../sidequest/core/units.ts';
 import { authMiddleware } from './middleware/auth.ts';
 import { rateLimiter } from './middleware/rate-limit.ts';
@@ -41,6 +41,7 @@ import { jobRepository } from '../sidequest/core/job-repository.ts';
 import type { ParsedJob } from '../sidequest/core/database.ts';
 import { getPipelineName } from '../sidequest/utils/pipeline-names.ts';
 import { workerRegistry } from './utils/worker-registry.ts';
+import { jobStatusToEventType, jobStatusToLabel } from './utils/job-helpers.ts';
 import fs from 'fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -164,25 +165,23 @@ app.get('/api/status', (req: Request, res: Response) => {
     let recentActivity = inMemoryActivity;
 
     if (inMemoryActivity.length === 0) {
-      const recentJobs = jobRepository.getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
-      recentActivity = recentJobs.map(job => ({
-        id: job.id,
-        type: job.status === 'completed' ? JOB_EVENTS.COMPLETED
-          : job.status === 'failed' ? JOB_EVENTS.FAILED
-          : job.status === 'running' ? JOB_EVENTS.STARTED
-          : JOB_EVENTS.CREATED,
-        event: job.status === 'completed' ? 'Job Completed'
-          : job.status === 'failed' ? 'Job Failed'
-          : job.status === 'running' ? 'Job Started'
-          : 'Job Created',
-        message: `Job ${job.id} ${job.status}`,
-        jobId: job.id,
-        jobType: job.pipelineId,
-        pipelineId: job.pipelineId,
-        pipelineName: getPipelineName(job.pipelineId),
-        status: job.status,
-        timestamp: job.completedAt ?? job.startedAt ?? job.createdAt,
-      }));
+      try {
+        const recentJobs = jobRepository.getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT, sortByCompletedAt: true });
+        recentActivity = recentJobs.map((job, index) => ({
+          id: index,
+          type: jobStatusToEventType(job.status),
+          event: jobStatusToLabel(job.status),
+          message: `Job ${job.id} ${job.status}`,
+          jobId: job.id,
+          jobType: job.pipelineId,
+          pipelineId: job.pipelineId,
+          pipelineName: getPipelineName(job.pipelineId),
+          status: job.status,
+          timestamp: job.completedAt ?? job.startedAt ?? job.createdAt,
+        }));
+      } catch (dbErr) {
+        logger.warn({ err: dbErr }, 'DB fallback for activity feed failed; returning empty feed');
+      }
     }
 
     // Create a map of database stats by pipelineId
@@ -211,13 +210,13 @@ app.get('/api/status', (req: Request, res: Response) => {
     });
 
     // Calculate aggregated queue stats from all workers
-    // Capacity is percentage of max concurrent jobs currently in use
+    // Use database counts as fallback when workers aren't initialized (e.g. after restart)
+    const dbRunningCount = jobRepository.getJobCount({ status: 'running' });
+    const dbQueuedCount = jobRepository.getJobCount({ status: 'queued' });
     const queueStats = {
-      active: workerStats.active || 0,
-      queued: workerStats.queued || 0,
-      capacity: workerStats.active > 0
-        ? Math.min(MAX_SCORE, (workerStats.active / CONCURRENCY.DEFAULT_MAX_JOBS) * MAX_SCORE)
-        : 0
+      active: workerStats.active || dbRunningCount,
+      queued: workerStats.queued || dbQueuedCount,
+      capacity: CONCURRENCY.DEFAULT_MAX_JOBS,
     };
 
     // Fetch active (running) and queued jobs from the database

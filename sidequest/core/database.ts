@@ -82,6 +82,8 @@ export interface AllJobsQueryOptions {
   status?: string;
   limit?: number;
   offset?: number;
+  /** Sort by completedAt DESC NULLS LAST, created_at DESC (activity feed order) */
+  sortByCompletedAt?: boolean;
 }
 
 /** Job count result per pipeline */
@@ -457,7 +459,7 @@ export function getJobCount(options: { status?: string } = {}): number {
  * @returns Matching parsed jobs.
  */
 export function getAllJobs(options: AllJobsQueryOptions = {}): ParsedJob[] {
-  const { status, limit = PAGINATION.DEFAULT_ALL_LIMIT, offset = 0 } = options;
+  const { status, limit = PAGINATION.DEFAULT_ALL_LIMIT, offset = 0, sortByCompletedAt = false } = options;
 
   let query = 'SELECT * FROM jobs';
   const params: (string | number)[] = [];
@@ -467,7 +469,10 @@ export function getAllJobs(options: AllJobsQueryOptions = {}): ParsedJob[] {
     params.push(status);
   }
 
-  query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+  const orderBy = sortByCompletedAt
+    ? 'completed_at DESC NULLS LAST, created_at DESC'
+    : 'created_at DESC';
+  query += ` ORDER BY ${orderBy} LIMIT ? OFFSET ?`;
   params.push(limit, offset);
 
   const rows = queryAll(query, params);

@@ -13,7 +13,6 @@ export const DURATION_MS = {
   SECOND: TIME_MS.SECOND,
   TWO_SECONDS: 2 * TIME_MS.SECOND,
   FIVE_SECONDS: 5 * TIME_MS.SECOND,
-  NINE_SECONDS: 9 * TIME_MS.SECOND,
   TEN_SECONDS: 10 * TIME_MS.SECOND,
   FIFTEEN_SECONDS: 15 * TIME_MS.SECOND,
   THIRTY_SECONDS: 30 * TIME_MS.SECOND,
@@ -197,6 +196,13 @@ export const JOB_EVENTS = {
   STARTED: 'job:started',
   COMPLETED: 'job:completed',
   FAILED: 'job:failed',
+} as const;
+
+export const JOB_EVENT_LABELS = {
+  CREATED: 'Job Created',
+  STARTED: 'Job Started',
+  COMPLETED: 'Job Completed',
+  FAILED: 'Job Failed',
 } as const;
 
 export const RETRY_EVENTS = {

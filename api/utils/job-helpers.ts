@@ -1,4 +1,20 @@
-import { RESERVED_JOB_KEYS } from '#sidequest/core/constants.ts';
+import { JOB_EVENTS, JOB_EVENT_LABELS, RESERVED_JOB_KEYS } from '#sidequest/core/constants.ts';
+
+/** Map job status to JOB_EVENTS constant */
+export function jobStatusToEventType(status: string): string {
+  if (status === 'completed') return JOB_EVENTS.COMPLETED;
+  if (status === 'failed') return JOB_EVENTS.FAILED;
+  if (status === 'running') return JOB_EVENTS.STARTED;
+  return JOB_EVENTS.CREATED;
+}
+
+/** Map job status to human-readable label */
+export function jobStatusToLabel(status: string): string {
+  if (status === 'completed') return JOB_EVENT_LABELS.COMPLETED;
+  if (status === 'failed') return JOB_EVENT_LABELS.FAILED;
+  if (status === 'running') return JOB_EVENT_LABELS.STARTED;
+  return JOB_EVENT_LABELS.CREATED;
+}
 
 /**
  * Returns a copy of jobData with all reserved system keys removed.
