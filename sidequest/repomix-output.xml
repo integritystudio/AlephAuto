@@ -148,7 +148,8 @@ workers/
 .env.example
 .gitignore
 git-report-config.json
-repomix.config.json</directory_structure><files>This section contains the contents of the repository&apos;s files.<file path="core/config.ts">import path from &apos;path&apos;;
+repomix.config.json</directory_structure><files>This section contains the contents of the repository&apos;s files.<file path="core/config.ts">import &apos;dotenv/config&apos;;
+import path from &apos;path&apos;;
 import os from &apos;os&apos;;
 import { fileURLToPath } from &apos;url&apos;;
 import { dirname } from &apos;path&apos;;
@@ -468,6 +469,7 @@ export const RETRY = {
   BACKOFF_MULTIPLIER: 2,
   BASE_BACKOFF_MS: DURATION_MS.SECOND,
   MAX_BACKOFF_MS: DURATION_MS.TEN_SECONDS,
+  SCAN_DELAY_MS: DURATION_MS.MINUTE,
   DATABASE_RECOVERY_BASE_MS: DURATION_MS.FIVE_SECONDS,
   DATABASE_RECOVERY_MAX_MS: DURATION_MS.FIVE_MINUTES,
 } as const;
@@ -2090,6 +2092,7 @@ export interface JobStats {
 export interface SidequestServerOptions {
   maxConcurrent?: number;
   maxRetries?: number;
+  retryDelayMs?: number;
   logDir?: string;
   autoStart?: boolean;
   gitWorkflowEnabled?: boolean;
@@ -2114,6 +2117,7 @@ export class SidequestServer extends EventEmitter {
   logDir: string;
   isRunning: boolean;
   maxRetries: number;
+  retryDelayMs: number;
   gitWorkflowEnabled: boolean;
   gitBranchPrefix: string;
   gitBaseBranch: string;
@@ -2133,6 +2137,7 @@ export class SidequestServer extends EventEmitter {
     this.logDir = options.logDir || &apos;./logs&apos;;
     this.isRunning = options.autoStart !== false;
     this.maxRetries = options.maxRetries ?? RETRY.MAX_ABSOLUTE_ATTEMPTS;
+    this.retryDelayMs = options.retryDelayMs ?? RETRY.DEFAULT_DELAY_MS;
     this.gitWorkflowEnabled = options.gitWorkflowEnabled ?? false;
     this.gitBranchPrefix = options.gitBranchPrefix || &apos;automated&apos;;
     this.gitBaseBranch = options.gitBaseBranch || &apos;main&apos;;
@@ -2388,7 +2393,7 @@ export class SidequestServer extends EventEmitter {
     if (canRetry) {
       job.retryCount++;
       const classification = classifyError(error as Error);
-      const retryDelay = classification?.suggestedDelay ?? RETRY.DEFAULT_DELAY_MS;
+      const retryDelay = classification?.suggestedDelay ?? this.retryDelayMs;
       logger.info({
         jobId: job.id,
         retryCount: job.retryCount,
@@ -4266,6 +4271,7 @@ import { fileURLToPath } from &apos;url&apos;;
 import os from &apos;os&apos;;
 import { FORMATTING, LIMITS } from &apos;../../core/constants.ts&apos;;
 import { createComponentLogger, logError } from &apos;../../utils/logger.ts&apos;;
+import { config } from &apos;../../core/config.ts&apos;;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logger = createComponentLogger(&apos;RepositoryConfigLoader&apos;);
 export type ScanFrequency = &apos;daily&apos; | &apos;weekly&apos; | &apos;monthly&apos; | &apos;on-demand&apos;;
@@ -4287,6 +4293,7 @@ export interface RepositoryConfig {
   excludePatterns?: string[];
   lastScannedAt?: string;
   scanHistory?: ScanHistoryEntry[];
+  _comment?: string;
 }
 export interface RepositoryGroup {
   name: string;
@@ -4376,6 +4383,11 @@ export class RepositoryConfigLoader {
       this.config = JSON.parse(configContent) as RepositoryScanConfig;
       this.lastLoaded = new Date();
       this._expandPaths();
+      if (this.config.cacheConfig?.enabled &amp;&amp; this.config.cacheConfig?.provider === &apos;redis&apos; &amp;&amp; !config.redis.enabled) {
+        logger.warn(
+          &apos;cacheConfig.provider is &quot;redis&quot; but neither REDIS_URL nor REDIS_HOST is set — cache will silently degrade&apos;
+        );
+      }
       logger.info({
         configPath: this.configPath,
         repositoryCount: this.config.repositories.length,
@@ -4634,7 +4646,7 @@ export class RepositoryConfigLoader {
     const homeDir = os.homedir();
     this.config!.repositories.forEach(repo =&gt; {
       if (repo.path.startsWith(&apos;~&apos;)) {
-        repo.path = repo.path.replace(&apos;~&apos;, homeDir);
+        repo.path = homeDir + repo.path.slice(1);
       }
     });
   }
@@ -19773,7 +19785,7 @@ interface HealthStatus {
   usingFallback: boolean;
   cacheLoadedAt: string | null;
 }
-export class DopplerResilience {
+export abstract class DopplerResilience {
   failureThreshold: number;
   successThreshold: number;
   timeout: number;
@@ -19848,9 +19860,7 @@ export class DopplerResilience {
       return await this.getFallbackSecrets();
     }
   }
-  async fetchFromDoppler(): Promise&lt;Record&lt;string, unknown&gt;&gt; {
-    throw new Error(&apos;fetchFromDoppler must be implemented by consumer&apos;);
-  }
+  abstract fetchFromDoppler(): Promise&lt;Record&lt;string, unknown&gt;&gt;;
   async getFallbackSecrets(): Promise&lt;Record&lt;string, unknown&gt;&gt; {
     try {
       if (!this.cachedSecrets || this.isCacheStale()) {
@@ -23765,6 +23775,9 @@ export class DuplicateDetectionWorker extends SidequestServer {
       const scanConfig = this.configLoader.getScanConfig();
       if (typeof scanConfig.retryAttempts === &apos;number&apos; &amp;&amp; scanConfig.retryAttempts &gt;= 0) {
         this.maxRetries = scanConfig.retryAttempts;
+      }
+      if (typeof scanConfig.retryDelay === &apos;number&apos; &amp;&amp; scanConfig.retryDelay &gt; 0) {
+        this.retryDelayMs = scanConfig.retryDelay;
       }
       logger.info({
         ...stats,

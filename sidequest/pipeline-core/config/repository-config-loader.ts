@@ -488,9 +488,10 @@ export class RepositoryConfigLoader {
   async save(): Promise<void> {
     const saveTask = this._saveQueue.then(async () => {
       try {
+        const portableConfig = this._collapsePaths(this.config!);
         await fs.writeFile(
           this.configPath,
-          JSON.stringify(this.config, null, FORMATTING.JSON_INDENT),
+          JSON.stringify(portableConfig, null, FORMATTING.JSON_INDENT),
           'utf-8'
         );
 
@@ -630,5 +631,21 @@ export class RepositoryConfigLoader {
         repo.path = homeDir + repo.path.slice(1);
       }
     });
+  }
+
+  /**
+   * Private: Collapse absolute home-dir paths back to ~ for portable serialization
+   */
+  private _collapsePaths(config: RepositoryScanConfig): RepositoryScanConfig {
+    const homeDir = os.homedir();
+    return {
+      ...config,
+      repositories: config.repositories.map(repo => ({
+        ...repo,
+        path: repo.path.startsWith(homeDir)
+          ? '~' + repo.path.slice(homeDir.length)
+          : repo.path,
+      })),
+    };
   }
 }
