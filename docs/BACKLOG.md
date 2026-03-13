@@ -259,7 +259,7 @@ Source: pipeline-core repomix analysis + README/CLAUDE.md cross-reference audit.
 
 | ID | Priority | File | Title | Description |
 |----|----------|------|-------|-------------|
-| DA-M1 | P2 | `sidequest/workers/repomix-worker.ts`, `sidequest/pipeline-runners/` | Repomix worker has no corresponding pipeline-runner | `repomix-worker.ts` exists (1 of 10 workers) but there is no `repomix-pipeline.ts` in `pipeline-runners/`. All other workers have a matching pipeline-runner file. Both README.md and CLAUDE.md claim "11 pipelines" — this count includes Repomix, but the Repomix pipeline may use a different execution pattern (direct worker instantiation via API/cron rather than a `BasePipeline` subclass or standalone runner script). **Investigate:** (1) How is repomix-worker triggered — API endpoint, cron, or manual? (2) Should a `repomix-pipeline.ts` runner be created for consistency? (3) If the current pattern is intentional, document why Repomix diverges and clarify whether "11 pipelines" means 11 pipeline-runners or 11 logical pipelines (10 runners + 1 API-only). Related: RP-H1/M2/M3/L4 items from the Repomix outage (2026-03-12) may inform this — the 914-job queue buildup suggests cron triggers without a proper pipeline-runner gate. |
+| DA-M1 | P2 | `sidequest/workers/repomix-worker.ts`, `sidequest/pipeline-runners/` | Repomix worker has no corresponding pipeline-runner | Done — ed7e00f. Investigation: Repomix uses direct worker-registry registration (no BasePipeline runner). Intentional divergence documented in CLAUDE.md. |
 
 ---
 
