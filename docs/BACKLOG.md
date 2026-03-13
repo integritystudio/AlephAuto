@@ -212,6 +212,39 @@ Pipeline disabled in `worker-registry.ts` on 2026-03-12. 914 queued jobs accumul
 
 ---
 
+## Quality Fixes — Code Review Findings (2026-03-12)
+
+Code review of merge commit `86fbc07` (main into feature/quality-fixes). 3 High items fixed in `53e5543`. Medium/Low items deferred.
+
+### Done
+
+| ID | Priority | File | Title | Commit |
+|----|----------|------|-------|--------|
+| QF-H1 | P1 | `api/utils/crypto-helpers.ts:15` | timingSafeEqual length oracle via short-circuit | 53e5543 |
+| QF-H2 | P1 | `api/server.ts:471` | Hardcoded `'repomix'` in stale job cancel — now iterates all disabled pipelines | 53e5543 |
+| QF-H3 | P1 | `sidequest/core/config.ts:1` | `dotenv/config` shadows Doppler in production — gated behind NODE_ENV | 53e5543 |
+
+### Medium
+
+| ID | Priority | File | Title | Description |
+|----|----------|------|-------|-------------|
+| QF-M4 | P2 | `api/routes/pipelines.ts:280` | Queue depth guard throws plain Error instead of 429 | `triggerPipelineJob` throws generic `Error` when queue full; reaches outer catch and returns 500 instead of 429. Should use `sendError(res, 'QUEUE_FULL', ..., 429)` at the route handler level. |
+| QF-M5 | P2 | `sidequest/utils/doppler-resilience.ts:165` | getFallbackSecrets null guard reachable on non-stale path | Post-try null check throws if `cachedSecrets` is null on non-stale path. Needs early return when cache is fresh and populated. |
+| QF-M6 | P2 | `frontend/src/services/websocket.ts:87` | `handleMessage(message: any)` uses untyped any | Define discriminated union `WebSocketMessage` and use type guards instead of raw `any` access. |
+| QF-M7 | P2 | `sidequest/utils/refactor-test-suite.ts:978` | render-helpers.ts missing existence guard — silently overwrites | Other generated files have `try { access() } catch { write }` guard; render-helpers.ts skips it. |
+| QF-M8 | P2 | `frontend/vite.config.ts:8` | Vite proxy port hardcoded to 3002 | Should derive from env or match `.env` `JOBS_API_PORT` so proxy stays in sync with server config. |
+
+### Low
+
+| ID | Priority | File | Title | Description |
+|----|----------|------|-------|-------------|
+| QF-L9 | P3 | `api/utils/worker-registry.ts:594` | getTotalCapacity recomputes on every /api/status request | Calls `cfg.getOptions()` for every enabled pipeline on every poll. Cache on registration and invalidate on enable/disable. |
+| QF-L10 | P3 | `sidequest/pipeline-core/git/migration-ast-transformer.ts:200` | Import inserted before 'use strict' directive | `ast.program.body.unshift()` places new imports at position 0, before any `'use strict'` directive. Find first non-directive position. |
+| QF-L11 | P3 | `sidequest/utils/html-report-utils.ts:49` | Scan-specific CSS uses hardcoded px values | `getScanReportStyles()` uses `gap: 15px`, `padding: 20px` etc. while `getBaseStyles()` uses CSS custom properties. Extend `--space-*` variables to cover scan styles. |
+| QF-L12 | P3 | `frontend/src/utils/logger.ts:12` | error() logs unconditionally in production | `warn()` and `log()` are gated on `isDev` but `error()` always logs. Document or gate consistently. |
+
+---
+
 ## Documentation Audit — Pipeline Count Ambiguity (2026-03-12)
 
 <a id="doc-audit-pipeline-count"></a>
