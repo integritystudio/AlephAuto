@@ -7,9 +7,10 @@
 
 /**
  * Escape HTML special characters to prevent XSS.
+ * Accepts unknown to safely handle JSON-sourced values that may not be strings at runtime.
  */
-export function escapeHtml(text: string): string {
-  if (!text) return '';
+export function escapeHtml(text: unknown): string {
+  if (text == null) return '';
   return String(text)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -17,6 +18,38 @@ export function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
+
+/**
+ * Validate a CSS class suffix against an allowlist.
+ * Returns the value if allowed, or 'unknown' to prevent class-attribute injection.
+ */
+export function sanitizeCssClass(value: string, allowlist: ReadonlySet<string>): string {
+  return allowlist.has(value) ? value : 'unknown';
+}
+
+/** Valid strategy values from Python pipeline output */
+export const VALID_STRATEGIES: ReadonlySet<string> = new Set([
+  'local_util',
+  'shared_package',
+  'mcp_server',
+  'autonomous_agent'
+]);
+
+/** Valid complexity values from Python pipeline output */
+export const VALID_COMPLEXITIES: ReadonlySet<string> = new Set([
+  'trivial',
+  'simple',
+  'moderate',
+  'complex'
+]);
+
+/** Valid migration_risk values from Python pipeline output */
+export const VALID_RISKS: ReadonlySet<string> = new Set([
+  'minimal',
+  'low',
+  'medium',
+  'high'
+]);
 
 /**
  * Base CSS styles shared across all HTML reports.

@@ -7,7 +7,14 @@
 import { saveGeneratedReport } from '../utils/index.ts';
 import { REPORT_SCORE_CLASS_THRESHOLDS } from '../../core/score-thresholds.ts';
 import { formatDuration } from '../../utils/time-helpers.ts';
-import { escapeHtml, getScanReportStyles } from '../../utils/html-report-utils.ts';
+import {
+  escapeHtml,
+  getScanReportStyles,
+  sanitizeCssClass,
+  VALID_STRATEGIES,
+  VALID_COMPLEXITIES,
+  VALID_RISKS
+} from '../../utils/html-report-utils.ts';
 import { LIMITS, MARKDOWN_REPORT, MAX_SCORE } from '../../core/constants.ts';
 import type { ScanResult } from './json-report-generator.ts';
 
@@ -174,9 +181,9 @@ export class HTMLReportGenerator {
                 <div class="chart-bars">
                     ${Object.entries(strategyCounts).map(([strategy, count]) => `
                     <div class="chart-bar-row">
-                        <span class="chart-label">${strategy.replace('_', ' ')}</span>
+                        <span class="chart-label">${escapeHtml(strategy.replace('_', ' '))}</span>
                         <div class="chart-bar-container">
-                            <div class="chart-bar strategy-${strategy}" style="width: ${(count / suggestions.length * MAX_SCORE).toFixed(1)}%"></div>
+                            <div class="chart-bar strategy-${sanitizeCssClass(strategy, VALID_STRATEGIES)}" style="width: ${(count / suggestions.length * MAX_SCORE).toFixed(1)}%"></div>
                         </div>
                         <span class="chart-count">${count}</span>
                     </div>
@@ -188,9 +195,9 @@ export class HTMLReportGenerator {
                 <div class="chart-bars">
                     ${Object.entries(complexityCounts).map(([complexity, count]) => `
                     <div class="chart-bar-row">
-                        <span class="chart-label">${complexity}</span>
+                        <span class="chart-label">${escapeHtml(complexity)}</span>
                         <div class="chart-bar-container">
-                            <div class="chart-bar complexity-${complexity}" style="width: ${(count / suggestions.length * MAX_SCORE).toFixed(1)}%"></div>
+                            <div class="chart-bar complexity-${sanitizeCssClass(complexity, VALID_COMPLEXITIES)}" style="width: ${(count / suggestions.length * MAX_SCORE).toFixed(1)}%"></div>
                         </div>
                         <span class="chart-count">${count}</span>
                     </div>
@@ -316,7 +323,7 @@ export class HTMLReportGenerator {
                     <div class="suggestion-rank">#${index + 1}</div>
                     <div class="suggestion-title">
                         <strong>${escapeHtml(suggestion.suggestion_id)}</strong>
-                        <span class="suggestion-strategy strategy-${suggestion.strategy}">
+                        <span class="suggestion-strategy strategy-${sanitizeCssClass(suggestion.strategy, VALID_STRATEGIES)}">
                             ${escapeHtml(suggestion.strategy.replace('_', ' '))}
                         </span>
                     </div>
@@ -335,11 +342,11 @@ export class HTMLReportGenerator {
                         <span class="metric-badge">
                             Impact: ${suggestion.impact_score.toFixed(0)}%
                         </span>
-                        <span class="metric-badge complexity-${suggestion.complexity}">
-                            ${suggestion.complexity} complexity
+                        <span class="metric-badge complexity-${sanitizeCssClass(suggestion.complexity, VALID_COMPLEXITIES)}">
+                            ${escapeHtml(suggestion.complexity)} complexity
                         </span>
-                        <span class="metric-badge risk-${suggestion.migration_risk}">
-                            ${suggestion.migration_risk} risk
+                        <span class="metric-badge risk-${sanitizeCssClass(suggestion.migration_risk, VALID_RISKS)}">
+                            ${escapeHtml(suggestion.migration_risk)} risk
                         </span>
                         ${suggestion.estimated_effort_hours != null ? `
                         <span class="metric-badge">
