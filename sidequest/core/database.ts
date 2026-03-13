@@ -469,6 +469,8 @@ export function getAllJobs(options: AllJobsQueryOptions = {}): ParsedJob[] {
     params.push(status);
   }
 
+  // orderBy is hardcoded from two literal strings — not user-supplied. Safe from injection.
+  // If AllJobsQueryOptions ever gains a caller-supplied sort field, use an allowlist, not interpolation.
   const orderBy = sortByCompletedAt
     ? 'completed_at DESC NULLS LAST, created_at DESC'
     : 'created_at DESC';
