@@ -1,7 +1,8 @@
 import { JOB_EVENTS, JOB_EVENT_LABELS, RESERVED_JOB_KEYS } from '#sidequest/core/constants.ts';
+import type { JobStatus } from '../types/job-status.ts';
 
 /** Map job status to JOB_EVENTS constant */
-export function jobStatusToEventType(status: string): string {
+export function jobStatusToEventType(status: JobStatus): string {
   if (status === 'completed') return JOB_EVENTS.COMPLETED;
   if (status === 'failed') return JOB_EVENTS.FAILED;
   if (status === 'running') return JOB_EVENTS.STARTED;
@@ -9,7 +10,7 @@ export function jobStatusToEventType(status: string): string {
 }
 
 /** Map job status to human-readable label */
-export function jobStatusToLabel(status: string): string {
+export function jobStatusToLabel(status: JobStatus): string {
   if (status === 'completed') return JOB_EVENT_LABELS.COMPLETED;
   if (status === 'failed') return JOB_EVENT_LABELS.FAILED;
   if (status === 'running') return JOB_EVENT_LABELS.STARTED;

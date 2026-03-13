@@ -14,6 +14,7 @@ import assert from 'node:assert';
 import { DURATION_MS, JOB_EVENTS, PAGINATION } from '../../sidequest/core/constants.ts';
 import { TIME_MS } from '../../sidequest/core/units.ts';
 import { jobStatusToEventType } from '../../api/utils/job-helpers.ts';
+import type { JobStatus } from '../../api/types/job-status.ts';
 
 const COMPLETED_JOB_COUNT = 3;
 const FAILED_JOB_COUNT = 1;
@@ -81,7 +82,7 @@ describe('GET /api/status — activity feed database fallback', () => {
       assert.strictEqual(completedJobs.length, COMPLETED_JOB_COUNT);
 
       for (const job of completedJobs) {
-        assert.strictEqual(jobStatusToEventType(job.status as string), JOB_EVENTS.COMPLETED);
+        assert.strictEqual(jobStatusToEventType(job.status as JobStatus), JOB_EVENTS.COMPLETED);
       }
     });
 
@@ -91,7 +92,7 @@ describe('GET /api/status — activity feed database fallback', () => {
       assert.strictEqual(failedJobs.length, FAILED_JOB_COUNT);
 
       for (const job of failedJobs) {
-        assert.strictEqual(jobStatusToEventType(job.status as string), JOB_EVENTS.FAILED);
+        assert.strictEqual(jobStatusToEventType(job.status as JobStatus), JOB_EVENTS.FAILED);
       }
     });
 
@@ -110,7 +111,7 @@ describe('GET /api/status — activity feed database fallback', () => {
       assert.ok(runningJobs.length > 0, 'Expected at least one running job');
 
       for (const job of runningJobs) {
-        assert.strictEqual(jobStatusToEventType(job.status as string), JOB_EVENTS.STARTED);
+        assert.strictEqual(jobStatusToEventType(job.status as JobStatus), JOB_EVENTS.STARTED);
       }
     });
 

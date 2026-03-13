@@ -42,6 +42,7 @@ import type { ParsedJob } from '../sidequest/core/database.ts';
 import { getPipelineName } from '../sidequest/utils/pipeline-names.ts';
 import { workerRegistry } from './utils/worker-registry.ts';
 import { jobStatusToEventType, jobStatusToLabel } from './utils/job-helpers.ts';
+import type { JobStatus } from './types/job-status.ts';
 import fs from 'fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -173,8 +174,8 @@ app.get('/api/status', (req: Request, res: Response) => {
           .slice(0, PAGINATION.ACTIVITY_FEED_LIMIT);
         recentActivity = recentJobs.map((job, index) => ({
           id: -(index + 1), // Negative range avoids collision with in-memory counter (starts at 1, increments)
-          type: jobStatusToEventType(job.status),
-          event: jobStatusToLabel(job.status),
+          type: jobStatusToEventType(job.status as JobStatus),
+          event: jobStatusToLabel(job.status as JobStatus),
           message: `Job ${job.id} ${job.status}`,
           jobId: job.id,
           jobType: job.pipelineId,
