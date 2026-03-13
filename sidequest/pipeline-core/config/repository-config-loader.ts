@@ -7,18 +7,13 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import os from 'os';
 import { FORMATTING, LIMITS } from '../../core/constants.ts';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 import { config } from '../../core/config.ts';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logger = createComponentLogger('RepositoryConfigLoader');
 
-// ============================================================================
-// Type Definitions
-// ============================================================================
 
 export type ScanFrequency = 'daily' | 'weekly' | 'monthly' | 'on-demand';
 export type Priority = 'critical' | 'high' | 'medium' | 'low';
@@ -123,20 +118,12 @@ const PRIORITY_ORDER: Record<Priority, number> = {
   low: 1
 } as const;
 
-/**
- * Loads and manages repository scanning configuration
- */
 export class RepositoryConfigLoader {
   private configPath: string;
   private config: RepositoryScanConfig | null;
   private lastLoaded: Date | null;
   private _saveQueue: Promise<void>;
 
-    /**
-   * Constructor.
-   *
-   * @param {string | null} [configPath=null] - The configPath
-   */
   constructor(configPath: string | null = null) {
     this.configPath = configPath ?? path.join(process.cwd(), 'config', 'scan-repositories.json');
     this.config = null;
@@ -144,22 +131,14 @@ export class RepositoryConfigLoader {
     this._saveQueue = Promise.resolve();
   }
 
-    /**
-   * Load.
-   *
-   * @returns {Promise<RepositoryScanConfig>} The promise<repositoryscanconfig>
-   * @async
-   */
   async load(): Promise<RepositoryScanConfig> {
     try {
       const configContent = await fs.readFile(this.configPath, 'utf-8');
       this.config = JSON.parse(configContent) as RepositoryScanConfig;
       this.lastLoaded = new Date();
 
-      // Expand paths (handle ~ for home directory)
       this._expandPaths();
 
-      // Warn if Redis provider is configured but Redis env vars are absent
       if (this.config.cacheConfig?.enabled && this.config.cacheConfig?.provider === 'redis' && !config.redis.enabled) {
         logger.warn(
           'cacheConfig.provider is "redis" but neither REDIS_URL nor REDIS_HOST is set — cache will silently degrade'
@@ -180,54 +159,26 @@ export class RepositoryConfigLoader {
     }
   }
 
-    /**
-   * Reload.
-   *
-   * @returns {Promise<RepositoryScanConfig>} The Promise<RepositoryScanConfig>
-   * @async
-   */
   async reload(): Promise<RepositoryScanConfig> {
     logger.info('Reloading configuration');
     return await this.load();
   }
 
-    /**
-   * Get the scan config.
-   *
-   * @returns {ScanConfigSettings} The scan config
-   */
   getScanConfig(): ScanConfigSettings {
     this._ensureLoaded();
     return this.config!.scanConfig;
   }
 
-    /**
-   * Get the all repositories.
-   *
-   * @returns {RepositoryConfig[]} The all repositories
-   */
   getAllRepositories(): RepositoryConfig[] {
     this._ensureLoaded();
     return this.config!.repositories;
   }
 
-    /**
-   * Get the enabled repositories.
-   *
-   * @returns {RepositoryConfig[]} The enabled repositories
-   */
   getEnabledRepositories(): RepositoryConfig[] {
     this._ensureLoaded();
     return this.config!.repositories.filter(repo => repo.enabled);
   }
 
-    /**
-   * Get the repositories by priority.
-   *
-   * @param {Priority} priority - The priority
-   *
-   * @returns {RepositoryConfig[]} The repositories by priority
-   */
   getRepositoriesByPriority(priority: Priority): RepositoryConfig[] {
     this._ensureLoaded();
     return this.config!.repositories.filter(
@@ -235,13 +186,6 @@ export class RepositoryConfigLoader {
     );
   }
 
-    /**
-   * Get the repositories by frequency.
-   *
-   * @param {ScanFrequency} frequency - The frequency
-   *
-   * @returns {RepositoryConfig[]} The repositories by frequency
-   */
   getRepositoriesByFrequency(frequency: ScanFrequency): RepositoryConfig[] {
     this._ensureLoaded();
     return this.config!.repositories.filter(
@@ -249,13 +193,6 @@ export class RepositoryConfigLoader {
     );
   }
 
-    /**
-   * Get the repositories by tag.
-   *
-   * @param {string} tag - The tag
-   *
-   * @returns {RepositoryConfig[]} The repositories by tag
-   */
   getRepositoriesByTag(tag: string): RepositoryConfig[] {
     this._ensureLoaded();
     return this.config!.repositories.filter(
@@ -263,57 +200,26 @@ export class RepositoryConfigLoader {
     );
   }
 
-    /**
-   * Get the repository.
-   *
-   * @param {string} name - The name
-   *
-   * @returns {RepositoryConfig | undefined} The repository
-   */
   getRepository(name: string): RepositoryConfig | undefined {
     this._ensureLoaded();
     return this.config!.repositories.find(repo => repo.name === name);
   }
 
-    /**
-   * Get the all groups.
-   *
-   * @returns {RepositoryGroup[]} The all groups
-   */
   getAllGroups(): RepositoryGroup[] {
     this._ensureLoaded();
     return this.config!.repositoryGroups ?? [];
   }
 
-    /**
-   * Get the enabled groups.
-   *
-   * @returns {RepositoryGroup[]} The enabled groups
-   */
   getEnabledGroups(): RepositoryGroup[] {
     this._ensureLoaded();
     return (this.config!.repositoryGroups ?? []).filter(group => group.enabled);
   }
 
-    /**
-   * Get the group.
-   *
-   * @param {string} name - The name
-   *
-   * @returns {RepositoryGroup | undefined} The group
-   */
   getGroup(name: string): RepositoryGroup | undefined {
     this._ensureLoaded();
     return (this.config!.repositoryGroups ?? []).find(group => group.name === name);
   }
 
-    /**
-   * Get the group repositories.
-   *
-   * @param {string} groupName - The groupName
-   *
-   * @returns {RepositoryConfig[]} The group repositories
-   */
   getGroupRepositories(groupName: string): RepositoryConfig[] {
     const group = this.getGroup(groupName);
     if (!group) {
@@ -325,74 +231,43 @@ export class RepositoryConfigLoader {
       .filter((repo): repo is RepositoryConfig => repo !== undefined && repo.enabled);
   }
 
-    /**
-   * Get the repositories to scan tonight.
-   *
-   * @param {number | null} [maxRepos=null] - The maxRepos
-   *
-   * @returns {RepositoryConfig[]} The repositories to scan tonight
-   */
   getRepositoriesToScanTonight(maxRepos: number | null = null): RepositoryConfig[] {
     this._ensureLoaded();
 
     const maxRepositories = maxRepos ?? this.config!.scanConfig.maxRepositoriesPerNight;
     const now = new Date();
-    const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, ...
+    const dayOfWeek = now.getDay();
     const dayOfMonth = now.getDate();
 
-    // Filter repositories by frequency
     const eligibleRepositories = this.getEnabledRepositories().filter(repo => {
       if (repo.scanFrequency === 'daily') return true;
-      if (repo.scanFrequency === 'weekly' && dayOfWeek === 0) return true;
-      if (repo.scanFrequency === 'monthly' && dayOfMonth === 1) return true;
-      if (repo.scanFrequency === 'on-demand') return false;
+      if (repo.scanFrequency === 'weekly') return dayOfWeek === 0;
+      if (repo.scanFrequency === 'monthly') return dayOfMonth === 1;
       return false;
     });
 
-    // Sort by priority (critical > high > medium > low)
     const sortedRepositories = eligibleRepositories.sort((a, b) => {
       const priorityDiff = PRIORITY_ORDER[b.priority] - PRIORITY_ORDER[a.priority];
       if (priorityDiff !== 0) return priorityDiff;
 
-      // If same priority, sort by last scanned (oldest first)
       const aLastScanned = a.lastScannedAt ? new Date(a.lastScannedAt).getTime() : 0;
       const bLastScanned = b.lastScannedAt ? new Date(b.lastScannedAt).getTime() : 0;
       return aLastScanned - bLastScanned;
     });
 
-    // Limit to maxRepositories
     return sortedRepositories.slice(0, maxRepositories);
   }
 
-    /**
-   * Get the scan defaults.
-   *
-   * @returns {ScanDefaults} The scan defaults
-   */
   getScanDefaults(): ScanDefaults {
     this._ensureLoaded();
     return this.config!.scanDefaults ?? {};
   }
 
-    /**
-   * Get the notification settings.
-   *
-   * @returns {NotificationSettings} The notification settings
-   */
   getNotificationSettings(): NotificationSettings {
     this._ensureLoaded();
     return this.config!.notifications ?? { enabled: false };
   }
 
-    /**
-   * Update last scanned.
-   *
-   * @param {string} repoName - The repoName
-   * @param {Date | null} [timestamp=null] - The timestamp
-   *
-   * @returns {Promise<void>} The Promise<void>
-   * @async
-   */
   async updateLastScanned(repoName: string, timestamp: Date | null = null): Promise<void> {
     this._ensureLoaded();
 
@@ -403,21 +278,11 @@ export class RepositoryConfigLoader {
 
     repo.lastScannedAt = (timestamp ?? new Date()).toISOString();
 
-    // Save updated configuration
     await this.save();
 
     logger.info({ repoName, timestamp: repo.lastScannedAt }, 'Updated last scanned timestamp');
   }
 
-    /**
-   * Add scan history.
-   *
-   * @param {string} repoName - The repoName
-   * @param {Omit<ScanHistoryEntry, 'timestamp'>} historyEntry - The historyEntry
-   *
-   * @returns {Promise<void>} The Promise<void>
-   * @async
-   */
   async addScanHistory(repoName: string, historyEntry: Omit<ScanHistoryEntry, 'timestamp'>): Promise<void> {
     this._ensureLoaded();
 
@@ -435,10 +300,8 @@ export class RepositoryConfigLoader {
       ...historyEntry
     });
 
-    // Keep only last 10 entries
     repo.scanHistory = repo.scanHistory.slice(0, LIMITS.REPOSITORY_SCAN_HISTORY_ENTRIES);
 
-    // Save updated configuration
     await this.save();
 
     logger.info({ repoName, status: historyEntry['status'] }, 'Added scan history entry');
@@ -479,12 +342,6 @@ export class RepositoryConfigLoader {
     }, 'Recorded scan result');
   }
 
-    /**
-   * Save.
-   *
-   * @returns {Promise<void>} The Promise<void>
-   * @async
-   */
   async save(): Promise<void> {
     const saveTask = this._saveQueue.then(async () => {
       try {
@@ -503,36 +360,26 @@ export class RepositoryConfigLoader {
       }
     });
 
-    // Keep queue alive even if a write fails.
     this._saveQueue = saveTask.catch(() => {});
     return saveTask;
   }
 
-    /**
-   * Validate.
-   *
-   * @returns {true} The true
-   */
   validate(): true {
     this._ensureLoaded();
 
     const errors: string[] = [];
 
-    // Validate scan config
     if (!this.config!.scanConfig) {
       errors.push('scanConfig is required');
-    } else {
-      if (!this.config!.scanConfig.schedule) {
-        errors.push('scanConfig.schedule is required');
-      }
+    } else if (!this.config!.scanConfig.schedule) {
+      errors.push('scanConfig.schedule is required');
     }
 
-    // Validate repositories
     if (!Array.isArray(this.config!.repositories)) {
       errors.push('repositories must be an array');
     } else {
       const names = new Set<string>();
-      this.config!.repositories.forEach((repo, index) => {
+      for (const [index, repo] of this.config!.repositories.entries()) {
         if (!repo.name) {
           errors.push(`repositories[${index}]: name is required`);
         } else if (names.has(repo.name)) {
@@ -540,30 +387,23 @@ export class RepositoryConfigLoader {
         } else {
           names.add(repo.name);
         }
-
-        if (!repo.path) {
-          errors.push(`repositories[${index}]: path is required`);
-        }
-      });
+        if (!repo.path) errors.push(`repositories[${index}]: path is required`);
+      }
     }
 
-    // Validate repository groups
-    if (this.config!.repositoryGroups) {
-      this.config!.repositoryGroups.forEach((group, index) => {
-        if (!group.name) {
-          errors.push(`repositoryGroups[${index}]: name is required`);
+    for (const [index, group] of (this.config!.repositoryGroups ?? []).entries()) {
+      if (!group.name) {
+        errors.push(`repositoryGroups[${index}]: name is required`);
+      }
+      if (!Array.isArray(group.repositories)) {
+        errors.push(`repositoryGroups[${index}]: repositories must be an array`);
+      } else {
+        for (const repoName of group.repositories) {
+          if (!this.getRepository(repoName)) {
+            errors.push(`repositoryGroups[${index}]: repository '${repoName}' not found`);
+          }
         }
-
-        if (!Array.isArray(group.repositories)) {
-          errors.push(`repositoryGroups[${index}]: repositories must be an array`);
-        } else {
-          group.repositories.forEach(repoName => {
-            if (!this.getRepository(repoName)) {
-              errors.push(`repositoryGroups[${index}]: repository '${repoName}' not found`);
-            }
-          });
-        }
-      });
+      }
     }
 
     if (errors.length > 0) {
@@ -574,11 +414,6 @@ export class RepositoryConfigLoader {
     return true;
   }
 
-    /**
-   * Get the stats.
-   *
-   * @returns {ConfigStats} The stats
-   */
   getStats(): ConfigStats {
     this._ensureLoaded();
 
@@ -611,18 +446,12 @@ export class RepositoryConfigLoader {
     };
   }
 
-  /**
-   * Private: Ensure configuration is loaded
-   */
   private _ensureLoaded(): void {
     if (!this.config) {
       throw new Error('Configuration not loaded. Call load() first.');
     }
   }
 
-  /**
-   * Private: Expand ~ in repository paths
-   */
   private _expandPaths(): void {
     const homeDir = os.homedir();
 
@@ -633,9 +462,6 @@ export class RepositoryConfigLoader {
     });
   }
 
-  /**
-   * Private: Collapse absolute home-dir paths back to ~ for portable serialization
-   */
   private _collapsePaths(config: RepositoryScanConfig): RepositoryScanConfig {
     const homeDir = os.homedir();
     return {

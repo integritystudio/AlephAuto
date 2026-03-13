@@ -27,14 +27,17 @@ sidequest/
 │   ├── cache/          # Git-aware caching (Redis integration)
 │   ├── config/         # Repository configuration loader
 │   ├── errors/         # Error classification & retry logic
+│   ├── annotators/     # Python semantic annotation
 │   ├── extractors/     # Python code block extraction
-│   ├── git/            # Branch management, PR creation
+│   ├── git/            # Branch management, PR creation, AST migration
 │   ├── models/         # Python Pydantic models (CodeBlock, DuplicateGroup)
 │   ├── reports/        # HTML/JSON/Markdown report generators
 │   ├── scanners/       # AST pattern detection, repository scanning
 │   ├── similarity/     # Multi-layer similarity algorithm (Python)
-│   ├── types/          # TypeScript type definitions
-│   └── utils/          # Error helpers
+│   ├── types/          # TypeScript type definitions (Zod schemas)
+│   ├── utils/          # Error, FS, process, and timing helpers
+│   ├── inter-project-scanner.ts  # Cross-repository scanning
+│   └── doppler-health-monitor.ts # Doppler fallback cache health
 │
 ├── pipeline-runners/   # Pipeline entry points
 │   ├── duplicate-detection-pipeline.ts   # 7-stage duplicate detection
@@ -61,11 +64,6 @@ sidequest/
 │   ├── dashboard-populate-worker.ts      # Dashboard populate jobs
 │   └── test-refactor-worker.ts           # Test refactor jobs
 │
-├── pipeline-core/types/ # TypeScript type definitions
-│   ├── scan-orchestrator-types.ts        # Scan orchestrator interfaces
-│   ├── migration-types.ts                # Migration definitions
-│   └── duplicate-detection-types.ts      # Zod schemas + types
-│
 ├── utils/              # Utility modules
 │   ├── logger.ts                         # Pino component logger
 │   ├── doppler-resilience.ts             # Doppler fallback handling
@@ -91,7 +89,7 @@ sidequest/
 The base class for all workers with:
 
 - **Event-driven lifecycle**: `created → queued → running → completed/failed`
-- **Concurrency control**: Configurable max concurrent jobs (default: 3)
+- **Concurrency control**: Configurable max concurrent jobs (default: 5)
 - **SQLite persistence**: Job history stored in `data/jobs.db`
 - **Sentry integration**: Error tracking and performance monitoring
 - **Git workflow**: Optional branch creation, commits, and PR automation

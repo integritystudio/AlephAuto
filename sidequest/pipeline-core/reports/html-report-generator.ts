@@ -30,7 +30,7 @@ export class HTMLReportGenerator {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${escapeHtml(title)}</title>
     <style>
-        ${this._getStyles()}
+        ${getScanReportStyles()}
     </style>
 </head>
 <body>
@@ -44,7 +44,7 @@ export class HTMLReportGenerator {
         ${this._generateFooter()}
     </div>
     <script>
-        ${this._getScripts()}
+        // Add interactivity hooks here if needed.
     </script>
 </body>
 </html>`;
@@ -59,10 +59,6 @@ export class HTMLReportGenerator {
     return saveGeneratedReport(outputPath, this.generateReport(scanResult, options));
   }
 
-  /**
-   * Generate header section
-   * @private
-   */
   private static _generateHeader(scanResult: ScanResult, title: string, isInterProject: boolean): string {
     const scanDate = new Date(scanResult.scan_metadata?.scanned_at ?? Date.now());
     const duration = scanResult.scan_metadata?.duration_seconds ?? 0;
@@ -84,10 +80,6 @@ export class HTMLReportGenerator {
     </header>`;
   }
 
-  /**
-   * Generate metrics cards
-   * @private
-   */
   private static _generateMetrics(scanResult: ScanResult, isInterProject: boolean): string {
     const metrics = scanResult.metrics ?? {};
 
@@ -156,10 +148,6 @@ export class HTMLReportGenerator {
     </section>`;
   }
 
-  /**
-   * Generate summary charts
-   * @private
-   */
   private static _generateSummaryCharts(scanResult: ScanResult, isInterProject: boolean): string {
     const suggestions = isInterProject
       ? (scanResult.cross_repository_suggestions ?? [])
@@ -213,10 +201,6 @@ export class HTMLReportGenerator {
     </section>`;
   }
 
-  /**
-   * Generate cross-repository section
-   * @private
-   */
   private static _generateCrossRepoSection(scanResult: ScanResult): string {
     const repos = scanResult.scanned_repositories ?? [];
 
@@ -241,10 +225,6 @@ export class HTMLReportGenerator {
     </section>`;
   }
 
-  /**
-   * Generate duplicate groups section
-   * @private
-   */
   private static _generateDuplicateGroups(scanResult: ScanResult, isInterProject: boolean): string {
     const groups = isInterProject
       ? (scanResult.cross_repository_duplicates ?? [])
@@ -309,10 +289,6 @@ export class HTMLReportGenerator {
     </section>`;
   }
 
-  /**
-   * Generate suggestions section
-   * @private
-   */
   private static _generateSuggestions(scanResult: ScanResult, isInterProject: boolean): string {
     const suggestions = isInterProject
       ? (scanResult.cross_repository_suggestions ?? [])
@@ -383,10 +359,6 @@ export class HTMLReportGenerator {
     </section>`;
   }
 
-  /**
-   * Generate footer
-   * @private
-   */
   private static _generateFooter(): string {
     return `
     <footer>
@@ -394,38 +366,12 @@ export class HTMLReportGenerator {
     </footer>`;
   }
 
-  /**
-   * Get CSS styles — delegates to getScanReportStyles() in html-report-utils.ts.
-   * @private
-   */
-  private static _getStyles(): string {
-    return getScanReportStyles();
-  }
-
-  /**
-   * Get JavaScript
-   * @private
-   */
-  private static _getScripts(): string {
-    return `
-        // Add interactivity hooks here if needed.
-    `;
-  }
-
-  /**
-   * Get impact class
-   * @private
-   */
   private static _getImpactClass(score: number): string {
     if (score >= REPORT_SCORE_CLASS_THRESHOLDS.IMPACT_HIGH_MIN_SCORE) return 'impact-high';
     if (score >= REPORT_SCORE_CLASS_THRESHOLDS.IMPACT_MEDIUM_MIN_SCORE) return 'impact-medium';
     return 'impact-low';
   }
 
-  /**
-   * Get ROI class
-   * @private
-   */
   private static _getROIClass(score: number): string {
     if (score >= REPORT_SCORE_CLASS_THRESHOLDS.ROI_HIGH_MIN_SCORE) return 'roi-high';
     if (score >= REPORT_SCORE_CLASS_THRESHOLDS.ROI_MEDIUM_MIN_SCORE) return 'roi-medium';

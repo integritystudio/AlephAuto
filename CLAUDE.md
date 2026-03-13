@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **AlephAuto** - Job queue framework with real-time dashboard for automation pipelines.
 
-11 pipelines: Duplicate Detection (JS+Python), Schema Enhancement, Git Activity Reporter, Repository Cleanup, Repomix, Codebase Health, Dashboard Populate, Bugfix Audit, Gitignore Update, Plugin Management, Test Refactor.
+11 pipelines: Duplicate Detection (JS+Python), Schema Enhancement, Git Activity Reporter, Repository Cleanup, Repomix, Claude Health, Dashboard Populate, Bugfix Audit, Gitignore Update, Plugin Management, Test Refactor.
 
 ## Efficient read operations
 (file tree w/ token count)[docs/repomix/token-tree.txt]
@@ -128,12 +128,12 @@ const limit = Math.min(limit, PAGINATION.MAX_LIMIT);         // max 1000
 
 ### Multi-Language Pipeline (JS ↔ Python)
 ```
-JavaScript (Stages 1-2)          Python (Stages 3-7)
-├── Repository scanning          ├── Code block extraction
-├── Pattern detection            ├── Semantic annotation
-└── candidates.json → stdout     ├── Similarity calculation
-         │                       ├── Duplicate grouping
-         └─── JSON stdin/stdout ─┘── Report generation
+JavaScript (Stages 1-2)          Python (Stages 3-6)           JavaScript (Stage 7)
+├── Repository scanning          ├── Code block extraction      └── Report generation
+├── Pattern detection            ├── Semantic annotation            (HTML/JSON/Markdown
+└── candidates.json → stdout     ├── Similarity calculation          via ReportCoordinator)
+         │                       └── Duplicate grouping
+         └─── JSON stdin/stdout ─┘
 ```
 
 ### Job Queue Framework

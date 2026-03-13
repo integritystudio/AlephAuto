@@ -11,10 +11,10 @@ import _generate from '@babel/generator';
 import type { GeneratorOptions, GeneratorResult } from '@babel/generator';
 
 // ESM/CJS interop: Babel packages nest the callable under .default at runtime
-const traverse = ((_traverse as unknown as { default: (node: t.Node, opts?: TraverseOptions) => void }).default
-  ?? _traverse) as (node: t.Node, opts?: TraverseOptions) => void;
-const generate = ((_generate as unknown as { default: (ast: t.Node, opts?: GeneratorOptions) => GeneratorResult }).default
-  ?? _generate) as (ast: t.Node, opts?: GeneratorOptions) => GeneratorResult;
+type TraverseFn = (node: t.Node, opts?: TraverseOptions) => void;
+type GenerateFn = (ast: t.Node, opts?: GeneratorOptions) => GeneratorResult;
+const traverse = ((_traverse as unknown as { default: TraverseFn }).default ?? _traverse) as TraverseFn;
+const generate = ((_generate as unknown as { default: GenerateFn }).default ?? _generate) as GenerateFn;
 
 import * as t from '@babel/types';
 import type { File as BabelFile, Expression, Identifier, MemberExpression } from '@babel/types';
