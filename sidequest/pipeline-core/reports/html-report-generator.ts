@@ -181,7 +181,7 @@ export class HTMLReportGenerator {
                 <div class="chart-bars">
                     ${Object.entries(strategyCounts).map(([strategy, count]) => `
                     <div class="chart-bar-row">
-                        <span class="chart-label">${escapeHtml(strategy.replace('_', ' '))}</span>
+                        <span class="chart-label">${escapeHtml(strategy.replaceAll('_', ' '))}</span>
                         <div class="chart-bar-container">
                             <div class="chart-bar strategy-${sanitizeCssClass(strategy, VALID_STRATEGIES)}" style="width: ${(count / suggestions.length * MAX_SCORE).toFixed(1)}%"></div>
                         </div>
@@ -324,7 +324,7 @@ export class HTMLReportGenerator {
                     <div class="suggestion-title">
                         <strong>${escapeHtml(suggestion.suggestion_id)}</strong>
                         <span class="suggestion-strategy strategy-${sanitizeCssClass(suggestion.strategy, VALID_STRATEGIES)}">
-                            ${escapeHtml(suggestion.strategy.replace('_', ' '))}
+                            ${escapeHtml(suggestion.strategy.replaceAll('_', ' '))}
                         </span>
                     </div>
                     <div class="suggestion-roi ${this._getROIClass(suggestion.roi_score)}">

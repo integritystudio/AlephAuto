@@ -23,8 +23,8 @@ export function escapeHtml(text: unknown): string {
  * Validate a CSS class suffix against an allowlist.
  * Returns the value if allowed, or 'unknown' to prevent class-attribute injection.
  */
-export function sanitizeCssClass(value: string, allowlist: ReadonlySet<string>): string {
-  return allowlist.has(value) ? value : 'unknown';
+export function sanitizeCssClass(value: unknown, allowlist: ReadonlySet<string>): string {
+  return typeof value === 'string' && allowlist.has(value) ? value : 'unknown';
 }
 
 /** Valid strategy values from Python pipeline output */
