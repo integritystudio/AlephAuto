@@ -4,19 +4,33 @@ Complete guide for setting up Sentry error monitoring and alerting for your auto
 
 ## Quick Setup (5 minutes)
 
-### Option 1: Interactive Setup (Recommended)
+### Option 1: Doppler Setup (Recommended)
 
-Run the automated setup script:
+This project uses **Doppler** for all secrets. Never write secrets to `.env` files.
 
 ```bash
-npm run setup:sentry
+# Add SENTRY_DSN to Doppler
+doppler secrets set SENTRY_DSN="your_actual_dsn_here" \
+  --project integrity-studio \
+  --config dev
+
+# Verify it's set
+doppler secrets get SENTRY_DSN --project integrity-studio --config dev
 ```
 
-This will guide you through:
-1. Creating/using a Sentry account
-2. Getting your DSN
-3. Updating the `.env` file
-4. Testing the connection
+Then run with Doppler to inject the secret:
+
+```bash
+doppler run -- node --strip-types api/server.ts
+```
+
+Access in code via the centralized config — never `process.env` directly:
+
+```typescript
+import { config } from './sidequest/core/config.ts';
+const dsn = config.sentryDsn;  // Correct
+// const dsn = process.env.SENTRY_DSN;  // Wrong
+```
 
 ### Option 2: Manual Setup
 
@@ -28,22 +42,21 @@ This will guide you through:
    - Click "Create Project"
    - Platform: **Node.js**
    - Alert frequency: **On every new issue** (recommended)
-   - Project name: "job-automation" or your preferred name
+   - Project name: "alephauto" or your preferred name
 
 3. **Get Your DSN**
    - Go to Settings → Projects → [Your Project]
    - Click "Client Keys (DSN)"
    - Copy the DSN (looks like: `https://abc123@o123.ingest.sentry.io/456`)
 
-4. **Update `.env` File**
+4. **Add to Doppler**
    ```bash
-   # Edit .env and replace:
-   SENTRY_DSN=your_actual_dsn_here
+   doppler secrets set SENTRY_DSN="your_dsn_here" --project integrity-studio --config dev
    ```
 
 5. **Test the Connection**
    ```bash
-   node test/test-sentry-connection.js
+   doppler run -- node --strip-types api/server.ts
    ```
 
 ## What Gets Monitored
@@ -267,14 +280,14 @@ You should see transaction data in Sentry.
 
 1. **Check DSN**
    ```bash
-   # Verify DSN is set:
-   cat .env | grep SENTRY_DSN
+   # Verify DSN is set in Doppler:
+   doppler secrets get SENTRY_DSN --project integrity-studio --config dev
    ```
 
 2. **Test Connection**
    ```bash
-   npm run setup:sentry
-   # Choose "Test connection"
+   doppler run -- node --strip-types api/server.ts
+   # Check Sentry dashboard for events
    ```
 
 3. **Check Network**
@@ -322,13 +335,12 @@ Options:
 
 ### Configure Sampling
 
-Edit `sidequest/core/server.ts`:
+Sampling is configured via Doppler env var `SENTRY_TRACES_SAMPLE_RATE` (default `0.1`). The `config.sentryTracesSampleRate` property exposes it in code:
 
-```javascript
-Sentry.init({
-  dsn: process.env.SENTRY_DSN,
-  tracesSampleRate: 0.1,  // Capture 10% of transactions
-});
+```typescript
+import { config } from './sidequest/core/config.ts';
+// config.sentryTracesSampleRate defaults to 0.1 (10%)
+// Set SENTRY_TRACES_SAMPLE_RATE=1.0 in Doppler for full capture
 ```
 
 ## Advanced Features
@@ -368,20 +380,17 @@ Tracks:
 ## Quick Reference
 
 ```bash
-# Setup Sentry
-npm run setup:sentry
+# Add/update Sentry DSN in Doppler
+doppler secrets set SENTRY_DSN="your_dsn" --project integrity-studio --config dev
 
-# Test connection
-node test/test-sentry-connection.js
+# Run server with Doppler (injects SENTRY_DSN automatically)
+doppler run -- node --strip-types api/server.ts
 
 # View logs with Sentry context
 tail -f logs/*.error.json
 
 # Check Sentry dashboard
 open https://sentry.io/
-
-# Update DSN
-vim .env  # Edit SENTRY_DSN
 ```
 
 ## Next Steps After Setup

@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 import os from 'os';
 import { FORMATTING, LIMITS } from '../../core/constants.ts';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
+import { config } from '../../core/config.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logger = createComponentLogger('RepositoryConfigLoader');
@@ -40,6 +41,7 @@ export interface RepositoryConfig {
   excludePatterns?: string[];
   lastScannedAt?: string;
   scanHistory?: ScanHistoryEntry[];
+  _comment?: string;
 }
 
 export interface RepositoryGroup {
@@ -156,6 +158,13 @@ export class RepositoryConfigLoader {
 
       // Expand paths (handle ~ for home directory)
       this._expandPaths();
+
+      // Warn if Redis provider is configured but Redis env vars are absent
+      if (this.config.cacheConfig?.enabled && this.config.cacheConfig?.provider === 'redis' && !config.redis.enabled) {
+        logger.warn(
+          'cacheConfig.provider is "redis" but neither REDIS_URL nor REDIS_HOST is set — cache will silently degrade'
+        );
+      }
 
       logger.info({
         configPath: this.configPath,
@@ -479,9 +488,10 @@ export class RepositoryConfigLoader {
   async save(): Promise<void> {
     const saveTask = this._saveQueue.then(async () => {
       try {
+        const portableConfig = this._collapsePaths(this.config!);
         await fs.writeFile(
           this.configPath,
-          JSON.stringify(this.config, null, FORMATTING.JSON_INDENT),
+          JSON.stringify(portableConfig, null, FORMATTING.JSON_INDENT),
           'utf-8'
         );
 
@@ -618,8 +628,24 @@ export class RepositoryConfigLoader {
 
     this.config!.repositories.forEach(repo => {
       if (repo.path.startsWith('~')) {
-        repo.path = repo.path.replace('~', homeDir);
+        repo.path = homeDir + repo.path.slice(1);
       }
     });
+  }
+
+  /**
+   * Private: Collapse absolute home-dir paths back to ~ for portable serialization
+   */
+  private _collapsePaths(config: RepositoryScanConfig): RepositoryScanConfig {
+    const homeDir = os.homedir();
+    return {
+      ...config,
+      repositories: config.repositories.map(repo => ({
+        ...repo,
+        path: repo.path.startsWith(homeDir)
+          ? '~' + repo.path.slice(homeDir.length)
+          : repo.path,
+      })),
+    };
   }
 }

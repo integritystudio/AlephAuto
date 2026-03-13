@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-The AlephAuto job queue test suite currently has 85%+ passing tests, but critical integration tests are failing due to architectural mismatches between the tests and the current `SidequestServer` implementation. This document provides a comprehensive plan for modernizing the test infrastructure, fixing all failing tests, and establishing best practices for future test development.
+The AlephAuto job queue test suite has 796+ tests as of v2.3.20. This document was written when the suite had ~106 tests and critical integration tests were failing due to architectural mismatches between the tests and the current `SidequestServer` implementation. This document provides a comprehensive plan for modernizing the test infrastructure, fixing all failing tests, and establishing best practices for future test development.
 
 **Key Issues:**
 - Tests written for older API that no longer exists
@@ -29,8 +29,8 @@ The AlephAuto job queue test suite currently has 85%+ passing tests, but critica
 ### Current State Assessment
 
 The test suite consists of:
-- **106 total tests** across unit, integration, and accuracy categories
-- **85%+ pass rate** for unit tests
+- **796+ total tests** across unit, integration, and accuracy categories (as of v2.3.20; was 106 at time of writing)
+- **High pass rate** for unit tests
 - **Critical failures** in integration tests, particularly:
   - Activity Feed tests (9 failures)
   - Pipeline trigger tests (timing issues)
@@ -1176,7 +1176,7 @@ The implementation plan is designed to be executed in phases, with the highest-p
 
 ### Success Metrics
 
-- All 106 tests passing (100% pass rate)
+- All tests passing (run `npm test` to verify current count)
 - Average test execution time < 10 seconds
 - Zero flaky tests in CI/CD pipeline
 - All new tests use proper patterns

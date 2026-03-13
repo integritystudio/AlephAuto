@@ -4,12 +4,19 @@ Node.js automation toolkit for managing code repositories at scale.
 
 ## Overview
 
-AlephAuto provides four production-ready automation pipelines for managing multiple code repositories:
+AlephAuto provides eleven production-ready automation pipelines for managing multiple code repositories:
 
-1. **Repomix Pipeline** - Automated code condensation across all repositories
-2. **Documentation Enhancement Pipeline** - Schema.org markup injection for better SEO
-3. **Gitignore Manager** - Batch `.gitignore` updates across multiple repos
-4. **Test Refactor Pipeline** - Automated test suite modularization and utility generation
+1. **Duplicate Detection** - 7-stage multi-language pipeline (JS + Python) for code duplication detection
+2. **Schema Enhancement** - Schema.org markup injection for better SEO
+3. **Git Activity Reporter** - Weekly/monthly reports with commit analytics
+4. **Repository Cleanup** - Automated repo maintenance and cleanup
+5. **Repomix** - Automated code condensation across all repositories
+6. **Codebase Health** - Code quality scanning and health metrics
+7. **Dashboard Populate** - Quality metrics pipeline (rule-based + LLM-as-Judge → Cloudflare KV)
+8. **Bugfix Audit** - 5-stage bug detection, security audit, and fix implementation
+9. **Gitignore Update** - Batch `.gitignore` updates across multiple repos
+10. **Plugin Management** - Plugin audit and management automation
+11. **Test Refactor** - Automated test suite modularization and utility generation
 
 Built on a robust job queue architecture with Sentry error tracking, event-driven monitoring, and configurable concurrency.
 
@@ -187,6 +194,57 @@ DRY_RUN=true node --strip-types sidequest/pipeline-runners/test-refactor-pipelin
 │ RepomixWorker │  │ SchemaEnhancement   │  │ TestRefactor     │
 │               │  │ Worker              │  │ Worker           │
 └───────────────┘  └─────────────────────┘  └──────────────────┘
+```
+
+### BasePipeline Pattern
+
+Five pipeline runners extend `BasePipeline<TWorker>` (`sidequest/pipeline-runners/base-pipeline.ts`) for shared scheduling and stats:
+
+```typescript
+import { BasePipeline } from './base-pipeline.ts';
+import { RepomixWorker } from '../workers/repomix-worker.ts';
+
+class RepomixPipeline extends BasePipeline<RepomixWorker> {
+  constructor() {
+    super(new RepomixWorker());
+  }
+}
+```
+
+`BasePipeline` provides:
+- `scheduleCron(schedule, handler)` — validate + schedule + error-wrap
+- `waitForCompletion()` — polls `worker.getStats()` until queue drains
+- `getStats()` — delegates to `worker.getStats(): JobStats`
+
+### JobRepository
+
+All database access goes through `jobRepository` (singleton facade), never `database.ts` directly:
+
+```typescript
+// Root-relative (from project root)
+import { jobRepository } from './sidequest/core/job-repository.ts';
+
+await jobRepository.saveJob(job);                      // persist
+const job = jobRepository.getJob(id);                  // returns camelCase
+const count = jobRepository.getJobCount({ status });   // COUNT(*) query
+```
+
+Returns camelCase objects (`job.pipelineId`, `job.createdAt`). Never access `job.pipeline_id`.
+
+### Constants Hierarchy
+
+```
+units.ts (primitives: TIME_MS, SECONDS, BYTES, PERCENTILE)
+  └→ constants.ts (domain: TIMEOUTS, RETRY, CONCURRENCY, VALIDATION, ...)
+       └→ config.ts (runtime: env parsing, validateConfig() at startup)
+```
+
+Import from `constants.ts` for all timeout/limit/retry values:
+
+```typescript
+// Root-relative (from project root)
+import { TIMEOUTS, RETRY, CONCURRENCY } from './sidequest/core/constants.ts';
+const timeout = TIMEOUTS.PYTHON_PIPELINE_BASE_MS;
 ```
 
 ### Component Overview

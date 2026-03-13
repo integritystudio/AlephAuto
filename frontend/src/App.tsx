@@ -16,7 +16,10 @@ import { useWebSocketConnection } from './hooks/useWebSocketConnection';
 import { useDashboardStore } from './store/dashboard';
 import { apiService } from './services/api';
 import { JobStatus } from './types';
+import { createLogger } from './utils/logger';
 import './App.css';
+
+const logger = createLogger('App');
 
 /**
  * Main Dashboard Application
@@ -61,7 +64,7 @@ function App() {
    * Opens pipeline detail view (stores selection in state for modal/detail component)
    */
   const handlePipelineView = useCallback((pipelineId: string) => {
-    console.log('[App] View pipeline:', pipelineId);
+    logger.log('View pipeline:', pipelineId);
     selectPipeline(pipelineId);
     setSelectedPipelineDetail(pipelineId);
   }, [selectPipeline]);
@@ -71,7 +74,7 @@ function App() {
    * Triggers a new pipeline job via the API
    */
   const handlePipelineRetry = useCallback(async (pipelineId: string) => {
-    console.log('[App] Retry pipeline:', pipelineId);
+    logger.log('Retry pipeline:', pipelineId);
     try {
       // Use the pipeline trigger endpoint from pipelines.ts
       const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/sidequest/pipeline-runners/${pipelineId}/trigger`, {
@@ -92,9 +95,9 @@ function App() {
       }
 
       const result = await response.json();
-      console.log('[App] Pipeline triggered successfully:', result);
+      logger.log('Pipeline triggered successfully:', result);
     } catch (error) {
-      console.error('[App] Failed to retry pipeline:', error);
+      logger.error('Failed to retry pipeline:', error);
       alert(`Failed to retry pipeline: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }, []);
@@ -104,7 +107,7 @@ function App() {
    * Opens job logs modal/view
    */
   const handleJobViewLogs = useCallback((jobId: string) => {
-    console.log('[App] View job logs:', jobId);
+    logger.log('View job logs:', jobId);
     setSelectedJobForLogs(jobId);
   }, []);
 
@@ -113,19 +116,19 @@ function App() {
    * Cancels a running or queued job via API
    */
   const handleJobCancel = useCallback(async (jobId: string) => {
-    console.log('[App] Cancel job:', jobId);
+    logger.log('Cancel job:', jobId);
     try {
       const result = await apiService.cancelJob(jobId);
 
       if (result.success) {
-        console.log('[App] Job cancelled successfully:', result);
+        logger.log('Job cancelled successfully:', result);
         // Update job status in store
         updateJob(jobId, { status: JobStatus.CANCELLED });
       } else {
         throw new Error('Failed to cancel job');
       }
     } catch (error) {
-      console.error('[App] Failed to cancel job:', error);
+      logger.error('Failed to cancel job:', error);
       alert(`Failed to cancel job: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }, [updateJob]);
@@ -135,19 +138,19 @@ function App() {
    * Retries a failed job via API
    */
   const handleJobRetry = useCallback(async (jobId: string) => {
-    console.log('[App] Retry job:', jobId);
+    logger.log('Retry job:', jobId);
     try {
       const result = await apiService.retryJob(jobId);
 
       if (result.success) {
-        console.log('[App] Job retried successfully:', result);
+        logger.log('Job retried successfully:', result);
         // Update job status in store to queued
         updateJob(jobId, { status: JobStatus.QUEUED, retryCount: (activeJobs.find(j => j.id === jobId)?.retryCount ?? 0) + 1 });
       } else {
         throw new Error('Failed to retry job');
       }
     } catch (error) {
-      console.error('[App] Failed to retry job:', error);
+      logger.error('Failed to retry job:', error);
       alert(`Failed to retry job: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }, [updateJob, activeJobs]);
@@ -157,13 +160,13 @@ function App() {
    * Navigates to related job or pipeline based on activity type
    */
   const handleActivityItemClick = useCallback((activityId: string) => {
-    console.log('[App] Activity clicked:', activityId);
+    logger.log('Activity clicked:', activityId);
 
     // Find the activity item
     const activityItem = activity.find(item => item.id === activityId);
 
     if (!activityItem) {
-      console.warn('[App] Activity item not found:', activityId);
+      logger.warn('Activity item not found:', activityId);
       return;
     }
 
@@ -183,7 +186,7 @@ function App() {
    * Clears all activity items from the store
    */
   const handleActivityClear = useCallback(() => {
-    console.log('[App] Clear activity');
+    logger.log('Clear activity');
     markActivityRead();
     clearActivity();
   }, [markActivityRead, clearActivity]);
@@ -192,7 +195,7 @@ function App() {
    * Handle retry action when error occurs
    */
   const handleRetry = useCallback(() => {
-    console.log('[App] Retrying connection...');
+    logger.log('Retrying connection...');
     window.location.reload();
   }, []);
 

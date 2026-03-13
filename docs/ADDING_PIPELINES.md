@@ -6,7 +6,7 @@ Step-by-step guide for integrating a new job type into the AlephAuto framework. 
 
 Familiarity with:
 - `sidequest/core/server.ts` — `SidequestServer` base class
-- `sidequest/core/git-workflow-manager.ts` — `GitWorkflowManager`
+- `sidequest/pipeline-core/git/branch-manager.ts` — `BranchManager`
 - `api/utils/worker-registry.ts` — `PIPELINE_CONFIGS`
 
 ## Overview
@@ -64,6 +64,8 @@ export class MyNewWorker extends SidequestServer {
 | Use config, not `process.env` | `config.homeDir` | `process.env.HOME` |
 | Use `@shared/process-io` for child processes | `execCommand('cmd', args, { cwd })` | `spawn('cmd', args)` |
 | Use `??` for numeric defaults | `options.limit ?? 10` | `options.limit \|\| 10` |
+| Entry point guard | `isDirectExecution(import.meta.url)` | `import.meta.url === \`file://${process.argv[1]}\`` (fails under PM2) |
+| PM2 `node_args` for pipeline runners | `--strip-types` | `--strip-types --import ./api/preload.ts` (causes crash loops) |
 
 ### Choosing a Git Workflow Strategy
 
@@ -84,15 +86,15 @@ super({
 Override `_generateCommitMessage(job)` and `_generatePRContext(job)` to customise messages. See `schema-enhancement-worker.ts` for an example.
 
 **Option B — Manual multi-commit (advanced):**
-Disable the base-class flow and instantiate `GitWorkflowManager` yourself. Use this when your pipeline makes multiple intermediate commits.
+Disable the base-class flow and instantiate `BranchManager` yourself. Use this when your pipeline makes multiple intermediate commits.
 
-```javascript
-import { GitWorkflowManager } from '../core/git-workflow-manager.ts';
+```typescript
+import { BranchManager } from '../pipeline-core/git/branch-manager.ts';
 
 constructor(options = {}) {
   super({ ...options, jobType: 'my-pipeline', gitWorkflowEnabled: false });
 
-  this.gitWorkflowManager = new GitWorkflowManager({
+  this.branchManager = new BranchManager({
     baseBranch: config.gitBaseBranch,
     branchPrefix: 'my-prefix',
     dryRun: options.gitDryRun ?? config.gitDryRun,
@@ -100,12 +102,12 @@ constructor(options = {}) {
 }
 
 async runJobHandler(job) {
-  const branchInfo = await this.gitWorkflowManager.createJobBranch(repoPath, {
+  const branchInfo = await this.branchManager.createJobBranch(repoPath, {
     jobId: job.id, jobType: 'my-pipeline',
   });
 
   // ... stage 1 work ...
-  await this.gitWorkflowManager.commitChanges(repoPath, {
+  await this.branchManager.commitChanges(repoPath, {
     message: 'chore: stage 1 complete', jobId: job.id,
   });
 
@@ -190,8 +192,12 @@ class MyNewPipeline {
   }
 }
 
-// CLI entry point
-if (import.meta.url === `file://${process.argv[1]}`) {
+// CLI entry point — use isDirectExecution() for PM2 6.x compatibility
+// (process.argv[1] points to ProcessContainerFork.js under PM2;
+//  isDirectExecution checks pm_exec_path as fallback)
+import { isDirectExecution } from '../utils/execution-helpers.ts';
+
+if (isDirectExecution(import.meta.url)) {
   const args = process.argv.slice(2);
   const pipeline = new MyNewPipeline();
 
@@ -283,7 +289,7 @@ npm run mypipeline:once
 - [ ] `createJob()` called with 2 args: `(jobId, data)`
 - [ ] No direct `process.env` access — use `config.*`
 - [ ] No raw `spawn()` — use `execCommand` from `@shared/process-io`
-- [ ] Pipeline runner has CLI entry point with `import.meta.url` guard
+- [ ] Pipeline runner has CLI entry point with `isDirectExecution(import.meta.url)` guard
 - [ ] Cron scheduling validates with `cron.validate()`
 - [ ] `waitForCompletion()` uses `TIMEOUTS.POLL_INTERVAL_MS`
 - [ ] Registered in `PIPELINE_CONFIGS` in `worker-registry.ts`
@@ -297,7 +303,7 @@ Pipelines registered in the worker registry automatically get:
 
 - **Sentry** — error tracking, breadcrumbs on branch/PR creation, job lifecycle events
 - **SQLite persistence** — job history queryable via `GET /api/pipelines/:id/jobs`
-- **Dashboard** — real-time status via WebSocket activity feed
+- **Dashboard** — real-time status via WebSocket activity feed; after server restart, `/api/status` falls back to SQLite job history so the dashboard always shows recent activity
 - **Structured logging** — Pino logger with component context (`createComponentLogger`)
 - **Retry with circuit breaker** — retryable errors (ETIMEDOUT, 5xx) auto-retry; non-retryable (ENOENT, 4xx) fail immediately
 
@@ -308,7 +314,7 @@ If OpenTelemetry is configured, traces and metrics export to the configured coll
 | Resource | Path |
 |----------|------|
 | Base class | `sidequest/core/server.ts` |
-| Git workflow manager | `sidequest/core/git-workflow-manager.ts` |
+| Branch manager | `sidequest/pipeline-core/git/branch-manager.ts` |
 | Worker registry | `api/utils/worker-registry.ts` |
 | Constants | `sidequest/core/constants.ts` |
 | Config | `sidequest/core/config.ts` |

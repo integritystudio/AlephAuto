@@ -6,6 +6,178 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.27] - 2026-03-11
+
+### Summary
+
+Dashboard populate pipeline infrastructure and regression tests. PM2 ecosystem config refactored to register missing `aleph-populate` process (Dashboard Populate Pipeline bug recovery). Added comprehensive unit tests to prevent regressions. All 3 PM2 processes now running.
+
+### Added
+
+**Test Coverage** (DP-H1, DP-M2)
+- **tests/unit/ecosystem-config.test.ts** — 8 regression tests verifying PM2 ecosystem config structure: process registration (DP-H1), script + `--cron` args, env var isolation (DP-M2 orphaned var removal). Includes runtime guard on CJS `require` output validation.
+
+### Fixed
+
+**PM2 Infrastructure** (DP-H1, DP-H2, DP-M1, DP-M2)
+- **DP-H1:** Extracted `config/populate.config.cjs` as standalone PM2 process config; imported into `ecosystem.config.cjs` as `aleph-populate` process. Dashboard populate cron (`0 6,18 * * *`) now registered as persistent PM2 process, no longer depends on manual runs. Running online since 2026-03-11.
+- **DP-H2:** All 3 PM2 processes restarted via `doppler run -- pm2 start config/ecosystem.config.cjs`. Online: aleph-dashboard, aleph-worker, aleph-populate.
+- **DP-M1:** Doppler secrets refreshed on PM2 restart via `doppler run --` wrapper (was stale since 2026-03-08). Secrets injected at startup.
+- **DP-M2:** Removed orphaned `DASHBOARD_CRON_SCHEDULE` from `aleph-worker` env (was never read by `duplicate-detection-pipeline.ts`). Moved to `aleph-populate` env in `populate.config.cjs`.
+
+### Validation
+
+- `npm run typecheck` (pass)
+- `npm test` — 1242/1242 pass
+- `node --strip-types --test tests/unit/ecosystem-config.test.ts` — 8/8 pass
+
+### Commits
+
+- 519af16 — test(ecosystem): add PM2 config regression tests; mark DP-H1, DP-H2, DP-M1, DP-M2 Done
+
+---
+
+## [2.3.26] - 2026-03-10
+
+### Summary
+
+Type safety and documentation fixes for DopplerResilience abstract class refactor. Added type annotations to test fixtures and updated runbook examples to use concrete subclass pattern.
+
+### Fixed
+
+**Type Safety & Documentation** (SU-L2, SU-L3, SU-L4)
+- **SU-L2:** Made `DopplerResilience` abstract class with abstract `fetchFromDoppler()` method instead of runtime throw pattern; created `TestDopplerResilience` concrete subclass in test fixtures
+- **SU-L3:** Added type annotations to untyped variables in `tests/unit/doppler-resilience.test.ts:20-22` — `doppler: DopplerResilience`, `testCacheDir: string`, `testCacheFile: string`
+- **SU-L4:** Updated `docs/runbooks/DOPPLER_CIRCUIT_BREAKER.md` code examples (Basic Integration, Express Health Endpoint, Integration Testing, Migration Guide) from direct `new DopplerResilience(...)` calls to concrete subclass instantiation pattern
+
+**Dashboard Operations** (DP-D2)
+- **DP-D2:** Deleted stale KV sync state file (`dashboard/scripts/.kv-sync-state.json`) containing 157K orphaned entries; re-synced to resolve 22 active KV keys. Trend data now persists correctly to Cloudflare KV.
+
+### Changed
+
+**Documentation** (SU-L4 cleanup)
+- Fixed stale JSDoc in `tests/fixtures/test-doppler-resilience.ts` — now accurately describes abstract class relationship and default-throwing behavior
+
+### Validation
+
+- `npm run typecheck` (pass)
+- `npm test` — 1234/1234 pass
+
+### Commits
+
+- d347822 — fix(SU-L3): add type annotations to doppler-resilience test variables
+- 70decb0 — docs(SU-L4): update runbook to use abstract class pattern for DopplerResilience
+- c3d7d72 — chore(backlog): mark SU-L3, SU-L4 Done
+
+---
+
+## [2.3.25] - 2026-03-09
+
+### Summary
+
+Resolved 22 open backlog items (19 initial + 3 main ast-grep items) across test coverage gaps, code review findings, and architecture improvements. All tests passing; typecheck clean. Includes TypeScript type annotations for helper functions, file guards, CSS fixes, documentation improvements, and major refactoring (structured logger adoption, MigrationTransformer decomposition, HTML template extraction). No breaking changes.
+
+### Added
+
+**Test Coverage** (TC-C1, TC-C2, TC-H1-H3, TC-M1-M5)
+- Pre-existing test implementations already present in test suites (TC-C1, TC-C2, TC-H1 in server-unit.test.ts; TC-H2, TC-H3 in input-validation.test.ts; TC-M1, TC-M3 in cleanup-error-logs.test.ts; TC-M2 in database.test.ts; TC-M4 in input-validation.test.ts)
+- **TC-M5:** TypeScript type annotations on cleanup-error-logs helpers — ErrorLogEntry, ArchivedLogEntry, CleanupOptions interfaces; function signature types for getFileAgeDays, compressFile, scanErrorLogs, scanArchivedLogs, formatBytes, archiveOldLogs, deleteOldArchives, cleanup, parseArgs
+
+### Fixed
+
+**File Generation & CSS** (SU-FR-M1, SU-FR-M3)
+- **SU-FR-M1:** Added fsPromises.access guard before writing render-helpers.ts (was unconditionally overwritten; now skips if exists)
+- **SU-FR-M3:** Restored `section h2` padding-bottom from var(--space-xs) (5px) to var(--space-sm) (8px) to approximate original 10px visual intent
+
+**Errors & Type Safety** (SU-FR-L1, SU-FR-L3, DP-D1)
+- **SU-FR-L1:** Clarified crypto-helpers.ts `&&` short-circuit comment — sameLength intentionally distinguishes wrong-length from wrong-content inputs
+- **SU-FR-L3:** Documented removed isSafeInteger assertion in input-validation.test.ts (was vacuously true on MAX_SAFE_INTEGER)
+- Guard error.message access with instanceof check in cleanup-error-logs.ts main() (unknown catch type)
+- **DP-D1:** Replaced `export enum SECONDS` with `as const` object in constants.ts (enum syntax incompatible with Node `--strip-types`; fixed aleph-worker crash-loop from 2026-03-07 23:58 onward)
+
+### Changed
+
+**Documentation & Code Quality** (SU-FR-M2, SU-FR-L2, AG-W1-L1, AG-CS1-M1)
+- **SU-FR-M2:** Added comment explaining empty ALL_STRINGS export behavior when no strings extracted
+- **SU-FR-L2:** Added TOCTOU note to fsPromises.access pattern — acceptable for single-threaded CLI
+- **AG-W1-L1:** Removed 4 duplicate JSDoc stub blocks in websocket.ts (connect, send, disconnect, isConnected)
+- **AG-CS1-M1:** Added optional astTransformer constructor injection to MigrationFileResolver; MigrationTransformer passes shared instance (eliminates duplicate instantiation)
+
+**Refactoring & Architecture** (AG-W1, AG-CS1, AG-CS2)
+- **AG-W1:** Replaced 14 `console.log`/`console.error` calls with structured logger via `createLogger` factory; App.tsx + websocket.ts + useWebSocketConnection.ts (commits 848138c, 4180196)
+- **AG-CS1:** Decomposed MigrationTransformer (627 lines, 44 methods) into 3 focused helpers: MigrationAstTransformer, MigrationFileResolver, MigrationGitManager (commits e9530ba, a8c24d4)
+- **AG-CS2:** Extracted HTML/CSS templates from HtmlReportGenerator into getScanReportStyles() in html-report-utils.ts; reduced file from 625 to 435 lines (commit e8ef72a)
+
+### Validation
+
+- `npm run typecheck` (pass)
+- `npm test` — 1234/1234 pass
+
+### Commits
+
+- 43acd05 — test(TC-M5): TypeScript type annotations on cleanup-error-logs helpers
+- fd8b213 — fix(SU-FR-M1): fsPromises.access guard + SU-FR-M2 comment + SU-FR-L2 TOCTOU note
+- 7841f16 — fix(SU-FR-M3): section h2 padding-bottom to --space-sm
+- 1160b0e — refactor(SU-FR-M4): METRIC_KEYS cast (lint reverted; accepted as-is)
+- c398db3 — docs(SU-FR-L1, SU-FR-L3): comment improvements
+- 175ba38 — docs(AG-W1-L1): remove duplicate JSDoc stubs in websocket.ts
+- ff6faee — refactor(AG-CS1-M1): optional astTransformer injection
+- 7621b86 — fix: guard error.message access in cleanup main()
+
+### Related
+
+- Items migrated from: Test Coverage Gaps, Code Review Findings — sidequest/utils (Final Review), Code Review Findings — ast-grep Implementation Session, ast-grep Full Analysis (main items AG-W1, AG-CS1, AG-CS2)
+- Deferred: SU-L2 (DopplerResilience abstract refactor; broad test changes needed), SU-FR-M4 (lint rule requires cast; functionally equivalent)
+
+---
+
+## [2.3.24] - 2026-03-09
+
+### Summary
+
+Comprehensive code review fixes across 4 major sections (API routes, sidequest/core, scripts, utilities) and 1 follow-up. 61 items closed (14 High, 25 Medium, 20 Low, 2 Critical). Security hardening (injection prevention, validation), error handling improvements, DRY refactoring, and nullish coalescing conversions throughout. One H1 logic fix post-review.
+
+### Changed
+
+**API Routes (23 items)** — Routes, middleware, utilities, WebSocket handling.
+- **H4-H9, M10-M15, L16-L18** — Security & validation fixes: directory traversal prevention via Zod, RESERVED_KEYS stripping, auth config module usage, timingSafeEqual padding, worker registry deduplication, pagination correctness, Sentry header redaction, WebSocket channel constraints, shell injection prevention, query validation patterns.
+
+**sidequest/core (13 items)** — Server, database, config, constants, units.
+- **SC-H1, SC-H2, SC-M1-M6, SC-L1-L4, SC-L6** — Error handling (Sentry tracing, re-entrancy guard), job ID validation, JSON string safety, magic number elimination, nullish coalescing conversions, config deprecations (removed vestigial health fields).
+
+**Code Review Follow-up (5 items)** — Constants, database, tests.
+- **SC-M7, SC-M8, SC-L7-L9** — Timeout constant derivation, JSON validation consistency, dead-export cleanup, DRY helper extraction, targeted unit tests for data-integrity paths.
+
+**scripts/ (8 items)** — Shell and TypeScript deployment/test utilities.
+- **SCR-M1-M4, SCR-L1-L4** — Package manager standardization (npm→pnpm), magic number elimination, hardcoded-path removal, DRY function extraction, consistent shebangs, stale config cleanup, parameterization.
+
+**sidequest/utils (18 items + 1 post-review fix)** — Utilities, helpers, validators, reporters.
+- **SU-C1, SU-M1-M3, SU-L1** — Security hardening: command injection prevention (execFileSync array form), error type safety, environment propagation, radix specification, Python version check logic.
+- **SU-H1-H4, SU-M4-M9, SU-L3-L5** — Plugin manager config consolidation, doppler-resilience null-guard logic fix, refactor-test-suite async fs migration, gitignore entry deduplication, METRIC_KEYS extraction, nullish coalescing conversions, CSS custom properties (--space-*, --radius-*, --font-size-*).
+- **H1 (post-review)** — Moved `cachedSecrets` null guard from inside try-block to after catch-block to ensure invariant-violation errors surface correctly.
+
+### Validation
+
+- `npm run typecheck` (pass)
+- `npm test` — 1234/1234 pass
+
+### Related
+
+- Backlog sections migrated: 6 Done sections (API Routes, sidequest/core, Follow-up, scripts/, sidequest/utils)
+- Open findings: 7 items remain in SU-FR (M1-M4, L1-L3) for future sprint
+- Deferred: SU-L2 (DopplerResilience abstract class blast radius)
+
+### Commits
+
+61 items across ~8-10 consolidated commits:
+- Initial implementation batch (c785e09..609ea4b)
+- BACKLOG.md updates (657ed0e)
+- OTEL session fixes (9ad7a81)
+- Final-review fixes H1 + M1-M3 (c9b4e07)
+- H1 logic fix (post-migration, current)
+
+---
+
 ## [2.3.23] - 2026-03-09
 
 ### Summary

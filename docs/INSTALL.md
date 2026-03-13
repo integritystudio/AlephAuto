@@ -1,6 +1,8 @@
 # Installation Guide
 
-Quick setup guide for the automated git activity reporting system with **AlephAuto integration**.
+> **Note:** This guide covers setup for the **Git Activity Reporter** pipeline. For the full AlephAuto framework setup, see [README.md](../README.md) and [CLAUDE.md](../CLAUDE.md). For Doppler (required for all pipelines), see [docs/setup/DOPPLER_SENTRY_SETUP.md](setup/DOPPLER_SENTRY_SETUP.md).
+
+Quick setup guide for the Git Activity Reporter pipeline.
 
 ## Prerequisites
 

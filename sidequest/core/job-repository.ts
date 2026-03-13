@@ -16,6 +16,7 @@ import {
   getLastJob as dbGetLastJob,
   getAllPipelineStats as dbGetAllPipelineStats,
   bulkImportJobs as dbBulkImportJobs,
+  bulkCancelJobsByPipeline as dbBulkCancelJobsByPipeline,
   closeDatabase as dbCloseDatabase,
 } from './database.ts';
 import type {
@@ -29,6 +30,7 @@ import type {
   BulkImportResult,
   BulkImportJob,
 } from './database.ts';
+import type { JobStatus } from '#api/types/job-status.ts';
 import { createComponentLogger, logError } from '../utils/logger.ts';
 
 const logger = createComponentLogger('JobRepository');
@@ -159,6 +161,17 @@ class JobRepository {
    */
   bulkImport(jobs: BulkImportJob[]): BulkImportResult {
     return dbBulkImportJobs(jobs);
+  }
+
+  /**
+   * Bulk-cancels non-terminal jobs for a specific pipeline.
+   *
+   * @param pipelineId Pipeline identifier.
+   * @param statuses Status values to cancel (defaults to queued).
+   * @returns Number of cancelled jobs.
+   */
+  cancelPipelineJobs(pipelineId: string, statuses: JobStatus[] = ['queued']): number {
+    return dbBulkCancelJobsByPipeline(pipelineId, statuses);
   }
 
   /**

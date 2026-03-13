@@ -46,19 +46,11 @@ sudo ./scripts/deploy-traditional-server.sh --update
 ./scripts/deploy-traditional-server.sh --status
 ```
 
-### [CI_CD_UPDATES.md](./CI_CD_UPDATES.md)
-**CI/CD deployment updates and workflow details**
+### [CI_CD_UPDATES.md](../archive/CI_CD_UPDATES.md) *(archived)*
+**CI/CD deployment updates and workflow details** (completed 2025-11-26)
 
-- GitHub Actions deployment pipeline
-- Doppler + PM2 deployment patterns
-- Verification and rollback notes
-
-### [BUGFIX_VERIFICATION.md](./BUGFIX_VERIFICATION.md)
-**Deployment verification playbook**
-
-- Pre-deployment checks
-- Post-deployment and smoke verification
-- Health endpoint validation and rollback guidance
+### [BUGFIX_VERIFICATION.md](../archive/BUGFIX_VERIFICATION.md) *(archived)*
+**Deployment verification playbook** (completed 2025-11-24)
 
 ## 🛠️ Deployment Scripts
 

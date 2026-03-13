@@ -30,7 +30,7 @@ export const PIPELINE_NAMES = {
  * Get human-readable display name for a pipeline ID
  */
 export function getPipelineName(id: string): string {
-  return (PIPELINE_NAMES as Record<string, string>)[id] || id;
+  return (PIPELINE_NAMES as Record<string, string | undefined>)[id] ?? id;
 }
 
 /**

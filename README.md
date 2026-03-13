@@ -23,7 +23,7 @@ graph TD
 
     frontend --> fe_src["src/<br/>components, services, store"]
 
-    sidequest --> sq_core["core/<br/>server, job-repo, git-workflow, constants"]
+    sidequest --> sq_core["core/<br/>server, job-repo, config, constants"]
     sidequest --> sq_pipe["pipeline-core/<br/>scan-orchestrator, similarity (Python)"]
     sidequest --> sq_runners["pipeline-runners/<br/>11 pipeline entry points"]
     sidequest --> sq_workers["workers/<br/>10 worker implementations"]
@@ -68,7 +68,7 @@ graph TD
 ```bash
 pnpm install
 npm run build:frontend
-doppler setup --project bottleneck --config dev
+doppler setup --project integrity-studio --config dev
 ```
 
 ```bash
@@ -79,6 +79,8 @@ npm run test:all:env                      # Env-sensitive suites (safe + host-re
 npm run test:all                          # Core Node + Python tests
 npm run test:all:full                     # Core + env-sensitive + Python
 npm run typecheck                         # Type check
+npm run lint                              # ESLint check (eslint.config.js)
+npm run lint:fix                          # ESLint auto-fix
 ```
 
 ## Architecture
@@ -89,7 +91,7 @@ SidequestServer (Base)
 ├── Concurrency control (default: 5)
 ├── Auto-retry with circuit breaker
 ├── Sentry integration
-├── GitWorkflowManager (branch/commit/PR)
+├── BranchManager (branch/commit/PR)
 └── JobRepository (SQLite persistence)
 
 Multi-Language Pipeline (Duplicate Detection)
@@ -109,7 +111,7 @@ Multi-Language Pipeline (Duplicate Detection)
 ├── frontend/              # React dashboard (Vite + TypeScript)
 │   └── src/               # Components, services, store, types
 ├── sidequest/             # AlephAuto job queue framework
-│   ├── core/              # server.ts, job-repository, git-workflow, constants
+│   ├── core/              # server.ts, job-repository, config, constants
 │   ├── pipeline-core/     # Scan orchestrator, similarity (Python)
 │   ├── pipeline-runners/  # 11 pipeline entry points
 │   └── workers/           # Worker implementations
@@ -154,6 +156,8 @@ npm run test:all:env                       # Env aggregate (safe + host-required
 npm run test:all                           # Core Node + Python
 npm run test:all:full                      # Core + env-sensitive + Python
 npm run typecheck                          # TypeScript checks
+npm run lint                              # ESLint check (eslint.config.js)
+npm run lint:fix                          # ESLint auto-fix
 
 # Production
 doppler run -c prd -- pm2 start config/ecosystem.config.cjs
@@ -167,7 +171,7 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 | Pipeline coordinator | `sidequest/pipeline-core/scan-orchestrator.ts` |
 | Base job queue | `sidequest/core/server.ts` |
 | Job repository | `sidequest/core/job-repository.ts` |
-| Git workflow manager | `sidequest/core/git-workflow-manager.ts` |
+| Branch manager | `sidequest/pipeline-core/git/branch-manager.ts` |
 | Constants | `sidequest/core/constants.ts` |
 | Job status types | `api/types/job-status.ts` |
 | API error utilities | `api/utils/api-error.ts` |
@@ -191,20 +195,7 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 
 ## Known Issues
 
-### PM2 6.x + Node `--strip-types` + `.ts` entry points
-
-**Problem:** PM2 6.x loads `.ts` scripts via `import()` (ESM dynamic import), which causes `process.argv[1]` to point to PM2's `ProcessContainerFork.js` instead of the actual script. Pipeline runners that use `isDirectExecution()` to guard `main()` will see a mismatch and never start, causing the process to exit immediately with code 0. PM2 then enters a crash-restart loop.
-
-Additionally, `--strip-types` does not support TypeScript `enum` syntax — use `as const` objects instead. Import paths must use `.ts` extensions (Node v24 does not rewrite `.js` to `.ts`).
-
-**Solution:**
-- Add `process.env.pm_id !== undefined` as a fallback condition alongside `isDirectExecution()` in any pipeline runner managed by PM2
-- Convert `enum` declarations to `const ... as const` objects
-- Use `.ts` import extensions, not `.js`
-- Rebuild native modules (`npm rebuild better-sqlite3`) after Node version changes
-- Disable `wait_ready` in PM2 config — PM2 6.x sends premature SIGINT with `.ts` files
-
-**Affected versions:** Node v24.x, PM2 6.x. Not observed on Node v25.x.
+See [docs/BACKLOG.md](docs/BACKLOG.md#known-issues) for active known issues.
 
 ## License
 

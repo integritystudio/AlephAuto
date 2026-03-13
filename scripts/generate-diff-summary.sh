@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-N=20
-COMMITS=200
+# Configurable via environment variables
+N="${DIFF_SUMMARY_TOP_N:-20}"
+COMMITS="${DIFF_SUMMARY_COMMITS:-200}"
 OUT="docs/repomix/gitlog-top${N}.txt"
 
 mkdir -p "$(dirname "$OUT")"

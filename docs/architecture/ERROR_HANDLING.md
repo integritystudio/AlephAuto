@@ -1385,46 +1385,15 @@ export class ActivityFeedManager {
 **Doppler Cache Warning:** 12 hours
 **Doppler Cache Critical:** 24 hours
 
-## Database Degraded Mode (v1.8.1)
+## Database Health Status
 
 ### Overview
 
-The database persistence layer implements a degraded mode pattern with automatic recovery. When disk persistence fails (e.g., disk full, permissions), the system continues operating in-memory while attempting recovery.
+The database persistence layer reports health via `getHealthStatus()`. Persistence failures are logged via Pino and reported to Sentry via `_trySilentPersist`.
+
+> **Note:** The `degradedMode` and `persistFailureCount` fields were removed in commit `624f617` (SC-L4). The health status API no longer exposes these fields.
 
 **Location:** `sidequest/core/database.ts`
-
-### Degraded Mode Entry
-
-After 5 consecutive persistence failures, the system enters degraded mode:
-
-```javascript
-// Triggers degraded mode
-if (persistFailureCount >= MAX_PERSIST_FAILURES) {
-  enterDegradedMode();
-}
-
-// Degraded mode behavior:
-// 1. Continues accepting writes to in-memory database
-// 2. Queues writes for retry after recovery
-// 3. Sends Sentry alert (error level)
-// 4. Schedules recovery attempts
-```
-
-### Recovery Mechanism
-
-Recovery attempts use exponential backoff:
-
-```javascript
-// Recovery schedule (exponential backoff)
-Attempt 1:  5 seconds
-Attempt 2: 10 seconds
-Attempt 3: 20 seconds
-Attempt 4: 40 seconds
-Attempt 5: 80 seconds
-...
-Maximum: 5 minutes between attempts
-Max attempts: 10
-```
 
 ### Health Status API
 
@@ -1437,45 +1406,24 @@ const health = getHealthStatus();
 // Returns:
 // {
 //   initialized: true,
-//   degradedMode: false,
 //   persistenceWorking: true,
-//   persistFailureCount: 0,
-//   recoveryAttempts: 0,
-//   queuedWrites: 0,
-//   status: 'healthy' | 'degraded' | 'not_initialized',
+//   status: 'healthy' | 'not_initialized',
 //   message: 'Database is healthy'
 // }
 ```
 
-### Sentry Alerts
+### Persistence Failure Handling
 
-| Event | Level | When |
-|-------|-------|------|
-| Entering degraded mode | error | After 5 persist failures |
-| Recovery attempt failed | warning | Each failed recovery |
-| Recovery exhausted | error | After 10 recovery attempts |
-| Recovery successful | info | When persistence restored |
-
-### Write Queue
-
-During degraded mode, job writes are queued:
-
-```javascript
-// Writes queued during degraded mode
-writeQueue = ['job-123', 'job-456', ...]
-
-// After recovery, queued writes are processed:
-// 1. Persist to disk
-// 2. Remove from queue on success
-// 3. Log any failures
-```
+Persistence failures surface via the `_trySilentPersist` helper in `server.ts`:
+- Logs the error with Pino at `error` level
+- Captures to Sentry at `error` level with job context
+- Does not halt job execution (non-blocking write path)
 
 ### Best Practices
 
 1. **Monitor health endpoint** - Add `/api/health/database` to monitoring
-2. **Alert on degraded mode** - Create Sentry alert rules
-3. **Check disk space** - Common cause of persistence failures
-4. **Review permissions** - Ensure write access to data directory
+2. **Check disk space** - Common cause of persistence failures
+3. **Review permissions** - Ensure write access to data directory
 
 ## Standardized API Error Responses (v1.8.1)
 

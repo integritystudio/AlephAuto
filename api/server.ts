@@ -41,6 +41,8 @@ import { jobRepository } from '../sidequest/core/job-repository.ts';
 import type { ParsedJob } from '../sidequest/core/database.ts';
 import { getPipelineName } from '../sidequest/utils/pipeline-names.ts';
 import { workerRegistry } from './utils/worker-registry.ts';
+import { jobStatusToEventType, jobStatusToLabel } from './utils/job-helpers.ts';
+import type { JobStatus } from './types/job-status.ts';
 import fs from 'fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -157,9 +159,35 @@ app.get('/api/status', (req: Request, res: Response) => {
     const workerStats = workerRegistry.getAllStats();
     const scanMetrics = workerRegistry.getScanMetrics('duplicate-detection') || {};
 
-    // Get activity feed
+    // Get activity feed — fall back to database history when in-memory feed is empty
+    // (e.g. after server restart, the in-memory ActivityFeedManager starts empty)
     const activityFeed = req.app.get('activityFeed');
-    const recentActivity = activityFeed ? activityFeed.getRecentActivities(PAGINATION.ACTIVITY_FEED_LIMIT) : [];
+    const inMemoryActivity = activityFeed ? activityFeed.getRecentActivities(PAGINATION.ACTIVITY_FEED_LIMIT) : [];
+    let recentActivity = inMemoryActivity;
+
+    if (inMemoryActivity.length === 0) {
+      try {
+        const dbCompleted = jobRepository.getAllJobs({ status: 'completed', limit: 10, sortByCompletedAt: true });
+        const dbFailed = jobRepository.getAllJobs({ status: 'failed', limit: 10, sortByCompletedAt: true });
+        const recentJobs = [...dbCompleted, ...dbFailed]
+          .sort((a, b) => (b.completedAt ?? b.createdAt).localeCompare(a.completedAt ?? a.createdAt))
+          .slice(0, PAGINATION.ACTIVITY_FEED_LIMIT);
+        recentActivity = recentJobs.map((job, index) => ({
+          id: -(index + 1), // Negative range avoids collision with in-memory counter (starts at 1, increments)
+          type: jobStatusToEventType(job.status as JobStatus),
+          event: jobStatusToLabel(job.status as JobStatus),
+          message: `Job ${job.id} ${job.status}`,
+          jobId: job.id,
+          jobType: job.pipelineId,
+          pipelineId: job.pipelineId,
+          pipelineName: getPipelineName(job.pipelineId),
+          status: job.status,
+          timestamp: job.completedAt ?? job.startedAt ?? job.createdAt,
+        }));
+      } catch (dbErr) {
+        logger.warn({ err: dbErr }, 'DB fallback for activity feed failed; returning empty feed');
+      }
+    }
 
     // Create a map of database stats by pipelineId
     const statsMap = new Map(pipelineStats.map(s => [s.pipelineId, s]));
@@ -187,13 +215,14 @@ app.get('/api/status', (req: Request, res: Response) => {
     });
 
     // Calculate aggregated queue stats from all workers
-    // Capacity is percentage of max concurrent jobs currently in use
+    // Use database counts as fallback when workers aren't initialized (e.g. after restart)
+    const dbRunningCount = jobRepository.getJobCount({ status: 'running' });
+    const dbQueuedCount = jobRepository.getJobCount({ status: 'queued' });
     const queueStats = {
-      active: workerStats.active || 0,
-      queued: workerStats.queued || 0,
-      capacity: workerStats.active > 0
-        ? Math.min(MAX_SCORE, (workerStats.active / CONCURRENCY.DEFAULT_MAX_JOBS) * MAX_SCORE)
-        : 0
+      active: workerStats.active ?? dbRunningCount,
+      queued: workerStats.queued ?? dbQueuedCount,
+      // raw concurrency ceiling (not a percentage); used by frontend capacity bar
+      capacity: workerRegistry.getTotalCapacity(),
     };
 
     // Fetch active (running) and queued jobs from the database
@@ -334,9 +363,13 @@ const activityFeed = new ActivityFeedManager(broadcaster, { maxActivities: 50 })
 // This also connects to all existing registered workers
 workerRegistry.setActivityFeed(activityFeed);
 
-// Seed activity feed from recent DB jobs so dashboard isn't empty on restart
+// Seed activity feed from recent completed/failed jobs so dashboard isn't empty on restart
 try {
-  const recentJobs = jobRepository.getAllJobs({ limit: 20 });
+  const completedJobs = jobRepository.getAllJobs({ status: 'completed', limit: 10, sortByCompletedAt: true });
+  const failedJobs = jobRepository.getAllJobs({ status: 'failed', limit: 10, sortByCompletedAt: true });
+  const recentJobs = [...completedJobs, ...failedJobs]
+    .sort((a, b) => (b.completedAt ?? b.createdAt).localeCompare(a.completedAt ?? a.createdAt))
+    .slice(0, 20);
   for (const job of recentJobs.reverse()) {
     const eventType = job.status === 'completed' ? 'job:completed'
       : job.status === 'failed' ? 'job:failed'
@@ -430,6 +463,15 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
     // Initialize job repository (sql.js requires async init)
     await jobRepository.initialize();
     logger.info('Job repository initialized');
+
+    // Cancel stale queued jobs for disabled pipelines so the dashboard
+    // doesn't show permanently-stuck entries from previous sessions.
+    // Root cause: the in-memory SidequestServer queue is not re-hydrated from DB
+    // on restart, so queued jobs from a prior session never transition to running.
+    const cancelledRepomix = jobRepository.cancelPipelineJobs('repomix');
+    if (cancelledRepomix > 0) {
+      logger.info({ count: cancelledRepomix }, 'Cancelled stale queued repomix jobs from previous session');
+    }
 
     // Setup server with automatic port fallback
     const actualPort = await setupServerWithPortFallback(httpServer, {

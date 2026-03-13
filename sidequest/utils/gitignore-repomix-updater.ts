@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { FORMATTING, LIMITS, PROCESS } from '../core/constants.ts';
+import { isDirectExecution } from './execution-helpers.ts';
 import { createComponentLogger, logError, logWarn } from './logger.ts';
 
 const logger = createComponentLogger('GitignoreRepomixUpdater');
@@ -137,8 +138,7 @@ export class GitignoreRepomixUpdater {
       return lines.some(line =>
         line === this.gitignoreEntry ||
         line === `/${this.gitignoreEntry}` ||
-        line === `**/${this.gitignoreEntry}` ||
-        line === `**/repomix-output.xml`
+        line === `**/${this.gitignoreEntry}`
       );
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
@@ -321,6 +321,6 @@ export async function main(): Promise<void> {
 }
 
 // Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectExecution(import.meta.url)) {
   main();
 }

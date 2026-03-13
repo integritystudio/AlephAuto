@@ -13,7 +13,7 @@
 
 This directory contains all project documentation organized by category.
 
-**Docs Version:** 2.3.12
+**Docs Version:** 2.3.20
 
 ## Directory Structure
 
@@ -47,7 +47,6 @@ docs/
 ├── deployment/              # Deployment guides
 │   ├── README.md            # Deployment overview
 │   ├── TRADITIONAL_SERVER_DEPLOYMENT.md
-│   ├── CI_CD_UPDATES.md
 │   └── VERIFICATION_QUICK_REFERENCE.md
 │
 ├── runbooks/                # Operational runbooks
@@ -59,8 +58,7 @@ docs/
 ├── setup/                   # Setup and configuration guides
 │   ├── DOPPLER_SENTRY_SETUP.md
 │   ├── SENTRY_SETUP.md
-│   ├── DISCORD_QUICKSTART.md
-│   └── DNS_CONFIGURATION_GUIDE.md
+│   └── DISCORD_QUICKSTART.md
 │
 ├── testing/                 # Test documentation
 │   ├── README.md
@@ -96,7 +94,7 @@ docs/
 ### Deployment
 - [Deployment Guide](./deployment/README.md) - Deployment overview
 - [Traditional Server](./deployment/TRADITIONAL_SERVER_DEPLOYMENT.md) - PM2 deployment
-- [CI/CD Updates](./deployment/CI_CD_UPDATES.md) - GitHub Actions configuration
+- [CI/CD Updates](./archive/CI_CD_UPDATES.md) - GitHub Actions configuration (archived)
 
 ### Component Documentation
 - [Sidequest Framework](./components/sidequest-alephauto-framework.md) - Core job queue

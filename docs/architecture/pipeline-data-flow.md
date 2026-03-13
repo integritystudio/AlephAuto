@@ -1,6 +1,6 @@
 # AlephAuto Pipeline Data Flow Documentation
 
-**Last Updated:** 2026-03-04
+**Last Updated:** 2026-03-11
 **Version:** 2.3
 **Author:** System Architecture Documentation
 
@@ -31,13 +31,15 @@
 
 The AlephAuto automation system consists of 11 specialized pipelines built on a unified job queue framework. Each pipeline follows event-driven architecture with automatic retry logic, Sentry error tracking, and real-time dashboard updates via WebSocket.
 
-### Maintenance Notes (2026-03-04)
+### Maintenance Notes (2026-03-11)
 
 - Retry orchestration is owned by `SidequestServer` (`sidequest/core/server.ts`), including retry scheduling and `pendingRetries` accounting. Individual workers should not create ad-hoc retry jobs.
+- `retryDelayMs` is now a configurable `SidequestServerOptions` property (default: `RETRY.DEFAULT_DELAY_MS`). Workers can override it; `DuplicateDetectionWorker` syncs from `scanConfig.retryDelay` (`RETRY.SCAN_DELAY_MS`, 60s).
 - `GitActivityPipeline` default report-type selection is constrained to valid defaults (`weekly` / `monthly`) before fallback to configured default; this is a type-safety hardening and does not change pipeline data flow.
 - `collect_git_activity.py` and related tests were formatting-only updates; input/output contract remains unchanged.
 - Startup-once runner behavior is verified for `repo-cleanup`, `gitignore`, and `dashboard-populate`: `--run-now`/`--run` creates one startup job, waits for terminal status, and exits when `--cron` is not set.
 - Aggregate test execution is split into `test:all:core` (default, env-sensitive suites skipped via `SKIP_ENV_SENSITIVE_TESTS=1`) and `test:all:full` (includes env-sensitive suites requiring socket bind and writable report/database paths).
+- `GET /api/status` activity feed now falls back to SQLite job history when the in-memory `ActivityFeedManager` is empty (e.g. after server restart). This ensures the dashboard always shows recent job history. See `api/server.ts` and `tests/unit/api-status-activity-fallback.test.ts`.
 
 ### System Characteristics
 
@@ -45,7 +47,7 @@ The AlephAuto automation system consists of 11 specialized pipelines built on a 
 - **Job Queue:** In-memory with configurable concurrency (default: 5, via `CONCURRENCY.DEFAULT_MAX_JOBS`)
 - **Event System:** EventEmitter-based job lifecycle tracking
 - **Error Tracking:** Sentry v8 with automatic classification
-- **Dashboard:** Real-time WebSocket + REST API (port 8080)
+- **Dashboard:** Real-time WebSocket + REST API (port 8080); activity feed persists across restarts via SQLite fallback
 - **Deployment:** PM2 + Doppler + traditional server stack
 
 ### Pipeline Categories
@@ -99,11 +101,13 @@ All workers extend this base class which provides:
 class SidequestServer extends EventEmitter {
   constructor(options: SidequestServerOptions) {
     this.maxConcurrent = options.maxConcurrent ?? CONCURRENCY.DEFAULT_MAX_JOBS;
+    this.maxRetries = options.maxRetries ?? RETRY.MAX_ABSOLUTE_ATTEMPTS;
+    this.retryDelayMs = options.retryDelayMs ?? RETRY.DEFAULT_DELAY_MS;
     this.jobs = new Map<string, Job>();
     this.queue: string[] = [];
     this.activeJobs = 0;
     this.gitWorkflowEnabled = options.gitWorkflowEnabled ?? false;
-    // ... circuit breaker, retry logic, Sentry integration
+    // ... circuit breaker, Sentry integration
   }
 
   // Job management
@@ -117,6 +121,7 @@ class SidequestServer extends EventEmitter {
 
   // Retry logic with error classification
   // Auto-retry for retryable errors (ETIMEDOUT, 5xx) up to maxRetries
+  // Delay: classification.suggestedDelay ?? this.retryDelayMs (configurable per worker)
 
   // Event emitters
   emit('job:created', job);
@@ -1939,7 +1944,7 @@ const port = config.jobsApiPort;    // Correct — typed access
 // Retryable: ETIMEDOUT, ECONNRESET, ENOTFOUND, 5xx
 // Non-retryable: ENOENT, EACCES, EPERM, 4xx
 //
-// On retry: status → queued, retryCount++, delay via setTimeout
+// On retry: status → queued, retryCount++, delay via setTimeout (classification.suggestedDelay ?? this.retryDelayMs)
 // On final failure: status → failed, Sentry capture, persist to SQLite
 ```
 
@@ -2126,5 +2131,5 @@ signals.forEach((signal) => {
 ---
 
 **Document Version:** 2.3
-**Last Updated:** 2026-03-04
+**Last Updated:** 2026-03-11
 **Maintainer:** Architecture Team

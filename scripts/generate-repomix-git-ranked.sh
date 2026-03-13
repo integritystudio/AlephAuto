@@ -10,7 +10,7 @@ INCLUDE_LOGS_COUNT="${3:-200}"
 # Optional overrides via environment variables.
 INCLUDE_DIFFS="${REPOMIX_INCLUDE_DIFFS:-true}"
 INCLUDE_LOGS="${REPOMIX_INCLUDE_LOGS:-true}"
-SORT_BY_CHANGES_MAX_COMMITS="${REPOMIX_SORT_BY_CHANGES_MAX_COMMITS:-1000}"
+SORT_BY_CHANGES_MAX_COMMITS="${REPOMIX_SORT_BY_CHANGES_MAX_COMMITS:-100}"
 TIMEOUT_SECONDS="${REPOMIX_TIMEOUT_SECONDS:-120}"
 
 if ! [[ "$INCLUDE_LOGS_COUNT" =~ ^[0-9]+$ ]] || [[ "$INCLUDE_LOGS_COUNT" -lt 0 ]]; then
@@ -39,22 +39,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# shellcheck source=scripts/repomix-lib.sh
+source "$(dirname "$0")/repomix-lib.sh"
+
 # Generated bundle patterns sourced from base repomix config.
-BUNDLE_IGNORE_PATTERNS_FILE="$ROOT/repomix.config.json"
-BUNDLE_IGNORE_PATTERNS_JSON="$(
-  jq -c '
-    [
-      .ignore.customPatterns[]?
-      | select(
-          . == "docs/repomix/**"
-          or . == "**/repomix-output.*"
-          or . == "**/repo-compressed.*"
-          or . == "**/repomix.xml"
-          or . == "**/repo-compressed.xml"
-        )
-    ] | unique
-  ' "$BUNDLE_IGNORE_PATTERNS_FILE" 2>/dev/null || echo '[]'
-)"
+BUNDLE_IGNORE_PATTERNS_JSON="$(get_bundle_ignore_patterns "$ROOT/repomix.config.json")"
 
 # Generated artifacts that should never be re-ingested into ranked bundles.
 is_generated_bundle_artifact() {

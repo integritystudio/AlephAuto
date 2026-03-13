@@ -121,7 +121,7 @@ node --strip-types scripts/validate-permissions.ts --fix
 ### Setup
 
 ```bash
-doppler setup --project bottleneck --config dev
+doppler setup --project integrity-studio --config dev
 doppler configure get
 ```
 

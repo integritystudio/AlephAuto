@@ -22,6 +22,9 @@ class DopplerConfigManager extends DopplerResilience {
   }
 
   async fetchFromDoppler() {
+    // process.env is populated by `doppler run --` before the process starts.
+    // Access individual secrets via config (sidequest/core/config.ts), not process.env directly.
+    // This fetchFromDoppler is only called by DopplerResilience internals.
     if (!process.env.NODE_ENV) {
       throw new Error('Doppler secrets not available - NODE_ENV missing');
     }

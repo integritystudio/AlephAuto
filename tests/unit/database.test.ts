@@ -22,8 +22,10 @@ import {
   getAllPipelineStats,
   importReportsToDatabase,
   importLogsToDatabase,
+  bulkImportJobs,
   closeDatabase
 } from '../../sidequest/core/database.ts';
+import { VALIDATION } from '../../sidequest/core/constants.ts';
 
 describe('Database Module', () => {
   before(async () => {
@@ -130,6 +132,78 @@ describe('Database Module', () => {
       const jobs = getJobs('test-pipeline', { limit: 100 });
       const savedJob = jobs.find(j => j.id === jobId);
       assert.strictEqual(savedJob?.status, 'completed');
+    });
+
+    it('should reject job ID exceeding 100-char max', () => {
+      const longId = 'a'.repeat(VALIDATION.JOB_ID_MAX_LENGTH + 1);
+      assert.throws(
+        () => saveJob({ id: longId, status: 'queued' }),
+        /max 100 chars/
+      );
+    });
+
+    it('should reject pre-serialized data field that is not valid JSON', () => {
+      const id = `test-invalid-json-${Date.now()}`;
+      assert.throws(
+        () => saveJob({ id, status: 'queued', data: 'not-valid-json' }),
+        /is a string but not valid JSON/
+      );
+    });
+
+    it('should reject pre-serialized result field that is not valid JSON', () => {
+      const id = `test-invalid-json-result-${Date.now()}`;
+      assert.throws(
+        () => saveJob({ id, status: 'queued', result: '{broken' }),
+        /is a string but not valid JSON/
+      );
+    });
+
+    it('should accept pre-serialized fields that are valid JSON strings', () => {
+      const id = `test-valid-json-${Date.now()}`;
+      assert.doesNotThrow(() =>
+        saveJob({ id, status: 'queued', data: '{"key":"value"}', result: '[1,2,3]' })
+      );
+    });
+  });
+
+  describe('bulkImportJobs', () => {
+    it('should reject jobs with invalid job ID format', () => {
+      const result = bulkImportJobs([{ id: '!!!invalid!!!', status: 'completed' }]);
+      assert.strictEqual(result.imported, 0);
+      assert.ok(result.errors.length > 0);
+      assert.ok(result.errors[0].includes('Invalid job ID format'));
+    });
+
+    it('should reject records where a JSON string field is not valid JSON', () => {
+      const id = `bulk-invalid-json-${Date.now()}`;
+      const result = bulkImportJobs([{ id, status: 'completed', data: 'not-json' }]);
+      assert.strictEqual(result.imported, 0);
+      assert.ok(result.errors.length > 0);
+      assert.ok(result.errors[0].includes("is a string but not valid JSON"));
+    });
+
+    it('should include field name in error for invalid JSON string', () => {
+      const id = `bulk-field-name-${Date.now()}`;
+      const result = bulkImportJobs([{ id, status: 'completed', result: '{bad' }]);
+      assert.ok(result.errors[0].includes("'result'"));
+    });
+
+    it('should include field name in error for invalid JSON git field', () => {
+      const id = `bulk-git-json-${Date.now()}`;
+      const result = bulkImportJobs([{ id, status: 'completed', git: '{bad' }]);
+      assert.strictEqual(result.imported, 0);
+      assert.ok(result.errors.length > 0);
+      assert.ok(result.errors[0].includes("'git'"));
+    });
+
+    it('should import valid jobs and skip invalid ones', () => {
+      const validId = `bulk-valid-${Date.now()}`;
+      const result = bulkImportJobs([
+        { id: validId, status: 'completed' },
+        { id: '!!!bad!!!', status: 'completed' }
+      ]);
+      assert.strictEqual(result.imported, 1);
+      assert.strictEqual(result.errors.length, 1);
     });
   });
 

@@ -13,8 +13,8 @@
 
 
 **Directory:** `/docs/architecture/`
-**Last Updated:** 2026-02-01
-**Version:** 1.8.2
+**Last Updated:** 2026-03-09
+**Version:** 2.3.20
 
 ## Overview
 
@@ -479,8 +479,8 @@ When updating this documentation:
 ## Document Metadata
 
 **Created:** 2025-11-17
-**Version:** 1.8.2
-**Last Updated:** 2026-02-01
+**Version:** 2.3.20
+**Last Updated:** 2026-03-09
 **Maintainer:** Architecture Team
 **Review Schedule:** Quarterly or after major architectural changes
 

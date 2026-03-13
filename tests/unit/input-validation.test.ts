@@ -6,10 +6,12 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { VALIDATION, PAGINATION } from '../../sidequest/core/constants.ts';
+import { timingSafeEqual } from '../../api/utils/crypto-helpers.ts';
+import { filterReservedJobKeys } from '../../api/utils/job-helpers.ts';
 
 /**
  * Validate and sanitize job ID from URL parameter
- * (Copied from api/routes/jobs.js for testing)
+ * (Copied from api/routes/jobs.ts for testing)
  */
 function validateJobId(jobId) {
   if (!jobId) {
@@ -28,7 +30,7 @@ function validateJobId(jobId) {
 
 /**
  * Sanitize pagination parameters
- * (Copied from api/routes/jobs.js for testing)
+ * (Copied from api/routes/jobs.ts for testing)
  */
 function sanitizePaginationParams(limit, offset) {
   const limitStr = String(limit);
@@ -185,7 +187,88 @@ describe('Input Sanitization - M7: Pagination Parameters', () => {
 
   it('should prevent huge offsets from causing issues', () => {
     const result = sanitizePaginationParams(50, Number.MAX_SAFE_INTEGER);
+    // No isSafeInteger assertion: Number.MAX_SAFE_INTEGER is always a safe integer,
+    // so asserting it here would be vacuously true and not test any real code path.
     assert.strictEqual(result.offset, Number.MAX_SAFE_INTEGER);
-    assert.ok(Number.isSafeInteger(result.offset));
+  });
+});
+
+describe('timingSafeEqual - TC-H2', () => {
+  it('returns true for identical strings', () => {
+    assert.ok(timingSafeEqual('abc', 'abc'));
+  });
+
+  it('returns false for same-length strings with different content', () => {
+    assert.ok(!timingSafeEqual('key-aaa', 'key-bbb'));
+  });
+
+  it('returns false for different-length strings', () => {
+    assert.ok(!timingSafeEqual('short', 'longer-key'));
+  });
+
+  it('returns false for non-string inputs', () => {
+    assert.ok(!timingSafeEqual(null as unknown as string, 'key'));
+    assert.ok(!timingSafeEqual(123 as unknown as string, '123'));
+  });
+
+  it('returns false for empty string vs non-empty', () => {
+    assert.ok(!timingSafeEqual('', 'key'));
+  });
+});
+
+describe('filterReservedJobKeys - TC-H3', () => {
+  it('should strip all four reserved keys', () => {
+    const result = filterReservedJobKeys({
+      repositoryPath: '/repo',
+      retriedFrom: 'job-old',
+      triggeredBy: 'retry',
+      triggeredAt: '2026-01-01',
+      retryCount: 3,
+    });
+    assert.ok(!('retriedFrom' in result));
+    assert.ok(!('triggeredBy' in result));
+    assert.ok(!('triggeredAt' in result));
+    assert.ok(!('retryCount' in result));
+    assert.strictEqual(result.repositoryPath, '/repo');
+  });
+
+  it('should pass through non-reserved keys unchanged', () => {
+    const result = filterReservedJobKeys({ foo: 'bar', baz: 42 });
+    assert.strictEqual(result.foo, 'bar');
+    assert.strictEqual(result.baz, 42);
+  });
+
+  it('should handle empty input', () => {
+    const result = filterReservedJobKeys({});
+    assert.deepStrictEqual(result, {});
+  });
+
+  it('should not mutate the original object', () => {
+    const input = { repositoryPath: '/repo', retriedFrom: 'old' };
+    filterReservedJobKeys(input);
+    assert.ok('retriedFrom' in input);
+  });
+
+  it('should return object with no reserved keys when all are reserved', () => {
+    const result = filterReservedJobKeys({ retriedFrom: 'x', triggeredBy: 'y', triggeredAt: 'z', retryCount: 1 });
+    assert.deepStrictEqual(result, {});
+  });
+});
+
+describe('sanitizePaginationParams - route wiring (TC-M4)', () => {
+  it('should clamp over-limit value to MAX_LIMIT before it reaches the repository', () => {
+    const { limit } = sanitizePaginationParams(Number.MAX_SAFE_INTEGER, 0);
+    assert.strictEqual(limit, PAGINATION.MAX_LIMIT);
+    assert.ok(limit <= PAGINATION.MAX_LIMIT, 'Repository never receives a limit above MAX_LIMIT');
+  });
+
+  it('should clamp negative limit to 1 before it reaches the repository', () => {
+    const { limit } = sanitizePaginationParams(-99, 0);
+    assert.strictEqual(limit, 1);
+  });
+
+  it('should clamp negative offset to 0 before it reaches the repository', () => {
+    const { offset } = sanitizePaginationParams(10, -50);
+    assert.strictEqual(offset, 0);
   });
 });

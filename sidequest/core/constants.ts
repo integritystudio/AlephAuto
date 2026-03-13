@@ -7,7 +7,9 @@
  * @module sidequest/core/constants
  */
 import { HOURS_PER_DAY, TIME_MS } from './units.ts';
-const DURATION_MS = {
+export const DURATION_MS = {
+  TEN_MS: TIME_MS.SECOND / 100,
+  ONE_HUNDRED_MS: TIME_MS.SECOND / 10,
   SECOND: TIME_MS.SECOND,
   TWO_SECONDS: 2 * TIME_MS.SECOND,
   FIVE_SECONDS: 5 * TIME_MS.SECOND,
@@ -29,8 +31,8 @@ const DURATION_MS = {
 export const TIMEOUTS = {
   /** Pipeline and worker execution */
   PYTHON_PIPELINE_BASE_MS: DURATION_MS.TEN_MINUTES,
-  PYTHON_PIPELINE_PER_PATTERN_MS: 100 * TIME_MS.MS,
-  PYTHON_PIPELINE_PER_FILE_MS: 10 * TIME_MS.MS,
+  PYTHON_PIPELINE_PER_PATTERN_MS: DURATION_MS.ONE_HUNDRED_MS,
+  PYTHON_PIPELINE_PER_FILE_MS: DURATION_MS.TEN_MS,
   REPOMIX_MS: DURATION_MS.TEN_MINUTES,
   GIT_REPORT_MS: DURATION_MS.FIVE_MINUTES,
   WORKER_INIT_MS: DURATION_MS.THIRTY_SECONDS,
@@ -80,9 +82,13 @@ export const RETRY = {
   BASE_BACKOFF_MS: DURATION_MS.SECOND,
   MAX_BACKOFF_MS: DURATION_MS.TEN_SECONDS,
 
+  /** Scan-level retry delay */
+  SCAN_DELAY_MS: DURATION_MS.MINUTE,
+
   /** Database-specific recovery delays */
   DATABASE_RECOVERY_BASE_MS: DURATION_MS.FIVE_SECONDS,
   DATABASE_RECOVERY_MAX_MS: DURATION_MS.FIVE_MINUTES,
+
 } as const;
 
 /**
@@ -192,6 +198,13 @@ export const JOB_EVENTS = {
   FAILED: 'job:failed',
 } as const;
 
+export const JOB_EVENT_LABELS = {
+  CREATED: 'Job Created',
+  STARTED: 'Job Started',
+  COMPLETED: 'Job Completed',
+  FAILED: 'Job Failed',
+} as const;
+
 export const RETRY_EVENTS = {
   CREATED: 'retry:created',
 } as const;
@@ -202,6 +215,14 @@ export const PERSIST_CONTEXT = {
   RETRY_QUEUED: 'retry_queued',
   FAILED: 'failed',
 } as const;
+
+/** System-controlled job metadata keys stripped on retry to prevent injection */
+export const RESERVED_JOB_KEYS: ReadonlySet<string> = new Set([
+  'retriedFrom',
+  'triggeredBy',
+  'triggeredAt',
+  'retryCount',
+]);
 
 export const WORKER_EVENTS = {
   METRICS_UPDATED: 'metrics:updated',
@@ -352,6 +373,9 @@ export const LIMITS = {
 
   /** Maximum number of recent activities to buffer in the activity feed */
   ACTIVITY_BUFFER_SIZE: 50,
+
+  /** Maximum queued jobs allowed per pipeline before new triggers are rejected */
+  MAX_QUEUED_JOBS_PER_PIPELINE: 10,
 
   /** Maximum unique strings to include when generating a constants file */
   UNIQUE_STRINGS_LIMIT: 50,
@@ -553,4 +577,15 @@ export const CONFIG_POLICY = {
   DATABASE: {
     MIN_SAVE_INTERVAL_MS: DURATION_MS.SECOND,
   },
+} as const;
+
+/**
+ * Plugin management thresholds
+ */
+export const PLUGIN_THRESHOLDS = {
+  /** Hard maximum number of plugins before audit flags as critical */
+  MAX_PLUGINS: 30,
+
+  /** Soft warning threshold for plugin count */
+  WARN_PLUGINS: 20,
 } as const;

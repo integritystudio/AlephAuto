@@ -8,25 +8,15 @@ CONFIG_FILE="$ROOT/scripts/repomix-docs.config.json"
 BASE_CONFIG_FILE="$ROOT/repomix.config.json"
 TMP_CONFIG="$(mktemp "${TMPDIR:-/tmp}/repomix-docs.XXXXXX.json")"
 
+# shellcheck source=scripts/repomix-lib.sh
+source "$(dirname "$0")/repomix-lib.sh"
+
 cleanup() {
   rm -f "$TMP_CONFIG"
 }
 trap cleanup EXIT
 
-BUNDLE_IGNORE_PATTERNS_JSON="$(
-  jq -c '
-    [
-      .ignore.customPatterns[]?
-      | select(
-          . == "docs/repomix/**"
-          or . == "**/repomix-output.*"
-          or . == "**/repo-compressed.*"
-          or . == "**/repomix.xml"
-          or . == "**/repo-compressed.xml"
-        )
-    ] | unique
-  ' "$BASE_CONFIG_FILE"
-)"
+BUNDLE_IGNORE_PATTERNS_JSON="$(get_bundle_ignore_patterns "$BASE_CONFIG_FILE")"
 
 jq \
   --argjson bundleIgnorePatterns "$BUNDLE_IGNORE_PATTERNS_JSON" \

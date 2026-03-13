@@ -11,8 +11,8 @@
  * 3. Provides refactoring recommendations
  */
 
-import * as fs from 'fs';
 import * as path from 'path';
+import fsPromises from 'fs/promises';
 import { glob } from 'glob';
 import { LIMITS } from '../core/constants.ts';
 import { createComponentLogger } from './logger.ts';
@@ -59,14 +59,17 @@ const REFACTOR_ANALYSIS_LIMITS = {
 /**
  * Detect test framework from package.json
  */
-function detectFramework(projectPath: string): 'vitest' | 'jest' | 'playwright' {
+async function detectFramework(projectPath: string): Promise<'vitest' | 'jest' | 'playwright'> {
   const packageJsonPath = path.join(projectPath, 'package.json');
 
-  if (!fs.existsSync(packageJsonPath)) {
+  let raw: string;
+  try {
+    raw = await fsPromises.readFile(packageJsonPath, 'utf-8');
+  } catch {
     return 'vitest';
   }
 
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+  const packageJson = JSON.parse(raw) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
   const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
 
   if (deps['vitest']) return 'vitest';
@@ -120,29 +123,29 @@ async function analyzeTestFiles(config: RefactorConfig, testFiles: string[]): Pr
 
   for (const file of testFiles) {
     const filePath = path.join(config.projectPath, file);
-    const content = fs.readFileSync(filePath, 'utf-8');
+    const content = await fsPromises.readFile(filePath, 'utf-8');
 
     // Count render + waitFor patterns
     const renderWaitMatches = content.match(/render\s*\([^)]+\);\s*await\s+waitFor/g);
-    result.patterns.renderWaitFor += renderWaitMatches?.length || 0;
+    result.patterns.renderWaitFor += renderWaitMatches?.length ?? 0;
 
     // Count link validation patterns
     const linkMatches = content.match(/toHaveAttribute\s*\(\s*['"]href['"]/g);
-    result.patterns.linkValidation += linkMatches?.length || 0;
+    result.patterns.linkValidation += linkMatches?.length ?? 0;
 
     // Count semantic checks
     const semanticMatches = content.match(/getByRole\s*\(\s*['"]heading['"]|querySelector\s*\(\s*['"]section#/g);
-    result.patterns.semanticChecks += semanticMatches?.length || 0;
+    result.patterns.semanticChecks += semanticMatches?.length ?? 0;
 
     // Count form interactions
     const formMatches = content.match(/userEvent\.type|fireEvent\.click|getByRole\s*\(\s*['"]form['"]/g);
-    result.patterns.formInteractions += formMatches?.length || 0;
+    result.patterns.formInteractions += formMatches?.length ?? 0;
 
     // Extract hardcoded strings (quoted strings in expect statements)
     const stringMatches = content.matchAll(/expect\s*\([^)]+\)\.toBeInTheDocument\(\)|getByText\s*\(\s*['"]([^'"]+)['"]\)/g);
     for (const match of stringMatches) {
       if (match[1]) {
-        const count = stringCounts.get(match[1]) || 0;
+        const count = stringCounts.get(match[1]) ?? 0;
         stringCounts.set(match[1], count + 1);
       }
     }
@@ -151,7 +154,7 @@ async function analyzeTestFiles(config: RefactorConfig, testFiles: string[]): Pr
     const assertionMatches = content.matchAll(/(expect\([^)]+\)\.[^;]+);/g);
     for (const match of assertionMatches) {
       const assertion = match[1].replace(/['"][^'"]+['"]/g, '""');
-      const count = assertionCounts.get(assertion) || 0;
+      const count = assertionCounts.get(assertion) ?? 0;
       assertionCounts.set(assertion, count + 1);
     }
   }
@@ -654,17 +657,31 @@ function generateConstantsTemplate(hardcodedStrings: string[]): string {
   );
   const categories = categorizeStrings(uniqueStrings);
 
+  const categoryDefs: Array<[string, string[], string]> = [
+    ['NAV_STRINGS', categories.navigation, 'Navigation labels'],
+    ['ACTION_STRINGS', categories.actions, 'Button and action labels'],
+    ['A11Y_STRINGS', categories.accessibility, 'Accessibility labels'],
+    ['MESSAGE_STRINGS', categories.messages, 'User-facing messages'],
+    ['HEADING_STRINGS', categories.headings, 'Headings and titles'],
+    ['LABEL_STRINGS', categories.labels, 'Form field labels'],
+    ['MISC_STRINGS', categories.misc, 'Other extracted strings'],
+  ];
+
   const sections: string[] = [];
+  const emittedNames: string[] = [];
 
-  sections.push(generateArrayExport('NAV_STRINGS', categories.navigation, 'Navigation labels'));
-  sections.push(generateArrayExport('ACTION_STRINGS', categories.actions, 'Button and action labels'));
-  sections.push(generateArrayExport('A11Y_STRINGS', categories.accessibility, 'Accessibility labels'));
-  sections.push(generateArrayExport('MESSAGE_STRINGS', categories.messages, 'User-facing messages'));
-  sections.push(generateArrayExport('HEADING_STRINGS', categories.headings, 'Headings and titles'));
-  sections.push(generateArrayExport('LABEL_STRINGS', categories.labels, 'Form field labels'));
-  sections.push(generateArrayExport('MISC_STRINGS', categories.misc, 'Other extracted strings'));
+  for (const [name, strings, comment] of categoryDefs) {
+    const exported = generateArrayExport(name, strings, comment);
+    if (exported) {
+      sections.push(exported);
+      emittedNames.push(name);
+    }
+  }
 
-  const nonEmpty = sections.filter(s => s.length > 0).join('\n');
+  const nonEmpty = sections.join('\n');
+  const allStringsSpread = emittedNames.map(n => `  ...${n},`).join('\n');
+  // When no string constants are extracted, ALL_STRINGS is an empty readonly tuple.
+  // This is intentional: callers should check the array length before iterating.
 
   return `/**
  * Test Constants
@@ -675,15 +692,9 @@ function generateConstantsTemplate(hardcodedStrings: string[]): string {
  */
 
 ${nonEmpty}
-// Combined export for convenience
+// Combined export for convenience (empty when no strings are extracted)
 export const ALL_STRINGS = [
-  ...NAV_STRINGS,
-  ...ACTION_STRINGS,
-  ...A11Y_STRINGS,
-  ...MESSAGE_STRINGS,
-  ...HEADING_STRINGS,
-  ...LABEL_STRINGS,
-  ...MISC_STRINGS,
+${allStringsSpread}
 ] as const;
 `;
 }
@@ -720,12 +731,13 @@ export async function renderAndWaitForElement(
 ): Promise<HTMLElement> {
   const { waitFor } = await import('@testing-library/react');
   render(ui);
-  let element: HTMLElement;
+  let element: HTMLElement | undefined;
   await waitFor(() => {
     element = elementQuery();
     expect(element).toBeInTheDocument();
   });
-  return element!;
+  if (!element) throw new Error('renderAndWaitForElement: element not found after waitFor');
+  return element;
 }
 `;
 }
@@ -914,9 +926,11 @@ function printAnalysisResults(analysis: Awaited<ReturnType<typeof analyzeTestFil
 /**
  * generateUtilityFiles.
  */
-function generateUtilityFiles(config: RefactorConfig, analysis: Awaited<ReturnType<typeof analyzeTestFiles>>, utilsPath: string) {
-  if (!fs.existsSync(utilsPath)) {
-    fs.mkdirSync(utilsPath, { recursive: true });
+async function generateUtilityFiles(config: RefactorConfig, analysis: Awaited<ReturnType<typeof analyzeTestFiles>>, utilsPath: string) {
+  try {
+    await fsPromises.access(utilsPath);
+  } catch {
+    await fsPromises.mkdir(utilsPath, { recursive: true });
     logger.info(`Created directory: ${config.utilsDir}`);
   }
 
@@ -933,33 +947,46 @@ function generateUtilityFiles(config: RefactorConfig, analysis: Awaited<ReturnTy
 
   for (const file of filesToGenerate) {
     const filePath = path.join(utilsPath, file.name);
-    if (!fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath, file.content);
-      logger.info(`  ✓ Created ${config.utilsDir}/${file.name}`);
-    } else {
+    // Note: access + writeFile has a TOCTOU race window, but this CLI runs
+    // single-threaded against a user-owned directory, so the risk is negligible.
+    try {
+      await fsPromises.access(filePath);
       logger.info(`  ⊘ Skipped ${config.utilsDir}/${file.name} (already exists)`);
+    } catch {
+      await fsPromises.writeFile(filePath, file.content);
+      logger.info(`  ✓ Created ${config.utilsDir}/${file.name}`);
     }
   }
 
   const renderHelpersPath = path.join(utilsPath, 'render-helpers.ts');
-  fs.writeFileSync(renderHelpersPath, generateRenderHelpers());
-  logger.info(`  ✓ Created ${config.utilsDir}/render-helpers.ts (add to test-utils.tsx)`);
+  try {
+    await fsPromises.access(renderHelpersPath);
+    logger.info(`  ⊘ Skipped ${config.utilsDir}/render-helpers.ts (already exists)`);
+  } catch {
+    await fsPromises.writeFile(renderHelpersPath, generateRenderHelpers());
+    logger.info(`  ✓ Created ${config.utilsDir}/render-helpers.ts (add to test-utils.tsx)`);
+  }
 }
 
 /**
  * generateE2EFixturesIfNeeded.
  */
-function generateE2EFixturesIfNeeded(config: RefactorConfig, projectPath: string) {
+async function generateE2EFixturesIfNeeded(config: RefactorConfig, projectPath: string) {
   const e2ePath = path.join(projectPath, config.e2eDir);
-  if (!fs.existsSync(e2ePath)) return;
+  try {
+    await fsPromises.access(e2ePath);
+  } catch {
+    return;
+  }
 
   const fixturesPath = path.join(e2ePath, 'fixtures');
-  if (!fs.existsSync(fixturesPath)) {
-    fs.mkdirSync(fixturesPath, { recursive: true });
-  }
+  await fsPromises.mkdir(fixturesPath, { recursive: true });
+
   const navFixturesPath = path.join(fixturesPath, 'navigation.ts');
-  if (!fs.existsSync(navFixturesPath)) {
-    fs.writeFileSync(navFixturesPath, generateE2EFixtures());
+  try {
+    await fsPromises.access(navFixturesPath);
+  } catch {
+    await fsPromises.writeFile(navFixturesPath, generateE2EFixtures());
     logger.info(`  ✓ Created ${config.e2eDir}/fixtures/navigation.ts`);
   }
 }
@@ -977,7 +1004,7 @@ async function main() {
   const config: RefactorConfig = {
     ...defaultConfig as RefactorConfig,
     projectPath,
-    framework: detectFramework(projectPath)
+    framework: await detectFramework(projectPath)
   };
 
   logger.info(`Detected framework: ${config.framework}`);
@@ -996,8 +1023,8 @@ async function main() {
   printAnalysisResults(analysis);
 
   const utilsPath = path.join(projectPath, config.utilsDir);
-  generateUtilityFiles(config, analysis, utilsPath);
-  generateE2EFixturesIfNeeded(config, projectPath);
+  await generateUtilityFiles(config, analysis, utilsPath);
+  await generateE2EFixturesIfNeeded(config, projectPath);
 
   logger.info('\n✅ Refactoring complete!');
   logger.info('\nNext steps:');

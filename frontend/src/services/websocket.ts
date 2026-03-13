@@ -9,6 +9,10 @@ import { useDashboardStore } from '../store/dashboard';
 import { ActivityType } from '../types';
 import type { Job, Pipeline, ActivityItem } from '../types';
 import { ACTIVITY_TYPE_MAP } from '../hooks/useWebSocketConnection';
+import { createLogger } from '../utils/logger';
+import { DASHBOARD_WEBSOCKET } from '../constants/timing';
+
+const logger = createLogger('WebSocket');
 
 /**
  * WebSocket Service
@@ -19,28 +23,25 @@ import { ACTIVITY_TYPE_MAP } from '../hooks/useWebSocketConnection';
 class WebSocketService {
   private socket: WebSocket | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 10;
-  private reconnectDelay = 1000;
+  private maxReconnectAttempts = DASHBOARD_WEBSOCKET.MAX_RECONNECT_ATTEMPTS;
+  private reconnectDelay = DASHBOARD_WEBSOCKET.INITIAL_RECONNECT_DELAY_MS;
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
   /**
    * Connect to WebSocket server
-   */
-  /**
-   * Connect to.
    */
   connect(): void {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = import.meta.env.VITE_WS_HOST || window.location.host;
     const WS_URL = `${protocol}//${host}/ws`;
 
-    console.log('[WebSocket] Connecting to:', WS_URL);
+    logger.log('Connecting to:', WS_URL);
 
     try {
       this.socket = new WebSocket(WS_URL);
       this.setupEventListeners();
     } catch (error) {
-      console.error('[WebSocket] Failed to create connection:', error);
+      logger.error('Failed to create connection:', error);
       this.scheduleReconnect();
     }
   }
@@ -52,7 +53,7 @@ class WebSocketService {
     if (!this.socket) return;
 
     this.socket.onopen = () => {
-      console.log('[WebSocket] Connected');
+      logger.log('Connected');
       this.reconnectAttempts = 0;
       this.updateConnectionStatus(true);
       this.startHeartbeat();
@@ -63,19 +64,19 @@ class WebSocketService {
         const message = JSON.parse(event.data);
         this.handleMessage(message);
       } catch (error) {
-        console.error('[WebSocket] Failed to parse message:', error);
+        logger.error('Failed to parse message:', error);
       }
     };
 
     this.socket.onclose = (event) => {
-      console.log('[WebSocket] Disconnected:', event.reason || 'Connection closed');
+      logger.log('Disconnected:', event.reason || 'Connection closed');
       this.updateConnectionStatus(false);
       this.stopHeartbeat();
       this.scheduleReconnect();
     };
 
     this.socket.onerror = (error) => {
-      console.error('[WebSocket] Error:', error);
+      logger.error('Error:', error);
       this.updateConnectionStatus(false);
     };
   }
@@ -84,11 +85,11 @@ class WebSocketService {
    * Handle incoming message
    */
   private handleMessage(message: any): void {
-    console.log('[WebSocket] Received:', message.type);
+    logger.log('Received:', message.type);
 
     switch (message.type) {
       case 'connected':
-        console.log('[WebSocket] Server welcome:', message.message);
+        logger.log('Server welcome:', message.message);
         // Subscribe to all channels including activity feed
         this.send({
           type: 'subscribe',
@@ -97,7 +98,7 @@ class WebSocketService {
         break;
 
       case 'subscribed':
-        console.log('[WebSocket] Subscribed to channels:', message.channels);
+        logger.log('Subscribed to channels:', message.channels);
         break;
 
       case 'pong':
@@ -138,18 +139,18 @@ class WebSocketService {
 
       case 'activity:new':
         // Handle real-time activity from backend
-        console.log('[WebSocket] New activity:', message.activity);
+        logger.log('New activity:', message.activity);
         if (message.activity) {
           this.handleActivityEvent(message.activity);
         }
         break;
 
       case 'error':
-        console.error('[WebSocket] Server error:', message.error);
+        logger.error('Server error:', message.error);
         break;
 
       default:
-        console.log('[WebSocket] Unknown message type:', message.type);
+        logger.log('Unknown message type:', message.type);
     }
   }
 
@@ -161,7 +162,7 @@ class WebSocketService {
       if (this.socket?.readyState === WebSocket.OPEN) {
         this.send({ type: 'ping' });
       }
-    }, 25000); // 25 seconds
+    }, DASHBOARD_WEBSOCKET.HEARTBEAT_INTERVAL_MS);
   }
 
   /**
@@ -179,14 +180,14 @@ class WebSocketService {
    */
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('[WebSocket] Max reconnect attempts reached');
+      logger.error('Max reconnect attempts reached');
       return;
     }
 
     this.reconnectAttempts++;
-    const delay = Math.min(this.reconnectDelay * this.reconnectAttempts, 10000);
+    const delay = Math.min(this.reconnectDelay * this.reconnectAttempts, DASHBOARD_WEBSOCKET.MAX_RECONNECT_DELAY_MS);
 
-    console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    logger.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
     setTimeout(() => {
       this.connect();
@@ -381,11 +382,6 @@ class WebSocketService {
   /**
    * Send message to server
    */
-  /**
-   * Send.
-   *
-   * @param {any} message - The message
-   */
   send(message: any): void {
     if (this.socket?.readyState === WebSocket.OPEN) {
       this.socket.send(JSON.stringify(message));
@@ -394,9 +390,6 @@ class WebSocketService {
 
   /**
    * Disconnect from WebSocket server
-   */
-  /**
-   * Disconnect from.
    */
   disconnect(): void {
     this.stopHeartbeat();
@@ -408,11 +401,6 @@ class WebSocketService {
 
   /**
    * Check if connected
-   */
-  /**
-   * Check if connected.
-   *
-   * @returns {boolean} True if connected, False otherwise
    */
   isConnected(): boolean {
     return this.socket?.readyState === WebSocket.OPEN;

@@ -15,6 +15,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createComponentLogger, logMetrics } from '../utils/logger.ts';
 import { isValidJobStatus } from '#api/types/job-status.ts';
+import type { JobStatus } from '#api/types/job-status.ts';
 import { DATABASE, LIMITS, PAGINATION, VALIDATION } from './constants.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -82,6 +83,8 @@ export interface AllJobsQueryOptions {
   status?: string;
   limit?: number;
   offset?: number;
+  /** Sort by completedAt DESC NULLS LAST, created_at DESC (activity feed order) */
+  sortByCompletedAt?: boolean;
 }
 
 /** Job count result per pipeline */
@@ -161,29 +164,33 @@ export interface BulkImportJob {
   git?: unknown;
 }
 
+/** Attempt to parse a JSON string. Returns `{ ok: true, value }` or `{ ok: false, error }`. */
+function tryParseJson(str: string): { ok: true; value: unknown } | { ok: false; error: Error } {
+  try {
+    return { ok: true, value: JSON.parse(str) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e : new Error(String(e)) };
+  }
+}
+
 /**
  * Safely parse JSON with fallback on error
  */
 function safeJsonParse(str: string | null, fallback: unknown = null): unknown {
   if (!str) return fallback;
-  try {
-    return JSON.parse(str);
-  } catch (error) {
-    logger.error({ error: (error as Error).message, preview: str.substring(0, LIMITS.LOG_PREVIEW_CHARS) }, 'Failed to parse JSON from database');
+  const result = tryParseJson(str);
+  if (!result.ok) {
+    logger.error({ error: result.error.message, preview: str.substring(0, LIMITS.LOG_PREVIEW_CHARS) }, 'Failed to parse JSON from database');
     return fallback;
   }
+  return result.value;
 }
 
 /**
  * Returns true if the string is valid JSON (non-null, parseable).
  */
 function isValidJsonString(str: string): boolean {
-  try {
-    JSON.parse(str);
-    return true;
-  } catch {
-    return false;
-  }
+  return tryParseJson(str).ok;
 }
 
 /**
@@ -306,6 +313,14 @@ export function isDatabaseReady(): boolean {
 export function saveJob(job: SaveJobInput): void {
   if (!isValidJobId(job.id)) {
     throw new Error(`Invalid job ID format: ${job.id} (must be alphanumeric with hyphens/underscores, max 100 chars)`);
+  }
+
+  const jsonFields = { data: job.data, result: job.result, error: job.error, git: job.git } as const;
+  const invalidField = Object.entries(jsonFields).find(
+    ([, val]) => typeof val === 'string' && !isValidJsonString(val)
+  );
+  if (invalidField) {
+    throw new Error(`Job ${job.id}: field '${invalidField[0]}' is a string but not valid JSON`);
   }
 
   const database = getDatabase();
@@ -439,13 +454,35 @@ export function getJobCount(options: { status?: string } = {}): number {
 }
 
 /**
+ * Bulk-cancel non-terminal jobs for a specific pipeline.
+ *
+ * Updates all jobs matching the given pipelineId whose status is in
+ * the provided list to 'cancelled'. Useful for clearing stale queued
+ * jobs from a disabled or restarted pipeline.
+ *
+ * @param pipelineId Pipeline identifier.
+ * @param statuses Status values to target (e.g. ['queued', 'running']).
+ * @returns Number of rows updated.
+ */
+export function bulkCancelJobsByPipeline(pipelineId: string, statuses: JobStatus[]): number {
+  if (statuses.length === 0) return 0;
+  const database = getDatabase();
+  const placeholders = statuses.map(() => '?').join(', ');
+  const stmt = database.prepare(
+    `UPDATE jobs SET status = 'cancelled', completed_at = ? WHERE pipeline_id = ? AND status IN (${placeholders})`
+  );
+  const result = stmt.run(new Date().toISOString(), pipelineId, ...statuses) as { changes: number };
+  return result.changes;
+}
+
+/**
  * Get all jobs across all pipelines
  *
  * @param options Query options.
  * @returns Matching parsed jobs.
  */
 export function getAllJobs(options: AllJobsQueryOptions = {}): ParsedJob[] {
-  const { status, limit = PAGINATION.DEFAULT_ALL_LIMIT, offset = 0 } = options;
+  const { status, limit = PAGINATION.DEFAULT_ALL_LIMIT, offset = 0, sortByCompletedAt = false } = options;
 
   let query = 'SELECT * FROM jobs';
   const params: (string | number)[] = [];
@@ -455,7 +492,12 @@ export function getAllJobs(options: AllJobsQueryOptions = {}): ParsedJob[] {
     params.push(status);
   }
 
-  query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+  // orderBy is hardcoded from two literal strings — not user-supplied. Safe from injection.
+  // If AllJobsQueryOptions ever gains a caller-supplied sort field, use an allowlist, not interpolation.
+  const orderBy = sortByCompletedAt
+    ? 'completed_at DESC NULLS LAST, created_at DESC'
+    : 'created_at DESC';
+  query += ` ORDER BY ${orderBy} LIMIT ? OFFSET ?`;
   params.push(limit, offset);
 
   const rows = queryAll(query, params);

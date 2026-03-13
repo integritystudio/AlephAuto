@@ -98,7 +98,9 @@ const PIPELINE_CONFIGS: Record<string, PipelineConfig> = {
       maxConcurrent: config.maxConcurrent ?? CONCURRENCY.MAX_WORKER_INITS,
       logDir: config.logDir,
       sentryDsn: config.sentryDsn
-    })
+    }),
+    disabled: true,
+    disabledReason: 'Paused pending refactor — see BACKLOG.md'
   },
   'claude-health': {
     WorkerClass: ClaudeHealthWorker as unknown as WorkerConstructor,
@@ -586,6 +588,19 @@ class WorkerRegistry {
    */
   getScanMetrics(pipelineId: string): Record<string, unknown> | null {
     return getScanMetricsIfAvailable(this._workers.get(pipelineId));
+  }
+
+  /**
+   * Get total system capacity (sum of maxConcurrent across all enabled pipelines)
+   */
+  getTotalCapacity(): number {
+    return Object.values(PIPELINE_CONFIGS)
+      .filter(cfg => !cfg.disabled)
+      .reduce((sum, cfg) => {
+        const opts = cfg.getOptions() as Record<string, unknown>;
+        const max = (opts.maxConcurrentScans ?? opts.maxConcurrent ?? CONCURRENCY.DEFAULT_MAX_JOBS) as number;
+        return sum + max;
+      }, 0);
   }
 
   /**

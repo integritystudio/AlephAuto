@@ -174,6 +174,9 @@ export class DuplicateDetectionWorker extends SidequestServer {
         // SidequestServer owns retry behavior; sync max retries from scan config.
         this.maxRetries = scanConfig.retryAttempts;
       }
+      if (typeof scanConfig.retryDelay === 'number' && scanConfig.retryDelay > 0) {
+        this.retryDelayMs = scanConfig.retryDelay;
+      }
       logger.info({
         ...stats,
         maxRetries: this.maxRetries

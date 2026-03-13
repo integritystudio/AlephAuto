@@ -23,7 +23,7 @@ import * as Sentry from '@sentry/node';
 import { jobRepository } from '#sidequest/core/job-repository.ts';
 import { workerRegistry } from '../utils/worker-registry.ts';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
-import { PAGINATION } from '#sidequest/core/constants.ts';
+import { LIMITS, PAGINATION } from '#sidequest/core/constants.ts';
 
 const RESERVED_PARAM_KEYS = new Set(['triggeredBy', 'triggeredAt', 'retriedFrom', 'retryCount']);
 
@@ -274,6 +274,15 @@ async function triggerPipelineJob(
     throw new Error(
       `Unknown pipeline: ${pipelineId}. ` +
       `Supported pipelines: ${workerRegistry.getSupportedPipelines().join(', ')}`
+    );
+  }
+
+  // Guard: reject trigger when queue is already deep to prevent accumulation
+  const counts = jobRepository.getJobCounts(pipelineId);
+  if (counts && counts.queued >= LIMITS.MAX_QUEUED_JOBS_PER_PIPELINE) {
+    throw new Error(
+      `Pipeline ${pipelineId} has ${counts.queued} queued jobs. ` +
+      `Wait for the queue to drain below ${LIMITS.MAX_QUEUED_JOBS_PER_PIPELINE} before triggering new jobs.`
     );
   }
 

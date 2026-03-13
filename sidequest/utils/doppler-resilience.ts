@@ -30,7 +30,7 @@ interface DopplerResilienceOptions {
   baseDelayMs?: number;
   backoffMultiplier?: number;
   cacheFile?: string;
-  staleThresholdMs?: number; // Add this line
+  staleThresholdMs?: number;
 }
 
 interface ResilienceMetrics {
@@ -63,7 +63,7 @@ interface HealthStatus {
   cacheLoadedAt: string | null;
 }
 
-export class DopplerResilience {
+export abstract class DopplerResilience {
   failureThreshold: number;
   successThreshold: number;
   timeout: number;
@@ -80,7 +80,7 @@ export class DopplerResilience {
   cacheFile: string;
   cachedSecrets: Record<string, unknown> | null;
   cacheLoadedAt: number | null;
-  staleThresholdMs: number; // Add this line
+  staleThresholdMs: number;
   metrics: ResilienceMetrics;
 
   /**
@@ -88,13 +88,13 @@ export class DopplerResilience {
    */
   constructor(options: DopplerResilienceOptions = {}) {
     this.failureThreshold = options.failureThreshold ?? CONFIG_POLICY.DOPPLER.DEFAULT_FAILURE_THRESHOLD;
-    this.successThreshold = options.successThreshold ?? 2;
+    this.successThreshold = options.successThreshold ?? CONFIG_POLICY.DOPPLER.DEFAULT_SUCCESS_THRESHOLD;
     this.timeout = options.timeout ?? TIMEOUTS.SHORT_MS;
     this.maxBackoffMs = options.maxBackoffMs ?? RETRY.MAX_BACKOFF_MS;
 
     this.baseDelayMs = options.baseDelayMs ?? RETRY.BASE_BACKOFF_MS;
     this.backoffMultiplier = options.backoffMultiplier ?? RETRY.BACKOFF_MULTIPLIER;
-    this.staleThresholdMs = options.staleThresholdMs ?? CACHE.STALE_THRESHOLD_MS; // Add this line
+    this.staleThresholdMs = options.staleThresholdMs ?? CACHE.STALE_THRESHOLD_MS;
 
     this.state = CircuitState.CLOSED;
     this.failureCount = 0;
@@ -124,12 +124,16 @@ export class DopplerResilience {
     this.metrics.totalRequests++;
 
     if (this.state === CircuitState.OPEN) {
-      if (Date.now() >= this.nextAttemptTime!) {
+      if (this.nextAttemptTime === null) {
+        logger.warn('Circuit OPEN with null nextAttemptTime — resetting to HALF_OPEN');
+        this.state = CircuitState.HALF_OPEN;
+        this.successCount = 0;
+      } else if (Date.now() >= this.nextAttemptTime) {
         logger.info('Circuit breaker timeout elapsed, attempting HALF_OPEN state');
         this.state = CircuitState.HALF_OPEN;
         this.successCount = 0;
       } else {
-        const waitMs = this.nextAttemptTime! - Date.now();
+        const waitMs = this.nextAttemptTime - Date.now();
         logger.warn({
           state: this.state,
           waitMs,
@@ -151,11 +155,9 @@ export class DopplerResilience {
   }
 
   /**
-   * Fetch secrets from Doppler API (to be implemented by consumer)
+   * Fetch secrets from Doppler API — must be implemented by subclass
    */
-  async fetchFromDoppler(): Promise<Record<string, unknown>> {
-    throw new Error('fetchFromDoppler must be implemented by consumer');
-  }
+  abstract fetchFromDoppler(): Promise<Record<string, unknown>>;
 
   /**
    * Get fallback secrets from cache file
@@ -172,7 +174,6 @@ export class DopplerResilience {
         logger.info('Fallback secrets loaded successfully');
       }
 
-      return this.cachedSecrets!;
     } catch (error) {
       logError(logger, error, 'Failed to load fallback secrets', { cacheFile: this.cacheFile });
 
@@ -189,6 +190,11 @@ export class DopplerResilience {
 
       throw new Error(`Doppler API unavailable and no fallback cache: ${(error as Error).message}`);
     }
+
+    if (!this.cachedSecrets) {
+      throw new Error('Cache load appeared to succeed but cachedSecrets is null');
+    }
+    return this.cachedSecrets;
   }
 
   /**

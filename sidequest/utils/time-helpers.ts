@@ -10,6 +10,9 @@ import { TIME_MS } from '../core/units.ts';
 
 export const DURATION_UNKNOWN_LABEL = 'unknown';
 
+const SECONDS_PER_MINUTE = TIME_MS.MINUTE / TIME_MS.SECOND;
+const SECONDS_PER_HOUR = TIME_MS.HOUR / TIME_MS.SECOND;
+
 /**
  * Normalize a value to ISO string format
  *
@@ -42,11 +45,11 @@ export function calculateDurationSeconds(startTime: Date | string | null, endTim
 export function formatDuration(seconds: number | null | undefined): string {
   if (seconds === null || seconds === undefined) return DURATION_UNKNOWN_LABEL;
 
-  if (seconds < TIME_MS.MINUTE / TIME_MS.SECOND) return `${seconds}s`;
+  if (seconds < SECONDS_PER_MINUTE) return `${seconds}s`;
 
-  const hours = Math.floor(seconds / (TIME_MS.HOUR / TIME_MS.SECOND));
-  const minutes = Math.floor((seconds % (TIME_MS.HOUR / TIME_MS.SECOND)) / (TIME_MS.MINUTE / TIME_MS.SECOND));
-  const secs = seconds % (TIME_MS.MINUTE / TIME_MS.SECOND);
+  const hours = Math.floor(seconds / SECONDS_PER_HOUR);
+  const minutes = Math.floor((seconds % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE);
+  const secs = seconds % SECONDS_PER_MINUTE;
 
   if (hours > 0) {
     return `${hours}h ${minutes}m ${secs}s`;

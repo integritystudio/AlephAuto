@@ -49,10 +49,12 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 
 ## Critical Patterns
 
-### 1. Doppler Required for ALL Commands
+### 1. Environment Configuration
+- **Dev**: Use `.env` file directly — `npm start` loads it automatically
+- **Production**: Use Doppler — `doppler run -- node --strip-types api/server.ts`
 ```bash
-doppler run -- node --strip-types api/server.ts  # Correct
-node api/server.ts                                 # Wrong - secrets won't load
+npm start                                          # Dev - reads .env
+doppler run -- node --strip-types api/server.ts    # Production - reads Doppler
 ```
 
 ### 2. Configuration: NEVER use process.env directly
@@ -88,7 +90,7 @@ import { setupServerWithPortFallback } from './api/utils/port-manager.ts';
 ### 7. Database Access: Use JobRepository
 ```javascript
 import { jobRepository } from './sidequest/core/job-repository.ts';
-await jobRepository.saveJob(job);           // Correct - never import from database.js directly
+await jobRepository.saveJob(job);           // Correct - never import from database.ts directly
 const job = jobRepository.getJob(id);       // Returns parsed camelCase: { pipelineId, createdAt, ... }
 const count = jobRepository.getJobCount({ status });  // Efficient COUNT(*) query
 ```
@@ -163,7 +165,7 @@ units.ts (primitives: TIME_MS, SECONDS, BYTES, PERCENTILE)
 ```
 units.ts → constants.ts → config.ts ← server.ts → job-repository.ts → database.ts (better-sqlite3)
                                           ↓
-                                   git-workflow-manager.ts → BranchManager
+                                   BranchManager (pipeline-core/git/branch-manager.ts)
 ```
 
 ### Type System Flow
@@ -173,7 +175,7 @@ api/types/*.ts (Zod schemas) → api/middleware/validation.ts → api/routes/*.t
 
 ## Environment Variables (Doppler)
 
-**Project:** `bottleneck` | **Environments:** `dev`, `prd`
+**Project:** `integrity-studio` | **Environments:** `dev`, `prd`
 
 Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENABLE_PR_CREATION`
 

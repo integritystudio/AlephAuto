@@ -19,6 +19,8 @@ const path = require('path');
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const LOGS_DIR = path.join(PROJECT_ROOT, 'logs');
 
+const populateProcess = require('./populate.config.cjs');
+
 module.exports = {
   apps: [
     /**
@@ -112,8 +114,7 @@ module.exports = {
         GIT_CRON_SCHEDULE: process.env.GIT_CRON_SCHEDULE || '0 20 * * 0',
         PLUGIN_CRON_SCHEDULE: process.env.PLUGIN_CRON_SCHEDULE || '0 9 * * 1',
         CLAUDE_HEALTH_CRON_SCHEDULE: process.env.CLAUDE_HEALTH_CRON_SCHEDULE || '0 8 * * *',
-        DASHBOARD_CRON_SCHEDULE: process.env.DASHBOARD_CRON_SCHEDULE || '0 6,18 * * *',
-        KV_NAMESPACE_ID: process.env.KV_NAMESPACE_ID || '',
+        CLOUDFLARE_KV_NAMESPACE_ID: process.env.CLOUDFLARE_KV_NAMESPACE_ID || '',
         // CRITICAL: Include Homebrew paths for npx/repomix availability in child processes
         // This prevents "spawn npx ENOENT" errors (E4 bugfix 2025-11-25)
         PATH: process.env.PATH || '/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
@@ -142,7 +143,10 @@ module.exports = {
       // the event loop alive, so ready signal is unnecessary.
       wait_ready: false,
       kill_timeout: 15000  // Allow 15s for graceful shutdown to prevent SQLite lock contention
-    }
+    },
+
+    /** Dashboard Populate Pipeline (DP-H1) — see populate.config.cjs */
+    populateProcess
   ],
 
   /**

@@ -242,10 +242,10 @@ from similarity.semantic import are_semantically_compatible, validate_duplicate_
 
 ### Environment Variables
 
-Managed via Doppler (`bottleneck` project):
+Managed via Doppler (`integrity-studio` project):
 
 ```bash
-doppler setup --project bottleneck --config dev
+doppler setup --project integrity-studio --config dev
 doppler run -- npx tsx pipeline-runners/duplicate-detection-pipeline.ts
 ```
 

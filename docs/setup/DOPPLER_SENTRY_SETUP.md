@@ -23,26 +23,9 @@ doppler secrets set SENTRY_DSN="your_actual_sentry_dsn_here" \
   --config dev
 ```
 
-### Step 3: Pull Secrets from Doppler
+### Step 3: Run with Doppler
 
-```bash
-# Pull the DSN from Doppler and update local .env
-doppler secrets get SENTRY_DSN \
-  --project integrity-studio \
-  --config dev \
-  --plain > /tmp/sentry_dsn.txt
-
-# Update .env file
-SENTRY_DSN=$(cat /tmp/sentry_dsn.txt)
-sed -i.bak "s|SENTRY_DSN=.*|SENTRY_DSN=$SENTRY_DSN|" .env
-rm /tmp/sentry_dsn.txt
-
-echo "✅ .env updated with Sentry DSN from Doppler"
-```
-
-### Step 4: Run with Doppler (Optional)
-
-Instead of using .env, run directly with Doppler:
+All secrets are injected automatically by `doppler run`. No `.env` file is needed or used.
 
 ```bash
 # Run repomix cron with Doppler

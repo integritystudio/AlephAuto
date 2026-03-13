@@ -18,6 +18,14 @@ const logger = createComponentLogger('ReportGenerator');
 
 const DEFAULT_OUTPUT_DIR = path.join(process.cwd(), 'output/reports');
 
+const METRIC_KEYS = [
+  'metrics', 'stats', 'statistics', 'summary',
+  'totalFiles', 'totalItems', 'totalRepositories',
+  'enhanced', 'skipped', 'failed', 'success',
+  'totalCommits', 'linesAdded', 'linesDeleted',
+  'healthScore', 'issueCount', 'warningCount'
+] as const;
+
 interface ReportOptions {
   jobId: string;
   jobType: string;
@@ -328,17 +336,9 @@ function generateHTMLFooter(timestamp: string): string {
  * extractMetrics.
  */
 function extractMetrics(result: Record<string, unknown>): Record<string, unknown> | null {
-  const metricKeys = [
-    'metrics', 'stats', 'statistics', 'summary',
-    'totalFiles', 'totalItems', 'totalRepositories',
-    'enhanced', 'skipped', 'failed', 'success',
-    'totalCommits', 'linesAdded', 'linesDeleted',
-    'healthScore', 'issueCount', 'warningCount'
-  ];
-
   const metrics: Record<string, unknown> = {};
 
-  for (const key of metricKeys) {
+  for (const key of METRIC_KEYS) {
     if (result[key] !== undefined) {
       if (typeof result[key] === 'object' && !Array.isArray(result[key]) && result[key] !== null) {
         Object.assign(metrics, result[key] as Record<string, unknown>);
@@ -355,18 +355,10 @@ function extractMetrics(result: Record<string, unknown>): Record<string, unknown
  * extractDetails.
  */
 function extractDetails(result: Record<string, unknown>): Record<string, unknown> | null {
-  const metricKeys = [
-    'metrics', 'stats', 'statistics', 'summary',
-    'totalFiles', 'totalItems', 'totalRepositories',
-    'enhanced', 'skipped', 'failed', 'success',
-    'totalCommits', 'linesAdded', 'linesDeleted',
-    'healthScore', 'issueCount', 'warningCount'
-  ];
-
   const details: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(result)) {
-    if (!metricKeys.includes(key)) {
+    if (!(METRIC_KEYS as readonly string[]).includes(key)) {
       details[key] = value;
     }
   }

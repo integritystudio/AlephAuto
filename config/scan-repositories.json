@@ -21,7 +21,7 @@
   "repositories": [
     {
       "name": "sidequest",
-      "path": "/Users/alyshialedlie/code/jobs/sidequest",
+      "path": "~/code/jobs/sidequest",
       "priority": "high",
       "scanFrequency": "daily",
       "enabled": true,
@@ -31,14 +31,33 @@
       ],
       "excludePatterns": [
         "*.test.js",
-        "*.spec.js"
+        "*.spec.js",
+        "pipeline-core/**"
       ],
-      "lastScannedAt": "2026-03-09T07:00:39.037Z",
+      "lastScannedAt": "2026-03-11T07:00:04.579Z",
       "scanHistory": [
         {
-          "timestamp": "2026-03-09T07:00:39.037Z",
+          "timestamp": "2026-03-11T07:00:04.579Z",
           "status": "success",
-          "duration": 6.327,
+          "duration": 3.506,
+          "duplicatesFound": 0
+        },
+        {
+          "timestamp": "2026-03-11T07:00:03.618Z",
+          "status": "success",
+          "duration": 3.445,
+          "duplicatesFound": 0
+        },
+        {
+          "timestamp": "2026-03-10T07:00:10.509Z",
+          "status": "success",
+          "duration": 2.794,
+          "duplicatesFound": 0
+        },
+        {
+          "timestamp": "2026-03-09T07:00:39.035Z",
+          "status": "success",
+          "duration": 6.245,
           "duplicatesFound": 0
         },
         {
@@ -76,30 +95,12 @@
           "status": "success",
           "duration": 101,
           "duplicatesFound": 0
-        },
-        {
-          "timestamp": "2026-02-23T07:01:09.459Z",
-          "status": "success",
-          "duration": 68.166,
-          "duplicatesFound": 27
-        },
-        {
-          "timestamp": "2026-02-22T07:01:43.324Z",
-          "status": "success",
-          "duration": 102.727,
-          "duplicatesFound": 342
-        },
-        {
-          "timestamp": "2026-02-22T07:01:20.353Z",
-          "status": "success",
-          "duration": 79.844,
-          "duplicatesFound": 131
         }
       ]
     },
     {
       "name": "pipeline-core",
-      "path": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-core",
+      "path": "~/code/jobs/sidequest/pipeline-core",
       "priority": "high",
       "scanFrequency": "daily",
       "enabled": true,
@@ -111,12 +112,30 @@
         "*.test.js",
         "*.spec.js"
       ],
-      "lastScannedAt": "2026-03-09T07:00:39.039Z",
+      "lastScannedAt": "2026-03-11T07:00:04.579Z",
       "scanHistory": [
         {
-          "timestamp": "2026-03-09T07:00:39.039Z",
+          "timestamp": "2026-03-11T07:00:04.579Z",
           "status": "success",
-          "duration": 6.327,
+          "duration": 3.506,
+          "duplicatesFound": 0
+        },
+        {
+          "timestamp": "2026-03-11T07:00:03.618Z",
+          "status": "success",
+          "duration": 2.799,
+          "duplicatesFound": 0
+        },
+        {
+          "timestamp": "2026-03-10T07:00:10.510Z",
+          "status": "success",
+          "duration": 2.794,
+          "duplicatesFound": 0
+        },
+        {
+          "timestamp": "2026-03-09T07:00:39.035Z",
+          "status": "success",
+          "duration": 6.245,
           "duplicatesFound": 0
         },
         {
@@ -154,30 +173,12 @@
           "status": "success",
           "duration": 101,
           "duplicatesFound": 0
-        },
-        {
-          "timestamp": "2026-02-23T07:01:03.034Z",
-          "status": "success",
-          "duration": 61.838,
-          "duplicatesFound": 0
-        },
-        {
-          "timestamp": "2026-02-22T07:01:43.326Z",
-          "status": "success",
-          "duration": 102.727,
-          "duplicatesFound": 342
-        },
-        {
-          "timestamp": "2026-02-22T07:00:55.972Z",
-          "status": "success",
-          "duration": 55.449,
-          "duplicatesFound": 60
         }
       ]
     },
     {
       "name": "tests",
-      "path": "/Users/alyshialedlie/code/jobs/tests",
+      "path": "~/code/jobs/tests",
       "priority": "low",
       "scanFrequency": "weekly",
       "enabled": false,

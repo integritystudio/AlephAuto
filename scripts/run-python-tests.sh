@@ -37,8 +37,8 @@ CANDIDATES+=(
   "$ROOT/venv/bin/python"
   "python3"
   "python"
-  "$HOME/.pyenv/versions/3.13.7/bin/python"
-  "/Users/alyshialedlie/code-env/python/pyenv/versions/3.13.7/bin/python"
+  "$HOME/.pyenv/shims/python3"
+  "$HOME/.pyenv/shims/python"
 )
 
 declare -a UNIQUE_BINS=()

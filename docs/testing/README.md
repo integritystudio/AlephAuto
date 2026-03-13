@@ -17,33 +17,14 @@ This directory contains comprehensive documentation for the AlephAuto job queue 
 ## Quick Start
 
 **New to the codebase?** Start here:
-1. Read [TEST_FIXES_SUMMARY.md](./TEST_FIXES_SUMMARY.md) - Executive overview
-2. Review [TEST_INFRASTRUCTURE_IMPROVEMENTS.md](./TEST_INFRASTRUCTURE_IMPROVEMENTS.md) - Complete guide
-3. Check [../../tests/README.md](../../tests/README.md) - Original test infrastructure guide
+1. Review [TEST_INFRASTRUCTURE_IMPROVEMENTS.md](./TEST_INFRASTRUCTURE_IMPROVEMENTS.md) - Complete guide
+2. Check [../../tests/README.md](../../tests/README.md) - Original test infrastructure guide
+
+> **Note:** `TEST_FIXES_SUMMARY.md` was moved to `docs/archive/` (completed 2025-11-26).
 
 ## Documents in This Directory
 
-### 1. TEST_FIXES_SUMMARY.md 📋
-**Purpose:** Executive summary and implementation roadmap
-
-**Contains:**
-- Test failure breakdown and analysis
-- Root cause identification
-- Before/after code examples
-- 5-day implementation plan with phases
-- Success metrics and next steps
-
-**Use this when:**
-- You need a high-level overview
-- Planning test fixes
-- Reporting to stakeholders
-- Creating implementation timeline
-
-**Size:** ~15KB | **Read time:** 10-15 minutes
-
----
-
-### 2. TEST_INFRASTRUCTURE_IMPROVEMENTS.md 📚
+### 1. TEST_INFRASTRUCTURE_IMPROVEMENTS.md 📚
 **Purpose:** Comprehensive test infrastructure design and implementation guide
 
 **Contains:**
@@ -107,9 +88,8 @@ This directory contains comprehensive documentation for the AlephAuto job queue 
 ## Reading Order for Different Goals
 
 ### Goal: Fix Failing Tests ASAP
-1. **TEST_FIXES_SUMMARY.md** - Understand what's broken
-2. **ACTIVITY_FEED_TEST_ISSUES.md** - Get quick fixes
-3. **TEST_INFRASTRUCTURE_IMPROVEMENTS.md** (Section 5: Examples) - See working code
+1. **TEST_INFRASTRUCTURE_IMPROVEMENTS.md** (Section 5: Examples) - See working code
+2. **ACTIVITY_FEED_TEST_ISSUES.md** - Get quick fixes for activity feed tests
 
 ### Goal: Understand Test Architecture
 1. **TEST_INFRASTRUCTURE_IMPROVEMENTS.md** (Section 1) - Overview
@@ -123,8 +103,7 @@ This directory contains comprehensive documentation for the AlephAuto job queue 
 
 ### Goal: Implement Test Utilities
 1. **TEST_INFRASTRUCTURE_IMPROVEMENTS.md** (Section 2) - Complete utilities design
-2. **TEST_FIXES_SUMMARY.md** - Implementation plan
-3. **TEST_INFRASTRUCTURE_IMPROVEMENTS.md** (Section 4) - Step-by-step instructions
+2. **TEST_INFRASTRUCTURE_IMPROVEMENTS.md** (Section 4) - Step-by-step instructions
 
 ---
 

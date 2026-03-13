@@ -13,6 +13,9 @@ import { wsService } from '../services/websocket';
 import { useDashboardStore } from '../store/dashboard';
 import { PipelineType, ActivityType, JobStatus, PipelineStatus } from '../types';
 import type { Pipeline, SystemHealth } from '../types';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('Dashboard');
 
 interface ApiJob {
   id: string;
@@ -210,7 +213,7 @@ async function loadInitialData() {
   store.setError(null);
 
   try {
-    console.log('[Dashboard] Loading initial data...');
+    logger.log('Loading initial data...');
     const statusData = await fetchStatus();
 
     store.setPipelines((statusData.pipelines || []).map(mapPipeline));
@@ -218,10 +221,10 @@ async function loadInitialData() {
     store.setSystemStatus(buildSystemStatus(statusData));
     applyActivityFeed(store, statusData.recentActivity);
 
-    console.log('[Dashboard] Initial data loaded:', (statusData.pipelines || []).length, 'pipelines');
+    logger.log('Initial data loaded:', (statusData.pipelines || []).length, 'pipelines');
     store.setLoading(false);
   } catch (error) {
-    console.error('[Dashboard] Failed to load initial data:', error);
+    logger.error('Failed to load initial data:', error);
     const errorMessage = error instanceof Error
       ? error.message
       : 'Failed to connect to API. Please ensure the backend server is running on port 8080.';
@@ -237,7 +240,7 @@ async function pollForUpdates() {
   const systemStatus = useDashboardStore.getState().systemStatus;
   if (systemStatus.websocketConnected) return;
 
-  console.log('[Dashboard] Polling for updates (WebSocket disconnected)');
+  logger.log('Polling for updates (WebSocket disconnected)');
   try {
     const statusData = await fetchStatus();
     const store = useDashboardStore.getState();
@@ -252,7 +255,7 @@ async function pollForUpdates() {
     applyStatusToStore(store, statusData);
     applyActivityFeed(store, statusData.recentActivity, true);
   } catch (error) {
-    console.error('[Dashboard] Polling failed:', error);
+    logger.error('Polling failed:', error);
   }
 }
 
@@ -281,13 +284,13 @@ export const useWebSocketConnection = () => {
 
     loadInitialData();
 
-    console.log('[Dashboard] Connecting WebSocket...');
+    logger.log('Connecting WebSocket...');
     wsService.connect();
 
     const pollInterval = setInterval(pollForUpdates, POLL_INTERVAL_MS);
 
     return () => {
-      console.log('[Dashboard] Cleaning up...');
+      logger.log('Cleaning up...');
       clearInterval(pollInterval);
       wsService.disconnect();
     };
