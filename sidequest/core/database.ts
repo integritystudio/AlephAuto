@@ -453,6 +453,28 @@ export function getJobCount(options: { status?: string } = {}): number {
 }
 
 /**
+ * Bulk-cancel non-terminal jobs for a specific pipeline.
+ *
+ * Updates all jobs matching the given pipelineId whose status is in
+ * the provided list to 'cancelled'. Useful for clearing stale queued
+ * jobs from a disabled or restarted pipeline.
+ *
+ * @param pipelineId Pipeline identifier.
+ * @param statuses Status values to target (e.g. ['queued', 'created']).
+ * @returns Number of rows updated.
+ */
+export function bulkCancelJobsByPipeline(pipelineId: string, statuses: string[]): number {
+  if (statuses.length === 0) return 0;
+  const database = getDatabase();
+  const placeholders = statuses.map(() => '?').join(', ');
+  const stmt = database.prepare(
+    `UPDATE jobs SET status = 'cancelled', completed_at = ? WHERE pipeline_id = ? AND status IN (${placeholders})`
+  );
+  const result = stmt.run(new Date().toISOString(), pipelineId, ...statuses) as { changes: number };
+  return result.changes;
+}
+
+/**
  * Get all jobs across all pipelines
  *
  * @param options Query options.
