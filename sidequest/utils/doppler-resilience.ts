@@ -163,17 +163,18 @@ export abstract class DopplerResilience {
    * Get fallback secrets from cache file
    */
   async getFallbackSecrets(): Promise<Record<string, unknown>> {
+    if (this.cachedSecrets && !this.isCacheStale()) {
+      return this.cachedSecrets;
+    }
+
     try {
-      if (!this.cachedSecrets || this.isCacheStale()) {
-        logger.info({ cacheFile: this.cacheFile }, 'Loading fallback secrets from cache');
+      logger.info({ cacheFile: this.cacheFile }, 'Loading fallback secrets from cache');
 
-        const cacheContent = await fs.readFile(this.cacheFile, 'utf-8');
-        this.cachedSecrets = JSON.parse(cacheContent);
-        this.cacheLoadedAt = Date.now();
+      const cacheContent = await fs.readFile(this.cacheFile, 'utf-8');
+      this.cachedSecrets = JSON.parse(cacheContent);
+      this.cacheLoadedAt = Date.now();
 
-        logger.info('Fallback secrets loaded successfully');
-      }
-
+      logger.info('Fallback secrets loaded successfully');
     } catch (error) {
       logError(logger, error, 'Failed to load fallback secrets', { cacheFile: this.cacheFile });
 
