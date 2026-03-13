@@ -88,6 +88,19 @@ Code review (`config/scan-repositories.json`): Portability and validation issues
 
 ---
 
+## Repomix Automation Pipeline — Refactor & Re-enable (2026-03-12)
+
+Pipeline disabled in `worker-registry.ts` on 2026-03-12. 914 queued jobs accumulated from repeated cron triggers without draining. Needs refactor before re-enabling.
+
+| ID | Priority | Title | Description |
+|----|----------|-------|-------------|
+| RP-H1 | P1 | Drain or purge stale queued jobs | 914 queued repomix jobs in DB from prior runs. Decide: bulk-cancel or let them drain after re-enable. |
+| RP-M2 | P2 | ~~Investigate why queued jobs never started~~ **Done** | Root cause: `SidequestServer` queue is in-memory only. Jobs persisted as `queued` in the DB are not re-hydrated on server restart. Each restart starts with an empty in-memory queue, leaving previously queued jobs permanently stuck. Fix: RP-H1 (bulk-cancel on startup) resolves the symptom. Full fix would require DB → in-memory queue re-hydration on startup. |
+| RP-M3 | P2 | Add queue depth guard to cron trigger | Prevent cron from enqueuing new jobs when existing queued count exceeds threshold. |
+| RP-L4 | P3 | Re-enable pipeline after fixes | Remove `disabled`/`disabledReason` from repomix config in `worker-registry.ts`. |
+
+---
+
 ## API Status Activity Feed — Post-Fix Review (2026-03-12)
 
 Code review of commit 501e079 (`fix(api): restore activity feed from DB after server restart`).
