@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-11 | **Last Session:** 2026-03-11 (code-review: 3 items added from scan-repositories.json review)
+**Last Updated:** 2026-03-12 | **Last Session:** 2026-03-12 (code-review: 7 items from activity feed DB fallback fix review; 3 fixed, 4 deferred)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -85,4 +85,27 @@ Code review (`config/scan-repositories.json`): Portability and validation issues
 | SR-M1 | P2 | `config/scan-repositories.json` | Hardcoded absolute paths replaced with `~` | 1e5da1a |
 | SR-L1 | P3 | `config/scan-repositories.schema.json` | `_comment` added to schema properties | ac47d15 |
 | SR-L2 | P3 | `sidequest/pipeline-core/config/repository-config-loader.ts` | Warn on Redis provider unavailable at startup | aacc26f |
+
+---
+
+## API Status Activity Feed — Post-Fix Review (2026-03-12)
+
+Code review of commit 501e079 (`fix(api): restore activity feed from DB after server restart`).
+
+### Done
+
+| ID | Priority | File | Title | Commit |
+|----|----------|------|-------|--------|
+| AS-H1 | P1 | `api/server.ts:164-186` | Type mismatch on `id` field (number vs string) | 501e079 |
+| AS-H2 | P1 | `api/server.ts:166-186` | Missing error boundary around DB fallback query | 501e079 |
+| AS-M3 | P2 | `sidequest/core/constants.ts:16` | NINE_SECONDS constant pollutes production namespace | 501e079 |
+
+### Done
+
+| ID | Priority | File | Title | Commit |
+|----|----------|------|-------|--------|
+| AS-M4 | P2 | `tests/unit/api-status-activity-fallback.test.ts:77-104` | Duplicated status→event-type mapping in test cases | 43a633c |
+| AS-M5 | P2 | `sidequest/core/database.ts:470` | Sort order divergence between in-memory and DB fallback | 43a633c |
+| AS-L6 | P3 | `api/server.ts:174-177` | `event` field uses magic strings instead of constants | 43a633c |
+| AS-L7 | P3 | `tests/unit/api-status-activity-fallback.test.ts` | Missing test coverage for `running` status branch | 43a633c |
 
