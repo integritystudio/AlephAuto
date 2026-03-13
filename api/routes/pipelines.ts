@@ -24,7 +24,7 @@ import { jobRepository } from '#sidequest/core/job-repository.ts';
 import { workerRegistry } from '../utils/worker-registry.ts';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
 import { LIMITS, PAGINATION } from '#sidequest/core/constants.ts';
-import { sendError } from '../utils/api-error.ts';
+import { sendError, ERROR_CODES } from '../utils/api-error.ts';
 
 const RESERVED_PARAM_KEYS = new Set(['triggeredBy', 'triggeredAt', 'retriedFrom', 'retryCount']);
 
@@ -142,10 +142,10 @@ router.post(
       if (counts && counts.queued >= LIMITS.MAX_QUEUED_JOBS_PER_PIPELINE) {
         sendError(
           res,
-          'QUEUE_FULL',
+          ERROR_CODES.QUEUE_FULL,
           `Pipeline ${pipelineId} has ${counts.queued} queued jobs. ` +
           `Wait for the queue to drain below ${LIMITS.MAX_QUEUED_JOBS_PER_PIPELINE} before triggering new jobs.`,
-          429
+          HttpStatus.TOO_MANY_REQUESTS
         );
         return;
       }
