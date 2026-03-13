@@ -281,7 +281,7 @@ export function getScanReportStyles(): string {
         .duplicate-pattern, .suggestion-strategy {
             display: inline-block;
             background: #edf2f7;
-            padding: 4px 10px;
+            padding: var(--radius-xs) var(--space-10);
             border-radius: var(--radius-xs);
             font-size: 0.85em;
             margin-left: var(--space-10);
