@@ -166,7 +166,11 @@ app.get('/api/status', (req: Request, res: Response) => {
 
     if (inMemoryActivity.length === 0) {
       try {
-        const recentJobs = jobRepository.getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT, sortByCompletedAt: true });
+        const dbCompleted = jobRepository.getAllJobs({ status: 'completed', limit: 10, sortByCompletedAt: true });
+        const dbFailed = jobRepository.getAllJobs({ status: 'failed', limit: 10, sortByCompletedAt: true });
+        const recentJobs = [...dbCompleted, ...dbFailed]
+          .sort((a, b) => (b.completedAt ?? b.createdAt).localeCompare(a.completedAt ?? a.createdAt))
+          .slice(0, PAGINATION.ACTIVITY_FEED_LIMIT);
         recentActivity = recentJobs.map((job, index) => ({
           id: index,
           type: jobStatusToEventType(job.status),
@@ -214,9 +218,10 @@ app.get('/api/status', (req: Request, res: Response) => {
     const dbRunningCount = jobRepository.getJobCount({ status: 'running' });
     const dbQueuedCount = jobRepository.getJobCount({ status: 'queued' });
     const queueStats = {
-      active: workerStats.active || dbRunningCount,
-      queued: workerStats.queued || dbQueuedCount,
-      capacity: CONCURRENCY.DEFAULT_MAX_JOBS,
+      active: workerStats.active ?? dbRunningCount,
+      queued: workerStats.queued ?? dbQueuedCount,
+      // raw concurrency ceiling (not a percentage); used by frontend capacity bar
+      capacity: workerRegistry.getTotalCapacity(),
     };
 
     // Fetch active (running) and queued jobs from the database
@@ -357,9 +362,13 @@ const activityFeed = new ActivityFeedManager(broadcaster, { maxActivities: 50 })
 // This also connects to all existing registered workers
 workerRegistry.setActivityFeed(activityFeed);
 
-// Seed activity feed from recent DB jobs so dashboard isn't empty on restart
+// Seed activity feed from recent completed/failed jobs so dashboard isn't empty on restart
 try {
-  const recentJobs = jobRepository.getAllJobs({ limit: 20 });
+  const completedJobs = jobRepository.getAllJobs({ status: 'completed', limit: 10, sortByCompletedAt: true });
+  const failedJobs = jobRepository.getAllJobs({ status: 'failed', limit: 10, sortByCompletedAt: true });
+  const recentJobs = [...completedJobs, ...failedJobs]
+    .sort((a, b) => (b.completedAt ?? b.createdAt).localeCompare(a.completedAt ?? a.createdAt))
+    .slice(0, 20);
   for (const job of recentJobs.reverse()) {
     const eventType = job.status === 'completed' ? 'job:completed'
       : job.status === 'failed' ? 'job:failed'
