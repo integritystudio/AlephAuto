@@ -46,7 +46,9 @@ type OutboundMessage =
 
 const logger = createLogger('WebSocket');
 
-const VALID_WS_MESSAGE_TYPES = new Set<string>([
+type WebSocketMessageType = WebSocketMessage['type'];
+
+const VALID_WS_MESSAGE_TYPES = new Set<WebSocketMessageType>([
   'connected', 'subscribed', 'pong',
   'job:created', 'job:started', 'job:progress',
   'job:completed', 'job:failed', 'job:cancelled',
@@ -59,7 +61,7 @@ function isWebSocketMessage(value: unknown): value is WebSocketMessage {
     value !== null &&
     'type' in value &&
     typeof (value as Record<string, unknown>).type === 'string' &&
-    VALID_WS_MESSAGE_TYPES.has((value as Record<string, unknown>).type as string)
+    VALID_WS_MESSAGE_TYPES.has((value as Record<string, unknown>).type as WebSocketMessageType)
   );
 }
 
