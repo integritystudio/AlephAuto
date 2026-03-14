@@ -10,7 +10,9 @@ import { authMiddleware } from '../../api/middleware/auth.ts';
 import { config, resetApiKeyCache } from '../../sidequest/core/config.ts';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
 
-function createRequest(overrides = {}): Request {
+type MockResponse = Response & { statusCode: number | null; body: Record<string, unknown> | null };
+
+function createRequest(overrides: Partial<Pick<Request, 'path' | 'headers' | 'ip'>> = {}): Request {
   return {
     path: '/api/private',
     ip: '127.0.0.1',
@@ -19,7 +21,7 @@ function createRequest(overrides = {}): Request {
   } as unknown as Request;
 }
 
-function createResponse(): Response & { statusCode: number | null; body: Record<string, unknown> | null } {
+function createResponse(): MockResponse {
   return {
     statusCode: null,
     body: null,
@@ -31,7 +33,7 @@ function createResponse(): Response & { statusCode: number | null; body: Record<
       this.body = payload;
       return this;
     }
-  } as unknown as Response & { statusCode: number | null; body: Record<string, unknown> | null };
+  } as unknown as MockResponse;
 }
 
 describe('authMiddleware', () => {
