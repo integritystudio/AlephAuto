@@ -16,9 +16,9 @@ const __dirname = dirname(__filename);
  */
 
 describe('Filepath Imports Test Suite', () => {
-  describe('sidequest/core/index.ts imports', () => {
+  describe('sidequest/pipeline-runners/repomix-pipeline.ts imports', () => {
     it('should have correct import for RepomixWorker', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/core/index.ts');
+      const filePath = resolve(__dirname, '../../sidequest/pipeline-runners/repomix-pipeline.ts');
       const content = await fs.readFile(filePath, 'utf-8');
 
       // Verify the import statement uses relative path from sidequest/core/
@@ -30,7 +30,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should have correct import for DirectoryScanner', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/core/index.ts');
+      const filePath = resolve(__dirname, '../../sidequest/pipeline-runners/repomix-pipeline.ts');
       const content = await fs.readFile(filePath, 'utf-8');
 
       // Verify the import statement uses relative path from sidequest/core/
@@ -42,7 +42,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should have correct outputBaseDir from config', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/core/index.ts');
+      const filePath = resolve(__dirname, '../../sidequest/pipeline-runners/repomix-pipeline.ts');
       const content = await fs.readFile(filePath, 'utf-8');
 
       // Verify outputBaseDir is sourced from config
@@ -54,7 +54,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should have correct logDir path', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/core/index.ts');
+      const filePath = resolve(__dirname, '../../sidequest/pipeline-runners/repomix-pipeline.ts');
       const content = await fs.readFile(filePath, 'utf-8');
 
       // Verify logDir is sourced from config
@@ -66,7 +66,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should have correct outputDir path for DirectoryScanner', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/core/index.ts');
+      const filePath = resolve(__dirname, '../../sidequest/pipeline-runners/repomix-pipeline.ts');
       const content = await fs.readFile(filePath, 'utf-8');
 
       // Verify outputDir is sourced from config
@@ -78,7 +78,7 @@ describe('Filepath Imports Test Suite', () => {
     });
 
     it('should have correct path in saveRunSummary', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/core/index.ts');
+      const filePath = resolve(__dirname, '../../sidequest/pipeline-runners/repomix-pipeline.ts');
       const content = await fs.readFile(filePath, 'utf-8');
 
       // Verify saveRunSummary uses this.worker.logDir for deterministic output
@@ -91,10 +91,10 @@ describe('Filepath Imports Test Suite', () => {
   });
 
   describe('File existence checks', () => {
-    it('should verify index.ts exists in sidequest/core/', async () => {
-      const filePath = resolve(__dirname, '../../sidequest/core/index.ts');
+    it('should verify repomix-pipeline.ts exists in sidequest/pipeline-runners/', async () => {
+      const filePath = resolve(__dirname, '../../sidequest/pipeline-runners/repomix-pipeline.ts');
       const stats = await fs.stat(filePath);
-      assert.ok(stats.isFile(), 'index.ts should exist in sidequest/core/');
+      assert.ok(stats.isFile(), 'repomix-pipeline.ts should exist in sidequest/pipeline-runners/');
     });
 
     it('should verify index.ts was removed from root', async () => {

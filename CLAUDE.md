@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 11 logical pipelines: Duplicate Detection (JS+Python), Schema Enhancement, Git Activity Reporter, Repository Cleanup, Repomix, Claude Health, Dashboard Populate, Bugfix Audit, Gitignore Update, Plugin Management, Test Refactor.
 
-Note: 10 pipelines have `*-pipeline.ts` runner scripts in `pipeline-runners/`. Repomix is the exception — it uses direct worker registration via `worker-registry.ts` with no pipeline-runner file (currently disabled pending refactor).
+All 11 pipelines have `*-pipeline.ts` runner scripts in `pipeline-runners/`. Repomix also uses direct worker registration via `worker-registry.ts` (independent of the runner).
 
 ## Efficient read operations
 (file tree w/ token count)[docs/repomix/token-tree.txt]

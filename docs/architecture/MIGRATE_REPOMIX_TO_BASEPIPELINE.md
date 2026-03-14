@@ -1,6 +1,6 @@
 # Migrate Repomix to BasePipeline
 
-**Status:** Proposed
+**Status:** Done
 **Created:** 2026-03-13
 **Backlog ID:** BP-M1 (P2) — keep in sync with [BACKLOG.md](../BACKLOG.md#basepipeline-migration--remaining-pipelines-2026-03-13)
 **Prerequisite:** Repomix pipeline re-enabled (RP-L4 done) and stable

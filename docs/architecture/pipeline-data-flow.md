@@ -227,7 +227,7 @@ graph LR
 | 2 | Schema Enhancement | `schema-enhancement` | `schema-enhancement-pipeline.ts` | `schema-enhancement-worker.ts` | BasePipeline | ✅ Yes | TypeScript |
 | 3 | Git Activity | `git-activity` | `git-activity-pipeline.ts` | `git-activity-worker.ts` | BasePipeline | ❌ No | TS + Python |
 | 4 | Gitignore Manager | `gitignore-manager` | `gitignore-pipeline.ts` | `gitignore-worker.ts` | BasePipeline | ⚠️ Batch N/A | TypeScript |
-| 5 | Repomix | `repomix` | N/A (cron server) | `repomix-worker.ts` | — | ❌ No | TypeScript |
+| 5 | Repomix | `repomix` | `repomix-pipeline.ts` | `repomix-worker.ts` | BasePipeline | ❌ No | TypeScript |
 | 6 | Plugin Manager | `plugin-manager` | `plugin-management-pipeline.ts` | (embedded in utils) | BasePipeline | ❌ No | TypeScript |
 | 7 | Claude Health | `claude-health` | `claude-health-pipeline.ts` | `claude-health-worker.ts` | BasePipeline | ❌ No | TS + Shell |
 | 8 | Test Refactor | `test-refactor` | `test-refactor-pipeline.ts` | `test-refactor-worker.ts` | BasePipeline | ✅ Optional | TypeScript |

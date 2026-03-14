@@ -264,11 +264,11 @@ Migrate the last 2 pipelines (Repomix, Duplicate Detection) to `BasePipeline`. C
 > - [MIGRATE_REPOMIX_TO_BASEPIPELINE.md](architecture/MIGRATE_REPOMIX_TO_BASEPIPELINE.md)
 > - [MIGRATE_DUPLICATE_DETECTION_TO_BASEPIPELINE.md](architecture/MIGRATE_DUPLICATE_DETECTION_TO_BASEPIPELINE.md)
 
-### Medium
+### Done
 
-| ID | Priority | Description |
-|----|----------|-------------|
-| BP-M1 | P2 | Create `repomix-pipeline.ts`, move `RepomixCronApp` logic into `RepomixPipeline extends BasePipeline<RepomixWorker>`. Replaces polling `waitForCompletion` with event-driven, manual cron with `scheduleCron()`, manual event listeners with `setupDefaultEventListeners()`. Delete `RepomixCronApp` from `sidequest/core/index.ts`. ~140 lines saved. |
+| ID | Priority | Description | Commit |
+|----|----------|-------------|--------|
+| BP-M1 | P2 | Created `repomix-pipeline.ts` with `RepomixPipeline extends BasePipeline<RepomixWorker>`. Deleted `RepomixCronApp` and `isWorkerIdle` (polling replaced by event-driven BasePipeline). ~140 lines saved. | pending |
 
 ### Low
 
