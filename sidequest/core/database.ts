@@ -570,21 +570,24 @@ export function getAllPipelineStats(): PipelineStats[] {
  * @returns Number of imported report jobs.
  */
 export async function importReportsToDatabase(reportsDir: string): Promise<number> {
-  if (!fs.existsSync(reportsDir)) {
+  try {
+    await fs.promises.access(reportsDir);
+  } catch {
     logger.warn({ reportsDir }, 'Reports directory not found');
     return 0;
   }
 
-  const files = fs.readdirSync(reportsDir)
-    .filter(f => f.endsWith('-summary.json'));
+  const entries = await fs.promises.readdir(reportsDir);
+  const files = entries.filter(f => f.endsWith('-summary.json'));
 
   let imported = 0;
 
   for (const file of files) {
     try {
       const filePath = path.join(reportsDir, file);
-      const content = JSON.parse(fs.readFileSync(filePath, 'utf8')) as Record<string, unknown>;
-      const stats = fs.statSync(filePath);
+      const raw = await fs.promises.readFile(filePath, 'utf8');
+      const content = JSON.parse(raw) as Record<string, unknown>;
+      const stats = await fs.promises.stat(filePath);
 
       // Extract date from filename (e.g., inter-project-scan-2repos-2025-11-24-summary.json)
       const dateMatch = file.match(/(\d{4}-\d{2}-\d{2})/);
@@ -634,13 +637,15 @@ export async function importReportsToDatabase(reportsDir: string): Promise<numbe
  * @returns Number of imported log jobs.
  */
 export async function importLogsToDatabase(logsDir: string): Promise<number> {
-  if (!fs.existsSync(logsDir)) {
+  try {
+    await fs.promises.access(logsDir);
+  } catch {
     logger.warn({ logsDir }, 'Logs directory not found');
     return 0;
   }
 
-  const files = fs.readdirSync(logsDir)
-    .filter(f => f.endsWith('.json'));
+  const entries = await fs.promises.readdir(logsDir);
+  const files = entries.filter(f => f.endsWith('.json'));
 
   let imported = 0;
 
@@ -658,8 +663,9 @@ export async function importLogsToDatabase(logsDir: string): Promise<number> {
   for (const file of files) {
     try {
       const filePath = path.join(logsDir, file);
-      const content = JSON.parse(fs.readFileSync(filePath, 'utf8')) as Record<string, unknown>;
-      const stats = fs.statSync(filePath);
+      const raw = await fs.promises.readFile(filePath, 'utf8');
+      const content = JSON.parse(raw) as Record<string, unknown>;
+      const stats = await fs.promises.stat(filePath);
 
       // Extract pipeline type from filename
       let pipelineId = 'unknown';
