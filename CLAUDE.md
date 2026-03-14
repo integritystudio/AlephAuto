@@ -62,7 +62,7 @@ doppler run -- node --strip-types api/server.ts    # Production - reads Doppler
 ### 2. Configuration: NEVER use process.env directly
 ```typescript
 import { config } from './sidequest/core/config.ts';
-const port = config.jobsApiPort;          // Correct
+const port = config.apiPort;              // Correct
 const port = process.env.JOBS_API_PORT;   // Wrong
 ```
 
