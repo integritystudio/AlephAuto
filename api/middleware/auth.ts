@@ -54,17 +54,10 @@ function validateApiKey(apiKey: string, configuredApiKey: string): boolean {
     return false;
   }
 
-  // Constant-time comparison to prevent timing attacks including length oracle
-  const expectedBuffer = Buffer.from(configuredApiKey);
-  const actualBuffer = Buffer.from(apiKey);
-  const maxLen = Math.max(expectedBuffer.length, actualBuffer.length);
-  const paddedExpected = Buffer.alloc(maxLen, 0);
-  const paddedActual = Buffer.alloc(maxLen, 0);
-  expectedBuffer.copy(paddedExpected);
-  actualBuffer.copy(paddedActual);
-  const equal = crypto.timingSafeEqual(paddedExpected, paddedActual);
-  const sameLength = expectedBuffer.length === actualBuffer.length;
-  return (equal && sameLength);
+  // Hash both sides to equal-length buffers for constant-time comparison without length oracle
+  const expectedHash = crypto.createHash('sha256').update(configuredApiKey).digest();
+  const actualHash = crypto.createHash('sha256').update(apiKey).digest();
+  return crypto.timingSafeEqual(expectedHash, actualHash);
 }
 
 /**
