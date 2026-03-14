@@ -268,7 +268,7 @@ Migrate the last 2 pipelines (Repomix, Duplicate Detection) to `BasePipeline`. C
 
 | ID | Priority | Description | Commit |
 |----|----------|-------------|--------|
-| BP-M1 | P2 | Created `repomix-pipeline.ts` with `RepomixPipeline extends BasePipeline<RepomixWorker>`. Deleted `RepomixCronApp` and `isWorkerIdle` (polling replaced by event-driven BasePipeline). ~140 lines saved. | pending |
+| BP-M1 | P2 | Created `repomix-pipeline.ts` with `RepomixPipeline extends BasePipeline<RepomixWorker>`. Deleted `RepomixCronApp` and `isWorkerIdle` (polling replaced by event-driven BasePipeline). ~140 lines saved. | dab058f |
 
 ### Low
 

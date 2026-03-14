@@ -60,9 +60,9 @@ class RepomixPipeline extends BasePipeline<RepomixWorker> {
     }) as unknown as TypedDirectoryScanner;
 
     this.setupDefaultEventListeners(logger, {
-      onStarted: (job: Job) => ({ relativePath: (job.data as Record<string, unknown>)['relativePath'] }),
-      onCompleted: (job: Job) => ({ relativePath: (job.data as Record<string, unknown>)['relativePath'] }),
-      onFailed: (job: Job) => ({ relativePath: (job.data as Record<string, unknown>)['relativePath'] }),
+      onStarted: (job: Job) => ({ relativePath: job.data['relativePath'] }),
+      onCompleted: (job: Job) => ({ relativePath: job.data['relativePath'] }),
+      onFailed: (job: Job) => ({ relativePath: job.data['relativePath'] }),
     });
   }
 

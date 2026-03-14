@@ -21,7 +21,7 @@ describe('Filepath Imports Test Suite', () => {
       const filePath = resolve(__dirname, '../../sidequest/pipeline-runners/repomix-pipeline.ts');
       const content = await fs.readFile(filePath, 'utf-8');
 
-      // Verify the import statement uses relative path from sidequest/core/
+      // Verify the import statement uses relative path from sidequest/pipeline-runners/
       assert.match(
         content,
         /import\s+{\s*RepomixWorker\s*}\s+from\s+['"]\.\.\/workers\/repomix-worker\.ts['"]/,
@@ -33,7 +33,7 @@ describe('Filepath Imports Test Suite', () => {
       const filePath = resolve(__dirname, '../../sidequest/pipeline-runners/repomix-pipeline.ts');
       const content = await fs.readFile(filePath, 'utf-8');
 
-      // Verify the import statement uses relative path from sidequest/core/
+      // Verify the import statement uses relative path from sidequest/pipeline-runners/
       assert.match(
         content,
         /import\s+{\s*DirectoryScanner\s*}\s+from\s+['"]\.\.\/utils\/directory-scanner\.ts['"]/,
