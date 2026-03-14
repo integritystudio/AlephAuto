@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-14 | **Last Session:** 2026-03-14 (backlog-migrate: migrated CR-H2, CR-H4, CR-M8, CR-M9, CR-M10, CR-M11, CR-M12, CR-M13, CR-M14 to v2.3.29)
+**Last Updated:** 2026-03-14 | **Last Session:** 2026-03-14 (backlog-implementer: implemented CR-L13 through CR-L20, CR-L17; BP-L1 accepted as-is)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -113,11 +113,11 @@ Code review of codebase via `repomix-git-ranked.xml`. Issues #6 (pipelineId extr
 
 | ID | Priority | Description |
 |---|----------|-------------|
-| CR-L13 | P3 | **WebSocket subscription limit silently drops excess channels** — `api/websocket.ts:269-274`. Client sends 60 channels when at 50-subscription limit, last 10 silently dropped. `subscribed` response only reflects added channels. Add `dropped` count or warning field to notify client. |
-| CR-L14 | P3 | **_resolveUniqueJobId has unbounded retry loop** — `sidequest/core/server.ts:229-247`. `while (this.jobs.has(candidateId))` has no upper bound. Pathological job ID patterns could loop extensively. Cap at reasonable limit (e.g., 100) and throw if exceeded. |
-| CR-L15 | P3 | **validateApiKey padding logic is fragile** — `api/middleware/auth.ts:57-67`. Current padding-then-compare is correct but relies on `sameLength` guard. Simpler: hash both sides with `crypto.createHash('sha256')` to guarantee equal-length buffers, remove manual padding entirely. |
-| CR-L16 | P3 | **config.ts reads process.env directly at module scope** — `sidequest/core/config.ts:88-152`. Values read synchronously before module completes export. Any code that imports config before dotenv loads sees undefined values. Wrap critical reads in getter or add explicit dotenv promise await. |
-| CR-L17 | P3 | **Documentation mismatch: CLAUDE.md references jobsApiPort** — CLAUDE.md references `config.jobsApiPort` but code exports `config.apiPort`. Update CLAUDE.md or rename export to match docs. |
-| CR-L18 | P3 | **createRequest parameter lacks type annotation** — `tests/unit/auth-middleware.test.ts:13`. `overrides = {}` is implicitly typed as `{}`. Should be `Partial<Pick<Request, 'path' | 'headers' | 'ip'>>` or similar to prevent unrelated objects. |
-| CR-L19 | P3 | **createResponse type alias duplicated** — `tests/unit/auth-middleware.test.ts:22,34`. Intersection type `Response & { statusCode: number | null; body: ... }` appears in both signature and cast. Extract to module-scope `type MockResponse`. |
-| CR-L20 | P3 | **JSDoc mismatch: getScanResults says Promise<any>** — `frontend/src/services/api.ts:346`. JSDoc says `@returns {Promise<any>}` but implementation returns `Promise<unknown>`. Update JSDoc to match. |
+~~| CR-L13 | P3 | **WebSocket subscription limit silently drops excess channels** |~~ Done (0951232)
+~~| CR-L14 | P3 | **_resolveUniqueJobId has unbounded retry loop** |~~ Done (1b4fa67)
+~~| CR-L15 | P3 | **validateApiKey padding logic is fragile** |~~ Done (7528947)
+~~| CR-L16 | P3 | **config.ts reads process.env directly at module scope** |~~ Done (1d0ab3d)
+~~| CR-L17 | P3 | **Documentation mismatch: CLAUDE.md references jobsApiPort** |~~ Done (7f20fa8)
+~~| CR-L18 | P3 | **createRequest parameter lacks type annotation** |~~ Done (bfb9579)
+~~| CR-L19 | P3 | **createResponse type alias duplicated** |~~ Done (bfb9579)
+~~| CR-L20 | P3 | **JSDoc mismatch: getScanResults says Promise<any>** |~~ Done (559ac2b)
