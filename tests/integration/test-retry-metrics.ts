@@ -12,6 +12,7 @@
 // @ts-nocheck
 import { createTempRepository } from '../fixtures/test-helpers.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
 import { TestTiming } from '../constants/timing-test-constants.ts';
 // Using Node.js built-in fetch (v18+)
 
@@ -115,13 +116,13 @@ async function testNonRetryableError() {
     logger.info({ status: response.status, result }, 'Non-retryable error response');
 
     // Should receive 400 Bad Request
-    const success = response.status === 400;
+    const success = response.status === HttpStatus.BAD_REQUEST;
     logger.info({ success }, 'TEST 2 Result');
 
     return {
       test: 'Non-retryable Error',
       passed: success,
-      expectedStatus: 400,
+      expectedStatus: HttpStatus.BAD_REQUEST,
       actualStatus: response.status
     };
   } catch (error) {

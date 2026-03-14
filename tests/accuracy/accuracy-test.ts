@@ -12,6 +12,7 @@
 import { ScanOrchestrator } from '../../sidequest/pipeline-core/scan-orchestrator.ts';
 import { compareResults, calculateAllMetrics, generateAccuracyReport } from './metrics.ts';
 import { TestOutputFormat } from '../constants/output-format-constants.ts';
+import { TIME_MS, PERCENT_MULTIPLIER } from '../../sidequest/core/units.ts';
 import { readFile, writeFile } from 'fs/promises';
 import { createComponentLogger } from '../../sidequest/logger.ts';
 import path from 'path';
@@ -194,7 +195,7 @@ async function executeDuplicateScan(testRepoPath): Promise<{ scanResult: any; du
       generateReports: false
     });
 
-    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    const duration = ((Date.now() - startTime) / TIME_MS.SECOND).toFixed(2);
     console.log(`Scan completed in ${duration}s`);
     console.log();
 
@@ -303,7 +304,7 @@ function printTargetComparison(targets) {
     const icon = target.met ? '✅' : '❌';
     const sign = target.delta > 0 ? '+' : '';
     const targetPrefix = name === 'FP Rate' ? '<' : '';
-    return `${name}:${' '.repeat(12 - name.length)}${icon} Target: ${targetPrefix}${(target.target * 100).toFixed(0)}%, Actual: ${(target.actual * 100).toFixed(2)}% (${sign}${(target.delta * 100).toFixed(1)}%)`;
+    return `${name}:${' '.repeat(12 - name.length)}${icon} Target: ${targetPrefix}${(target.target * PERCENT_MULTIPLIER).toFixed(0)}%, Actual: ${(target.actual * PERCENT_MULTIPLIER).toFixed(2)}% (${sign}${(target.delta * PERCENT_MULTIPLIER).toFixed(1)}%)`;
   };
 
   console.log(formatTarget('Precision', targets.precision));
@@ -325,7 +326,7 @@ function printDetailedResults(comparison) {
   if (comparison.truePositives.length > 0) {
     console.log(`✅ True Positives (${comparison.truePositives.length}):`);
     comparison.truePositives.forEach(tp => {
-      console.log(`   - ${tp.expected}: ${tp.overlap}/${tp.expected_members} members matched (${(tp.overlap_ratio * 100).toFixed(0)}%)`);
+      console.log(`   - ${tp.expected}: ${tp.overlap}/${tp.expected_members} members matched (${(tp.overlap_ratio * PERCENT_MULTIPLIER).toFixed(0)}%)`);
     });
     console.log();
   }

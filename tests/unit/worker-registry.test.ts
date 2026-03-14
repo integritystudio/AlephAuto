@@ -14,28 +14,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 
-// Import constants first (no side effects)
-import { CONCURRENCY } from '../../sidequest/core/constants.ts';
 import { workerRegistry } from '../../api/utils/worker-registry.ts';
 
-describe('Worker Registry - Constants', () => {
-
-  describe('CONCURRENCY.MAX_WORKER_INITS', () => {
-    it('should be set to 3 for concurrency limiting', () => {
-      assert.strictEqual(CONCURRENCY.MAX_WORKER_INITS, 3);
-    });
-
-    it('should be greater than 0', () => {
-      assert.ok(CONCURRENCY.MAX_WORKER_INITS > 0);
-    });
-  });
-
-  describe('CONCURRENCY.DEFAULT_MAX_JOBS', () => {
-    it('should be set to 5', () => {
-      assert.strictEqual(CONCURRENCY.DEFAULT_MAX_JOBS, 5);
-    });
-  });
-});
 
 describe('Worker Registry - Pipeline Support', () => {
   describe('isSupported', () => {

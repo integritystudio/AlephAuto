@@ -5,6 +5,8 @@
  * for duplicate detection results.
  */
 
+import { PERCENT_MULTIPLIER } from '../../sidequest/core/units.ts';
+
 /**
  * Calculate precision: TP / (TP + FP)
  * Measures how many detected duplicates are actually duplicates
@@ -265,7 +267,7 @@ function interpretLowerIsBetter(score: number): string {
 function scoreEntry(score: number, higherIsBetter = true) {
   return {
     score,
-    percentage: (score * 100).toFixed(2) + '%',
+    percentage: (score * PERCENT_MULTIPLIER).toFixed(2) + '%',
     interpretation: higherIsBetter ? interpretHigherIsBetter(score) : interpretLowerIsBetter(score)
   };
 }

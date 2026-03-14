@@ -8,6 +8,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { classifyError, isRetryable, ErrorCategory } from '../../sidequest/pipeline-core/errors/error-classifier.ts';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 describe('Error Classifier', () => {
   describe('Non-Retryable Errors', () => {
@@ -34,7 +35,7 @@ describe('Error Classifier', () => {
 
     it('should classify HTTP 400 as non-retryable', () => {
       const error = new Error('Bad Request');
-      error.status = 400;
+      error.status = HttpStatus.BAD_REQUEST;
 
       const result = classifyError(error);
 
@@ -57,7 +58,7 @@ describe('Error Classifier', () => {
 
     it('should classify HTTP 500 as retryable', () => {
       const error = new Error('Internal Server Error');
-      error.status = 500;
+      error.status = HttpStatus.INTERNAL_SERVER_ERROR;
 
       const result = classifyError(error);
 
@@ -67,7 +68,7 @@ describe('Error Classifier', () => {
 
     it('should classify HTTP 429 (rate limit) as retryable', () => {
       const error = new Error('Too Many Requests');
-      error.status = 429;
+      error.status = HttpStatus.TOO_MANY_REQUESTS;
 
       const result = classifyError(error);
 
@@ -131,14 +132,14 @@ describe('Error Classifier', () => {
 
     it('should classify HTTP 503 as retryable', () => {
       const error = new Error('Service Unavailable');
-      error.status = 503;
+      error.status = HttpStatus.SERVICE_UNAVAILABLE;
 
       assert.strictEqual(isRetryable(error), true);
     });
 
     it('should classify HTTP 404 as non-retryable', () => {
       const error = new Error('Not Found');
-      error.status = 404;
+      error.status = HttpStatus.NOT_FOUND;
 
       assert.strictEqual(isRetryable(error), false);
     });
@@ -177,11 +178,11 @@ describe('Error Classifier - Extended API', () => {
 
     it('should return detailed info for HTTP error', () => {
       const error = new Error('Internal Server Error');
-      error.statusCode = 500;
+      error.statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
 
       const info = getErrorInfo(error);
 
-      assert.strictEqual(info.statusCode, 500);
+      assert.strictEqual(info.statusCode, HttpStatus.INTERNAL_SERVER_ERROR);
       assert.strictEqual(info.retryable, true);
     });
 
@@ -221,11 +222,11 @@ describe('Error Classifier - Extended API', () => {
 
     it('should preserve HTTP status from cause', () => {
       const cause = new Error('HTTP error');
-      cause.statusCode = 502;
+      cause.statusCode = HttpStatus.BAD_GATEWAY;
 
       const scanError = createScanError('Request failed', cause);
 
-      assert.strictEqual(scanError.statusCode, 502);
+      assert.strictEqual(scanError.statusCode, HttpStatus.BAD_GATEWAY);
     });
 
     it('should add classification to error', () => {
@@ -256,11 +257,11 @@ describe('Error Classifier - Extended API', () => {
 
     it('should use error.status as fallback for statusCode', () => {
       const cause = new Error('Bad request');
-      cause.status = 400;
+      cause.status = HttpStatus.BAD_REQUEST;
 
       const scanError = createScanError('Validation failed', cause);
 
-      assert.strictEqual(scanError.statusCode, 400);
+      assert.strictEqual(scanError.statusCode, HttpStatus.BAD_REQUEST);
     });
 
     it('should use errno as fallback for code', () => {

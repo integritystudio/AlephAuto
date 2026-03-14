@@ -16,6 +16,7 @@
 import { InterProjectScanner } from '../../sidequest/pipeline-core/inter-project-scanner.ts';
 import { ReportCoordinator } from '../../sidequest/pipeline-core/reports/report-coordinator.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
+import { TestOutputFormat } from '../constants/output-format-constants.ts';
 import path from 'path';
 
 const logger = createComponentLogger('TestInterProject');
@@ -122,7 +123,7 @@ function printTopCrossRepositoryDuplicates(result: Record<string, unknown>) {
   console.log('🔗 Top Cross-Repository Duplicates:\n');
   const topGroups = duplicates
     .sort((a, b) => (b.impact_score as number) - (a.impact_score as number))
-    .slice(0, 5);
+    .slice(0, TestOutputFormat.TOP_RESULTS_LIMIT);
 
   topGroups.forEach((group, index) => {
     console.log(`   ${index + 1}. ${group.group_id}`);
@@ -130,7 +131,7 @@ function printTopCrossRepositoryDuplicates(result: Record<string, unknown>) {
     console.log(`      Repositories: ${group.repository_count} (${(group.affected_repositories as string[]).join(', ')})`);
     console.log(`      Occurrences: ${group.occurrence_count}`);
     console.log(`      Impact Score: ${(group.impact_score as number).toFixed(1)}/100`);
-    console.log(`      Files: ${(group.affected_files as string[]).slice(0, 3).join(', ')}${(group.affected_files as string[]).length > 3 ? '...' : ''}`);
+    console.log(`      Files: ${(group.affected_files as string[]).slice(0, TestOutputFormat.PREVIEW_FILES_LIMIT).join(', ')}${(group.affected_files as string[]).length > TestOutputFormat.PREVIEW_FILES_LIMIT ? '...' : ''}`);
     console.log('');
   });
 }
@@ -147,7 +148,7 @@ function printTopSuggestions(result: Record<string, unknown>) {
   console.log('💡 Top Consolidation Suggestions:\n');
   const topSuggestions = suggestions
     .sort((a, b) => (b.roi_score as number) - (a.roi_score as number))
-    .slice(0, 5);
+    .slice(0, TestOutputFormat.TOP_RESULTS_LIMIT);
 
   topSuggestions.forEach((suggestion, index) => {
     console.log(`   ${index + 1}. ${suggestion.suggestion_id}`);

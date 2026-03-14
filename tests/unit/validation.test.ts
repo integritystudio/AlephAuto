@@ -8,6 +8,7 @@
 // @ts-nocheck
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
 import { StartScanRequestSchema } from '../../api/types/scan-requests.ts';
 
 describe('Scan Request Validation', () => {
@@ -170,7 +171,7 @@ describe('Error Response Creation', () => {
 
     assert.strictEqual(error.error, 'Bad Request');
     assert.strictEqual(error.message, 'Validation failed: must be a string');
-    assert.strictEqual(error.status, 400);
+    assert.strictEqual(error.status, HttpStatus.BAD_REQUEST);
     assert.strictEqual(error.errors.length, 1);
     assert.strictEqual(error.errors[0].field, 'repositoryPath');
     assert.strictEqual(error.errors[0].message, 'must be a string');
@@ -183,12 +184,12 @@ describe('Error Response Creation', () => {
     const error = createErrorResponse(
       'Internal Server Error',
       'Something went wrong',
-      500
+      HttpStatus.INTERNAL_SERVER_ERROR
     );
 
     assert.strictEqual(error.error, 'Internal Server Error');
     assert.strictEqual(error.message, 'Something went wrong');
-    assert.strictEqual(error.status, 500);
+    assert.strictEqual(error.status, HttpStatus.INTERNAL_SERVER_ERROR);
     assert.ok(error.timestamp);
   });
 });
@@ -264,7 +265,7 @@ describe('Validation Middleware', () => {
       middleware(req, res, next);
 
       assert.ok(!wasNextCalled());
-      assert.strictEqual(res.statusCode, 400);
+      assert.strictEqual(res.statusCode, HttpStatus.BAD_REQUEST);
       assert.strictEqual(res.responseData.success, false);
       assert.strictEqual(res.responseData.error.code, 'INVALID_REQUEST');
       assert.strictEqual(res.responseData.error.message, 'Request validation failed');
@@ -278,7 +279,7 @@ describe('Validation Middleware', () => {
 
       middleware(req, res, next);
 
-      assert.strictEqual(res.statusCode, 400);
+      assert.strictEqual(res.statusCode, HttpStatus.BAD_REQUEST);
       const errors = res.responseData.error.details.errors;
       assert.ok(errors.some(e => e.field === 'name'));
       assert.ok(errors.some(e => e.field === 'value'));
@@ -291,7 +292,7 @@ describe('Validation Middleware', () => {
       middleware(req, res, next);
 
       assert.ok(!wasNextCalled());
-      assert.strictEqual(res.statusCode, 400);
+      assert.strictEqual(res.statusCode, HttpStatus.BAD_REQUEST);
     });
 
     it('should pass non-Zod errors to next', () => {
@@ -339,7 +340,7 @@ describe('Validation Middleware', () => {
       middleware(req, res, next);
 
       assert.ok(!wasNextCalled());
-      assert.strictEqual(res.statusCode, 400);
+      assert.strictEqual(res.statusCode, HttpStatus.BAD_REQUEST);
       assert.strictEqual(res.responseData.error.message, 'Query parameter validation failed');
     });
 
@@ -401,7 +402,7 @@ describe('Validation Middleware', () => {
       middleware(req, res, next);
 
       assert.ok(!wasNextCalled());
-      assert.strictEqual(res.statusCode, 400);
+      assert.strictEqual(res.statusCode, HttpStatus.BAD_REQUEST);
       assert.strictEqual(res.responseData.error.message, 'Path parameter validation failed');
     });
 
@@ -411,7 +412,7 @@ describe('Validation Middleware', () => {
 
       middleware(req, res, next);
 
-      assert.strictEqual(res.statusCode, 400);
+      assert.strictEqual(res.statusCode, HttpStatus.BAD_REQUEST);
       assert.ok(res.responseData.error.details.errors.length >= 1);
       assert.ok(res.responseData.error.details.errors.every(e => e.field && e.message && e.code));
     });

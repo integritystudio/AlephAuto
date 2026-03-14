@@ -34,14 +34,14 @@ function printScanMetrics(metrics: Record<string, number>) {
 function printTopGroups(groups: any[]) {
   if (!groups?.length) return;
   console.log('\nTop Duplicate Groups:');
-  const topGroups = groups.sort((a, b) => b.impact_score - a.impact_score).slice(0, 5);
+  const topGroups = groups.sort((a, b) => b.impact_score - a.impact_score).slice(0, TestOutputFormat.TOP_RESULTS_LIMIT);
   for (const group of topGroups) {
     console.log(`\n  Group ${group.group_id}:`);
     console.log(`    Pattern: ${group.pattern_id}`);
     console.log(`    Occurrences: ${group.occurrence_count}`);
     console.log(`    Impact Score: ${group.impact_score.toFixed(2)}/100`);
-    const files = group.affected_files.slice(0, 3).join(', ');
-    console.log(`    Files: ${files}${group.affected_files.length > 3 ? '...' : ''}`);
+    const files = group.affected_files.slice(0, TestOutputFormat.PREVIEW_FILES_LIMIT).join(', ');
+    console.log(`    Files: ${files}${group.affected_files.length > TestOutputFormat.PREVIEW_FILES_LIMIT ? '...' : ''}`);
   }
 }
 
@@ -51,7 +51,7 @@ function printTopGroups(groups: any[]) {
 function printTopSuggestions(suggestions: any[]) {
   if (!suggestions?.length) return;
   console.log('\nTop Suggestions:');
-  const top = suggestions.sort((a, b) => b.roi_score - a.roi_score).slice(0, 3);
+  const top = suggestions.sort((a, b) => b.roi_score - a.roi_score).slice(0, TestOutputFormat.PREVIEW_FILES_LIMIT);
   for (const s of top) {
     console.log(`\n  ${s.suggestion_id}:`);
     console.log(`    Strategy: ${s.strategy}`);

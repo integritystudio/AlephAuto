@@ -10,6 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
+import { TIME_MS } from '../../sidequest/core/units.ts';
 import {
   initDatabase,
   getDatabase,
@@ -221,7 +222,7 @@ describe('Database Module', () => {
           id: `${testPipelineId}-job-${i}`,
           pipelineId: testPipelineId,
           status: i % 2 === 0 ? 'completed' : 'failed',
-          createdAt: new Date(Date.now() - i * 1000).toISOString()
+          createdAt: new Date(Date.now() - i * TIME_MS.SECOND).toISOString()
         });
       }
     });
@@ -408,7 +409,7 @@ describe('Database Module', () => {
         id: `${lastJobPipelineId}-latest`,
         pipelineId: lastJobPipelineId,
         status: 'completed',
-        createdAt: new Date(Date.now() + 1000).toISOString(),
+        createdAt: new Date(Date.now() + TIME_MS.SECOND).toISOString(),
         data: { test: true },
         result: { value: 123 }
       });

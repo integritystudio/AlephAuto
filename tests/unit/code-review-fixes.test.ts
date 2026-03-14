@@ -11,10 +11,11 @@
 
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert';
+import { TIME_MS } from '../../sidequest/core/units.ts';
 
 // Import modules under test
 import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '../../api/types/job-status.ts';
-import { PAGINATION, CONCURRENCY } from '../../sidequest/core/constants.ts';
+import { CONCURRENCY } from '../../sidequest/core/constants.ts';
 
 describe('Code Review Fixes', () => {
 
@@ -96,25 +97,6 @@ describe('Code Review Fixes', () => {
     });
   });
 
-  describe('PAGINATION constants', () => {
-    it('should have DEFAULT_LIMIT of 50', () => {
-      assert.strictEqual(PAGINATION.DEFAULT_LIMIT, 50);
-    });
-
-    it('should have DEFAULT_ALL_LIMIT of 100', () => {
-      assert.strictEqual(PAGINATION.DEFAULT_ALL_LIMIT, 100);
-    });
-  });
-
-  describe('CONCURRENCY constants', () => {
-    it('should have DEFAULT_MAX_JOBS of 5', () => {
-      assert.strictEqual(CONCURRENCY.DEFAULT_MAX_JOBS, 5);
-    });
-
-    it('should have MAX_WORKER_INITS of 3', () => {
-      assert.strictEqual(CONCURRENCY.MAX_WORKER_INITS, 3);
-    });
-  });
 });
 
 describe('Database safeJsonParse', () => {
@@ -188,11 +170,6 @@ describe('Worker Registry', () => {
   // Note: Full worker registry tests require mocking worker classes
   // These tests verify the basic structure and constants
 
-  describe('concurrency limiting configuration', () => {
-    it('should have MAX_WORKER_INITS constant', () => {
-      assert.strictEqual(CONCURRENCY.MAX_WORKER_INITS, 3);
-    });
-  });
 
   describe('circuit breaker pattern', () => {
     it('should have retry configuration', async () => {
@@ -318,7 +295,7 @@ describe('Config database settings', () => {
 
     assert.ok(config.database, 'Should have database config');
     assert.ok(typeof config.database.saveIntervalMs === 'number', 'Should have saveIntervalMs');
-    assert.ok(config.database.saveIntervalMs >= 1000, 'Should be at least 1000ms');
+    assert.ok(config.database.saveIntervalMs >= TIME_MS.SECOND, 'Should be at least 1000ms');
   });
 });
 

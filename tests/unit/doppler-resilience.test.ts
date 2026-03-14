@@ -12,6 +12,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { TestDopplerResilience as DopplerResilience } from '../fixtures/test-doppler-resilience.ts';
+import { TIME_MS } from '../../sidequest/core/units.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -322,7 +323,7 @@ describe('DopplerResilience', () => {
       await fs.writeFile(testCacheFile, JSON.stringify(updatedSecrets));
 
       // Force cache to be considered stale (5+ minutes old)
-      doppler.cacheLoadedAt = Date.now() - (6 * 60 * 1000);
+      doppler.cacheLoadedAt = Date.now() - (6 * TIME_MS.MINUTE);
 
       // Should reload cache
       const secrets2 = await doppler.getSecrets();

@@ -12,6 +12,7 @@
 // @ts-nocheck
 import { createTempRepository } from '../fixtures/test-helpers.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 const logger = createComponentLogger('ErrorClassificationTest');
 
@@ -124,7 +125,7 @@ async function testNonRetryableErrors() {
   }, 'Non-retryable error response');
 
   // Should receive 400 Bad Request (non-retryable)
-  const validationFailed = !result.success && result.status === 400;
+  const validationFailed = !result.success && result.status === HttpStatus.BAD_REQUEST;
   const hasErrorMessage = result.error && result.error.message;
   const messageIsClear = hasErrorMessage && result.error.message.includes('required');
 
@@ -134,7 +135,7 @@ async function testNonRetryableErrors() {
   return {
     test: 'Non-retryable Error (ValidationError)',
     passed: success,
-    expectedStatus: 400,
+    expectedStatus: HttpStatus.BAD_REQUEST,
     actualStatus: result.status,
     errorMessage: result.error?.message,
     messageClear: messageIsClear
@@ -152,19 +153,19 @@ const ERROR_SCENARIOS: ErrorScenario[] = [
   {
     name: 'Empty repositoryPath',
     payload: { repositoryPath: '' },
-    expectedStatus: 400,
+    expectedStatus: HttpStatus.BAD_REQUEST,
     expectedMessagePattern: /required|missing|empty/i
   },
   {
     name: 'Invalid repositoryPath type',
     payload: { repositoryPath: 123 },
-    expectedStatus: 400,
+    expectedStatus: HttpStatus.BAD_REQUEST,
     expectedMessagePattern: /invalid|string|type/i
   },
   {
     name: 'Missing repositoryPath',
     payload: {},
-    expectedStatus: 400,
+    expectedStatus: HttpStatus.BAD_REQUEST,
     expectedMessagePattern: /required|missing/i
   }
 ];

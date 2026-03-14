@@ -369,7 +369,7 @@ try {
   const failedJobs = jobRepository.getAllJobs({ status: 'failed', limit: 10, sortByCompletedAt: true });
   const recentJobs = [...completedJobs, ...failedJobs]
     .sort((a, b) => (b.completedAt ?? b.createdAt).localeCompare(a.completedAt ?? a.createdAt))
-    .slice(0, 20);
+    .slice(0, PAGINATION.ACTIVITY_FEED_LIMIT);
   for (const job of recentJobs.reverse()) {
     const eventType = job.status === 'completed' ? 'job:completed'
       : job.status === 'failed' ? 'job:failed'

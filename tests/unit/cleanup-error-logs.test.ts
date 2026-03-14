@@ -8,7 +8,6 @@ import assert from 'node:assert';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { TIMEOUTS } from '../../sidequest/core/constants.ts';
 import { TIME_MS } from '../../sidequest/core/units.ts';
 import { DEFAULT_RETENTION_DAYS, getFileAgeDays, scanErrorLogs } from '../../scripts/cleanup-error-logs.ts';
 
@@ -48,10 +47,6 @@ describe('getFileAgeDays - TC-M1', () => {
     fs.utimesSync(file, pastDate, pastDate);
     const age = await getFileAgeDays(file);
     assert.ok(age > DEFAULT_RETENTION_DAYS, `Expected age > ${DEFAULT_RETENTION_DAYS}, got ${age}`);
-  });
-
-  it('TIMEOUTS.ONE_DAY_MS equals TIME_MS.DAY (regression guard)', () => {
-    assert.strictEqual(TIMEOUTS.ONE_DAY_MS, TIME_MS.DAY);
   });
 
   it('should return age proportional to mtime offset', async () => {

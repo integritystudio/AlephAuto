@@ -14,6 +14,7 @@ import os from 'os';
 import { generateReport, pruneOldReports } from '../../sidequest/utils/report-generator.ts';
 import { GIT_ACTIVITY } from '../../sidequest/core/constants.ts';
 import { TIME_MS } from '../../sidequest/core/units.ts';
+import { TIME_MS } from '../../sidequest/core/units.ts';
 import { TestTiming } from '../constants/timing-test-constants.ts';
 
 describe('Report Generator', () => {
@@ -124,7 +125,7 @@ describe('Report Generator', () => {
         jobType: 'duplicate-detection',
         status: 'failed',
         result: null,
-        startTime: Date.now() - 1000,
+        startTime: Date.now() - TIME_MS.SECOND,
         endTime: Date.now(),
         outputDir: tempDir
       };

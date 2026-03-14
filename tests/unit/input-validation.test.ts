@@ -122,7 +122,7 @@ describe('Input Validation - H5: Job ID Validation', () => {
   });
 
   it('should accept job IDs exactly 100 characters', () => {
-    const maxLength = 'a'.repeat(100);
+    const maxLength = 'a'.repeat(VALIDATION.JOB_ID_MAX_LENGTH);
     const result = validateJobId(maxLength);
     assert.strictEqual(result.valid, true);
     assert.strictEqual(result.sanitized, maxLength);

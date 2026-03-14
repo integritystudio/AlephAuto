@@ -361,7 +361,7 @@ describe('ScanResultCache', () => {
 
       assert.ok(typeof age === 'number');
       assert.ok(age >= 0);
-      assert.ok(age < 1000); // Should be less than 1 second
+      assert.ok(age < TIME_MS.SECOND); // Should be less than 1 second
     });
 
     it('should return null for non-existent cache', async () => {

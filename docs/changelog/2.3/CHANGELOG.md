@@ -35,6 +35,38 @@ Code quality backfill: import placement fix, CSS variable consolidation, redunda
 **Documentation** (DA-M1)
 - **DA-M1:** `sidequest/workers/repomix-worker.ts` — Repomix worker had no corresponding pipeline-runner. Investigation: Repomix uses direct worker-registry registration (no BasePipeline runner). Intentional divergence documented in CLAUDE.md as architectural choice for standalone workers.
 
+**Quality Fixes — Code Review** (QF-H1, QF-H2, QF-H3, QF-M11)
+- **QF-H1:** `api/utils/crypto-helpers.ts` — Fixed timingSafeEqual length oracle via short-circuit (commit 53e5543)
+- **QF-H2:** `api/server.ts` — Hardcoded `'repomix'` in stale job cancel now iterates all disabled pipelines (commit 53e5543)
+- **QF-H3:** `sidequest/core/config.ts` — `dotenv/config` shadowing Doppler in production gated behind NODE_ENV (commit 53e5543)
+- **QF-M11:** `frontend/src/services/websocket.ts` — JSON.parse result validated with runtime schema guard `isWebSocketMessage` + `VALID_WS_MESSAGE_TYPES` set (commits 0d65fae, c679137)
+
+**API Status Activity Feed — Post-Fix Review** (AS-H1, AS-H2, AS-M3-M8, AS-L6-L9)
+- **AS-H1:** `api/server.ts` — Fixed type mismatch on `id` field (number vs string) in activity feed restoration (commit 501e079)
+- **AS-H2:** `api/server.ts` — Added error boundary around DB fallback query (commit 501e079)
+- **AS-M3:** `sidequest/core/constants.ts` — NINE_SECONDS constant removed; polluted production namespace (commit 501e079)
+- **AS-M4:** `tests/unit/api-status-activity-fallback.test.ts` — Deduplicated status→event-type mapping in test cases (commit 43a633c)
+- **AS-M5:** `sidequest/core/database.ts` — Sort order consistency between in-memory and DB fallback (commit 43a633c)
+- **AS-M6:** `api/utils/job-helpers.ts` — `status` parameter narrowed to `JobStatus` union type (commit 5b0ed9f)
+- **AS-M7:** `api/server.ts` — DB-fallback activity IDs use `-(index + 1)` to avoid collision (commit 4e87690)
+- **AS-M8:** `sidequest/core/database.ts` — Defensive comment added to ORDER BY interpolation (commit a0ee6da)
+- **AS-L6:** `api/server.ts` — Fixed `||` → `??` for DB fallback queue stats (commit 6b78ed7)
+- **AS-L7:** `api/server.ts` — Added comment clarifying `capacity` is raw count (commit 6b78ed7)
+- **AS-L8:** `tests/unit/api-status-activity-fallback.test.ts` — Added test coverage for `running` status branch (commit 43a633c)
+- **AS-L9:** `api/server.ts` — Magic strings replaced with status constants (commit 43a633c)
+
+**Repomix Automation Pipeline — Refactor & Re-enable** (RP-H1, RP-M2, RP-M3, RP-L4)
+- **RP-H1:** Bulk-cancel stale queued repomix jobs on startup (commit a26f246)
+- **RP-M2:** Root cause documented: in-memory queue not re-hydrated on restart (commit f8cb450)
+- **RP-M3:** Queue depth guard added to pipeline trigger endpoint (commit e87ebb9)
+- **RP-L4:** Repomix pipeline re-enabled after refactor validation (commit 4c50996)
+
+**BasePipeline Migration — Remaining Pipelines** (BP-M1)
+- **BP-M1:** Created `repomix-pipeline.ts` with `RepomixPipeline extends BasePipeline<RepomixWorker>`. Deleted `RepomixCronApp` and `isWorkerIdle` (polling replaced by event-driven BasePipeline). ~140 lines saved. (commit dab058f)
+
+**Duplicate Detection — Centralized Git Workflow** (DD-GW1)
+- **DD-GW1:** Move `_applySuggestions()` + `MigrationTransformer` from `PRCreator` to `DuplicateDetectionWorker`. Enable centralized git workflow (`gitWorkflowEnabled` mapped from `ENABLE_PR_CREATION`). Override `_generateCommitMessage()` and `_generatePRContext()` for consolidation-specific formats. Delete `pr-creator.ts`. Update pipeline-data-flow catalog. ~382 lines saved.
+
 ### Validation
 
 - `npm run typecheck` (pass)
@@ -73,9 +105,19 @@ Dashboard populate pipeline infrastructure and regression tests. PM2 ecosystem c
 - `npm test` — 1242/1242 pass
 - `node --strip-types --test tests/unit/ecosystem-config.test.ts` — 8/8 pass
 
+### Changed
+
+**Scan Configuration Findings** (SR-M1, SR-L1, SR-L2)
+- **SR-M1:** Hardcoded absolute paths in `config/scan-repositories.json` replaced with `~` for portability (commit 1e5da1a)
+- **SR-L1:** Added `_comment` field support to `config/scan-repositories.schema.json` for inline documentation (commit ac47d15)
+- **SR-L2:** Added warning in `sidequest/pipeline-core/config/repository-config-loader.ts` on Redis provider unavailable at startup (commit aacc26f)
+
 ### Commits
 
 - 519af16 — test(ecosystem): add PM2 config regression tests; mark DP-H1, DP-H2, DP-M1, DP-M2 Done
+- 1e5da1a — fix(scan-config): replace hardcoded paths with ~ for portability
+- ac47d15 — docs(scan-config): add _comment to schema
+- aacc26f — fix(scan-config): warn on Redis provider unavailable
 
 ---
 
@@ -149,6 +191,13 @@ Resolved 22 open backlog items (19 initial + 3 main ast-grep items) across test 
 - **AG-W1:** Replaced 14 `console.log`/`console.error` calls with structured logger via `createLogger` factory; App.tsx + websocket.ts + useWebSocketConnection.ts (commits 848138c, 4180196)
 - **AG-CS1:** Decomposed MigrationTransformer (627 lines, 44 methods) into 3 focused helpers: MigrationAstTransformer, MigrationFileResolver, MigrationGitManager (commits e9530ba, a8c24d4)
 - **AG-CS2:** Extracted HTML/CSS templates from HtmlReportGenerator into getScanReportStyles() in html-report-utils.ts; reduced file from 625 to 435 lines (commit e8ef72a)
+
+**Consolidation & Deduplication Audit** (CD1-CD5)
+- **CD1:** Extracted `isDirectExecution` helper (x10 inline copies) to `sidequest/utils/execution-helpers.ts` — ~900 tokens saved
+- **CD2:** Extracted HTML report CSS + `escapeHtml` to `sidequest/utils/html-report-utils.ts` (shared by `report-generator.ts` and `html-report-generator.ts`) — ~2700 tokens saved
+- **CD3:** Eliminated `GitWorkflowManager` wrapper; `server.ts` and `bugfix-audit-worker.ts` now use `BranchManager` directly — ~1100 tokens saved
+- **CD4:** Added `setupDefaultEventListeners` to `BasePipeline`; 5 subclasses consolidated — ~700 tokens saved
+- **CD5:** Documented intentional divergence between `duplicate-detection-types.ts` (worker lifecycle) and `json-report-generator.ts` (Python output shape) — docs only
 
 ### Validation
 

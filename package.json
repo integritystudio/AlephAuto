@@ -66,6 +66,7 @@
     "permissions:check": "node --strip-types scripts/validate-permissions.ts --check-only",
     "permissions:fix": "node --strip-types scripts/validate-permissions.ts --fix",
     "prestart": "node --strip-types scripts/validate-permissions.ts --fix",
+    "repomix": "bash scripts/repomix-regen.sh",
     "verify:bugfixes": "./scripts/verify-bugfixes.sh",
     "verify:bugfixes:pre": "./scripts/verify-bugfixes.sh --pre",
     "verify:bugfixes:post": "./scripts/verify-bugfixes.sh --post",

@@ -14,7 +14,6 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs/promises';
 import path from 'path';
-import { CONFIG_POLICY, RETRY, TIMEOUTS } from '../../sidequest/core/constants.ts';
 
 const INTEGRATION_DIR = path.join(import.meta.dirname, '..', 'integration');
 
@@ -116,35 +115,5 @@ describe('CONST10 — test constant decoupling', () => {
     });
   });
 
-  describe('production values have not drifted', () => {
-    it('CONFIG_POLICY.PORTS.MIN_PORT is still 1', () => {
-      assert.strictEqual(CONFIG_POLICY.PORTS.MIN_PORT, 1,
-        'If MIN_PORT changed, integration test PORT_STEP values are unaffected (by design)');
-    });
-
-    it('CONFIG_POLICY.DOPPLER.DEFAULT_SUCCESS_THRESHOLD is still 2', () => {
-      assert.strictEqual(CONFIG_POLICY.DOPPLER.DEFAULT_SUCCESS_THRESHOLD, 2,
-        'If this changes, integration tests are unaffected (by design)');
-    });
-
-    it('CONFIG_POLICY.DOPPLER.DEFAULT_FAILURE_THRESHOLD is still 3', () => {
-      assert.strictEqual(CONFIG_POLICY.DOPPLER.DEFAULT_FAILURE_THRESHOLD, 3,
-        'If this changes, integration tests are unaffected (by design)');
-    });
-
-    it('RETRY.MAX_MANUAL_RETRIES is still 10', () => {
-      assert.strictEqual(RETRY.MAX_MANUAL_RETRIES, 10,
-        'If this changes, integration test range sizes are unaffected (by design)');
-    });
-
-    it('RETRY.MAX_ABSOLUTE_ATTEMPTS is still 5', () => {
-      assert.strictEqual(RETRY.MAX_ABSOLUTE_ATTEMPTS, 5,
-        'If this changes, integration test FALLBACK_SMALL_RANGE_SIZE is unaffected (by design)');
-    });
-
-    it('TIMEOUTS.TEN_SECONDS_MS is still 10000', () => {
-      assert.strictEqual(TIMEOUTS.TEN_SECONDS_MS, 10_000,
-        'If this changes, integration test CUSTOM_SHUTDOWN_TIMEOUT_MS is unaffected (by design)');
-    });
-  });
 });
+

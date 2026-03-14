@@ -11,6 +11,7 @@
 
 import { DuplicateDetectionWorker } from '../../sidequest/workers/duplicate-detection-worker.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
+import { TIME_MS } from '../../sidequest/core/units.ts';
 
 const logger = createComponentLogger('TestAutomatedPipeline');
 
@@ -66,7 +67,7 @@ function attachJobEventListeners(worker) {
 
   worker.on('job:completed', (job) => {
     console.log(`   ✅ Job completed: ${job.id}`);
-    console.log(`      Duration: ${((job.completedAt - job.startedAt) / 1000).toFixed(2)}s`);
+    console.log(`      Duration: ${((job.completedAt - job.startedAt) / TIME_MS.SECOND).toFixed(2)}s`);
     if (job.result) {
       console.log(`      Scan type: ${job.result.scanType}`);
       if (job.result.scanType === 'inter-project') {
@@ -97,7 +98,7 @@ async function waitForJobsToComplete(worker) {
         clearInterval(checkInterval);
         resolve();
       }
-    }, 1000);
+    }, TIME_MS.SECOND);
   });
 }
 

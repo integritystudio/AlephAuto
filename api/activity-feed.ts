@@ -7,7 +7,7 @@
 
 import type { SidequestServer, Job } from '../sidequest/core/server.ts';
 import { createComponentLogger, logError } from '../sidequest/utils/logger.ts';
-import { LIMITS, TIMEOUTS } from '../sidequest/core/constants.ts';
+import { LIMITS, PAGINATION, TIMEOUTS } from '../sidequest/core/constants.ts';
 import { calculateDurationSeconds, formatDuration } from '../sidequest/utils/time-helpers.ts';
 import * as Sentry from '@sentry/node';
 import { safeErrorMessage, toErrorObject } from '../sidequest/pipeline-core/utils/error-helpers.ts';
@@ -114,7 +114,7 @@ export class ActivityFeedManager {
    * @param limit Maximum number of entries to return.
    * @returns Recent activity entries.
    */
-  getRecentActivities(limit: number = 20): ActivityEntry[] {
+  getRecentActivities(limit: number = PAGINATION.ACTIVITY_FEED_LIMIT): ActivityEntry[] {
     return this.activities.slice(0, limit);
   }
 

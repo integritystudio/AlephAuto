@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { EventEmitter } from 'node:events';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 import { formatSentryToDiscord, routeRequest } from '../../docs/setup/sentry-to-discord.js';
 
@@ -88,7 +89,7 @@ describe('sentry-to-discord bridge', () => {
     await routeRequest(req, res);
     const data = JSON.parse(res.body) as { status: string; service: string };
 
-    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(res.statusCode, HttpStatus.OK);
     assert.strictEqual(data.status, 'healthy');
     assert.strictEqual(data.service, 'sentry-discord-bridge');
   });
@@ -118,7 +119,7 @@ describe('sentry-to-discord bridge', () => {
     await routeRequest(req, res, dispatchToDiscord);
     const responseJson = JSON.parse(res.body) as { success: boolean };
 
-    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(res.statusCode, HttpStatus.OK);
     assert.strictEqual(responseJson.success, true);
     assert.ok(dispatchedPayload);
     assert.strictEqual((dispatchedPayload.embeds as Array<Record<string, unknown>>)[0].title, '🚨 Worker failed');
@@ -134,7 +135,7 @@ describe('sentry-to-discord bridge', () => {
     await routeRequest(req, res, dispatchToDiscord);
     const responseJson = JSON.parse(res.body) as { error: string };
 
-    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res.statusCode, HttpStatus.INTERNAL_SERVER_ERROR);
     assert.strictEqual(responseJson.error, 'Discord unavailable');
   });
 });

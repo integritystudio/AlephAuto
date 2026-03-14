@@ -22,6 +22,7 @@ import { ActivityFeedManager } from '../../api/activity-feed.ts';
 import { SidequestServer } from '../../sidequest/core/server.ts';
 import { initDatabase } from '../../sidequest/core/database.ts';
 import { waitForQueueDrain } from '../fixtures/test-helpers.ts';
+import { PAGINATION } from '../../sidequest/core/constants.ts';
 import { TestTiming } from '../constants/timing-test-constants.ts';
 
 describe('Activity Feed - Integration Tests', () => {
@@ -277,7 +278,7 @@ describe('Activity Feed - Integration Tests', () => {
     await waitForQueueDrain(worker);
 
     // Verify complete lifecycle activities
-    const activities = activityFeed.getRecentActivities(20);
+    const activities = activityFeed.getRecentActivities(PAGINATION.ACTIVITY_FEED_LIMIT);
 
     const created = activities.find(a => a.type === 'job:created' && a.jobId === jobId);
     const started = activities.find(a => a.type === 'job:started' && a.jobId === jobId);
@@ -335,7 +336,7 @@ describe('Activity Feed - Integration Tests', () => {
     // Wait for retry:created event (emitted immediately on first failure, before re-queue delay)
     await new Promise<void>(resolve => worker.once('retry:created', resolve));
 
-    const activities = activityFeed.getRecentActivities(20);
+    const activities = activityFeed.getRecentActivities(PAGINATION.ACTIVITY_FEED_LIMIT);
 
     // Should have retry:created activity
     const retryActivity = activities.find(a => a.type === 'retry:created' && a.jobId === jobId);

@@ -22,6 +22,7 @@ import {
   bulkImportJobs,
   closeDatabase
 } from '../../sidequest/core/database.ts';
+import { TIME_MS } from '../../sidequest/core/units.ts';
 
 describe('Bulk Import Migration', () => {
   before(async () => {
@@ -145,7 +146,7 @@ describe('Bulk Import Migration', () => {
         id: `test-batch-${timestamp}-${i}`,
         pipeline_id: 'batch-test',
         status: i % 2 === 0 ? 'completed' : 'failed',
-        created_at: new Date(Date.now() - i * 1000).toISOString()
+        created_at: new Date(Date.now() - i * TIME_MS.SECOND).toISOString()
       }));
 
       const result = bulkImportJobs(jobs);
