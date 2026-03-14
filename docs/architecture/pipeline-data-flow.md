@@ -1,6 +1,6 @@
 # AlephAuto Pipeline Data Flow Documentation
 
-**Last Updated:** 2026-03-11
+**Last Updated:** 2026-03-13
 **Version:** 2.3
 **Author:** System Architecture Documentation
 
@@ -31,7 +31,7 @@
 
 The AlephAuto automation system consists of 11 specialized pipelines built on a unified job queue framework. Each pipeline follows event-driven architecture with automatic retry logic, Sentry error tracking, and real-time dashboard updates via WebSocket.
 
-### Maintenance Notes (2026-03-11)
+### Maintenance Notes (2026-03-13)
 
 - Retry orchestration is owned by `SidequestServer` (`sidequest/core/server.ts`), including retry scheduling and `pendingRetries` accounting. Individual workers should not create ad-hoc retry jobs.
 - `retryDelayMs` is now a configurable `SidequestServerOptions` property (default: `RETRY.DEFAULT_DELAY_MS`). Workers can override it; `DuplicateDetectionWorker` syncs from `scanConfig.retryDelay` (`RETRY.SCAN_DELAY_MS`, 60s).
@@ -40,6 +40,7 @@ The AlephAuto automation system consists of 11 specialized pipelines built on a 
 - Startup-once runner behavior is verified for `repo-cleanup`, `gitignore`, and `dashboard-populate`: `--run-now`/`--run` creates one startup job, waits for terminal status, and exits when `--cron` is not set.
 - Aggregate test execution is split into `test:all:core` (default, env-sensitive suites skipped via `SKIP_ENV_SENSITIVE_TESTS=1`) and `test:all:full` (includes env-sensitive suites requiring socket bind and writable report/database paths).
 - `GET /api/status` activity feed now falls back to SQLite job history when the in-memory `ActivityFeedManager` is empty (e.g. after server restart). This ensures the dashboard always shows recent job history. See `api/server.ts` and `tests/unit/api-status-activity-fallback.test.ts`.
+- Dashboard-populate, repo-cleanup, gitignore, and test-refactor pipelines migrated from functional pattern to `BasePipeline` class-based pattern. `BasePipeline` now provides `waitForJobTerminalStatus(jobId, timeoutMs?)` for single-job tracking and `waitForCompletion(timeoutMs?)` with optional deadline timeout. Duplicate-detection stays functional (uses `worker.runNightlyScan()` self-managed lifecycle).
 
 ### System Characteristics
 
@@ -141,17 +142,19 @@ Class-based pipeline runners extend `BasePipeline<TWorker>`, which provides shar
 abstract class BasePipeline<TWorker extends SidequestServer> {
   protected worker: TWorker;
 
-  waitForCompletion(): Promise<void>;    // Event-driven: listens for job:completed, job:failed, retry:created
-  protected scheduleCron(                // Validate + schedule + log + error-wrap
+  waitForCompletion(timeoutMs?): Promise<void>;         // Event-driven drain; optional deadline timeout
+  waitForJobTerminalStatus(jobId, timeoutMs?): Promise<void>;  // Track single job to completion/failure
+  protected scheduleCron(                                // Validate + schedule + log + error-wrap
     logger, name, cronSchedule, runFn
   ): cron.ScheduledTask;
-  getStats(): JobStats;                  // Delegate to worker.getStats()
+  protected setupDefaultEventListeners(logger, handlers?): void;  // CREATED/STARTED/COMPLETED/FAILED
+  getStats(): JobStats;                                  // Delegate to worker.getStats()
 }
 ```
 
-**Pipelines extending BasePipeline:** BugfixAuditPipeline, ClaudeHealthPipeline, GitActivityPipeline, PluginManagementPipeline, SchemaEnhancementPipeline.
+**Pipelines extending BasePipeline (9 of 11):** BugfixAuditPipeline, ClaudeHealthPipeline, DashboardPopulatePipeline, GitActivityPipeline, GitignorePipeline, PluginManagementPipeline, RepoCleanupPipeline, SchemaEnhancementPipeline, TestRefactorPipeline.
 
-**Pipelines using functional pattern (no base class):** DashboardPopulatePipeline, DuplicateDetectionPipeline, GitignorePipeline, RepoCleanupPipeline, TestRefactorPipeline.
+**Pipelines using functional pattern (no base class):** DuplicateDetectionPipeline (uses `worker.runNightlyScan()` self-managed lifecycle with async init).
 
 ### Class Hierarchy
 
@@ -175,12 +178,20 @@ graph TB
     BP --> P3["GitActivityPipeline&lt;W3&gt;"]
     BP --> P4["PluginManagementPipeline&lt;W5&gt;"]
     BP --> P5["SchemaEnhancementPipeline&lt;W4&gt;"]
+    BP --> P6["DashboardPopulatePipeline&lt;W11&gt;"]
+    BP --> P7["GitignorePipeline&lt;W7&gt;"]
+    BP --> P8["RepoCleanupPipeline&lt;W8&gt;"]
+    BP --> P9["TestRefactorPipeline&lt;W10&gt;"]
 
     P1 -.->|owns| W1
     P2 -.->|owns| W2
     P3 -.->|owns| W3
     P4 -.->|owns| W5
     P5 -.->|owns| W4
+    P6 -.->|owns| W11
+    P7 -.->|owns| W7
+    P8 -.->|owns| W8
+    P9 -.->|owns| W10
 
     style SS fill:#bbf,stroke:#333
     style BP fill:#bfb,stroke:#333
@@ -215,14 +226,14 @@ graph LR
 | 1 | Duplicate Detection | `duplicate-detection` | `duplicate-detection-pipeline.ts` | `workers/duplicate-detection-worker.ts` (API/registry) · inline class in pipeline file (CLI runner) | functional | ⚠️ Custom | TS + Python |
 | 2 | Schema Enhancement | `schema-enhancement` | `schema-enhancement-pipeline.ts` | `schema-enhancement-worker.ts` | BasePipeline | ✅ Yes | TypeScript |
 | 3 | Git Activity | `git-activity` | `git-activity-pipeline.ts` | `git-activity-worker.ts` | BasePipeline | ❌ No | TS + Python |
-| 4 | Gitignore Manager | `gitignore-manager` | `gitignore-pipeline.ts` | `gitignore-worker.ts` | functional | ⚠️ Batch N/A | TypeScript |
+| 4 | Gitignore Manager | `gitignore-manager` | `gitignore-pipeline.ts` | `gitignore-worker.ts` | BasePipeline | ⚠️ Batch N/A | TypeScript |
 | 5 | Repomix | `repomix` | N/A (cron server) | `repomix-worker.ts` | — | ❌ No | TypeScript |
 | 6 | Plugin Manager | `plugin-manager` | `plugin-management-pipeline.ts` | (embedded in utils) | BasePipeline | ❌ No | TypeScript |
 | 7 | Claude Health | `claude-health` | `claude-health-pipeline.ts` | `claude-health-worker.ts` | BasePipeline | ❌ No | TS + Shell |
-| 8 | Test Refactor | `test-refactor` | `test-refactor-pipeline.ts` | `test-refactor-worker.ts` | functional | ✅ Optional | TypeScript |
-| 9 | Repository Cleanup | `repo-cleanup` | `repo-cleanup-pipeline.ts` | `repo-cleanup-worker.ts` | functional | ❌ No | TS + Shell |
+| 8 | Test Refactor | `test-refactor` | `test-refactor-pipeline.ts` | `test-refactor-worker.ts` | BasePipeline | ✅ Optional | TypeScript |
+| 9 | Repository Cleanup | `repo-cleanup` | `repo-cleanup-pipeline.ts` | `repo-cleanup-worker.ts` | BasePipeline | ❌ No | TS + Shell |
 | 10 | Bugfix Audit | `bugfix-audit` | `bugfix-audit-pipeline.ts` | `bugfix-audit-worker.ts` | BasePipeline | ✅ Multi-commit | TS + Shell |
-| 11 | Dashboard Populate | `dashboard-populate` | `dashboard-populate-pipeline.ts` | `dashboard-populate-worker.ts` | functional | ❌ No | TypeScript |
+| 11 | Dashboard Populate | `dashboard-populate` | `dashboard-populate-pipeline.ts` | `dashboard-populate-worker.ts` | BasePipeline | ❌ No | TypeScript |
 
 ---
 
