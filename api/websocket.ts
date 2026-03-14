@@ -266,6 +266,7 @@ function handleSubscribe(clientId: string, message: Record<string, unknown>, cli
 
   const available = WEBSOCKET.MAX_SUBSCRIPTIONS_PER_CLIENT - client.subscriptions.size;
   const toAdd = channels.slice(0, available);
+  const dropped = channels.length - toAdd.length;
 
   toAdd.forEach((channel: string) => {
     client.subscriptions.add(channel);
@@ -274,12 +275,14 @@ function handleSubscribe(clientId: string, message: Record<string, unknown>, cli
   logger.info({
     clientId,
     channels: toAdd,
+    dropped,
     totalSubscriptions: client.subscriptions.size
   }, 'Client subscribed to channels');
 
   client.ws.send(JSON.stringify({
     type: 'subscribed',
     channels: toAdd,
+    dropped,
     total_subscriptions: client.subscriptions.size,
     timestamp: new Date().toISOString()
   }));
