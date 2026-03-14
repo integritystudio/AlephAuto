@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-13 | **Last Session:** 2026-03-13 (code-reviewer: 4 items from d088157 review — QF-M9/M10/L13/L14)
+**Last Updated:** 2026-03-13 | **Last Session:** 2026-03-13 (BasePipeline migration: implementation docs for remaining 2 pipelines)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -253,3 +253,25 @@ Code review of commit 501e079 (`fix(api): restore activity feed from DB after se
 | AS-M8 | P2 | `sidequest/core/database.ts:472-474` | Defensive comment added to ORDER BY interpolation | a0ee6da |
 | AS-L8 | P3 | `api/server.ts:217-218` | Fixed `||` → `??` for DB fallback queue stats | 6b78ed7 |
 | AS-L9 | P3 | `api/server.ts:219` | Added comment clarifying `capacity` is raw count | 6b78ed7 |
+
+---
+
+## BasePipeline Migration — Remaining Pipelines (2026-03-13)
+
+Migrate the last 2 pipelines (Repomix, Duplicate Detection) to `BasePipeline`. Context: 9 of 11 pipelines already migrated in commit 42e2f18.
+
+> **Implementation docs** — keep in sync with this section when items are completed or scope changes:
+> - [MIGRATE_REPOMIX_TO_BASEPIPELINE.md](architecture/MIGRATE_REPOMIX_TO_BASEPIPELINE.md)
+> - [MIGRATE_DUPLICATE_DETECTION_TO_BASEPIPELINE.md](architecture/MIGRATE_DUPLICATE_DETECTION_TO_BASEPIPELINE.md)
+
+### Medium
+
+| ID | Priority | Description |
+|----|----------|-------------|
+| BP-M1 | P2 | Create `repomix-pipeline.ts`, move `RepomixCronApp` logic into `RepomixPipeline extends BasePipeline<RepomixWorker>`. Replaces polling `waitForCompletion` with event-driven, manual cron with `scheduleCron()`, manual event listeners with `setupDefaultEventListeners()`. Delete `RepomixCronApp` from `sidequest/core/index.ts`. ~140 lines saved. |
+
+### Low
+
+| ID | Priority | Description |
+|----|----------|-------------|
+| BP-L1 | P3 | Migrate `duplicate-detection-pipeline.ts` to `DuplicateDetectionPipeline extends BasePipeline<DuplicateDetectionWorker>`. Requires adding optional `async initialize()` hook to `BasePipeline`. Only real benefit is `scheduleCron()` consistency — pipeline uses none of the completion-tracking methods. ~43 lines saved. Acceptable to leave functional if the `initialize()` hook isn't justified. |
