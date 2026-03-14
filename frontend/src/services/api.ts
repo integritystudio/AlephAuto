@@ -23,6 +23,7 @@ import type {
   GetJobsParams,
   ApiErrorResponse
 } from '../types';
+import { JobStatus } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -52,7 +53,8 @@ const api = axios.create({
 const handleError = (error: AxiosError): ApiErrorResponse => {
   if (error.response) {
     // Server responded with error status
-    const data = error.response.data as any;
+    type ErrorBody = { error?: { message?: string; code?: string; details?: unknown }; message?: string };
+    const data = error.response.data as ErrorBody;
     return {
       success: false,
       error: {
@@ -204,7 +206,7 @@ export const apiService = {
    * @async
    */
   async getActiveJobs(): Promise<JobsResponse> {
-    return this.getJobs({ status: 'running' as any });
+    return this.getJobs({ status: JobStatus.RUNNING });
   },
 
   /**
@@ -218,7 +220,7 @@ export const apiService = {
    * @async
    */
   async getQueuedJobs(): Promise<JobsResponse> {
-    return this.getJobs({ status: 'queued' as any });
+    return this.getJobs({ status: JobStatus.QUEUED });
   },
 
   /**
@@ -344,7 +346,7 @@ export const apiService = {
    * @returns {Promise<any>} The scan results
    * @async
    */
-  async getScanResults(scanId: string): Promise<any> {
+  async getScanResults(scanId: string): Promise<unknown> {
     try {
       const response = await api.get(`/scan/${scanId}`);
       return response.data;
