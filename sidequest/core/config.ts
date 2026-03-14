@@ -85,6 +85,10 @@ let _cachedApiKey: string | null | undefined = undefined;
 /**
  * Centralized configuration for AlephAuto
  * All paths are resolved to absolute paths for consistency
+ *
+ * process.env reads below are safe: the top-level `await import('dotenv/config')`
+ * at the top of this module ensures env vars are populated before this object is built.
+ * In production, Doppler injects vars before the process starts; dotenv is skipped.
  */
 export const config = {
   // Base directories
