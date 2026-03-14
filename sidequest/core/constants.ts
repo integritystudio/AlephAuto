@@ -134,6 +134,12 @@ export const WEBSOCKET = {
 
   /** Doppler health check interval (60 seconds) */
   HEALTH_CHECK_INTERVAL_MS: DURATION_MS.MINUTE,
+
+  /** Maximum subscriptions allowed per client */
+  MAX_SUBSCRIPTIONS_PER_CLIENT: 50,
+
+  /** Maximum length of a channel name */
+  MAX_CHANNEL_NAME_LENGTH: 128,
 } as const;
 
 /**

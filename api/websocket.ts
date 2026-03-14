@@ -249,8 +249,6 @@ function handleClientMessage(clientId: string, message: Record<string, unknown>,
  * @param {Record<string, unknown>} message - Parsed message payload.
  * @param {WsClient} client - Connected client metadata.
  */
-const MAX_SUBSCRIPTIONS_PER_CLIENT = 50;
-const MAX_CHANNEL_NAME_LENGTH = 128;
 const VALID_CHANNEL_PATTERN = /^[a-zA-Z0-9_:.-]+$/;
 
 function handleSubscribe(clientId: string, message: Record<string, unknown>, client: WsClient): void {
@@ -262,11 +260,11 @@ function handleSubscribe(clientId: string, message: Record<string, unknown>, cli
 
   const channels = rawChannels.filter((ch): ch is string => {
     if (typeof ch !== 'string') return false;
-    if (ch.length === 0 || ch.length > MAX_CHANNEL_NAME_LENGTH) return false;
+    if (ch.length === 0 || ch.length > WEBSOCKET.MAX_CHANNEL_NAME_LENGTH) return false;
     return VALID_CHANNEL_PATTERN.test(ch);
   });
 
-  const available = MAX_SUBSCRIPTIONS_PER_CLIENT - client.subscriptions.size;
+  const available = WEBSOCKET.MAX_SUBSCRIPTIONS_PER_CLIENT - client.subscriptions.size;
   const toAdd = channels.slice(0, available);
 
   toAdd.forEach((channel: string) => {
@@ -302,7 +300,7 @@ function handleUnsubscribe(clientId: string, message: Record<string, unknown>, c
   }
 
   const channels = rawChannels.filter((ch): ch is string =>
-    typeof ch === 'string' && ch.length > 0 && ch.length <= MAX_CHANNEL_NAME_LENGTH
+    typeof ch === 'string' && ch.length > 0 && ch.length <= WEBSOCKET.MAX_CHANNEL_NAME_LENGTH
   );
 
   channels.forEach((channel: string) => {
