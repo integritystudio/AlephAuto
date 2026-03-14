@@ -1,6 +1,6 @@
 import type { Job, JobStats } from '../core/server.ts';
 import { SidequestServer } from '../core/server.ts';
-import { JOB_EVENTS, RETRY_EVENTS } from '../core/constants.ts';
+import { JOB_EVENTS, RETRY_EVENTS, TIMEOUTS } from '../core/constants.ts';
 import { logError } from '../utils/logger.ts';
 import cron from 'node-cron';
 import type { Logger } from 'pino';
@@ -26,21 +26,22 @@ export abstract class BasePipeline<TWorker extends SidequestServer = SidequestSe
    * Listens for job:completed, job:failed, and retry:created to avoid
    * polling race conditions and premature resolution during retries.
    * Precondition: all jobs must be enqueued before calling this method.
+   *
+   * @param timeoutMs Optional deadline timeout. Rejects if jobs haven't drained within this duration.
    */
-  waitForCompletion(): Promise<void> {
-    return new Promise<void>((resolve) => {
-      /**
-       * cleanup.
-       */
+  waitForCompletion(timeoutMs?: number): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      let deadline: NodeJS.Timeout | null = null;
+
       const cleanup = () => {
+        if (deadline) {
+          clearTimeout(deadline);
+        }
         this.worker.off(JOB_EVENTS.COMPLETED, checkAndResolve);
         this.worker.off(JOB_EVENTS.FAILED, checkAndResolve);
         this.worker.off(RETRY_EVENTS.CREATED, checkAndResolve);
       };
 
-      /**
-       * checkAndResolve.
-       */
       const checkAndResolve = () => {
         const stats = this.worker.getStats();
         if (stats.active === 0 && stats.queued === 0 && stats.pendingRetries === 0) {
@@ -49,6 +50,13 @@ export abstract class BasePipeline<TWorker extends SidequestServer = SidequestSe
         }
       };
 
+      if (timeoutMs !== undefined) {
+        deadline = setTimeout(() => {
+          cleanup();
+          reject(new Error(`waitForCompletion timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+      }
+
       // Register listeners before checking to avoid missing events between
       // the check and registration.
       this.worker.on(JOB_EVENTS.COMPLETED, checkAndResolve);
@@ -56,6 +64,64 @@ export abstract class BasePipeline<TWorker extends SidequestServer = SidequestSe
       this.worker.on(RETRY_EVENTS.CREATED, checkAndResolve);
       // Immediate check handles already-drained case.
       checkAndResolve();
+    });
+  }
+
+  /**
+   * Wait for a single job to reach a terminal status (completed or failed).
+   * Rejects on failure, timeout, or if the job is not found.
+   */
+  waitForJobTerminalStatus(jobId: string, timeoutMs: number = TIMEOUTS.ONE_HOUR_MS): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let timeoutHandle: NodeJS.Timeout | null = null;
+
+      const cleanup = () => {
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+        }
+        this.worker.off(JOB_EVENTS.COMPLETED, onCompleted);
+        this.worker.off(JOB_EVENTS.FAILED, onFailed);
+      };
+
+      const rejectWithFailure = (job: Job) => {
+        const message = job.error?.message ?? `Job ${job.id} failed`;
+        cleanup();
+        reject(new Error(message));
+      };
+
+      const onCompleted = (job: Job) => {
+        if (job.id !== jobId) return;
+        cleanup();
+        resolve();
+      };
+
+      const onFailed = (job: Job) => {
+        if (job.id !== jobId) return;
+        rejectWithFailure(job);
+      };
+
+      this.worker.on(JOB_EVENTS.COMPLETED, onCompleted);
+      this.worker.on(JOB_EVENTS.FAILED, onFailed);
+
+      timeoutHandle = setTimeout(() => {
+        cleanup();
+        reject(new Error(`Timed out waiting for job ${jobId} after ${timeoutMs}ms`));
+      }, timeoutMs);
+
+      const currentJob = this.worker.getJob(jobId);
+      if (!currentJob) {
+        cleanup();
+        reject(new Error(`Job ${jobId} was not found after creation`));
+        return;
+      }
+      if (currentJob.status === 'completed') {
+        cleanup();
+        resolve();
+        return;
+      }
+      if (currentJob.status === 'failed') {
+        rejectWithFailure(currentJob);
+      }
     });
   }
 

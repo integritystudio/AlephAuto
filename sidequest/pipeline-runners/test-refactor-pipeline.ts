@@ -16,10 +16,10 @@ import type { Job as BaseJob } from '../core/server.ts';
 import { DirectoryScanner } from '../utils/directory-scanner.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
-import { CONCURRENCY, JOB_EVENTS, RETRY_EVENTS, TIMEOUTS } from '../core/constants.ts';
-import cron from 'node-cron';
-import path from 'path';
+import { CONCURRENCY, TIMEOUTS } from '../core/constants.ts';
 import { isDirectExecution } from '../utils/execution-helpers.ts';
+import { BasePipeline } from './base-pipeline.ts';
+import path from 'path';
 
 const logger = createComponentLogger('TestRefactorPipeline');
 
@@ -53,190 +53,117 @@ interface PipelineResult {
   stats: PipelineStats;
 }
 
-/**
- * Run the test refactoring pipeline
- */
-async function runPipeline(targetPath: string | null = null): Promise<PipelineResult> {
-  logger.info({
-    codeBaseDir: CODE_BASE_DIR,
-    targetPath,
-    dryRun: DRY_RUN
-  }, 'Starting test refactor pipeline');
+class TestRefactorPipeline extends BasePipeline<TestRefactorWorker> {
+  constructor() {
+    const worker = new TestRefactorWorker({
+      dryRun: DRY_RUN,
+      gitWorkflowEnabled: ENABLE_GIT_WORKFLOW,
+      maxConcurrent: config.maxConcurrent ?? CONCURRENCY.DEFAULT_PIPELINE_CONCURRENCY,
+    });
+    super(worker);
 
-  const worker = new TestRefactorWorker({
-    dryRun: DRY_RUN,
-    gitWorkflowEnabled: ENABLE_GIT_WORKFLOW,
-    maxConcurrent: config.maxConcurrent ?? CONCURRENCY.DEFAULT_PIPELINE_CONCURRENCY
-  });
+    this.setupDefaultEventListeners(logger, {
+      onCreated: (job: BaseJob) => ({ project: job.data['repository'] }),
+      onCompleted: (job: BaseJob) => {
+        const result = job.result as { generatedFiles?: unknown[]; recommendations?: unknown[] } | null;
+        return {
+          project: job.data['repository'],
+          filesGenerated: result?.generatedFiles?.length ?? 0,
+          recommendations: result?.recommendations?.length ?? 0,
+        };
+      },
+      onFailed: (job: BaseJob) => ({ project: job.data['repository'] }),
+    });
+  }
 
-  // Set up event handlers
-  worker.on(JOB_EVENTS.CREATED, (job: BaseJob) => {
-    logger.debug({ jobId: job.id, project: job.data['repository'] }, 'Job created');
-  });
-
-  worker.on(JOB_EVENTS.STARTED, (job: BaseJob) => {
-    logger.info({ jobId: job.id, project: job.data['repository'] }, 'Job started');
-  });
-
-  worker.on(JOB_EVENTS.COMPLETED, (job: BaseJob) => {
-    const result = job.result as { generatedFiles?: unknown[]; recommendations?: unknown[] } | null;
+  async run(targetPath: string | null = null): Promise<PipelineResult> {
     logger.info({
-      jobId: job.id,
-      project: job.data['repository'],
-      filesGenerated: result?.generatedFiles?.length ?? 0,
-      recommendations: result?.recommendations?.length ?? 0
-    }, 'Job completed');
-  });
+      codeBaseDir: CODE_BASE_DIR,
+      targetPath,
+      dryRun: DRY_RUN,
+    }, 'Starting test refactor pipeline');
 
-  worker.on(JOB_EVENTS.FAILED, (job: BaseJob, error: Error) => {
-    logger.error({
-      jobId: job.id,
-      project: job.data['repository'],
-      error: error.message
-    }, 'Job failed');
-  });
+    try {
+      if (targetPath) {
+        const resolvedPath = path.resolve(targetPath);
+        this.worker.queueProject(resolvedPath);
+      } else {
+        const scanner = new DirectoryScanner({
+          baseDir: CODE_BASE_DIR,
+          maxDepth: 2,
+          excludeDirs: [
+            'node_modules', '.git', 'dist', 'build',
+            'coverage', '__pycache__', '.venv', 'venv',
+          ],
+        });
 
-  try {
-    if (targetPath) {
-      // Single project mode
-      const resolvedPath = path.resolve(targetPath);
-      worker.queueProject(resolvedPath);
-    } else {
-      // Scan all repositories
-      const scanner = new DirectoryScanner({
-        baseDir: CODE_BASE_DIR,
-        maxDepth: 2,
-        excludeDirs: [
-          'node_modules',
-          '.git',
-          'dist',
-          'build',
-          'coverage',
-          '__pycache__',
-          '.venv',
-          'venv'
-        ]
-      });
+        const directories = await scanner.scanDirectories();
 
-      const directories = await scanner.scanDirectories();
-
-      // Filter to directories that have test files
-      for (const dir of directories) {
-        const hasTests = await hasTestDirectory(dir.fullPath);
-        if (hasTests) {
-          worker.queueProject(dir.fullPath);
+        for (const dir of directories) {
+          if (await hasTestDirectory(dir.fullPath)) {
+            this.worker.queueProject(dir.fullPath);
+          }
         }
+
+        logger.info({
+          totalDirectories: directories.length,
+          queuedJobs: this.worker.queue.length,
+        }, 'Scan complete, jobs queued');
       }
 
-      logger.info({
-        totalDirectories: directories.length,
-        queuedJobs: worker.queue.length
-      }, 'Scan complete, jobs queued');
+      await this.waitForCompletion(TIMEOUTS.ONE_HOUR_MS);
+
+      const metrics = this.worker.getMetrics();
+      const stats = this.getStats();
+
+      logger.info({ ...metrics, ...stats }, 'Pipeline completed');
+
+      return { metrics, stats };
+    } catch (error) {
+      logger.error({ err: error }, 'Pipeline failed');
+      throw error;
     }
+  }
 
-    // Wait for all jobs to complete
-    await waitForCompletion(worker);
-
-    const metrics = worker.getMetrics();
-    const stats = worker.getStats();
-
-    logger.info({
-      ...metrics,
-      ...stats
-    }, 'Pipeline completed');
-
-    return { metrics, stats };
-
-  } catch (error) {
-    logger.error({ err: error }, 'Pipeline failed');
-    throw error;
+  startCron(): void {
+    this.scheduleCron(logger, 'test refactor', CRON_SCHEDULE, async () => {
+      logger.info('Running scheduled test refactor pipeline');
+      await this.run();
+    });
   }
 }
 
-/**
- * Check if directory has test files
- */
 async function hasTestDirectory(dirPath: string): Promise<boolean> {
   const { glob } = await import('glob');
-
   const testFiles = await glob('**/*.{test,spec}.{ts,tsx,js,jsx}', {
     cwd: dirPath,
     ignore: ['**/node_modules/**'],
-    nodir: true
+    nodir: true,
   });
-
   return testFiles.length > 0;
 }
 
 /**
- * Wait for all jobs to complete using events (matches BasePipeline pattern).
- * Listens for job:completed, job:failed, and retry:created to avoid polling.
- * Includes a deadline timeout to prevent indefinite hangs.
+ * Run the test refactoring pipeline.
+ * Backward-compatible named export.
  */
-function waitForCompletion(worker: TestRefactorWorker): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const deadline = setTimeout(() => {
-      cleanup();
-      reject(new Error(`waitForCompletion timed out after ${TIMEOUTS.ONE_HOUR_MS}ms`));
-    }, TIMEOUTS.ONE_HOUR_MS);
-
-    /**
-     * cleanup.
-     */
-    const cleanup = () => {
-      worker.off(JOB_EVENTS.COMPLETED, checkAndResolve);
-      worker.off(JOB_EVENTS.FAILED, checkAndResolve);
-      worker.off(RETRY_EVENTS.CREATED, checkAndResolve);
-    };
-
-    /**
-     * checkAndResolve.
-     */
-    const checkAndResolve = () => {
-      const stats = worker.getStats();
-      if (stats.active === 0 && stats.queued === 0 && stats.pendingRetries === 0) {
-        clearTimeout(deadline);
-        cleanup();
-        resolve();
-      }
-    };
-
-    worker.on(JOB_EVENTS.COMPLETED, checkAndResolve);
-    worker.on(JOB_EVENTS.FAILED, checkAndResolve);
-    worker.on(RETRY_EVENTS.CREATED, checkAndResolve);
-    checkAndResolve();
-  });
+async function runPipeline(targetPath: string | null = null): Promise<PipelineResult> {
+  const pipeline = new TestRefactorPipeline();
+  return pipeline.run(targetPath);
 }
 
-// Main execution
-/**
- * main.
- */
 async function main(): Promise<void> {
   const targetPath = process.argv[2];
 
   if (targetPath) {
-    // Single project mode
     await runPipeline(targetPath);
   } else if (RUN_ON_STARTUP) {
-    // Run immediately
     await runPipeline();
   }
 
-  // Schedule cron job
   if (!targetPath) {
-    logger.info({ schedule: CRON_SCHEDULE }, 'Scheduling cron job');
-
-    cron.schedule(CRON_SCHEDULE, async () => {
-      logger.info('Running scheduled test refactor pipeline');
-      await runPipeline();
-    });
-
-    // Keep process alive
-    process.on('SIGINT', () => {
-      logger.info('Shutting down');
-      process.exit(0);
-    });
+    const pipeline = new TestRefactorPipeline();
+    pipeline.startCron();
   }
 }
 

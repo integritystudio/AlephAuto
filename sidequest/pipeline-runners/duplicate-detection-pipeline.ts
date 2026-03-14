@@ -37,7 +37,11 @@ export type {
 } from '../pipeline-core/types/duplicate-detection-types.ts';
 
 /**
- * Main execution
+ * Main execution.
+ *
+ * This pipeline stays functional (not class-based) because it uses
+ * worker.runNightlyScan() which manages its own lifecycle, and requires
+ * async initialization. No BasePipeline methods would be used.
  */
 async function main(): Promise<void> {
   const cronSchedule = process.env.DUPLICATE_SCAN_CRON_SCHEDULE || '0 2 * * *';

@@ -11,10 +11,10 @@
 import { DashboardPopulateWorker } from '../workers/dashboard-populate-worker.ts';
 import { createComponentLogger, logError } from '../utils/logger.ts';
 import * as Sentry from '@sentry/node';
-import cron from 'node-cron';
 import type { Job } from '../core/server.ts';
-import { JOB_EVENTS, NUMBER_BASE, PROCESS, TIMEOUTS } from '../core/constants.ts';
+import { NUMBER_BASE, PROCESS } from '../core/constants.ts';
 import { isDirectExecution } from '../utils/execution-helpers.ts';
+import { BasePipeline } from './base-pipeline.ts';
 
 const logger = createComponentLogger('DashboardPopulatePipeline');
 
@@ -52,63 +52,66 @@ if (process.env.DASHBOARD_SEED === 'false') {
   cliOptions.seed = false;
 }
 
-function waitForJobTerminalStatus(worker: DashboardPopulateWorker, jobId: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    let timeoutHandle: NodeJS.Timeout | null = null;
+class DashboardPopulatePipeline extends BasePipeline<DashboardPopulateWorker> {
+  private options: CliOptions;
 
-    const cleanup = () => {
-      if (timeoutHandle) {
-        clearTimeout(timeoutHandle);
+  constructor(options: CliOptions) {
+    const worker = new DashboardPopulateWorker({ maxConcurrent: 1 });
+    super(worker);
+    this.options = options;
+
+    this.setupDefaultEventListeners(logger, {
+      onCreated: (job: Job) => ({
+        seed: job.data.seed,
+        dryRun: job.data.dryRun,
+      }),
+      onCompleted: (job: Job) => {
+        const result = job.result as Record<string, unknown> | null;
+        const steps = result?.steps as Array<unknown> | undefined;
+        return { durationMs: result?.durationMs, steps: steps?.length ?? 0 };
+      },
+      onFailed: (job: Job) => {
+        Sentry.captureException(new Error(job.error?.message ?? 'Unknown error'), {
+          tags: { component: 'dashboard-populate-pipeline', job_id: job.id },
+        });
+        return { retryCount: job.retryCount };
+      },
+    });
+  }
+
+  async runOnce(): Promise<void> {
+    logger.info({ ...this.options }, 'Running populate immediately');
+    const job = this.worker.createPopulateJob(this.options);
+    logger.info({ jobId: job.id }, 'Waiting for startup dashboard job to finish');
+    await this.waitForJobTerminalStatus(job.id);
+    logger.info({ jobId: job.id }, 'Startup dashboard job completed; exiting');
+  }
+
+  async start(): Promise<void> {
+    if (RUN_ON_STARTUP && !RUN_WITH_CRON) {
+      await this.runOnce();
+      return;
+    }
+
+    if (RUN_ON_STARTUP) {
+      try {
+        this.worker.createPopulateJob(this.options);
+      } catch (error) {
+        logError(logger, error, 'Failed to create startup job');
+        Sentry.captureException(error, {
+          tags: { component: 'dashboard-populate-pipeline', phase: 'startup' },
+        });
       }
-      worker.off(JOB_EVENTS.COMPLETED, onCompleted);
-      worker.off(JOB_EVENTS.FAILED, onFailed);
-    };
-
-    const rejectWithFailure = (job: Job) => {
-      const message = job.error?.message ?? `Startup dashboard job ${job.id} failed`;
-      cleanup();
-      reject(new Error(message));
-    };
-
-    const onCompleted = (job: Job) => {
-      if (job.id !== jobId) return;
-      cleanup();
-      resolve();
-    };
-
-    const onFailed = (job: Job) => {
-      if (job.id !== jobId) return;
-      rejectWithFailure(job);
-    };
-
-    worker.on(JOB_EVENTS.COMPLETED, onCompleted);
-    worker.on(JOB_EVENTS.FAILED, onFailed);
-
-    timeoutHandle = setTimeout(() => {
-      cleanup();
-      reject(new Error(`Timed out waiting for startup dashboard job ${jobId} after ${TIMEOUTS.ONE_HOUR_MS}ms`));
-    }, TIMEOUTS.ONE_HOUR_MS);
-
-    const currentJob = worker.getJob(jobId);
-    if (!currentJob) {
-      cleanup();
-      reject(new Error(`Startup dashboard job ${jobId} was not found after creation`));
-      return;
     }
-    if (currentJob.status === 'completed') {
-      cleanup();
-      resolve();
-      return;
-    }
-    if (currentJob.status === 'failed') {
-      rejectWithFailure(currentJob);
-    }
-  });
+
+    this.scheduleCron(logger, 'dashboard populate', CRON_SCHEDULE, async () => {
+      this.worker.createPopulateJob(this.options);
+    });
+
+    logger.info('Dashboard Populate Pipeline is running');
+  }
 }
 
-/**
- * main.
- */
 async function main(): Promise<void> {
   logger.info({
     cronSchedule: CRON_SCHEDULE,
@@ -117,90 +120,8 @@ async function main(): Promise<void> {
     runOnStartup: RUN_ON_STARTUP,
   }, 'Starting Dashboard Populate Pipeline');
 
-  const worker = new DashboardPopulateWorker({ maxConcurrent: 1 });
-
-  worker.on(JOB_EVENTS.CREATED, (job: Job) => {
-    logger.info({
-      jobId: job.id,
-      seed: job.data.seed,
-      dryRun: job.data.dryRun,
-    }, 'Job created');
-  });
-
-  worker.on(JOB_EVENTS.STARTED, (job: Job) => {
-    logger.info({ jobId: job.id }, 'Job started');
-  });
-
-  worker.on(JOB_EVENTS.COMPLETED, (job: Job) => {
-    const result = job.result as Record<string, unknown> | null;
-    const durationMs = result?.durationMs;
-    const steps = result?.steps as Array<unknown> | undefined;
-    logger.info({
-      jobId: job.id,
-      durationMs,
-      steps: steps?.length ?? 0,
-    }, 'Job completed');
-  });
-
-  worker.on(JOB_EVENTS.FAILED, (job: Job) => {
-    logError(logger, job.error, 'Job failed', { jobId: job.id, retryCount: job.retryCount });
-    Sentry.captureException(new Error(job.error?.message ?? 'Unknown error'), {
-      tags: { component: 'dashboard-populate-pipeline', job_id: job.id },
-    });
-  });
-
-  let startupJob: Job | null = null;
-
-  if (RUN_ON_STARTUP) {
-    logger.info({ ...cliOptions }, 'Running populate immediately');
-    try {
-      startupJob = worker.createPopulateJob(cliOptions);
-    } catch (error) {
-      logError(logger, error, 'Failed to create startup job');
-      Sentry.captureException(error, {
-        tags: { component: 'dashboard-populate-pipeline', phase: 'startup' },
-      });
-      if (!RUN_WITH_CRON) {
-        throw error;
-      }
-    }
-  }
-
-  if (RUN_ON_STARTUP && !RUN_WITH_CRON) {
-    if (!startupJob) {
-      throw new Error('Startup dashboard populate job was not created');
-    }
-    logger.info({ jobId: startupJob.id }, 'Waiting for startup dashboard job to finish');
-    await waitForJobTerminalStatus(worker, startupJob.id);
-    logger.info({ jobId: startupJob.id }, 'Startup dashboard job completed; exiting');
-    return;
-  }
-
-  logger.info({ schedule: CRON_SCHEDULE }, 'Scheduling dashboard populate');
-
-  cron.schedule(CRON_SCHEDULE, () => {
-    logger.info('Cron triggered dashboard populate');
-    try {
-      worker.createPopulateJob(cliOptions);
-    } catch (error) {
-      logError(logger, error, 'Failed to create scheduled job');
-      Sentry.captureException(error, {
-        tags: { component: 'dashboard-populate-pipeline', phase: 'cron' },
-      });
-    }
-  });
-
-  logger.info('Dashboard Populate Pipeline is running');
-
-  process.on('SIGTERM', () => {
-    logger.info('Received SIGTERM, shutting down gracefully');
-    process.exit(0);
-  });
-
-  process.on('SIGINT', () => {
-    logger.info('Received SIGINT, shutting down gracefully');
-    process.exit(0);
-  });
+  const pipeline = new DashboardPopulatePipeline(cliOptions);
+  await pipeline.start();
 }
 
 if (isDirectExecution(import.meta.url)) {
