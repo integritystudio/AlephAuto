@@ -106,6 +106,8 @@ export class SidequestServer extends EventEmitter {
   branchManager: BranchManager | undefined;
   private _dbReady: Promise<void>;
   private _queueDraining = false;
+  private _completedCount = 0;
+  private _failedCount = 0;
 
   /**
    * Creates a Sidequest worker instance.
@@ -424,6 +426,7 @@ export class SidequestServer extends EventEmitter {
 
     this.emit(JOB_EVENTS.COMPLETED, job);
     this.jobHistory.push({ ...job });
+    this._completedCount++;
     this._pruneExpiredJobs();
     try {
       this._persistJob(job);
@@ -521,6 +524,7 @@ export class SidequestServer extends EventEmitter {
 
     this.emit(JOB_EVENTS.FAILED, job, error);
     this.jobHistory.push({ ...job });
+    this._failedCount++;
     this._pruneExpiredJobs();
     this._trySilentPersist(job, PERSIST_CONTEXT.FAILED);
 
@@ -759,8 +763,8 @@ export class SidequestServer extends EventEmitter {
       queued: this.queue.length,
       active: this.activeJobs,
       pendingRetries: Array.from(this.jobs.values()).filter(j => j.retryPending === true).length,
-      completed: this.jobHistory.filter(j => j.status === JOB_STATUS.COMPLETED).length,
-      failed: this.jobHistory.filter(j => j.status === JOB_STATUS.FAILED).length,
+      completed: this._completedCount,
+      failed: this._failedCount,
     };
   }
 
@@ -783,7 +787,16 @@ export class SidequestServer extends EventEmitter {
     }
 
     const historyBefore = this.jobHistory.length;
-    this.jobHistory = this.jobHistory.filter(job => !this._isExpiredTerminalJob(job, cutoffMs));
+    let prunedCompleted = 0;
+    let prunedFailed = 0;
+    this.jobHistory = this.jobHistory.filter(job => {
+      if (!this._isExpiredTerminalJob(job, cutoffMs)) return true;
+      if (job.status === JOB_STATUS.COMPLETED) prunedCompleted++;
+      else if (job.status === JOB_STATUS.FAILED) prunedFailed++;
+      return false;
+    });
+    this._completedCount -= prunedCompleted;
+    this._failedCount -= prunedFailed;
     const removedFromHistory = historyBefore - this.jobHistory.length;
 
     if (removedFromJobs > 0 || removedFromHistory > 0) {
