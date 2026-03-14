@@ -12,6 +12,7 @@ import Database from 'better-sqlite3';
 type DatabaseType = InstanceType<typeof Database>;
 import path from 'path';
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { createComponentLogger, logMetrics } from '../utils/logger.ts';
 import { isValidJobStatus } from '#api/types/job-status.ts';
@@ -571,13 +572,13 @@ export function getAllPipelineStats(): PipelineStats[] {
  */
 export async function importReportsToDatabase(reportsDir: string): Promise<number> {
   try {
-    await fs.promises.access(reportsDir);
+    await fsPromises.access(reportsDir);
   } catch {
     logger.warn({ reportsDir }, 'Reports directory not found');
     return 0;
   }
 
-  const entries = await fs.promises.readdir(reportsDir);
+  const entries = await fsPromises.readdir(reportsDir);
   const files = entries.filter(f => f.endsWith('-summary.json'));
 
   let imported = 0;
@@ -585,9 +586,9 @@ export async function importReportsToDatabase(reportsDir: string): Promise<numbe
   for (const file of files) {
     try {
       const filePath = path.join(reportsDir, file);
-      const raw = await fs.promises.readFile(filePath, 'utf8');
+      const raw = await fsPromises.readFile(filePath, 'utf8');
       const content = JSON.parse(raw) as Record<string, unknown>;
-      const stats = await fs.promises.stat(filePath);
+      const stats = await fsPromises.stat(filePath);
 
       // Extract date from filename (e.g., inter-project-scan-2repos-2025-11-24-summary.json)
       const dateMatch = file.match(/(\d{4}-\d{2}-\d{2})/);
@@ -638,13 +639,13 @@ export async function importReportsToDatabase(reportsDir: string): Promise<numbe
  */
 export async function importLogsToDatabase(logsDir: string): Promise<number> {
   try {
-    await fs.promises.access(logsDir);
+    await fsPromises.access(logsDir);
   } catch {
     logger.warn({ logsDir }, 'Logs directory not found');
     return 0;
   }
 
-  const entries = await fs.promises.readdir(logsDir);
+  const entries = await fsPromises.readdir(logsDir);
   const files = entries.filter(f => f.endsWith('.json'));
 
   let imported = 0;
@@ -663,9 +664,9 @@ export async function importLogsToDatabase(logsDir: string): Promise<number> {
   for (const file of files) {
     try {
       const filePath = path.join(logsDir, file);
-      const raw = await fs.promises.readFile(filePath, 'utf8');
+      const raw = await fsPromises.readFile(filePath, 'utf8');
       const content = JSON.parse(raw) as Record<string, unknown>;
-      const stats = await fs.promises.stat(filePath);
+      const stats = await fsPromises.stat(filePath);
 
       // Extract pipeline type from filename
       let pipelineId = 'unknown';
