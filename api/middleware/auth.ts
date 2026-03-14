@@ -50,10 +50,6 @@ function getConfiguredApiKey(): string | null {
  * @returns `true` when the key is valid.
  */
 function validateApiKey(apiKey: string, configuredApiKey: string): boolean {
-  if (!apiKey) {
-    return false;
-  }
-
   // Hash both sides to equal-length buffers for constant-time comparison without length oracle
   const expectedHash = crypto.createHash('sha256').update(configuredApiKey).digest();
   const actualHash = crypto.createHash('sha256').update(apiKey).digest();

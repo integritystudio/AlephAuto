@@ -263,6 +263,7 @@ function handleSubscribe(clientId: string, message: Record<string, unknown>, cli
     if (ch.length === 0 || ch.length > WEBSOCKET.MAX_CHANNEL_NAME_LENGTH) return false;
     return VALID_CHANNEL_PATTERN.test(ch);
   });
+  const rejected = rawChannels.length - channels.length;
 
   const available = WEBSOCKET.MAX_SUBSCRIPTIONS_PER_CLIENT - client.subscriptions.size;
   const toAdd = channels.slice(0, available);
@@ -275,6 +276,7 @@ function handleSubscribe(clientId: string, message: Record<string, unknown>, cli
   logger.info({
     clientId,
     channels: toAdd,
+    rejected,
     dropped,
     totalSubscriptions: client.subscriptions.size
   }, 'Client subscribed to channels');
@@ -282,6 +284,7 @@ function handleSubscribe(clientId: string, message: Record<string, unknown>, cli
   client.ws.send(JSON.stringify({
     type: 'subscribed',
     channels: toAdd,
+    rejected,
     dropped,
     total_subscriptions: client.subscriptions.size,
     timestamp: new Date().toISOString()
