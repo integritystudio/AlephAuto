@@ -14,7 +14,6 @@ import os from 'os';
 import { generateReport, pruneOldReports } from '../../sidequest/utils/report-generator.ts';
 import { GIT_ACTIVITY } from '../../sidequest/core/constants.ts';
 import { TIME_MS } from '../../sidequest/core/units.ts';
-import { TIME_MS } from '../../sidequest/core/units.ts';
 import { TestTiming } from '../constants/timing-test-constants.ts';
 
 describe('Report Generator', () => {

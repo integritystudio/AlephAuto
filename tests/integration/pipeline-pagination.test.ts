@@ -16,6 +16,7 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
 import { getJobs, initDatabase, getJobCounts, closeDatabase, saveJob } from '../../sidequest/core/database.ts';
 import { TestTiming } from '../constants/timing-test-constants.ts';
+import { TIME_MS } from '../../sidequest/core/units.ts';
 
 /** Seed the in-memory database with realistic test jobs */
 function seedTestData() {
@@ -26,9 +27,9 @@ function seedTestData() {
       id: `test-dd-job-${i}`,
       pipelineId: 'duplicate-detection',
       status,
-      createdAt: new Date(now.getTime() - i * 60_000).toISOString(),
-      startedAt: new Date(now.getTime() - i * 60_000 + 1000).toISOString(),
-      completedAt: new Date(now.getTime() - i * 60_000 + TestTiming.JOB_COMPLETION_OFFSET_MS).toISOString(),
+      createdAt: new Date(now.getTime() - i * TIME_MS.MINUTE).toISOString(),
+      startedAt: new Date(now.getTime() - i * TIME_MS.MINUTE + TIME_MS.SECOND).toISOString(),
+      completedAt: new Date(now.getTime() - i * TIME_MS.MINUTE + TestTiming.JOB_COMPLETION_OFFSET_MS).toISOString(),
       data: { repository: `repo-${i}` },
       result: status === 'completed' ? { duplicates: i } : null,
       error: status === 'failed' ? { message: `Error ${i}` } : null,

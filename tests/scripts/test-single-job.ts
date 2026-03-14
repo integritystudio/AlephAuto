@@ -2,6 +2,7 @@ import { RepomixWorker } from '../../sidequest/workers/repomix-worker.ts';
 import path from 'path';
 import os from 'os';
 import { BYTES_PER_KB } from '../../sidequest/core/constants.ts';
+import { TIME_MS } from '../../sidequest/core/units.ts';
 import { waitForJobCompletion } from '../utils/test-utilities.ts';
 import { config } from '../../sidequest/core/config.ts';
 
@@ -31,7 +32,7 @@ function setupWorkerEventListeners(worker: RepomixWorker) {
   worker.on('job:completed', (job) => {
     const duration = job.completedAt - job.startedAt;
     console.log(`\n✓ Job completed successfully!`);
-    console.log(`  Duration: ${Math.round(duration / 1000)}s`);
+    console.log(`  Duration: ${Math.round(duration / TIME_MS.SECOND)}s`);
     console.log(`  Output file: ${job.result.outputFile}`);
     console.log(`  File size: ${(job.result.size / BYTES_PER_KB).toFixed(2)} KB`);
     console.log(`  Log file: ./logs/${job.id}.json`);

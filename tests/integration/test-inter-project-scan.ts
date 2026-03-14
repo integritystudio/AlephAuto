@@ -17,6 +17,7 @@ import { InterProjectScanner } from '../../sidequest/pipeline-core/inter-project
 import { ReportCoordinator } from '../../sidequest/pipeline-core/reports/report-coordinator.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
 import { TestOutputFormat } from '../constants/output-format-constants.ts';
+import { TIME_MS } from '../../sidequest/core/units.ts';
 import path from 'path';
 
 const logger = createComponentLogger('TestInterProject');
@@ -80,7 +81,7 @@ async function runScan(scanner: InterProjectScanner, repoPaths: string[]) {
     }
   });
 
-  const duration = (Date.now() - startTime) / 1000;
+  const duration = (Date.now() - startTime) / TIME_MS.SECOND;
   console.log(`✅ Scan completed in ${duration.toFixed(2)}s\n`);
   return { result, duration };
 }

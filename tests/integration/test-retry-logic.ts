@@ -17,6 +17,7 @@
 
 import { DuplicateDetectionWorker } from '../../sidequest/workers/duplicate-detection-worker.ts';
 import { createComponentLogger } from '../../sidequest/utils/logger.ts';
+import { TIME_MS } from '../../sidequest/core/units.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -160,7 +161,7 @@ async function testConfiguredMaxRetries() {
   worker.createJob(jobId, { scanType: 'test', repositories: [] });
 
   // Wait for job to fail completely
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  await new Promise(resolve => setTimeout(resolve, TIME_MS.SECOND));
 
   const originalId = worker._getOriginalJobId(jobId);
   const retriesForOriginalId = worker.retryHistory.filter(
