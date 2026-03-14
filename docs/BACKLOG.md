@@ -90,3 +90,38 @@ Migrate the last 2 pipelines (Repomix, Duplicate Detection) to `BasePipeline`. C
 | ID | Priority | Description |
 |----|----------|-------------|
 | BP-L1 | P3 | Migrate `duplicate-detection-pipeline.ts` to `DuplicateDetectionPipeline extends BasePipeline<DuplicateDetectionWorker>`. Requires adding optional `async initialize()` hook to `BasePipeline` (for `worker.initialize()` + config stats logging). Benefits: `scheduleCron()` consistency, `setupDefaultEventListeners()`. Complexity: pipeline has `runOnStartup` early-exit mode (`process.exit(0)`) that doesn't fit `BasePipeline` lifecycle. ~35 lines saved. Post-DD-GW1: stale PRCreator type re-exports in comment can be cleaned regardless. Acceptable to leave functional. |
+
+---
+
+## Code Review Findings (2026-03-14)
+
+Code review of codebase via `repomix-git-ranked.xml`. Issues #6 (pipelineId extraction) and #7 (default error classification) addressed in session. Remaining 15 findings documented below.
+
+### High
+
+| ID | Priority | Description |
+|---|----------|-------------|
+| CR-H1 | P1 | **Authentication bypass on read endpoints** — `api/middleware/auth.ts:17-29`. `PUBLIC_PATHS` exempts `/api/jobs`, `/api/pipelines`, `/api/scans`, `/api/reports` — all read endpoints are fully unauthenticated. If intentional for internal-only dashboard, document explicitly. Otherwise, restrict GET routes. |
+| ~~CR-H2~~ | ~~P1~~ | ~~**processQueue concurrency race**~~ — Done (commit 90d15bc) |
+| ~~CR-H4~~ | ~~P2~~ | ~~**apiKey getter re-reads process.env at runtime**~~ — Done (commit f8119f9) |
+| CR-H5 | P2 | **Migration API key in request body, not header** — `api/routes/jobs.ts:151,161`. Secrets in request bodies are logged in full by middleware stacks and appear in error traces. Accept key via header (e.g., `X-Migration-Key`) matching `authMiddleware` pattern. |
+
+### Medium
+
+| ID | Priority | Description |
+|---|----------|-------------|
+| ~~CR-M8~~ | ~~P2~~ | ~~**importLogsToDatabase / importReportsToDatabase block event loop**~~ — Done (commit c0c4d0a) |
+| CR-M9 | P2 | **Magic constants in websocket.ts** — `api/websocket.ts:252-254`. `MAX_SUBSCRIPTIONS_PER_CLIENT=50` and `MAX_CHANNEL_NAME_LENGTH=128` should live in `sidequest/core/constants.ts` under existing `WEBSOCKET` group (alongside `WEBSOCKET.HEARTBEAT_INTERVAL_MS`). |
+| CR-M10 | P2 | **Cloudflare worker has untyped ctx parameter** — `cloudflare-workers/n0ai-proxy/src/index.ts:97,135`. `ctx: any` in fetch handler and `caches as any` cast hide potential runtime mismatches. Use `ExecutionContext` type and `CacheStorage` from `@cloudflare/workers-types`. |
+| CR-M11 | P2 | **Frontend api.ts uses `any` in 4 places** — `frontend/src/services/api.ts:55,207,221,347`. Missing typed response shapes: line 55 (error.response.data), lines 207/221 (status string literals), line 347 (getScanResults return type). Add proper Zod/TypeScript types for each endpoint. |
+| CR-M12 | P2 | **getStats() iterates jobHistory twice (O(n) inefficiency)** — `sidequest/core/server.ts:754-763`. Two full `.filter()` passes per call for completed/failed counts. Maintain running `_completedCount` and `_failedCount` counters, increment in finalization, decrement in pruning. |
+
+### Low
+
+| ID | Priority | Description |
+|---|----------|-------------|
+| CR-L13 | P3 | **WebSocket subscription limit silently drops excess channels** — `api/websocket.ts:269-274`. Client sends 60 channels when at 50-subscription limit, last 10 silently dropped. `subscribed` response only reflects added channels. Add `dropped` count or warning field to notify client. |
+| CR-L14 | P3 | **_resolveUniqueJobId has unbounded retry loop** — `sidequest/core/server.ts:229-247`. `while (this.jobs.has(candidateId))` has no upper bound. Pathological job ID patterns could loop extensively. Cap at reasonable limit (e.g., 100) and throw if exceeded. |
+| CR-L15 | P3 | **validateApiKey padding logic is fragile** — `api/middleware/auth.ts:57-67`. Current padding-then-compare is correct but relies on `sameLength` guard. Simpler: hash both sides with `crypto.createHash('sha256')` to guarantee equal-length buffers, remove manual padding entirely. |
+| CR-L16 | P3 | **config.ts reads process.env directly at module scope** — `sidequest/core/config.ts:88-152`. Values read synchronously before module completes export. Any code that imports config before dotenv loads sees undefined values. Wrap critical reads in getter or add explicit dotenv promise await. |
+| CR-L17 | P3 | **Documentation mismatch: CLAUDE.md references jobsApiPort** — CLAUDE.md references `config.jobsApiPort` but code exports `config.apiPort`. Update CLAUDE.md or rename export to match docs. |
