@@ -263,6 +263,8 @@ export class SidequestServer extends EventEmitter {
 
         if (!job) continue;
 
+        // Re-check limit after continues; increment and launch atomically
+        if (this.activeJobs >= this.maxConcurrent) break;
         this.activeJobs++;
         this.executeJob(jobId).catch(error => {
           logError(logger, error, 'Error executing job', { jobId });
