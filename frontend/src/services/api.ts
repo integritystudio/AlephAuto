@@ -343,7 +343,7 @@ export const apiService = {
    *
    * @param {string} scanId - The scanId
    *
-   * @returns {Promise<any>} The scan results
+   * @returns {Promise<unknown>} The scan results
    * @async
    */
   async getScanResults(scanId: string): Promise<unknown> {
