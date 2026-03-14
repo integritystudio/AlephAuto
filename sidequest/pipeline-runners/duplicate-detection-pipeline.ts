@@ -24,10 +24,7 @@ import type { Logger } from 'pino';
 
 const logger: Logger = createComponentLogger('DuplicateDetectionPipeline');
 
-// Re-export worker and types for any external consumers.
-// Types previously re-exported here (JobStatus, ScanType, JobData, ScanResult,
-// DuplicateGroup, Suggestion, PRCreationResult, JobResult, Inter/IntraProjectScanJobResult)
-// are now imported directly from '../pipeline-core/types/duplicate-detection-types.ts'.
+// Re-export worker and types for external consumers.
 export { DuplicateDetectionWorker };
 export type {
   RetryInfo,
