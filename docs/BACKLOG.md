@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-14 | **Last Session:** 2026-03-14 (backlog-implementer: closed CR-M9, CR-M10, CR-M11, CR-M12, CR-M13, CR-M14)
+**Last Updated:** 2026-03-14 | **Last Session:** 2026-03-14 (backlog-migrate: migrated CR-H2, CR-H4, CR-M8, CR-M9, CR-M10, CR-M11, CR-M12, CR-M13, CR-M14 to v2.3.29)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -102,21 +102,12 @@ Code review of codebase via `repomix-git-ranked.xml`. Issues #6 (pipelineId extr
 | ID | Priority | Description |
 |---|----------|-------------|
 | CR-H1 | P1 | **Authentication bypass on read endpoints** — `api/middleware/auth.ts:17-29`. `PUBLIC_PATHS` exempts `/api/jobs`, `/api/pipelines`, `/api/scans`, `/api/reports` — all read endpoints are fully unauthenticated. If intentional for internal-only dashboard, document explicitly. Otherwise, restrict GET routes. |
-| ~~CR-H2~~ | ~~P1~~ | ~~**processQueue concurrency race**~~ — Done (commit 90d15bc) |
-| ~~CR-H4~~ | ~~P2~~ | ~~**apiKey getter re-reads process.env at runtime**~~ — Done (commit f8119f9) |
 | CR-H5 | P2 | **Migration API key in request body, not header** — `api/routes/jobs.ts:151,161`. Secrets in request bodies are logged in full by middleware stacks and appear in error traces. Accept key via header (e.g., `X-Migration-Key`) matching `authMiddleware` pattern. |
 
 ### Medium
 
 | ID | Priority | Description |
 |---|----------|-------------|
-| ~~CR-M8~~ | ~~P2~~ | ~~**importLogsToDatabase / importReportsToDatabase block event loop**~~ — Done (commit c0c4d0a) |
-| ~~CR-M9~~ | ~~P2~~ | ~~**Magic constants in websocket.ts**~~ — Done (commit 4077d71) |
-| ~~CR-M10~~ | ~~P2~~ | ~~**Cloudflare worker has untyped ctx parameter**~~ — Done (commit dd51ade) |
-| ~~CR-M11~~ | ~~P2~~ | ~~**Frontend api.ts uses `any` in 4 places**~~ — Done (commit 55e3435) |
-| ~~CR-M12~~ | ~~P2~~ | ~~**getStats() iterates jobHistory twice (O(n) inefficiency)**~~ — Done (commit ed6c0ac) |
-| ~~CR-M13~~ | ~~P2~~ | ~~**auth-middleware.test.ts has overly broad @ts-nocheck**~~ — Done (commit a163bb7) |
-| ~~CR-M14~~ | ~~P2~~ | ~~**database.ts should import fs/promises directly**~~ — Done (commit f951817) |
 
 ### Low
 
@@ -127,3 +118,6 @@ Code review of codebase via `repomix-git-ranked.xml`. Issues #6 (pipelineId extr
 | CR-L15 | P3 | **validateApiKey padding logic is fragile** — `api/middleware/auth.ts:57-67`. Current padding-then-compare is correct but relies on `sameLength` guard. Simpler: hash both sides with `crypto.createHash('sha256')` to guarantee equal-length buffers, remove manual padding entirely. |
 | CR-L16 | P3 | **config.ts reads process.env directly at module scope** — `sidequest/core/config.ts:88-152`. Values read synchronously before module completes export. Any code that imports config before dotenv loads sees undefined values. Wrap critical reads in getter or add explicit dotenv promise await. |
 | CR-L17 | P3 | **Documentation mismatch: CLAUDE.md references jobsApiPort** — CLAUDE.md references `config.jobsApiPort` but code exports `config.apiPort`. Update CLAUDE.md or rename export to match docs. |
+| CR-L18 | P3 | **createRequest parameter lacks type annotation** — `tests/unit/auth-middleware.test.ts:13`. `overrides = {}` is implicitly typed as `{}`. Should be `Partial<Pick<Request, 'path' | 'headers' | 'ip'>>` or similar to prevent unrelated objects. |
+| CR-L19 | P3 | **createResponse type alias duplicated** — `tests/unit/auth-middleware.test.ts:22,34`. Intersection type `Response & { statusCode: number | null; body: ... }` appears in both signature and cast. Extract to module-scope `type MockResponse`. |
+| CR-L20 | P3 | **JSDoc mismatch: getScanResults says Promise<any>** — `frontend/src/services/api.ts:346`. JSDoc says `@returns {Promise<any>}` but implementation returns `Promise<unknown>`. Update JSDoc to match. |

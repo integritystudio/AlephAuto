@@ -6,6 +6,37 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.29] - 2026-03-14
+
+### Summary
+
+Code Review (CR) findings backfill: 9 items resolved. 2 High priority (concurrency, API key caching), 7 Medium priority (constant consolidation, performance, type safety, imports, documentation).
+
+### Fixed
+
+**Concurrency & Performance** (CR-H2, CR-M12)
+- **CR-H2:** `sidequest/core/server.ts` — Race condition in processQueue: activeJobs could exceed maxConcurrent if multiple events fired between check and increment. Added re-check immediately before activeJobs++.
+- **CR-M12:** `sidequest/core/server.ts` — getStats() performed O(n) scan of jobHistory twice. Replaced with running `_completedCount` and `_failedCount` counters, incremented on job finalization, decremented on history pruning.
+
+**Configuration & Caching** (CR-H4)
+- **CR-H4:** `sidequest/core/config.ts` — apiKey getter re-read process.env at each call, exposing TOCTOU attack window. Now freezes on first read into `_cachedApiKey`.
+
+**Type Safety** (CR-M10, CR-M11, CR-M13)
+- **CR-M10:** `cloudflare-workers/n0ai-proxy/src/index.ts` — ctx parameter typed as `any` and caches cast to `any`. Now typed as `ExecutionContext` and removed caches cast (globally typed by @cloudflare/workers-types).
+- **CR-M11:** `frontend/src/services/api.ts` — 4 `any` types: error.response.data cast, status string literals, getScanResults return. Now ErrorBody inline type, JobStatus enum values, Promise<unknown>.
+- **CR-M13:** `tests/unit/auth-middleware.test.ts` — File-wide @ts-nocheck suppresses type checking. Replaced with targeted `as unknown as Request` and `as unknown as Response` casts on mock factories.
+
+**Constants & Imports** (CR-M9, CR-M14)
+- **CR-M9:** `api/websocket.ts` — Magic constants MAX_SUBSCRIPTIONS_PER_CLIENT (50) and MAX_CHANNEL_NAME_LENGTH (128) moved to WEBSOCKET group in sidequest/core/constants.ts.
+- **CR-M14:** `sidequest/core/database.ts` — Async fs operations used `fs.promises.*` chaining. Now imports fsPromises directly; synchronous operations still use fs.
+
+**Event Loop & Performance** (CR-M8)
+- **CR-M8:** `sidequest/core/database.ts` — importLogsToDatabase() and importReportsToDatabase() used blocking fs.readFileSync in loops. Replaced with fs.promises equivalents to avoid event loop blockage.
+
+### Changed
+
+---
+
 ## [2.3.28] - 2026-03-13
 
 ### Summary
