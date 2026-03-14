@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-13 | **Last Session:** 2026-03-13 (Backlog migration: migrated 28 Done items to changelogs; 1 Low item remains)
+**Last Updated:** 2026-03-14 | **Last Session:** 2026-03-14 (backlog-implementer: closed CR-H2, CR-H4, CR-M8; documented code review follow-ups CR-M13, CR-M14)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -115,6 +115,8 @@ Code review of codebase via `repomix-git-ranked.xml`. Issues #6 (pipelineId extr
 | CR-M10 | P2 | **Cloudflare worker has untyped ctx parameter** — `cloudflare-workers/n0ai-proxy/src/index.ts:97,135`. `ctx: any` in fetch handler and `caches as any` cast hide potential runtime mismatches. Use `ExecutionContext` type and `CacheStorage` from `@cloudflare/workers-types`. |
 | CR-M11 | P2 | **Frontend api.ts uses `any` in 4 places** — `frontend/src/services/api.ts:55,207,221,347`. Missing typed response shapes: line 55 (error.response.data), lines 207/221 (status string literals), line 347 (getScanResults return type). Add proper Zod/TypeScript types for each endpoint. |
 | CR-M12 | P2 | **getStats() iterates jobHistory twice (O(n) inefficiency)** — `sidequest/core/server.ts:754-763`. Two full `.filter()` passes per call for completed/failed counts. Maintain running `_completedCount` and `_failedCount` counters, increment in finalization, decrement in pruning. |
+| CR-M13 | P2 | **auth-middleware.test.ts has overly broad @ts-nocheck** — `tests/unit/auth-middleware.test.ts:6`. `@ts-nocheck` suppresses type checking for entire file, can hide signature drift. Replace with targeted `// @ts-ignore` comments on mock creation lines, or cast mocks as `as unknown as Request`. |
+| CR-M14 | P2 | **database.ts should import fs/promises directly** — `sidequest/core/database.ts:14`. Currently `import fs from 'fs'` then uses `fs.promises.access/readdir/readFile/stat` in async functions. Cleaner: `import fsPromises from 'fs/promises'` and use `fsPromises.*`. Improves clarity of intent (existing `fs.statSync` call in getHealthStatus is legitimately synchronous). |
 
 ### Low
 
