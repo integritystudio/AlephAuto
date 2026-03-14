@@ -8,7 +8,7 @@ import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.ts';
 import { BranchManager } from '../pipeline-core/git/branch-manager.ts';
 import type { BranchManagerOptions, JobBranchContext, PRContext } from '../pipeline-core/git/branch-manager.ts';
 import { jobRepository } from './job-repository.ts';
-import { CONCURRENCY, FORMATTING, JOB_EVENTS, PERSIST_CONTEXT, RETRY, RETRY_EVENTS, VALIDATION } from './constants.ts';
+import { CONCURRENCY, FORMATTING, JOB_EVENTS, LIMITS, PERSIST_CONTEXT, RETRY, RETRY_EVENTS, VALIDATION } from './constants.ts';
 import { TIME_MS } from './units.ts';
 import { isRetryable, classifyError } from '../pipeline-core/errors/error-classifier.ts';
 import { toISOString } from '../utils/time-helpers.ts';
@@ -237,6 +237,9 @@ export class SidequestServer extends EventEmitter {
     let candidateId = `${requestedJobId}-${suffix}`;
     while (this.jobs.has(candidateId)) {
       suffix += 1;
+      if (suffix > LIMITS.MAX_JOB_ID_SUFFIX) {
+        throw new Error(`Cannot resolve unique job ID for '${requestedJobId}': exceeded ${LIMITS.MAX_JOB_ID_SUFFIX} suffix attempts`);
+      }
       candidateId = `${requestedJobId}-${suffix}`;
     }
 

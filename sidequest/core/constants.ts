@@ -400,6 +400,9 @@ export const LIMITS = {
 
   /** Minimum health score to consider a system healthy (no recommendations) */
   HIGH_HEALTH_SCORE: 90,
+
+  /** Maximum suffix attempts when resolving a duplicate job ID */
+  MAX_JOB_ID_SUFFIX: 100,
 } as const;
 
 /**
