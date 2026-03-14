@@ -3,23 +3,23 @@
  * Authentication middleware tests.
  */
 
-// @ts-nocheck
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import type { Request, Response } from 'express';
 import { authMiddleware } from '../../api/middleware/auth.ts';
 import { config, resetApiKeyCache } from '../../sidequest/core/config.ts';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
 
-function createRequest(overrides = {}) {
+function createRequest(overrides = {}): Request {
   return {
     path: '/api/private',
     ip: '127.0.0.1',
     headers: {},
     ...overrides,
-  };
+  } as unknown as Request;
 }
 
-function createResponse() {
+function createResponse(): Response & { statusCode: number | null; body: Record<string, unknown> | null } {
   return {
     statusCode: null,
     body: null,
@@ -31,7 +31,7 @@ function createResponse() {
       this.body = payload;
       return this;
     }
-  };
+  } as unknown as Response & { statusCode: number | null; body: Record<string, unknown> | null };
 }
 
 describe('authMiddleware', () => {
