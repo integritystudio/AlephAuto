@@ -288,11 +288,10 @@ export interface CompleteScanMetrics extends WorkerScanMetrics {
 export interface DuplicateDetectionWorkerOptions extends SidequestServerOptions {
   maxConcurrentScans?: number;
   configPath?: string;
-  enablePRCreation?: boolean;
-  baseBranch?: string;
-  branchPrefix?: string;
-  dryRun?: boolean;
-  maxSuggestionsPerPR?: number;
+  enablePRCreation?: boolean;  // maps to gitWorkflowEnabled
+  baseBranch?: string;         // maps to gitBaseBranch
+  branchPrefix?: string;       // maps to gitBranchPrefix
+  dryRun?: boolean;            // maps to gitDryRun
 }
 
 // ============================================================================

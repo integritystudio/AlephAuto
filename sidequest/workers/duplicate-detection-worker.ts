@@ -18,18 +18,35 @@ import { RepositoryConfigLoader, type RepositoryConfig } from '../pipeline-core/
 import { InterProjectScanner } from '../pipeline-core/inter-project-scanner.ts';
 import { ScanOrchestrator } from '../pipeline-core/scan-orchestrator.ts';
 import { ReportCoordinator } from '../pipeline-core/reports/report-coordinator.ts';
-import { PRCreator, type PRCreationResults } from '../pipeline-core/git/pr-creator.ts';
+import { MigrationTransformer } from '../pipeline-core/git/migration-transformer.ts';
 import { createComponentLogger, logError, logWarn, logStart } from '../utils/logger.ts';
 import path from 'path';
+import fs from 'fs/promises';
 import * as Sentry from '@sentry/node';
 import type { RetryMetrics, WorkerScanMetrics as ScanMetrics, DuplicateDetectionWorkerOptions } from '../pipeline-core/types/duplicate-detection-types.ts';
+import type { MigrationStep } from '../pipeline-core/types/migration-types.ts';
 import { config } from '../core/config.ts';
-import { CONCURRENCY, LIMITS, MARKDOWN_REPORT, RETRY, WORKER_EVENTS } from '../core/constants.ts';
+import { CONCURRENCY, MARKDOWN_REPORT, RETRY, WORKER_EVENTS } from '../core/constants.ts';
 
 const logger = createComponentLogger('DuplicateDetectionWorker');
+const STRATEGY_RATIONALE_PREVIEW_CHARS = 80;
 
 // Type definitions
 
+interface Suggestion {
+  suggestion_id: string;
+  automated_refactor_possible: boolean;
+  impact_score: number;
+  target_location?: string;
+  target_name?: string;
+  proposed_implementation?: string;
+  strategy?: string;
+  strategy_rationale: string;
+  complexity?: string;
+  migration_risk?: string;
+  usage_example?: string;
+  migration_steps: MigrationStep[];
+}
 
 interface ScanJobData {
   scanType: 'inter-project' | 'intra-project';
@@ -62,7 +79,7 @@ interface ScanResult {
   scan_metadata?: ScanMetadata;
   cross_repository_duplicates?: DuplicateEntry[];
   duplicate_groups?: DuplicateEntry[];
-  suggestions?: unknown[];
+  suggestions?: Suggestion[];
   [key: string]: unknown;
 }
 
@@ -82,11 +99,8 @@ interface IntraProjectScanResult {
   suggestions: number;
   duration: number;
   reportPaths: unknown;
-  prResults: {
-    prsCreated: number;
-    prUrls: string[];
-    errors: number;
-  } | null;
+  suggestionsApplied?: number;
+  automatedSuggestions?: Suggestion[];
 }
 
 
@@ -103,7 +117,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
   private interProjectScanner: InterProjectScanner;
   private orchestrator: ScanOrchestrator;
   private reportCoordinator: ReportCoordinator;
-  private prCreator: PRCreator;
+  private migrationTransformer: MigrationTransformer;
   private scanMetrics: ScanMetrics;
   private lastScanJobTimestamp: number;
   private scanJobSequence: number;
@@ -117,6 +131,10 @@ export class DuplicateDetectionWorker extends SidequestServer {
       jobType: 'duplicate-detection',
       maxConcurrent: options.maxConcurrentScans ?? CONCURRENCY.DEFAULT_PIPELINE_CONCURRENCY,
       logDir: path.join(process.cwd(), 'logs', 'duplicate-detection'),
+      gitWorkflowEnabled: options.enablePRCreation ?? config.enablePRCreation,
+      gitBranchPrefix: options.branchPrefix ?? 'consolidate',
+      gitBaseBranch: options.baseBranch ?? config.gitBaseBranch,
+      gitDryRun: options.dryRun ?? config.gitDryRun,
     });
 
     this.configLoader = new RepositoryConfigLoader(options.configPath);
@@ -134,11 +152,8 @@ export class DuplicateDetectionWorker extends SidequestServer {
     this.reportCoordinator = new ReportCoordinator(
       path.join(process.cwd(), 'output', 'reports')
     );
-    this.prCreator = new PRCreator({
-      baseBranch: options.baseBranch ?? 'main',
-      branchPrefix: options.branchPrefix ?? 'consolidate',
-      dryRun: options.dryRun ?? config.prDryRun,
-      maxSuggestionsPerPR: options.maxSuggestionsPerPR ?? LIMITS.DEFAULT_MAX_SUGGESTIONS_PER_PR
+    this.migrationTransformer = new MigrationTransformer({
+      dryRun: this.gitDryRun
     });
 
     this.scanMetrics = {
@@ -152,7 +167,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
       prCreationErrors: 0
     };
 
-    this.enablePRCreation = options.enablePRCreation ?? config.enablePRCreation;
+    this.enablePRCreation = this.gitWorkflowEnabled;
     this.lastScanJobTimestamp = 0;
     this.scanJobSequence = 0;
   }
@@ -359,55 +374,25 @@ export class DuplicateDetectionWorker extends SidequestServer {
     // Check for high-impact duplicates
     await this._checkForHighImpactDuplicates(result);
 
-    // Create PRs if enabled
-    let prResults: PRCreationResults | null = null;
-    if (this.enablePRCreation && result.suggestions && result.suggestions.length > 0) {
-      try {
+    // Apply automatable suggestions to disk; centralized git workflow will commit/push/PR
+    let suggestionsApplied = 0;
+    let automatedSuggestions: Suggestion[] = [];
+    if (this.gitWorkflowEnabled && result.suggestions && result.suggestions.length > 0) {
+      const automatable = result.suggestions.filter(
+        s => s.automated_refactor_possible && s.impact_score >= MARKDOWN_REPORT.MEDIUM_SCORE_MIN
+      );
+
+      if (automatable.length > 0) {
         logger.info({
           jobId: job.id,
           repository: repositoryConfig.name,
-          suggestions: result.suggestions.length
-        }, 'Creating PRs for consolidation suggestions');
+          automatable: automatable.length
+        }, 'Applying consolidation suggestions to working directory');
 
-        prResults = await this.prCreator.createPRsForSuggestions(result as never, repoPath);
-
-        this.scanMetrics.prsCreated += prResults.prsCreated;
-
-        if (prResults.errors.length > 0) {
-          this.scanMetrics.prCreationErrors += prResults.errors.length;
-          logger.warn({
-            errors: prResults.errors
-          }, 'Some PRs failed to create');
-        }
-
-        logger.info({
-          prsCreated: prResults.prsCreated,
-          prUrls: prResults.prUrls,
-          errors: prResults.errors.length
-        }, 'PR creation completed');
-
-        this.emit('pr:created', {
-          jobId: job.id,
-          repository: repositoryConfig.name,
-          prsCreated: prResults.prsCreated,
-          prUrls: prResults.prUrls
-        });
-
-      } catch (error) {
-        logError(logger, error, 'Failed to create PRs for suggestions');
-        this.scanMetrics.prCreationErrors++;
-        Sentry.captureException(error, {
-          tags: {
-            component: 'pr-creation',
-            repository: repositoryConfig.name
-          }
-        });
-
-        this.emit('pr:failed', {
-          jobId: job.id,
-          repository: repositoryConfig.name,
-          error: (error as Error).message
-        });
+        await this._applySuggestions(automatable, repoPath);
+        suggestionsApplied = automatable.length;
+        automatedSuggestions = automatable;
+        this.scanMetrics.prsCreated++;  // Will be created by centralized workflow
       }
     }
 
@@ -415,8 +400,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
       jobId: job.id,
       scanType: 'intra-project',
       repository: repositoryConfig.name,
-      metrics: result.metrics,
-      prResults
+      metrics: result.metrics
     });
 
     return {
@@ -426,11 +410,8 @@ export class DuplicateDetectionWorker extends SidequestServer {
       suggestions: result.metrics.total_suggestions ?? 0,
       duration: result.scan_metadata?.duration_seconds ?? 0,
       reportPaths,
-      prResults: prResults ? {
-        prsCreated: prResults.prsCreated,
-        prUrls: prResults.prUrls,
-        errors: prResults.errors.length
-      } : null
+      suggestionsApplied,
+      automatedSuggestions
     };
   }
 
@@ -539,12 +520,18 @@ export class DuplicateDetectionWorker extends SidequestServer {
    */
   scheduleScan(scanType: string, repositories: RepositoryConfig[], groupName: string | null = null): Job {
     const jobId = this.createScanJobId(scanType);
-    const jobData = {
+    const jobData: Record<string, unknown> = {
       scanType,
       repositories,
       groupName,
       type: 'duplicate-detection'
     };
+
+    // Centralized git workflow requires a single repositoryPath on job.data.
+    // Only intra-project scans operate on a single repo, so only set it then.
+    if (scanType === 'intra-project' && repositories[0]?.path) {
+      jobData.repositoryPath = repositories[0].path;
+    }
 
     return this.createJob(jobId, jobData);
   }
@@ -626,6 +613,153 @@ export class DuplicateDetectionWorker extends SidequestServer {
       individualScans: repositoriesToScan.length,
       groupScans: scheduledGroupScans
     });
+  }
+
+  /**
+   * Apply automatable suggestions to the working directory (no git ops).
+   * Called before the centralized git workflow commits and pushes changes.
+   */
+  private async _applySuggestions(suggestions: Suggestion[], repositoryPath: string): Promise<string[]> {
+    const filesModified: string[] = [];
+
+    for (const suggestion of suggestions) {
+      try {
+        if (suggestion.target_location && suggestion.proposed_implementation) {
+          const targetPath = path.join(repositoryPath, suggestion.target_location);
+          await fs.mkdir(path.dirname(targetPath), { recursive: true });
+          await fs.writeFile(targetPath, suggestion.proposed_implementation, 'utf-8');
+          filesModified.push(suggestion.target_location);
+          logger.info({ file: suggestion.target_location, suggestionId: suggestion.suggestion_id }, 'Created consolidated file');
+        }
+
+        if (suggestion.migration_steps && suggestion.migration_steps.length > 0) {
+          try {
+            const migrationResult = await this.migrationTransformer.applyMigrationSteps(suggestion, repositoryPath);
+
+            for (const file of migrationResult.filesModified) {
+              if (!filesModified.includes(file)) {
+                filesModified.push(file);
+              }
+            }
+
+            if (migrationResult.errors.length > 0) {
+              logger.warn({ errors: migrationResult.errors }, 'Some migration transformations failed');
+            }
+          } catch (migrationError) {
+            logError(logger, migrationError, 'Failed to apply migration steps', { suggestionId: suggestion.suggestion_id });
+            Sentry.captureException(migrationError, {
+              tags: { component: 'duplicate-detection', operation: 'apply-migration-steps' },
+              extra: { suggestionId: suggestion.suggestion_id, repositoryPath }
+            });
+          }
+        }
+      } catch (error) {
+        logError(logger, error, 'Failed to apply suggestion', { suggestionId: suggestion.suggestion_id });
+      }
+    }
+
+    return filesModified;
+  }
+
+  /**
+   * Override: consolidation-specific commit message
+   */
+  public override async _generateCommitMessage(_job: Job): Promise<{ title: string; body: string }> {
+    const result = _job.result as IntraProjectScanResult | undefined;
+    const count = result?.suggestionsApplied ?? 0;
+    const suggestions = result?.automatedSuggestions ?? [];
+
+    return {
+      title: `refactor: consolidate ${count} duplicate code pattern${count !== 1 ? 's' : ''}`,
+      body: [
+        `Consolidates ${count} identified duplicate code pattern${count !== 1 ? 's' : ''}.`,
+        '',
+        ...suggestions.map(
+          (s, i) => `${i + 1}. ${s.target_name ?? s.suggestion_id}: ${s.strategy_rationale.substring(0, STRATEGY_RATIONALE_PREVIEW_CHARS)}...`
+        ),
+        '',
+        'Co-Authored-By: Claude <noreply@anthropic.com>'
+      ].join('\n')
+    };
+  }
+
+  /**
+   * Override: consolidation-specific PR context with impact scores and migration notes
+   */
+  public override async _generatePRContext(
+    job: Job,
+    commitMessage?: { title: string; body: string }
+  ): Promise<{ branchName: string; title: string; body: string; labels: string[] }> {
+    const msg = commitMessage ?? await this._generateCommitMessage(job);
+    const result = job.result as IntraProjectScanResult | undefined;
+    const suggestions = result?.automatedSuggestions ?? [];
+    const filesModified = job.git.changedFiles ?? [];
+    const count = suggestions.length;
+
+    const consolidationsSection = suggestions.map((s, i) => [
+      `### ${i + 1}. ${s.target_name ?? s.suggestion_id}`,
+      '',
+      `**Strategy:** ${s.strategy ?? 'N/A'}`,
+      `**Impact Score:** ${s.impact_score}/100`,
+      `**Complexity:** ${s.complexity ?? 'N/A'}`,
+      `**Risk:** ${s.migration_risk ?? 'N/A'}`,
+      '',
+      `**Rationale:** ${s.strategy_rationale}`,
+      '',
+      `**Target Location:** \`${s.target_location ?? 'N/A'}\``,
+      '',
+      s.migration_steps.length > 0 ? '**Migration Steps:**' : '',
+      ...s.migration_steps.map(step => `${step.step_number}. ${step.description}`),
+      ''
+    ].join('\n')).join('\n');
+
+    const usageSection = suggestions
+      .filter(s => s.usage_example)
+      .map(s => [
+        `### ${s.target_name ?? s.suggestion_id} Usage`,
+        '',
+        '```javascript',
+        s.usage_example,
+        '```',
+        ''
+      ].join('\n'))
+      .join('\n');
+
+    const body = [
+      '## Summary',
+      '',
+      `This PR consolidates ${count} identified duplicate code pattern${count !== 1 ? 's' : ''} to improve code maintainability and reduce duplication.`,
+      '',
+      '## Consolidations',
+      '',
+      consolidationsSection,
+      '## Files Modified',
+      '',
+      ...filesModified.map(f => `- \`${f}\``),
+      '',
+      '## Testing',
+      '',
+      '- [ ] Unit tests pass',
+      '- [ ] Integration tests pass',
+      '- [ ] Manual testing completed',
+      '- [ ] Code review completed',
+      '',
+      '## Migration Notes',
+      '',
+      'This PR creates consolidated utility files. Migration of existing code to use these utilities should be done in follow-up PRs.',
+      '',
+      usageSection,
+      '---',
+      '',
+      'Generated with [Claude Code](https://claude.com/claude-code)'
+    ].join('\n');
+
+    return {
+      branchName: job.git.branchName ?? '',
+      title: msg.title,
+      body,
+      labels: ['automated', 'refactoring', 'duplicate-detection']
+    };
   }
 
   /**

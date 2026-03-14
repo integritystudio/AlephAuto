@@ -275,3 +275,19 @@ Migrate the last 2 pipelines (Repomix, Duplicate Detection) to `BasePipeline`. C
 | ID | Priority | Description |
 |----|----------|-------------|
 | BP-L1 | P3 | Migrate `duplicate-detection-pipeline.ts` to `DuplicateDetectionPipeline extends BasePipeline<DuplicateDetectionWorker>`. Requires adding optional `async initialize()` hook to `BasePipeline`. Only real benefit is `scheduleCron()` consistency — pipeline uses none of the completion-tracking methods. ~43 lines saved. Acceptable to leave functional if the `initialize()` hook isn't justified. |
+
+---
+
+## Duplicate Detection — Centralized Git Workflow (2026-03-13)
+
+<a id="duplicate-detection-centralized-git-workflow-2026-03-13"></a>
+
+Replace custom `PRCreator` (434 lines) with centralized `BranchManager` + `SidequestServer` git workflow. Single PR per scan instead of batched PRs. ~382 lines saved.
+
+> **Implementation doc:** [MIGRATE_DD_GIT_TO_CENTRALIZED.md](architecture/MIGRATE_DD_GIT_TO_CENTRALIZED.md)
+
+### Done
+
+| ID | Priority | Description |
+|----|----------|-------------|
+| DD-GW1 | P2 | Move `_applySuggestions()` + `MigrationTransformer` from `PRCreator` to `DuplicateDetectionWorker`. Enable centralized git workflow (`gitWorkflowEnabled` mapped from `ENABLE_PR_CREATION`). Override `_generateCommitMessage()` and `_generatePRContext()` for consolidation-specific formats. Delete `pr-creator.ts`. Update pipeline-data-flow catalog. ~382 lines saved. |

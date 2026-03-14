@@ -43,7 +43,7 @@ describe('DuplicateDetectionWorker', () => {
       assert.ok(worker.interProjectScanner);
       assert.ok(worker.orchestrator);
       assert.ok(worker.reportCoordinator);
-      assert.ok(worker.prCreator);
+      assert.ok(worker.migrationTransformer);
     });
 
     it('should initialize scan metrics', () => {
@@ -75,20 +75,20 @@ describe('DuplicateDetectionWorker', () => {
       assert.ok(worker.configLoader);
     });
 
-    it('should accept custom baseBranch for PR creator', () => {
+    it('should accept custom baseBranch', () => {
       const worker = new DuplicateDetectionWorker({
         baseBranch: 'develop'
       });
 
-      assert.ok(worker.prCreator);
+      assert.strictEqual(worker.gitBaseBranch, 'develop');
     });
 
-    it('should accept custom branchPrefix for PR creator', () => {
+    it('should accept custom branchPrefix', () => {
       const worker = new DuplicateDetectionWorker({
         branchPrefix: 'refactor'
       });
 
-      assert.ok(worker.prCreator);
+      assert.strictEqual(worker.gitBranchPrefix, 'refactor');
     });
 
     it('should accept dryRun option', () => {
@@ -96,15 +96,7 @@ describe('DuplicateDetectionWorker', () => {
         dryRun: true
       });
 
-      assert.ok(worker.prCreator);
-    });
-
-    it('should accept maxSuggestionsPerPR option', () => {
-      const worker = new DuplicateDetectionWorker({
-        maxSuggestionsPerPR: 10
-      });
-
-      assert.ok(worker.prCreator);
+      assert.strictEqual(worker.gitDryRun, true);
     });
 
     it('should accept enablePRCreation option', () => {
