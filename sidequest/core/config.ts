@@ -79,6 +79,9 @@ function safeParseRetentionByType(value: string | undefined): Record<string, num
   }
 }
 
+// Cache for apiKey — frozen on first read to prevent TOCTOU attacks.
+let _cachedApiKey: string | null | undefined = undefined;
+
 /**
  * Centralized configuration for AlephAuto
  * All paths are resolved to absolute paths for consistency
@@ -285,12 +288,14 @@ export const config = {
   homeDir: process.env.HOME || os.homedir(),
 
   // API key for authenticating protected API endpoints.
-  // Implemented as a getter so test overrides of process.env.API_KEY take effect.
+  // Cached after first read to prevent TOCTOU: runtime process.env mutation cannot
+  // swap the secret mid-flight. Use resetApiKeyCache() in tests that need fresh reads.
   get apiKey(): string | null {
+    if (_cachedApiKey !== undefined) return _cachedApiKey;
     const value = process.env.API_KEY;
-    if (!value) return null;
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
+    const trimmed = value?.trim() ?? '';
+    _cachedApiKey = trimmed.length > 0 ? trimmed : null;
+    return _cachedApiKey;
   },
 };
 
@@ -369,5 +374,13 @@ function validateConfig(): void {
 
 // Validate on import
 validateConfig();
+
+/**
+ * Reset the cached API key. For use in tests only — clears the frozen value so
+ * the next access re-reads process.env.API_KEY.
+ */
+export function resetApiKeyCache(): void {
+  _cachedApiKey = undefined;
+}
 
 export default config;

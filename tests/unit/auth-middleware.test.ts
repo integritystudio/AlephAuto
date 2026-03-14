@@ -7,7 +7,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { authMiddleware } from '../../api/middleware/auth.ts';
-import { config } from '../../sidequest/core/config.ts';
+import { config, resetApiKeyCache } from '../../sidequest/core/config.ts';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
 
 function createRequest(overrides = {}) {
@@ -42,6 +42,7 @@ describe('authMiddleware', () => {
     originalApiKey = process.env.API_KEY;
     originalNodeEnv = config.nodeEnv;
     delete process.env.API_KEY;
+    resetApiKeyCache();
     config.nodeEnv = 'production';
   });
 
@@ -51,6 +52,7 @@ describe('authMiddleware', () => {
     } else {
       process.env.API_KEY = originalApiKey;
     }
+    resetApiKeyCache();
     config.nodeEnv = originalNodeEnv;
   });
 
