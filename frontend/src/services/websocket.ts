@@ -46,6 +46,23 @@ type OutboundMessage =
 
 const logger = createLogger('WebSocket');
 
+const VALID_WS_MESSAGE_TYPES = new Set<string>([
+  'connected', 'subscribed', 'pong',
+  'job:created', 'job:started', 'job:progress',
+  'job:completed', 'job:failed', 'job:cancelled',
+  'pipeline:status', 'system:status', 'activity:new', 'error',
+]);
+
+function isWebSocketMessage(value: unknown): value is WebSocketMessage {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'type' in value &&
+    typeof (value as Record<string, unknown>).type === 'string' &&
+    VALID_WS_MESSAGE_TYPES.has((value as Record<string, unknown>).type as string)
+  );
+}
+
 /**
  * WebSocket Service
  *
@@ -93,8 +110,12 @@ class WebSocketService {
 
     this.socket.onmessage = (event) => {
       try {
-        const message = JSON.parse(event.data);
-        this.handleMessage(message);
+        const raw: unknown = JSON.parse(event.data);
+        if (!isWebSocketMessage(raw)) {
+          logger.error('Unexpected WebSocket message shape:', raw);
+          return;
+        }
+        this.handleMessage(raw);
       } catch (error) {
         logger.error('Failed to parse message:', error);
       }
