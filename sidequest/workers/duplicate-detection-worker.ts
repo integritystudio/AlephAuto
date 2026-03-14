@@ -389,9 +389,10 @@ export class DuplicateDetectionWorker extends SidequestServer {
           automatable: automatable.length
         }, 'Applying consolidation suggestions to working directory');
 
-        await this._applySuggestions(automatable, repoPath);
+        const filesWritten = await this._applySuggestions(automatable, repoPath);
         suggestionsApplied = automatable.length;
         automatedSuggestions = automatable;
+        logger.info({ filesWritten: filesWritten.length, suggestionsApplied }, 'Applied consolidation suggestions; centralized workflow will commit and push');
         this.scanMetrics.prsCreated++;  // Will be created by centralized workflow
       }
     }
@@ -625,11 +626,16 @@ export class DuplicateDetectionWorker extends SidequestServer {
     for (const suggestion of suggestions) {
       try {
         if (suggestion.target_location && suggestion.proposed_implementation) {
-          const targetPath = path.join(repositoryPath, suggestion.target_location);
-          await fs.mkdir(path.dirname(targetPath), { recursive: true });
-          await fs.writeFile(targetPath, suggestion.proposed_implementation, 'utf-8');
-          filesModified.push(suggestion.target_location);
-          logger.info({ file: suggestion.target_location, suggestionId: suggestion.suggestion_id }, 'Created consolidated file');
+          const resolvedRepo = path.resolve(repositoryPath);
+          const targetPath = path.resolve(repositoryPath, suggestion.target_location);
+          if (!targetPath.startsWith(resolvedRepo + path.sep) && targetPath !== resolvedRepo) {
+            logger.warn({ suggestionId: suggestion.suggestion_id, target_location: suggestion.target_location }, 'Rejecting out-of-bounds target_location');
+          } else {
+            await fs.mkdir(path.dirname(targetPath), { recursive: true });
+            await fs.writeFile(targetPath, suggestion.proposed_implementation, 'utf-8');
+            filesModified.push(suggestion.target_location);
+            logger.info({ file: suggestion.target_location, suggestionId: suggestion.suggestion_id }, 'Created consolidated file');
+          }
         }
 
         if (suggestion.migration_steps && suggestion.migration_steps.length > 0) {
@@ -674,9 +680,13 @@ export class DuplicateDetectionWorker extends SidequestServer {
       body: [
         `Consolidates ${count} identified duplicate code pattern${count !== 1 ? 's' : ''}.`,
         '',
-        ...suggestions.map(
-          (s, i) => `${i + 1}. ${s.target_name ?? s.suggestion_id}: ${s.strategy_rationale.substring(0, STRATEGY_RATIONALE_PREVIEW_CHARS)}...`
-        ),
+        ...suggestions.map((s, i) => {
+          const rationale = s.strategy_rationale;
+          const preview = rationale.length > STRATEGY_RATIONALE_PREVIEW_CHARS
+            ? rationale.substring(0, STRATEGY_RATIONALE_PREVIEW_CHARS) + '...'
+            : rationale;
+          return `${i + 1}. ${s.target_name ?? s.suggestion_id}: ${preview}`;
+        }),
         '',
         'Co-Authored-By: Claude <noreply@anthropic.com>'
       ].join('\n')
