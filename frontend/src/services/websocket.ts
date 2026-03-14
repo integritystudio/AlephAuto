@@ -6,7 +6,7 @@
  */
 
 import { useDashboardStore } from '../store/dashboard';
-import { ActivityType } from '../types';
+import { ActivityType, PipelineStatus } from '../types';
 import type { Job, Pipeline, ActivityItem, SystemStatus } from '../types';
 import { ACTIVITY_TYPE_MAP } from '../hooks/useWebSocketConnection';
 import { createLogger } from '../utils/logger';
@@ -296,7 +296,7 @@ class WebSocketService {
 
     // Update pipeline status
     store.updatePipeline(job.pipelineId, {
-      status: 'running' as any,
+      status: PipelineStatus.RUNNING,
       currentJob: job.id,
     });
 
@@ -357,7 +357,7 @@ class WebSocketService {
 
     // Update pipeline status
     store.updatePipeline(job.pipelineId, {
-      status: 'failed' as any,
+      status: PipelineStatus.FAILED,
       lastError: job.error,
     });
 

@@ -32,6 +32,14 @@ objects instead. Import paths must use `.ts` extensions (Node v24 does not rewri
 
 **Affected versions:** Node v24.x, PM2 6.x. Not observed on Node v25.x.
 
+### SC-L5: `_generateCommitMessage`/`_generatePRContext` public on `server.ts`
+
+Should be `protected`; currently exposed on external API surface. Skipped — 6+ test call sites require public access.
+
+### SU-FR-M4: Unnecessary `as readonly string[]` cast on `METRIC_KEYS`
+
+`report-generator.ts:361` — Reverted by linter; cast required by project lint rules. Accepted as-is.
+
 ---
 
 ## Open Findings — Remaining Magic Numbers (2026-03-06)
@@ -142,9 +150,9 @@ No active medium-priority backlog items.
 
 ### Low
 
-| ID | File | Title | Description |
-|----|------|-------|-------------|
-| SC-L5 | `server.ts` | `_generateCommitMessage`/`_generatePRContext` public | Should be `protected`; currently exposed on external API surface. Skipped — 6+ test call sites require public access. |
+No active low-priority backlog items.
+
+> SC-L5 moved to [Known Issues](#known-issues).
 
 ---
 
@@ -152,26 +160,7 @@ No active medium-priority backlog items.
 
 Session code-reviewer findings from SC backlog implementation batch. Medium/Low items deferred for future refactoring.
 
-### Done
-
-| ID | File | Title | Fix |
-|----|------|-------|-----|
-| SC-M7 | `constants.ts:32-33` | `TIME_MS.MS` multiplication semantically inert | Resolved when DURATION_MS group introduced — uses `TIME_MS.SECOND / 100` semantic divisions |
-| SC-M8 | `database.ts:307` | `saveJob` lacks JSON validation like `bulkImportJobs` | JSON validation guard already present (lines 318-324) |
-| SC-L7 | `units.ts:42` | `EXPORT_MAX_BATCH_SIZE_LIMIT` is unused export | Removed from units.ts as part of SC-L6 |
-
-### Done
-
-| ID | File | Title | Fix |
-|----|------|-------|-----|
-| SC-L8 | `database.ts:180-187` | `isValidJsonString` duplicates `safeJsonParse` logic | Both already delegate to `tryParseJson`; no duplication remains |
-| SC-L9 | `database.ts` | Missing unit tests for SC-M1/SC-M2 data-integrity paths | Tests present in `tests/unit/database.test.ts:137-178` (saveJob rejection cases) |
-
-### Open — Final Review Findings (2026-03-09)
-
-| ID | Priority | File | Title | Description |
-|----|----------|------|-------|-------------|
-| SU-FR-M4 | Low | `report-generator.ts:361` | Unnecessary `as readonly string[]` cast on `METRIC_KEYS` | Reverted by linter; cast required by project lint rules. Accepted as-is. |
+> SU-FR-M4 moved to [Known Issues](#known-issues).
 
 ---
 
@@ -228,38 +217,9 @@ Code review of merge commit `86fbc07` (main into feature/quality-fixes). 3 High 
 
 | ID | Priority | File | Title | Description |
 |----|----------|------|-------|-------------|
-| QF-M4 | P2 | `api/routes/pipelines.ts:280` | Queue depth guard throws plain Error instead of 429 | Done — c00ef5f, 4c20f95 |
-| QF-M5 | P2 | `sidequest/utils/doppler-resilience.ts:165` | getFallbackSecrets null guard reachable on non-stale path | Done — 9006bce |
-| QF-M6 | P2 | `frontend/src/services/websocket.ts:87` | `handleMessage(message: any)` uses untyped any | Done — `WebSocketMessage`/`OutboundMessage`/`ActivityEventPayload` discriminated unions added |
-| QF-M7 | P2 | `sidequest/utils/refactor-test-suite.ts:978` | render-helpers.ts missing existence guard — silently overwrites | Done — fd8b213 (already fixed) |
-| QF-M8 | P2 | `frontend/vite.config.ts:8` | Vite proxy port hardcoded to 3002 | Done — 03d54bb, 34574d9 |
-| QF-M9 | P2 | `sidequest/pipeline-core/reports/html-report-generator.ts:177,319-342` | HTML string interpolation without escaping XSS vectors | Done — 928ae85, 8517352 |
-| QF-M10 | P2 | `sidequest/utils/html-report-utils.ts:11` | escapeHtml accepts string but callers pass JSON-sourced values | Done — 928ae85, 8517352 |
-
-### Done
-
-| ID | Priority | File | Title | Commit |
-|----|----------|------|-------|--------|
-| QF-L9 | P3 | `api/utils/worker-registry.ts:594` | getTotalCapacity recomputes on every /api/status request | 8a08ebc |
-| QF-L10 | P3 | `sidequest/pipeline-core/git/migration-ast-transformer.ts:200` | Import inserted before 'use strict' directive | 8a08ebc |
-| QF-L11 | P3 | `sidequest/utils/html-report-utils.ts:49` | Scan-specific CSS uses hardcoded px values | 0320457 |
-| QF-L12 | P3 | `frontend/src/utils/logger.ts:12` | error() logs unconditionally in production | 8a08ebc |
-| QF-L13 | P3 | `sidequest/pipeline-core/git/migration-file-resolver.ts:64` | Redundant map lookup in condition | 8a08ebc |
-| QF-L14 | P3 | `sidequest/pipeline-core/config/repository-config-loader.ts:17` | Double blank line after section header removal | 8a08ebc |
+| QF-M11 | P2 | `frontend/src/services/websocket.ts:94-100` | JSON.parse result cast to `WebSocketMessage` type without runtime schema validation | Done — 0d65fae, c679137. Added `isWebSocketMessage` type guard + `VALID_WS_MESSAGE_TYPES: Set<WebSocketMessageType>`; compiler enforces parity with union. |
 
 ---
-
-## Documentation Audit — Pipeline Count Ambiguity (2026-03-12)
-
-<a id="doc-audit-pipeline-count"></a>
-
-Source: pipeline-core repomix analysis + README/CLAUDE.md cross-reference audit.
-
-### Medium
-
-| ID | Priority | File | Title | Description |
-|----|----------|------|-------|-------------|
-| DA-M1 | P2 | `sidequest/workers/repomix-worker.ts`, `sidequest/pipeline-runners/` | Repomix worker has no corresponding pipeline-runner | Done — ed7e00f. Investigation: Repomix uses direct worker-registry registration (no BasePipeline runner). Intentional divergence documented in CLAUDE.md. |
 
 ---
 

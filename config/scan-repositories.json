@@ -21,7 +21,7 @@
   "repositories": [
     {
       "name": "sidequest",
-      "path": "~/code/jobs/sidequest",
+      "path": "/Users/alyshialedlie/code/jobs/sidequest",
       "priority": "high",
       "scanFrequency": "daily",
       "enabled": true,
@@ -31,11 +31,34 @@
       ],
       "excludePatterns": [
         "*.test.js",
-        "*.spec.js",
-        "pipeline-core/**"
+        "*.spec.js"
       ],
-      "lastScannedAt": "2026-03-11T07:00:04.579Z",
+      "lastScannedAt": "2026-03-13T07:00:05.607Z",
       "scanHistory": [
+        {
+          "timestamp": "2026-03-13T07:00:05.607Z",
+          "status": "success",
+          "duration": 5.041,
+          "duplicatesFound": 0
+        },
+        {
+          "timestamp": "2026-03-13T07:00:04.540Z",
+          "status": "success",
+          "duration": 3.975,
+          "duplicatesFound": 0
+        },
+        {
+          "timestamp": "2026-03-12T07:00:05.302Z",
+          "status": "success",
+          "duration": 4.28,
+          "duplicatesFound": 0
+        },
+        {
+          "timestamp": "2026-03-12T07:00:04.263Z",
+          "status": "success",
+          "duration": 3.246,
+          "duplicatesFound": 0
+        },
         {
           "timestamp": "2026-03-11T07:00:04.579Z",
           "status": "success",
@@ -71,36 +94,12 @@
           "status": "success",
           "duration": 109.69,
           "duplicatesFound": 0
-        },
-        {
-          "timestamp": "2026-02-25T07:01:04.057Z",
-          "status": "success",
-          "duration": 63.23,
-          "duplicatesFound": 3
-        },
-        {
-          "timestamp": "2026-02-24T07:03:43.600Z",
-          "status": "success",
-          "duration": 221.818,
-          "duplicatesFound": 0
-        },
-        {
-          "timestamp": "2026-02-24T07:02:09.149Z",
-          "status": "success",
-          "duration": 127.361,
-          "duplicatesFound": 3
-        },
-        {
-          "timestamp": "2026-02-23T07:01:42.203Z",
-          "status": "success",
-          "duration": 101,
-          "duplicatesFound": 0
         }
       ]
     },
     {
       "name": "pipeline-core",
-      "path": "~/code/jobs/sidequest/pipeline-core",
+      "path": "/Users/alyshialedlie/code/jobs/sidequest/pipeline-core",
       "priority": "high",
       "scanFrequency": "daily",
       "enabled": true,
@@ -112,8 +111,32 @@
         "*.test.js",
         "*.spec.js"
       ],
-      "lastScannedAt": "2026-03-11T07:00:04.579Z",
+      "lastScannedAt": "2026-03-13T07:00:05.608Z",
       "scanHistory": [
+        {
+          "timestamp": "2026-03-13T07:00:05.608Z",
+          "status": "success",
+          "duration": 5.041,
+          "duplicatesFound": 0
+        },
+        {
+          "timestamp": "2026-03-13T07:00:04.541Z",
+          "status": "success",
+          "duration": 3.973,
+          "duplicatesFound": 0
+        },
+        {
+          "timestamp": "2026-03-12T07:00:05.302Z",
+          "status": "success",
+          "duration": 4.28,
+          "duplicatesFound": 0
+        },
+        {
+          "timestamp": "2026-03-12T07:00:04.265Z",
+          "status": "success",
+          "duration": 3.241,
+          "duplicatesFound": 0
+        },
         {
           "timestamp": "2026-03-11T07:00:04.579Z",
           "status": "success",
@@ -149,36 +172,12 @@
           "status": "success",
           "duration": 109.69,
           "duplicatesFound": 0
-        },
-        {
-          "timestamp": "2026-02-25T07:01:02.623Z",
-          "status": "success",
-          "duration": 61.706,
-          "duplicatesFound": 0
-        },
-        {
-          "timestamp": "2026-02-24T07:03:43.723Z",
-          "status": "success",
-          "duration": 221.818,
-          "duplicatesFound": 0
-        },
-        {
-          "timestamp": "2026-02-24T07:02:06.915Z",
-          "status": "success",
-          "duration": 124.991,
-          "duplicatesFound": 0
-        },
-        {
-          "timestamp": "2026-02-23T07:01:42.238Z",
-          "status": "success",
-          "duration": 101,
-          "duplicatesFound": 0
         }
       ]
     },
     {
       "name": "tests",
-      "path": "~/code/jobs/tests",
+      "path": "/Users/alyshialedlie/code/jobs/tests",
       "priority": "low",
       "scanFrequency": "weekly",
       "enabled": false,

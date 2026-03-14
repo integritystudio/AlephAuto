@@ -6,6 +6,48 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.28] - 2026-03-13
+
+### Summary
+
+Code quality backfill: import placement fix, CSS variable consolidation, redundant map lookups, caching optimization, error logging documentation, duplicate code verification, and validation gap closures. All items from Quality Fixes, Sidequest/Core follow-up, and Documentation Audit backlogs resolved.
+
+### Fixed
+
+**Code Quality & Caching** (QF-L9, QF-L10, QF-L11, QF-L12, QF-L13, QF-L14)
+- **QF-L9:** `api/utils/worker-registry.ts` — getTotalCapacity() was recomputing enabled pipeline capacity on every `/api/status` request. Added `_cachedTotalCapacity` field; result is cached on first call since PIPELINE_CONFIGS.disabled is never mutated at runtime.
+- **QF-L10:** `sidequest/pipeline-core/git/migration-ast-transformer.ts` — Import insertion was placed at position 0 before 'use strict' directives, violating spec compliance. Changed from `unshift()` to `splice()` after finding first non-directive node; uses `ast.program.body.length` fallback when all nodes are directives.
+- **QF-L11:** `sidequest/utils/html-report-utils.ts` — getScanReportStyles() used 15+ hardcoded px values while getBaseStyles() uses CSS variables for design tokens. Added `--space-10: 10px` and `--radius-xs: 4px` variables; replaced all compatible hardcoded values to maintain consistent design system.
+- **QF-L12:** `frontend/src/utils/logger.ts` — error() logs unconditionally in production (design choice). Added explanatory comment: "error() always logs — errors should be visible in production for debugging" to document intentional asymmetry vs log()/warn().
+- **QF-L13:** `sidequest/pipeline-core/git/migration-file-resolver.ts` — Redundant Map.get(step.index) calls in same condition. Extracted to variable: `const resolvedPaths = resolved.get(step.index) ?? []` to avoid duplicate lookups.
+- **QF-L14:** `sidequest/pipeline-core/config/repository-config-loader.ts` — Formatting inconsistency (double blank line after const logger). Removed extra blank line.
+
+**Type Safety & Documentation** (QF-M6)
+- **QF-M6:** `frontend/src/services/websocket.ts` — handleMessage(message: any) used untyped any. Added discriminated union types: `WebSocketMessage`, `OutboundMessage`, `ActivityEventPayload` with proper type guards for all message shapes.
+
+**Sidequest/Core Validation** (SC-M7, SC-M8, SC-L7, SC-L8, SC-L9)
+- **SC-M7:** `sidequest/core/constants.ts` — TIME_MS.MS multiplication semantically inert; resolved when DURATION_MS group introduced with `TIME_MS.SECOND / 100` semantic divisions.
+- **SC-M8:** `sidequest/core/database.ts` — saveJob() lacked JSON validation parity with bulkImportJobs. Verification: JSON validation guard already present (lines 318-324); no gap found.
+- **SC-L7:** `sidequest/core/units.ts` — EXPORT_MAX_BATCH_SIZE_LIMIT unused export. Removed as part of SC-L6 consolidation.
+- **SC-L8:** `sidequest/core/database.ts` — isValidJsonString duplicates safeJsonParse logic. Verification: both delegate to tryParseJson; no duplication remains.
+- **SC-L9:** `sidequest/core/database.ts` — Missing unit tests for SC-M1/SC-M2 data-integrity paths. Verification: tests present in tests/unit/database.test.ts:137-178 (saveJob rejection cases).
+
+**Documentation** (DA-M1)
+- **DA-M1:** `sidequest/workers/repomix-worker.ts` — Repomix worker had no corresponding pipeline-runner. Investigation: Repomix uses direct worker-registry registration (no BasePipeline runner). Intentional divergence documented in CLAUDE.md as architectural choice for standalone workers.
+
+### Validation
+
+- `npm run typecheck` (pass)
+- `npm test` — 1251/1251 pass
+
+### Commits
+
+- 8a08ebc — fix(quality): getTotalCapacity caching, import directive ordering, logger comment, map lookup, formatting
+- 0320457 — fix(css): consolidate hardcoded px values to CSS variables in getScanReportStyles
+- ed7e00f — docs(DA-M1): document Repomix worker architecture divergence
+
+---
+
 ## [2.3.27] - 2026-03-11
 
 ### Summary
