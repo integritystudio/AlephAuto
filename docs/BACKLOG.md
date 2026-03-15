@@ -64,16 +64,8 @@ Tracking artifacts:
 
 `sidequest/pipeline-core/reports/html-report-sections.ts` exports 7 section generators + `isInterProject` with no test coverage. Add snapshot tests covering both intra-project and inter-project `ScanResult` inputs, empty arrays, missing metadata fallbacks, and invalid timestamp strings.
 
-#### ~~AG-M1-T2: Empty chart section renders when no suggestions~~
-
-~~`html-report-sections.ts:generateSummaryCharts` renders `<h2>` and empty `<div class="chart-bars">` containers when `total === 0`. Add early-return empty state matching the pattern used in `generateDuplicateGroups` and `generateSuggestions`.~~ **Done**
-
-#### ~~AG-M1-T3: DRY `isInterProject` across all report generators~~
-
-~~`json-report-generator.ts` and `markdown-report-generator.ts` still inline `const isInterProject = scanResult.scan_type === 'inter-project'`. Refactor to import the shared `isInterProject()` from `html-report-sections.ts` (or relocate it to a shared report utility).~~ **Done**
-
 > SV4-SV6 migrated to [v2.3.23](changelog/2.3/CHANGELOG.md#2323---2026-03-09).
-> AG-M1 review fixes (items 1-5) landed in `8a45998`.
+> AG-M1 review fixes and refactoring items migrated to [v2.3.31](changelog/2.3/CHANGELOG.md#2331---2026-03-15).
 
 ---
 
@@ -109,24 +101,6 @@ No active medium-priority backlog items.
 
 ---
 
-## Relocated Scripts — Dead Code / Staleness Audit (2026-03-15)
-
-<a id="scripts-audit"></a>
-
-8 setup scripts relocated from `docs/setup/` to `scripts/` in commit `30f0cde`. Audit for dead code, stale references, and continued relevance.
-
-### Low
-
-| ID | Priority | Description |
-|---|----------|-------------|
-| ~~SC-L1~~ | ~~P3~~ | ~~**Audit `scripts/logs/cron-setup.sh`** — Clean: no pipeline runner references to audit (script only manages log file cleanup via `find -delete`). No deleted pipeline references. Cron schedule (`0 2 * * *`) matches `update-cron.sh`. Note: this script is superseded by `update-cron.sh` which uses the enhanced `log-cleanup.sh` with archiving and summaries.~~ **Done** |
-| ~~SC-L2~~ | ~~P3~~ | ~~**Audit `scripts/setup/setup-sentry.js` / `scripts/setup/setup-doppler-sentry.js`** — Clean: no stale DSN values (runtime-prompted). Hardcoded `integrity-studio` project slug in `setup-doppler-sentry.js` matches current Doppler project. Both use current `@sentry/node` SDK patterns (`init`, `captureMessage`, `flush`). No deprecated APIs or stale paths.~~ **Done** |
-| ~~SC-L3~~ | ~~P3~~ | ~~**Audit `scripts/setup/configure-discord-alerts.js` / `scripts/setup/sentry-to-discord.js`** — Fixed: stale usage comment in `configure-discord-alerts.js` referenced `setup-files/` path; updated to `scripts/setup/`. Webhook URLs are env-driven (`DISCORD_SENTRY_WEBHOOK`, `SENTRY_TOKEN`), not hardcoded. No dead import paths — all imports are node builtins or npm packages. `sentry-to-discord.js` clean.~~ **Done** |
-| ~~SC-L4~~ | ~~P3~~ | ~~**Audit `scripts/logs/log-cleanup.sh` / `scripts/logs/weekly-log-summary.sh`** — Fixed: stale `setup-files/` usage comments updated to `scripts/logs/`; `weekly-log-summary.sh` called `docs/setup/log-cleanup.sh` (old path) — updated to `scripts/logs/log-cleanup.sh`. Log directory paths (`logs/`, `logs/archive/`, `logs/cleanup-logs/`) match current structure. No removed log formats referenced.~~ **Done** |
-| ~~SC-L5~~ | ~~P3~~ | ~~**Audit `scripts/logs/update-cron.sh`** — Fixed: cron entries pointed to old `docs/setup/` paths; updated to `scripts/logs/`. No `ecosystem.config.cjs` references needed (script only manages log cleanup cron, not PM2).~~ **Done** |
-
----
-
 ## Code Review Findings (2026-03-14)
 
 Code review of codebase via `repomix-git-ranked.xml`. Issues #6 (pipelineId extraction) and #7 (default error classification) addressed in session. Remaining 15 findings documented below.
@@ -157,11 +131,9 @@ Code review of `frontend/src/hooks/useWebSocketConnection.ts`. Critical and high
 
 ### Medium
 
-| ID | Priority | Description |
-|---|----------|-------------|
-| ~~FE-M1~~ | ~~P2~~ | ~~**Activity feed deduplication gap** — `mapApiActivity()` generates new `crypto.randomUUID()` on every poll for items with missing `id`, causing duplicates to accumulate. Fixed: fallback ID is now a deterministic template literal derived from `type`, `timestamp`, `jobId`, `pipelineId`. Test: `tests/unit/activity-stable-id.test.ts`.~~ **Done** |
-| ~~FE-M3~~ | ~~P2~~ | ~~**Unknown pipeline IDs silently misclassified** — `PIPELINE_TYPE_MAP[p.id] ?? PipelineType.DUPLICATE_DETECTION` defaults unknown pipelines to DUPLICATE_DETECTION. Add `UNKNOWN` variant or validate map on startup with warning. -- `frontend/src/hooks/useWebSocketConnection.ts:141`~~ **Done** |
+No active medium-priority backlog items.
 
+> FE-M1, FE-M3 migrated to [v2.3.31](changelog/2.3/CHANGELOG.md#2331---2026-03-15).
 > FE-M4, FE-M5, FE-L1 resolved in `e8c0fab` (type centralization refactor). Migrate to changelog with next version bump.
 
 ### Low

@@ -34,10 +34,32 @@ Feature completions: Full BasePipeline migration (all 11 pipelines), PostgreSQL 
 |---|----------|-------------|
 | FE-M2 | P2 | **Pipeline timestamps regenerate on every poll** — Fixed: `createdAt` now uses static `UNKNOWN_TIMESTAMP` sentinel; `updatedAt` uses `p.lastRun ?? UNKNOWN_TIMESTAMP` (stable, no per-poll `new Date()`). Prevents duplicate detection in activity feed and websocket message coalescing. |
 | AG-M1 (items 1-5) | P2 | **Code review fixes for html-report generation** — (1) Export `isInterProject` helper from `html-report-sections.ts`, use in `html-report-generator.ts` instead of raw string literal. (2) Make `ScanResult.scan_type` required (non-optional) on type definition. (3) Use `MARKDOWN_REPORT.PERCENTAGE_MULTIPLIER` instead of misleading `MAX_SCORE` for bar width calculation. (4) Extract `formatTimestamp` to shared `time-helpers.ts` utility with `isNaN` guard to prevent "Invalid Date" leaking into HTML. (5) Standardize timestamp handling across markdown and report generators; eliminate `Date.now()` fallback (use 'Unknown' instead). |
+| FE-M1 | P2 | **Activity feed deduplication gap** — `mapApiActivity()` generates new `crypto.randomUUID()` on every poll for items with missing `id`, causing duplicates to accumulate. Fixed: fallback ID is now a deterministic template literal derived from `type`, `timestamp`, `jobId`, `pipelineId`. Test: `tests/unit/activity-stable-id.test.ts`. |
+| FE-M3 | P2 | **Unknown pipeline IDs silently misclassified** — `PIPELINE_TYPE_MAP[p.id] ?? PipelineType.DUPLICATE_DETECTION` defaults unknown pipelines to DUPLICATE_DETECTION. Fixed: type centralization refactor in commit `e8c0fab`. |
+
+### Refactored
+
+| ID | Priority | Description |
+|---|----------|-------------|
+| AG-M1-T2 | P3 | **Empty chart section renders when no suggestions** — `html-report-sections.ts:generateSummaryCharts` renders `<h2>` and empty `<div class="chart-bars">` containers when `total === 0`. Fixed: add early-return empty state matching the pattern used in `generateDuplicateGroups` and `generateSuggestions`. |
+| AG-M1-T3 | P3 | **DRY `isInterProject` across all report generators** — `json-report-generator.ts` and `markdown-report-generator.ts` still inline `const isInterProject = scanResult.scan_type === 'inter-project'`. Fixed: refactored to import the shared `isInterProject()` from `html-report-sections.ts`. |
+
+### Audited (Scripts Relocation Post-Mortem)
+
+| ID | Priority | Description |
+|---|----------|-------------|
+| SC-L1 | P3 | **Audit `scripts/logs/cron-setup.sh`** — Clean: no pipeline runner references to audit (log cleanup only). Script is superseded by `update-cron.sh` but still functional. |
+| SC-L2 | P3 | **Audit `scripts/setup/setup-sentry.js` / `scripts/setup/setup-doppler-sentry.js`** — Clean: no stale DSN values (runtime-prompted). Hardcoded `integrity-studio` project slug matches current Doppler project. Both use current `@sentry/node` SDK patterns. |
+| SC-L3 | P3 | **Audit `scripts/setup/configure-discord-alerts.js` / `scripts/setup/sentry-to-discord.js`** — Fixed: stale usage comment in `configure-discord-alerts.js` referenced `setup-files/` path; updated to `scripts/setup/`. Webhook URLs are env-driven. No dead import paths. |
+| SC-L4 | P3 | **Audit `scripts/logs/log-cleanup.sh` / `scripts/logs/weekly-log-summary.sh`** — Fixed: stale `setup-files/` usage comments updated to `scripts/logs/`; `weekly-log-summary.sh` called `docs/setup/log-cleanup.sh` (old path) — updated to `scripts/logs/log-cleanup.sh`. Log directory paths match current structure. |
+| SC-L5 | P3 | **Audit `scripts/logs/update-cron.sh`** — Fixed: cron entries pointed to old `docs/setup/` paths; updated to `scripts/logs/`. No `ecosystem.config.cjs` references needed. |
 
 ### Changed
 
 - `time-helpers.ts` — Added `formatTimestamp(value: string | null | undefined): string` utility for consistent, safe timestamp rendering with invalid-date detection.
+- `scripts/setup/configure-discord-alerts.js` — Updated usage comment from `setup-files/` to `scripts/setup/`.
+- `scripts/logs/log-cleanup.sh`, `scripts/logs/weekly-log-summary.sh` — Updated stale paths and broken calls from `docs/setup/` to `scripts/logs/`.
+- `scripts/logs/update-cron.sh` — Updated cron entries from `docs/setup/` to `scripts/logs/`.
 
 ---
 
