@@ -303,7 +303,7 @@ export function calculateSemanticPenalty(
 export function calculateStructuralSimilarity(
   code1: string,
   code2: string,
-  threshold = STRUCTURAL_DEFAULTS.DEFAULT_SIMILARITY_THRESHOLD
+  threshold: number = STRUCTURAL_DEFAULTS.DEFAULT_SIMILARITY_THRESHOLD
 ): [number, string] {
   if (!code1 || !code2) return [0.0, 'different'];
 
@@ -341,7 +341,7 @@ export function calculateStructuralSimilarity(
 export function areStructurallySimilar(
   code1: string,
   code2: string,
-  threshold = STRUCTURAL_DEFAULTS.DEFAULT_SIMILARITY_THRESHOLD
+  threshold: number = STRUCTURAL_DEFAULTS.DEFAULT_SIMILARITY_THRESHOLD
 ): boolean {
   const [score] = calculateStructuralSimilarity(code1, code2, threshold);
   return score >= threshold;

@@ -17,74 +17,80 @@ import {
 // Enums
 // ---------------------------------------------------------------------------
 
-export enum LanguageType {
-  JAVASCRIPT = 'javascript',
-  TYPESCRIPT = 'typescript',
-  PYTHON = 'python',
-  JAVA = 'java',
-  GO = 'go',
-  RUST = 'rust',
-  C = 'c',
-  CPP = 'cpp',
-  CSHARP = 'csharp',
-  PHP = 'php',
-  RUBY = 'ruby',
-  KOTLIN = 'kotlin',
-  SWIFT = 'swift',
-  SCALA = 'scala',
-  VUE = 'vue',
-  SVELTE = 'svelte',
-  UNKNOWN = 'unknown',
-}
+export const LanguageType = {
+  JAVASCRIPT: 'javascript',
+  TYPESCRIPT: 'typescript',
+  PYTHON: 'python',
+  JAVA: 'java',
+  GO: 'go',
+  RUST: 'rust',
+  C: 'c',
+  CPP: 'cpp',
+  CSHARP: 'csharp',
+  PHP: 'php',
+  RUBY: 'ruby',
+  KOTLIN: 'kotlin',
+  SWIFT: 'swift',
+  SCALA: 'scala',
+  VUE: 'vue',
+  SVELTE: 'svelte',
+  UNKNOWN: 'unknown',
+} as const;
+export type LanguageType = (typeof LanguageType)[keyof typeof LanguageType];
 
-export enum SemanticCategory {
-  UTILITY = 'utility',
-  HELPER = 'helper',
-  VALIDATOR = 'validator',
-  API_HANDLER = 'api_handler',
-  AUTH_CHECK = 'auth_check',
-  DATABASE_OPERATION = 'database_operation',
-  ERROR_HANDLER = 'error_handler',
-  LOGGER = 'logger',
-  CONFIG_ACCESS = 'config_access',
-  FILE_OPERATION = 'file_operation',
-  ASYNC_PATTERN = 'async_pattern',
-  PROCESS_IO = 'process_io',
-  TIMING = 'timing',
-  TRACING = 'tracing',
-  UNKNOWN = 'unknown',
-}
+export const SemanticCategory = {
+  UTILITY: 'utility',
+  HELPER: 'helper',
+  VALIDATOR: 'validator',
+  API_HANDLER: 'api_handler',
+  AUTH_CHECK: 'auth_check',
+  DATABASE_OPERATION: 'database_operation',
+  ERROR_HANDLER: 'error_handler',
+  LOGGER: 'logger',
+  CONFIG_ACCESS: 'config_access',
+  FILE_OPERATION: 'file_operation',
+  ASYNC_PATTERN: 'async_pattern',
+  PROCESS_IO: 'process_io',
+  TIMING: 'timing',
+  TRACING: 'tracing',
+  UNKNOWN: 'unknown',
+} as const;
+export type SemanticCategory = (typeof SemanticCategory)[keyof typeof SemanticCategory];
 
-export enum SimilarityMethod {
-  EXACT_MATCH = 'exact_match',
-  STRUCTURAL = 'structural',
-  SEMANTIC = 'semantic',
-  HYBRID = 'hybrid',
-}
+export const SimilarityMethod = {
+  EXACT_MATCH: 'exact_match',
+  STRUCTURAL: 'structural',
+  SEMANTIC: 'semantic',
+  HYBRID: 'hybrid',
+} as const;
+export type SimilarityMethod = (typeof SimilarityMethod)[keyof typeof SimilarityMethod];
 
-export enum ConsolidationStrategy {
-  LOCAL_UTIL = 'local_util',
-  SHARED_PACKAGE = 'shared_package',
-  MCP_SERVER = 'mcp_server',
-  AUTONOMOUS_AGENT = 'autonomous_agent',
-  NO_ACTION = 'no_action',
-}
+export const ConsolidationStrategy = {
+  LOCAL_UTIL: 'local_util',
+  SHARED_PACKAGE: 'shared_package',
+  MCP_SERVER: 'mcp_server',
+  AUTONOMOUS_AGENT: 'autonomous_agent',
+  NO_ACTION: 'no_action',
+} as const;
+export type ConsolidationStrategy = (typeof ConsolidationStrategy)[keyof typeof ConsolidationStrategy];
 
-export enum ImplementationComplexity {
-  TRIVIAL = 'trivial',
-  SIMPLE = 'simple',
-  MODERATE = 'moderate',
-  COMPLEX = 'complex',
-  VERY_COMPLEX = 'very_complex',
-}
+export const ImplementationComplexity = {
+  TRIVIAL: 'trivial',
+  SIMPLE: 'simple',
+  MODERATE: 'moderate',
+  COMPLEX: 'complex',
+  VERY_COMPLEX: 'very_complex',
+} as const;
+export type ImplementationComplexity = (typeof ImplementationComplexity)[keyof typeof ImplementationComplexity];
 
-export enum MigrationRisk {
-  MINIMAL = 'minimal',
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  CRITICAL = 'critical',
-}
+export const MigrationRisk = {
+  MINIMAL: 'minimal',
+  LOW: 'low',
+  MEDIUM: 'medium',
+  HIGH: 'high',
+  CRITICAL: 'critical',
+} as const;
+export type MigrationRisk = (typeof MigrationRisk)[keyof typeof MigrationRisk];
 
 // ---------------------------------------------------------------------------
 // Interfaces

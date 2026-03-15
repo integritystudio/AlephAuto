@@ -18,11 +18,12 @@ describe('ScanOrchestrator', () => {
       assert.strictEqual(orchestrator.autoGenerateReports, true);
     });
 
-    it('should defer Python validation when not provided', () => {
+    it('should initialize without Python fields (migration to TS pipeline)', () => {
       const orchestrator = new ScanOrchestrator();
 
-      assert.strictEqual(orchestrator.pythonPath, null);
-      assert.strictEqual(orchestrator._pythonValidated, false);
+      // Python fields no longer exist after migration to TS pipeline
+      assert.strictEqual('pythonPath' in orchestrator, false);
+      assert.strictEqual('_pythonValidated' in orchestrator, false);
     });
 
     it('should pass scanner and detector options to sub-components', () => {
@@ -36,7 +37,7 @@ describe('ScanOrchestrator', () => {
     });
 
     // Parameterized single-option acceptance tests
-    type OrchestratorProp = 'pythonPath' | 'extractorScript' | 'outputDir' | 'autoGenerateReports' | 'reportConfig' | 'config';
+    type OrchestratorProp = 'outputDir' | 'autoGenerateReports' | 'reportConfig' | 'config';
     const singleOptionCases: Array<{
       name: string;
       options: ScanOrchestratorOptions;
@@ -44,8 +45,6 @@ describe('ScanOrchestrator', () => {
       expected: unknown;
       deep?: boolean;
     }> = [
-      { name: 'pythonPath', options: { pythonPath: '/custom/python' }, prop: 'pythonPath', expected: '/custom/python' },
-      { name: 'extractorScript', options: { extractorScript: '/custom/extractor.py' }, prop: 'extractorScript', expected: '/custom/extractor.py' },
       { name: 'outputDir', options: { outputDir: '/custom/output' }, prop: 'outputDir', expected: '/custom/output' },
       { name: 'autoGenerateReports=false', options: { autoGenerateReports: false }, prop: 'autoGenerateReports', expected: false },
       { name: 'report config', options: { reports: { format: 'html', includeStats: true } }, prop: 'reportConfig', expected: { format: 'html', includeStats: true }, deep: true },
@@ -143,28 +142,7 @@ describe('ScanOrchestrator', () => {
     });
   });
 
-  describe('_detectPythonPath', () => {
-    it('should skip detection if already validated', () => {
-      const orchestrator = new ScanOrchestrator({
-        pythonPath: '/usr/bin/python3'
-      });
-
-      orchestrator._pythonValidated = true;
-
-      // Should not throw and should return early
-      assert.doesNotThrow(() => orchestrator._detectPythonPath());
-    });
-
-    it('should set validated flag when pythonPath is provided', () => {
-      const orchestrator = new ScanOrchestrator({
-        pythonPath: '/usr/bin/python3'
-      });
-
-      orchestrator._detectPythonPath();
-
-      assert.strictEqual(orchestrator._pythonValidated, true);
-    });
-  });
+  // _detectPythonPath tests removed — Python subprocess replaced by TS pipeline
 });
 
 describe('ScanError', () => {
@@ -241,8 +219,7 @@ describe('ScanOrchestrator - Default Values', () => {
     assert.ok(orchestrator.repositoryScanner);
     assert.ok(orchestrator.patternDetector);
 
-    // Default extractor script should point to extractors directory
-    assert.ok(orchestrator.extractorScript.includes('extract_blocks.py'));
+    // Python extractor no longer exists — pipeline runs in TypeScript
 
     // Default report config should be empty object
     assert.deepStrictEqual(orchestrator.reportConfig, {});

@@ -5,13 +5,14 @@
  * Uses `as const` pattern matching structural.ts.
  */
 
-export enum EffortTier {
-  TRIVIAL = 'trivial',
-  SIMPLE = 'simple',
-  MODERATE = 'moderate',
-  COMPLEX = 'complex',
-  VERY_COMPLEX = 'very_complex',
-}
+export const EffortTier = {
+  TRIVIAL: 'trivial',
+  SIMPLE: 'simple',
+  MODERATE: 'moderate',
+  COMPLEX: 'complex',
+  VERY_COMPLEX: 'very_complex',
+} as const;
+export type EffortTier = (typeof EffortTier)[keyof typeof EffortTier];
 
 export const SCAN_DEFAULTS = {
   MIN_SIMILARITY_THRESHOLD: 0.8,
