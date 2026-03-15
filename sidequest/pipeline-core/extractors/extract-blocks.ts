@@ -669,6 +669,7 @@ export function calculateMetrics(
   const semanticGroups = groups.filter((g) => g.similarityMethod === 'semantic');
 
   const totalDuplicatedLines = groups.reduce((sum, g) => sum + g.totalLines, 0);
+  const semanticDuplicateLines = semanticGroups.reduce((sum, g) => sum + g.totalLines, 0);
   const potentialLocReduction = groups.reduce(
     (sum, g) => sum + g.totalLines - Math.floor(g.totalLines / g.occurrenceCount),
     0
@@ -709,6 +710,7 @@ export function calculateMetrics(
     exact_duplicates: exactGroups.length,
     structural_duplicates: structuralGroups.length,
     semantic_duplicates: semanticGroups.length,
+    semantic_duplicate_lines: semanticDuplicateLines,
     total_duplicated_lines: totalDuplicatedLines,
     potential_loc_reduction: potentialLocReduction,
     duplication_percentage: Math.round(duplicationPercentage * 100) / 100,

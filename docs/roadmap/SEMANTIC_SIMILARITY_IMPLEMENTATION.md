@@ -349,6 +349,8 @@ class SemanticAnnotator:
         return '|'.join(parts) if parts else 'unknown'
 ```
 
+</details>
+
 ### Phase 3: Layer 3 Grouping (H1, H4)
 
 **File:** `sidequest/pipeline-core/similarity/grouping.ts`
@@ -769,11 +771,11 @@ Add to `tests/accuracy/ground-truth.json`:
 3. ~~Update `extract_code_blocks()` to use detection~~ — used in `_createCodeBlock()` line 309
 4. ~~Add unit tests~~ — 7 tests in `tests/unit/extract-blocks.test.ts`
 
-### Step 2: Semantic Annotator (H3)
-1. Create `annotators/semantic-annotator.ts`
-2. Implement `SemanticAnnotator` class
-3. Add pattern libraries for operations/domains
-4. Add unit tests
+### Step 2: Semantic Annotator (H3) — DONE
+1. ~~Create `annotators/semantic-annotator.ts`~~ — implemented with 307 lines
+2. ~~Implement `SemanticAnnotator` class~~ — `extractAnnotation()`, `_extractOperations()`, `_extractDomains()`, `_extractPatterns()`, `_extractDataTypes()`, `_inferIntent()`
+3. ~~Add pattern libraries for operations/domains~~ — 137 regex patterns across 7 categories
+4. ~~Add unit tests~~ — 14 tests in `tests/unit/semantic-annotator.test.ts`
 
 ### Step 3: Layer 3 Grouping (H1, H4)
 1. Add `groupBySemanticSimilarity()` to grouping.ts
@@ -805,6 +807,6 @@ Add to `tests/accuracy/ground-truth.json`:
 
 ---
 
-**Document Version:** 1.1
+**Document Version:** 1.2
 **Author:** Architecture Documentation
-**Status:** Implementation Plan (H2 Complete, H1/H3/H4/H5 Pending)
+**Status:** Implementation Plan (H2, H3 Complete; H1/H4/H5 Pending)

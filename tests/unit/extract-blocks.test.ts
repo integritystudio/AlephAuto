@@ -230,6 +230,112 @@ describe('calculateMetrics', () => {
     assert.equal(metrics.total_code_blocks, 2);
     assert.equal(metrics.total_duplicate_groups, 0);
   });
+
+  it('should count semantic groups correctly when mixed similarity methods are present', () => {
+    const groups: DuplicateGroup[] = [
+      {
+        groupId: 'dg_exact',
+        patternId: 'array-filter',
+        memberBlockIds: ['cb_1', 'cb_2'],
+        similarityScore: 1.0,
+        similarityMethod: 'exact_match',
+        category: 'utility',
+        language: 'typescript',
+        occurrenceCount: 2,
+        totalLines: 10,
+        affectedFiles: ['a.ts', 'b.ts'],
+        affectedRepositories: ['/repo'],
+      },
+      {
+        groupId: 'dg_structural',
+        patternId: 'array-filter',
+        memberBlockIds: ['cb_3', 'cb_4'],
+        similarityScore: 0.92,
+        similarityMethod: 'structural',
+        category: 'utility',
+        language: 'typescript',
+        occurrenceCount: 2,
+        totalLines: 12,
+        affectedFiles: ['c.ts', 'd.ts'],
+        affectedRepositories: ['/repo'],
+      },
+      {
+        groupId: 'dg_semantic_1',
+        patternId: 'array-filter',
+        memberBlockIds: ['cb_5', 'cb_6'],
+        similarityScore: 0.82,
+        similarityMethod: 'semantic',
+        category: 'utility',
+        language: 'typescript',
+        occurrenceCount: 2,
+        totalLines: 14,
+        affectedFiles: ['e.ts', 'f.ts'],
+        affectedRepositories: ['/repo'],
+      },
+      {
+        groupId: 'dg_semantic_2',
+        patternId: 'array-filter',
+        memberBlockIds: ['cb_7', 'cb_8'],
+        similarityScore: 0.75,
+        similarityMethod: 'semantic',
+        category: 'utility',
+        language: 'typescript',
+        occurrenceCount: 2,
+        totalLines: 16,
+        affectedFiles: ['g.ts', 'h.ts'],
+        affectedRepositories: ['/repo'],
+      },
+    ];
+    const metrics = calculateMetrics([], groups, []);
+    // H4: semantic_duplicates must equal the count of groups with similarityMethod === 'semantic'
+    assert.equal(metrics.semantic_duplicates, 2);
+    // H4: metrics must also expose semantic_duplicate_lines — total lines across semantic groups only
+    const expectedSemanticLines = 14 + 16;
+    assert.equal(
+      metrics.semantic_duplicate_lines,
+      expectedSemanticLines,
+      `Expected semantic_duplicate_lines=${expectedSemanticLines}, got ${metrics.semantic_duplicate_lines}`
+    );
+  });
+
+  it('should return 0 semantic_duplicates and 0 semantic_duplicate_lines when no semantic groups exist', () => {
+    const groups: DuplicateGroup[] = [
+      {
+        groupId: 'dg_exact',
+        patternId: 'array-filter',
+        memberBlockIds: ['cb_1', 'cb_2'],
+        similarityScore: 1.0,
+        similarityMethod: 'exact_match',
+        category: 'utility',
+        language: 'typescript',
+        occurrenceCount: 2,
+        totalLines: 10,
+        affectedFiles: ['a.ts', 'b.ts'],
+        affectedRepositories: ['/repo'],
+      },
+      {
+        groupId: 'dg_structural',
+        patternId: 'array-filter',
+        memberBlockIds: ['cb_3', 'cb_4'],
+        similarityScore: 0.93,
+        similarityMethod: 'structural',
+        category: 'utility',
+        language: 'typescript',
+        occurrenceCount: 2,
+        totalLines: 12,
+        affectedFiles: ['c.ts', 'd.ts'],
+        affectedRepositories: ['/repo'],
+      },
+    ];
+    const metrics = calculateMetrics([], groups, []);
+    assert.equal(metrics.semantic_duplicates, 0);
+    // H4: semantic_duplicate_lines must be 0 when no semantic groups exist
+    assert.equal(
+      metrics.semantic_duplicate_lines,
+      0,
+      `Expected semantic_duplicate_lines=0, got ${metrics.semantic_duplicate_lines}`
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -258,5 +364,70 @@ describe('runPipeline', () => {
     });
     assert.ok(result.code_blocks.length >= 2);
     assert.ok(typeof result.metrics.total_code_blocks === 'number');
+  });
+
+  it('should produce semantic_duplicates >= 1 when blocks are semantically equivalent but not exact or structural matches', () => {
+    // Block A: functional style — filter then map
+    const functionalCode = [
+      'function getActiveNames(items) {',
+      '  const active = items.filter(item => item.active === true);',
+      '  const names = active.map(item => item.name);',
+      '  if (names.length === 0) {',
+      '    return [];',
+      '  }',
+      '  return names;',
+      '}',
+    ].join('\n');
+
+    // Block B: imperative style — iterate + conditional push — semantically equivalent
+    // Uses completely different identifiers and structure so structural similarity < 0.90
+    const imperativeCode = [
+      'function collectLabels(records) {',
+      '  const output = [];',
+      '  for (let idx = 0; idx < records.length; idx++) {',
+      '    const rec = records[idx];',
+      '    if (rec.enabled) {',
+      '      output.push(rec.label);',
+      '    }',
+      '  }',
+      '  if (output.length === 0) {',
+      '    return [];',
+      '  }',
+      '  return output;',
+      '}',
+    ].join('\n');
+
+    const result = runPipeline({
+      repository_info: { path: '/repo' },
+      pattern_matches: [
+        {
+          file_path: 'src/utils-a.ts',
+          rule_id: 'array-transform',
+          matched_text: functionalCode,
+          line_start: 1,
+          line_end: 8,
+        },
+        {
+          file_path: 'src/utils-b.ts',
+          rule_id: 'array-transform',
+          matched_text: imperativeCode,
+          line_start: 1,
+          line_end: 13,
+        },
+      ],
+    });
+
+    const semanticCount = result.metrics.semantic_duplicates as number;
+    assert.ok(
+      semanticCount >= 1,
+      `Expected semantic_duplicates >= 1 but got ${semanticCount}. groups: ${JSON.stringify(result.duplicate_groups.map(g => ({ method: g.similarity_method, score: g.similarity_score })))}`
+    );
+
+    // H4: full pipeline must also expose semantic_duplicate_lines in metrics
+    const semanticLines = result.metrics.semantic_duplicate_lines as number;
+    assert.ok(
+      typeof semanticLines === 'number' && semanticLines >= 1,
+      `Expected metrics.semantic_duplicate_lines >= 1 but got ${semanticLines}`
+    );
   });
 });
