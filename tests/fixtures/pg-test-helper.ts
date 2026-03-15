@@ -6,26 +6,9 @@
  */
 
 import { PGlite } from '@electric-sql/pglite';
+import { SCHEMA_SQL } from '../../sidequest/core/database.ts';
 
-/** Schema DDL shared between test helper and production database.ts */
-export const SCHEMA_SQL = `
-  CREATE TABLE IF NOT EXISTS jobs (
-    id TEXT PRIMARY KEY,
-    pipeline_id TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'queued',
-    created_at TEXT NOT NULL,
-    started_at TEXT,
-    completed_at TEXT,
-    data TEXT,
-    result TEXT,
-    error TEXT,
-    git TEXT
-  );
-  CREATE INDEX IF NOT EXISTS idx_jobs_pipeline_id ON jobs(pipeline_id);
-  CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
-  CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at DESC);
-  CREATE INDEX IF NOT EXISTS idx_jobs_pipeline_status ON jobs(pipeline_id, status);
-`;
+export { SCHEMA_SQL };
 
 let client: PGlite | null = null;
 

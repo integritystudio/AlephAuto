@@ -315,7 +315,7 @@ export class SidequestServer extends EventEmitter {
     });
   }
 
-  private _persistJob(job: Job): void {
+  private async _persistJob(job: Job): Promise<void> {
     if (!job?.id) {
       logger.error({ job }, 'Cannot persist job without ID');
       return;
@@ -327,7 +327,7 @@ export class SidequestServer extends EventEmitter {
     }
 
     try {
-      jobRepository.saveJob({
+      await jobRepository.saveJob({
         id: job.id,
         pipelineId: this.jobType,
         status: job.status,
@@ -350,7 +350,15 @@ export class SidequestServer extends EventEmitter {
 
   private _trySilentPersist(job: Job, context: string): void {
     try {
-      this._persistJob(job);
+      const result = this._persistJob(job);
+      if (result && typeof result.catch === 'function') {
+        result.catch((err: unknown) => {
+          logError(logger, err, `Failed to persist job (${context})`, { jobId: job.id, status: job.status });
+          Sentry.captureException(err, {
+            tags: { jobId: job.id, operation: `persist_${context}` }
+          });
+        });
+      }
     } catch (err) {
       logError(logger, err, `Failed to persist job (${context})`, { jobId: job.id, status: job.status });
       Sentry.captureException(err, {
@@ -431,7 +439,7 @@ export class SidequestServer extends EventEmitter {
     this._completedCount++;
     this._pruneExpiredJobs();
     try {
-      this._persistJob(job);
+      await this._persistJob(job);
     } catch (dbErr) {
       logError(logger, dbErr, 'Failed to persist completed job', { jobId: job.id });
       Sentry.captureException(dbErr, {

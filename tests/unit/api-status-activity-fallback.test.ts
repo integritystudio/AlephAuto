@@ -15,15 +15,16 @@ import { DURATION_MS, JOB_EVENTS, PAGINATION } from '../../sidequest/core/consta
 import { TIME_MS } from '../../sidequest/core/units.ts';
 import { jobStatusToEventType } from '../../api/utils/job-helpers.ts';
 import type { JobStatus } from '../../api/types/job-status.ts';
+import { createTestDatabase, destroyTestDatabase } from '../fixtures/pg-test-helper.ts';
 
 const COMPLETED_JOB_COUNT = 3;
 const FAILED_JOB_COUNT = 1;
 const TOTAL_SEEDED_JOBS = COMPLETED_JOB_COUNT + FAILED_JOB_COUNT;
 
 let initDatabase: (path: string) => Promise<void>;
-let closeDatabase: () => void;
-let saveJob: (job: Record<string, unknown>) => void;
-let getAllJobs: (opts?: Record<string, unknown>) => Array<Record<string, unknown>>;
+let closeDatabase: () => Promise<void>;
+let saveJob: (job: Record<string, unknown>) => Promise<void>;
+let getAllJobs: (opts?: Record<string, unknown>) => Promise<Array<Record<string, unknown>>>;
 
 describe('GET /api/status — activity feed database fallback', () => {
   before(async () => {
@@ -34,20 +35,23 @@ describe('GET /api/status — activity feed database fallback', () => {
     getAllJobs = dbModule.getAllJobs;
   });
 
-  after(() => {
-    if (closeDatabase) closeDatabase();
+  after(async () => {
+    if (closeDatabase) await closeDatabase();
+    await destroyTestDatabase();
   });
 
   beforeEach(async () => {
     // Fresh in-memory database for each test
-    await initDatabase(':memory:');
+    await closeDatabase();
+    await createTestDatabase();
+    await initDatabase('pglite://memory');
   });
 
   describe('Database contains jobs but in-memory feed is empty', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       // Seed completed jobs (SaveJobInput uses camelCase)
       for (let i = 0; i < COMPLETED_JOB_COUNT; i++) {
-        saveJob({
+        await saveJob({
           id: `test-completed-${i}`,
           pipelineId: 'duplicate-detection',
           status: 'completed',
@@ -59,7 +63,7 @@ describe('GET /api/status — activity feed database fallback', () => {
         });
       }
       // Seed a failed job
-      saveJob({
+      await saveJob({
         id: 'test-failed-0',
         pipelineId: 'schema-enhancement',
         status: 'failed',
@@ -71,13 +75,13 @@ describe('GET /api/status — activity feed database fallback', () => {
       });
     });
 
-    it('should return jobs from database when queried', () => {
-      const jobs = getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
+    it('should return jobs from database when queried', async () => {
+      const jobs = await getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
       assert.strictEqual(jobs.length, TOTAL_SEEDED_JOBS);
     });
 
-    it('should map completed jobs to job:completed activity type', () => {
-      const jobs = getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
+    it('should map completed jobs to job:completed activity type', async () => {
+      const jobs = await getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
       const completedJobs = jobs.filter(j => j.status === 'completed');
       assert.strictEqual(completedJobs.length, COMPLETED_JOB_COUNT);
 
@@ -86,8 +90,8 @@ describe('GET /api/status — activity feed database fallback', () => {
       }
     });
 
-    it('should map failed jobs to job:failed activity type', () => {
-      const jobs = getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
+    it('should map failed jobs to job:failed activity type', async () => {
+      const jobs = await getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
       const failedJobs = jobs.filter(j => j.status === 'failed');
       assert.strictEqual(failedJobs.length, FAILED_JOB_COUNT);
 
@@ -96,8 +100,8 @@ describe('GET /api/status — activity feed database fallback', () => {
       }
     });
 
-    it('should map running jobs to job:started activity type', () => {
-      saveJob({
+    it('should map running jobs to job:started activity type', async () => {
+      await saveJob({
         id: 'test-running-0',
         pipelineId: 'duplicate-detection',
         status: 'running',
@@ -106,7 +110,7 @@ describe('GET /api/status — activity feed database fallback', () => {
         startedAt: new Date().toISOString(),
       });
 
-      const jobs = getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
+      const jobs = await getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
       const runningJobs = jobs.filter(j => j.status === 'running');
       assert.ok(runningJobs.length > 0, 'Expected at least one running job');
 
@@ -115,8 +119,8 @@ describe('GET /api/status — activity feed database fallback', () => {
       }
     });
 
-    it('should prefer completedAt for timestamp on completed jobs', () => {
-      const jobs = getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
+    it('should prefer completedAt for timestamp on completed jobs', async () => {
+      const jobs = await getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
       const completedJob = jobs.find(j => j.status === 'completed');
       assert.ok(completedJob);
       assert.ok(completedJob.completedAt, 'Completed job should have completedAt');
@@ -125,9 +129,9 @@ describe('GET /api/status — activity feed database fallback', () => {
       assert.strictEqual(timestamp, completedJob.completedAt);
     });
 
-    it('should fall back to createdAt when completedAt and startedAt are absent', () => {
+    it('should fall back to createdAt when completedAt and startedAt are absent', async () => {
       // Save a queued job (no startedAt, no completedAt)
-      saveJob({
+      await saveJob({
         id: 'test-queued-0',
         pipelineId: 'git-activity',
         status: 'queued',
@@ -135,7 +139,7 @@ describe('GET /api/status — activity feed database fallback', () => {
         createdAt: new Date().toISOString(),
       });
 
-      const jobs = getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
+      const jobs = await getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
       const queuedJob = jobs.find(j => j.status === 'queued');
       assert.ok(queuedJob);
 
@@ -146,10 +150,10 @@ describe('GET /api/status — activity feed database fallback', () => {
       assert.strictEqual(timestamp, queuedJob.createdAt);
     });
 
-    it('should respect ACTIVITY_FEED_LIMIT', () => {
+    it('should respect ACTIVITY_FEED_LIMIT', async () => {
       // Seed more jobs than the limit
       for (let i = 0; i < PAGINATION.ACTIVITY_FEED_LIMIT + 5; i++) {
-        saveJob({
+        await saveJob({
           id: `test-overflow-${i}`,
           pipelineId: 'duplicate-detection',
           status: 'completed',
@@ -158,13 +162,13 @@ describe('GET /api/status — activity feed database fallback', () => {
         });
       }
 
-      const jobs = getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
+      const jobs = await getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
       assert.ok(jobs.length <= PAGINATION.ACTIVITY_FEED_LIMIT,
         `Expected at most ${PAGINATION.ACTIVITY_FEED_LIMIT} jobs, got ${jobs.length}`);
     });
 
-    it('should include pipelineId from database job', () => {
-      const jobs = getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
+    it('should include pipelineId from database job', async () => {
+      const jobs = await getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
       for (const job of jobs) {
         assert.ok(job.pipelineId, `Job ${job.id} should have pipelineId`);
       }
@@ -174,9 +178,10 @@ describe('GET /api/status — activity feed database fallback', () => {
   describe('Database is empty and in-memory feed is empty', () => {
     it('should return empty activity array', async () => {
       // Close and re-initialize to get a fresh empty database
-      closeDatabase();
-      await initDatabase(':memory:');
-      const jobs = getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
+      await closeDatabase();
+      await createTestDatabase();
+      await initDatabase('pglite://memory');
+      const jobs = await getAllJobs({ limit: PAGINATION.ACTIVITY_FEED_LIMIT });
       assert.strictEqual(jobs.length, 0);
     });
   });

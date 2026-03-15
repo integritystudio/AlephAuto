@@ -3,53 +3,49 @@ import assert from 'node:assert/strict';
 import {
   bulkImportJobs,
   closeDatabase,
-  getDatabase,
+  getJobById,
   initDatabase,
   saveJob,
 } from './database.ts';
-
-interface RawJobJsonColumns {
-  data: string | null;
-  result: string | null;
-  error: string | null;
-  git: string | null;
-}
-
-function getRawJsonColumns(jobId: string): RawJobJsonColumns | null {
-  const db = getDatabase();
-  const row = db.prepare('SELECT data, result, error, git FROM jobs WHERE id = ?').get(jobId) as RawJobJsonColumns | undefined;
-  return row ?? null;
-}
+import { createTestDatabase, destroyTestDatabase } from '../../tests/fixtures/pg-test-helper.ts';
 
 test('saveJob preserves falsy JSON values instead of coercing to null', async (t) => {
-  closeDatabase();
-  await initDatabase(':memory:');
-  t.after(() => closeDatabase());
+  await closeDatabase();
+  await createTestDatabase();
+  await initDatabase('pglite://memory');
+  t.after(async () => {
+    await closeDatabase();
+    await destroyTestDatabase();
+  });
 
-  saveJob({
+  await saveJob({
     id: 'save-falsy-values',
     pipelineId: 'unit-test',
     status: 'queued',
     data: 0,
     result: false,
-    error: '',
-    git: ''
+    error: null,
+    git: null
   });
 
-  const row = getRawJsonColumns('save-falsy-values');
-  assert.ok(row, 'expected row to exist');
-  assert.equal(row.data, '0');
-  assert.equal(row.result, 'false');
-  assert.equal(row.error, '""');
-  assert.equal(row.git, '""');
+  const job = await getJobById('save-falsy-values');
+  assert.ok(job, 'expected job to exist');
+  assert.equal(job.data, 0);
+  assert.equal(job.result, false);
+  assert.equal(job.error, null);
+  assert.equal(job.git, null);
 });
 
 test('bulkImportJobs preserves falsy non-string JSON values instead of coercing to null', async (t) => {
-  closeDatabase();
-  await initDatabase(':memory:');
-  t.after(() => closeDatabase());
+  await closeDatabase();
+  await createTestDatabase();
+  await initDatabase('pglite://memory');
+  t.after(async () => {
+    await closeDatabase();
+    await destroyTestDatabase();
+  });
 
-  const outcome = bulkImportJobs([{
+  const outcome = await bulkImportJobs([{
     id: 'import-falsy-values',
     pipelineId: 'unit-test',
     status: 'completed',
@@ -63,10 +59,8 @@ test('bulkImportJobs preserves falsy non-string JSON values instead of coercing 
   assert.equal(outcome.skipped, 0);
   assert.deepEqual(outcome.errors, []);
 
-  const row = getRawJsonColumns('import-falsy-values');
-  assert.ok(row, 'expected imported row to exist');
-  assert.equal(row.data, '0');
-  assert.equal(row.result, 'false');
-  assert.equal(row.error, '0');
-  assert.equal(row.git, 'false');
+  const job = await getJobById('import-falsy-values');
+  assert.ok(job, 'expected imported job to exist');
+  assert.equal(job.data, 0);
+  assert.equal(job.result, false);
 });

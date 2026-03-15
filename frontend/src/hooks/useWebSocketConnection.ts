@@ -154,7 +154,7 @@ function mapApiActivity(activity: ApiActivity) {
   const pipelineId = activity.pipelineId || activity.jobType || 'unknown';
   return {
     '@type': 'https://schema.org/Event' as const,
-    id: activity.id || crypto.randomUUID(),
+    id: activity.id || `activity-${activity.type}-${activity.timestamp ?? ''}-${activity.jobId ?? ''}-${activity.pipelineId ?? activity.jobType ?? ''}`,
     type: ACTIVITY_TYPE_MAP[activity.type] ?? ActivityType.PROGRESS,
     pipelineId,
     pipelineName: activity.pipelineName || pipelineId || 'Unknown',

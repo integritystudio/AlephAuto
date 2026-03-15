@@ -23,24 +23,29 @@ import {
   closeDatabase
 } from '../../sidequest/core/database.ts';
 import { TIME_MS } from '../../sidequest/core/units.ts';
+import { createTestDatabase, destroyTestDatabase } from '../fixtures/pg-test-helper.ts';
 
 describe('Bulk Import Migration', () => {
   before(async () => {
-    await initDatabase(':memory:');
+    await closeDatabase();
+    await createTestDatabase();
+    await initDatabase('pglite://memory');
   });
 
-  after(() => {
-    closeDatabase();
+  after(async () => {
+    await closeDatabase();
+    await destroyTestDatabase();
   });
 
   beforeEach(async () => {
     if (!isDatabaseReady()) {
-      await initDatabase(':memory:');
+      await createTestDatabase();
+      await initDatabase('pglite://memory');
     }
   });
 
   describe('bulkImportJobs', () => {
-    it('should import jobs with snake_case field names', () => {
+    it('should import jobs with snake_case field names', async () => {
       const jobs = [
         {
           id: `test-import-snake-${Date.now()}`,
@@ -56,14 +61,14 @@ describe('Bulk Import Migration', () => {
         }
       ];
 
-      const result = bulkImportJobs(jobs);
+      const result = await bulkImportJobs(jobs);
 
       assert.strictEqual(result.imported, 1);
       assert.strictEqual(result.skipped, 0);
       assert.strictEqual(result.errors.length, 0);
     });
 
-    it('should import jobs with camelCase field names', () => {
+    it('should import jobs with camelCase field names', async () => {
       const jobs = [
         {
           id: `test-import-camel-${Date.now()}`,
@@ -79,14 +84,14 @@ describe('Bulk Import Migration', () => {
         }
       ];
 
-      const result = bulkImportJobs(jobs);
+      const result = await bulkImportJobs(jobs);
 
       assert.strictEqual(result.imported, 1);
       assert.strictEqual(result.skipped, 0);
       assert.strictEqual(result.errors.length, 0);
     });
 
-    it('should skip jobs that already exist (idempotent)', () => {
+    it('should skip jobs that already exist (idempotent)', async () => {
       const jobId = `test-idempotent-${Date.now()}`;
       const jobs = [
         {
@@ -98,22 +103,22 @@ describe('Bulk Import Migration', () => {
       ];
 
       // First import
-      const result1 = bulkImportJobs(jobs);
+      const result1 = await bulkImportJobs(jobs);
       assert.strictEqual(result1.imported, 1);
       assert.strictEqual(result1.skipped, 0);
 
       // Second import - same job should be skipped
-      const result2 = bulkImportJobs(jobs);
+      const result2 = await bulkImportJobs(jobs);
       assert.strictEqual(result2.imported, 0);
       assert.strictEqual(result2.skipped, 1);
     });
 
-    it('should handle mixed new and existing jobs', () => {
+    it('should handle mixed new and existing jobs', async () => {
       const existingJobId = `test-existing-${Date.now()}`;
       const newJobId = `test-new-${Date.now() + 1}`;
 
       // Create existing job first
-      bulkImportJobs([{
+      await bulkImportJobs([{
         id: existingJobId,
         pipeline_id: 'test-pipeline',
         status: 'completed',
@@ -121,7 +126,7 @@ describe('Bulk Import Migration', () => {
       }]);
 
       // Import batch with both existing and new
-      const result = bulkImportJobs([
+      const result = await bulkImportJobs([
         {
           id: existingJobId,
           pipeline_id: 'test-pipeline',
@@ -140,7 +145,7 @@ describe('Bulk Import Migration', () => {
       assert.strictEqual(result.skipped, 1);
     });
 
-    it('should import multiple jobs in a single batch', () => {
+    it('should import multiple jobs in a single batch', async () => {
       const timestamp = Date.now();
       const jobs = Array.from({ length: 5 }, (_, i) => ({
         id: `test-batch-${timestamp}-${i}`,
@@ -149,14 +154,14 @@ describe('Bulk Import Migration', () => {
         created_at: new Date(Date.now() - i * TIME_MS.SECOND).toISOString()
       }));
 
-      const result = bulkImportJobs(jobs);
+      const result = await bulkImportJobs(jobs);
 
       assert.strictEqual(result.imported, 5);
       assert.strictEqual(result.skipped, 0);
       assert.strictEqual(result.errors.length, 0);
     });
 
-    it('should handle JSON objects in data/result/error/git fields', () => {
+    it('should handle JSON objects in data/result/error/git fields', async () => {
       const jobId = `test-json-fields-${Date.now()}`;
       const jobs = [{
         id: jobId,
@@ -169,16 +174,16 @@ describe('Bulk Import Migration', () => {
         git: { branchName: 'feature/test', commitSha: 'abc123' }
       }];
 
-      const result = bulkImportJobs(jobs);
+      const result = await bulkImportJobs(jobs);
       assert.strictEqual(result.imported, 1);
 
       // Verify data was stored correctly
-      const allJobs = getAllJobs();
+      const allJobs = await getAllJobs();
       const importedJob = allJobs.find(j => j.id === jobId);
       assert.ok(importedJob, 'Job should be retrievable');
     });
 
-    it('should handle string-encoded JSON in data fields', () => {
+    it('should handle string-encoded JSON in data fields', async () => {
       const jobId = `test-string-json-${Date.now()}`;
       const jobs = [{
         id: jobId,
@@ -191,12 +196,12 @@ describe('Bulk Import Migration', () => {
         git: '{"branchName": null}'
       }];
 
-      const result = bulkImportJobs(jobs);
+      const result = await bulkImportJobs(jobs);
       assert.strictEqual(result.imported, 1);
       assert.strictEqual(result.errors.length, 0);
     });
 
-    it('should use default pipeline_id when not provided', () => {
+    it('should use default pipeline_id when not provided', async () => {
       const jobId = `test-no-pipeline-${Date.now()}`;
       const jobs = [{
         id: jobId,
@@ -204,28 +209,28 @@ describe('Bulk Import Migration', () => {
         created_at: '2026-01-18T10:00:00.000Z'
       }];
 
-      const result = bulkImportJobs(jobs);
+      const result = await bulkImportJobs(jobs);
       assert.strictEqual(result.imported, 1);
 
-      const allJobs = getAllJobs();
+      const allJobs = await getAllJobs();
       const importedJob = allJobs.find(j => j.id === jobId);
       assert.ok(importedJob, 'Job should exist');
       assert.strictEqual(importedJob.pipelineId, 'unknown');
     });
 
-    it('should handle empty jobs array', () => {
-      const result = bulkImportJobs([]);
+    it('should handle empty jobs array', async () => {
+      const result = await bulkImportJobs([]);
 
       assert.strictEqual(result.imported, 0);
       assert.strictEqual(result.skipped, 0);
       assert.strictEqual(result.errors.length, 0);
     });
 
-    it('should return correct summary counts', () => {
+    it('should return correct summary counts', async () => {
       const timestamp = Date.now();
 
       // Create one existing job
-      bulkImportJobs([{
+      await bulkImportJobs([{
         id: `test-summary-existing-${timestamp}`,
         pipeline_id: 'test',
         status: 'completed',
@@ -233,7 +238,7 @@ describe('Bulk Import Migration', () => {
       }]);
 
       // Import batch with 1 existing, 2 new
-      const result = bulkImportJobs([
+      const result = await bulkImportJobs([
         {
           id: `test-summary-existing-${timestamp}`,
           pipeline_id: 'test',
@@ -261,7 +266,7 @@ describe('Bulk Import Migration', () => {
   });
 
   describe('Migration scenarios', () => {
-    it('should handle typical migration payload structure', () => {
+    it('should handle typical migration payload structure', async () => {
       // This mimics the actual data structure from SQLite dump
       // Use a unique prefix to avoid timestamp collisions with other tests
       const uniqueKey = `migration-payload-${Date.now()}`;
@@ -292,19 +297,19 @@ describe('Bulk Import Migration', () => {
         }
       ];
 
-      const result = bulkImportJobs(jobs);
+      const result = await bulkImportJobs(jobs);
 
       assert.strictEqual(result.imported, 2);
       assert.strictEqual(result.skipped, 0);
       assert.strictEqual(result.errors.length, 0);
 
       // Verify jobs are retrievable by their unique prefix
-      const allJobs = getAllJobs();
+      const allJobs = await getAllJobs();
       const importedJobs = allJobs.filter(j => j.id.startsWith(uniqueKey));
       assert.strictEqual(importedJobs.length, 2);
     });
 
-    it('should preserve all job statuses during migration', () => {
+    it('should preserve all job statuses during migration', async () => {
       const timestamp = Date.now();
       const statuses = ['queued', 'running', 'completed', 'failed'];
 
@@ -315,11 +320,11 @@ describe('Bulk Import Migration', () => {
         created_at: new Date().toISOString()
       }));
 
-      const result = bulkImportJobs(jobs);
+      const result = await bulkImportJobs(jobs);
       assert.strictEqual(result.imported, 4);
 
       // Verify each status was preserved
-      const allJobs = getAllJobs();
+      const allJobs = await getAllJobs();
       for (const status of statuses) {
         const job = allJobs.find(j =>
           j.id.includes(`test-status-${timestamp}`) && j.status === status
@@ -328,7 +333,7 @@ describe('Bulk Import Migration', () => {
       }
     });
 
-    it('should handle re-running migration multiple times (idempotent)', () => {
+    it('should handle re-running migration multiple times (idempotent)', async () => {
       const timestamp = Date.now();
       const jobs = [
         {
@@ -346,9 +351,9 @@ describe('Bulk Import Migration', () => {
       ];
 
       // Run migration 3 times
-      const result1 = bulkImportJobs(jobs);
-      const result2 = bulkImportJobs(jobs);
-      const result3 = bulkImportJobs(jobs);
+      const result1 = await bulkImportJobs(jobs);
+      const result2 = await bulkImportJobs(jobs);
+      const result3 = await bulkImportJobs(jobs);
 
       // First run should import all
       assert.strictEqual(result1.imported, 2);
@@ -362,14 +367,14 @@ describe('Bulk Import Migration', () => {
       assert.strictEqual(result3.skipped, 2);
 
       // Total jobs should still be 2
-      const allJobs = getAllJobs();
+      const allJobs = await getAllJobs();
       const testJobs = allJobs.filter(j => j.id.includes(`test-rerun-${timestamp}`));
       assert.strictEqual(testJobs.length, 2);
     });
   });
 
   describe('Error handling', () => {
-    it('should continue importing after individual job errors', () => {
+    it('should continue importing after individual job errors', async () => {
       const timestamp = Date.now();
       // Note: This test depends on database constraints
       // Currently bulkImportJobs handles most errors gracefully
@@ -388,13 +393,13 @@ describe('Bulk Import Migration', () => {
         }
       ];
 
-      const result = bulkImportJobs(jobs);
+      const result = await bulkImportJobs(jobs);
 
       // Both should be imported successfully
       assert.strictEqual(result.imported, 2);
     });
 
-    it('should handle null/undefined values gracefully', () => {
+    it('should handle null/undefined values gracefully', async () => {
       const timestamp = Date.now();
       const jobs = [{
         id: `test-null-${timestamp}`,
@@ -410,7 +415,7 @@ describe('Bulk Import Migration', () => {
       }];
 
       // Should not throw
-      const result = bulkImportJobs(jobs);
+      const result = await bulkImportJobs(jobs);
 
       // Job should be imported with defaults
       assert.ok(result.imported === 1 || result.errors.length === 0);
@@ -421,15 +426,16 @@ describe('Bulk Import Migration', () => {
 describe('Field mapping compatibility', () => {
   before(async () => {
     if (!isDatabaseReady()) {
-      await initDatabase(':memory:');
+      await createTestDatabase();
+      await initDatabase('pglite://memory');
     }
   });
 
-  it('should accept both snake_case and camelCase for pipeline_id', () => {
+  it('should accept both snake_case and camelCase for pipeline_id', async () => {
     const timestamp = Date.now();
 
     // snake_case
-    const result1 = bulkImportJobs([{
+    const result1 = await bulkImportJobs([{
       id: `test-snake-pipeline-${timestamp}`,
       pipeline_id: 'snake-pipeline',
       status: 'completed',
@@ -437,7 +443,7 @@ describe('Field mapping compatibility', () => {
     }]);
 
     // camelCase
-    const result2 = bulkImportJobs([{
+    const result2 = await bulkImportJobs([{
       id: `test-camel-pipeline-${timestamp}`,
       pipelineId: 'camel-pipeline',
       status: 'completed',
@@ -448,12 +454,12 @@ describe('Field mapping compatibility', () => {
     assert.strictEqual(result2.imported, 1);
   });
 
-  it('should accept both snake_case and camelCase for timestamps', () => {
+  it('should accept both snake_case and camelCase for timestamps', async () => {
     const timestamp = Date.now();
     const isoDate = '2026-01-18T10:00:00.000Z';
 
     // snake_case timestamps
-    const result1 = bulkImportJobs([{
+    const result1 = await bulkImportJobs([{
       id: `test-snake-ts-${timestamp}`,
       pipeline_id: 'test',
       status: 'completed',
@@ -463,7 +469,7 @@ describe('Field mapping compatibility', () => {
     }]);
 
     // camelCase timestamps
-    const result2 = bulkImportJobs([{
+    const result2 = await bulkImportJobs([{
       id: `test-camel-ts-${timestamp}`,
       pipelineId: 'test',
       status: 'completed',

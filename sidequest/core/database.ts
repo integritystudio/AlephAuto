@@ -6,7 +6,7 @@
  */
 
 import pg from 'pg';
-import type { Pool, QueryResult, QueryResultRow } from 'pg';
+import type { Pool, QueryResultRow } from 'pg';
 import { PGlite } from '@electric-sql/pglite';
 import path from 'path';
 import fsPromises from 'fs/promises';
@@ -29,6 +29,8 @@ interface QueryExecutor {
     sql: string,
     params?: unknown[]
   ): Promise<{ rows: T[]; rowCount?: number | null }>;
+  /** Release all resources held by this executor. */
+  close(): Promise<void>;
 }
 
 /** PGlite adapter that normalises its return shape to match pg.Pool */
@@ -49,9 +51,33 @@ class PGliteAdapter implements QueryExecutor {
       rowCount: result.affectedRows ?? result.rows.length,
     };
   }
+
+  async close(): Promise<void> {
+    await this.lite.close();
+  }
 }
 
-const SCHEMA_SQL = `
+/** pg.Pool adapter that normalises the lifecycle interface to match QueryExecutor */
+class PgPoolAdapter implements QueryExecutor {
+  private readonly pgPool: Pool;
+
+  constructor(pgPool: Pool) {
+    this.pgPool = pgPool;
+  }
+
+  async query<T extends QueryResultRow = QueryResultRow>(
+    sql: string,
+    params?: unknown[]
+  ): Promise<{ rows: T[]; rowCount?: number | null }> {
+    return this.pgPool.query<T>(sql, params as unknown[]);
+  }
+
+  async close(): Promise<void> {
+    await this.pgPool.end();
+  }
+}
+
+export const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS jobs (
     id TEXT PRIMARY KEY,
     pipeline_id TEXT NOT NULL,
@@ -319,7 +345,7 @@ export async function initDatabase(connectionString?: string): Promise<void> {
       } finally {
         client.release();
       }
-      pool = pgPool as unknown as QueryExecutor;
+      pool = new PgPoolAdapter(pgPool);
     }
 
     logger.info({ connStr }, 'Database initialized');
@@ -351,12 +377,7 @@ export async function closeDatabase(): Promise<void> {
   pool = null;
 
   try {
-    if (current instanceof PGliteAdapter) {
-      // PGliteAdapter wraps PGlite — access via cast
-      await (current as unknown as { lite: PGlite }).lite?.close?.();
-    } else {
-      await (current as unknown as Pool).end?.();
-    }
+    await current.close();
   } catch (error) {
     logger.warn({ error: (error as Error).message }, 'Error closing database pool');
   }
@@ -556,10 +577,10 @@ export async function getJobCounts(pipelineId: string): Promise<JobCounts | null
   return queryOne<JobCounts>(`
     SELECT
       COUNT(*)::integer as total,
-      SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END)::integer as completed,
-      SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END)::integer as failed,
-      SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END)::integer as running,
-      SUM(CASE WHEN status = 'queued' THEN 1 ELSE 0 END)::integer as queued
+      COALESCE(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0)::integer as completed,
+      COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0)::integer as failed,
+      COALESCE(SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END), 0)::integer as running,
+      COALESCE(SUM(CASE WHEN status = 'queued' THEN 1 ELSE 0 END), 0)::integer as queued
     FROM jobs
     WHERE pipeline_id = $1
   `, [pipelineId]);
@@ -593,10 +614,10 @@ export async function getAllPipelineStats(): Promise<PipelineStats[]> {
     SELECT
       pipeline_id AS "pipelineId",
       COUNT(*)::integer as total,
-      SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END)::integer as completed,
-      SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END)::integer as failed,
-      SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END)::integer as running,
-      SUM(CASE WHEN status = 'queued' THEN 1 ELSE 0 END)::integer as queued,
+      COALESCE(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0)::integer as completed,
+      COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0)::integer as failed,
+      COALESCE(SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END), 0)::integer as running,
+      COALESCE(SUM(CASE WHEN status = 'queued' THEN 1 ELSE 0 END), 0)::integer as queued,
       MAX(completed_at) AS "lastRun"
     FROM jobs
     GROUP BY pipeline_id

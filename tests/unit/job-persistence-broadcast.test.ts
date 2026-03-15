@@ -21,10 +21,16 @@ import { SidequestServer } from '../../sidequest/core/server.ts';
 import { ActivityFeedManager } from '../../api/activity-feed.ts';
 import {
   initDatabase,
+  closeDatabase,
   getJobs,
   isDatabaseReady
 } from '../../sidequest/core/database.ts';
+import { createTestDatabase, destroyTestDatabase } from '../fixtures/pg-test-helper.ts';
 import { TestTiming } from '../constants/timing-test-constants.ts';
+
+/** Small delay to let fire-and-forget _trySilentPersist complete */
+const PERSIST_SETTLE_MS = 100;
+const settlePersist = () => new Promise(resolve => setTimeout(resolve, PERSIST_SETTLE_MS));
 
 // Test implementation of SidequestServer
 class TestServer extends SidequestServer {
@@ -62,10 +68,10 @@ describe('Job Persistence on Creation', () => {
   let tempLogDir;
 
   beforeEach(async () => {
-    // Ensure database is initialized
-    if (!isDatabaseReady()) {
-      await initDatabase(':memory:');
-    }
+    // Ensure database is initialized with PGlite
+    await closeDatabase();
+    await createTestDatabase();
+    await initDatabase('pglite://memory');
 
     tempLogDir = path.join(os.tmpdir(), `test-logs-${Date.now()}`);
     await fs.mkdir(tempLogDir, { recursive: true });
@@ -80,9 +86,11 @@ describe('Job Persistence on Creation', () => {
   afterEach(async () => {
     if (server) server.stop();
     await fs.rm(tempLogDir, { recursive: true, force: true });
+    await closeDatabase();
+    await destroyTestDatabase();
   });
 
-  it('should persist job to database immediately on creation', () => {
+  it('should persist job to database immediately on creation', async () => {
     const jobId = `persist-create-${Date.now()}`;
     const job = server.createJob(jobId, { testData: 'value' });
 
@@ -90,8 +98,11 @@ describe('Job Persistence on Creation', () => {
     assert.strictEqual(job.status, 'queued');
     assert.strictEqual(job.id, jobId);
 
+    // Wait for async persist to settle
+    await settlePersist();
+
     // Verify job was persisted to database
-    const jobs = getJobs('test-persistence', { status: 'queued', limit: 10 });
+    const jobs = await getJobs('test-persistence', { status: 'queued', limit: 10 });
     const persistedJob = jobs.find(j => j.id === jobId);
 
     assert.ok(persistedJob, 'Job should be persisted to database on creation');
@@ -99,7 +110,7 @@ describe('Job Persistence on Creation', () => {
     assert.strictEqual(persistedJob.pipelineId, 'test-persistence');
   });
 
-  it('should persist job with all metadata fields', () => {
+  it('should persist job with all metadata fields', async () => {
     const jobId = `persist-full-${Date.now()}`;
     const jobData = {
       repositoryPath: '/test/path',
@@ -109,7 +120,10 @@ describe('Job Persistence on Creation', () => {
 
     server.createJob(jobId, jobData);
 
-    const jobs = getJobs('test-persistence', { limit: 10 });
+    // Wait for async persist to settle
+    await settlePersist();
+
+    const jobs = await getJobs('test-persistence', { limit: 10 });
     const persistedJob = jobs.find(j => j.id === jobId);
 
     assert.ok(persistedJob, 'Job should be persisted');
@@ -117,7 +131,7 @@ describe('Job Persistence on Creation', () => {
     assert.ok(persistedJob.createdAt, 'Should have createdAt timestamp');
   });
 
-  it('should persist multiple jobs independently', () => {
+  it('should persist multiple jobs independently', async () => {
     const jobIds = [
       `multi-job-1-${Date.now()}`,
       `multi-job-2-${Date.now()}`,
@@ -128,7 +142,10 @@ describe('Job Persistence on Creation', () => {
       server.createJob(id, { order: index });
     });
 
-    const jobs = getJobs('test-persistence', { limit: 10 });
+    // Wait for async persist to settle
+    await settlePersist();
+
+    const jobs = await getJobs('test-persistence', { limit: 10 });
 
     jobIds.forEach(id => {
       const job = jobs.find(j => j.id === id);
@@ -142,9 +159,9 @@ describe('Job Persistence on Running Status', () => {
   let tempLogDir;
 
   beforeEach(async () => {
-    if (!isDatabaseReady()) {
-      await initDatabase(':memory:');
-    }
+    await closeDatabase();
+    await createTestDatabase();
+    await initDatabase('pglite://memory');
 
     tempLogDir = path.join(os.tmpdir(), `test-logs-running-${Date.now()}`);
     await fs.mkdir(tempLogDir, { recursive: true });
@@ -159,6 +176,8 @@ describe('Job Persistence on Running Status', () => {
   afterEach(async () => {
     if (server) server.stop();
     await fs.rm(tempLogDir, { recursive: true, force: true });
+    await closeDatabase();
+    await destroyTestDatabase();
   });
 
   it('should update job status to running in database when execution starts', async () => {
@@ -183,8 +202,11 @@ describe('Job Persistence on Running Status', () => {
     assert.ok(startedJob, 'Job should have started');
     assert.strictEqual(startedJob.status, 'running');
 
+    // Wait for async persist to settle
+    await settlePersist();
+
     // Check database for running status
-    const jobs = getJobs('test-running', { limit: 10 });
+    const jobs = await getJobs('test-running', { limit: 10 });
     const dbJob = jobs.find(j => j.id === jobId);
 
     assert.ok(dbJob, 'Job should be in database');
@@ -210,8 +232,11 @@ describe('Job Persistence on Running Status', () => {
       new Promise((_, reject) => setTimeout(() => reject(new Error('Job did not complete')), TestTiming.DEFAULT_WAIT_TIMEOUT_MS))
     ]);
 
+    // Wait for async persist to settle
+    await settlePersist();
+
     // Check final state in database
-    const jobs = getJobs('test-running', { limit: 10 });
+    const jobs = await getJobs('test-running', { limit: 10 });
     const completedJob = jobs.find(j => j.id === jobId);
 
     assert.ok(completedJob, 'Job should be in database');
@@ -228,9 +253,9 @@ describe('Job Status Lifecycle in Database', () => {
   const statuses = [];
 
   beforeEach(async () => {
-    if (!isDatabaseReady()) {
-      await initDatabase(':memory:');
-    }
+    await closeDatabase();
+    await createTestDatabase();
+    await initDatabase('pglite://memory');
 
     tempLogDir = path.join(os.tmpdir(), `test-lifecycle-${Date.now()}`);
     await fs.mkdir(tempLogDir, { recursive: true });
@@ -247,6 +272,8 @@ describe('Job Status Lifecycle in Database', () => {
   afterEach(async () => {
     if (server) server.stop();
     await fs.rm(tempLogDir, { recursive: true, force: true });
+    await closeDatabase();
+    await destroyTestDatabase();
   });
 
   it('should track job through queued -> running -> completed lifecycle', async () => {
@@ -275,8 +302,11 @@ describe('Job Status Lifecycle in Database', () => {
     // Verify lifecycle
     assert.deepStrictEqual(statuses, ['queued', 'running', 'completed']);
 
+    // Wait for async persist to settle
+    await settlePersist();
+
     // Verify final database state
-    const jobs = getJobs('test-lifecycle', { limit: 10 });
+    const jobs = await getJobs('test-lifecycle', { limit: 10 });
     const job = jobs.find(j => j.id === jobId);
 
     assert.strictEqual(job.status, 'completed');
@@ -310,8 +340,11 @@ describe('Job Status Lifecycle in Database', () => {
     // Verify lifecycle
     assert.deepStrictEqual(statuses, ['queued', 'running', 'failed']);
 
+    // Wait for async persist to settle
+    await settlePersist();
+
     // Verify final database state
-    const jobs = getJobs('test-lifecycle', { limit: 10 });
+    const jobs = await getJobs('test-lifecycle', { limit: 10 });
     const job = jobs.find(j => j.id === jobId);
 
     assert.strictEqual(job.status, 'failed');
@@ -497,9 +530,9 @@ describe('Integration: Server + Activity Feed', () => {
   let broadcasts;
 
   beforeEach(async () => {
-    if (!isDatabaseReady()) {
-      await initDatabase(':memory:');
-    }
+    await closeDatabase();
+    await createTestDatabase();
+    await initDatabase('pglite://memory');
 
     tempLogDir = path.join(os.tmpdir(), `test-integration-${Date.now()}`);
     await fs.mkdir(tempLogDir, { recursive: true });
@@ -528,6 +561,8 @@ describe('Integration: Server + Activity Feed', () => {
     if (server) server.stop();
     activityFeed.clear();
     await fs.rm(tempLogDir, { recursive: true, force: true });
+    await closeDatabase();
+    await destroyTestDatabase();
   });
 
   it('should persist and broadcast job through full lifecycle', async () => {
@@ -548,8 +583,11 @@ describe('Integration: Server + Activity Feed', () => {
       new Promise((_, reject) => setTimeout(() => reject(new Error('Job did not complete')), TestTiming.DEFAULT_WAIT_TIMEOUT_MS))
     ]);
 
+    // Wait for async persist to settle
+    await settlePersist();
+
     // Verify database persistence
-    const jobs = getJobs('test-integration', { limit: 10 });
+    const jobs = await getJobs('test-integration', { limit: 10 });
     const dbJob = jobs.find(j => j.id === jobId);
     assert.ok(dbJob, 'Job should be in database');
     assert.strictEqual(dbJob.status, 'completed');
@@ -598,8 +636,11 @@ describe('Integration: Server + Activity Feed', () => {
       new Promise((_, reject) => setTimeout(() => reject(new Error('Job did not fail')), TestTiming.DEFAULT_WAIT_TIMEOUT_MS))
     ]);
 
+    // Wait for async persist to settle
+    await settlePersist();
+
     // Verify database persistence
-    const jobs = getJobs('test-integration', { limit: 10 });
+    const jobs = await getJobs('test-integration', { limit: 10 });
     const dbJob = jobs.find(j => j.id === jobId);
     assert.ok(dbJob, 'Failed job should be in database');
     assert.strictEqual(dbJob.status, 'failed');

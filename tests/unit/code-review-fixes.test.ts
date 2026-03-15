@@ -9,9 +9,10 @@
  * - Constants: Immutability of JOB_STATUS and TERMINAL_STATUSES
  */
 
-import { describe, it, beforeEach } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { TIME_MS } from '../../sidequest/core/units.ts';
+import { createTestDatabase, destroyTestDatabase } from '../fixtures/pg-test-helper.ts';
 
 // Import modules under test
 import { JOB_STATUS, TERMINAL_STATUSES, isValidJobStatus } from '../../api/types/job-status.ts';
@@ -103,17 +104,25 @@ describe('Database safeJsonParse', () => {
   // We test this indirectly through the database functions since safeJsonParse is internal
 
   beforeEach(async () => {
-    const { initDatabase, isDatabaseReady } = await import('../../sidequest/core/database.ts');
+    const { closeDatabase, initDatabase, isDatabaseReady } = await import('../../sidequest/core/database.ts');
     if (!isDatabaseReady()) {
-      await initDatabase(':memory:');
+      await closeDatabase();
+      await createTestDatabase();
+      await initDatabase('pglite://memory');
     }
+  });
+
+  afterEach(async () => {
+    const { closeDatabase } = await import('../../sidequest/core/database.ts');
+    await closeDatabase();
+    await destroyTestDatabase();
   });
 
   it('should handle valid JSON in job data fields', async () => {
     const { saveJob, getJobs } = await import('../../sidequest/core/database.ts');
 
     const testId = `safe-json-valid-${Date.now()}`;
-    saveJob({
+    await saveJob({
       id: testId,
       pipelineId: 'test-safe-json',
       status: 'completed',
@@ -123,7 +132,7 @@ describe('Database safeJsonParse', () => {
       git: { branch: 'main' }
     });
 
-    const jobs = getJobs('test-safe-json', { limit: 100 });
+    const jobs = await getJobs('test-safe-json', { limit: 100 });
     const job = jobs.find(j => j.id === testId);
 
     assert.ok(job, 'Job should be found');
@@ -136,7 +145,7 @@ describe('Database safeJsonParse', () => {
     const { saveJob, getJobs } = await import('../../sidequest/core/database.ts');
 
     const testId = `safe-json-null-${Date.now()}`;
-    saveJob({
+    await saveJob({
       id: testId,
       pipelineId: 'test-safe-json',
       status: 'completed',
@@ -146,7 +155,7 @@ describe('Database safeJsonParse', () => {
       git: null
     });
 
-    const jobs = getJobs('test-safe-json', { limit: 100 });
+    const jobs = await getJobs('test-safe-json', { limit: 100 });
     const job = jobs.find(j => j.id === testId);
 
     assert.ok(job, 'Job should be found');
@@ -228,26 +237,34 @@ describe('JobRepository close() idempotency', () => {
     const repo = new JobRepository();
 
     // Close without initializing should not throw
-    assert.doesNotThrow(() => repo.close());
+    await repo.close();
 
     // Multiple closes should not throw
-    assert.doesNotThrow(() => repo.close());
-    assert.doesNotThrow(() => repo.close());
+    await repo.close();
+    await repo.close();
   });
 });
 
 describe('Database bulkImportJobs validation', () => {
   beforeEach(async () => {
-    const { initDatabase, isDatabaseReady } = await import('../../sidequest/core/database.ts');
+    const { closeDatabase, initDatabase, isDatabaseReady } = await import('../../sidequest/core/database.ts');
     if (!isDatabaseReady()) {
-      await initDatabase(':memory:');
+      await closeDatabase();
+      await createTestDatabase();
+      await initDatabase('pglite://memory');
     }
+  });
+
+  afterEach(async () => {
+    const { closeDatabase } = await import('../../sidequest/core/database.ts');
+    await closeDatabase();
+    await destroyTestDatabase();
   });
 
   it('should reject jobs with invalid ID format', async () => {
     const { bulkImportJobs } = await import('../../sidequest/core/database.ts');
 
-    const result = bulkImportJobs([
+    const result = await bulkImportJobs([
       { id: 'valid-job-123', status: 'completed' },
       { id: 'invalid job with spaces', status: 'completed' },
       { id: 'invalid<script>alert(1)</script>', status: 'completed' },
@@ -260,7 +277,7 @@ describe('Database bulkImportJobs validation', () => {
   it('should reject jobs with invalid status', async () => {
     const { bulkImportJobs } = await import('../../sidequest/core/database.ts');
 
-    const result = bulkImportJobs([
+    const result = await bulkImportJobs([
       { id: `valid-status-${Date.now()}`, status: 'completed' },
       { id: `invalid-status-${Date.now()}`, status: 'not-a-valid-status' },
     ]);

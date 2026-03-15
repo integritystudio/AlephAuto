@@ -101,7 +101,6 @@
     "@shared/logging": "workspace:*",
     "@shared/process-io": "workspace:*",
     "@types/pg": "^8.18.0",
-    "better-sqlite3": "^12.6.2",
     "cors": "^2.8.6",
     "dompurify": "^3.3.1",
     "dotenv": "^17.3.1",
@@ -125,6 +124,7 @@
     "@types/babel__generator": "^7.27.0",
     "@types/babel__traverse": "^7.28.0",
     "@types/better-sqlite3": "^7.6.13",
+    "better-sqlite3": "^12.6.2",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsdom": "^28.0.0",
@@ -154,9 +154,7 @@
     "node": ">=22.0.0"
   },
   "pnpm": {
-    "onlyBuiltDependencies": [
-      "better-sqlite3"
-    ],
+    "onlyBuiltDependencies": [],
     "overrides": {
       "qs": ">=6.14.1"
     },
