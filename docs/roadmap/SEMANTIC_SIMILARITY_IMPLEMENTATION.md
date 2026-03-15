@@ -1,8 +1,8 @@
 # Layer 3: Semantic Similarity Implementation Plan
 
-**Status:** TODO
+**Status:** In Progress
 **Priority:** High
-**Last Updated:** 2026-02-01
+**Last Updated:** 2026-03-15
 **Backlog Items:** [H1, H2, H3, H4, H5](../BACKLOG.md#high-priority---feature-implementation)
 
 ---
@@ -59,8 +59,8 @@ This implementation addresses these TODOs:
 | ID | Location | Description |
 |----|----------|-------------|
 | H1 | `grouping.ts` | Layer 3 - Semantic similarity implementation |
-| H2 | `extract-blocks.ts` | Detect language from file extension |
-| H3 | `extract-blocks.ts` | Implement full semantic annotator (Stage 4) |
+| H2 | `extract-blocks.ts` | ~~Detect language from file extension~~ **DONE** |
+| H3 | `annotators/semantic-annotator.ts` | ~~Implement full semantic annotator (Stage 4)~~ **DONE** |
 | H4 | `extract-blocks.ts` | Implement semantic grouping for duplicate detection |
 | H5 | `extract-blocks.ts` | Calculate duplication percentage properly |
 
@@ -118,10 +118,10 @@ def group_by_similarity(blocks, similarity_threshold=0.90):
 
 ### Current Limitations
 
-1. **No semantic annotation** - Stage 4 only assigns basic categories
+1. ~~**No semantic annotation** - Stage 4 only assigns basic categories~~ **DONE** — `SemanticAnnotator` class with full pattern libraries
 2. **No category+tags matching** - Layer 3 placeholder never executes
 3. **No semantic metrics** - `semantic_duplicates` always 0
-4. **Hardcoded language** - Always assumes JavaScript
+4. ~~**Hardcoded language** - Always assumes JavaScript~~ **DONE** — `detectLanguage()` detects from file extension
 
 ---
 
@@ -180,35 +180,19 @@ flowchart TD
 
 ## Implementation Plan
 
-### Phase 1: Language Detection (H2)
+### Phase 1: Language Detection (H2) — DONE
 
 **File:** `sidequest/pipeline-core/extractors/extract-blocks.ts`
 
-```python
-# Current (hardcoded)
-language='javascript',  # TODO: Detect from file extension
+Implemented as `detectLanguage()` (line 84) with `LANGUAGE_MAP` (line 55) covering 22 extensions. Used in `_createCodeBlock()` (line 309). Tests: `tests/unit/extract-blocks.test.ts` — 7 passing tests covering TS, JS, Python, Go, Rust, unknown extensions, and nested paths.
 
-# Implementation
-LANGUAGE_MAP = {
-    '.js': 'javascript',
-    '.jsx': 'javascript',
-    '.ts': 'typescript',
-    '.tsx': 'typescript',
-    '.py': 'python',
-    '.rb': 'ruby',
-    '.go': 'go',
-    '.rs': 'rust',
-}
-
-def detect_language(file_path: str) -> str:
-    """Detect programming language from file extension."""
-    ext = Path(file_path).suffix.lower()
-    return LANGUAGE_MAP.get(ext, 'unknown')
-```
-
-### Phase 2: Semantic Annotator (H3)
+### Phase 2: Semantic Annotator (H3) — DONE
 
 **File:** `sidequest/pipeline-core/annotators/semantic-annotator.ts`
+
+Implemented as `SemanticAnnotator` class (line 197) with pattern libraries covering 22 array ops, 12 CRUD ops, 19 transform ops, 7 validation ops, 16 domain patterns, 29 code patterns, and 32 data type patterns. Includes composite detection (iterate + conditional append → filter+map). All regex patterns use bounded quantifiers for ReDoS safety. Tests: `tests/unit/semantic-annotator.test.ts` — 14 passing tests.
+
+<details><summary>Original pseudocode spec (superseded by implementation)</summary>
 
 ```python
 from dataclasses import dataclass
@@ -634,7 +618,7 @@ class CodeBlock(BaseModel):
     pattern_id: str
     location: SourceLocation
     source_code: str
-    language: str  # H2: Now detected from extension
+    language: str  # H2: DONE — detected from extension via detectLanguage()
     category: str
     tags: List[str]
 
@@ -779,11 +763,11 @@ Add to `tests/accuracy/ground-truth.json`:
 
 ## Migration Steps
 
-### Step 1: Language Detection (H2)
-1. Add `LANGUAGE_MAP` constant
-2. Create `detect_language()` function
-3. Update `extract_code_blocks()` to use detection
-4. Add unit tests
+### Step 1: Language Detection (H2) — DONE
+1. ~~Add `LANGUAGE_MAP` constant~~ — 22 extensions at line 55
+2. ~~Create `detect_language()` function~~ — `detectLanguage()` at line 84
+3. ~~Update `extract_code_blocks()` to use detection~~ — used in `_createCodeBlock()` line 309
+4. ~~Add unit tests~~ — 7 tests in `tests/unit/extract-blocks.test.ts`
 
 ### Step 2: Semantic Annotator (H3)
 1. Create `annotators/semantic-annotator.ts`
@@ -821,6 +805,6 @@ Add to `tests/accuracy/ground-truth.json`:
 
 ---
 
-**Document Version:** 1.0
+**Document Version:** 1.1
 **Author:** Architecture Documentation
-**Status:** Implementation Plan (Not Yet Implemented)
+**Status:** Implementation Plan (H2 Complete, H1/H3/H4/H5 Pending)

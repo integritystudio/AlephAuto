@@ -90,7 +90,7 @@ const DOMAIN_PATTERNS: Array<[RegExp, string]> = [
   [/\b(order|orders|cart|checkout|purchase)\b/i, 'commerce'],
   [/\b(email|mail|notification|alert|notify|message|sms)\b/i, 'notification'],
   [/\b(file|files|upload|download|attachment|blob|storage)\b/i, 'file'],
-  [/\b(database|db|query|record|table|collection|document)\b/i, 'database'],
+  [/\b(database|db|query|record|table|document)\b/i, 'database'],
   [/\b(prisma|mongoose|sequelize|typeorm|knex)\b/i, 'database'],
   [/\b(cache|redis|memcached|cached)\b/i, 'cache'],
   [/\b(queue|job|jobs|worker|task|tasks|bull|rabbitmq)\b/i, 'queue'],
@@ -179,6 +179,9 @@ const DATA_TYPE_PATTERNS: Array<[RegExp, string]> = [
   [/new\s{1,20}RegExp\s{0,20}\(/, 'regex'],
 ];
 
+// Composite detection: iterate + conditional append → filter+map equivalent
+const COMPOSITE_CONDITIONAL_PATTERN = /\bif\s{0,20}\(/;
+
 // Combined operation patterns
 const ALL_OPERATION_PATTERNS: Array<[RegExp, string]> = [
   ...ARRAY_OPERATION_PATTERNS,
@@ -227,6 +230,14 @@ export class SemanticAnnotator {
     const operations = new Set<string>();
     for (const [pattern, op] of ALL_OPERATION_PATTERNS) {
       if (pattern.test(code)) operations.add(op);
+    }
+    // Composite: iterate + conditional append is semantically equivalent to filter+map
+    const hasIterate = operations.has('iterate');
+    const hasAppend = operations.has('append');
+    const hasConditional = COMPOSITE_CONDITIONAL_PATTERN.test(code);
+    if (hasIterate && hasAppend && hasConditional) {
+      operations.add('filter');
+      operations.add('map');
     }
     return operations;
   }
