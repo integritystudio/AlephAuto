@@ -1,407 +1,150 @@
-# Sentry Error Monitoring Setup Guide
+# Sentry Error Monitoring Setup
 
-Complete guide for setting up Sentry error monitoring and alerting for your automated job system.
-
-## Quick Setup (5 minutes)
-
-### Option 1: Doppler Setup (Recommended)
+## Quick Setup
 
 This project uses **Doppler** for all secrets. Never write secrets to `.env` files.
 
 ```bash
 # Add SENTRY_DSN to Doppler
 doppler secrets set SENTRY_DSN="your_actual_dsn_here" \
-  --project integrity-studio \
-  --config dev
+  --project integrity-studio --config dev
 
-# Verify it's set
+# Verify
 doppler secrets get SENTRY_DSN --project integrity-studio --config dev
-```
 
-Then run with Doppler to inject the secret:
-
-```bash
+# Run with Doppler
 doppler run -- node --strip-types api/server.ts
 ```
 
-Access in code via the centralized config — never `process.env` directly:
+Access in code via centralized config:
 
 ```typescript
 import { config } from './sidequest/core/config.ts';
-const dsn = config.sentryDsn;  // Correct
-// const dsn = process.env.SENTRY_DSN;  // Wrong
+const dsn = config.sentryDsn;  // Never use process.env.SENTRY_DSN
 ```
 
-### Option 2: Manual Setup
+### Manual Project Creation
 
-1. **Create Sentry Account** (if you don't have one)
-   - Visit: https://sentry.io/signup/
-   - Sign up (free tier available)
+If you need a new Sentry project:
 
-2. **Create a New Project**
-   - Click "Create Project"
-   - Platform: **Node.js**
-   - Alert frequency: **On every new issue** (recommended)
-   - Project name: "alephauto" or your preferred name
-
-3. **Get Your DSN**
-   - Go to Settings → Projects → [Your Project]
-   - Click "Client Keys (DSN)"
-   - Copy the DSN (looks like: `https://abc123@o123.ingest.sentry.io/456`)
-
-4. **Add to Doppler**
-   ```bash
-   doppler secrets set SENTRY_DSN="your_dsn_here" --project integrity-studio --config dev
-   ```
-
-5. **Test the Connection**
-   ```bash
-   doppler run -- node --strip-types api/server.ts
-   ```
+1. Visit https://sentry.io/signup/ (free tier available)
+2. Create Project: Platform **Node.js**, alert on every new issue
+3. Copy DSN from Settings > Projects > Client Keys (DSN)
+4. Add to Doppler (command above)
+5. Test: `doppler run -- node --strip-types api/server.ts`
 
 ## What Gets Monitored
 
-### Automatic Error Tracking
+**Automatic error tracking** across all pipelines: command failures, permission errors, file system issues, process timeouts, schema validation failures, MCP tool errors.
 
-All errors from these sources are automatically captured:
+**Performance monitoring**: job execution time, queue processing, file operations, schema generation.
 
-1. **Repomix Jobs**
-   - Command failures
-   - Permission errors
-   - File system issues
-   - Process timeouts
+**Error context** included with each event: job ID/type, file paths, environment, breadcrumbs, stack traces.
 
-2. **Documentation Enhancement Jobs**
-   - README parsing errors
-   - Schema validation failures
-   - File write errors
-   - MCP tool errors
+## Alert Configuration
 
-3. **Directory Scanning**
-   - Permission denied errors
-   - Invalid path errors
-   - File system errors
+**Org**: `o4510332694495232` | **Project**: `4510332704260096` | **Region**: US
 
-### Performance Monitoring
+### Recommended Alert Rules
 
-Sentry tracks performance for:
-- Job execution time
-- Queue processing time
-- File operations
-- Schema generation
+Create at https://sentry.io/organizations/o4510332694495232/alerts/rules/
 
-### Error Context
+| Alert | Type | Condition | Severity |
+|-------|------|-----------|----------|
+| High Error Rate | Issue | Error count > 100 in 1 hour | Critical |
+| New Error Pattern | Issue | New issue created | Warning |
+| Error Spike | Metric | Error count +50% vs baseline (15min window) | High |
+| Repomix Failures | Issue | `tags[component]:repomix-worker AND level:error` | High |
 
-Each error includes:
-- Job ID and type
-- File paths involved
-- User context
-- Environment info
-- Breadcrumbs (recent actions)
-- Stack traces
+### Threshold Tuning
 
-## Sentry Dashboard Features
+| Alert Type | Threshold | Frequency | Priority |
+|------------|-----------|-----------|----------|
+| Error Rate | > 60% | 1 hour | Critical |
+| Error Spike | +50% baseline | 15 min | High |
+| New Error | First occurrence | Immediate | Medium |
+| Repomix Failures | > 10/hour | 1 hour | High |
+| Doc Enhancement Failures | > 5/hour | 1 hour | Medium |
 
-### Issues Tab
-View all errors grouped by:
-- Error type
-- Frequency
-- First seen / Last seen
-- Affected users (if applicable)
+### Custom Alert Queries
 
-### Performance Tab
-Monitor:
-- Transaction duration
-- Throughput
-- Error rate
-- Apdex score
+```
+event.type:error AND event.level:error                          # High error rate
+tags[component]:repomix-worker AND event.level:error            # Repomix specific
+event.type:transaction AND transaction.duration:>5000           # Performance
+```
 
-### Releases Tab
-Track errors by version:
-- Error trends per release
-- Regression detection
-- Deploy tracking
+### Programmatic Alert Creation (Optional)
 
-## Setting Up Alerts
+```bash
+export SENTRY_AUTH_TOKEN="your-auth-token"
 
-### Recommended Alerts
+curl -X POST \
+  https://sentry.io/api/0/projects/o4510332694495232/4510332704260096/rules/ \
+  -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "High Error Rate Alert",
+    "conditions": [{
+      "id": "sentry.rules.conditions.event_frequency.EventFrequencyCondition",
+      "value": 100, "interval": "1h"
+    }],
+    "actions": [{"id": "sentry.rules.actions.notify_event.NotifyEventAction"}],
+    "actionMatch": "any"
+  }'
+```
 
-1. **Critical Job Failures**
-   ```
-   Alert: When any issue is first seen
-   Notify: Email + Slack (if configured)
-   ```
+## Slack Integration
 
-2. **High Error Rate**
-   ```
-   Alert: When error count > 10 in 5 minutes
-   Notify: Email
-   ```
-
-3. **Performance Degradation**
-   ```
-   Alert: When p95 transaction duration > 30s
-   Notify: Email
-   ```
-
-### Configure Alerts in Sentry
-
-1. Go to **Alerts** → **Create Alert**
-2. Choose trigger:
-   - Issue Alert (for errors)
-   - Metric Alert (for performance)
-3. Set conditions:
-   - "When an issue is first seen"
-   - "When the issue is seen more than 10 times in 1 hour"
-   - etc.
-4. Choose notification method:
-   - Email
-   - Slack
-   - PagerDuty
-   - Webhooks
-
-## Integration with Slack (Optional)
-
-1. Go to **Settings** → **Integrations**
-2. Find **Slack** and click "Add to Slack"
-3. Authorize the integration
-4. Choose which Slack channel receives alerts
-5. Configure alert rules
+1. Settings > Integrations > Slack > "Add to Slack"
+2. Choose a dedicated channel (e.g., `#sentry-alerts`)
+3. Edit each alert rule to add "Send Slack notification" action
+4. Test: `node test/test-sentry-connection.js`
 
 ## Best Practices
 
-### 1. Set Appropriate Alert Thresholds
+- **Environments**: use `NODE_ENV=production` for production alerts; dev is less noisy
+- **Inbound filters** (Settings > Inbound Filters): ignore `node_modules`, `.git`, test runs
+- **Release tracking**: set `SENTRY_RELEASE="jobs@x.y.z"` at deploy time
+- **Sampling**: `SENTRY_TRACES_SAMPLE_RATE` in Doppler (default `0.1` = 10%)
+- **Weekly review**: check alert frequency, false positive rate, muted alerts
 
-```javascript
-// Good thresholds:
-- First occurrence: Always alert
-- Recurring errors: Alert after 5 occurrences
-- Performance: Alert if p95 > 2x normal
-```
-
-### 2. Use Environments
-
-```javascript
-// In your code (already configured):
-NODE_ENV=production  // Production alerts
-NODE_ENV=development // Development (less noisy)
-```
-
-### 3. Add Custom Context
-
-The system automatically adds context, but you can enhance it:
-
-```javascript
-// Example of what's already included:
-{
-  tags: {
-    jobId: 'repomix-project-123',
-    jobType: 'repomix',
-  },
-  contexts: {
-    job: {
-      sourceDir: '/path/to/source',
-      outputDir: '/path/to/output',
-    }
-  }
-}
-```
-
-### 4. Filter Noise
-
-Create filters in Sentry to ignore:
-- Permission errors for excluded directories
-- Expected timeouts
-- Development environment errors
-
-**Settings** → **Inbound Filters**:
-```
-Ignore errors from:
-- node_modules paths
-- .git directories
-- Test runs
-```
-
-### 5. Set Up Release Tracking
-
-Tag errors by version:
+## Testing
 
 ```bash
-# When deploying:
-export SENTRY_RELEASE="jobs@1.0.0"
-
-# Sentry will track errors by release
-```
-
-## Testing Your Setup
-
-### Test Error Capture
-
-```bash
-# Create a test error:
+# Trigger test error
 node test/test-sentry-connection.js
-```
 
-This sends a test error to Sentry. Check your dashboard to verify it appears.
-
-### Test Performance Monitoring
-
-Run a job and check the Performance tab:
-
-```bash
+# Run a job and check Performance tab
 npm run test:single
 ```
 
-You should see transaction data in Sentry.
-
-## Viewing Errors
-
-### In Real-Time
-
-1. Open Sentry dashboard: https://sentry.io/
-2. Select your project
-3. Errors appear in the **Issues** stream
-4. Click any error to see:
-   - Stack trace
-   - Breadcrumbs (what led to the error)
-   - Context data
-   - Affected users/sessions
-
-### Via Email
-
-- Configured alerts send emails with:
-  - Error summary
-  - Link to full details
-  - Suggested fixes (AI-powered)
-
 ## Troubleshooting
 
-### No Errors Appearing
+| Issue | Fix |
+|-------|-----|
+| No errors appearing | Verify DSN: `doppler secrets get SENTRY_DSN --project integrity-studio --config dev` |
+| Network issues | Ensure outbound HTTPS to `sentry.io` is allowed |
+| Too many alerts | Increase thresholds, add filters, snooze repetitive issues |
+| Alerts not firing | Check rule is enabled, conditions are met, notification channel is configured |
+| Missing alerts | Lower thresholds, verify events reaching Sentry via event stream |
 
-1. **Check DSN**
-   ```bash
-   # Verify DSN is set in Doppler:
-   doppler secrets get SENTRY_DSN --project integrity-studio --config dev
-   ```
+## Cost
 
-2. **Test Connection**
-   ```bash
-   doppler run -- node --strip-types api/server.ts
-   # Check Sentry dashboard for events
-   ```
-
-3. **Check Network**
-   - Ensure firewall allows outbound HTTPS
-   - Verify `sentry.io` is accessible
-
-### Too Many Alerts
-
-1. **Adjust Thresholds**
-   - Go to Alert Rules
-   - Increase occurrence thresholds
-   - Add filters for known issues
-
-2. **Use Environments**
-   ```bash
-   # Only alert on production:
-   NODE_ENV=production npm start
-   ```
-
-3. **Snooze Repetitive Issues**
-   - In Sentry, click issue
-   - Click "Ignore" or "Snooze"
-
-## Cost Considerations
-
-### Free Tier Limits
-
-Sentry free tier includes:
-- 5,000 errors/month
-- 10,000 performance units/month
-- 1 user
-- 30 day retention
-
-For this job system:
-- **Typical usage**: ~100-500 errors/month (with normal operation)
-- **Performance**: ~1,000 transactions/month
-- **Well within free tier** ✅
-
-### If You Exceed Free Tier
-
-Options:
-1. **Filter noisy errors** (recommended)
-2. **Upgrade to paid plan** ($26/month)
-3. **Use sampling** (capture 10% of errors)
-
-### Configure Sampling
-
-Sampling is configured via Doppler env var `SENTRY_TRACES_SAMPLE_RATE` (default `0.1`). The `config.sentryTracesSampleRate` property exposes it in code:
-
-```typescript
-import { config } from './sidequest/core/config.ts';
-// config.sentryTracesSampleRate defaults to 0.1 (10%)
-// Set SENTRY_TRACES_SAMPLE_RATE=1.0 in Doppler for full capture
-```
-
-## Advanced Features
-
-### Custom Breadcrumbs
-
-Already configured in the codebase:
-
-```javascript
-Sentry.addBreadcrumb({
-  category: 'job',
-  message: 'Job started',
-  level: 'info',
-});
-```
-
-### User Feedback
-
-Capture user feedback on errors:
-- Available in Sentry SDK
-- Can be added to failed job reports
-
-### Session Tracking
-
-Tracks:
-- Job run sessions
-- Crash-free rate
-- Session duration
-
-## Support Resources
-
-- **Sentry Docs**: https://docs.sentry.io/platforms/node/
-- **Status Page**: https://status.sentry.io/
-- **Community Forum**: https://forum.sentry.io/
-- **Discord**: https://discord.gg/sentry
+Free tier: 5,000 errors/month, 10,000 perf units, 1 user, 30-day retention. Typical usage (~100-500 errors/month) is well within limits. If exceeded: filter noisy errors, upgrade ($26/month), or increase sampling.
 
 ## Quick Reference
 
 ```bash
-# Add/update Sentry DSN in Doppler
 doppler secrets set SENTRY_DSN="your_dsn" --project integrity-studio --config dev
-
-# Run server with Doppler (injects SENTRY_DSN automatically)
 doppler run -- node --strip-types api/server.ts
-
-# View logs with Sentry context
-tail -f logs/*.error.json
-
-# Check Sentry dashboard
-open https://sentry.io/
+node test/test-sentry-connection.js
+open https://sentry.io/organizations/o4510332694495232/alerts/rules/
 ```
 
-## Next Steps After Setup
+## Resources
 
-1. ✅ Set up initial alerts
-2. ✅ Connect Slack (optional)
-3. ✅ Run a test job to verify
-4. ✅ Monitor dashboard for first few days
-5. ✅ Adjust alert thresholds based on noise
-6. ✅ Set up weekly reports (Sentry feature)
-
----
-
-**Note**: All job errors are automatically captured. No code changes needed after initial setup!
+- [Sentry Node.js Docs](https://docs.sentry.io/platforms/node/)
+- [Alert Types](https://docs.sentry.io/product/alerts/alert-types/)
+- [Slack Integration](https://docs.sentry.io/product/integrations/notification-incidents/slack/)
+- [Dashboard](https://sentry.io/organizations/o4510332694495232/projects/4510332704260096/)
