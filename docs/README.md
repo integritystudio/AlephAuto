@@ -26,10 +26,9 @@ docs/
 ├── changelog/               # Versioned release-cycle changelogs
 │
 ├── architecture/            # System architecture and design
-│   ├── CHEAT-SHEET.md       # Quick reference for common patterns
-│   ├── ERROR_HANDLING.md    # Error classification and retry logic
+│   ├── ERROR_HANDLING.md    # Error handling, circuit breakers, worker registry
 │   ├── TYPE_SYSTEM.md       # Zod + TypeScript patterns
-│   ├── SYSTEM-DATA-FLOW.md  # System-wide data flow diagrams
+│   ├── SYSTEM-DATA-FLOW.md  # System-wide data flow + mermaid diagrams
 │   └── pipeline-data-flow.md
 │
 ├── components/              # Component-specific documentation
@@ -52,7 +51,6 @@ docs/
 ├── runbooks/                # Operational runbooks
 │   ├── troubleshooting.md   # Debugging guide
 │   ├── pipeline-execution.md
-│   ├── DOPPLER_CIRCUIT_BREAKER.md
 │   └── DOPPLER_OUTAGE.md
 │
 ├── setup/                   # Setup and configuration guides
@@ -81,10 +79,9 @@ docs/
 - [MCP Servers](./MCP_SERVERS.md) - Sentry, Redis, TaskQueue, Filesystem MCP
 
 ### Architecture
-- [Cheat Sheet](./architecture/CHEAT-SHEET.md) - Quick reference patterns
-- [Error Handling](./architecture/ERROR_HANDLING.md) - Retry logic, circuit breaker
+- [Error Handling](./architecture/ERROR_HANDLING.md) - Error classification, circuit breakers, worker registry
 - [Type System](./architecture/TYPE_SYSTEM.md) - Zod + TypeScript patterns
-- [System Data Flow](./architecture/SYSTEM-DATA-FLOW.md) - Architecture diagrams
+- [System Data Flow](./architecture/SYSTEM-DATA-FLOW.md) - Architecture + mermaid diagrams
 
 ### Operations
 - [Troubleshooting](./runbooks/troubleshooting.md) - Debugging guide
@@ -109,7 +106,7 @@ docs/
 
 ### Planning
 - [Roadmap](./ROADMAP.md) - Future enhancements (Phases 5-7)
-- [Release Changelogs](./changelog/README.md) - Versioned progress by release cycle
+- [Release Changelogs](./changelog/CHANGELOG.md) - Versioned progress by release cycle
 
 ## Related Documentation
 

@@ -299,8 +299,7 @@ Set `GIT_DRY_RUN=true` in Doppler (or pass `gitDryRun: true`) to run the full wo
 
 - [Adding New Pipelines](../ADDING_PIPELINES.md) - How this pipeline was built
 - [Pipeline Data Flow](../architecture/pipeline-data-flow.md#10-bugfix-audit-pipeline) - Data flow diagram
-- [Worker Registry](../architecture/WORKER_REGISTRY.md) - Registry architecture
-- [Error Handling](../architecture/ERROR_HANDLING.md) - Retry and circuit breaker
+- [Error Handling](../architecture/ERROR_HANDLING.md) - Retry, circuit breakers, and worker registry
 - [Pipeline Execution Runbook](../runbooks/pipeline-execution.md) - Operations guide
 
 ---

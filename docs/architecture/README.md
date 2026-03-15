@@ -489,15 +489,10 @@ When updating this documentation:
 ## Quick Navigation
 
 - **[← Back to Main README](../../README.md)**
-- **[System Data Flow (NEW) →](./SYSTEM-DATA-FLOW.md)** - Complete system architecture
+- **[System Data Flow →](./SYSTEM-DATA-FLOW.md)** - Complete system architecture + mermaid diagrams
 - **[Pipeline Data Flow →](./pipeline-data-flow.md)** - Individual pipeline details
 - **[Similarity Algorithm →](./similarity-algorithm.md)** - Duplicate detection algorithm
-- **[Cheat Sheet →](./CHEAT-SHEET.md)** - Quick reference
-- **[Worker Registry →](./WORKER_REGISTRY.md)** - Worker initialization and management
-- **[Error Handling →](./ERROR_HANDLING.md)** - Error classification and retry logic
+- **[Error Handling →](./ERROR_HANDLING.md)** - Error classification, retry, circuit breakers, worker registry
 - **[Type System →](./TYPE_SYSTEM.md)** - Zod schemas and TypeScript patterns
 - **[Migration Transformer →](./MIGRATION_TRANSFORMER.md)** - AST-based code transformation
-- **[Cache Testing →](./CACHE_TESTING.md)** - Cache layer testing strategies
 - **[Install Guide →](./INSTALL.md)** - Setup and installation
-- **[Semantic Similarity →](./SEMANTIC_SIMILARITY_IMPLEMENTATION.md)** - Future similarity implementation plan
-- **[DD → BasePipeline Migration →](./MIGRATE_DUPLICATE_DETECTION_TO_BASEPIPELINE.md)** - Migration proposal (accepted as-is)

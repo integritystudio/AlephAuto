@@ -1952,8 +1952,8 @@ const port = config.jobsApiPort;    // Correct — typed access
 // sidequest/core/server.ts — retry is built into the job lifecycle
 // Uses error-classifier.ts: isRetryable() + classifyError()
 //
-// Retryable: ETIMEDOUT, ECONNRESET, ENOTFOUND, 5xx
-// Non-retryable: ENOENT, EACCES, EPERM, 4xx
+// Retryable: ETIMEDOUT, ECONNRESET, 5xx
+// Non-retryable: ENOENT, EACCES, EPERM, ENOTFOUND, 4xx
 //
 // On retry: status → queued, retryCount++, delay via setTimeout (classification.suggestedDelay ?? this.retryDelayMs)
 // On final failure: status → failed, Sentry capture, persist to SQLite
@@ -1980,11 +1980,21 @@ Workers emit `job:completed`/`job:failed` → `EventBroadcaster` serializes and 
 ```javascript
 export function classifyError(error) {
   // Network errors (retryable)
-  if (['ETIMEDOUT', 'ECONNRESET', 'ENOTFOUND'].includes(error.code)) {
+  if (['ETIMEDOUT', 'ECONNRESET'].includes(error.code)) {
     return {
       category: 'network',
       retryable: true,
       severity: 'warning'
+    };
+  }
+
+  // Network errors (non-retryable)
+  // ENOTFOUND: DNS failure — immediate retry unlikely to help
+  if (['ENOTFOUND', 'ECONNREFUSED'].includes(error.code)) {
+    return {
+      category: 'network',
+      retryable: false,
+      severity: 'error'
     };
   }
 
@@ -2035,9 +2045,9 @@ Sentry.captureException(error, {
   extra: { job_data: job.data }
 });
 
-// Level 3: Fatal (system failures)
+// Level 3: System errors (e.g., worker init failure)
 Sentry.captureException(error, {
-  level: 'fatal',
+  level: 'error',
   tags: { component: 'system' },
   extra: { context: 'worker_initialization' }
 });

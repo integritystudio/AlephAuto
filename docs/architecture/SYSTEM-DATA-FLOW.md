@@ -89,6 +89,120 @@ AlephAuto is a **job queue framework** with real-time dashboard for automation p
 
 ## Complete System Architecture
 
+### Visual System Map
+
+High-level view of all layers, workers, and pipelines:
+
+```mermaid
+graph TB
+    subgraph Client["Client Layer"]
+        Dashboard["React Dashboard<br/>Vite + TypeScript"]
+        WS_Client["WebSocket Client"]
+    end
+
+    subgraph API["API Layer (Express)"]
+        Server["api/server.ts<br/>Port 8080"]
+        WS_Server["WebSocket Server"]
+        Routes["REST Routes"]
+        Middleware["Middleware<br/>Auth, Validation, Rate-limit, Error-handler"]
+        Types["Zod Schemas<br/>api/types/"]
+    end
+
+    subgraph Framework["Job Queue Framework (sidequest/)"]
+        SQ["SidequestServer<br/>Event-driven lifecycle"]
+        JobRepo["JobRepository<br/>SQLite persistence"]
+        GitWF["BranchManager<br/>Branch/commit/PR"]
+        Config["Config<br/>Doppler secrets"]
+        Constants["Constants<br/>Timeouts, retry, limits"]
+        ErrClass["Error Classifier<br/>Retryable vs non-retryable"]
+    end
+
+    subgraph Workers["Workers (10)"]
+        DupW["Duplicate Detection"]
+        GitW["Git Activity Reporter"]
+        HealthW["Claude Health Monitor"]
+        RepomixW["Repomix"]
+        SchemaW["Schema Enhancement"]
+        GitignoreW["Gitignore Update"]
+        DashW["Dashboard Populate"]
+        CleanupW["Repository Cleanup"]
+        BugfixW["Bugfix Audit"]
+        TestW["Test Refactor"]
+    end
+
+    subgraph Pipelines["Pipeline Runners (11)"]
+        DupP["Duplicate Detection<br/>JS + Python"]
+        GitP["Git Activity"]
+        HealthP["Claude Health"]
+        RepomixP["Repomix"]
+        SchemaP["Schema Enhancement"]
+        GitignoreP["Gitignore Update"]
+        PluginP["Plugin Management"]
+        CleanupP["Repository Cleanup"]
+        BugfixP["Bugfix Audit"]
+        TestP["Test Refactor"]
+        DashP["Dashboard Populate"]
+    end
+
+    subgraph Processing["Processing Layer"]
+        Orchestrator["Scan Orchestrator<br/>7-Stage Pipeline"]
+        JSProc["JavaScript Processing<br/>repomix + ast-grep"]
+        PyProc["Python Processing<br/>5-Stage Analysis"]
+    end
+
+    subgraph Data["Data Layer"]
+        SQLite[(SQLite<br/>data/jobs.db)]
+        Logs["Logs<br/>Pino + gzip"]
+        Reports["Reports<br/>HTML/MD/JSON"]
+    end
+
+    subgraph External["External Services"]
+        Doppler["Doppler<br/>Secrets"]
+        Sentry["Sentry<br/>Error Tracking"]
+        GitHub["GitHub<br/>PRs + Repos"]
+    end
+
+    Dashboard -->|HTTP + WS| Server
+    WS_Client -->|WebSocket| WS_Server
+    Server --> Routes
+    Routes --> Middleware
+    Middleware --> Types
+    Routes -->|Job CRUD| JobRepo
+    Server -->|Events| WS_Server
+    WS_Server -->|Broadcast| WS_Client
+
+    SQ -->|Lifecycle events| Server
+    SQ --> JobRepo
+    SQ --> GitWF
+    SQ --> Config
+    SQ --> Constants
+    SQ --> ErrClass
+
+    Workers -->|Execute| Pipelines
+    SQ -->|Dispatch| Workers
+
+    DupP --> Orchestrator
+    Orchestrator --> JSProc
+    Orchestrator --> PyProc
+
+    JobRepo --> SQLite
+    Workers --> Logs
+    Pipelines --> Reports
+
+    Config --> Doppler
+    SQ --> Sentry
+    GitWF --> GitHub
+
+    style Client fill:#dbeafe,stroke:#3b82f6
+    style API fill:#dbeafe,stroke:#3b82f6
+    style Framework fill:#d1fae5,stroke:#10b981
+    style Workers fill:#fef3c7,stroke:#f59e0b
+    style Pipelines fill:#fef3c7,stroke:#f59e0b
+    style Processing fill:#ede9fe,stroke:#8b5cf6
+    style Data fill:#f3f4f6,stroke:#6b7280
+    style External fill:#fce7f3,stroke:#ec4899
+```
+
 ### Full System Diagram
 
 ```mermaid
@@ -323,15 +437,19 @@ stateDiagram-v2
     Queued --> Running: Dequeue (concurrency check)
 
     Running --> Completed: Success
-    Running --> RetryPending: Retryable error
+    Running --> Failed: Error (retryable or non-retryable)
 
-    RetryPending --> Running: Backoff elapsed
-    RetryPending --> Failed: Max retries exceeded
+    Failed --> Queued: Retryable + attempts remaining
+    Failed --> [*]: Non-retryable or max retries
 
-    Running --> Failed: Non-retryable error
+    Queued --> Cancelled: Cancel requested
+    Running --> Cancelled: Cancel requested
+
+    Running --> Paused: Pause requested
+    Paused --> Running: Resume
 
     Completed --> [*]
-    Failed --> [*]
+    Cancelled --> [*]
 
     note right of Created
         Events: job:created
@@ -341,18 +459,14 @@ stateDiagram-v2
     note right of Running
         Events: job:started
         DB: UPDATE running
-    end note
-
-    note right of Completed
-        Events: job:completed
-        DB: UPDATE completed
-        Broadcast: WebSocket
+        Concurrency: max 5 jobs
     end note
 
     note right of Failed
         Events: job:failed
-        DB: UPDATE failed
         Sentry: captureException
+        Retryable: ETIMEDOUT, ECONNRESET, 5xx
+        Non-retryable: ENOENT, 4xx
     end note
 ```
 
@@ -653,6 +767,38 @@ flowchart TB
 
 ## Inter-Process Communication
 
+### Duplicate Detection Pipeline (JS + Python)
+
+```mermaid
+graph LR
+    subgraph JS["JavaScript (Stages 1-2)"]
+        S1["Stage 1<br/>Repository Scanning"]
+        S2["Stage 2<br/>Pattern Detection"]
+    end
+
+    subgraph PY["Python (Stages 3-6)"]
+        S3["Stage 3<br/>Code Block Extraction"]
+        S4["Stage 4<br/>Semantic Annotation"]
+        S5["Stage 5<br/>Similarity Calculation"]
+        S6["Stage 6<br/>Duplicate Grouping"]
+    end
+
+    subgraph JS2["JavaScript (Stage 7)"]
+        S7["Stage 7<br/>Report Generation<br/>ReportCoordinator"]
+    end
+
+    S1 --> S2
+    S2 -->|candidates.json via stdout| S3
+    S3 --> S4
+    S4 --> S5
+    S5 --> S6
+    S6 --> S7
+
+    style JS fill:#fef3c7,stroke:#f59e0b
+    style PY fill:#ede9fe,stroke:#8b5cf6
+    style JS2 fill:#fef3c7,stroke:#f59e0b
+```
+
 ### TypeScript ↔ Python Bridge
 
 The duplicate detection pipeline bridges TypeScript and Python via JSON over stdin/stdout:
@@ -896,16 +1042,22 @@ flowchart TB
 module.exports = {
   apps: [
     {
-      name: 'alephauto-api',
+      name: 'aleph-dashboard',
       script: 'api/server.ts',
       instances: 1,
       exec_mode: 'fork',
-      env: {
-        NODE_ENV: 'production'
-      },
-      max_memory_restart: '500M',
-      error_file: './logs/pm2-error.log',
-      out_file: './logs/pm2-out.log'
+      interpreter: 'node',
+      node_args: '--strip-types --import ./api/preload.ts --max-old-space-size=512',
+      max_memory_restart: '500M'
+    },
+    {
+      name: 'aleph-worker',
+      script: 'sidequest/pipeline-runners/duplicate-detection-pipeline.ts',
+      instances: 1,
+      exec_mode: 'fork',
+      interpreter: 'node',
+      node_args: '--strip-types',
+      max_memory_restart: '1G'
     }
   ]
 };
@@ -991,7 +1143,7 @@ server {
 - **[Error Handling](https://github.com/aledlie/AlephAuto/blob/main/docs/architecture/ERROR_HANDLING.md)** - Error classification and retry
 - **[Type System](https://github.com/aledlie/AlephAuto/blob/main/docs/architecture/TYPE_SYSTEM.md)** - Zod schemas and TypeScript
 - **[API Reference](https://github.com/aledlie/AlephAuto/blob/main/docs/API_REFERENCE.md)** - Complete API documentation
-- **[Cheat Sheet](https://github.com/aledlie/AlephAuto/blob/main/docs/architecture/CHEAT-SHEET.md)** - Quick reference
+- **[Type System](https://github.com/aledlie/AlephAuto/blob/main/docs/architecture/TYPE_SYSTEM.md)** - Zod schemas and TypeScript
 
 ---
 

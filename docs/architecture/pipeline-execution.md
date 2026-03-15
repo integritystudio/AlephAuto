@@ -144,7 +144,7 @@ Use centralized config modules, not ad hoc `process.env` reads scattered across 
 
 ```ts
 import { config } from '../sidequest/core/config.ts';
-const port = config.jobsApiPort;
+const port = config.apiPort;
 ```
 
 ## PM2 Configuration
@@ -317,7 +317,6 @@ pm2 logs
 
 - `/Users/alyshialedlie/code/jobs/docs/deployment/TRADITIONAL_SERVER_DEPLOYMENT.md` - PM2 deployment guide
 - `/Users/alyshialedlie/code/jobs/docs/runbooks/DOPPLER_OUTAGE.md` - Doppler troubleshooting
-- `/Users/alyshialedlie/code/jobs/docs/architecture/CHEAT-SHEET.md` - command reference
 - `/Users/alyshialedlie/code/jobs/config/ecosystem.config.cjs` - PM2 configuration
 
 ---

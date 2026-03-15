@@ -93,6 +93,29 @@ Migrate the last 2 pipelines (Repomix, Duplicate Detection) to `BasePipeline`. C
 
 ---
 
+## ast-grep Analysis Findings (2026-03-09)
+
+<a id="ast-grep-findings"></a>
+
+Address the 2 high-severity large-class code smells and 14 standards warnings identified by ast-grep.
+
+> **Source analysis** — keep in sync with this section when items are completed or scope changes:
+> - [ast-grep-analysis-2026-03-09.md](ast-grep-analysis-2026-03-09.md)
+
+### Medium
+
+| ID | Priority | Description |
+|---|----------|-------------|
+| AG-M1 | P2 | **2 large-class code smells** — High-severity findings from ast-grep `detect_code_smells`. Reduce class size or extract collaborators. See `ast-grep-analysis-2026-03-09.md` §Code Smells for file locations. |
+
+### Low
+
+| ID | Priority | Description |
+|---|----------|-------------|
+| AG-L1 | P3 | **14 standards warnings** — `enforce_standards` found 14 warning-level violations (109 total, 95 info). Triage and fix warnings; info-level acceptable as-is. See `ast-grep-analysis-2026-03-09.md` §Standards. |
+
+---
+
 ## Code Review Findings (2026-03-14)
 
 Code review of codebase via `repomix-git-ranked.xml`. Issues #6 (pipelineId extraction) and #7 (default error classification) addressed in session. Remaining 15 findings documented below.

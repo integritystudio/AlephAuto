@@ -48,7 +48,7 @@ Health endpoint response:
 
 **Prevention:** Monitor `/api/health/doppler` in uptime checker. Schedule daily `doppler run -- echo "refresh"`. Separate dev/prd configs.
 
-See also: [Doppler Circuit Breaker](../architecture/DOPPLER_CIRCUIT_BREAKER.md), [Error Handling](../architecture/ERROR_HANDLING.md#doppler-circuit-breaker-pattern)
+See also: [Error Handling](../architecture/ERROR_HANDLING.md#doppler-circuit-breaker) — circuit breaker states, config, and incident response
 
 ---
 

@@ -1,0 +1,44 @@
+{
+  "mcpServers": {
+    "sentry-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@sentry/mcp-server@latest"
+      ],
+      "env": {}
+    },
+    "redis-mcp": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "redis-mcp-server@latest",
+        "redis-mcp-server",
+        "--url",
+        "redis://localhost:6379/0"
+      ],
+      "env": {}
+    },
+    "taskqueue-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "taskqueue-mcp"
+      ],
+      "env": {}
+    },
+    "filesystem-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/alyshialedlie/code/jobs"
+      ],
+      "env": {}
+    }
+  }
+}
