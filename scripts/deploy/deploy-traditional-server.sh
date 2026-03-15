@@ -169,6 +169,19 @@ setup_macos() {
         info "PM2 already installed: $(pm2 --version)"
     fi
 
+    # Install ast-grep (required for duplicate detection pipeline, falls back to ripgrep)
+    if ! command_exists ast-grep; then
+        log "Installing ast-grep..."
+        npm install -g @ast-grep/cli || {
+            warn "ast-grep installation failed, falling back to ripgrep"
+            if ! command_exists rg; then
+                brew install ripgrep
+            fi
+        }
+    else
+        info "ast-grep already installed: $(ast-grep --version)"
+    fi
+
     # Install Doppler
     if ! command_exists doppler; then
         log "Installing Doppler CLI..."
@@ -246,6 +259,14 @@ setup_linux() {
         pm2 startup systemd -u $(logname) --hp /home/$(logname)
     else
         info "PM2 already installed: $(pm2 --version)"
+    fi
+
+    # Install ast-grep (required for duplicate detection pipeline)
+    if ! command_exists ast-grep; then
+        log "Installing ast-grep..."
+        npm install -g @ast-grep/cli
+    else
+        info "ast-grep already installed: $(ast-grep --version)"
     fi
 
     # Install Doppler

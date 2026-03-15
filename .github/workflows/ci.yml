@@ -40,9 +40,8 @@ jobs:
       - name: Install Node.js dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install ast-grep (best effort)
-        run: pnpm add -g @ast-grep/cli@latest || echo "⚠️ ast-grep installation failed (non-critical)"
-        continue-on-error: true
+      - name: Install ast-grep
+        run: pnpm add -g @ast-grep/cli@latest
 
       - name: Install Python dependencies
         run: |
@@ -129,9 +128,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install ast-grep (best effort)
-        run: pnpm add -g @ast-grep/cli@latest || echo "⚠️ ast-grep installation failed (non-critical)"
-        continue-on-error: true
+      - name: Install ast-grep
+        run: pnpm add -g @ast-grep/cli@latest
 
       - name: TypeScript type checking
         run: pnpm run typecheck
@@ -162,9 +160,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install ast-grep (best effort)
-        run: pnpm add -g @ast-grep/cli@latest || echo "⚠️ ast-grep installation failed (non-critical)"
-        continue-on-error: true
+      - name: Install ast-grep
+        run: pnpm add -g @ast-grep/cli@latest
 
       - name: Validate static assets
         run: |
