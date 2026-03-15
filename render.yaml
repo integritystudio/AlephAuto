@@ -6,12 +6,12 @@
 # - Doppler CLI (for secrets management)
 # - pnpm (for Node.js dependencies)
 # - Redis/Valkey (for scan result caching)
-# - Persistent disk (for SQLite database)
+# - Managed PostgreSQL (for job persistence)
 #
 # ARCHITECTURE:
 # Single web service runs both the API server and pipeline cron scheduler.
 # Render does not support shared disks between services, so both must run
-# in the same process to share the SQLite database on persistent disk.
+# in the same process to share the PostgreSQL database.
 
 services:
   # Redis/Valkey Key-Value Store for caching scan results
@@ -23,43 +23,36 @@ services:
     ipAllowList: []  # Allow connections from all Render services
     maxmemoryPolicy: allkeys-lru  # Evict least recently used keys when memory full
 
-  # API + Dashboard + Pipeline Cron (single service for shared SQLite disk)
+  # API + Dashboard + Pipeline Cron
   - type: web
     name: alephauto
     runtime: node
     region: oregon
     plan: starter
     buildCommand: |
-      # Install Doppler CLI and build tools
+      # Install Doppler CLI
       curl -sLf --retry 3 --tlsv1.2 --proto "=https" 'https://packages.doppler.com/public/cli/gpg.DE2A7741.key' | gpg --dearmor -o /usr/share/keyrings/doppler-archive-keyring.gpg
       echo "deb [signed-by=/usr/share/keyrings/doppler-archive-keyring.gpg] https://packages.doppler.com/public/cli/deb/debian any-version main" | tee /etc/apt/sources.list.d/doppler-cli.list
-      apt-get update && apt-get install -y doppler build-essential
+      apt-get update && apt-get install -y doppler
 
       # Install Node.js dependencies and build frontend
       pnpm install
       npm run build:frontend
 
-      # Force rebuild better-sqlite3 native module for Linux
-      npm rebuild better-sqlite3 --build-from-source
-
       echo "Build complete"
     # ENABLE_CRON_SCHEDULER causes the API server to also start pipeline cron jobs
     startCommand: doppler run -c prd -- node --strip-types api/server.ts
     healthCheckPath: /health
-    # Persistent disk for SQLite database (survives deploys and restarts)
-    # https://docs.render.com/disks
-    disk:
-      name: alephauto-data
-      mountPath: /data
-      sizeGB: 1
     envVars:
       - key: NODE_VERSION
         value: "25.6.0"
       - key: NODE_ENV
         value: production
-      # SQLite path on persistent disk (default: project-relative data/jobs.db)
-      - key: DATABASE_PATH
-        value: /data/jobs.db
+      # PostgreSQL connection for job persistence
+      - key: DATABASE_URL
+        fromDatabase:
+          name: alephauto-db
+          property: connectionString
       # Enable in-process cron scheduler for pipeline jobs
       - key: ENABLE_CRON_SCHEDULER
         value: "true"
@@ -77,3 +70,12 @@ services:
           property: connectionString
     autoDeploy: true
     branch: main
+
+databases:
+  # Managed PostgreSQL for job persistence
+  # https://docs.render.com/databases
+  - name: alephauto-db
+    region: oregon
+    plan: starter
+    databaseName: alephauto
+    user: alephauto

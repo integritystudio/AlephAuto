@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-15 | **Last Session:** 2026-03-15 (backlog-migrate: migrated BP-L1 to v2.3.30)
+**Last Updated:** 2026-03-15 | **Last Session:** 2026-03-15 (code-review: bd71f82 findings fixed in 8a45998)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -27,7 +27,6 @@ objects instead. Import paths must use `.ts` extensions (Node v24 does not rewri
 - Add `process.env.pm_id !== undefined` as a fallback condition alongside `isDirectExecution()`
 - Convert `enum` declarations to `const ... as const` objects
 - Use `.ts` import extensions, not `.js`
-- Rebuild native modules (`npm rebuild better-sqlite3`) after Node version changes
 - Disable `wait_ready` in PM2 config — PM2 6.x sends premature SIGINT with `.ts` files
 
 **Affected versions:** Node v24.x, PM2 6.x. Not observed on Node v25.x.
@@ -63,9 +62,18 @@ Tracking artifacts:
 
 #### AG-M1-T1: Add snapshot tests for html-report-sections generators
 
-`sidequest/pipeline-core/reports/html-report-sections.ts` exports 7 section generators (`generateHeader`, `generateMetrics`, `generateSummaryCharts`, `generateCrossRepoSection`, `generateDuplicateGroups`, `generateSuggestions`, `generateFooter`) with no test coverage. Add snapshot tests covering both intra-project and inter-project `ScanResult` inputs, empty arrays, and missing metadata fallbacks.
+`sidequest/pipeline-core/reports/html-report-sections.ts` exports 7 section generators + `isInterProject` with no test coverage. Add snapshot tests covering both intra-project and inter-project `ScanResult` inputs, empty arrays, missing metadata fallbacks, and invalid timestamp strings.
+
+#### AG-M1-T2: Empty chart section renders when no suggestions
+
+`html-report-sections.ts:generateSummaryCharts` renders `<h2>` and empty `<div class="chart-bars">` containers when `total === 0`. Add early-return empty state matching the pattern used in `generateDuplicateGroups` and `generateSuggestions`.
+
+#### AG-M1-T3: DRY `isInterProject` across all report generators
+
+`json-report-generator.ts` and `markdown-report-generator.ts` still inline `const isInterProject = scanResult.scan_type === 'inter-project'`. Refactor to import the shared `isInterProject()` from `html-report-sections.ts` (or relocate it to a shared report utility).
 
 > SV4-SV6 migrated to [v2.3.23](changelog/2.3/CHANGELOG.md#2323---2026-03-09).
+> AG-M1 review fixes (items 1-5) landed in `8a45998`.
 
 ---
 
@@ -79,13 +87,11 @@ Root cause investigation: relevance evaluations stopped on 2026-03-03. Session: 
 ---
 
 
-## BasePipeline Migration — Remaining Pipelines (2026-03-13)
+## BasePipeline Migration — Complete (2026-03-13)
 
-Migrate the last pipeline (Repomix) to `BasePipeline`. Duplicate Detection completed in v2.3.30 (2026-03-15). Context: 9 of 11 pipelines already migrated in commit 42e2f18.
+All 11/11 pipelines migrated to `BasePipeline`. Repomix was already migrated (extends `BasePipeline<RepomixWorker>` with `setupDefaultEventListeners`, `scheduleCron`, `waitForCompletion`). Duplicate Detection completed in v2.3.30 (2026-03-15). Original 9 migrated in commit 42e2f18.
 
-> **Implementation docs** — keep in sync with this section when items are completed or scope changes:
-> - [MIGRATE_REPOMIX_TO_BASEPIPELINE.md](architecture/MIGRATE_REPOMIX_TO_BASEPIPELINE.md)
-> - [MIGRATE_DUPLICATE_DETECTION_TO_BASEPIPELINE.md](architecture/MIGRATE_DUPLICATE_DETECTION_TO_BASEPIPELINE.md)
+> **Done** — migrate to changelog with next version bump.
 
 ---
 
@@ -154,28 +160,22 @@ No active low-priority backlog items.
 
 ---
 
-## Migrate from SQLite to PostgreSQL (2026-03-15)
+## ~~Migrate from SQLite to PostgreSQL~~ (2026-03-15) — Done
 
 <a id="postgres-migration"></a>
 
-**Priority:** P1 — must complete before Render deployment
+All items complete. Migration landed across TDD Cycles 0-5 and Post-work Phases A-G.
 
-**Context:** The codebase uses better-sqlite3 (file-based SQLite) with WAL mode. Render's persistent disk works but is limited (single service, no shared access, 1 GB). PostgreSQL enables multi-service scaling, proper backups, and connection pooling.
-
-**Scope:**
-
-| ID | Description |
-|---|-------------|
-| PG-1 | Replace `better-sqlite3` with a PostgreSQL client (`pg` or `postgres`/`postgres.js`) |
-| PG-2 | Rewrite `sidequest/core/database.ts` — replace SQLite-specific syntax (e.g., `INSERT OR REPLACE`, `pragma`, inline `CREATE TABLE IF NOT EXISTS`) with PostgreSQL equivalents (`ON CONFLICT DO UPDATE`, connection pool init) |
-| PG-3 | Update `sidequest/core/config.ts` to parse `DATABASE_URL` connection string (Render provides this for managed PostgreSQL) |
-| PG-4 | Add a migration runner or use a lightweight migration tool for schema versioning |
-| PG-5 | Update `render.yaml` — add managed PostgreSQL service, remove persistent disk, wire `DATABASE_URL` env var |
-| ~~PG-6~~ | ~~Remove `.env` references to `JOB_DB_PORT` (dead config) — No tracked code references `JOB_DB_PORT`; only exists in local `.env:8` (gitignored). No config parsing in `config.ts`. Remove manually from local `.env`.~~ **Done** |
-| PG-7 | Update tests — `initDatabase(':memory:')` path needs a test-database strategy (test container, in-memory PG via `pg-mem`, or dedicated test DB) |
-| PG-8 | Update `job-repository.ts` if any SQLite-specific query patterns leaked through the facade |
-
-**Blocked by:** Nothing — can begin immediately.
+| ID | Status |
+|---|--------|
+| ~~PG-1~~ | **Done** — `pg` + `@electric-sql/pglite` |
+| ~~PG-2~~ | **Done** — `database.ts` fully rewritten |
+| ~~PG-3~~ | **Done** — `config.databaseUrl` parses `DATABASE_URL` |
+| ~~PG-4~~ | **Done** — Schema DDL in `SCHEMA_SQL` constant, runs on init |
+| ~~PG-5~~ | **Done** — `render.yaml` updated |
+| ~~PG-6~~ | **Done** — dead config removed |
+| ~~PG-7~~ | **Done** — PGlite test helper, 77 new PG tests |
+| ~~PG-8~~ | **Done** — `job-repository.ts` all-async |
 
 ---
 

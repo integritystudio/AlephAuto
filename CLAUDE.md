@@ -164,7 +164,7 @@ units.ts (primitives: TIME_MS, SECONDS, BYTES, PERCENTILE)
 
 ### Core Dependency Flow
 ```
-units.ts → constants.ts → config.ts ← server.ts → job-repository.ts → database.ts (better-sqlite3)
+units.ts → constants.ts → config.ts ← server.ts → job-repository.ts → database.ts (pg)
                                           ↓
                                    BranchManager (pipeline-core/git/branch-manager.ts)
 ```
@@ -213,7 +213,7 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 | Structural similarity | `sidequest/pipeline-core/similarity/structural.ts` |
 | Base job queue | `sidequest/core/server.ts` |
 | Base pipeline runner | `sidequest/pipeline-runners/base-pipeline.ts` |
-| SQLite persistence | `sidequest/core/database.ts` |
+| PostgreSQL persistence | `sidequest/core/database.ts` |
 | Job repository (facade) | `sidequest/core/job-repository.ts` |
 | Centralized config | `sidequest/core/config.ts` |
 | Domain constants | `sidequest/core/constants.ts` |

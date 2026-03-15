@@ -142,7 +142,7 @@ module.exports = {
       // when using --strip-types with .ts files. The cron scheduler keeps
       // the event loop alive, so ready signal is unnecessary.
       wait_ready: false,
-      kill_timeout: 15000  // Allow 15s for graceful shutdown to prevent SQLite lock contention
+      kill_timeout: 15000  // Allow 15s for graceful shutdown
     },
 
     /** Dashboard Populate Pipeline (DP-H1) — see populate.config.cjs */
