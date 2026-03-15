@@ -1,6 +1,6 @@
 # AlephAuto - Quick Reference Cheat Sheet
 
-**Version**: 2.3.20 | **Last Updated**: 2026-03-14
+**Version**: 2.3.29 | **Last Updated**: 2026-03-15
 
 ---
 
@@ -41,32 +41,32 @@
 ## Critical Patterns
 
 ### 1. Two-Phase Similarity — extract features BEFORE normalization
-```python
-features = extract_semantic_features(code)    # PHASE 1: Original code
-normalized = normalize_code(code)             # PHASE 2: Normalize
-penalty = calculate_semantic_penalty(f1, f2)  # PHASE 3: Penalize
+```typescript
+const features = extractSemanticFeatures(code);    // PHASE 1: Original code
+const normalized = normalizeCode(code);            // PHASE 2: Normalize
+const penalty = calculateSemanticPenalty(f1, f2);  // PHASE 3: Penalize
 ```
-`structural.ts` (TS port of structural.py)
+`sidequest/pipeline-core/similarity/structural.ts`
 
 ### 2. Deduplicate by file:function_name (NOT line number)
-```python
-function_key = f"{file_path}:{function_name}"  # ✅
-function_key = f"{file_path}:{line_number}"    # ❌ lines shift
+```typescript
+const functionKey = `${filePath}:${functionName}`;  // correct
+const functionKey = `${filePath}:${lineNumber}`;    // wrong - lines shift
 ```
-`extract_blocks.py:108-163`
+`sidequest/pipeline-core/extractors/extract-blocks.ts`
 
 ### 3. Use `tags` field (NOT `semantic_tags`)
-```python
-CodeBlock(tags=[f"function:{name}"])           # ✅
-CodeBlock(semantic_tags=[f"function:{name}"])  # ❌ doesn't exist
+```typescript
+const block: CodeBlock = { tags: [`function:${name}`] };           // correct
+const block: CodeBlock = { semantic_tags: [`function:${name}`] };  // wrong
 ```
-`extract_blocks.py:231`
+`sidequest/pipeline-core/extractors/extract-blocks.ts`
 
 ### 4. Backwards function search (find CLOSEST function)
-```python
-for i in range(line_start - 1, search_start - 1, -1):  # ✅ backwards
+```typescript
+for (let i = lineStart - 1; i >= searchStart; i--) {  // backwards
 ```
-`extract_blocks.py:80-98`
+`sidequest/pipeline-core/extractors/extract-blocks.ts`
 
 ### 5. Nullish coalescing for numbers
 ```javascript
@@ -129,7 +129,7 @@ doppler run -- node --strip-types sidequest/pipeline-core/scan-orchestrator.ts /
 doppler run -- RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 
 # Similarity regression test
-PYTHONNOUSERSITE=1 python -m pytest -q sidequest/pipeline-core/similarity/test_grouping_layer3.py
+npx vitest run tests/unit/grouping.test.ts
 ```
 
 ---
@@ -152,13 +152,13 @@ PYTHONNOUSERSITE=1 python -m pytest -q sidequest/pipeline-core/similarity/test_g
 
 ---
 
-## Pydantic Models
+## Data Models (TypeScript/Zod)
 
-**CodeBlock**: `content`, `file_path`, `line_start`, `line_end`, `function_name`, `tags` (NOT semantic_tags), `pattern_name`
+**CodeBlock**: `content`, `filePath`, `lineStart`, `lineEnd`, `functionName`, `tags` (NOT semantic_tags), `patternName`
 
-**SemanticFeatures**: `http_status_codes: Set[int]`, `logical_operators: Set[str]`, `semantic_methods: Set[str]`
+**SemanticFeatures**: `httpStatusCodes: Set<number>`, `logicalOperators: Set<string>`, `semanticMethods: Set<string>`
 
-**DuplicateGroup**: `representative: CodeBlock`, `duplicates: List[CodeBlock]`, `similarity_score: float`, `layer: int`
+**DuplicateGroup**: `representative: CodeBlock`, `duplicates: CodeBlock[]`, `similarityScore: number`, `layer: number`
 
 ---
 
@@ -168,7 +168,7 @@ PYTHONNOUSERSITE=1 python -m pytest -q sidequest/pipeline-core/similarity/test_g
 |-------|----------|
 | False positives | Check similarity threshold (default: 0.90) |
 | Missing duplicates | Lower threshold or check normalization |
-| Wrong function names | Verify backwards search (extract_blocks.py:80-98) |
+| Wrong function names | Verify backwards search in extract-blocks.ts |
 | Field errors | Use `tags` not `semantic_tags` |
 | 0 treated as false | Use `??` not `\|\|` |
 | Timeout | Check 10-minute timeout, optimize scan |
@@ -181,7 +181,7 @@ PYTHONNOUSERSITE=1 python -m pytest -q sidequest/pipeline-core/similarity/test_g
 |------|---------|
 | `sidequest/pipeline-core/scan-orchestrator.ts` | Pipeline coordinator |
 | `sidequest/pipeline-core/similarity/structural.ts` | Similarity engine |
-| `sidequest/pipeline-core/extractors/extract_blocks.py` | Block extraction |
+| `sidequest/pipeline-core/extractors/extract-blocks.ts` | Block extraction |
 | `sidequest/pipeline-core/scanners/ast-grep-detector.ts` | Pattern detection (18 rules) |
 | `sidequest/core/server.ts` | Base job queue |
 | `sidequest/core/config.ts` | Centralized config |

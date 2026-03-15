@@ -60,7 +60,7 @@ This directory contains comprehensive architectural documentation for the AlephA
 **Complete guide to all 11 AlephAuto pipelines and their data flows**
 
 **Contents:**
-- End-to-end pipeline architecture (Duplicate Detection: JS Stage 1-2 → Python Stage 3-7)
+- End-to-end pipeline architecture (Duplicate Detection: all stages now TypeScript)
 - Stage-by-stage data flow with Mermaid diagrams
 - JSON data format specifications for all stages
 - Component interaction patterns
@@ -77,7 +77,7 @@ This directory contains comprehensive architectural documentation for the AlephA
 - Metrics and reporting
 
 **Use This Document When:**
-- Understanding how data flows between JavaScript and Python (Duplicate Detection)
+- Understanding how data flows through the Duplicate Detection pipeline
 - Debugging pipeline stage failures
 - Adding new pattern detection rules
 - Extending the suggestion generation logic
@@ -129,14 +129,15 @@ This directory contains comprehensive architectural documentation for the AlephA
         │                                           │
         ▼                                           ▼
 ┌──────────────────┐                    ┌──────────────────────┐
-│ Stage 1-2 (JS)   │                    │ Stage 3-7 (Python)   │
+│ Stage 1-2        │                    │ Stage 3-7            │
 │                  │                    │                      │
-│ • Repo Scanner   │ ──── JSON ───────▶ │ • Block Extraction   │
-│ • AST-Grep       │    stdin/stdout    │ • Deduplication      │
+│ • Repo Scanner   │ ────────────────▶  │ • Block Extraction   │
+│ • AST-Grep       │                    │ • Deduplication      │
 │                  │                    │ • Grouping (Layer 0-2)│
 │                  │                    │ • Suggestions        │
 │                  │                    │ • Reporting          │
 └──────────────────┘                    └──────────────────────┘
+        All stages are now pure TypeScript
 ```
 
 ### Duplicate Detection: Multi-Layer Grouping
