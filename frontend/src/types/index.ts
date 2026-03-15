@@ -500,11 +500,11 @@ export interface DashboardFilters {
   /** Search query */
   search?: string;
   /** Filter by pipeline type */
-  pipelineType?: PipelineType;
+  pipelineType: Exclude<PipelineType, PipelineType.UNKNOWN>;
   /** Filter by status */
-  status?: PipelineStatus;
+  status: PipelineStatus;
   /** Date range filter */
-  dateRange?: {
+  dateRange: {
     start: Date;
     end: Date;
   };
