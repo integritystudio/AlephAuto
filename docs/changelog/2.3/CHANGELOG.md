@@ -33,6 +33,16 @@ Code Review (CR) findings backfill: 9 items resolved. 2 High priority (concurren
 **Event Loop & Performance** (CR-M8)
 - **CR-M8:** `sidequest/core/database.ts` — importLogsToDatabase() and importReportsToDatabase() used blocking fs.readFileSync in loops. Replaced with fs.promises equivalents to avoid event loop blockage.
 
+**Low Priority Fixes** (CR-L13, CR-L14, CR-L15, CR-L16, CR-L17, CR-L18, CR-L19, CR-L20)
+- **CR-L13:** `api/websocket.ts` — WebSocket subscription limit silently drops excess channels. Now includes dropped count in subscribe response.
+- **CR-L14:** `sidequest/core/server.ts` — _resolveUniqueJobId has unbounded retry loop. Capped at LIMITS.MAX_JOB_ID_SUFFIX (100).
+- **CR-L15:** `api/middleware/auth.ts` — validateApiKey padding logic. Simplified to use SHA256 hash for constant-time comparison.
+- **CR-L16:** `sidequest/core/config.ts` — Config reads process.env directly at module scope. Documented that top-level await ensures dotenv runs before config object is built.
+- **CR-L17:** `docs/CLAUDE.md` — Documentation mismatch: CLAUDE.md references jobsApiPort instead of apiPort.
+- **CR-L18:** `tests/unit/api-server.test.ts` — createRequest parameter lacks type annotation. Added type annotation.
+- **CR-L19:** `tests/unit/api-server.test.ts` — createResponse type alias duplicated. Extracted MockResponse type alias.
+- **CR-L20:** `api/routes/jobs.ts` — JSDoc return type mismatch: getScanResults documented as Promise<any>. Corrected to Promise<unknown>.
+
 ### Changed
 
 ---

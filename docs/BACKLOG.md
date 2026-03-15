@@ -111,13 +111,6 @@ Code review of codebase via `repomix-git-ranked.xml`. Issues #6 (pipelineId extr
 
 ### Low
 
-| ID | Priority | Description |
-|---|----------|-------------|
-~~| CR-L13 | P3 | **WebSocket subscription limit silently drops excess channels** |~~ Done (0951232)
-~~| CR-L14 | P3 | **_resolveUniqueJobId has unbounded retry loop** |~~ Done (1b4fa67)
-~~| CR-L15 | P3 | **validateApiKey padding logic is fragile** |~~ Done (7528947)
-~~| CR-L16 | P3 | **config.ts reads process.env directly at module scope** |~~ Done (1d0ab3d)
-~~| CR-L17 | P3 | **Documentation mismatch: CLAUDE.md references jobsApiPort** |~~ Done (7f20fa8)
-~~| CR-L18 | P3 | **createRequest parameter lacks type annotation** |~~ Done (bfb9579)
-~~| CR-L19 | P3 | **createResponse type alias duplicated** |~~ Done (bfb9579)
-~~| CR-L20 | P3 | **JSDoc mismatch: getScanResults says Promise<any>** |~~ Done (559ac2b)
+No active low-priority backlog items.
+
+> CR-L13 through CR-L20 migrated to [v2.3.29](changelog/2.3/CHANGELOG.md#2329---2026-03-14).

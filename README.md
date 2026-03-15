@@ -56,7 +56,7 @@ graph TD
 | 3 | **Git Activity Reporter** | JS | Sunday 8 PM | Jekyll MD + SVG |
 | 4 | **Repository Cleanup** | JS | Sunday 3 AM | Cleanup logs |
 | 5 | **Repomix** | JS | 2 AM daily | `docs/repomix/{repo-compressed.xml,repomix.xml}` |
-| 6 | **Codebase Health** | JS + Python | 8 AM daily | MD/JSON reports |
+| 6 | **Claude Health** | JS + Python | 8 AM daily | MD/JSON reports |
 | 7 | **Dashboard Populate** | JS | 6 AM/6 PM | Cloudflare KV + reports |
 | 8 | **Bugfix Audit** | JS | Recurring | Audit reports |
 | 9 | **Gitignore Update** | JS | Scheduled | Updated .gitignore files |
@@ -72,8 +72,8 @@ doppler setup --project integrity-studio --config dev
 ```
 
 ```bash
-doppler run -- npm start                  # Repomix cron
-doppler run -- npm run dashboard          # Dashboard UI → http://localhost:8080
+npm start                                 # Server (reads .env)
+npm run dashboard                         # Dashboard UI → http://localhost:8080
 npm run test:all:core                     # Core Node suites (env-gated)
 npm run test:all:env                      # Env-sensitive suites (safe + host-required)
 npm run test:all                          # Core Node + Python tests
@@ -103,7 +103,7 @@ Multi-Language Pipeline (Duplicate Detection)
 ## Directory Structure
 
 ```
-├── api/                    # REST API + WebSocket (Express)
+├── api/                    # REST API + WebSocket (23 routes)
 │   ├── routes/            # Endpoint handlers (jobs, scans, pipelines, reports)
 │   ├── types/             # Zod schemas → TypeScript inference
 │   ├── middleware/        # Auth, validation, rate-limit, error-handler
@@ -131,7 +131,7 @@ Multi-Language Pipeline (Duplicate Detection)
 
 ```bash
 # Development
-doppler run -- npm start                   # Server
+npm start                                  # Server (reads .env)
 npm run dashboard                          # Dashboard UI
 npm run build:frontend                     # Build React app
 
@@ -170,9 +170,12 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 |---------|------|
 | Pipeline coordinator | `sidequest/pipeline-core/scan-orchestrator.ts` |
 | Base job queue | `sidequest/core/server.ts` |
+| Base pipeline runner | `sidequest/pipeline-runners/base-pipeline.ts` |
 | Job repository | `sidequest/core/job-repository.ts` |
+| Centralized config | `sidequest/core/config.ts` |
+| Domain constants | `sidequest/core/constants.ts` |
+| Error classifier | `sidequest/pipeline-core/errors/error-classifier.ts` |
 | Branch manager | `sidequest/pipeline-core/git/branch-manager.ts` |
-| Constants | `sidequest/core/constants.ts` |
 | Job status types | `api/types/job-status.ts` |
 | API error utilities | `api/utils/api-error.ts` |
 | Port manager | `api/utils/port-manager.ts` |
@@ -188,10 +191,9 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 - [Troubleshooting](docs/runbooks/troubleshooting.md) - Debugging guide
 - [MCP Servers](docs/MCP_SERVERS.md) - Sentry, Redis, TaskQueue, Filesystem
 - [Adding Pipelines](docs/ADDING_PIPELINES.md) - Pipeline creation guide
-- [Deployment](docs/DEPLOYMENT.md) - Production deployment
-- [Installation](docs/INSTALL.md) - Setup instructions
+- [Installation & Deployment](docs/INSTALL.md) - Setup, production deployment, GitHub Pages
 - [Changelog](docs/CHANGELOG.md) - Legacy/cross-project history
-- [Release Changelogs](docs/changelog/README.md) - v2.x release history (latest: v2.3.20)
+- [Release Changelogs](docs/changelog/README.md) - v2.x release history (latest: v2.3.29)
 
 ## Known Issues
 
