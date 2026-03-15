@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-14 | **Last Session:** 2026-03-14 (backlog-implementer: implemented CR-L13 through CR-L20, CR-L17; BP-L1 accepted as-is)
+**Last Updated:** 2026-03-15 | **Last Session:** 2026-03-15 (backlog-migrate: migrated BP-L1 to v2.3.30)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -79,17 +79,11 @@ Root cause investigation: relevance evaluations stopped on 2026-03-03. Session: 
 
 ## BasePipeline Migration — Remaining Pipelines (2026-03-13)
 
-Migrate the last 2 pipelines (Repomix, Duplicate Detection) to `BasePipeline`. Context: 9 of 11 pipelines already migrated in commit 42e2f18.
+Migrate the last pipeline (Repomix) to `BasePipeline`. Duplicate Detection completed in v2.3.30 (2026-03-15). Context: 9 of 11 pipelines already migrated in commit 42e2f18.
 
 > **Implementation docs** — keep in sync with this section when items are completed or scope changes:
 > - [MIGRATE_REPOMIX_TO_BASEPIPELINE.md](architecture/MIGRATE_REPOMIX_TO_BASEPIPELINE.md)
 > - [MIGRATE_DUPLICATE_DETECTION_TO_BASEPIPELINE.md](architecture/MIGRATE_DUPLICATE_DETECTION_TO_BASEPIPELINE.md)
-
-### Done
-
-| ID | Priority | Description |
-|----|----------|-------------|
-| BP-L1 | P3 | ~~Migrate DD to BasePipeline~~ — Partial migration completed 2026-03-15. `DuplicateDetectionPipeline extends BasePipeline<DuplicateDetectionWorker>` using `scheduleCron()` + `waitForCompletion()`. Fixed premature `process.exit(0)` in runOnStartup mode that could kill in-flight jobs. `setupDefaultEventListeners()` not adopted (worker handles its own per-job logging). No `initialize()` hook needed — async init handled in `main()` before pipeline construction. |
 
 ---
 
@@ -158,6 +152,31 @@ No active low-priority backlog items.
 
 ---
 
+## Migrate from SQLite to PostgreSQL (2026-03-15)
+
+<a id="postgres-migration"></a>
+
+**Priority:** P1 — must complete before Render deployment
+
+**Context:** The codebase uses better-sqlite3 (file-based SQLite) with WAL mode. Render's persistent disk works but is limited (single service, no shared access, 1 GB). PostgreSQL enables multi-service scaling, proper backups, and connection pooling.
+
+**Scope:**
+
+| ID | Description |
+|---|-------------|
+| PG-1 | Replace `better-sqlite3` with a PostgreSQL client (`pg` or `postgres`/`postgres.js`) |
+| PG-2 | Rewrite `sidequest/core/database.ts` — replace SQLite-specific syntax (e.g., `INSERT OR REPLACE`, `pragma`, inline `CREATE TABLE IF NOT EXISTS`) with PostgreSQL equivalents (`ON CONFLICT DO UPDATE`, connection pool init) |
+| PG-3 | Update `sidequest/core/config.ts` to parse `DATABASE_URL` connection string (Render provides this for managed PostgreSQL) |
+| PG-4 | Add a migration runner or use a lightweight migration tool for schema versioning |
+| PG-5 | Update `render.yaml` — add managed PostgreSQL service, remove persistent disk, wire `DATABASE_URL` env var |
+| PG-6 | Remove `.env` references to `JOB_DB_PORT` (dead config) |
+| PG-7 | Update tests — `initDatabase(':memory:')` path needs a test-database strategy (test container, in-memory PG via `pg-mem`, or dedicated test DB) |
+| PG-8 | Update `job-repository.ts` if any SQLite-specific query patterns leaked through the facade |
+
+**Blocked by:** Nothing — can begin immediately.
+
+---
+
 ## Frontend Code Review Findings (2026-03-15)
 
 Code review of `frontend/src/hooks/useWebSocketConnection.ts`. Critical and high-severity issues (1-5) fixed in session; remaining medium/low findings documented below.
@@ -170,7 +189,7 @@ Code review of `frontend/src/hooks/useWebSocketConnection.ts`. Critical and high
 | FE-M2 | P2 | **Pipeline timestamps regenerate on every poll** — `mapPipeline()` uses `p.lastRun \|\| new Date().toISOString()` for createdAt/updatedAt, causing unnecessary re-renders and semantic incorrectness. Remove fallback or use static sentinel value. -- `frontend/src/hooks/useWebSocketConnection.ts:148-149` |
 | FE-M3 | P2 | **Unknown pipeline IDs silently misclassified** — `PIPELINE_TYPE_MAP[p.id] ?? PipelineType.DUPLICATE_DETECTION` defaults unknown pipelines to DUPLICATE_DETECTION. Add `UNKNOWN` variant or validate map on startup with warning. -- `frontend/src/hooks/useWebSocketConnection.ts:141` |
 | FE-M4 | P2 | **Lookup object allocations in tight loop** — `getPipelineIcon()` and `getPipelineColor()` recreate Record literals on every call (called during each poll). Hoist PIPELINE_ICONS and PIPELINE_COLORS to module-level constants. -- `frontend/src/hooks/useWebSocketConnection.ts:303-334` |
-| FE-M5 | P3 | **Import ordering violation** — `DASHBOARD_TIMING` import on line 72 appears after const `ACTIVITY_TYPE_MAP` declaration on line 63. Move to top-level import block. -- `frontend/src/hooks/useWebSocketConnection.ts:72` |
+| ~~FE-M5~~ | ~~P3~~ | ~~**Import ordering violation** — Already resolved: `DASHBOARD_TIMING` import is at line 17 in the top-level import block (fixed during `e8c0fab` type centralization refactor).~~ **Done** |
 
 ### Low
 
