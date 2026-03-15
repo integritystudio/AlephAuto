@@ -226,6 +226,7 @@ function App() {
         <PipelineDetailPanel
           pipeline={selectedPipeline}
           onClose={() => setSelectedPipelineDetail(null)}
+          onJobClick={handleJobViewLogs}
         />
       )}
 

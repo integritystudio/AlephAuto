@@ -17,6 +17,7 @@ interface PipelineJob {
 interface PipelineDetailPanelProps {
   pipeline: Pipeline;
   onClose: () => void;
+  onJobClick?: (jobId: string) => void;
 }
 
 const STATUS_ICONS: Record<string, string> = {
@@ -39,7 +40,7 @@ const formatDuration = (seconds: number): string => {
   return `${mins}m ${secs.toFixed(0)}s`;
 };
 
-export const PipelineDetailPanel: React.FC<PipelineDetailPanelProps> = ({ pipeline, onClose }) => {
+export const PipelineDetailPanel: React.FC<PipelineDetailPanelProps> = ({ pipeline, onClose, onJobClick }) => {
   const [jobs, setJobs] = useState<PipelineJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -118,7 +119,14 @@ export const PipelineDetailPanel: React.FC<PipelineDetailPanelProps> = ({ pipeli
             <div className="panel-empty">No {tab} jobs found</div>
           )}
           {!loading && !error && jobs.map((job) => (
-            <div key={job.id} className={`panel-job panel-job-${job.status}`}>
+            <div
+              key={job.id}
+              className={`panel-job panel-job-${job.status}${onJobClick ? ' panel-job-clickable' : ''}`}
+              onClick={onJobClick ? () => onJobClick(job.id) : undefined}
+              onKeyDown={onJobClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onJobClick(job.id); } } : undefined}
+              role={onJobClick ? 'button' : undefined}
+              tabIndex={onJobClick ? 0 : undefined}
+            >
               <span className="job-status-icon">{STATUS_ICONS[job.status] || '?'}</span>
               <div className="job-info">
                 <span className="job-id" title={job.id}>{job.id.length > 20 ? job.id.substring(0, 20) + '...' : job.id}</span>

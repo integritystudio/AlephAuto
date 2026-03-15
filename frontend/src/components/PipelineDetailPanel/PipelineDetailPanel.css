@@ -154,6 +154,14 @@
   font-size: 0.8125rem;
 }
 
+.panel-job-clickable {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.panel-job-clickable:hover { background: #f9fafb; }
+.panel-job-clickable:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
+
 .panel-job-completed { border-left: 3px solid #10b981; }
 .panel-job-failed { border-left: 3px solid #ef4444; }
 .panel-job-running { border-left: 3px solid #3b82f6; }
