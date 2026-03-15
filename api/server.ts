@@ -19,7 +19,7 @@ import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 import { createComponentLogger, logError, logStart } from '../sidequest/utils/logger.ts';
 import { config } from '../sidequest/core/config.ts';
-import { CACHE, CONCURRENCY, MAX_SCORE, PAGINATION, PORT, PROCESS, TIMEOUTS } from '../sidequest/core/constants.ts';
+import { CACHE, PAGINATION, PORT, PROCESS, TIMEOUTS } from '../sidequest/core/constants.ts';
 import { TIME_MS } from '../sidequest/core/units.ts';
 import { authMiddleware } from './middleware/auth.ts';
 import { rateLimiter } from './middleware/rate-limit.ts';

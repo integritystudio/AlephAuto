@@ -6,7 +6,6 @@ import path from 'path';
 import { createComponentLogger, logError, logWarn } from '../utils/logger.ts';
 import { safeErrorMessage } from '../pipeline-core/utils/error-helpers.ts';
 import { BranchManager } from '../pipeline-core/git/branch-manager.ts';
-import type { BranchManagerOptions, JobBranchContext, PRContext } from '../pipeline-core/git/branch-manager.ts';
 import { jobRepository } from './job-repository.ts';
 import { CONCURRENCY, FORMATTING, JOB_EVENTS, LIMITS, PERSIST_CONTEXT, RETRY, RETRY_EVENTS, VALIDATION } from './constants.ts';
 import { TIME_MS } from './units.ts';

@@ -11,6 +11,7 @@ import { sendValidationError } from '../utils/api-error.ts';
 
 // Module augmentation for type-safe validated query access
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       validatedQuery?: unknown;
