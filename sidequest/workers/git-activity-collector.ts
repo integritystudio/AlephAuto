@@ -391,7 +391,7 @@ export async function getRepoStats(
   const codeDir = config?.codeDir ?? path.join(homeDir, 'code');
   const reportsDir = config?.reportsDir ?? path.join(homeDir, 'reports');
   const parentDir = path.dirname(repoPath);
-  let parent: string | null = null;
+  let parent: string | null;
 
   if (parentDir === codeDir || parentDir === reportsDir) {
     parent = null;
@@ -632,7 +632,7 @@ export function createBarChartSvg(
   data: Record<string, number>,
   title: string,
   width = CHART.WIDTH,
-  height = CHART.HEIGHT,
+  _height = CHART.HEIGHT,
 ): string {
   const maxValue = Math.max(...Object.values(data), 1);
   const barHeight = CHART.BAR_HEIGHT;

@@ -18,7 +18,6 @@ import {
   generateJekyllReport,
   resolveOutputDir,
   type ActivityData,
-  type ResolvedConfig,
 } from './git-activity-collector.ts';
 
 const logger = createComponentLogger('GitActivityWorker');
