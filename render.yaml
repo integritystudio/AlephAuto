@@ -51,7 +51,7 @@ services:
       # PostgreSQL connection for job persistence
       - key: DATABASE_URL
         fromDatabase:
-          name: alephauto-db
+          name: jobs-db
           property: connectionString
       # Enable in-process cron scheduler for pipeline jobs
       - key: ENABLE_CRON_SCHEDULER
@@ -72,10 +72,10 @@ services:
     branch: main
 
 databases:
-  # Managed PostgreSQL for job persistence
+  # Managed PostgreSQL for job persistence (pre-existing, free plan)
   # https://docs.render.com/databases
-  - name: alephauto-db
+  - name: jobs-db
     region: oregon
-    plan: starter
-    databaseName: alephauto
-    user: alephauto
+    plan: free
+    databaseName: jobs_aji7
+    user: jobs_aji7_user
