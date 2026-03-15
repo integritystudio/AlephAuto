@@ -6,20 +6,16 @@
  * crypto.randomUUID() which produces a new random ID on every poll cycle
  * (causing duplicate activity items to accumulate in the dashboard).
  *
- * The current implementation (crypto.randomUUID() fallback) will cause
- * tests 1 and 2 to fail because repeated calls on the same input produce
- * different IDs.
  */
 
 import { describe, it } from 'node:test';
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 
 // ------------------------------------------------------------------
 // Inline the current production implementation of mapApiActivity
 // (copied verbatim from frontend/src/hooks/useWebSocketConnection.ts)
 // so the test exercises the real logic without pulling in React/browser
-// dependencies.  The GREEN phase will extract this to a testable module
-// and make mapApiActivity an explicit named export.
+// dependencies.
 // ------------------------------------------------------------------
 
 interface ApiActivity {
@@ -56,9 +52,7 @@ const ACTIVITY_TYPE_MAP: Record<string, string> = {
 };
 
 /**
- * Exact copy of the current production mapApiActivity implementation.
- * This is what the tests are validating — the randomUUID fallback must be
- * replaced with a deterministic ID in the GREEN phase.
+ * Exact copy of the production mapApiActivity implementation.
  */
 function mapApiActivity(activity: ApiActivity) {
   const pipelineId = activity.pipelineId || activity.jobType || 'unknown';
