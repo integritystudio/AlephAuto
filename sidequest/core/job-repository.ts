@@ -79,8 +79,8 @@ class JobRepository {
    *
    * @param job Job payload to insert.
    */
-  saveJob(job: SaveJobInput): void {
-    dbSaveJob(job);
+  async saveJob(job: SaveJobInput): Promise<void> {
+    await dbSaveJob(job);
   }
 
   /**
@@ -89,7 +89,7 @@ class JobRepository {
    * @param id Job id.
    * @returns The matching job or `null` when not found.
    */
-  getJob(id: string): ParsedJob | null {
+  async getJob(id: string): Promise<ParsedJob | null> {
     return dbGetJobById(id);
   }
 
@@ -100,7 +100,7 @@ class JobRepository {
    * @param filters Query options.
    * @returns Either a job list or paginated shape with `jobs` and `total`.
    */
-  getJobs(pipelineId: string, filters: JobQueryOptions = {}): ParsedJob[] | { jobs: ParsedJob[]; total: number } {
+  async getJobs(pipelineId: string, filters: JobQueryOptions = {}): Promise<ParsedJob[] | { jobs: ParsedJob[]; total: number }> {
     return dbGetJobs(pipelineId, filters);
   }
 
@@ -110,7 +110,7 @@ class JobRepository {
    * @param filters Global query options.
    * @returns Matching jobs.
    */
-  getAllJobs(filters: AllJobsQueryOptions = {}): ParsedJob[] {
+  async getAllJobs(filters: AllJobsQueryOptions = {}): Promise<ParsedJob[]> {
     return dbGetAllJobs(filters);
   }
 
@@ -120,7 +120,7 @@ class JobRepository {
    * @param filters Optional status constraint.
    * @returns Number of matching jobs.
    */
-  getJobCount(filters: { status?: string } = {}): number {
+  async getJobCount(filters: { status?: string } = {}): Promise<number> {
     return dbGetJobCount(filters);
   }
 
@@ -130,7 +130,7 @@ class JobRepository {
    * @param pipelineId Pipeline identifier.
    * @returns Job counts by status or `null` when unavailable.
    */
-  getJobCounts(pipelineId: string): JobCounts | null {
+  async getJobCounts(pipelineId: string): Promise<JobCounts | null> {
     return dbGetJobCounts(pipelineId);
   }
 
@@ -140,7 +140,7 @@ class JobRepository {
    * @param pipelineId Pipeline identifier.
    * @returns Latest job or `null` when none exists.
    */
-  getLastJob(pipelineId: string): ParsedJob | null {
+  async getLastJob(pipelineId: string): Promise<ParsedJob | null> {
     return dbGetLastJob(pipelineId);
   }
 
@@ -149,7 +149,7 @@ class JobRepository {
    *
    * @returns Pipeline statistics records.
    */
-  getAllPipelineStats(): PipelineStats[] {
+  async getAllPipelineStats(): Promise<PipelineStats[]> {
     return dbGetAllPipelineStats();
   }
 
@@ -159,7 +159,7 @@ class JobRepository {
    * @param jobs Job entries to import.
    * @returns Import summary with success and error counts.
    */
-  bulkImport(jobs: BulkImportJob[]): BulkImportResult {
+  async bulkImport(jobs: BulkImportJob[]): Promise<BulkImportResult> {
     return dbBulkImportJobs(jobs);
   }
 
@@ -170,20 +170,20 @@ class JobRepository {
    * @param statuses Status values to cancel (defaults to queued).
    * @returns Number of cancelled jobs.
    */
-  cancelPipelineJobs(pipelineId: string, statuses: JobStatus[] = ['queued']): number {
+  async cancelPipelineJobs(pipelineId: string, statuses: JobStatus[] = ['queued']): Promise<number> {
     return dbBulkCancelJobsByPipeline(pipelineId, statuses);
   }
 
   /**
    * Closes the database connection when initialized.
    */
-  close(): void {
+  async close(): Promise<void> {
     if (!this._initialized) {
       logger.debug('JobRepository already closed or not initialized');
       return;
     }
 
-    dbCloseDatabase();
+    await dbCloseDatabase();
     this._initialized = false;
     logger.debug('JobRepository closed');
   }
@@ -191,9 +191,9 @@ class JobRepository {
   /**
    * Resets repository lifecycle state and closes resources if needed.
    */
-  reset(): void {
+  async reset(): Promise<void> {
     if (this._initialized) {
-      this.close(); // also sets _initialized = false
+      await this.close(); // also sets _initialized = false
     }
     logger.debug('JobRepository reset');
   }

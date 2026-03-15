@@ -50,7 +50,6 @@ export const TIMEOUTS = {
   ONE_DAY_MS: DURATION_MS.DAY,
 
   /** Service and integration checks */
-  DATABASE_SAVE_INTERVAL_MS: DURATION_MS.THIRTY_SECONDS,
   DEPENDENCY_CHECK_MS: DURATION_MS.THIRTY_SECONDS,
   VERSION_CHECK_MS: DURATION_MS.FIVE_SECONDS,
 
@@ -184,11 +183,15 @@ export const RATE_LIMIT = {
 } as const;
 
 /**
- * Database runtime configuration
+ * Database runtime configuration (PostgreSQL connection pool)
  */
 export const DATABASE = {
-  /** Busy timeout for SQLite lock waits */
-  BUSY_TIMEOUT_MS: TIMEOUTS.SHORT_MS,
+  /** Maximum number of clients in the pool */
+  POOL_MAX: 10,
+  /** Close idle clients after this many milliseconds */
+  POOL_IDLE_TIMEOUT_MS: DURATION_MS.THIRTY_SECONDS,
+  /** Abort connection attempt after this many milliseconds */
+  CONNECTION_TIMEOUT_MS: TIMEOUTS.SHORT_MS,
 } as const;
 
 /**
@@ -582,9 +585,6 @@ export const CONFIG_POLICY = {
   },
   REDIS: {
     MIN_CACHE_TTL_SECONDS: 1,
-  },
-  DATABASE: {
-    MIN_SAVE_INTERVAL_MS: DURATION_MS.SECOND,
   },
 } as const;
 

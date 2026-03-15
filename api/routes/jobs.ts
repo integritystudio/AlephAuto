@@ -80,7 +80,7 @@ function sanitizePaginationParams(limit: string | number, offset: string | numbe
  * - limit: Number of jobs to return (default: 50)
  * - offset: Pagination offset (default: 0)
  */
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { status, limit = PAGINATION.DEFAULT_LIMIT, offset = 0 } = req.query;
 
@@ -94,7 +94,7 @@ router.get('/', (req, res) => {
     const { limit: limitNum, offset: offsetNum } = sanitizePaginationParams(limit as string | number, offset as string | number);
 
     // Get jobs from database with filtering and pagination
-    const allJobs = jobRepository.getAllJobs({ status: (status as string) || undefined, limit: limitNum, offset: offsetNum });
+    const allJobs = await jobRepository.getAllJobs({ status: (status as string) || undefined, limit: limitNum, offset: offsetNum });
 
     // Format response - getAllJobs now returns parsed camelCase objects
     const jobs = allJobs.map(job => ({
@@ -112,7 +112,7 @@ router.get('/', (req, res) => {
     }));
 
     // Get total count for pagination (efficient COUNT query)
-    const total = jobRepository.getJobCount({ status: (status as string) || undefined });
+    const total = await jobRepository.getJobCount({ status: (status as string) || undefined });
     const page = limitNum > 0 ? Math.floor(offsetNum / limitNum) : 0;
     const hasMore = (offsetNum + limitNum) < total;
 
@@ -146,7 +146,7 @@ router.get('/', (req, res) => {
  *   "apiKey": "migration-key-from-env"
  * }
  */
-router.post('/bulk-import', bulkImportRateLimiter, (req, res) => {
+router.post('/bulk-import', bulkImportRateLimiter, async (req, res) => {
   try {
     const { jobs, apiKey } = req.body;
 
@@ -183,7 +183,7 @@ router.post('/bulk-import', bulkImportRateLimiter, (req, res) => {
     logStart(logger, 'bulk import', { jobCount: jobs.length });
 
     // Perform bulk import
-    const result = jobRepository.bulkImport(jobs);
+    const result = await jobRepository.bulkImport(jobs);
 
     logger.info({
       imported: result.imported,
@@ -211,7 +211,7 @@ router.post('/bulk-import', bulkImportRateLimiter, (req, res) => {
  * GET /api/jobs/:jobId
  * Get details for a specific job
  */
-router.get('/:jobId', (req, res) => {
+router.get('/:jobId', async (req, res) => {
   try {
     const { jobId } = req.params;
 
@@ -221,7 +221,7 @@ router.get('/:jobId', (req, res) => {
       return sendError(res, ERROR_CODES.INVALID_REQUEST, validation.error!, HttpStatus.BAD_REQUEST);
     }
 
-    const job = jobRepository.getJob(validation.sanitized!);
+    const job = await jobRepository.getJob(validation.sanitized!);
 
     if (!job) {
       return sendNotFoundError(res, 'Job', validation.sanitized!);
@@ -270,7 +270,7 @@ router.post('/:jobId/cancel', async (req, res) => {
     logger.info({ jobId: sanitizedJobId }, 'Cancelling job');
 
     // Look up job to get canonical pipelineId (split('-')[0] breaks for hyphenated IDs like git-activity)
-    const job = jobRepository.getJob(sanitizedJobId);
+    const job = await jobRepository.getJob(sanitizedJobId);
     if (!job) {
       return sendError(res, ERROR_CODES.NOT_FOUND,
         `Job not found: ${sanitizedJobId}`, HttpStatus.NOT_FOUND);
@@ -326,7 +326,7 @@ router.post('/:jobId/retry', async (req, res) => {
     logStart(logger, 'job retry', { jobId: sanitizedJobId });
 
     // Get job details to determine pipeline
-    const job = jobRepository.getJob(sanitizedJobId);
+    const job = await jobRepository.getJob(sanitizedJobId);
 
     if (!job) {
       return sendNotFoundError(res, 'Job', sanitizedJobId);
@@ -396,7 +396,7 @@ router.post('/:jobId/retry', async (req, res) => {
  * GET /api/jobs/:jobId/logs
  * Get logs for a specific job (synthesized from job data)
  */
-router.get('/:jobId/logs', (req, res) => {
+router.get('/:jobId/logs', async (req, res) => {
   try {
     const { jobId } = req.params;
 
@@ -405,7 +405,7 @@ router.get('/:jobId/logs', (req, res) => {
       return sendError(res, ERROR_CODES.INVALID_REQUEST, validation.error!, HttpStatus.BAD_REQUEST);
     }
 
-    const job = jobRepository.getJob(validation.sanitized!);
+    const job = await jobRepository.getJob(validation.sanitized!);
 
     if (!job) {
       return sendNotFoundError(res, 'Job', validation.sanitized!);

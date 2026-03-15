@@ -278,15 +278,8 @@ export const config = {
   // Used to authenticate database migration requests
   migrationApiKey: process.env.MIGRATION_API_KEY || null,
 
-  // Database settings
-  database: {
-    // NOTE: saveIntervalMs is unused after migration to better-sqlite3 (WAL mode, direct disk writes)
-    saveIntervalMs: safeParseInt(
-      process.env.DATABASE_SAVE_INTERVAL_MS,
-      TIMEOUTS.DATABASE_SAVE_INTERVAL_MS,
-      CONFIG_POLICY.DATABASE.MIN_SAVE_INTERVAL_MS
-    ),
-  },
+  // Database connection URL (PostgreSQL)
+  databaseUrl: process.env.DATABASE_URL ?? null,
 
   // System paths
   homeDir: process.env.HOME || os.homedir(),
@@ -367,8 +360,8 @@ function validateConfig(): void {
   }
 
   // Database validation
-  if (config.database.saveIntervalMs < CONFIG_POLICY.DATABASE.MIN_SAVE_INTERVAL_MS) {
-    errors.push(`DATABASE_SAVE_INTERVAL_MS must be at least ${CONFIG_POLICY.DATABASE.MIN_SAVE_INTERVAL_MS}ms`);
+  if (config.databaseUrl !== null && !config.databaseUrl.startsWith('postgres://') && !config.databaseUrl.startsWith('postgresql://')) {
+    errors.push('DATABASE_URL must start with postgres:// or postgresql://');
   }
 
   if (errors.length > 0) {

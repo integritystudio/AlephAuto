@@ -290,12 +290,11 @@ describe('Database bulkImportJobs validation', () => {
 });
 
 describe('Config database settings', () => {
-  it('should have database.saveIntervalMs configuration', async () => {
+  it('should have databaseUrl configuration', async () => {
     const { config } = await import('../../sidequest/core/config.ts');
 
-    assert.ok(config.database, 'Should have database config');
-    assert.ok(typeof config.database.saveIntervalMs === 'number', 'Should have saveIntervalMs');
-    assert.ok(config.database.saveIntervalMs >= TIME_MS.SECOND, 'Should be at least 1000ms');
+    // databaseUrl is null when DATABASE_URL env var is not set
+    assert.strictEqual(config.databaseUrl, process.env.DATABASE_URL ?? null);
   });
 });
 

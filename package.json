@@ -100,6 +100,7 @@
     "@sentry/node": "^7.120.4",
     "@shared/logging": "workspace:*",
     "@shared/process-io": "workspace:*",
+    "@types/pg": "^8.18.0",
     "better-sqlite3": "^12.6.2",
     "cors": "^2.8.6",
     "dompurify": "^3.3.1",
@@ -109,6 +110,7 @@
     "jsdom": "^27.4.0",
     "marked": "^17.0.4",
     "node-cron": "^3.0.3",
+    "pg": "^8.20.0",
     "pino": "^9.14.0",
     "pino-pretty": "^11.3.0",
     "repomix": "^1.12.0",
@@ -117,6 +119,7 @@
   },
   "devDependencies": {
     "@babel/parser": "^7.29.0",
+    "@electric-sql/pglite": "^0.3.16",
     "@eslint/js": "^10",
     "@sentry/vite-plugin": "^4.9.1",
     "@types/babel__generator": "^7.27.0",

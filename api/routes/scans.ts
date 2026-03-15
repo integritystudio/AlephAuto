@@ -148,7 +148,7 @@ router.get('/:scanId/status', async (req, res, next) => {
       });
     }
 
-    const job = jobRepository.getJob(scanId);
+    const job = await jobRepository.getJob(scanId);
 
     if (!job) {
       return res.status(HttpStatus.NOT_FOUND).json({
@@ -189,7 +189,7 @@ router.get('/:scanId/results', async (req, res, next) => {
     }
 
     // Direct primary-key lookup instead of scanning all pipelines
-    const job = jobRepository.getJob(scanId);
+    const job = await jobRepository.getJob(scanId);
 
     if (!job) {
       return res.status(HttpStatus.NOT_FOUND).json({

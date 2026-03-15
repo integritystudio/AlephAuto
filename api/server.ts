@@ -150,10 +150,10 @@ app.get('/api/health/doppler', async (req: Request, res: Response) => {
 
 // System status endpoint (includes retry metrics and activity feed)
 // FIXED: Now queries database for ALL pipelines instead of single hardcoded worker
-app.get('/api/status', (req: Request, res: Response) => {
+app.get('/api/status', async (req: Request, res: Response) => {
   try {
     // Get all pipelines from database (persistent, survives restarts)
-    const pipelineStats = jobRepository.getAllPipelineStats();
+    const pipelineStats = await jobRepository.getAllPipelineStats();
 
     // Get in-memory queue stats from all initialized workers via registry
     const workerStats = workerRegistry.getAllStats();
@@ -167,8 +167,8 @@ app.get('/api/status', (req: Request, res: Response) => {
 
     if (inMemoryActivity.length === 0) {
       try {
-        const dbCompleted = jobRepository.getAllJobs({ status: 'completed', limit: 10, sortByCompletedAt: true });
-        const dbFailed = jobRepository.getAllJobs({ status: 'failed', limit: 10, sortByCompletedAt: true });
+        const dbCompleted = await jobRepository.getAllJobs({ status: 'completed', limit: 10, sortByCompletedAt: true });
+        const dbFailed = await jobRepository.getAllJobs({ status: 'failed', limit: 10, sortByCompletedAt: true });
         const recentJobs = [...dbCompleted, ...dbFailed]
           .sort((a, b) => (b.completedAt ?? b.createdAt).localeCompare(a.completedAt ?? a.createdAt))
           .slice(0, PAGINATION.ACTIVITY_FEED_LIMIT);
@@ -216,8 +216,8 @@ app.get('/api/status', (req: Request, res: Response) => {
 
     // Calculate aggregated queue stats from all workers
     // Use database counts as fallback when workers aren't initialized (e.g. after restart)
-    const dbRunningCount = jobRepository.getJobCount({ status: 'running' });
-    const dbQueuedCount = jobRepository.getJobCount({ status: 'queued' });
+    const dbRunningCount = await jobRepository.getJobCount({ status: 'running' });
+    const dbQueuedCount = await jobRepository.getJobCount({ status: 'queued' });
     const queueStats = {
       active: workerStats.active ?? dbRunningCount,
       queued: workerStats.queued ?? dbQueuedCount,
@@ -227,8 +227,8 @@ app.get('/api/status', (req: Request, res: Response) => {
 
     // Fetch active (running) and queued jobs from the database
     // so the dashboard can render them on initial load without waiting for WebSocket events
-    const runningJobs = jobRepository.getAllJobs({ status: 'running', limit: 20 });
-    const queuedJobs2 = jobRepository.getAllJobs({ status: 'queued', limit: 20 });
+    const runningJobs = await jobRepository.getAllJobs({ status: 'running', limit: 20 });
+    const queuedJobs2 = await jobRepository.getAllJobs({ status: 'queued', limit: 20 });
 
     /**
      * Map job for api.
@@ -364,9 +364,10 @@ const activityFeed = new ActivityFeedManager(broadcaster, { maxActivities: 50 })
 workerRegistry.setActivityFeed(activityFeed);
 
 // Seed activity feed from recent completed/failed jobs so dashboard isn't empty on restart
-try {
-  const completedJobs = jobRepository.getAllJobs({ status: 'completed', limit: 10, sortByCompletedAt: true });
-  const failedJobs = jobRepository.getAllJobs({ status: 'failed', limit: 10, sortByCompletedAt: true });
+Promise.all([
+  jobRepository.getAllJobs({ status: 'completed', limit: 10, sortByCompletedAt: true }),
+  jobRepository.getAllJobs({ status: 'failed', limit: 10, sortByCompletedAt: true }),
+]).then(([completedJobs, failedJobs]) => {
   const recentJobs = [...completedJobs, ...failedJobs]
     .sort((a, b) => (b.completedAt ?? b.createdAt).localeCompare(a.completedAt ?? a.createdAt))
     .slice(0, PAGINATION.ACTIVITY_FEED_LIMIT);
@@ -389,9 +390,9 @@ try {
     });
   }
   logger.info({ seeded: recentJobs.length }, 'Activity feed seeded from database');
-} catch (error) {
+}).catch((error: unknown) => {
   logError(logger, error, 'Failed to seed activity feed from database');
-}
+});
 
 // Make broadcaster and activity feed available to routes
 app.set('broadcaster', broadcaster);
@@ -447,7 +448,7 @@ async function emergencyShutdown() {
 
   try {
     // Close job repository if initialized
-    jobRepository.close();
+    await jobRepository.close();
   } catch (err) {
     logger.error({ error: (err as Error).message }, 'Failed to close job repository during emergency shutdown');
   }
@@ -469,7 +470,7 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
     // Root cause: the in-memory SidequestServer queue is not re-hydrated from DB
     // on restart, so queued jobs from a prior session never transition to running.
     for (const pipelineId of workerRegistry.getDisabledPipelines()) {
-      const cancelled = jobRepository.cancelPipelineJobs(pipelineId);
+      const cancelled = await jobRepository.cancelPipelineJobs(pipelineId);
       if (cancelled > 0) {
         logger.info({ pipelineId, count: cancelled }, 'Cancelled stale queued jobs for disabled pipeline');
       }

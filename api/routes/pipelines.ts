@@ -138,7 +138,7 @@ router.post(
       }, 'Manually triggering pipeline job');
 
       // Guard: reject trigger when queue is already deep to prevent accumulation
-      const counts = jobRepository.getJobCounts(pipelineId);
+      const counts = await jobRepository.getJobCounts(pipelineId);
       if (counts && counts.queued >= LIMITS.MAX_QUEUED_JOBS_PER_PIPELINE) {
         sendError(
           res,
@@ -202,8 +202,8 @@ async function fetchJobsForPipeline(
 ): Promise<{ jobs: JobDetails[]; total: number }> {
   const { status, limit, offset, tab } = options;
 
-  // Query SQLite database with total count (FIXED: Now includes actual DB count)
-  const dbResult = jobRepository.getJobs(pipelineId, {
+  // Query database with total count (FIXED: Now includes actual DB count)
+  const dbResult = await jobRepository.getJobs(pipelineId, {
     status,
     limit: limit ?? PAGINATION.DEFAULT_QUERY_LIMIT,
     offset: offset ?? 0,

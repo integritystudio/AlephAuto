@@ -53,11 +53,12 @@
       "docs/**",
       "docs/archive/**",
       "docs/backlog/**",
-      "docs/repomix/**",
       "**/repomix-output.*",
       "**/repo-compressed.*",
-      "**/repomix.xml",
-      "**/repo-compressed.xml",
+      "**/repomix.*",
+      "**/repo-compressed.*",
+      "**/repomix-docs.*",
+      "**gitlog-top20.*.*"
 
       "**/node_modules/**",
       "**/.next/**",

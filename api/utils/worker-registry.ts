@@ -632,7 +632,7 @@ class WorkerRegistry {
     this._initializing.clear();
 
     // Close database to stop the save interval timer
-    jobRepository.close();
+    await jobRepository.close();
 
     logger.info('All workers shut down');
   }
