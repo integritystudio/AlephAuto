@@ -46,7 +46,7 @@ features = extract_semantic_features(code)    # PHASE 1: Original code
 normalized = normalize_code(code)             # PHASE 2: Normalize
 penalty = calculate_semantic_penalty(f1, f2)  # PHASE 3: Penalize
 ```
-`structural.py:29-93, 422-482`
+`structural.ts` (TS port of structural.py)
 
 ### 2. Deduplicate by file:function_name (NOT line number)
 ```python
@@ -180,7 +180,7 @@ PYTHONNOUSERSITE=1 python -m pytest -q sidequest/pipeline-core/similarity/test_g
 | File | Purpose |
 |------|---------|
 | `sidequest/pipeline-core/scan-orchestrator.ts` | Pipeline coordinator |
-| `sidequest/pipeline-core/similarity/structural.py` | Similarity engine |
+| `sidequest/pipeline-core/similarity/structural.ts` | Similarity engine |
 | `sidequest/pipeline-core/extractors/extract_blocks.py` | Block extraction |
 | `sidequest/pipeline-core/scanners/ast-grep-detector.ts` | Pattern detection (18 rules) |
 | `sidequest/core/server.ts` | Base job queue |

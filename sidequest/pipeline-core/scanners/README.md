@@ -46,13 +46,10 @@ node lib/scanners/codebase-health-scanner.js ~/code/myproject --scan root
 node lib/scanners/codebase-health-scanner.js ~/code/myproject --scan all --output report.md
 ```
 
-**Python (simpler, no ast-grep required):**
+**TypeScript (simpler, no ast-grep required):**
 ```bash
 # Timeout detection only
-python3 lib/scanners/timeout_detector.py ~/code/myproject
-
-# Save to file
-python3 lib/scanners/timeout_detector.py ~/code/myproject --output timeout-report.md
+node --strip-types sidequest/pipeline-core/scanners/timeout-detector.ts ~/code/myproject
 ```
 
 ### 3. Review Results
@@ -108,7 +105,7 @@ Open the generated markdown report and prioritize fixes by severity:
 ├── timeout-pattern-detector.js      # Main timeout scanner (Node.js)
 ├── root-directory-analyzer.js       # Root directory scanner (Node.js)
 ├── codebase-health-scanner.js       # CLI wrapper (runs all scanners)
-└── timeout_detector.py              # Python version (simpler)
+└── timeout-detector.ts              # TypeScript version (simpler)
 
 ~/code/jobs/docs/
 └── codebase-health-scanners.md      # Full documentation
@@ -200,7 +197,7 @@ git mv config.py lib/
 ### Example 3: Python Simple Scan
 
 ```bash
-python3 lib/scanners/timeout_detector.py ~/code/myproject
+node --strip-types sidequest/pipeline-core/scanners/timeout-detector.ts ~/code/myproject
 ```
 
 **Output:**

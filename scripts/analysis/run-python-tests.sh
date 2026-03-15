@@ -5,7 +5,6 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
 TEST_TARGETS=(
   "sidequest/pipeline-core"
-  "sidequest/pipeline-runners/test_collect_git_activity.py"
 )
 
 resolve_python() {

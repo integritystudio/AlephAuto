@@ -92,7 +92,6 @@ exit 1
           'pytest',
           '-q',
           'sidequest/pipeline-core',
-          'sidequest/pipeline-runners/test_collect_git_activity.py',
           '--maxfail=1',
         ]
       );

@@ -24,7 +24,7 @@ The Multi-Layer Similarity Algorithm is a sophisticated code comparison system t
 ### Key Innovation
 
 **Critical Pattern (from CLAUDE.md):**
-> The algorithm extracts semantic features BEFORE normalization (structural.py:29-93, 422-482), which is essential for accurate duplicate detection.
+> The algorithm extracts semantic features BEFORE normalization (structural.ts:29-93, 422-482), which is essential for accurate duplicate detection.
 
 This prevents losing semantic information (like HTTP status codes, operators) during normalization.
 
@@ -139,7 +139,7 @@ def calculate_structural_similarity(
 
 ### Implementation
 
-**File:** `sidequest/pipeline-core/similarity/structural.py` (lines 422-482)
+**File:** `sidequest/pipeline-core/similarity/structural.ts` (lines 422-482)
 
 ```python
 def calculate_structural_similarity(code1: str, code2: str, threshold: float = 0.90) -> Tuple[float, str]:
@@ -220,7 +220,7 @@ class SemanticFeatures:
 
 ### Extraction Function
 
-**File:** `sidequest/pipeline-core/similarity/structural.py` (lines 29-93)
+**File:** `sidequest/pipeline-core/similarity/structural.ts` (lines 29-93)
 
 ```python
 def extract_semantic_features(source_code: str) -> SemanticFeatures:
@@ -325,7 +325,7 @@ Normalization removes variable-specific information to enable **structural compa
 
 ### Normalization Function
 
-**File:** `sidequest/pipeline-core/similarity/structural.py` (lines 96-189)
+**File:** `sidequest/pipeline-core/similarity/structural.ts` (lines 96-189)
 
 ```python
 def normalize_code(source_code: str) -> str:
@@ -442,7 +442,7 @@ const var=Math.min(var,var);  // "min" preserved
 
 The penalty system applies multiplicative penalties based on semantic feature mismatches.
 
-**File:** `sidequest/pipeline-core/similarity/structural.py` (lines 373-419)
+**File:** `sidequest/pipeline-core/similarity/structural.ts` (lines 373-419)
 
 ```python
 def calculate_semantic_penalty(features1: SemanticFeatures, features2: SemanticFeatures) -> float:
