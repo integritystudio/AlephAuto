@@ -18,6 +18,7 @@ import {
   generateDuplicateGroups,
   generateSuggestions,
   generateFooter,
+  isInterProject,
 } from './html-report-sections.ts';
 import type { ScanResult } from './json-report-generator.ts';
 
@@ -44,7 +45,7 @@ export class HTMLReportGenerator {
         ${generateHeader(scanResult, title)}
         ${generateMetrics(scanResult)}
         ${generateSummaryCharts(scanResult)}
-        ${scanResult.scan_type === 'inter-project' ? generateCrossRepoSection(scanResult) : ''}
+        ${isInterProject(scanResult) ? generateCrossRepoSection(scanResult) : ''}
         ${generateDuplicateGroups(scanResult)}
         ${generateSuggestions(scanResult)}
         ${generateFooter(scanResult)}

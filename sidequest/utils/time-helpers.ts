@@ -42,6 +42,18 @@ export function calculateDurationSeconds(startTime: Date | string | null, endTim
 /**
  * Format duration for human-readable display
  */
+/**
+ * Format a timestamp string for display, returning 'Unknown' for missing or invalid values.
+ */
+export function formatTimestamp(value: string | null | undefined): string {
+  if (!value) return 'Unknown';
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? 'Unknown' : d.toLocaleString();
+}
+
+/**
+ * Format duration for human-readable display
+ */
 export function formatDuration(seconds: number | null | undefined): string {
   if (seconds === null || seconds === undefined) return DURATION_UNKNOWN_LABEL;
 
