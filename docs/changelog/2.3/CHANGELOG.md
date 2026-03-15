@@ -6,6 +6,41 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.31] - 2026-03-15
+
+### Summary
+
+Feature completions: Full BasePipeline migration (all 11 pipelines), PostgreSQL migration with PGlite, code review fixes for report generation and timestamp handling.
+
+### Pipeline & Architecture
+
+| ID | Priority | Description |
+|---|----------|-------------|
+| BP | P1 | **All 11/11 pipelines migrated to BasePipeline** — Complete migration across all pipeline runners. Repomix was already migrated (extends `BasePipeline<RepomixWorker>` with `setupDefaultEventListeners`, `scheduleCron`, `waitForCompletion`). Original 9 pipelines migrated in commit `42e2f18`. Duplicate Detection completed in v2.3.30 (commit `8a45998`). Architecture: event-driven job queue with concurrency control, auto-retry, and Sentry tracing per execution. |
+
+### Database Migration
+
+| ID | Priority | Description |
+|---|----------|-------------|
+| PG-1 | P1 | **Migrated database layer from SQLite to PostgreSQL (PGlite)** — `database.ts` fully rewritten with async operations, `pg` + `@electric-sql/pglite` dependencies, schema DDL in `SCHEMA_SQL` constant, automatic schema initialization. Config: `config.databaseUrl` parses `DATABASE_URL` environment variable. |
+| PG-2 | P1 | **Schema DDL and database initialization** — `database.ts` includes full schema definition; runs on startup with idempotent table creation. Supports both Node.js `pg` and browser-based `pglite` via driver abstraction. |
+| PG-3 | P1 | **Configuration updates** — `config.databaseUrl` parsing, `render.yaml` updated, dead config references (PG-6: `JOB_DB_PORT`) removed. Backward compatibility maintained through environment variable mapping. |
+| PG-4 | P1 | **Test infrastructure** — PGlite test helper with `createTempPgDatabase()`, async transaction support, proper cleanup. 77 new PostgreSQL-specific tests validating query semantics, connection pooling, and schema correctness. |
+| PG-5 | P1 | **JobRepository async migration** — All repository methods converted to async (`getJob`, `saveJob`, `updateJob`, `deleteJob`, `getJobCount`, etc.). Type-safe camelCase object mapping for parsed JSON fields (`pipelineId`, `createdAt`, etc.). |
+
+### Fixed
+
+| ID | Priority | Description |
+|---|----------|-------------|
+| FE-M2 | P2 | **Pipeline timestamps regenerate on every poll** — Fixed: `createdAt` now uses static `UNKNOWN_TIMESTAMP` sentinel; `updatedAt` uses `p.lastRun ?? UNKNOWN_TIMESTAMP` (stable, no per-poll `new Date()`). Prevents duplicate detection in activity feed and websocket message coalescing. |
+| AG-M1 (items 1-5) | P2 | **Code review fixes for html-report generation** — (1) Export `isInterProject` helper from `html-report-sections.ts`, use in `html-report-generator.ts` instead of raw string literal. (2) Make `ScanResult.scan_type` required (non-optional) on type definition. (3) Use `MARKDOWN_REPORT.PERCENTAGE_MULTIPLIER` instead of misleading `MAX_SCORE` for bar width calculation. (4) Extract `formatTimestamp` to shared `time-helpers.ts` utility with `isNaN` guard to prevent "Invalid Date" leaking into HTML. (5) Standardize timestamp handling across markdown and report generators; eliminate `Date.now()` fallback (use 'Unknown' instead). |
+
+### Changed
+
+- `time-helpers.ts` — Added `formatTimestamp(value: string | null | undefined): string` utility for consistent, safe timestamp rendering with invalid-date detection.
+
+---
+
 ## [2.3.30] - 2026-03-15
 
 ### Summary

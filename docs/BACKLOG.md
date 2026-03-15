@@ -86,15 +86,6 @@ Root cause investigation: relevance evaluations stopped on 2026-03-03. Session: 
 
 ---
 
-
-## BasePipeline Migration — Complete (2026-03-13)
-
-All 11/11 pipelines migrated to `BasePipeline`. Repomix was already migrated (extends `BasePipeline<RepomixWorker>` with `setupDefaultEventListeners`, `scheduleCron`, `waitForCompletion`). Duplicate Detection completed in v2.3.30 (2026-03-15). Original 9 migrated in commit 42e2f18.
-
-> **Done** — migrate to changelog with next version bump.
-
----
-
 ## ast-grep Analysis Findings (2026-03-09)
 
 <a id="ast-grep-findings"></a>
@@ -160,25 +151,6 @@ No active low-priority backlog items.
 
 ---
 
-## ~~Migrate from SQLite to PostgreSQL~~ (2026-03-15) — Done
-
-<a id="postgres-migration"></a>
-
-All items complete. Migration landed across TDD Cycles 0-5 and Post-work Phases A-G.
-
-| ID | Status |
-|---|--------|
-| ~~PG-1~~ | **Done** — `pg` + `@electric-sql/pglite` |
-| ~~PG-2~~ | **Done** — `database.ts` fully rewritten |
-| ~~PG-3~~ | **Done** — `config.databaseUrl` parses `DATABASE_URL` |
-| ~~PG-4~~ | **Done** — Schema DDL in `SCHEMA_SQL` constant, runs on init |
-| ~~PG-5~~ | **Done** — `render.yaml` updated |
-| ~~PG-6~~ | **Done** — dead config removed |
-| ~~PG-7~~ | **Done** — PGlite test helper, 77 new PG tests |
-| ~~PG-8~~ | **Done** — `job-repository.ts` all-async |
-
----
-
 ## Frontend Code Review Findings (2026-03-15)
 
 Code review of `frontend/src/hooks/useWebSocketConnection.ts`. Critical and high-severity issues (1-5) fixed in session; remaining medium/low findings documented below.
@@ -188,7 +160,6 @@ Code review of `frontend/src/hooks/useWebSocketConnection.ts`. Critical and high
 | ID | Priority | Description |
 |---|----------|-------------|
 | FE-M1 | P2 | **Activity feed deduplication gap** — `mapApiActivity()` generates new `crypto.randomUUID()` on every poll for items with missing `id`, causing duplicates to accumulate. Use stable ID derived from content (type + timestamp + jobId) or require backend to supply id. -- `frontend/src/hooks/useWebSocketConnection.ts:160` |
-| ~~FE-M2~~ | ~~P2~~ | ~~**Pipeline timestamps regenerate on every poll** — Fixed: `createdAt` now uses static `UNKNOWN_TIMESTAMP` sentinel; `updatedAt` uses `p.lastRun ?? UNKNOWN_TIMESTAMP` (stable, no per-poll `new Date()`).~~ **Done** |
 | FE-M3 | P2 | **Unknown pipeline IDs silently misclassified** — `PIPELINE_TYPE_MAP[p.id] ?? PipelineType.DUPLICATE_DETECTION` defaults unknown pipelines to DUPLICATE_DETECTION. Add `UNKNOWN` variant or validate map on startup with warning. -- `frontend/src/hooks/useWebSocketConnection.ts:141` |
 
 > FE-M4, FE-M5, FE-L1 resolved in `e8c0fab` (type centralization refactor). Migrate to changelog with next version bump.
