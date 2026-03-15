@@ -26,7 +26,7 @@ import {
   extractMethodChain,
 } from './structural.ts';
 import {
-  areSemanticalltyCompatible,
+  areSemanticallyCompatible,
   validateDuplicateGroup,
 } from './semantic.ts';
 import { SemanticAnnotator } from '../annotators/semantic-annotator.ts';
@@ -370,7 +370,7 @@ function _groupByStructuralSimilarity(
     for (let j = i + 1; j < n; j++) {
       if (used.has(j)) continue;
 
-      if (!areSemanticalltyCompatible(blocks[i], blocks[j])) continue;
+      if (!areSemanticallyCompatible(blocks[i], blocks[j])) continue;
 
       const [similarity] = calculateStructuralSimilarity(
         blocks[i].sourceCode,

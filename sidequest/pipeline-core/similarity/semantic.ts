@@ -13,7 +13,7 @@ import {
   BLOCK_EXTRACTION,
 } from '../pipeline-constants.ts';
 
-export function areSemanticalltyCompatible(
+export function areSemanticallyCompatible(
   block1: CodeBlock,
   block2: CodeBlock
 ): boolean {
@@ -83,7 +83,7 @@ export function validateDuplicateGroup(blocks: CodeBlock[]): boolean {
   // Pairwise semantic compatibility
   for (let i = 0; i < blocks.length; i++) {
     for (let j = i + 1; j < blocks.length; j++) {
-      if (!areSemanticalltyCompatible(blocks[i], blocks[j])) return false;
+      if (!areSemanticallyCompatible(blocks[i], blocks[j])) return false;
     }
   }
 
