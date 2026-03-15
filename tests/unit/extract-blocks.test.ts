@@ -336,6 +336,64 @@ describe('calculateMetrics', () => {
       `Expected semantic_duplicate_lines=0, got ${metrics.semantic_duplicate_lines}`
     );
   });
+
+  // H5: calculateMetrics uses totalRepoLines when provided
+  it('should use totalRepoLines for duplication_percentage when provided and > 0', () => {
+    // blocks sum to 20 lines; passing totalRepoLines=1000 should make percentage use 1000
+    const group: DuplicateGroup = {
+      groupId: 'dg_h5',
+      patternId: 'object-manipulation',
+      memberBlockIds: ['cb_1', 'cb_2'],
+      similarityScore: 1.0,
+      similarityMethod: 'exact_match',
+      category: 'utility',
+      language: 'typescript',
+      occurrenceCount: 2,
+      totalLines: 20,
+      affectedFiles: ['a.ts', 'b.ts'],
+      affectedRepositories: ['/repo'],
+    };
+    const blocks = [makeBlock({ lineCount: 10 }), makeBlock({ blockId: 'cb_2', lineCount: 10 })];
+    const totalRepoLines = 1000;
+
+    const metrics = calculateMetrics(blocks, [group], [], totalRepoLines);
+
+    // duplication_percentage should be (20 / 1000) * 100 = 2.0
+    const expectedPercentage = 2.0;
+    assert.equal(
+      metrics.duplication_percentage,
+      expectedPercentage,
+      `Expected duplication_percentage=${expectedPercentage} (using totalRepoLines=1000), got ${metrics.duplication_percentage}`
+    );
+  });
+
+  // H5: calculateMetrics falls back to block lines when totalRepoLines is 0
+  it('should fall back to block line sum for duplication_percentage when totalRepoLines is 0', () => {
+    const group: DuplicateGroup = {
+      groupId: 'dg_h5_fallback',
+      patternId: 'object-manipulation',
+      memberBlockIds: ['cb_1', 'cb_2'],
+      similarityScore: 1.0,
+      similarityMethod: 'exact_match',
+      category: 'utility',
+      language: 'typescript',
+      occurrenceCount: 2,
+      totalLines: 20,
+      affectedFiles: ['a.ts', 'b.ts'],
+      affectedRepositories: ['/repo'],
+    };
+    const blocks = [makeBlock({ lineCount: 10 }), makeBlock({ blockId: 'cb_2', lineCount: 10 })];
+
+    const metrics = calculateMetrics(blocks, [group], [], 0);
+
+    // block sum = 20, totalDuplicatedLines = 20, so percentage = (20/20)*100 = 100.0
+    const expectedPercentage = 100.0;
+    assert.equal(
+      metrics.duplication_percentage,
+      expectedPercentage,
+      `Expected duplication_percentage=${expectedPercentage} (fallback to block sum=20), got ${metrics.duplication_percentage}`
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -429,5 +487,78 @@ describe('runPipeline', () => {
       typeof semanticLines === 'number' && semanticLines >= 1,
       `Expected metrics.semantic_duplicate_lines >= 1 but got ${semanticLines}`
     );
+  });
+
+  // H5: runPipeline threads total_repo_lines to calculateMetrics
+  it('should use total_repo_lines from input for duplication_percentage instead of block line sum', () => {
+    // Use multiline blocks that survive Layer 0 complexity filtering so groups are produced.
+    // Block A and Block B are structurally similar enough to form a duplicate group.
+    const blockA = [
+      'function processItems(items) {',
+      '  const results = [];',
+      '  for (let i = 0; i < items.length; i++) {',
+      '    const item = items[i];',
+      '    if (item.active) {',
+      '      results.push(item.value);',
+      '    }',
+      '  }',
+      '  return results;',
+      '}',
+    ].join('\n');
+
+    const blockB = [
+      'function processItems(items) {',
+      '  const results = [];',
+      '  for (let i = 0; i < items.length; i++) {',
+      '    const item = items[i];',
+      '    if (item.active) {',
+      '      results.push(item.value);',
+      '    }',
+      '  }',
+      '  return results;',
+      '}',
+    ].join('\n');
+
+    const patternMatches = [
+      { file_path: 'src/a.ts', rule_id: 'array-transform', matched_text: blockA, line_start: 1, line_end: 10 },
+      { file_path: 'src/b.ts', rule_id: 'array-transform', matched_text: blockB, line_start: 1, line_end: 10 },
+    ];
+
+    // Run once WITHOUT total_repo_lines — falls back to block sum as denominator
+    const withoutTotalLines = runPipeline({
+      repository_info: { path: '/repo' },
+      pattern_matches: patternMatches,
+    });
+
+    // Run once WITH total_repo_lines=10000 — should use 10000 as denominator
+    const withTotalLines = runPipeline({
+      repository_info: { path: '/repo' },
+      pattern_matches: patternMatches,
+      total_repo_lines: 10000,
+    });
+
+    const percentageWithout = withoutTotalLines.metrics.duplication_percentage as number;
+    const percentageWith = withTotalLines.metrics.duplication_percentage as number;
+
+    // Only proceed to assert if groups were actually produced (blocks were non-trivial)
+    const hasGroups = withTotalLines.duplicate_groups.length > 0;
+
+    if (hasGroups) {
+      // With total_repo_lines=10000, the denominator is much larger than block sum,
+      // so duplication_percentage MUST be lower than when falling back to block sum.
+      assert.ok(
+        percentageWith < percentageWithout,
+        `Expected duplication_percentage with total_repo_lines=10000 (${percentageWith}) to be ` +
+        `less than without (${percentageWithout}). ` +
+        `This indicates total_repo_lines is NOT being threaded through runPipeline to calculateMetrics.`
+      );
+    } else {
+      // If no groups formed, the percentage is 0 either way — force failure to indicate
+      // the test needs a fixture that actually produces groups.
+      assert.fail(
+        `No duplicate groups were produced — cannot verify total_repo_lines threading. ` +
+        `Ensure the pattern_matches fixture produces at least one duplicate group.`
+      );
+    }
   });
 });

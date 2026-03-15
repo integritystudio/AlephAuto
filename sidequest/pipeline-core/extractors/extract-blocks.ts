@@ -843,7 +843,8 @@ export function runPipeline(input: PipelineInput): PipelineOutput {
   const suggestions = generateSuggestions(groups);
 
   // Stage 7: Calculate metrics
-  const metrics = calculateMetrics(blocks, groups, suggestions);
+  const totalRepoLines = input.total_repo_lines ?? 0;
+  const metrics = calculateMetrics(blocks, groups, suggestions, totalRepoLines);
 
   return {
     code_blocks: blocks.map(blockToJson),

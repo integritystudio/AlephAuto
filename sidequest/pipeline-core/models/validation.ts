@@ -42,6 +42,7 @@ export const RepositoryInfoInputSchema = z.object({
 export const PipelineInputSchema = z.object({
   repository_info: RepositoryInfoInputSchema,
   pattern_matches: z.array(PatternMatchInputSchema).max(VALIDATION_LIMITS.PATTERN_MATCHES_MAX),
+  total_repo_lines: z.number().int().min(0).optional(),
 }).passthrough();
 
 export type PatternMatchInput = z.infer<typeof PatternMatchInputSchema>;
