@@ -142,7 +142,7 @@ function mapPipeline(p: ApiPipeline): Pipeline {
       : 1,
     lastRunAt: p.lastRun,
     nextRun: p.nextRun,
-    createdAt: p.lastRun ?? UNKNOWN_TIMESTAMP,
+    createdAt: UNKNOWN_TIMESTAMP,
     updatedAt: p.lastRun ?? UNKNOWN_TIMESTAMP,
   };
 }
