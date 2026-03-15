@@ -146,13 +146,14 @@ describe('Error Classifier', () => {
   });
 
   describe('Default Classification', () => {
-    it('should return retryable for unknown errors', () => {
+    it('should return non-retryable for unknown errors', () => {
       const error = new Error('Something went wrong');
       // No code, no status
 
       const result = classifyError(error);
-      // Default is usually retryable to be conservative
-      assert.ok(result);
+      // Default is non-retryable for safety — only known transient errors should retry
+      assert.strictEqual(result.category, ErrorCategory.NON_RETRYABLE);
+      assert.strictEqual(result.suggestedDelay, 0);
     });
   });
 });

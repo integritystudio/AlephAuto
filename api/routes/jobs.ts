@@ -269,8 +269,14 @@ router.post('/:jobId/cancel', async (req, res) => {
     const sanitizedJobId = validation.sanitized!;
     logger.info({ jobId: sanitizedJobId }, 'Cancelling job');
 
-    // Extract pipeline ID from job ID (format: pipelineId-*)
-    const pipelineId = sanitizedJobId.split('-')[0];
+    // Look up job to get canonical pipelineId (split('-')[0] breaks for hyphenated IDs like git-activity)
+    const job = jobRepository.getJob(sanitizedJobId);
+    if (!job) {
+      return sendError(res, ERROR_CODES.NOT_FOUND,
+        `Job not found: ${sanitizedJobId}`, HttpStatus.NOT_FOUND);
+    }
+
+    const pipelineId = job.pipelineId;
 
     // Get worker for this pipeline
     const worker = await workerRegistry.getWorker(pipelineId);

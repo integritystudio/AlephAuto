@@ -189,9 +189,9 @@ const MESSAGE_PATTERNS: MessagePatternConfig[] = [
 // =============================================================================
 
 const DEFAULT_CLASSIFICATION: ErrorClassification = {
-  category: ErrorCategory.RETRYABLE,
-  reason: 'Unknown error type - defaulting to retryable',
-  suggestedDelay: RETRY.DEFAULT_DELAY_MS
+  category: ErrorCategory.NON_RETRYABLE,
+  reason: 'Unknown error type - treating as non-retryable for safety',
+  suggestedDelay: 0
 };
 
 const NULL_ERROR_CLASSIFICATION: ErrorClassification = {
