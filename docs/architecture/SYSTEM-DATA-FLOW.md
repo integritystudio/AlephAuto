@@ -1,7 +1,7 @@
 # AlephAuto System Data Flow Documentation
 
-**Last Updated:** 2026-03-04
-**Version:** 1.2
+**Last Updated:** 2026-03-14
+**Version:** 1.3
 **Author:** Architecture Documentation
 
 ## Table of Contents
@@ -185,7 +185,7 @@ graph TB
 
     %% Git operations
     DD -->|Clone/Scan| Git
-    SE -->|PR Creation| Git
+    SE -->|Branch/Commit| Git
 
     style BaseServer fill:#bbf,stroke:#333,stroke-width:2px
     style Orchestrator fill:#bfb,stroke:#333,stroke-width:2px
@@ -528,6 +528,7 @@ flowchart TB
         RM["repomix"]
         BA["bugfix-audit"]
         DP["dashboard-populate"]
+        PM["plugin-manager"]
     end
 
     subgraph API["API Routes"]
@@ -536,16 +537,16 @@ flowchart TB
         Status["GET jobs by id"]
     end
 
-    Register --> DD & SE & GA & GI & RC & CH & TR & RM & BA & DP
+    Register --> DD & SE & GA & GI & RC & CH & TR & RM & BA & DP & PM
 
     Start --> Get
     Get --> DD
 
     List --> All
-    All --> DD & SE & GA & GI & RC & CH & TR & RM & BA & DP
+    All --> DD & SE & GA & GI & RC & CH & TR & RM & BA & DP & PM
 
     Status --> Stats
-    Stats --> DD & SE & GA & GI & RC & CH & TR & RM & BA & DP
+    Stats --> DD & SE & GA & GI & RC & CH & TR & RM & BA & DP & PM
 
     style Registry fill:#bbf,stroke:#333
 ```
@@ -995,5 +996,5 @@ server {
 ---
 
 **Document Version:** 2.3.20
-**Last Updated:** 2026-03-09
+**Last Updated:** 2026-03-14
 **Maintainer:** Architecture Team

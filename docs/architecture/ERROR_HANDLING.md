@@ -1,1494 +1,199 @@
 # Error Handling Documentation
 
-Comprehensive guide to error handling, retry logic, and error classification in the AlephAuto job queue system.
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Error Classification System](#error-classification-system)
-- [Retry Logic](#retry-logic)
-- [Circuit Breaker Pattern](#circuit-breaker-pattern)
-- [Sentry Integration](#sentry-integration)
-- [Error Handling Patterns](#error-handling-patterns)
-- [Best Practices](#best-practices)
-- [Monitoring and Alerts](#monitoring-and-alerts)
+**Last Updated:** 2026-03-14
 
 ## Overview
 
-The AlephAuto system implements a sophisticated error handling strategy with three main components:
+Three components: **error classification** (retryable vs non-retryable), **retry logic** (exponential backoff + circuit breaker), and **Sentry integration** (3-level alerting).
 
-1. **Error Classification** - Categorizes errors as retryable or non-retryable
-2. **Retry Logic** - Implements exponential backoff with circuit breaker
-3. **Sentry Integration** - Multi-level alerting and error tracking
-
-### Key Features
-
-- Automatic error classification based on error codes, HTTP status, and messages
-- Intelligent retry with exponential backoff
-- Circuit breaker to prevent infinite retry loops
-- Error-specific retry delays (60s for rate limits, 10s for timeouts, etc.)
-- Comprehensive Sentry alerting at 3 severity levels
-- Real-time retry metrics dashboard
-
-## Error Classification System
-
-### Location
-
-`sidequest/pipeline-core/errors/error-classifier.ts`
-
-### Error Categories
-
-```javascript
-const ErrorCategory = {
-  RETRYABLE: 'retryable',       // Transient failures (ETIMEDOUT, 5xx)
-  NON_RETRYABLE: 'non-retryable' // Permanent failures (ENOENT, 4xx)
-};
-```
-
-### Classification Methods
-
-The classifier uses three detection methods in order:
-
-1. **Error Codes** - Node.js/system error codes
-2. **HTTP Status Codes** - REST API responses
-3. **Error Message Patterns** - String matching for common errors
-
-### Non-Retryable Error Codes
-
-These errors indicate permanent failures and should NOT be retried:
-
-```javascript
-const NON_RETRYABLE_ERROR_CODES = [
-  'ENOENT',              // File/directory not found
-  'ENOTDIR',             // Not a directory
-  'EISDIR',              // Is a directory
-  'EACCES',              // Permission denied
-  'EPERM',               // Operation not permitted
-  'EINVAL',              // Invalid argument
-  'EEXIST',              // File exists
-  'ENOTFOUND',           // DNS resolution failed
-  'ECONNREFUSED',        // Connection refused
-  'ERR_MODULE_NOT_FOUND' // Module not found
-];
-```
-
-**Why these are non-retryable:**
-- ENOENT: File doesn't exist - retrying won't make it appear
-- EACCES: Permission denied - requires manual intervention
-- EINVAL: Bad input - same input will fail again
-- ENOTFOUND: DNS failure - immediate retry unlikely to help
-
-### Retryable Error Codes
-
-These errors indicate transient failures and SHOULD be retried:
-
-```javascript
-const RETRYABLE_ERROR_CODES = [
-  'ETIMEDOUT',    // Connection timeout
-  'ECONNRESET',   // Connection reset by peer
-  'EHOSTUNREACH', // Host unreachable
-  'ENETUNREACH',  // Network unreachable
-  'EPIPE',        // Broken pipe
-  'EAGAIN',       // Resource temporarily unavailable
-  'EBUSY'         // Resource busy
-];
-```
-
-**Why these are retryable:**
-- ETIMEDOUT: Network congestion - may work on retry
-- ECONNRESET: Temporary connection issue
-- EHOSTUNREACH: Routing issue - may resolve
-- EBUSY: Resource locked - may become available
-
-### HTTP Status Code Classification
-
-```javascript
-// 4xx Client Errors (NON-RETRYABLE, except 429)
-400 Bad Request        → Non-retryable (bad input)
-401 Unauthorized       → Non-retryable (needs auth)
-403 Forbidden          → Non-retryable (no access)
-404 Not Found          → Non-retryable (doesn't exist)
-429 Too Many Requests  → RETRYABLE (rate limit, retry after 60s)
-
-// 5xx Server Errors (RETRYABLE)
-500 Internal Error     → Retryable (server issue, retry after 10s)
-502 Bad Gateway        → Retryable (proxy issue, retry after 10s)
-503 Service Unavailable → Retryable (temporary, retry after 10s)
-504 Gateway Timeout    → Retryable (timeout, retry after 10s)
-```
-
-### Error-Specific Retry Delays
-
-Different error types have different suggested delays:
-
-```javascript
-{
-  'ETIMEDOUT': 5000,      // Network timeout - retry after 5s
-  'ECONNRESET': 3000,     // Connection reset - retry after 3s
-  'EBUSY': 2000,          // Resource busy - retry after 2s
-  429: 60000,             // Rate limit - wait 60s
-  5xx: 10000,             // Server error - wait 10s
-  default: 5000           // Unknown - wait 5s
-}
-```
-
-### Usage
-
-```javascript
-import { isRetryable, getErrorInfo, classifyError } from '../sidequest/pipeline-core/errors/error-classifier.ts';
-
-// Check if error is retryable
-if (!isRetryable(error)) {
-  logger.warn('Error is non-retryable, skipping retry');
-  return false;
-}
-
-// Get detailed error information
-const errorInfo = getErrorInfo(error);
-console.log(errorInfo);
-// {
-//   name: 'Error',
-//   message: 'ETIMEDOUT',
-//   code: 'ETIMEDOUT',
-//   statusCode: undefined,
-//   category: 'retryable',
-//   reason: "Error code 'ETIMEDOUT' indicates transient failure",
-//   suggestedDelay: 5000,
-//   retryable: true
-// }
-
-// Use suggested delay
-const delay = errorInfo.suggestedDelay || 5000;
-setTimeout(() => retry(), delay);
-```
-
-## Retry Logic
-
-### Overview
-
-Located in `sidequest/pipeline-runners/duplicate-detection-pipeline.ts` (lines 150-235), the retry logic implements exponential backoff with circuit breaker protection.
-
-### Key Concepts
-
-1. **Original Job ID Extraction** - Strips retry suffixes to track attempts correctly
-2. **Retry Queue** - Tracks retry state by original job ID
-3. **Exponential Backoff** - Increases delay with each retry
-4. **Circuit Breaker** - Absolute maximum to prevent infinite loops
-
-### Configuration
-
-```javascript
-// Maximum configured retries (from job options)
-const maxRetries = job.options.maxRetries || 2;
-
-// Circuit breaker: Absolute maximum (overrides configured max)
-const MAX_ABSOLUTE_RETRIES = 5;
-
-// Base delay for exponential backoff
-const baseDelay = job.options.retryDelay || 5000; // 5 seconds
-```
-
-### Original Job ID Extraction
-
-**Problem:** Nested retry suffixes created infinite loops
-- `scan-123` → `scan-123-retry1` → `scan-123-retry1-retry1` → ...
-
-**Solution:** Strip all retry suffixes to get original ID
-
-```javascript
-_getOriginalJobId(jobId) {
-  // Remove all -retryN suffixes
-  return jobId.replace(/-retry\d+/g, '');
-}
-
-// Examples:
-// 'scan-123-retry1' → 'scan-123'
-// 'scan-123-retry1-retry1' → 'scan-123'
-// 'scan-456' → 'scan-456'
-```
-
-### Retry State Tracking
-
-Retry state is tracked per **original job ID** (not retry job ID):
-
-```javascript
-this.retryQueue = new Map(); // Map<originalJobId, RetryInfo>
-
-// RetryInfo structure:
-{
-  attempts: 0,           // Current retry attempt count
-  lastAttempt: Date.now(), // Timestamp of last retry
-  maxAttempts: 2,        // Maximum configured retries
-  delay: 5000            // Base delay for exponential backoff
-}
-```
-
-### Retry Flow
-
-```javascript
-async _handleRetry(job, error) {
-  const originalJobId = this._getOriginalJobId(job.id);
-
-  // 1. Classify error
-  const errorInfo = getErrorInfo(error);
-  if (!errorInfo.retryable) {
-    logger.warn('Error is non-retryable - skipping retry');
-    return false;
-  }
-
-  // 2. Get or create retry info
-  if (!this.retryQueue.has(originalJobId)) {
-    this.retryQueue.set(originalJobId, {
-      attempts: 0,
-      lastAttempt: Date.now(),
-      maxAttempts: job.options.maxRetries || 2,
-      delay: job.options.retryDelay || 5000
-    });
-  }
-
-  const retryInfo = this.retryQueue.get(originalJobId);
-  retryInfo.attempts++;
-
-  // 3. Circuit breaker check
-  if (retryInfo.attempts >= MAX_ABSOLUTE_RETRIES) {
-    Sentry.captureMessage('Circuit breaker triggered', { level: 'error' });
-    this.retryQueue.delete(originalJobId);
-    return false;
-  }
-
-  // 4. Max attempts check
-  if (retryInfo.attempts > retryInfo.maxAttempts) {
-    Sentry.captureMessage('Maximum retries reached', { level: 'warning' });
-    this.retryQueue.delete(originalJobId);
-    return false;
-  }
-
-  // 5. Calculate delay with exponential backoff
-  const baseRetryDelay = errorInfo.suggestedDelay || retryInfo.delay;
-  const delay = baseRetryDelay * Math.pow(2, retryInfo.attempts - 1);
-
-  // 6. Schedule retry with consistent job ID
-  setTimeout(() => {
-    const retryJobId = `${originalJobId}-retry${retryInfo.attempts}`;
-    this.createJob(retryJobId, job.data, job.options);
-  }, delay);
-
-  return true;
-}
-```
-
-### Exponential Backoff
-
-Delay increases exponentially with each retry:
-
-```
-Attempt 1: baseDelay * 2^0 = 5s  * 1 = 5s
-Attempt 2: baseDelay * 2^1 = 5s  * 2 = 10s
-Attempt 3: baseDelay * 2^2 = 5s  * 4 = 20s
-Attempt 4: baseDelay * 2^3 = 5s  * 8 = 40s
-Attempt 5: baseDelay * 2^4 = 5s * 16 = 80s (circuit breaker triggers)
-```
-
-**Rate limit example** (60s base delay):
-```
-Attempt 1: 60s
-Attempt 2: 120s (2 minutes)
-Attempt 3: 240s (4 minutes)
-```
-
-### Retry Job ID Format
-
-Retry jobs are created with consistent IDs:
-
-```javascript
-const retryJobId = `${originalJobId}-retry${attempts}`;
-
-// Examples:
-// Original: 'scan-abc123'
-// Retry 1:  'scan-abc123-retry1'
-// Retry 2:  'scan-abc123-retry2'
-// Retry 3:  'scan-abc123-retry3'
-```
-
-This ensures:
-- All retries tracked under same original ID
-- Easy identification of retry attempts
-- No nested suffixes
-
-### Cleanup
-
-Retry state is cleaned up when:
-- Circuit breaker triggers (5 attempts)
-- Max configured retries reached
-- Job completes successfully
-
-```javascript
-// On success
-this.retryQueue.delete(originalJobId);
-
-// On final failure
-this.retryQueue.delete(originalJobId);
-```
-
-## Circuit Breaker Pattern
-
-### Purpose
-
-Prevents infinite retry loops by enforcing an absolute maximum retry limit.
-
-### How It Works
-
-```javascript
-const MAX_ABSOLUTE_RETRIES = 5; // Hardcoded safety limit
-
-if (retryInfo.attempts >= MAX_ABSOLUTE_RETRIES) {
-  // Circuit breaker triggered - stop all retries
-  Sentry.captureMessage('Circuit breaker triggered', {
-    level: 'error',
-    tags: { component: 'retry-logic', jobId: originalJobId },
-    extra: {
-      attempts: retryInfo.attempts,
-      maxAbsolute: MAX_ABSOLUTE_RETRIES,
-      maxConfigured: retryInfo.maxAttempts,
-      errorMessage: error.message,
-      errorCode: error.code
-    }
-  });
-
-  this.retryQueue.delete(originalJobId);
-  return false;
-}
-```
-
-### Hierarchy of Limits
-
-1. **Circuit Breaker (5 attempts)** - ABSOLUTE maximum, cannot be overridden
-2. **Configured Max (2 attempts)** - Default job retry limit
-3. **Per-Job Override** - Can be set in job options
-
-```javascript
-// Circuit breaker always wins
-if (attempts >= 5) {
-  // STOP - circuit breaker
-} else if (attempts > configuredMax) {
-  // STOP - max retries
-} else {
-  // CONTINUE - schedule retry
-}
-```
-
-### Why Circuit Breaker Is Needed
-
-**Without circuit breaker:**
-- Job configured with `maxRetries: 10`
-- Non-retryable error (ENOENT) misclassified as retryable
-- System retries 10 times, wasting resources
-- Each retry takes 5s → 10s → 20s → ... (exponential backoff)
-- Total wasted time: 5 + 10 + 20 + 40 + 80 + 160 + 320 + 640 + 1280 + 2560 = **5,115 seconds (85 minutes!)**
-
-**With circuit breaker:**
-- Same scenario
-- Circuit breaker stops at 5 attempts
-- Total time: 5 + 10 + 20 + 40 + 80 = **155 seconds (2.6 minutes)**
-- Saves 83 minutes of wasted retries
-
-### Real-World Example
-
-```javascript
-// Job creation with high retry limit
-const job = worker.createJob('scan-123', {
-  repositoryPath: '/tmp/repo'
-}, {
-  maxRetries: 100 // User sets unreasonably high limit
-});
-
-// Job fails with ENOENT (file not found)
-// Without circuit breaker: 100 retries!
-// With circuit breaker: Stops at 5 attempts
-```
-
-## Sentry Integration
-
-### Alert Levels
-
-The retry logic sends alerts to Sentry at three severity levels:
-
-#### 1. Error Level - Circuit Breaker Triggered
-
-**Trigger:** 5+ retry attempts (circuit breaker)
-
-```javascript
-Sentry.captureMessage('Circuit breaker triggered: Excessive retry attempts', {
-  level: 'error',
-  tags: {
-    component: 'retry-logic',
-    jobId: originalJobId,
-    errorType: error.code
-  },
-  extra: {
-    attempts: retryInfo.attempts,
-    maxAbsolute: MAX_ABSOLUTE_RETRIES,
-    maxConfigured: retryInfo.maxAttempts,
-    errorMessage: error.message,
-    errorCode: error.code,
-    errorClassification: errorInfo
-  }
-});
-```
-
-**When to investigate:**
-- Immediately - indicates systemic issue
-- Job has failed 5 times, consuming significant resources
-- May indicate misconfiguration or bug
-
-#### 2. Warning Level - Maximum Retries Reached
-
-**Trigger:** Configured max retries reached (default: 2)
-
-```javascript
-Sentry.captureMessage('Maximum configured retry attempts reached', {
-  level: 'warning',
-  tags: {
-    component: 'retry-logic',
-    jobId: originalJobId
-  },
-  extra: {
-    attempts: retryInfo.attempts,
-    maxConfigured: retryInfo.maxAttempts,
-    errorClassification: errorInfo
-  }
-});
-```
-
-**When to investigate:**
-- Review error classification
-- Check if error should be retryable
-- Consider increasing retry limit if appropriate
-
-#### 3. Warning Level - Approaching Limit
-
-**Trigger:** 3+ retry attempts (approaching circuit breaker)
-
-```javascript
-if (retryInfo.attempts >= 3) {
-  Sentry.captureMessage('Warning: Approaching retry limit', {
-    level: 'warning',
-    tags: {
-      component: 'retry-logic',
-      jobId: originalJobId
-    },
-    extra: {
-      attempts: retryInfo.attempts,
-      maxAttempts: retryInfo.maxAttempts,
-      maxAbsolute: MAX_ABSOLUTE_RETRIES,
-      errorMessage: error.message
-    }
-  });
-}
-```
-
-**When to investigate:**
-- Proactive warning before circuit breaker
-- Monitor for patterns (same error repeatedly)
-- Consider if manual intervention needed
-
-### Sentry Context
-
-All Sentry alerts include:
-
-```javascript
-{
-  level: 'error' | 'warning',
-  tags: {
-    component: 'retry-logic',      // Component identifier
-    jobId: 'scan-abc123',          // Original job ID
-    errorType: 'ETIMEDOUT'         // Error code (if available)
-  },
-  extra: {
-    attempts: 3,                   // Current retry count
-    maxConfigured: 2,              // Configured max
-    maxAbsolute: 5,                // Circuit breaker limit
-    errorMessage: 'Connection timeout',
-    errorCode: 'ETIMEDOUT',
-    errorClassification: {         // Full error classification
-      category: 'retryable',
-      reason: '...',
-      suggestedDelay: 5000,
-      retryable: true
-    }
-  }
-}
-```
-
-## Error Handling Patterns
-
-### Pattern 1: Try-Catch with Classification
-
-```javascript
-try {
-  const result = await riskyOperation();
-  return result;
-} catch (error) {
-  const errorInfo = getErrorInfo(error);
-
-  logger.error({
-    error,
-    classification: errorInfo
-  }, 'Operation failed');
-
-  if (errorInfo.retryable) {
-    return await this._handleRetry(job, error);
-  } else {
-    throw error; // Non-retryable - fail immediately
-  }
-}
-```
-
-### Pattern 2: Error-Specific Handling
-
-```javascript
-try {
-  await fs.access(filePath);
-} catch (error) {
-  if (error.code === 'ENOENT') {
-    // Non-retryable - file doesn't exist
-    throw new Error(`File not found: ${filePath}`);
-  } else if (error.code === 'EACCES') {
-    // Non-retryable - permission denied
-    throw new Error(`Permission denied: ${filePath}`);
-  } else if (error.code === 'EBUSY') {
-    // Retryable - file locked, retry after 2s
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    return await fs.access(filePath); // Retry
-  }
-  throw error;
-}
-```
-
-### Pattern 3: HTTP Request with Retry
-
-```javascript
-async function fetchWithRetry(url, maxRetries = 3) {
-  let lastError;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        const error = new Error(`HTTP ${response.status}`);
-        error.statusCode = response.status;
-        throw error;
-      }
-
-      return response;
-    } catch (error) {
-      lastError = error;
-      const errorInfo = getErrorInfo(error);
-
-      if (!errorInfo.retryable || attempt === maxRetries) {
-        throw error;
-      }
-
-      // Use suggested delay
-      const delay = errorInfo.suggestedDelay || 5000;
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-
-  throw lastError;
-}
-```
-
-### Pattern 4: Graceful Degradation
-
-```javascript
-async function getDataWithFallback() {
-  try {
-    // Try primary data source
-    return await fetchFromPrimarySource();
-  } catch (error) {
-    const errorInfo = getErrorInfo(error);
-
-    logger.warn({ error, classification: errorInfo }, 'Primary source failed');
-
-    if (!errorInfo.retryable) {
-      // Non-retryable - use fallback immediately
-      return await fetchFromFallbackSource();
-    }
-
-    // Retryable - try once more before fallback
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      return await fetchFromPrimarySource();
-    } catch (retryError) {
-      return await fetchFromFallbackSource();
-    }
-  }
-}
-```
-
-## Best Practices
-
-### 1. Always Classify Errors
-
-**DON'T:**
-```javascript
-catch (error) {
-  // Blindly retry everything
-  setTimeout(() => retry(), 5000);
-}
-```
-
-**DO:**
-```javascript
-catch (error) {
-  const errorInfo = getErrorInfo(error);
-  if (errorInfo.retryable) {
-    const delay = errorInfo.suggestedDelay || 5000;
-    setTimeout(() => retry(), delay);
-  } else {
-    logger.error('Non-retryable error, failing immediately');
-    throw error;
-  }
-}
-```
-
-### 2. Use Suggested Delays
-
-**DON'T:**
-```javascript
-// Fixed delay for all errors
-setTimeout(() => retry(), 5000);
-```
-
-**DO:**
-```javascript
-const errorInfo = getErrorInfo(error);
-const delay = errorInfo.suggestedDelay || 5000;
-setTimeout(() => retry(), delay);
-```
-
-### 3. Log Error Classification
-
-**DON'T:**
-```javascript
-catch (error) {
-  logger.error('Error occurred');
-}
-```
-
-**DO:**
-```javascript
-catch (error) {
-  const errorInfo = getErrorInfo(error);
-  logger.error({
-    error,
-    code: errorInfo.code,
-    category: errorInfo.category,
-    retryable: errorInfo.retryable,
-    reason: errorInfo.reason
-  }, 'Operation failed');
-}
-```
-
-### 4. Respect Circuit Breaker
-
-**DON'T:**
-```javascript
-// Unlimited retries
-while (true) {
-  try {
-    return await operation();
-  } catch (error) {
-    await delay(5000);
-  }
-}
-```
-
-**DO:**
-```javascript
-const MAX_RETRIES = 3;
-for (let i = 0; i < MAX_RETRIES; i++) {
-  try {
-    return await operation();
-  } catch (error) {
-    if (i === MAX_RETRIES - 1 || !isRetryable(error)) {
-      throw error;
-    }
-    await delay(5000 * Math.pow(2, i));
-  }
-}
-```
-
-### 5. Include Error Context
-
-**DON'T:**
-```javascript
-throw new Error('Failed');
-```
-
-**DO:**
-```javascript
-const error = new Error(`Failed to scan repository: ${repoPath}`);
-error.code = 'SCAN_FAILED';
-error.context = { repoPath, attemptCount };
-throw error;
-```
-
-### 6. Clean Up Resources
-
-**DON'T:**
-```javascript
-const file = await openFile(path);
-const data = await processFile(file); // May throw
-return data;
-// File never closed!
-```
-
-**DO:**
-```javascript
-const file = await openFile(path);
-try {
-  const data = await processFile(file);
-  return data;
-} finally {
-  await file.close();
-}
-```
-
-## Monitoring and Alerts
-
-### Dashboard Metrics
-
-Access real-time retry metrics at `http://localhost:8080`:
-
-- **Active Retries** - Current jobs being retried
-- **Total Attempts** - Sum of all retry attempts
-- **Nearing Limit** - Jobs with 3+ attempts (warning threshold)
-- **Retry Distribution** - Breakdown by attempt count
-- **Jobs Being Retried** - List with attempt counts and timestamps
-
-### Sentry Queries
-
-**Find circuit breaker triggers:**
-```
-level:error "Circuit breaker triggered"
-```
-
-**Find jobs approaching limit:**
-```
-level:warning "Approaching retry limit"
-```
-
-**Find specific error types:**
-```
-tags.errorType:ETIMEDOUT
-```
-
-**Find jobs by ID:**
-```
-tags.jobId:scan-abc123
-```
-
-### Log Analysis
-
-```bash
-# Find retry-related logs
-grep "retry" logs/duplicate-detection/*.log
-
-# Find circuit breaker triggers
-grep "Circuit breaker" logs/duplicate-detection/*.log
-
-# Find non-retryable errors
-grep "non-retryable" logs/duplicate-detection/*.log
-```
-
-### Automated Cleanup
-
-Error logs are automatically cleaned up:
-
-```bash
-# Cleanup logs older than 7 days (archive)
-npm run logs:cleanup
-
-# Dry run
-npm run logs:cleanup:dry
-
-# Verbose output
-npm run logs:cleanup:verbose
-```
-
-Archived logs are compressed with gzip and deleted after 30 days.
-
-## Doppler Circuit Breaker Pattern
-
-### Overview
-
-The Doppler health monitor implements a circuit breaker pattern to detect and alert on stale Doppler cache, preventing production failures from outdated secrets.
-
-**Location:** `sidequest/pipeline-core/doppler-health-monitor.ts`
-
-### How It Works
-
-```javascript
-// Monitor Doppler fallback cache age
-const monitor = new DopplerHealthMonitor({
-  maxCacheAge: 24 * 60 * 60 * 1000,      // 24 hours - critical threshold
-  warningThreshold: 12 * 60 * 60 * 1000  // 12 hours - warning threshold
-});
-
-// Start periodic monitoring (checks every 15 minutes)
-await monitor.startMonitoring(15);
-
-// Or check on-demand
-const health = await monitor.checkCacheHealth();
-```
-
-### Cache Health States
-
-```javascript
-{
-  healthy: true/false,        // Cache age within 24 hour threshold
-  cacheAgeMs: 43200000,       // Age in milliseconds
-  cacheAgeHours: 12,          // Age in hours
-  cacheAgeMinutes: 0,         // Remaining minutes
-  lastModified: '2025-11-24T10:00:00Z',
-  usingFallback: true,        // Using cached secrets vs live API
-  severity: 'healthy' | 'warning' | 'critical' | 'error'
-}
-```
-
-### Severity Thresholds
-
-1. **Healthy** (0-12 hours)
-   - Cache age below warning threshold
-   - Normal operation
-   - No alerts
-
-2. **Warning** (12-24 hours)
-   - Cache approaching staleness
-   - Sentry warning level alert
-   - Review Doppler connectivity
-
-3. **Critical** (24+ hours)
-   - Cache critically stale
-   - Sentry error level alert
-   - Secrets may be outdated
-   - **Action required:** Update Doppler cache
-
-### Integration Pattern
-
-```javascript
-// In api/server.ts
-import { DopplerHealthMonitor } from '../sidequest/pipeline-core/doppler-health-monitor.ts';
-
-const dopplerMonitor = new DopplerHealthMonitor();
-
-// Health check endpoint
-app.get('/api/health/doppler', async (req, res) => {
-  const health = await dopplerMonitor.checkCacheHealth();
-  res.json({
-    status: health.healthy ? 'healthy' : 'degraded',
-    cacheAgeHours: health.cacheAgeHours,
-    severity: health.severity,
-    lastModified: health.lastModified
-  });
-});
-
-// Start monitoring on server startup
-httpServer.listen(PORT, async () => {
-  await dopplerMonitor.startMonitoring(15); // Check every 15 minutes
-});
-
-// Stop monitoring on graceful shutdown
-process.on('SIGTERM', () => {
-  dopplerMonitor.stopMonitoring();
-});
-```
-
-### Why This Matters
-
-**Problem:** Doppler fallback cache can become stale during API outages
-- Services continue running with cached secrets
-- Rotated secrets not updated
-- Production failures from expired API keys/tokens
-
-**Solution:** Circuit breaker pattern with proactive monitoring
-- Detect cache staleness before failures occur
-- Alert operators when cache exceeds thresholds
-- Enable manual intervention before production impact
-
-### Error Handling in Doppler Monitor
-
-```javascript
-try {
-  const stats = await fs.stat(this.cacheFile);
-  const cacheAge = Date.now() - stats.mtime.getTime();
-
-  if (cacheAge > this.maxCacheAge) {
-    // Critical alert
-    Sentry.captureMessage('Doppler cache critically stale', {
-      level: 'error',
-      extra: { cacheAgeHours, threshold: 24 },
-      tags: { component: 'doppler-health-monitor', severity: 'critical' }
-    });
-  }
-} catch (error) {
-  if (error.code === 'ENOENT') {
-    // No cache file - using live Doppler API (healthy state)
-    return { healthy: true, usingFallback: false };
-  }
-
-  // Other errors captured to Sentry
-  Sentry.captureException(error, {
-    tags: { component: 'doppler-health-monitor', operation: 'check-cache-health' }
-  });
-}
-```
-
-## Port Conflict Resolution Strategy
-
-### Overview
-
-The port manager utility provides automatic port conflict detection and resolution, preventing EADDRINUSE errors during server startup.
-
-**Location:** `api/utils/port-manager.ts`
-
-### Key Features
-
-1. **Port Availability Check** - Test if port is free before binding
-2. **Automatic Fallback** - Try alternative ports if preferred port unavailable
-3. **Process Cleanup** - Kill existing processes on port (optional)
-4. **Graceful Shutdown** - Handle SIGTERM/SIGINT cleanly
-
-### Port Availability Check
-
-```javascript
-import { isPortAvailable } from './api/utils/port-manager.ts';
-
-// Check if port 8080 is available
-const available = await isPortAvailable(8080, '0.0.0.0');
-
-if (!available) {
-  logger.warn({ port: 8080 }, 'Port is already in use');
-}
-```
-
-**How it works:**
-- Creates temporary TCP server on target port
-- Listens for `EADDRINUSE` error
-- Closes test server immediately if successful
-- Returns boolean availability status
-
-### Automatic Port Fallback
-
-```javascript
-import { setupServerWithPortFallback } from './api/utils/port-manager.ts';
-
-const actualPort = await setupServerWithPortFallback(httpServer, {
-  preferredPort: 8080,
-  maxPort: 8090,           // Try ports 8080-8090
-  host: '0.0.0.0',
-  killExisting: false      // Don't kill existing processes
-});
-
-logger.info({ actualPort }, 'Server started on port');
-```
-
-**Fallback sequence:**
-1. Try preferred port (8080)
-2. If unavailable, try 8081, 8082, 8083... up to maxPort
-3. Log warning if using fallback port
-4. Throw error if no ports available in range
-
-### Process Cleanup (Optional)
-
-```javascript
-import { killProcessOnPort } from './api/utils/port-manager.ts';
-
-// Kill existing process on port 8080
-const killed = await killProcessOnPort(8080);
-
-if (killed) {
-  logger.info({ port: 8080 }, 'Freed up port');
-}
-```
-
-**Use with caution:**
-- Uses `lsof -ti:PORT` to find processes
-- Sends SIGKILL (-9) to all processes on port
-- Only works on macOS/Linux
-- Can disrupt running services
-
-### Graceful Shutdown
-
-```javascript
-import { setupGracefulShutdown } from './api/utils/port-manager.ts';
-
-setupGracefulShutdown(httpServer, {
-  onShutdown: async (signal) => {
-    logger.info({ signal }, 'Cleaning up resources');
-
-    // Stop Doppler monitoring
-    dopplerMonitor.stopMonitoring();
-
-    // Close WebSocket connections
-    wss.close();
-
-    // Close database connections
-    await db.close();
-  },
-  timeout: 10000  // Force exit after 10 seconds
-});
-```
-
-**Handles signals:**
-- `SIGTERM` - Graceful shutdown (PM2, Docker)
-- `SIGINT` - Ctrl+C in terminal
-- `SIGHUP` - Terminal closed
-- `uncaughtException` - Unhandled errors
-- `unhandledRejection` - Unhandled promise rejections
-
-**Shutdown sequence:**
-1. Set `isShuttingDown` flag to prevent duplicate shutdown
-2. Run custom `onShutdown` handler
-3. Close HTTP server and stop accepting connections
-4. Wait for active connections to complete
-5. Exit process with code 0 (success)
-6. Force exit after timeout (default: 10s)
-
-### Real-World Example
-
-```javascript
-// api/server.ts - Production pattern
-import { setupServerWithPortFallback, setupGracefulShutdown } from './api/utils/port-manager.ts';
-
-const PORT = config.apiPort || 8080;
-
-// Setup server with automatic fallback
-const actualPort = await setupServerWithPortFallback(httpServer, {
-  preferredPort: PORT,
-  maxPort: PORT + 10,
-  host: '0.0.0.0',
-  killExisting: false  // Don't kill existing processes in production
-});
-
-// Setup graceful shutdown
-setupGracefulShutdown(httpServer, {
-  onShutdown: async (signal) => {
-    logger.info({ signal }, 'Shutting down gracefully');
-    dopplerMonitor.stopMonitoring();
-    wss.close();
-  },
-  timeout: 10000
-});
-
-logger.info({ port: actualPort }, 'Server ready');
-```
-
-### Error Prevention
-
-**Without port manager:**
-```
-Error: listen EADDRINUSE: address already in use :::8080
-    at Server.setupListenHandle [as _listen2]
-```
-
-**With port manager:**
-```
-[INFO] Port 8080 is already in use
-[WARN] Using fallback port 8081
-[INFO] Server listening on fallback port 8081
-```
-
-## Null-Safe Error Handling Patterns
-
-### Overview
-
-Null-safe error handling prevents TypeError crashes when error objects are undefined, null, or missing expected properties.
-
-**Common scenario:** Event handlers receiving errors from async operations where error format is unpredictable.
-
-### Safe Error Message Extraction
-
-```javascript
-/**
- * Safely extract error message from various error formats
- *
- * @param {Error|string|object|null|undefined} error - Error to extract message from
- * @returns {string} Safe error message
- */
-function safeErrorMessage(error) {
-  if (!error) {
-    return 'Unknown error (null or undefined)';
-  }
-
-  if (typeof error === 'string') {
-    return error;
-  }
-
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  if (typeof error === 'object') {
-    return error.message || error.error || JSON.stringify(error);
-  }
-
-  return String(error);
-}
-
-// Usage in event handlers
-worker.on('job:failed', (job, error) => {
-  const errorMessage = safeErrorMessage(error);
-
-  logger.error({
-    jobId: job.id,
-    error: errorMessage,
-    errorCode: error?.code  // Optional chaining for safety
-  }, 'Job failed');
-});
-```
-
-### Safe Error Property Access
-
-```javascript
-// ❌ Unsafe - throws TypeError if error is null
-const errorCode = error.code;
-const errorMessage = error.message;
-
-// ✅ Safe - uses optional chaining
-const errorCode = error?.code;
-const errorMessage = error?.message || 'Unknown error';
-
-// ✅ Safe - uses nullish coalescing
-const errorCode = error?.code ?? 'UNKNOWN';
-const isRetryable = error?.retryable ?? false;
-```
-
-### Activity Feed Error Handling
-
-**Location:** `api/activity-feed.ts`
-
-The Activity Feed Manager implements comprehensive null-safe error handling:
-
-```javascript
-// Safe error extraction in job:failed event
-worker.on('job:failed', (job, error) => {
-  try {
-    const errorObj = error instanceof Error
-      ? { message: error.message, type: error.constructor.name }
-      : { message: safeErrorMessage(error), type: 'GenericError' };
-
-    this.addActivity({
-      type: 'job:failed',
-      event: 'Job Failed',
-      message: `Job ${job.id} failed: ${errorObj.message}`,
-      jobId: job.id,
-      jobType: job.data?.type || 'unknown',  // Safe property access
-      status: 'failed',
-      error: {
-        message: errorObj.message,
-        code: error?.code,                   // Optional chaining
-        retryable: error?.retryable || false // Logical OR fallback
-      },
-      icon: '❌'
-    });
-
-    // Capture to Sentry with safe context
-    Sentry.captureException(error || new Error(errorObj.message), {
-      tags: {
-        component: 'ActivityFeed',
-        event: 'job:failed',
-        jobId: job.id,
-        jobType: job.data?.type || 'unknown',
-        retryable: error?.retryable || false
-      },
-      extra: {
-        jobData: job.data,
-        errorCode: error?.code,           // Safe undefined access
-        errorType: errorObj.type
-      }
-    });
-  } catch (activityError) {
-    // Nested error handling - catch errors in error handler
-    logger.error({ error: activityError, job }, 'Failed to add job:failed activity');
-    Sentry.captureException(activityError, {
-      tags: { component: 'ActivityFeed', event: 'job:failed:activity-error' },
-      extra: { jobId: job.id, originalError: safeErrorMessage(error) }
-    });
-  }
-});
-```
-
-### Nested Try-Catch Pattern
-
-When error handlers themselves can fail, use nested try-catch:
-
-```javascript
-worker.on('job:failed', (job, error) => {
-  try {
-    // Primary error handling logic
-    const errorMessage = safeErrorMessage(error);
-    this.addActivity({ ... });
-    Sentry.captureException(error);
-  } catch (activityError) {
-    // Error handler failed - log and report separately
-    logger.error({
-      error: activityError,
-      job,
-      originalError: safeErrorMessage(error)
-    }, 'Failed to handle job:failed event');
-
-    Sentry.captureException(activityError, {
-      tags: {
-        component: 'ActivityFeed',
-        event: 'handler-failure'
-      },
-      extra: {
-        jobId: job.id,
-        originalError: safeErrorMessage(error)
-      }
-    });
-  }
-});
-```
-
-### Type Guards for Error Objects
-
-```javascript
-/**
- * Type guard to check if value is an Error instance
- */
-function isError(value) {
-  return value instanceof Error;
-}
-
-/**
- * Type guard to check if error has a code property
- */
-function hasErrorCode(error) {
-  return error && typeof error === 'object' && 'code' in error;
-}
-
-// Usage
-if (isError(error)) {
-  logger.error({ stack: error.stack }, error.message);
-}
-
-if (hasErrorCode(error)) {
-  if (error.code === 'ENOENT') {
-    // Handle file not found
-  }
-}
-```
-
-### Safe Sentry Context
-
-```javascript
-// ❌ Unsafe - throws if error is null/undefined
-Sentry.captureException(error, {
-  extra: {
-    errorCode: error.code,      // TypeError if error is null
-    errorMessage: error.message
-  }
-});
-
-// ✅ Safe - guards against null/undefined
-Sentry.captureException(error || new Error('Unknown error'), {
-  extra: {
-    errorCode: error?.code ?? 'UNKNOWN',
-    errorMessage: error?.message ?? 'No error message',
-    errorType: error?.constructor?.name ?? 'Unknown',
-    rawError: safeErrorMessage(error)
-  }
-});
-```
-
-### Real-World Null-Safe Pattern
-
-```javascript
-// api/activity-feed.ts - Production-ready error handling
-export class ActivityFeedManager {
-  listenToWorker(worker) {
-    worker.on('retry:created', (jobId, attempt, error) => {
-      try {
-        // Safe error extraction
-        const errorMessage = safeErrorMessage(error);
-
-        this.addActivity({
-          type: 'retry:created',
-          event: 'Retry Scheduled',
-          message: `Job ${jobId} scheduled for retry (attempt ${attempt})`,
-          jobId,
-          attempt,
-          status: 'retry',
-          error: {
-            message: errorMessage,
-            code: error?.code  // Safe property access
-          },
-          icon: '🔄'
-        });
-
-        // Safe Sentry breadcrumb
-        Sentry.addBreadcrumb({
-          category: 'retry',
-          message: `Job ${jobId} retry attempt ${attempt}`,
-          level: 'warning',
-          data: {
-            jobId,
-            attempt,
-            errorCode: error?.code ?? 'UNKNOWN'
-          }
-        });
-      } catch (activityError) {
-        // Nested error handling
-        logger.error({ error: activityError, jobId }, 'Failed to add retry:created activity');
-        Sentry.captureException(activityError, {
-          tags: { component: 'ActivityFeed', event: 'retry:created' },
-          extra: { jobId, attempt, originalError: safeErrorMessage(error) }
-        });
-      }
-    });
-  }
-}
-```
-
-### Best Practices Summary
-
-1. **Always use optional chaining** for error properties: `error?.code`
-2. **Provide fallback values** with nullish coalescing: `error?.message ?? 'Unknown'`
-3. **Use safeErrorMessage()** for consistent error extraction
-4. **Wrap error handlers in try-catch** to prevent handler failures
-5. **Guard Sentry calls** with `error || new Error('fallback')`
-6. **Type check errors** before accessing Error-specific properties
-7. **Log original error** in nested catch blocks for debugging
-
-## Additional Resources
-
-- Error classifier source: `sidequest/pipeline-core/errors/error-classifier.ts`
-- Retry logic: `sidequest/pipeline-runners/duplicate-detection-pipeline.ts` (lines 150-235)
-- Retry metrics: `sidequest/pipeline-runners/duplicate-detection-pipeline.ts` (lines 539-585)
-- Dashboard UI: `public/index.html` (retry section)
-- Sentry setup: `sidequest/utils/logger.ts`
-- Doppler health monitor: `sidequest/pipeline-core/doppler-health-monitor.ts`
-- Port manager: `api/utils/port-manager.ts`
-- Activity feed: `api/activity-feed.ts`
+**Key file:** `sidequest/pipeline-core/errors/error-classifier.ts`
 
 ---
 
-**Last Updated:** 2026-03-04
-**Circuit Breaker Limit:** 5 attempts
-**Default Max Retries:** 2 attempts
-**Default Base Delay:** 5 seconds
-**Doppler Cache Warning:** 12 hours
-**Doppler Cache Critical:** 24 hours
+## Error Classification
 
-## Database Health Status
+The classifier checks in order: error codes, HTTP status codes, then message patterns.
 
-### Overview
+### Non-Retryable Errors (permanent failures)
 
-The database persistence layer reports health via `getHealthStatus()`. Persistence failures are logged via Pino and reported to Sentry via `_trySilentPersist`.
+| Code | Reason |
+|------|--------|
+| `ENOENT` | File not found -- won't appear on retry |
+| `ENOTDIR`, `EISDIR` | Wrong path type |
+| `EACCES`, `EPERM` | Permission denied -- needs manual fix |
+| `EINVAL` | Invalid argument -- same input will fail again |
+| `EEXIST` | File already exists |
+| `ENOTFOUND`, `ECONNREFUSED` | DNS/connection failure -- immediate retry unlikely to help |
+| `ERR_MODULE_NOT_FOUND` | Missing module |
+| HTTP 400-404 | Client errors (bad input, not found, auth) |
 
-> **Note:** The `degradedMode` and `persistFailureCount` fields were removed in commit `624f617` (SC-L4). The health status API no longer exposes these fields.
+### Retryable Errors (transient failures)
 
-**Location:** `sidequest/core/database.ts`
-
-### Health Status API
-
-Query database health status:
-
-```javascript
-import { getHealthStatus } from './sidequest/core/database.ts';
-
-const health = getHealthStatus();
-// Returns:
-// {
-//   initialized: true,
-//   persistenceWorking: true,
-//   status: 'healthy' | 'not_initialized',
-//   message: 'Database is healthy'
-// }
-```
-
-### Persistence Failure Handling
-
-Persistence failures surface via the `_trySilentPersist` helper in `server.ts`:
-- Logs the error with Pino at `error` level
-- Captures to Sentry at `error` level with job context
-- Does not halt job execution (non-blocking write path)
-
-### Best Practices
-
-1. **Monitor health endpoint** - Add `/api/health/database` to monitoring
-2. **Check disk space** - Common cause of persistence failures
-3. **Review permissions** - Ensure write access to data directory
-
-## Standardized API Error Responses (v1.8.1)
-
-### Overview
-
-All API endpoints return standardized error responses using the `ApiError` utility.
-
-**Location:** `api/utils/api-error.ts`
-
-### Error Response Format
-
-```javascript
-{
-  "success": false,
-  "error": {
-    "code": "INVALID_REQUEST",
-    "message": "Human-readable error message",
-    "details": { ... }  // Optional additional context
-  },
-  "timestamp": "2026-01-30T12:00:00.000Z"
-}
-```
-
-### Error Codes
-
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| `INVALID_REQUEST` | 400 | Validation failed, bad input |
-| `NOT_FOUND` | 404 | Resource not found |
-| `UNAUTHORIZED` | 401 | Authentication required |
-| `INTERNAL_ERROR` | 500 | Server error |
-| `WORKER_NOT_FOUND` | 404 | Pipeline worker unavailable |
-| `CANCEL_FAILED` | 400 | Job cancellation failed |
+| Code | Suggested Delay |
+|------|----------------|
+| `ETIMEDOUT` | 5s |
+| `ECONNRESET` | 3s |
+| `EHOSTUNREACH`, `ENETUNREACH` | 5s |
+| `EPIPE`, `EAGAIN` | 5s |
+| `EBUSY` | 2s |
+| HTTP 429 | 60s (rate limit) |
+| HTTP 5xx | 10s |
 
 ### Usage
 
 ```javascript
-import { sendError, sendNotFoundError, ApiError } from '../utils/api-error.ts';
+import { isRetryable, getErrorInfo } from '../sidequest/pipeline-core/errors/error-classifier.ts';
 
-// Simple error
-sendError(res, 'INVALID_REQUEST', 'Missing required field', 400);
+const errorInfo = getErrorInfo(error);
+// { category, retryable, reason, suggestedDelay, code, statusCode }
 
-// Not found shorthand
-sendNotFoundError(res, 'Job not found');
-
-// Throw ApiError for middleware handling
-throw new ApiError('VALIDATION_ERROR', 'Invalid job ID', 400);
+if (errorInfo.retryable) {
+  setTimeout(() => retry(), errorInfo.suggestedDelay ?? 5000);
+}
 ```
 
-### Validation Error Details
+---
 
-Validation errors include field-level details:
+## Retry Logic
+
+**Location:** `sidequest/core/server.ts` (retry orchestration owned by SidequestServer)
+
+### Configuration
+
+- Default max retries: **2** (configurable per job)
+- Circuit breaker: **5** (absolute max, cannot be overridden)
+- Base delay: **5s** (uses `errorInfo.suggestedDelay` when available)
+
+### Flow
+
+1. Error occurs -- classify via `getErrorInfo(error)`
+2. Non-retryable? Fail immediately
+3. Strip retry suffixes to get original job ID: `jobId.replace(/-retry\d+/g, '')`
+4. Check circuit breaker (5 attempts) -- fail if exceeded
+5. Check configured max retries -- fail if exceeded
+6. Calculate delay: `suggestedDelay * 2^(attempt-1)` (exponential backoff)
+7. Schedule retry with ID `${originalJobId}-retry${attempt}`
+
+### Backoff Schedule (5s base)
+
+```
+Attempt 1:  5s    Attempt 2: 10s    Attempt 3: 20s
+Attempt 4: 40s    Attempt 5: 80s (circuit breaker)
+```
+
+Rate limit (60s base): 60s, 120s, 240s
+
+### Circuit Breaker
+
+Prevents runaway retries. Without it, `maxRetries: 100` with ENOENT wastes 85 minutes. With it, stops at 5 attempts (2.6 minutes).
+
+Hierarchy: Circuit Breaker (5) > Configured Max (2) > Per-Job Override
+
+---
+
+## Sentry Integration
+
+Three alert levels from retry logic:
+
+| Level | Trigger | Action |
+|-------|---------|--------|
+| **error** | Circuit breaker (5+ attempts) | Investigate immediately -- systemic issue |
+| **warning** | Max retries reached | Review error classification |
+| **warning** | 3+ attempts (approaching limit) | Monitor for patterns |
+
+All alerts include: `tags.component: 'retry-logic'`, `tags.jobId`, `extra.attempts`, `extra.errorClassification`
+
+### Sentry Queries
+
+```
+level:error "Circuit breaker triggered"
+level:warning "Approaching retry limit"
+tags.errorType:ETIMEDOUT
+tags.jobId:scan-abc123
+```
+
+---
+
+## Doppler Cache Health
+
+**Location:** `sidequest/pipeline-core/doppler-health-monitor.ts`
+
+Monitors Doppler fallback cache age to prevent stale-secret failures. Checks every 15 minutes.
+
+| Severity | Cache Age | Alert |
+|----------|-----------|-------|
+| Healthy | 0-12h | None |
+| Warning | 12-24h | Sentry warning |
+| Critical | 24h+ | Sentry error -- **action required** |
+
+Endpoint: `GET /api/health/doppler` returns `{ status, cacheAgeHours, severity }`
+
+---
+
+## Database Health
+
+**Location:** `sidequest/core/database.ts`
+
+> **Note:** `degradedMode` and `persistFailureCount` removed in commit `624f617` (SC-L4).
+
+`getHealthStatus()` returns `{ initialized, persistenceWorking, status, message }`. Persistence failures surface via `_trySilentPersist` in `server.ts` -- logged to Pino, captured to Sentry, non-blocking.
+
+---
+
+## API Error Responses
+
+**Location:** `api/utils/api-error.ts`
+
+Standard format for all endpoints:
 
 ```javascript
-{
-  "success": false,
-  "error": {
-    "code": "INVALID_REQUEST",
-    "message": "Request validation failed",
-    "details": {
-      "errors": [
-        { "field": "name", "message": "Required", "code": "invalid_type" },
-        { "field": "limit", "message": "Must be positive", "code": "too_small" }
-      ]
-    }
-  },
-  "timestamp": "2026-01-30T12:00:00.000Z"
-}
+{ "success": false, "error": { "code": "...", "message": "...", "details": {} }, "timestamp": "..." }
+```
+
+| Code | HTTP | Description |
+|------|------|-------------|
+| `INVALID_REQUEST` | 400 | Validation failed |
+| `NOT_FOUND` | 404 | Resource not found |
+| `UNAUTHORIZED` | 401 | Auth required |
+| `INTERNAL_ERROR` | 500 | Server error |
+| `WORKER_NOT_FOUND` | 404 | Pipeline worker unavailable |
+| `CANCEL_FAILED` | 400 | Cancellation failed |
+
+```javascript
+import { sendError, sendNotFoundError, ApiError } from '../utils/api-error.ts';
+sendError(res, 'INVALID_REQUEST', 'Missing required field', 400);
+```
+
+---
+
+## Port Conflict Resolution
+
+**Location:** `api/utils/port-manager.ts`
+
+- `isPortAvailable(port)` -- TCP probe
+- `setupServerWithPortFallback(server, { preferredPort, maxPort })` -- tries range
+- `killProcessOnPort(port)` -- `lsof` + SIGKILL (use with caution)
+- `setupGracefulShutdown(server, { onShutdown, timeout })` -- handles SIGTERM/SIGINT/SIGHUP
+
+---
+
+## Best Practices
+
+1. Always classify errors before retrying -- use `getErrorInfo(error)`
+2. Use `errorInfo.suggestedDelay` (not fixed delays)
+3. Log classification: `{ code, category, retryable, reason }`
+4. Use optional chaining for error properties: `error?.code ?? 'UNKNOWN'`
+5. Wrap error handlers in try-catch to prevent handler failures
+6. Include context: `new Error(\`Failed to scan: ${repoPath}\`)`
+7. Clean up resources in `finally` blocks
+
+---
+
+## References
+
+- Error classifier: `sidequest/pipeline-core/errors/error-classifier.ts`
+- Retry logic: `sidequest/core/server.ts`
+- Doppler monitor: `sidequest/pipeline-core/doppler-health-monitor.ts`
+- Port manager: `api/utils/port-manager.ts`
+- API errors: `api/utils/api-error.ts`
+- Activity feed: `api/activity-feed.ts`

@@ -13,12 +13,12 @@
 
 
 **Directory:** `/docs/architecture/`
-**Last Updated:** 2026-03-09
+**Last Updated:** 2026-03-14
 **Version:** 2.3.20
 
 ## Overview
 
-This directory contains comprehensive architectural documentation for the Code Consolidation System's duplicate detection pipeline and multi-layer similarity algorithm.
+This directory contains comprehensive architectural documentation for the AlephAuto automation system's 11 pipelines, job queue framework, and multi-layer similarity algorithm.
 
 ## Documentation Files
 
@@ -57,7 +57,7 @@ This directory contains comprehensive architectural documentation for the Code C
 
 ### 📊 [Pipeline Data Flow](./pipeline-data-flow.md)
 
-**Complete guide to the 7-stage code consolidation pipeline**
+**Complete guide to all 11 AlephAuto pipelines and their data flows**
 
 **Contents:**
 - End-to-end pipeline architecture (JavaScript Stage 1-2 → Python Stage 3-7)
@@ -480,7 +480,7 @@ When updating this documentation:
 
 **Created:** 2025-11-17
 **Version:** 2.3.20
-**Last Updated:** 2026-03-09
+**Last Updated:** 2026-03-14
 **Maintainer:** Architecture Team
 **Review Schedule:** Quarterly or after major architectural changes
 
@@ -493,3 +493,11 @@ When updating this documentation:
 - **[Pipeline Data Flow →](./pipeline-data-flow.md)** - Individual pipeline details
 - **[Similarity Algorithm →](./similarity-algorithm.md)** - Duplicate detection algorithm
 - **[Cheat Sheet →](./CHEAT-SHEET.md)** - Quick reference
+- **[Worker Registry →](./WORKER_REGISTRY.md)** - Worker initialization and management
+- **[Error Handling →](./ERROR_HANDLING.md)** - Error classification and retry logic
+- **[Type System →](./TYPE_SYSTEM.md)** - Zod schemas and TypeScript patterns
+- **[Migration Transformer →](./MIGRATION_TRANSFORMER.md)** - AST-based code transformation
+- **[Cache Testing →](./CACHE_TESTING.md)** - Cache layer testing strategies
+- **[Install Guide →](./INSTALL.md)** - Setup and installation
+- **[Semantic Similarity →](./SEMANTIC_SIMILARITY_IMPLEMENTATION.md)** - Future similarity implementation plan
+- **[DD → BasePipeline Migration →](./MIGRATE_DUPLICATE_DETECTION_TO_BASEPIPELINE.md)** - Migration proposal (accepted as-is)

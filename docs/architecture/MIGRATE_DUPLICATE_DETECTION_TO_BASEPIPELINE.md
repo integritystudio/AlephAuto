@@ -1,6 +1,8 @@
 # Migrate Duplicate Detection to BasePipeline
 
-**Status:** Proposed
+> **Decision (2026-03-09):** BP-L1 accepted as-is per commit `26e100a`. Migration is not planned — the functional pattern works and the consistency benefit does not justify the effort. This document is retained as historical context.
+
+**Status:** Accepted as-is (not planned)
 **Created:** 2026-03-13
 **Backlog ID:** BP-L1 (P3) -- keep in sync with [BACKLOG.md](../BACKLOG.md#basepipeline-migration--remaining-pipelines-2026-03-13)
 **Prerequisite:** DD-GW1 (completed) -- PRCreator removed, worker uses centralized git workflow

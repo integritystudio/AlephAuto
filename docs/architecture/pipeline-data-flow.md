@@ -152,7 +152,7 @@ abstract class BasePipeline<TWorker extends SidequestServer> {
 }
 ```
 
-**Pipelines extending BasePipeline (9 of 11):** BugfixAuditPipeline, ClaudeHealthPipeline, DashboardPopulatePipeline, GitActivityPipeline, GitignorePipeline, PluginManagementPipeline, RepoCleanupPipeline, SchemaEnhancementPipeline, TestRefactorPipeline.
+**Pipelines extending BasePipeline (10 of 11):** BugfixAuditPipeline, ClaudeHealthPipeline, DashboardPopulatePipeline, GitActivityPipeline, GitignorePipeline, PluginManagementPipeline, RepoCleanupPipeline, RepomixPipeline, SchemaEnhancementPipeline, TestRefactorPipeline.
 
 **Pipelines using functional pattern (no base class):** DuplicateDetectionPipeline (uses `worker.runNightlyScan()` self-managed lifecycle with async init).
 

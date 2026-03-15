@@ -1,10 +1,10 @@
 # AlephAuto - Quick Reference Cheat Sheet
 
-**Version**: 2.3.20 | **Last Updated**: 2026-03-09 | **Print This Page for Quick Reference**
+**Version**: 2.3.20 | **Last Updated**: 2026-03-14
 
 ---
 
-## 🏗️ Complete System Architecture
+## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -15,266 +15,136 @@
                     │       JOB QUEUE FRAMEWORK      │
                     │       (SidequestServer)        │
                     │   ┌─────┬─────┬─────┬─────┐   │
-                    │   │ DD  │ SE  │ GA  │ RC  │   │  10 Workers
+                    │   │ DD  │ SE  │ GA  │ RC  │   │  11 Workers
                     │   └─────┴─────┴─────┴─────┘   │
                     └───────────────┬───────────────┘
                                     │
         ┌───────────────────────────┼───────────────────────────┐
-        │                           │                           │
 ┌───────┴───────┐         ┌────────┴────────┐         ┌────────┴────────┐
 │   SQLite DB   │         │   File System   │         │    External     │
 │  (jobs.db)    │         │   (reports)     │         │  (Sentry, Git)  │
 └───────────────┘         └─────────────────┘         └─────────────────┘
 ```
 
-### System at a Glance
-
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| **Frontend** | React + Vite + Zustand | Real-time dashboard UI |
-| **API** | Express 5 + WebSocket | REST API + real-time events |
-| **Queue** | SidequestServer | Job lifecycle management |
-| **Workers** | 10 workers (bugfix-audit, claude-health, dashboard-populate, duplicate-detection, git-activity, gitignore, repo-cleanup, repomix, schema-enhancement, test-refactor) | Pipeline execution |
-| **Database** | SQLite (WAL) | Job persistence |
-| **Config** | Doppler | Secrets management |
-| **Monitoring** | Sentry v8 | Error tracking |
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | React + Vite + Zustand |
+| **API** | Express 5 + WebSocket |
+| **Queue** | SidequestServer (11 workers) |
+| **Workers** | bugfix-audit, claude-health, dashboard-populate, duplicate-detection, git-activity, gitignore, plugin-manager, repo-cleanup, repomix, schema-enhancement, test-refactor |
+| **Database** | SQLite (WAL) |
+| **Config** | Doppler |
+| **Monitoring** | Sentry v8 |
 
 ---
 
-## 🔄 7-Stage Pipeline Overview
+## Critical Patterns
 
-```
-Stage 1-2 (JavaScript)          Stage 3-7 (Python)
-┌──────────────────┐           ┌──────────────────────────┐
-│ Repo Scanner     │──JSON──▶  │ Block Extraction (3)     │
-│ AST-Grep Rules   │  stdin/   │ Deduplication (3.5)      │
-│                  │  stdout   │ Semantic Annotation (4)  │
-└──────────────────┘           │ Duplicate Grouping (5)   │
-                               │ Suggestions (6)          │
-                               │ Reports (7)              │
-                               └──────────────────────────┘
-```
-
-## ⚠️ Critical Patterns (MUST FOLLOW)
-
-### 1. Two-Phase Similarity Algorithm
+### 1. Two-Phase Similarity — extract features BEFORE normalization
 ```python
-# ✅ CORRECT: Extract features BEFORE normalization
 features = extract_semantic_features(code)    # PHASE 1: Original code
 normalized = normalize_code(code)             # PHASE 2: Normalize
-penalty = calculate_semantic_penalty(features1, features2)  # PHASE 3
-
-# ❌ WRONG: Normalizing first destroys semantic features
+penalty = calculate_semantic_penalty(f1, f2)  # PHASE 3: Penalize
 ```
-**Location**: `sidequest/pipeline-core/similarity/structural.py:29-93, 422-482`
+`structural.py:29-93, 422-482`
 
-### 2. Function-Based Deduplication
+### 2. Deduplicate by file:function_name (NOT line number)
 ```python
-# ✅ CORRECT: Use file:function_name
-function_key = f"{file_path}:{function_name}"
-
-# ❌ WRONG: Line numbers change during edits
-function_key = f"{file_path}:{line_number}"
+function_key = f"{file_path}:{function_name}"  # ✅
+function_key = f"{file_path}:{line_number}"    # ❌ lines shift
 ```
-**Location**: `sidequest/pipeline-core/extractors/extract_blocks.py:108-163`
+`extract_blocks.py:108-163`
 
-### 3. Correct Field Names
+### 3. Use `tags` field (NOT `semantic_tags`)
 ```python
-# ✅ CORRECT: Use 'tags' field
-CodeBlock(tags=[f"function:{name}"])
-
-# ❌ WRONG: Field doesn't exist
-CodeBlock(semantic_tags=[f"function:{name}"])
+CodeBlock(tags=[f"function:{name}"])           # ✅
+CodeBlock(semantic_tags=[f"function:{name}"])  # ❌ doesn't exist
 ```
-**Location**: `sidequest/pipeline-core/extractors/extract_blocks.py:231`
+`extract_blocks.py:231`
 
-### 4. Backwards Function Search
+### 4. Backwards function search (find CLOSEST function)
 ```python
-# ✅ CORRECT: Search backwards to find CLOSEST function
-for i in range(line_start - 1, search_start - 1, -1):
-    if 'function' in lines[i]:
-        function_name = extract_function_name(lines[i])
-        break
+for i in range(line_start - 1, search_start - 1, -1):  # ✅ backwards
 ```
-**Location**: `sidequest/pipeline-core/extractors/extract_blocks.py:80-98`
+`extract_blocks.py:80-98`
 
-### 5. Nullish Coalescing for Numbers
+### 5. Nullish coalescing for numbers
 ```javascript
-// ✅ CORRECT: Allows 0 as valid value
-this.maxConcurrent = options.maxConcurrent ?? 5;
-
-// ❌ WRONG: Treats 0 as falsy
-this.maxConcurrent = options.maxConcurrent || 5;
+this.maxConcurrent = options.maxConcurrent ?? 5;  // ✅ preserves 0
+this.maxConcurrent = options.maxConcurrent || 5;  // ❌ 0 becomes 5
 ```
-**Location**: `sidequest/core/server.ts:18`
+
+### 6. Use centralized config (NEVER process.env)
+```javascript
+import { config } from './sidequest/core/config.ts';
+```
 
 ---
 
-## 📊 Similarity Algorithm Penalties
+## Similarity Penalties (multiplicative)
 
-| Difference Type | Example | Multiplier | Penalty |
-|-----------------|---------|------------|---------|
-| **HTTP Status** | 200 vs 201 | 0.70x | 30% |
-| **Logical Ops** | === vs !== | 0.80x | 20% |
-| **Semantic Methods** | Math.max vs Math.min | 0.75x | 25% |
-| **Multiple** | All three | 0.42x | 58% |
+| Difference | Multiplier |
+|------------|------------|
+| HTTP Status (200 vs 201) | 0.70x |
+| Logical Ops (=== vs !==) | 0.80x |
+| Semantic Methods (max vs min) | 0.75x |
+| **All three combined** | **0.42x** |
 
-**Penalties multiply**: `0.70 × 0.80 × 0.75 = 0.42`
+## Multi-Layer Grouping
 
----
+| Layer | Purpose | Threshold |
+|-------|---------|-----------|
+| 0 | Remove trivial | ≥0.95 |
+| 1 | High confidence | ≥0.90 |
+| 2 | Potential matches | ≥0.75 |
 
-## 🎯 Key Components
+## Accuracy
 
-| Component | Purpose | Location |
-|-----------|---------|----------|
-| **Scan Orchestrator** | Pipeline coordinator | `sidequest/pipeline-core/scan-orchestrator.ts` |
-| **Repository Scanner** | Git validation, repomix | `sidequest/pipeline-core/scanners/repository-scanner.ts` |
-| **AST-Grep Detector** | Pattern detection (18 rules) | `sidequest/pipeline-core/scanners/ast-grep-detector.ts` |
-| **Block Extractor** | Python stages 3-7 | `sidequest/pipeline-core/extractors/extract_blocks.py` |
-| **Similarity Engine** | Multi-layer algorithm | `sidequest/pipeline-core/similarity/structural.py` |
-| **AST-Grep Rules** | Detection patterns | `.ast-grep/rules/` |
+Precision: 100% | Recall: 87.50% | F1: 93.33% | ~5ms per comparison
 
 ---
 
-## 🚀 Common Commands
+## Job Lifecycle
+
+```
+Queued → Running → Completed / Failed / Cancelled
+                ↘ RetryPending (backoff) → Running
+Paused ↔ Running
+```
+
+States: QUEUED, RUNNING, COMPLETED, FAILED, CANCELLED, PAUSED
+
+---
+
+## Common Commands
 
 ```bash
-# Run duplicate detection
-doppler run -- node --strip-types sidequest/pipeline-core/scan-orchestrator.ts /path/to/repo
+doppler run -- npm start                    # Dev server
+npm run dashboard                           # Dashboard UI → localhost:8080
+npm test                                    # Unit tests
+npm run typecheck                           # TypeScript checks
 
-# Test immediately (bypass cron)
+# Duplicate detection
+doppler run -- node --strip-types sidequest/pipeline-core/scan-orchestrator.ts /path/to/repo
 doppler run -- RUN_ON_STARTUP=true node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts
 
-# Similarity grouping regression test
+# Similarity regression test
 PYTHONNOUSERSITE=1 python -m pytest -q sidequest/pipeline-core/similarity/test_grouping_layer3.py
-
-# Start API server
-doppler run -- node --strip-types api/server.ts
-
-# Run tests
-npm test                                    # All tests (132)
-npm run test:api                            # REST API (16)
-npm run test:websocket                      # WebSocket (15)
-
-# Type checking
-npm run typecheck
 ```
 
 ---
 
-## 🔍 Data Models (Pydantic)
-
-### CodeBlock
-```python
-{
-  "content": str,              # Code text
-  "file_path": str,            # Source file
-  "line_start": int,           # Start line
-  "line_end": int,             # End line
-  "function_name": str,        # Containing function
-  "tags": List[str],           # ["function:foo"] ✅ NOT semantic_tags!
-  "pattern_name": str          # AST-grep rule name
-}
-```
-
-### SemanticFeatures
-```python
-{
-  "http_status_codes": Set[int],     # {200, 201, 404}
-  "logical_operators": Set[str],     # {"===", "!=="}
-  "semantic_methods": Set[str]       # {"Math.max", "Array.filter"}
-}
-```
-
-### DuplicateGroup
-```python
-{
-  "representative": CodeBlock,       # First block
-  "duplicates": List[CodeBlock],     # Similar blocks
-  "similarity_score": float,         # 0.0 - 1.0
-  "layer": int                       # 0, 1, or 2
-}
-```
-
----
-
-## 🐛 Troubleshooting Quick Reference
-
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| **False positives** | Penalties too lenient | Check similarity threshold (default: 0.90) |
-| **Missing duplicates** | Threshold too strict | Lower threshold or check normalization |
-| **Wrong function names** | Forward search | Verify backwards search (extract_blocks.py:80-98) |
-| **Field errors** | semantic_tags used | Change to `tags` field |
-| **0 treated as false** | Using \|\| operator | Use ?? instead |
-| **Timeout errors** | Large repository | Check 10-minute timeout, optimize scan |
-| **Redis errors** | Redis not running | `redis-cli ping` should return PONG |
-
----
-
-## 📈 Accuracy Metrics
-
-| Metric | Value | Meaning |
-|--------|-------|---------|
-| **Precision** | 100% | No false positives |
-| **Recall** | 87.50% | Finds 7/8 duplicates |
-| **F1 Score** | 93.33% | Balanced performance |
-| **Performance** | ~5ms | Per comparison |
-
----
-
-## 📁 Quick File References
-
-**Critical Implementation Files**:
-- `sidequest/pipeline-core/similarity/structural.py:29-93` - Feature extraction
-- `sidequest/pipeline-core/similarity/structural.py:422-482` - Penalty calculation
-- `sidequest/pipeline-core/extractors/extract_blocks.py:80-98` - Function name search
-- `sidequest/pipeline-core/extractors/extract_blocks.py:108-163` - Deduplication logic
-- `sidequest/pipeline-core/extractors/extract_blocks.py:231` - CodeBlock creation (use `tags`)
-- `sidequest/core/server.ts:18` - Nullish coalescing pattern
-
-**Documentation**:
-- `docs/architecture/README.md` - Start here
-- `docs/architecture/pipeline-data-flow.md` - Complete pipeline docs
-- `docs/architecture/similarity-algorithm.md` - Algorithm deep dive
-- `CLAUDE.md` - Project instructions
-
----
-
-## 🔗 Multi-Layer Grouping
-
-| Layer | Purpose | Threshold | Filter |
-|-------|---------|-----------|--------|
-| **Layer 0** | Remove trivial | ≥0.95 | Complexity check |
-| **Layer 1** | High confidence | ≥0.90 | Semantic validation |
-| **Layer 2** | Potential matches | ≥0.75 | Manual review needed |
-
----
-
-## ⚙️ Configuration Access
-
-```javascript
-// ✅ CORRECT: Use centralized config
-import { config } from './sidequest/core/config.ts';
-const dsn = config.sentryDsn;
-
-// ❌ WRONG: Never use process.env directly
-const dsn = process.env.SENTRY_DSN;
-```
-
----
-
-## 🌐 API Quick Reference
+## API Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/health` | GET | Basic health check |
+| `/health` | GET | Health check |
 | `/api/status` | GET | Full system status |
-| `/api/scans/start` | POST | Start intra-project scan |
-| `/api/scans/start-multi` | POST | Start inter-project scan |
-| `/api/scans/:id/status` | GET | Get scan status |
-| `/api/scans/:id/results` | GET | Get scan results |
-| `/api/jobs` | GET | List all jobs |
+| `/api/scans/start` | POST | Intra-project scan |
+| `/api/scans/start-multi` | POST | Inter-project scan |
+| `/api/scans/:id/status` | GET | Scan status |
+| `/api/scans/:id/results` | GET | Scan results |
+| `/api/jobs` | GET | List jobs |
 | `/api/jobs/:id` | GET | Job details |
 | `/api/jobs/:id/cancel` | POST | Cancel job |
 | `/api/jobs/:id/retry` | POST | Retry failed job |
@@ -282,29 +152,41 @@ const dsn = process.env.SENTRY_DSN;
 
 ---
 
-## 🔄 Job Lifecycle
+## Pydantic Models
 
-```
-Created → Queued → Running → Completed
-                      ↓
-               RetryPending → Failed
-```
+**CodeBlock**: `content`, `file_path`, `line_start`, `line_end`, `function_name`, `tags` (NOT semantic_tags), `pattern_name`
 
-| State | Events | DB Update |
-|-------|--------|-----------|
-| **Created** | `job:created` | INSERT |
-| **Running** | `job:started` | UPDATE |
-| **Completed** | `job:completed` | UPDATE |
-| **Failed** | `job:failed` | UPDATE |
+**SemanticFeatures**: `http_status_codes: Set[int]`, `logical_operators: Set[str]`, `semantic_methods: Set[str]`
+
+**DuplicateGroup**: `representative: CodeBlock`, `duplicates: List[CodeBlock]`, `similarity_score: float`, `layer: int`
 
 ---
 
-## 📞 Need More Info?
+## Troubleshooting
 
-- **System Architecture**: `docs/architecture/SYSTEM-DATA-FLOW.md` ⭐ NEW
-- **Architecture Overview**: `docs/architecture/README.md`
-- **Pipeline Details**: `docs/architecture/pipeline-data-flow.md`
-- **Algorithm Deep Dive**: `docs/architecture/similarity-algorithm.md`
-- **Project Instructions**: `CLAUDE.md`
+| Issue | Solution |
+|-------|----------|
+| False positives | Check similarity threshold (default: 0.90) |
+| Missing duplicates | Lower threshold or check normalization |
+| Wrong function names | Verify backwards search (extract_blocks.py:80-98) |
+| Field errors | Use `tags` not `semantic_tags` |
+| 0 treated as false | Use `??` not `\|\|` |
+| Timeout | Check 10-minute timeout, optimize scan |
 
-**Print this page and keep it at your desk for quick reference!**
+---
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `sidequest/pipeline-core/scan-orchestrator.ts` | Pipeline coordinator |
+| `sidequest/pipeline-core/similarity/structural.py` | Similarity engine |
+| `sidequest/pipeline-core/extractors/extract_blocks.py` | Block extraction |
+| `sidequest/pipeline-core/scanners/ast-grep-detector.ts` | Pattern detection (18 rules) |
+| `sidequest/core/server.ts` | Base job queue |
+| `sidequest/core/config.ts` | Centralized config |
+| `sidequest/core/constants.ts` | Domain constants |
+
+## Further Reading
+
+- [System Data Flow](./SYSTEM-DATA-FLOW.md) | [Pipeline Data Flow](./pipeline-data-flow.md) | [Similarity Algorithm](./similarity-algorithm.md) | [README](./README.md) | [CLAUDE.md](../../CLAUDE.md)
