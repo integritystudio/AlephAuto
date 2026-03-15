@@ -12,6 +12,7 @@
 
 import { saveGeneratedReport } from '../utils/index.ts';
 import { FORMATTING } from '../../core/constants.ts';
+import { isInterProject } from './html-report-sections.ts';
 import type { MigrationStep } from '../types/migration-types.ts';
 
 export interface ScanMetadata {
@@ -174,30 +175,30 @@ export class JSONReportGenerator {
     const includeCodeBlocks = options.includeCodeBlocks !== false;
     const maxDuplicates = options.maxDuplicates ?? null;
     const maxSuggestions = options.maxSuggestions ?? null;
-    const isInterProject = scanResult.scan_type === 'inter-project';
+    const interProject = isInterProject(scanResult);
 
     const report: Record<string, unknown> = {
       report_version: '1.0.0',
       generated_at: new Date().toISOString(),
-      scan_type: isInterProject ? 'inter-project' : 'intra-project',
-      metadata: this._generateMetadata(scanResult, isInterProject),
+      scan_type: interProject ? 'inter-project' : 'intra-project',
+      metadata: this._generateMetadata(scanResult, interProject),
       metrics: scanResult.metrics ?? {},
-      summary: this._generateSummary(scanResult, isInterProject),
+      summary: this._generateSummary(scanResult, interProject),
       duplicate_groups: this._formatDuplicateGroups(
         scanResult,
-        isInterProject,
+        interProject,
         maxDuplicates,
         includeSourceCode
       ),
       suggestions: this._formatSuggestions(
         scanResult,
-        isInterProject,
+        interProject,
         maxSuggestions
       )
     };
 
     // Include repository information for inter-project scans
-    if (isInterProject) {
+    if (interProject) {
       report.scanned_repositories = scanResult.scanned_repositories ?? [];
       report.repository_scans = this._formatRepositoryScans(
         scanResult,
@@ -223,15 +224,15 @@ export class JSONReportGenerator {
    * Generate a concise summary (minimal data)
    */
   static generateSummary(scanResult: ScanResult): Record<string, unknown> {
-    const isInterProject = scanResult.scan_type === 'inter-project';
+    const interProject = isInterProject(scanResult);
     const metrics = scanResult.metrics ?? {};
 
     return {
-      scan_type: isInterProject ? 'inter-project' : 'intra-project',
+      scan_type: interProject ? 'inter-project' : 'intra-project',
       generated_at: new Date().toISOString(),
-      summary: this._generateSummary(scanResult, isInterProject),
+      summary: this._generateSummary(scanResult, interProject),
       metrics: {
-        ...(isInterProject ? {
+        ...(interProject ? {
           repositories_scanned: metrics.total_repositories_scanned ?? 0,
           total_code_blocks: metrics.total_code_blocks ?? 0,
           cross_repo_duplicates: metrics.total_cross_repository_groups ?? 0,

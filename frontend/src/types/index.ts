@@ -64,7 +64,8 @@ export enum PipelineType {
   GITIGNORE_MANAGER = 'gitignore_manager',
   REPOMIX_AUTOMATION = 'repomix_automation',
   TEST_REFACTOR = 'test_refactor',
-  REPO_CLEANUP = 'repo_cleanup'
+  REPO_CLEANUP = 'repo_cleanup',
+  UNKNOWN = 'unknown'
 }
 
 export const PIPELINE_TYPE_MAP = {

@@ -119,8 +119,17 @@ export function generateSummaryCharts(scanResult: ScanResult): string {
     : (scanResult.suggestions ?? []);
 
   const total = suggestions.length;
+
+  if (total === 0) {
+    return `
+    <section class="charts">
+        <h2>📈 Distribution</h2>
+        <p class="empty-state">No suggestions to chart.</p>
+    </section>`;
+  }
+
   const barWidth = (count: number): string =>
-    total > 0 ? (count / total * MARKDOWN_REPORT.PERCENTAGE_MULTIPLIER).toFixed(1) : '0';
+    (count / total * MARKDOWN_REPORT.PERCENTAGE_MULTIPLIER).toFixed(1);
 
   const strategyCounts: Record<string, number> = {};
   const complexityCounts: Record<string, number> = {};

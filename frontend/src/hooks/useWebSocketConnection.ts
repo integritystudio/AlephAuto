@@ -135,7 +135,7 @@ function mapPipeline(p: ApiPipeline): Pipeline {
     icon: getPipelineIcon(p.id),
     color: getPipelineColor(p.id),
     status: (p.status ?? 'idle') as PipelineStatus,
-    type: isPipelineId(p.id) ? PIPELINE_TYPE_MAP[p.id] : PipelineType.DUPLICATE_DETECTION,
+    type: isPipelineId(p.id) ? PIPELINE_TYPE_MAP[p.id] : PipelineType.UNKNOWN,
     totalJobs: (p.completedJobs ?? 0) + (p.failedJobs ?? 0),
     successRate: (p.completedJobs ?? 0) > 0
       ? (p.completedJobs ?? 0) / ((p.completedJobs ?? 0) + (p.failedJobs ?? 0))

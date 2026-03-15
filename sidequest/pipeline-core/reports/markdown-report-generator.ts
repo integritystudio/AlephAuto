@@ -8,6 +8,7 @@
 import { saveGeneratedReport } from '../utils/index.ts';
 import { MARKDOWN_REPORT } from '../../core/constants.ts';
 import { formatDuration, formatTimestamp } from '../../utils/time-helpers.ts';
+import { isInterProject } from './html-report-sections.ts';
 import type { ScanResult } from './json-report-generator.ts';
 
 export interface MarkdownReportOptions {
@@ -27,30 +28,30 @@ export class MarkdownReportGenerator {
     const includeDetails = options.includeDetails !== false;
     const maxDuplicates = options.maxDuplicates ?? MARKDOWN_REPORT.DEFAULT_MAX_DUPLICATES;
     const maxSuggestions = options.maxSuggestions ?? MARKDOWN_REPORT.DEFAULT_MAX_SUGGESTIONS;
-    const isInterProject = scanResult.scan_type === 'inter-project';
+    const interProject = isInterProject(scanResult);
 
     let markdown = '';
 
     // Header
-    markdown += this._generateHeader(scanResult, isInterProject);
+    markdown += this._generateHeader(scanResult, interProject);
     markdown += '\n\n';
 
     // Metrics
-    markdown += this._generateMetrics(scanResult, isInterProject);
+    markdown += this._generateMetrics(scanResult, interProject);
     markdown += '\n\n';
 
     // Repository Information (inter-project only)
-    if (isInterProject) {
+    if (interProject) {
       markdown += this._generateRepositoryInfo(scanResult);
       markdown += '\n\n';
     }
 
     // Top Duplicate Groups
-    markdown += this._generateDuplicateGroups(scanResult, isInterProject, maxDuplicates, includeDetails);
+    markdown += this._generateDuplicateGroups(scanResult, interProject, maxDuplicates, includeDetails);
     markdown += '\n\n';
 
     // Top Suggestions
-    markdown += this._generateSuggestions(scanResult, isInterProject, maxSuggestions, includeDetails);
+    markdown += this._generateSuggestions(scanResult, interProject, maxSuggestions, includeDetails);
     markdown += '\n\n';
 
     // Footer
@@ -63,12 +64,12 @@ export class MarkdownReportGenerator {
    * Generate a concise summary (for quick overview)
    */
   static generateSummary(scanResult: ScanResult): string {
-    const isInterProject = scanResult.scan_type === 'inter-project';
+    const interProject = isInterProject(scanResult);
     const metrics = scanResult.metrics ?? {};
 
     let summary = '# Duplicate Detection Summary\n\n';
 
-    if (isInterProject) {
+    if (interProject) {
       summary += `**Scanned:** ${metrics.total_repositories_scanned ?? 0} repositories\n`;
       summary += `**Code Blocks:** ${metrics.total_code_blocks ?? 0}\n`;
       summary += `**Cross-Repo Duplicates:** ${metrics.total_cross_repository_groups ?? 0}\n`;
