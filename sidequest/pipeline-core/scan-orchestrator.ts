@@ -19,14 +19,12 @@ import type { ScanResult as ReportScanResult } from './reports/json-report-gener
 import { InterProjectScanner } from './inter-project-scanner.ts';
 import { createComponentLogger, logStart, logStage } from '../utils/logger.ts';
 import { DependencyValidator } from '../utils/dependency-validator.ts';
-import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { existsSync } from 'fs';
-import { fileURLToPath } from 'url';
 import * as Sentry from '@sentry/node';
-import { LIMITS, TIMEOUTS, MARKDOWN_REPORT } from '../core/constants.ts';
+import { MARKDOWN_REPORT } from '../core/constants.ts';
 import { TIME_MS } from '../core/units.ts';
+import { runPipelineFromRaw } from './extractors/extract-blocks.ts';
 
 const logger = createComponentLogger('ScanOrchestrator');
 
@@ -218,7 +216,9 @@ export interface ReportOptions {
 export interface ScanOrchestratorOptions {
   scanner?: Record<string, unknown>;
   detector?: Record<string, unknown>;
+  /** @deprecated Python path no longer needed - pipeline runs in TypeScript */
   pythonPath?: string;
+  /** @deprecated Extractor script no longer needed - pipeline runs in TypeScript */
   extractorScript?: string;
   reports?: ReportOptions;
   outputDir?: string;
@@ -319,10 +319,7 @@ interface PatternDetectionOutput {
 export class ScanOrchestrator {
   private readonly repositoryScanner: RepositoryScanner;
   private readonly patternDetector: AstGrepPatternDetector;
-  private pythonPath: string | null;
-  private _pythonValidated: boolean;
   private _dependenciesValidated: boolean = false;
-  private readonly extractorScript: string;
   private readonly reportConfig: ReportOptions;
   private readonly outputDir: string;
   private readonly autoGenerateReports: boolean;
@@ -338,24 +335,6 @@ export class ScanOrchestrator {
     this.repositoryScanner = new RepositoryScanner(options.scanner || {});
     this.patternDetector = new AstGrepPatternDetector(options.detector || {});
 
-    // Python components (called via subprocess)
-    // Intelligent Python path detection (lazy - validated on first use):
-    // 1. Use explicitly provided pythonPath if given
-    // 2. Try venv Python (local development)
-    // 3. Fall back to system Python (CI/production)
-    if (options.pythonPath) {
-      this.pythonPath = options.pythonPath;
-      this._pythonValidated = false; // Will validate on first use
-    } else {
-      // Defer Python detection/validation until first scan
-      // This allows server to start without Python for health checks
-      this.pythonPath = null as unknown as string;
-      this._pythonValidated = false;
-    }
-
-    const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-    this.extractorScript = options.extractorScript || path.resolve(moduleDir, 'extractors', 'extract_blocks.py');
-
     // Report generation configuration
     this.reportConfig = options.reports || {};
     this.outputDir = options.outputDir || path.join(process.cwd(), 'output', 'reports');
@@ -363,43 +342,6 @@ export class ScanOrchestrator {
 
     // Configuration
     this.config = options.config || {};
-  }
-
-  /**
-   * Detect Python path (lazy initialization)
-   * Only called when Python is actually needed for a scan
-   * Note: DependencyValidator.validateAll() handles the actual validation
-   */
-  private _detectPythonPath(): void {
-    if (this._pythonValidated) {
-      return; // Already detected
-    }
-
-    if (this.pythonPath) {
-      // Explicitly provided path - use it
-      this._pythonValidated = true;
-      return;
-    }
-
-    // Auto-detect Python path (validation done by DependencyValidator)
-    const venvPython = path.join(process.cwd(), 'venv/bin/python3');
-    const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
-
-    if (existsSync(venvPython) && !isCI) {
-      // Local development: use venv Python
-      this.pythonPath = venvPython;
-      logger.info({ pythonPath: venvPython }, 'Using venv Python');
-    } else {
-      // CI/production: use system Python
-      this.pythonPath = 'python3';
-      logger.info({
-        pythonPath: 'python3',
-        isCI,
-        reason: existsSync(venvPython) ? 'CI environment detected' : 'venv not found'
-      }, 'Using system Python');
-    }
-
-    this._pythonValidated = true;
   }
 
     /**
@@ -458,13 +400,12 @@ export class ScanOrchestrator {
         scanConfig.pattern_config || {}
       ) as PatternDetectionOutput;
 
-      // Stage 3-7: Python pipeline
-      logStage(logger, '3-7: Running Python extraction and analysis pipeline');
-      const pythonResult = await this.runPythonPipeline({
+      // Stage 3-7: TypeScript extraction and analysis pipeline
+      logStage(logger, '3-7: Running extraction and analysis pipeline');
+      const pythonResult = runPipelineFromRaw({
         repository_info: repoScan.repository_info,
         pattern_matches: patterns.matches,
-        scan_config: scanConfig
-      });
+      }) as unknown as PythonPipelineOutput;
 
       const duration = (Date.now() - startTime) / TIME_MS.SECOND;
 
@@ -507,174 +448,6 @@ export class ScanOrchestrator {
     }
   }
 
-  /**
-   * Handle process close event - reduced nesting via early returns
-   */
-  private _handleProcessClose(
-    code: number | null,
-    signal: string | null,
-    stdout: string,
-    stderr: string
-  ): { success: boolean; data?: PythonPipelineOutput; error?: Error } {
-    if (code === 0) return this._handleSuccess(stdout, stderr);
-    if (code === null) return this._handleSignalTermination(signal, stdout, stderr);
-    return this._handleError(code, stderr);
-  }
-
-  /**
-   * Handle successful process exit (code 0)
-   */
-  private _handleSuccess(
-    stdout: string,
-    stderr: string
-  ): { success: boolean; data?: PythonPipelineOutput; error?: Error } {
-    try {
-      const result: PythonPipelineOutput = JSON.parse(stdout);
-      return { success: true, data: result };
-    } catch (error) {
-      logger.error(
-        { stdout: stdout.slice(-LIMITS.STDERR_TAIL_CHARS), stderr: stderr.slice(-LIMITS.STDERR_TAIL_CHARS) },
-        'Failed to parse Python pipeline output'
-      );
-      return {
-        success: false,
-        error: new Error(`Failed to parse Python output: ${(error as Error).message}`)
-      };
-    }
-  }
-
-  /**
-   * Handle signal termination (code null)
-   */
-  private _handleSignalTermination(
-    signal: string | null,
-    stdout: string,
-    stderr: string
-  ): { success: boolean; data?: PythonPipelineOutput; error?: Error } {
-    // Try to parse stdout anyway - the work may have completed before the signal
-    if (stdout.trim()) {
-      try {
-        const result: PythonPipelineOutput = JSON.parse(stdout);
-        logger.warn(
-          { signal, stderrTail: stderr.slice(-LIMITS.STDERR_SHORT_TAIL_CHARS) },
-          `Python pipeline was killed by signal ${signal} but produced valid output - treating as success`
-        );
-        return { success: true, data: result };
-      } catch {
-        // stdout exists but isn't valid JSON - continue to error handling
-      }
-    }
-
-    // No valid output - report the signal
-    const timeoutMsg = signal === 'SIGTERM'
-      ? ' (likely due to timeout - consider increasing timeout or optimizing the scan)'
-      : '';
-    logger.error({ signal, stderrTail: stderr.slice(-LIMITS.STDERR_TAIL_CHARS) }, `Python pipeline killed by signal: ${signal}`);
-    return {
-      success: false,
-      error: new Error(
-        `Python pipeline was killed by signal ${signal}${timeoutMsg}\n` +
-        `stderr (last 200 chars): ${stderr.slice(-LIMITS.STDERR_SHORT_TAIL_CHARS)}`
-      )
-    };
-  }
-
-  /**
-   * Handle error exit (non-zero code)
-   */
-  private _handleError(
-    code: number,
-    stderr: string
-  ): { success: boolean; data?: PythonPipelineOutput; error?: Error } {
-    logger.error({ code, stderrTail: stderr.slice(-LIMITS.STDERR_TAIL_CHARS) }, 'Python pipeline failed');
-    return {
-      success: false,
-      error: new Error(`Python pipeline exited with code ${code}: ${stderr.slice(-LIMITS.STDERR_TAIL_CHARS)}`)
-    };
-  }
-
-  /**
-   * Calculate dynamic timeout based on workload
-   * @param data - Pipeline input data
-   * @returns Timeout in milliseconds
-   */
-  private _calculateTimeout(data: PythonPipelineInput): number {
-    const baseTimeout = TIMEOUTS.PYTHON_PIPELINE_BASE_MS;
-    const patternCount = data.pattern_matches?.length ?? 0;
-    const fileCount = data.repository_info?.totalFiles ?? 0;
-
-    // Dynamic timeout based on workload
-    const dynamicTimeout = baseTimeout +
-      (patternCount * TIMEOUTS.PYTHON_PIPELINE_PER_PATTERN_MS) +
-      (fileCount * TIMEOUTS.PYTHON_PIPELINE_PER_FILE_MS);
-
-    logger.debug({
-      baseTimeout,
-      patternCount,
-      fileCount,
-      dynamicTimeout
-    }, 'Calculated dynamic timeout for Python pipeline');
-
-    return dynamicTimeout;
-  }
-
-  /**
-   * Run Python pipeline for extraction, grouping, and reporting
-   */
-  private async runPythonPipeline(data: PythonPipelineInput): Promise<PythonPipelineOutput> {
-    // Lazy detection: Only detect Python path when actually needed
-    this._detectPythonPath();
-
-    return new Promise<PythonPipelineOutput>((resolve, reject) => {
-      logger.debug('Launching Python extraction pipeline');
-
-      const timeoutMs = this._calculateTimeout(data);
-      const proc: ChildProcess = spawn(this.pythonPath!, [this.extractorScript], {
-        timeout: timeoutMs,
-      });
-
-      let stdout = '';
-      let stderr = '';
-
-      // Send input data via stdin
-      const jsonData = JSON.stringify(data);
-      logger.debug({
-        patternMatchCount: data.pattern_matches?.length,
-        repoPath: data.repository_info?.path
-      }, 'Sending data to Python pipeline');
-
-      proc.stdin?.write(jsonData);
-      proc.stdin?.end();
-
-      proc.stdout?.on('data', (data: Buffer) => {
-        stdout += data.toString();
-      });
-
-      proc.stderr?.on('data', (data: Buffer) => {
-        const stderrText = data.toString();
-        stderr += stderrText;
-        // Log warnings at warn level so they're visible
-        if (stderrText.includes('Warning:')) {
-          logger.warn({ stderr: stderrText }, 'Python pipeline warning');
-        } else {
-          logger.debug({ stderr: stderrText }, 'Python pipeline stderr');
-        }
-      });
-
-      proc.on('close', (code: number | null, signal: string | null) => {
-        const result = this._handleProcessClose(code, signal, stdout, stderr);
-        if (result.success) { resolve(result.data!); } else { reject(result.error!); }
-      });
-
-      proc.on('error', (error: Error & { code?: string }) => {
-        if (error.code === 'ENOENT') {
-          reject(new Error(`Python not found at: ${this.pythonPath}`));
-        } else {
-          reject(error);
-        }
-      });
-    });
-  }
 
     /**
    * Generate the reports.
@@ -764,8 +537,6 @@ export class ScanOrchestrator {
       orchestrator: {
         scanner: {},
         detector: {},
-        pythonPath: this.pythonPath,
-        extractorScript: this.extractorScript,
         outputDir: this.outputDir,
         autoGenerateReports: this.autoGenerateReports,
         reports: this.reportConfig
