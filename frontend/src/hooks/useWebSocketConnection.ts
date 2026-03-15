@@ -12,8 +12,9 @@ import { useEffect } from 'react';
 import { wsService } from '../services/websocket';
 import { useDashboardStore } from '../store/dashboard';
 import { PipelineType, ActivityType, JobStatus, PipelineStatus, SystemHealth } from '../types';
-import type { Pipeline } from '../types';
+import type { Job, Pipeline } from '../types';
 import { createLogger } from '../utils/logger';
+import { DASHBOARD_TIMING } from '../constants/timing';
 
 const logger = createLogger('Dashboard');
 
@@ -70,9 +71,9 @@ export const ACTIVITY_TYPE_MAP: Record<string, ActivityType> = {
   'retry:created': ActivityType.RETRY,
   'retry:max-attempts': ActivityType.FAILED,
 };
-import { DASHBOARD_TIMING } from '../constants/timing';
 
 const POLL_INTERVAL_MS = DASHBOARD_TIMING.STATUS_POLL_INTERVAL_MS;
+const UNKNOWN_TIMESTAMP = '1970-01-01T00:00:00.000Z';
 
 const PIPELINE_TYPE_MAP: Record<string, PipelineType> = {
   'duplicate-detection': PipelineType.DUPLICATE_DETECTION,
@@ -103,7 +104,7 @@ async function fetchStatus(signal?: AbortSignal): Promise<ApiStatusData> {
 /**
  * mapActiveJob.
  */
-function mapActiveJob(j: ApiJob) {
+function mapActiveJob(j: ApiJob): Job {
   return {
     '@type': 'https://schema.org/Action' as const,
     id: j.id,
@@ -120,7 +121,7 @@ function mapActiveJob(j: ApiJob) {
 /**
  * mapQueuedJob.
  */
-function mapQueuedJob(j: ApiJob) {
+function mapQueuedJob(j: ApiJob): Job {
   return {
     '@type': 'https://schema.org/Action' as const,
     id: j.id,
@@ -150,8 +151,8 @@ function mapPipeline(p: ApiPipeline): Pipeline {
       : 1,
     lastRunAt: p.lastRun,
     nextRun: p.nextRun,
-    createdAt: p.lastRun || new Date().toISOString(),
-    updatedAt: p.lastRun || new Date().toISOString(),
+    createdAt: p.lastRun ?? UNKNOWN_TIMESTAMP,
+    updatedAt: p.lastRun ?? UNKNOWN_TIMESTAMP,
   };
 }
 
@@ -314,38 +315,36 @@ export const useWebSocketConnection = () => {
   }, []);
 };
 
-/**
- * getPipelineIcon.
- */
+const PIPELINE_ICONS: Record<string, string> = {
+  'duplicate-detection': '🔍',
+  'schema-enhancement': '📄',
+  'git-activity': '📊',
+  'repomix': '📦',
+  'claude-health': '🏥',
+  'gitignore-manager': '📝',
+  'plugin-manager': '🔌',
+  'test-refactor': '🧪',
+  'repo-cleanup': '🧹',
+};
+
+type PipelineColor = 'purple' | 'cyan' | 'pink' | 'teal' | 'blue' | 'green' | 'amber';
+
+const PIPELINE_COLORS: Record<string, PipelineColor> = {
+  'duplicate-detection': 'purple',
+  'schema-enhancement': 'cyan',
+  'git-activity': 'pink',
+  'repomix': 'teal',
+  'claude-health': 'green',
+  'gitignore-manager': 'blue',
+  'plugin-manager': 'amber',
+  'test-refactor': 'purple',
+  'repo-cleanup': 'cyan',
+};
+
 function getPipelineIcon(pipelineId: string): string {
-  const icons: Record<string, string> = {
-    'duplicate-detection': '🔍',
-    'schema-enhancement': '📄',
-    'git-activity': '📊',
-    'repomix': '📦',
-    'claude-health': '🏥',
-    'gitignore-manager': '📝',
-    'plugin-manager': '🔌',
-    'test-refactor': '🧪',
-    'repo-cleanup': '🧹',
-  };
-  return icons[pipelineId] || '⚙️';
+  return PIPELINE_ICONS[pipelineId] || '⚙️';
 }
 
-/**
- * getPipelineColor.
- */
-function getPipelineColor(pipelineId: string): 'purple' | 'cyan' | 'pink' | 'teal' | 'blue' | 'green' | 'amber' {
-  const colors: Record<string, 'purple' | 'cyan' | 'pink' | 'teal' | 'blue' | 'green' | 'amber'> = {
-    'duplicate-detection': 'purple',
-    'schema-enhancement': 'cyan',
-    'git-activity': 'pink',
-    'repomix': 'teal',
-    'claude-health': 'green',
-    'gitignore-manager': 'blue',
-    'plugin-manager': 'amber',
-    'test-refactor': 'purple',
-    'repo-cleanup': 'cyan',
-  };
-  return colors[pipelineId] || 'blue';
+function getPipelineColor(pipelineId: string): PipelineColor {
+  return PIPELINE_COLORS[pipelineId] || 'blue';
 }
