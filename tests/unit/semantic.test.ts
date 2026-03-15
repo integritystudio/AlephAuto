@@ -7,7 +7,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  areSemanticalltyCompatible,
+  areSemanticallyCompatible,
   calculateTagOverlap,
   validateDuplicateGroup,
 } from '../../sidequest/pipeline-core/similarity/semantic.ts';
@@ -30,32 +30,32 @@ function makeBlock(overrides: Partial<CodeBlock> = {}): CodeBlock {
 }
 
 // ---------------------------------------------------------------------------
-// areSemanticalltyCompatible
+// areSemanticallyCompatible
 // ---------------------------------------------------------------------------
 
-describe('areSemanticalltyCompatible', () => {
+describe('areSemanticallyCompatible', () => {
   it('should return true for compatible blocks', () => {
     const b1 = makeBlock({ blockId: 'cb_1' });
     const b2 = makeBlock({ blockId: 'cb_2', location: { filePath: 'src/helpers.ts', lineStart: 10, lineEnd: 14 } });
-    assert.equal(areSemanticalltyCompatible(b1, b2), true);
+    assert.equal(areSemanticallyCompatible(b1, b2), true);
   });
 
   it('should return false for different patterns', () => {
     const b1 = makeBlock({ blockId: 'cb_1', patternId: 'object-manipulation' });
     const b2 = makeBlock({ blockId: 'cb_2', patternId: 'array-map-filter' });
-    assert.equal(areSemanticalltyCompatible(b1, b2), false);
+    assert.equal(areSemanticallyCompatible(b1, b2), false);
   });
 
   it('should return false for different categories', () => {
     const b1 = makeBlock({ blockId: 'cb_1', category: 'utility' });
     const b2 = makeBlock({ blockId: 'cb_2', category: 'validator' });
-    assert.equal(areSemanticalltyCompatible(b1, b2), false);
+    assert.equal(areSemanticallyCompatible(b1, b2), false);
   });
 
   it('should return false for same function in same file', () => {
     const b1 = makeBlock({ blockId: 'cb_1', tags: ['function:doStuff'] });
     const b2 = makeBlock({ blockId: 'cb_2', tags: ['function:doStuff'] });
-    assert.equal(areSemanticalltyCompatible(b1, b2), false);
+    assert.equal(areSemanticallyCompatible(b1, b2), false);
   });
 
   it('should return true for same function in different files', () => {
@@ -65,13 +65,13 @@ describe('areSemanticalltyCompatible', () => {
       tags: ['function:doStuff'],
       location: { filePath: 'src/other.ts', lineStart: 1, lineEnd: 5 },
     });
-    assert.equal(areSemanticalltyCompatible(b1, b2), true);
+    assert.equal(areSemanticallyCompatible(b1, b2), true);
   });
 
   it('should return false when line ratio is below threshold', () => {
     const b1 = makeBlock({ blockId: 'cb_1', lineCount: 10 });
     const b2 = makeBlock({ blockId: 'cb_2', lineCount: 2 }); // ratio = 0.2 < 0.5
-    assert.equal(areSemanticalltyCompatible(b1, b2), false);
+    assert.equal(areSemanticallyCompatible(b1, b2), false);
   });
 });
 
