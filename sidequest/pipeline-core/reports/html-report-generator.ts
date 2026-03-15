@@ -28,7 +28,6 @@ export interface HTMLReportOptions {
 export class HTMLReportGenerator {
   static generateReport(scanResult: ScanResult, options: HTMLReportOptions = {}): string {
     const title = options.title ?? 'Duplicate Detection Report';
-    const isInterProject = scanResult.scan_type === 'inter-project';
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -43,11 +42,11 @@ export class HTMLReportGenerator {
 <body>
     <div class="container">
         ${generateHeader(scanResult, title)}
-        ${generateMetrics(scanResult, isInterProject)}
-        ${generateSummaryCharts(scanResult, isInterProject)}
-        ${isInterProject ? generateCrossRepoSection(scanResult) : ''}
-        ${generateDuplicateGroups(scanResult, isInterProject)}
-        ${generateSuggestions(scanResult, isInterProject)}
+        ${generateMetrics(scanResult)}
+        ${generateSummaryCharts(scanResult)}
+        ${scanResult.scan_type === 'inter-project' ? generateCrossRepoSection(scanResult) : ''}
+        ${generateDuplicateGroups(scanResult)}
+        ${generateSuggestions(scanResult)}
         ${generateFooter(scanResult)}
     </div>
     <script>

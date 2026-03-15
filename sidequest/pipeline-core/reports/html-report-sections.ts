@@ -17,8 +17,16 @@ import {
 import { LIMITS, MARKDOWN_REPORT, MAX_SCORE } from '../../core/constants.ts';
 import type { ScanResult } from './json-report-generator.ts';
 
+function isInterProject(scanResult: ScanResult): boolean {
+  return scanResult.scan_type === 'inter-project';
+}
+
+function formatTimestamp(scanResult: ScanResult): string {
+  const scannedAt = scanResult.scan_metadata?.scanned_at;
+  return scannedAt ? new Date(scannedAt).toLocaleString() : 'Unknown';
+}
+
 export function generateHeader(scanResult: ScanResult, title: string): string {
-  const scanDate = new Date(scanResult.scan_metadata?.scanned_at ?? Date.now());
   const duration = scanResult.scan_metadata?.duration_seconds ?? 0;
 
   return `
@@ -26,10 +34,10 @@ export function generateHeader(scanResult: ScanResult, title: string): string {
         <h1>🔍 ${escapeHtml(title)}</h1>
         <div class="header-meta">
             <span class="meta-item">
-                <strong>Scan Type:</strong> ${scanResult.scan_type === 'inter-project' ? 'Inter-Project' : 'Intra-Project'}
+                <strong>Scan Type:</strong> ${isInterProject(scanResult) ? 'Inter-Project' : 'Intra-Project'}
             </span>
             <span class="meta-item">
-                <strong>Date:</strong> ${scanDate.toLocaleString()}
+                <strong>Date:</strong> ${formatTimestamp(scanResult)}
             </span>
             <span class="meta-item">
                 <strong>Duration:</strong> ${formatDuration(duration)}
@@ -38,10 +46,10 @@ export function generateHeader(scanResult: ScanResult, title: string): string {
     </header>`;
 }
 
-export function generateMetrics(scanResult: ScanResult, isInterProject: boolean): string {
+export function generateMetrics(scanResult: ScanResult): string {
   const metrics = scanResult.metrics ?? {};
 
-  if (isInterProject) {
+  if (isInterProject(scanResult)) {
     return `
     <section class="metrics">
         <h2>📊 Scan Metrics</h2>
@@ -106,10 +114,14 @@ export function generateMetrics(scanResult: ScanResult, isInterProject: boolean)
     </section>`;
 }
 
-export function generateSummaryCharts(scanResult: ScanResult, isInterProject: boolean): string {
-  const suggestions = isInterProject
+export function generateSummaryCharts(scanResult: ScanResult): string {
+  const suggestions = isInterProject(scanResult)
     ? (scanResult.cross_repository_suggestions ?? [])
     : (scanResult.suggestions ?? []);
+
+  const total = suggestions.length;
+  const barWidth = (count: number): string =>
+    total > 0 ? (count / total * MAX_SCORE).toFixed(1) : '0';
 
   const strategyCounts: Record<string, number> = {};
   const complexityCounts: Record<string, number> = {};
@@ -129,7 +141,7 @@ export function generateSummaryCharts(scanResult: ScanResult, isInterProject: bo
                     <div class="chart-bar-row">
                         <span class="chart-label">${escapeHtml(strategy.replaceAll('_', ' '))}</span>
                         <div class="chart-bar-container">
-                            <div class="chart-bar strategy-${sanitizeCssClass(strategy, VALID_STRATEGIES)}" style="width: ${(count / suggestions.length * MAX_SCORE).toFixed(1)}%"></div>
+                            <div class="chart-bar strategy-${sanitizeCssClass(strategy, VALID_STRATEGIES)}" style="width: ${barWidth(count)}%"></div>
                         </div>
                         <span class="chart-count">${count}</span>
                     </div>
@@ -143,7 +155,7 @@ export function generateSummaryCharts(scanResult: ScanResult, isInterProject: bo
                     <div class="chart-bar-row">
                         <span class="chart-label">${escapeHtml(complexity)}</span>
                         <div class="chart-bar-container">
-                            <div class="chart-bar complexity-${sanitizeCssClass(complexity, VALID_COMPLEXITIES)}" style="width: ${(count / suggestions.length * MAX_SCORE).toFixed(1)}%"></div>
+                            <div class="chart-bar complexity-${sanitizeCssClass(complexity, VALID_COMPLEXITIES)}" style="width: ${barWidth(count)}%"></div>
                         </div>
                         <span class="chart-count">${count}</span>
                     </div>
@@ -178,8 +190,8 @@ export function generateCrossRepoSection(scanResult: ScanResult): string {
     </section>`;
 }
 
-export function generateDuplicateGroups(scanResult: ScanResult, isInterProject: boolean): string {
-  const groups = isInterProject
+export function generateDuplicateGroups(scanResult: ScanResult): string {
+  const groups = isInterProject(scanResult)
     ? (scanResult.cross_repository_duplicates ?? [])
     : (scanResult.duplicate_groups ?? []);
 
@@ -215,7 +227,7 @@ export function generateDuplicateGroups(scanResult: ScanResult, isInterProject: 
                     <span class="stat-badge">
                         📦 ${group.occurrence_count} occurrences
                     </span>
-                    ${isInterProject ? `
+                    ${isInterProject(scanResult) ? `
                     <span class="stat-badge">
                         🔗 ${group.repository_count ?? 0} repositories
                     </span>
@@ -242,8 +254,8 @@ export function generateDuplicateGroups(scanResult: ScanResult, isInterProject: 
     </section>`;
 }
 
-export function generateSuggestions(scanResult: ScanResult, isInterProject: boolean): string {
-  const suggestions = isInterProject
+export function generateSuggestions(scanResult: ScanResult): string {
+  const suggestions = isInterProject(scanResult)
     ? (scanResult.cross_repository_suggestions ?? [])
     : (scanResult.suggestions ?? []);
 
@@ -313,10 +325,9 @@ export function generateSuggestions(scanResult: ScanResult, isInterProject: bool
 }
 
 export function generateFooter(scanResult: ScanResult): string {
-  const timestamp = new Date(scanResult.scan_metadata?.scanned_at ?? Date.now());
   return `
     <footer>
-        <p>Generated by Duplicate Detection Pipeline | ${timestamp.toLocaleString()}</p>
+        <p>Generated by Duplicate Detection Pipeline | ${formatTimestamp(scanResult)}</p>
     </footer>`;
 }
 

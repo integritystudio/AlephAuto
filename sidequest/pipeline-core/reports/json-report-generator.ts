@@ -104,7 +104,7 @@ export interface RepositoryScan {
 }
 
 export interface ScanResult {
-  scan_type?: string;
+  scan_type?: 'intra-project' | 'inter-project';
   scan_metadata?: ScanMetadata;
   repository_info?: RepositoryInfo;
   metrics?: Record<string, number>;

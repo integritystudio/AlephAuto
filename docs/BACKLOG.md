@@ -61,7 +61,9 @@ Tracking artifacts:
 ## Complexity Analysis — Full Repo (2026-03-08)
 ### Low
 
-No active low-priority backlog items.
+#### AG-M1-T1: Add snapshot tests for html-report-sections generators
+
+`sidequest/pipeline-core/reports/html-report-sections.ts` exports 7 section generators (`generateHeader`, `generateMetrics`, `generateSummaryCharts`, `generateCrossRepoSection`, `generateDuplicateGroups`, `generateSuggestions`, `generateFooter`) with no test coverage. Add snapshot tests covering both intra-project and inter-project `ScanResult` inputs, empty arrays, and missing metadata fallbacks.
 
 > SV4-SV6 migrated to [v2.3.23](changelog/2.3/CHANGELOG.md#2323---2026-03-09).
 
