@@ -7,7 +7,7 @@
  * all existing alert rules to include Discord notifications.
  *
  * Usage:
- *   doppler run -- node setup-files/configure-discord-alerts.js
+ *   doppler run -- node scripts/setup/configure-discord-alerts.js
  */
 
 import https from 'https';
