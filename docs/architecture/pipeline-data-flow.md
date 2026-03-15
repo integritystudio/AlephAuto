@@ -1,8 +1,9 @@
 # AlephAuto Pipeline Data Flow Documentation
 
-**Last Updated:** 2026-03-13
-**Version:** 2.3
-**Author:** System Architecture Documentation
+> **Spoke document.** Per-pipeline data formats and stage details. For system-level architecture, see [System Data Flow](./SYSTEM-DATA-FLOW.md). For error handling, see [Error Handling](./ERROR_HANDLING.md).
+
+**Last Updated:** 2026-03-15
+**Version:** 2.4
 
 ## Table of Contents
 
@@ -66,136 +67,7 @@ The AlephAuto automation system consists of 11 specialized pipelines built on a 
 
 ## AlephAuto Framework Architecture
 
-### Job Lifecycle
-
-```mermaid
-graph TB
-    A[createJob] --> B{Job Created Event}
-    B --> C[Queue Job]
-    C --> D{Job Started Event}
-    D --> E[runJobHandler]
-    E --> F{Success?}
-    F -->|Yes| G{Job Completed Event}
-    F -->|No| H{Retryable?}
-    H -->|Yes| I[Exponential Backoff]
-    H -->|No| J{Job Failed Event}
-    I --> K{Max Retries?}
-    K -->|No| E
-    K -->|Yes| J
-    G --> L[Return Result]
-    J --> M[Capture to Sentry]
-
-    style B fill:#9f9,stroke:#333
-    style D fill:#9f9,stroke:#333
-    style G fill:#9f9,stroke:#333
-    style J fill:#f99,stroke:#333
-    style H fill:#ff9,stroke:#333
-```
-
-### SidequestServer Base Class
-
-**File:** `sidequest/core/server.ts`
-
-All workers extend this base class which provides:
-
-```typescript
-class SidequestServer extends EventEmitter {
-  constructor(options: SidequestServerOptions) {
-    this.maxConcurrent = options.maxConcurrent ?? CONCURRENCY.DEFAULT_MAX_JOBS;
-    this.maxRetries = options.maxRetries ?? RETRY.MAX_ABSOLUTE_ATTEMPTS;
-    this.retryDelayMs = options.retryDelayMs ?? RETRY.DEFAULT_DELAY_MS;
-    this.jobs = new Map<string, Job>();
-    this.queue: string[] = [];
-    this.activeJobs = 0;
-    this.gitWorkflowEnabled = options.gitWorkflowEnabled ?? false;
-    // ... circuit breaker, Sentry integration
-  }
-
-  // Job management
-  createJob(jobId: string, data: Record<string, unknown>): Job { /* ... */ }
-  async runJobHandler(job: Job): Promise<unknown> { /* Override in subclass */ }
-  getStats(): JobStats { /* ... */ }
-
-  // Git workflow (if enabled via GitWorkflowManager)
-  async _setupGitBranchIfEnabled(job: Job): Promise<boolean> { /* ... */ }
-  async _handleGitWorkflowSuccess(job: Job): Promise<void> { /* ... */ }
-
-  // Retry logic with error classification
-  // Auto-retry for retryable errors (ETIMEDOUT, 5xx) up to maxRetries
-  // Delay: classification.suggestedDelay ?? this.retryDelayMs (configurable per worker)
-
-  // Event emitters
-  emit('job:created', job);
-  emit('job:started', job);
-  emit('job:completed', job);
-  emit('job:failed', job, error);
-}
-```
-
-### BasePipeline Abstract Class
-
-**File:** `sidequest/pipeline-runners/base-pipeline.ts`
-
-Class-based pipeline runners extend `BasePipeline<TWorker>`, which provides shared scheduling, event-driven completion, and stats:
-
-```typescript
-abstract class BasePipeline<TWorker extends SidequestServer> {
-  protected worker: TWorker;
-
-  waitForCompletion(timeoutMs?): Promise<void>;         // Event-driven drain; optional deadline timeout
-  waitForJobTerminalStatus(jobId, timeoutMs?): Promise<void>;  // Track single job to completion/failure
-  protected scheduleCron(                                // Validate + schedule + log + error-wrap
-    logger, name, cronSchedule, runFn
-  ): cron.ScheduledTask;
-  protected setupDefaultEventListeners(logger, handlers?): void;  // CREATED/STARTED/COMPLETED/FAILED
-  getStats(): JobStats;                                  // Delegate to worker.getStats()
-}
-```
-
-**Pipelines extending BasePipeline (10 of 11):** BugfixAuditPipeline, ClaudeHealthPipeline, DashboardPopulatePipeline, GitActivityPipeline, GitignorePipeline, PluginManagementPipeline, RepoCleanupPipeline, RepomixPipeline, SchemaEnhancementPipeline, TestRefactorPipeline.
-
-**Pipelines using functional pattern (no base class):** DuplicateDetectionPipeline (uses `worker.runNightlyScan()` self-managed lifecycle with async init).
-
-### Class Hierarchy
-
-```mermaid
-graph TB
-    EE[EventEmitter] --> SS[SidequestServer]
-    SS --> W1[BugfixAuditWorker]
-    SS --> W2[ClaudeHealthWorker]
-    SS --> W3[GitActivityWorker]
-    SS --> W4[SchemaEnhancementWorker]
-    SS --> W5["PluginManagerWorker<br/><i>utils/plugin-manager.ts</i>"]
-    SS --> W6[DuplicateDetectionWorker]
-    SS --> W7[GitignoreWorker]
-    SS --> W8[RepoCleanupWorker]
-    SS --> W9[RepomixWorker]
-    SS --> W10[TestRefactorWorker]
-    SS --> W11[DashboardPopulateWorker]
-
-    BP["BasePipeline&lt;TWorker&gt;"] --> P1["BugfixAuditPipeline&lt;W1&gt;"]
-    BP --> P2["ClaudeHealthPipeline&lt;W2&gt;"]
-    BP --> P3["GitActivityPipeline&lt;W3&gt;"]
-    BP --> P4["PluginManagementPipeline&lt;W5&gt;"]
-    BP --> P5["SchemaEnhancementPipeline&lt;W4&gt;"]
-    BP --> P6["DashboardPopulatePipeline&lt;W11&gt;"]
-    BP --> P7["GitignorePipeline&lt;W7&gt;"]
-    BP --> P8["RepoCleanupPipeline&lt;W8&gt;"]
-    BP --> P9["TestRefactorPipeline&lt;W10&gt;"]
-
-    P1 -.->|owns| W1
-    P2 -.->|owns| W2
-    P3 -.->|owns| W3
-    P4 -.->|owns| W5
-    P5 -.->|owns| W4
-    P6 -.->|owns| W11
-    P7 -.->|owns| W7
-    P8 -.->|owns| W8
-    P9 -.->|owns| W10
-
-    style SS fill:#bbf,stroke:#333
-    style BP fill:#bfb,stroke:#333
-```
+For the full framework architecture (SidequestServer, BasePipeline, class hierarchy, job lifecycle, event system), see [System Data Flow](./SYSTEM-DATA-FLOW.md) and [CLAUDE.md](../../CLAUDE.md#architecture).
 
 ### Common Data Flow Pattern
 
@@ -1973,184 +1845,19 @@ Workers emit `job:completed`/`job:failed` → `EventBroadcaster` serializes and 
 
 ## Error Handling & Resilience
 
-### Error Classification
-
-**File:** `sidequest/pipeline-core/errors/error-classifier.ts`
-
-```javascript
-export function classifyError(error) {
-  // Network errors (retryable)
-  if (['ETIMEDOUT', 'ECONNRESET'].includes(error.code)) {
-    return {
-      category: 'network',
-      retryable: true,
-      severity: 'warning'
-    };
-  }
-
-  // Network errors (non-retryable)
-  // ENOTFOUND: DNS failure — immediate retry unlikely to help
-  if (['ENOTFOUND', 'ECONNREFUSED'].includes(error.code)) {
-    return {
-      category: 'network',
-      retryable: false,
-      severity: 'error'
-    };
-  }
-
-  // File system errors (non-retryable)
-  if (['ENOENT', 'EACCES', 'EPERM'].includes(error.code)) {
-    return {
-      category: 'filesystem',
-      retryable: false,
-      severity: 'error'
-    };
-  }
-
-  // Validation errors (non-retryable)
-  if (error.name === 'ValidationError') {
-    return {
-      category: 'validation',
-      retryable: false,
-      severity: 'error'
-    };
-  }
-
-  // Unknown errors (retryable with caution)
-  return {
-    category: 'unknown',
-    retryable: true,
-    severity: 'error'
-  };
-}
-```
-
-### Sentry Integration
-
-**Three severity levels:**
-```javascript
-import * as Sentry from '@sentry/node';
-
-// Level 1: Warning (retryable errors)
-Sentry.captureMessage('Job retry attempt', {
-  level: 'warning',
-  tags: { job_id: job.id },
-  extra: { attempt: 1, error: error.message }
-});
-
-// Level 2: Error (non-retryable errors)
-Sentry.captureException(error, {
-  level: 'error',
-  tags: { component: 'worker', job_id: job.id },
-  extra: { job_data: job.data }
-});
-
-// Level 3: System errors (e.g., worker init failure)
-Sentry.captureException(error, {
-  level: 'error',
-  tags: { component: 'system' },
-  extra: { context: 'worker_initialization' }
-});
-```
-
-### Doppler Health Monitor
-
-**Circuit breaker for stale cache:**
-```typescript
-// sidequest/pipeline-core/doppler-health-monitor.ts
-class DopplerHealthMonitor {
-  // Configurable options — all optional with defaults from CACHE constants
-  constructor(options: DopplerHealthMonitorOptions = {}) {
-    this.cacheDir = options.cacheDir ?? path.join(os.homedir(), '.doppler', 'fallback');
-    this.maxCacheAge = options.maxCacheAge ?? CACHE.MAX_AGE_MS;       // default: 24h
-    this.warningThreshold = options.warningThreshold ?? CACHE.WARNING_THRESHOLD_MS; // default: 12h
-    this.monitoringInterval = null;  // NOT auto-started in constructor
-  }
-
-  // Start periodic monitoring (call explicitly after construction)
-  async startMonitoring(intervalMinutes = 15): Promise<void> { /* ... */ }
-
-  // On-demand check: reads file mtime from cacheDir, does not use stored state
-  async checkCacheHealth(): Promise<CacheHealthStatus> {
-    // Reads ~/.doppler/fallback/ files, computes age from newest mtime
-    // Returns: { healthy, cacheAgeMs, cacheAgeHours, severity, lastModified, ... }
-  }
-}
-```
-
-### Port Conflict Resolution
-
-**Automatic fallback:**
-```javascript
-// api/utils/port-manager.ts
-export async function setupServerWithPortFallback(httpServer, options) {
-  const { preferredPort, maxPort } = options;
-
-  for (let port = preferredPort; port <= maxPort; port++) {
-    try {
-      await new Promise((resolve, reject) => {
-        httpServer.listen(port, () => resolve());
-        httpServer.on('error', reject);
-      });
-
-      logger.info({ port }, 'Server listening on port');
-      return port;
-    } catch (error) {
-      if (error.code === 'EADDRINUSE') {
-        logger.warn({ port }, 'Port in use, trying next');
-        continue;
-      }
-      throw error;
-    }
-  }
-
-  throw new Error(`No available ports between ${preferredPort}-${maxPort}`);
-}
-```
-
-### Graceful Shutdown
-
-**Cleanup on process termination:**
-```javascript
-// api/server.ts
-const signals = ['SIGTERM', 'SIGINT', 'SIGHUP'];
-
-signals.forEach((signal) => {
-  process.on(signal, async () => {
-    logger.info({ signal }, 'Received shutdown signal');
-
-    // 1. Stop accepting new connections
-    httpServer.close();
-
-    // 2. Wait for active jobs to complete
-    await waitForActiveJobs();
-
-    // 3. Close WebSocket connections
-    websocket.close();
-
-    // 4. Close database connections
-    jobRepository.close();
-
-    // 5. Exit
-    process.exit(0);
-  });
-});
-```
+For complete error classification, retry logic, circuit breakers (retry, Doppler, worker init), and worker registry patterns, see [Error Handling](./ERROR_HANDLING.md).
 
 ---
 
 ## Related Documentation
 
-- [Adding New Pipelines](../ADDING_PIPELINES.md)
-- [Similarity Algorithm Documentation](./similarity-algorithm.md)
-- [Error Handling Architecture](./ERROR_HANDLING.md)
-- [Type System Documentation](./TYPE_SYSTEM.md)
-- [API Reference](../API_REFERENCE.md)
-- [Dashboard UI Guide](../dashboard_ui/DASHBOARD.md)
-- [Deployment Guide](../deployment/TRADITIONAL_SERVER_DEPLOYMENT.md)
+- [Adding New Pipelines](./setup/ADDING_PIPELINES.md)
+- [Similarity Algorithm](./technical/similarity-algorithm.md)
+- [Error Handling](./ERROR_HANDLING.md)
+- [Type System](./TYPE_SYSTEM.md)
+- [System Data Flow](./SYSTEM-DATA-FLOW.md)
 
 ---
 
-**Document Version:** 2.3
-**Last Updated:** 2026-03-11
-**Maintainer:** Architecture Team
+**Document Version:** 2.4
+**Last Updated:** 2026-03-15

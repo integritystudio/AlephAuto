@@ -100,7 +100,7 @@ Generates repomix bundles and scan artifacts used by Sidequest pipelines and doc
 
 ```bash
 # Regenerate repository repomix artifacts
-bash scripts/repomix-regen.sh
+bash scripts/repomix/repomix-regen.sh
 
 # Generate docs XML bundle directly
 npx repomix . -c repomix.config.json -o docs/repomix/docs.xml

@@ -1,6 +1,8 @@
 # Error Handling & Resilience
 
-**Last Updated:** 2026-03-14
+> **Hub document.** Authoritative source for error classification, retry logic, circuit breakers, and worker registry patterns. Referenced by [System Data Flow](./SYSTEM-DATA-FLOW.md) and [Adding Pipelines](./setup/ADDING_PIPELINES.md).
+
+**Last Updated:** 2026-03-15
 
 ## Overview
 

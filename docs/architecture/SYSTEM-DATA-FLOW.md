@@ -1,8 +1,9 @@
 # AlephAuto System Data Flow Documentation
 
-**Last Updated:** 2026-03-14
-**Version:** 1.3
-**Author:** Architecture Documentation
+> **Hub document.** Authoritative source for system-level architecture, data flow diagrams, and deployment. For pipeline-specific data flows, see [Pipeline Data Flow](./pipeline-data-flow.md). For error handling details, see [Error Handling](./ERROR_HANDLING.md). For pipeline list and critical patterns, see [CLAUDE.md](../../CLAUDE.md).
+
+**Last Updated:** 2026-03-15
+**Version:** 1.4
 
 ## Table of Contents
 
@@ -24,7 +25,7 @@
 
 ## System Overview
 
-AlephAuto is a **job queue framework** with real-time dashboard for automation pipelines. The system processes 11 different pipeline types across TypeScript and Python, with real-time monitoring via WebSocket and comprehensive error tracking via Sentry.
+AlephAuto is a **job queue framework** with real-time dashboard for automation pipelines. See [CLAUDE.md](../../CLAUDE.md) for the full list of 11 pipelines and critical coding patterns.
 
 ### System Characteristics
 
@@ -577,43 +578,9 @@ flowchart LR
 
 ### Error Handling Flow
 
-Complete error classification and handling:
+For complete error classification, retry logic, circuit breakers, and worker registry patterns, see [Error Handling](./ERROR_HANDLING.md).
 
-```mermaid
-flowchart TB
-    Error[Error Occurs] --> Classify[Error Classifier]
-
-    Classify --> Network{Network Error?}
-    Classify --> FileSystem{File System Error?}
-    Classify --> Validation{Validation Error?}
-
-    Network -->|ETIMEDOUT, ECONNRESET| Retryable[Retryable: true]
-    FileSystem -->|ENOENT, EACCES| NonRetryable[Retryable: false]
-    Validation -->|Zod Error| NonRetryable
-
-    Retryable --> RetryCheck{Retries < Max?}
-    RetryCheck -->|Yes| Backoff[Exponential Backoff]
-    RetryCheck -->|No| FailJob[Fail Job]
-
-    Backoff --> Retry[Retry Job]
-    Retry --> Success{Success?}
-    Success -->|Yes| Complete[Complete Job]
-    Success -->|No| RetryCheck
-
-    NonRetryable --> FailJob
-
-    FailJob --> Sentry[Capture to Sentry]
-    FailJob --> DB[Update DB: failed]
-    FailJob --> Broadcast[Broadcast job:failed]
-
-    Complete --> DBSuccess[Update DB: completed]
-    Complete --> BroadcastSuccess[Broadcast job:completed]
-
-    style Retryable fill:#ff9,stroke:#333
-    style NonRetryable fill:#f99,stroke:#333
-    style Complete fill:#9f9,stroke:#333
-    style FailJob fill:#f66,stroke:#333
-```
+**Summary:** Errors are classified as retryable (ETIMEDOUT, 5xx) or non-retryable (ENOENT, 4xx). Retryable errors use exponential backoff up to max retries. All failures are captured to Sentry, persisted to SQLite, and broadcast via WebSocket.
 
 ---
 
@@ -916,67 +883,9 @@ interface PythonPipelineOutput {
 
 ## Configuration Flow
 
-### Configuration Loading Hierarchy
+**Priority:** Doppler (1) > `.env` file (2) > code defaults (3). All config is accessed via `sidequest/core/config.ts` — never use `process.env` directly. See [CLAUDE.md](../../CLAUDE.md#2-configuration-never-use-processenv-directly) for config patterns and [Pipeline Execution](./pipeline-execution.md) for Doppler integration.
 
-```mermaid
-flowchart TB
-    subgraph Sources["Configuration Sources"]
-        Doppler["Doppler Secrets"]
-        EnvFile[".env File"]
-        Defaults["Code Defaults"]
-    end
-
-    subgraph Loading["Loading Process"]
-        DotEnv["dotenv.config"]
-        ProcessEnv["process.env"]
-        ConfigModule["sidequest/core/config.ts"]
-    end
-
-    subgraph Config["Exported Config"]
-        C1[jobsApiPort: 8080]
-        C2[sentryDsn: string]
-        C3[enableGitWorkflow: boolean]
-        C4[maxConcurrent: 3]
-        C5[doppler.failureThreshold: 3]
-    end
-
-    subgraph Consumers["Config Consumers"]
-        Server[API Server]
-        Workers[All Workers]
-        Middleware[Middleware]
-        Database[Database]
-    end
-
-    Doppler -->|Priority 1| ProcessEnv
-    EnvFile -->|Priority 2| DotEnv
-    DotEnv --> ProcessEnv
-    Defaults -->|Priority 3| ConfigModule
-    ProcessEnv --> ConfigModule
-
-    ConfigModule --> C1 & C2 & C3 & C4 & C5
-
-    C1 & C2 & C3 & C4 & C5 --> Server
-    C1 & C2 & C3 & C4 & C5 --> Workers
-    C1 & C2 & C3 & C4 & C5 --> Middleware
-    C1 & C2 & C3 & C4 & C5 --> Database
-
-    style Doppler fill:#bbf,stroke:#333
-    style ConfigModule fill:#bfb,stroke:#333
-```
-
-### Environment Variables Reference
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `JOBS_API_PORT` | 8080 | API server port |
-| `SENTRY_DSN` | - | Sentry error tracking endpoint |
-| `NODE_ENV` | development | Environment mode |
-| `ENABLE_GIT_WORKFLOW` | false | Enable branch/PR creation |
-| `ENABLE_PR_CREATION` | false | Auto-create PRs |
-| `RUN_ON_STARTUP` | false | Run pipelines immediately |
-| `MAX_CONCURRENT` | 5 | Max concurrent jobs |
-| `REDIS_HOST` | localhost | Redis host (optional) |
-| `REDIS_PORT` | 6379 | Redis port (optional) |
+**Key variables:** `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENABLE_PR_CREATION`, `MAX_CONCURRENT` (5). See [CLAUDE.md](../../CLAUDE.md#environment-variables-doppler) for the full list.
 
 ---
 
@@ -1138,15 +1047,15 @@ server {
 
 ## Related Documentation
 
-- **[Pipeline Data Flow](https://github.com/aledlie/AlephAuto/blob/main/docs/architecture/pipeline-data-flow.md)** - Individual pipeline details
-- **[Similarity Algorithm](https://github.com/aledlie/AlephAuto/blob/main/docs/architecture/similarity-algorithm.md)** - Duplicate detection algorithm
-- **[Error Handling](https://github.com/aledlie/AlephAuto/blob/main/docs/architecture/ERROR_HANDLING.md)** - Error classification and retry
-- **[Type System](https://github.com/aledlie/AlephAuto/blob/main/docs/architecture/TYPE_SYSTEM.md)** - Zod schemas and TypeScript
-- **[API Reference](https://github.com/aledlie/AlephAuto/blob/main/docs/API_REFERENCE.md)** - Complete API documentation
-- **[Type System](https://github.com/aledlie/AlephAuto/blob/main/docs/architecture/TYPE_SYSTEM.md)** - Zod schemas and TypeScript
+- [Pipeline Data Flow](./pipeline-data-flow.md) - Per-pipeline data formats and stages
+- [Similarity Algorithm](./technical/similarity-algorithm.md) - Duplicate detection algorithm
+- [Error Handling](./ERROR_HANDLING.md) - Error classification, retry, circuit breakers
+- [Type System](./TYPE_SYSTEM.md) - Zod schemas and TypeScript patterns
+- [Pipeline Execution](./pipeline-execution.md) - Node execution, Doppler, PM2
+- [Adding Pipelines](./setup/ADDING_PIPELINES.md) - Step-by-step guide for new pipelines
+- [CLAUDE.md](../../CLAUDE.md) - Pipeline list, critical patterns, quick reference
 
 ---
 
 **Document Version:** 2.3.20
-**Last Updated:** 2026-03-14
-**Maintainer:** Architecture Team
+**Last Updated:** 2026-03-15

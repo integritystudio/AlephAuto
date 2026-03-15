@@ -13,7 +13,7 @@
 
 
 **Directory:** `/docs/architecture/`
-**Last Updated:** 2026-03-14
+**Last Updated:** 2026-03-15
 **Version:** 2.3.20
 
 ## Overview
@@ -22,7 +22,7 @@ This directory contains comprehensive architectural documentation for the AlephA
 
 ## Documentation Files
 
-### 🏗️ [System Data Flow](./SYSTEM-DATA-FLOW.md) ⭐ NEW
+### 🏗️ [System Data Flow](./SYSTEM-DATA-FLOW.md)
 
 **Complete system-level architecture and data flow diagrams**
 
@@ -85,7 +85,7 @@ This directory contains comprehensive architectural documentation for the AlephA
 
 ---
 
-### 🔬 [Similarity Algorithm](./similarity-algorithm.md)
+### 🔬 [Similarity Algorithm](./technical/similarity-algorithm.md)
 
 **Deep dive into the two-phase structural similarity algorithm**
 
@@ -139,350 +139,31 @@ This directory contains comprehensive architectural documentation for the AlephA
 └──────────────────┘                    └──────────────────────┘
 ```
 
-### Multi-Layer Grouping
+### Duplicate Detection: Multi-Layer Grouping
 
-```
-Layer 0: Complexity Filter   → Remove trivial code (< 3 tokens)
-Layer 1: Exact Hash Match    → Identical code (100% precision)
-Layer 2: Structural Similarity → AST-based (90%+ threshold)
-Layer 3: Semantic Similarity → Category + tags (~70% precision)
-```
-
-**Layer 3 Details:** Code blocks that fail Layer 2 structural matching can still be grouped by semantic category and tags. This catches "conceptual duplicates" - code with similar intent but different implementation (e.g., `getUserById` and `getProductById` both using `prisma.findUnique`). See [Similarity Algorithm - Layer 3](./similarity-algorithm.md#layer-3-category--tags-matching) for full documentation.
-
-### Two-Phase Similarity
-
-```
-PHASE 1: Extract Features (from ORIGINAL code)
-         ↓
-PHASE 2: Normalize Code (structural comparison)
-         ↓
-PHASE 3: Apply Penalties (using ORIGINAL features)
-         ↓
-         Final Similarity Score
-```
+Layer 0 (complexity filter) → Layer 1 (exact hash) → Layer 2 (structural similarity) → Layer 3 (semantic category+tags). See [Similarity Algorithm](./technical/similarity-algorithm.md) for full details including two-phase extraction, penalty system, and accuracy metrics.
 
 ---
 
-## Key Files Reference
-
-### JavaScript Components
-
-| File | Purpose | Lines | Documentation |
-|------|---------|-------|---------------|
-| `sidequest/pipeline-core/scan-orchestrator.ts` | Pipeline coordinator | 302 | [Pipeline Data Flow](./pipeline-data-flow.md#stage-by-stage-data-flow) |
-| `sidequest/pipeline-core/scanners/repository-scanner.ts` | Repository validation & metadata | 344 | [Pipeline Data Flow](./pipeline-data-flow.md#stage-1-repository-scanner) |
-| `sidequest/pipeline-core/scanners/ast-grep-detector.ts` | Pattern detection | 218 | [Pipeline Data Flow](./pipeline-data-flow.md#stage-2-ast-grep-pattern-detector) |
-
-### Python Components
-
-| File | Purpose | Lines | Documentation |
-|------|---------|-------|---------------|
-| `sidequest/pipeline-core/extractors/extract_blocks.py` | Block extraction, dedup, suggestions | 671 | [Pipeline Data Flow](./pipeline-data-flow.md#stage-3-code-block-extraction) |
-| `sidequest/pipeline-core/similarity/structural.py` | Two-phase similarity algorithm | 493 | [Similarity Algorithm](./similarity-algorithm.md#two-phase-similarity-calculation) |
-| `sidequest/pipeline-core/similarity/grouping.py` | Multi-layer grouping | 431 | [Pipeline Data Flow](./pipeline-data-flow.md#stage-5-duplicate-grouping) |
-
-### Configuration
-
-| File | Purpose | Documentation |
-|------|---------|---------------|
-| `.ast-grep/rules/*` | 18 pattern detection rules | [Pipeline Data Flow](./pipeline-data-flow.md#pattern-detection-rules) |
-| `sidequest/pipeline-core/models/*.py` | Pydantic data models | [Pipeline Data Flow](./pipeline-data-flow.md#data-format-specifications) |
-
----
-
-## Common Tasks
-
-### Understanding Pipeline Flow
-
-1. **Start here:** [Pipeline Data Flow - Overview](./pipeline-data-flow.md#overview)
-2. **View architecture diagram:** [Pipeline Architecture](./pipeline-data-flow.md#pipeline-architecture)
-3. **Follow data through stages:** [Stage-by-Stage Flow](./pipeline-data-flow.md#stage-by-stage-data-flow)
-4. **Check data formats:** [Data Format Specifications](./pipeline-data-flow.md#data-format-specifications)
-
-### Debugging Similarity Issues
-
-1. **Understand the algorithm:** [Similarity Algorithm - Overview](./similarity-algorithm.md#overview)
-2. **Check feature extraction:** [Semantic Feature Extraction](./similarity-algorithm.md#semantic-feature-extraction)
-3. **Verify normalization:** [Code Normalization](./similarity-algorithm.md#code-normalization)
-4. **Review penalties:** [Penalty System](./similarity-algorithm.md#penalty-system)
-5. **See examples:** [Implementation Examples](./similarity-algorithm.md#implementation-examples)
-
-### Adding New Features
-
-#### New Pattern Detection Rule
-1. Create YAML rule in `.ast-grep/rules/`
-2. Update category mapping in `extract_blocks.py`
-3. Add to rule count documentation
-4. Test with sample code
-
-#### New Semantic Feature
-1. Add extraction logic in `extract_semantic_features()` (structural.py)
-2. Add penalty calculation in `calculate_semantic_penalty()`
-3. Update `SemanticFeatures` dataclass
-4. Add tests and examples
-
-#### New Suggestion Strategy
-1. Update strategy determination in `_determine_strategy()` (extract_blocks.py)
-2. Add migration steps in `_generate_migration_steps()`
-3. Add code example in `_generate_code_example()`
-4. Update ROI calculation if needed
-
----
-
-## Critical Implementation Patterns
-
-These patterns are **essential** for correct system behavior:
-
-### ✅ Pattern 1: Two-Phase Feature Extraction
-
-**Why:** Normalization destroys semantic information.
-
-```python
-# ✅ CORRECT - Extract BEFORE normalization
-features1 = extract_semantic_features(code1)  # PHASE 1
-features2 = extract_semantic_features(code2)
-
-normalized1 = normalize_code(code1)           # PHASE 2
-normalized2 = normalize_code(code2)
-
-penalty = calculate_semantic_penalty(features1, features2)  # PHASE 3
-```
-
-**Reference:** [Similarity Algorithm - Two-Phase](./similarity-algorithm.md#two-phase-similarity-calculation)
-
----
-
-### ✅ Pattern 2: Function-Based Deduplication
-
-**Why:** AST-grep may match the same function multiple times.
-
-```python
-# ✅ CORRECT - Deduplicate by file:function_name
-function_key = f"{block.location.file_path}:{function_name}"
-
-if function_key not in seen_functions:
-    seen_functions[function_key] = block
-    unique_blocks.append(block)
-```
-
-**Reference:** [Pipeline Data Flow - Stage 3.5](./pipeline-data-flow.md#stage-35-block-deduplication)
-
----
-
-### ✅ Pattern 3: Backwards Function Search
-
-**Why:** Searching forwards may find functions AFTER the match.
-
-```python
-# ✅ CORRECT - Search backwards to find CLOSEST function
-for i in range(line_start - 1, search_start - 1, -1):  # Backwards!
-    for pattern in patterns:
-        match = re.search(pattern, lines[i])
-        if match:
-            return match.group(1)  # Closest function
-```
-
-**Reference:** [Pipeline Data Flow - Function Extraction](./pipeline-data-flow.md#function-name-extraction)
-
----
-
-### ✅ Pattern 4: Multiplicative Penalties
-
-**Why:** Compound effect for multiple semantic differences.
-
-```python
-# ✅ CORRECT - Multiplicative penalties
-penalty = 1.0
-if http_codes_differ:
-    penalty *= 0.70  # 30% penalty
-if operators_differ:
-    penalty *= 0.80  # 20% penalty
-if methods_differ:
-    penalty *= 0.75  # 25% penalty
-# Total: 0.70 * 0.80 * 0.75 = 0.42 (58% reduction)
-```
-
-**Reference:** [Similarity Algorithm - Penalty System](./similarity-algorithm.md#why-multiplicative-penalties)
-
----
-
-### ✅ Pattern 5: Correct Field Names
-
-**Why:** Pydantic models expect specific field names.
-
-```python
-# ✅ CORRECT
-CodeBlock(
-    tags=[f"function:{function_name}"]  # Correct field
-)
-
-# ❌ WRONG
-CodeBlock(
-    semantic_tags=[f"function:{function_name}"]  # Field doesn't exist!
-)
-```
-
-**Reference:** [Pipeline Data Flow - CodeBlock Model](./pipeline-data-flow.md#codeblock-model-pydantic)
-
----
-
-## Performance Characteristics
-
-### Pipeline Performance
-
-| Repository Size | Total Time | Bottleneck |
-|----------------|------------|------------|
-| Small (50 files) | ~2s | AST-grep scan (60%) |
-| Medium (200 files) | ~6s | AST-grep scan (60%) |
-| Large (500 files) | ~15s | Similarity grouping (40%) |
-| Extra Large (1000+ files) | ~30s | Similarity grouping (50%) |
-
-**Optimization:** Layer 0 complexity filter removes ~20-30% of trivial blocks before grouping.
-
-### Similarity Algorithm Performance
-
-- **Single comparison:** ~5ms (1ms features + 2ms normalize + 2ms Levenshtein)
-- **Grouping n blocks:** O(n²) worst case, O(n × k) with filtering
-- **Memory usage:** O(n) for normalized strings
-
-**Optimization:** Early semantic filtering skips incompatible pairs.
-
----
-
-## Testing & Validation
-
-### Similarity Validation
-
-**Primary automated test:** `sidequest/pipeline-core/similarity/test_grouping_layer3.py`
-
-```bash
-PYTHONNOUSERSITE=1 python -m pytest -q sidequest/pipeline-core/similarity/test_grouping_layer3.py
-```
-
-**Interpretation:**
-- **100% Precision:** Every group is a true duplicate (no false positives)
-- **87.5% Recall:** Catches most duplicates (1 missed due to high threshold)
-- **93.33% F1:** Excellent balance of precision and recall
-
-### Test Coverage
-
-- **Unit Tests:** 132 tests, 97.7% passing
-- **Integration Tests:** Full pipeline end-to-end
-- **Accuracy Tests:** Ground truth comparison
-
----
-
-## Troubleshooting Guide
-
-### Issue: False Positives (Grouping Non-Duplicates)
-
-**Symptoms:** Code with different behavior grouped together
-
-**Diagnosis:**
-1. Check extracted semantic features in stderr logs
-2. Verify penalty calculations (should see `Warning: DEBUG` logs)
-3. Confirm Layer 1 semantic validation is running
-
-**Solution:**
-- Add new semantic feature extraction for missed pattern
-- Increase penalty multiplier for that feature type
-- Lower similarity threshold (default: 0.90)
-
-**Reference:** [Similarity Algorithm - Penalty System](./similarity-algorithm.md#penalty-system)
-
----
-
-### Issue: False Negatives (Missing Duplicates)
-
-**Symptoms:** Similar code not grouped
-
-**Diagnosis:**
-1. Check if blocks pass Layer 0 complexity filter
-2. Calculate similarity manually: `calculate_structural_similarity(code1, code2)`
-3. Review normalization output (may be over-aggressive)
-
-**Solution:**
-- Lower similarity threshold (try 0.85)
-- Reduce Layer 0 complexity requirements
-- Add more semantic methods to preservation list
-
-**Reference:** [Similarity Algorithm - Normalization](./similarity-algorithm.md#code-normalization)
-
----
-
-### Issue: Function Name Not Detected
-
-**Symptoms:** Blocks have empty `tags` field
-
-**Diagnosis:**
-1. Check stderr for `DEBUG extract_function_name` logs
-2. Verify function pattern matches (see `patterns` list)
-3. Confirm file path and line numbers are correct
-
-**Solution:**
-- Add new function pattern to `patterns` list
-- Increase search window (default: 10 lines backwards)
-- Check file encoding (must be UTF-8)
-
-**Reference:** [Pipeline Data Flow - Function Extraction](./pipeline-data-flow.md#function-name-extraction)
-
----
-
-### Issue: Pipeline Timeout
-
-**Symptoms:** `TimeoutError` or Python process killed
-
-**Diagnosis:**
-1. Check repository size (files and total lines)
-2. Review stderr for stage that's slow
-3. Monitor memory usage (should be < 500MB)
-
-**Solution:**
-- Increase timeout in `scan-orchestrator.ts` (default: 600s)
-- Disable unused AST-grep rules
-- Process smaller subdirectories separately
-
-**Reference:** [Pipeline Data Flow - Performance](./pipeline-data-flow.md#performance-considerations)
-
----
-
-## Contributing
-
-When updating this documentation:
-
-1. **Maintain version history** in each document header
-2. **Update cross-references** in all related documents
-3. **Add Mermaid diagrams** for new architectural patterns
-4. **Include code examples** with comments
-5. **Test all code snippets** before committing
+## Key Files
+
+| Component | File | Details |
+|-----------|------|---------|
+| Scan orchestrator | `sidequest/pipeline-core/scan-orchestrator.ts` | [Pipeline Data Flow](./pipeline-data-flow.md) |
+| Repository scanner | `sidequest/pipeline-core/scanners/repository-scanner.ts` | [Pipeline Data Flow](./pipeline-data-flow.md#stage-1-repository-scanner) |
+| AST-grep detector | `sidequest/pipeline-core/scanners/ast-grep-detector.ts` | [Pipeline Data Flow](./pipeline-data-flow.md#stage-2-ast-grep-pattern-detector) |
+| Block extraction | `sidequest/pipeline-core/extractors/extract_blocks.py` | [Pipeline Data Flow](./pipeline-data-flow.md#stage-3-code-block-extraction) |
+| Similarity algorithm | `sidequest/pipeline-core/similarity/structural.py` | [Similarity Algorithm](./technical/similarity-algorithm.md) |
+| Multi-layer grouping | `sidequest/pipeline-core/similarity/grouping.py` | [Pipeline Data Flow](./pipeline-data-flow.md#stage-5-duplicate-grouping) |
+| AST-grep rules | `.ast-grep/rules/*` (18 rules) | [Pipeline Data Flow](./pipeline-data-flow.md#pattern-detection-rules) |
+| Pydantic models | `sidequest/pipeline-core/models/*.py` | [Pipeline Data Flow](./pipeline-data-flow.md#data-format-specifications) |
 
 ---
 
 ## Related Documentation
 
-### Project Documentation
 - [Main README](../../README.md) - Project overview and quick start
 - [CLAUDE.md](../../CLAUDE.md) - Claude Code instructions and critical patterns
-
-### Component Documentation
-- [AlephAuto Framework](../../sidequest/README.md) - Job queue system
-- [AST-Grep Rules](../../.ast-grep/README.md) - Pattern detection rules
-- [Pydantic Models](../../sidequest/pipeline-core/models/README.md) - Data model specifications
-
-### Test Documentation
-- [Test Suite Overview](../../tests/README.md) - Test coverage and results
-- [Layer 3 Grouping Test](../../sidequest/pipeline-core/similarity/test_grouping_layer3.py) - Similarity grouping validation
-
----
-
-## Document Metadata
-
-**Created:** 2025-11-17
-**Version:** 2.3.20
-**Last Updated:** 2026-03-14
-**Maintainer:** Architecture Team
-**Review Schedule:** Quarterly or after major architectural changes
 
 ---
 
@@ -491,8 +172,10 @@ When updating this documentation:
 - **[← Back to Main README](../../README.md)**
 - **[System Data Flow →](./SYSTEM-DATA-FLOW.md)** - Complete system architecture + mermaid diagrams
 - **[Pipeline Data Flow →](./pipeline-data-flow.md)** - Individual pipeline details
-- **[Similarity Algorithm →](./similarity-algorithm.md)** - Duplicate detection algorithm
+- **[Similarity Algorithm →](./technical/similarity-algorithm.md)** - Duplicate detection algorithm
 - **[Error Handling →](./ERROR_HANDLING.md)** - Error classification, retry, circuit breakers, worker registry
 - **[Type System →](./TYPE_SYSTEM.md)** - Zod schemas and TypeScript patterns
+- **[Pipeline Execution →](./pipeline-execution.md)** - Node execution, Doppler, PM2
 - **[Migration Transformer →](./MIGRATION_TRANSFORMER.md)** - AST-based code transformation
+- **[Adding Pipelines →](./setup/ADDING_PIPELINES.md)** - Step-by-step guide for new pipelines
 - **[Install Guide →](./INSTALL.md)** - Setup and installation
