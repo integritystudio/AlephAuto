@@ -2,12 +2,12 @@
 
 # Weekly Log Summary Script
 # Purpose: Generate weekly summary reports of log cleanup operations
-# Usage: ./setup-files/weekly-log-summary.sh
+# Usage: ./scripts/logs/weekly-log-summary.sh
 
 set -euo pipefail
 
 # Run the main cleanup script in weekly summary mode
-/Users/alyshialedlie/code/jobs/docs/setup/log-cleanup.sh --weekly-summary
+/Users/alyshialedlie/code/jobs/scripts/logs/log-cleanup.sh --weekly-summary
 
 echo ""
 echo "Weekly summary generated successfully!"

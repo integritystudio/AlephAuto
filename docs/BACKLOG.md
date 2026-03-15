@@ -122,8 +122,8 @@ No active medium-priority backlog items.
 | SC-L1 | P3 | **Audit `scripts/logs/cron-setup.sh`** — Verify cron entries match current pipeline runner names and schedules. Remove references to deleted pipelines. |
 | SC-L2 | P3 | **Audit `scripts/setup/setup-sentry.js` / `scripts/setup/setup-doppler-sentry.js`** — Check for hardcoded project slugs, stale DSN values, or deprecated Sentry SDK setup patterns. |
 | SC-L3 | P3 | **Audit `scripts/setup/configure-discord-alerts.js` / `scripts/setup/sentry-to-discord.js`** — Verify webhook URLs and channel references are still valid. Check for dead import paths post-relocation. |
-| SC-L4 | P3 | **Audit `scripts/logs/log-cleanup.sh` / `scripts/logs/weekly-log-summary.sh`** — Confirm log directory paths match current `logs/` structure. Check for references to removed log formats. |
-| SC-L5 | P3 | **Audit `scripts/logs/update-cron.sh`** — Verify it references current `ecosystem.config.cjs` and PM2 process names. |
+| ~~SC-L4~~ | ~~P3~~ | ~~**Audit `scripts/logs/log-cleanup.sh` / `scripts/logs/weekly-log-summary.sh`** — Fixed: stale `setup-files/` usage comments updated to `scripts/logs/`; `weekly-log-summary.sh` called `docs/setup/log-cleanup.sh` (old path) — updated to `scripts/logs/log-cleanup.sh`. Log directory paths (`logs/`, `logs/archive/`, `logs/cleanup-logs/`) match current structure. No removed log formats referenced.~~ **Done** |
+| ~~SC-L5~~ | ~~P3~~ | ~~**Audit `scripts/logs/update-cron.sh`** — Fixed: cron entries pointed to old `docs/setup/` paths; updated to `scripts/logs/`. No `ecosystem.config.cjs` references needed (script only manages log cleanup cron, not PM2).~~ **Done** |
 
 ---
 
@@ -159,7 +159,7 @@ Code review of `frontend/src/hooks/useWebSocketConnection.ts`. Critical and high
 
 | ID | Priority | Description |
 |---|----------|-------------|
-| FE-M1 | P2 | **Activity feed deduplication gap** — `mapApiActivity()` generates new `crypto.randomUUID()` on every poll for items with missing `id`, causing duplicates to accumulate. Use stable ID derived from content (type + timestamp + jobId) or require backend to supply id. -- `frontend/src/hooks/useWebSocketConnection.ts:160` |
+| ~~FE-M1~~ | ~~P2~~ | ~~**Activity feed deduplication gap** — `mapApiActivity()` generates new `crypto.randomUUID()` on every poll for items with missing `id`, causing duplicates to accumulate. Fixed: fallback ID is now a deterministic template literal derived from `type`, `timestamp`, `jobId`, `pipelineId`. Test: `tests/unit/activity-stable-id.test.ts`.~~ **Done** |
 | FE-M3 | P2 | **Unknown pipeline IDs silently misclassified** — `PIPELINE_TYPE_MAP[p.id] ?? PipelineType.DUPLICATE_DETECTION` defaults unknown pipelines to DUPLICATE_DETECTION. Add `UNKNOWN` variant or validate map on startup with warning. -- `frontend/src/hooks/useWebSocketConnection.ts:141` |
 
 > FE-M4, FE-M5, FE-L1 resolved in `e8c0fab` (type centralization refactor). Migrate to changelog with next version bump.

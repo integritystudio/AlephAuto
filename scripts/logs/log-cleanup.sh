@@ -2,7 +2,7 @@
 
 # Enhanced Log Cleanup Script with Logging, Archiving, and Summary Generation
 # Purpose: Clean up old log files with comprehensive tracking and archiving
-# Usage: ./setup-files/log-cleanup.sh [--dry-run] [--weekly-summary]
+# Usage: ./scripts/logs/log-cleanup.sh [--dry-run] [--weekly-summary]
 
 set -euo pipefail
 
