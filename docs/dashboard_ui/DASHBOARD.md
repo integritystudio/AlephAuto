@@ -1,25 +1,21 @@
 # AlephAuto Dashboard
 
-**Version**: 1.4.0 | **Status**: Production Ready | **Updated**: 2026-03-09
+**Version**: 1.5.0 | **Status**: Production Ready | **Updated**: 2026-03-14
 
 Real-time monitoring and management dashboard for the AlephAuto job queue framework.
 
 ## Architecture
 
 ```
-Browser (Client)
-  Dashboard UI (React + TypeScript + Vite)
-    Pipeline status cards, Job queue, Activity feed, Pipeline detail panel, Job logs modal, Docs tabs
-        |
-        | WebSocket + REST API
-        v
+Browser (React + TypeScript + Vite)
+  Pipeline status cards, Job queue, Activity feed, Pipeline detail panel, Job logs modal
+      |  WebSocket + REST API
+      v
 Express Server (api/server.ts)
-  WebSocket Server (ws) - Event broadcasting, auto-reconnect
-  REST API - /health, /api/status, /api/jobs, /api/jobs/:id/logs, /api/pipelines, /api/scans
-  Static File Serving - public/
-        |
-        | Event Emitters
-        v
+  WebSocket (ws) - Event broadcasting, auto-reconnect
+  REST API - /health, /api/status, /api/jobs, /api/pipelines, /api/scans
+      |  Event Emitters
+      v
 AlephAuto Framework (sidequest/)
   SidequestServer - Job queue, concurrency, retry, circuit breaker
   Workers - Repomix, SchemaEnhancement, GitActivity, Gitignore, PluginManager, etc.
@@ -27,11 +23,9 @@ AlephAuto Framework (sidequest/)
 
 ### Data Flow
 
-1. Worker emits event -> `server.emit('job:created', data)`
-2. Server broadcasts to WebSocket -> All connected clients receive event
-3. Dashboard updates UI -> Real-time status change without refresh
-4. Activity logged -> Event added to chronological feed
-5. Initial load: `/api/status` returns `activeJobs` and `queuedJobs` arrays so the dashboard renders immediately without waiting for WebSocket events
+1. Worker `this.emit()` -> SidequestServer relays -> Express broadcasts -> WebSocket -> Dashboard UI
+2. Initial load: `/api/status` returns `activeJobs`/`queuedJobs` so the dashboard renders immediately
+3. Auto-transitions from mock to real data when WebSocket connects and receives first event
 
 ### Event Types
 
@@ -42,57 +36,29 @@ AlephAuto Framework (sidequest/)
 
 ## Quick Start
 
-### Development
-
 ```bash
+# Development
 npm run dashboard                        # Dashboard UI -> http://localhost:8080
-# Or manually:
-doppler run -- node --strip-types api/server.ts
-```
 
-### Production
-
-```bash
+# Production
 doppler run -c prd -- pm2 start config/ecosystem.config.cjs
-pm2 logs aleph-dashboard
-pm2 monit
 ```
 
 ---
 
 ## Features
 
-| Feature | Status |
-|---------|--------|
-| Dev server startup | Port 8080 |
-| Dashboard rendering | All sections with mock/real data |
-| WebSocket connection | Auto-reconnect with exponential backoff |
-| Real-time updates | Events update UI immediately (500ms batching) |
+| Feature | Details |
+|---------|---------|
+| WebSocket | Auto-reconnect with exponential backoff |
+| Real-time updates | 500ms batched event updates |
 | Responsive layout | Mobile / tablet / desktop breakpoints |
-| Pipeline status cards | All pipelines displayed |
-| Job queue monitoring | Active/queued jobs with capacity gauge |
-| Activity feed | Chronological event log, filterable |
-| Pipeline detail panel | View Details drawer with job history per pipeline |
-| Job logs modal | View Logs modal with synthesized lifecycle logs |
-| Documentation tabs | 4 tabs with content |
-| WCAG AA compliance | Contrast ratios 6.8:1+ |
-
-### Performance (Lighthouse)
-
-- Performance: 97/100, Accessibility: 100/100, Best Practices: 100/100
-- CLS: 0.303, First Load: ~42 KB
-
----
-
-## Mock Data vs Real Data
-
-**Mock Mode** (activated when API returns no data, WS fails, or server starting):
-- Sample pipeline statuses, simulated job queue, example events
-
-**Real Mode** (activated when WS connected, API responding, pipelines running):
-- Live pipeline statuses, actual queue state, real-time worker events
-
-Auto-transitions from mock to real when WebSocket connects and receives first event.
+| Pipeline status cards | All pipelines with View Details drawer |
+| Job queue | Active/queued jobs with capacity gauge |
+| Activity feed | Chronological, filterable event log |
+| Job logs modal | Synthesized lifecycle logs |
+| WCAG AA | Contrast ratios 6.8:1+ |
+| Lighthouse | Perf 97, A11y 100, BP 100; ~42 KB first load |
 
 ---
 
@@ -118,16 +84,6 @@ Edit CSS variables in `public/dashboard.css`:
   --color-warning: #f59e0b;
   --color-inactive: #6b7280;
 }
-```
-
-### Custom Events
-
-Edit `handleWebSocketMessage()` in `public/dashboard.js`:
-
-```javascript
-case 'custom:event':
-  this.addActivity('info', event.message);
-  break;
 ```
 
 ---
@@ -168,53 +124,16 @@ socket.emit('job:logs:request', { jobId });
 
 ---
 
-## Worker Integration
-
-Workers emit events the dashboard listens for:
-
-```javascript
-async processJob(job) {
-  this.emit('job:started', { id: job.id, type: 'repomix', timestamp: new Date().toISOString() });
-  try {
-    const result = await this.runRepomix(job.data);
-    this.emit('job:completed', { id: job.id, result, timestamp: new Date().toISOString() });
-  } catch (error) {
-    this.emit('job:failed', { id: job.id, error: error.message, timestamp: new Date().toISOString() });
-  }
-}
-```
-
-**Flow**: Worker `this.emit()` -> SidequestServer relays -> Express broadcasts -> WebSocket -> Dashboard UI
-
----
-
 ## Troubleshooting
 
-### Dashboard Not Loading
+```bash
+curl http://localhost:8080/health       # Server health
+curl http://localhost:8080/ws/status    # WebSocket status
+curl http://localhost:8080/api/status   # System status
+pm2 logs aleph-dashboard --lines 100   # PM2 logs
+```
 
-1. Check server: `curl http://localhost:8080/health` -> `{"status":"healthy",...}`
-2. Verify files: `ls public/` -> index.html, dashboard.css, dashboard.js
-3. Check browser console (F12) for errors
-
-### WebSocket Not Connecting
-
-1. Check status: `curl http://localhost:8080/ws/status`
-2. Look for "WebSocket connection established" in activity feed
-3. Ensure port 8080 allows WebSocket connections
-
-### No Real Data
-
-1. Check pipelines: `pm2 status`
-2. Trigger a job: `curl -X POST http://localhost:8080/api/scans -H "Content-Type: application/json" -d '{"repositoryPath":"/path/to/repo"}'`
-3. Check API: `curl http://localhost:8080/api/status`
-
-### Debugging Checklist
-
-- [ ] WebSocket connected? Check header status indicator
-- [ ] API responding? Check Network tab in DevTools
-- [ ] Props correct? Check React DevTools
-- [ ] Store updating? Add console.log in store action
-- [ ] Tailwind applying? Check element in browser DevTools
+**Checklist**: WebSocket connected (header indicator)? API responding (Network tab)? Props correct (React DevTools)? Sentry captures unhandled errors with request URL, user agent, WS client count.
 
 ---
 
@@ -224,8 +143,7 @@ async processJob(job) {
 
 ```bash
 doppler run -- pm2 start config/ecosystem.config.cjs
-pm2 save
-pm2 startup
+pm2 save && pm2 startup
 ```
 
 ### systemd (Linux)
@@ -249,28 +167,37 @@ WantedBy=multi-user.target
 
 ---
 
-## Monitoring
+## Browser Support
 
-```bash
-curl http://localhost:8080/health           # Server health
-curl http://localhost:8080/ws/status         # WebSocket status
-curl http://localhost:8080/api/status        # System status
-pm2 logs aleph-dashboard --lines 100        # PM2 logs
-pm2 logs aleph-dashboard --err              # Error logs only
-```
-
-Sentry integration captures unhandled errors with context: request URL, user agent, WebSocket client count, environment.
+Chrome/Edge 90+, Firefox 88+, Safari 14+, iOS Safari/Chrome Mobile 14+/90+
 
 ---
 
-## Browser Support
+## Changelog
 
-| Browser | Version | Status |
-|---------|---------|--------|
-| Chrome/Edge | 90+ | Fully supported |
-| Firefox | 88+ | Fully supported |
-| Safari | 14+ | Fully supported |
-| iOS Safari / Chrome Mobile | 14+ / 90+ | Mobile optimized |
+### 2026-03-12–2026-03-14 — WebSocket type safety
+- Replace `any` types and `as any` casts with `PipelineStatus` enum, discriminated unions, runtime type guards
+- Fix WebSocket union types to match server payload shapes
+- Fix capacity bar, activity feed, Vite proxy port derivation
+
+### 2026-03-08–2026-03-09 — View Details/Logs, structured logging
+- Implement View Details drawer, View Logs modal, seed activity feed
+- Replace `console.log/error` with structured logger
+- Replace magic numbers/strings with named constants
+- Resolve 11 TypeScript errors, extract activity-feed and status helpers
+
+### 2026-02-26 — Complexity reduction
+- Extract helpers from `useWebSocketConnection` (complexity compliance)
+- Fix 3 correctness bugs, `activity-feed.ts` listenToWorker 330->15 lines
+
+### 2026-02-09–2026-02-15 — React dashboard launch
+- React + Vite frontend with WebSocket auto-reconnect
+- Populate job queue from DB on initial load
+- Fix favicon 401, platform deps, `VITE_WS_HOST` type
+
+### 2025-11-24–2025-12-24 — Initial dashboard
+- Job/pipeline controls, loading/error states, error message component
+- Fix 4 critical production errors
 
 ---
 
