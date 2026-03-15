@@ -8,11 +8,18 @@ Reference implementation for resilient Doppler secret management with circuit br
 
 ## Overview
 
-The `DopplerResilience` class provides circuit breaker protection for Doppler API calls. When Doppler is unreachable, the circuit opens and falls back to cached secrets, preventing cascading failures.
+The abstract `DopplerResilience` class provides circuit breaker protection for Doppler API calls. When Doppler is unreachable, the circuit opens and falls back to cached secrets, preventing cascading failures. Subclasses **must** implement `fetchFromDoppler()` to supply the secret-fetching logic.
+
+```
+CLOSED ──[failures > threshold]──> OPEN ──[cooldown expires]──> HALF_OPEN
+  ^                                                                │
+  └───────────────[success]────────────────────────────────────────┘
+  └───────────────[failure]──> OPEN (reset cooldown)
+```
 
 ## Quick Start
 
-```javascript
+```typescript
 import { DopplerResilience } from './sidequest/utils/doppler-resilience.ts';
 import { config } from './sidequest/core/config.ts';
 
@@ -24,7 +31,6 @@ class DopplerConfigManager extends DopplerResilience {
   async fetchFromDoppler() {
     // process.env is populated by `doppler run --` before the process starts.
     // Access individual secrets via config (sidequest/core/config.ts), not process.env directly.
-    // This fetchFromDoppler is only called by DopplerResilience internals.
     if (!process.env.NODE_ENV) {
       throw new Error('Doppler secrets not available - NODE_ENV missing');
     }
@@ -44,29 +50,53 @@ class DopplerConfigManager extends DopplerResilience {
 
 ## Usage
 
-```javascript
+```typescript
 const dopplerConfig = new DopplerConfigManager();
 
 // Get secrets with circuit breaker protection
 const apiKey = await dopplerConfig.getSecret('API_KEY', 'fallback-key');
 
-// Check health status
+// Lightweight circuit state check
+const state = dopplerConfig.getState(); // 'CLOSED' | 'OPEN' | 'HALF_OPEN'
+
+// Full health object (see Monitoring section)
 const health = dopplerConfig.getHealth();
-// health.circuitState: 'CLOSED' | 'OPEN' | 'HALF_OPEN'
-// health.healthy: boolean
-// health.usingFallback: boolean
+
+// Force circuit back to CLOSED after confirming Doppler is healthy
+dopplerConfig.reset();
 ```
+
+## Monitoring
+
+Use `getHealth()` for dashboards, alerts, and periodic checks:
+
+```typescript
+setInterval(() => {
+  const health = dopplerConfig.getHealth();
+  // health.healthy, health.circuitState, health.usingFallback
+  // health.metrics.successRate, health.metrics.totalRequests, health.metrics.totalFailures
+  if (!health.healthy) {
+    console.warn('Doppler degraded:', health.circuitState);
+  }
+}, 60000);
+```
+
+| Condition | Severity | Action |
+|-----------|----------|--------|
+| Circuit OPEN | Critical | Check [Doppler Status](https://status.doppler.com) |
+| Using cached secrets | Warning | Verify no secrets rotated |
+| Cache > 24h old | Critical | Restart with `doppler run` |
+| Success rate < 50% | Warning | Investigate connectivity |
 
 ## Express Health Middleware
 
-```javascript
+```typescript
 export function createDopplerHealthMiddleware(dopplerConfig) {
   return async (req, res) => {
     const health = dopplerConfig.getHealth();
     res.status(health.healthy ? 200 : 503).json({
       status: health.circuitState === 'CLOSED' ? 'healthy' : 'degraded',
       circuitState: health.circuitState,
-      healthy: health.healthy,
       usingFallback: health.usingFallback,
       metrics: {
         successRate: health.metrics.successRate,
@@ -79,47 +109,5 @@ export function createDopplerHealthMiddleware(dopplerConfig) {
       } : null
     });
   };
-}
-```
-
-## Health Monitoring
-
-Use `DopplerResilience#getHealth()` for monitoring and alerts:
-
-| Condition | Severity | Action |
-|-----------|----------|--------|
-| Circuit OPEN | Critical | Check [Doppler Status](https://status.doppler.com) |
-| Using cached secrets | Warning | Verify no secrets rotated |
-| Cache > 24h old | Critical | Restart with `doppler run` |
-| Success rate < 50% | Warning | Investigate connectivity |
-
-## Periodic Monitoring
-
-```javascript
-const dopplerConfig = new DopplerConfigManager();
-
-setInterval(() => {
-  const health = dopplerConfig.getHealth();
-  console.log('Doppler circuit state:', health.circuitState);
-  console.log('Using fallback:', health.usingFallback);
-}, 60000);
-```
-
-## Circuit States
-
-```
-CLOSED ──[failures > threshold]──> OPEN ──[cooldown expires]──> HALF_OPEN
-  ^                                                                │
-  └───────────────[success]────────────────────────────────────────┘
-  └───────────────[failure]──> OPEN (reset cooldown)
-```
-
-## Manual Recovery
-
-```javascript
-const health = dopplerConfig.getHealth();
-if (!health.healthy) {
-  // Trigger your app-specific recovery flow here
-  console.warn('Doppler degraded, running fallback mode');
 }
 ```
