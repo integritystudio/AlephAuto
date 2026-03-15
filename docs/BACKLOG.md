@@ -85,11 +85,11 @@ Migrate the last 2 pipelines (Repomix, Duplicate Detection) to `BasePipeline`. C
 > - [MIGRATE_REPOMIX_TO_BASEPIPELINE.md](architecture/MIGRATE_REPOMIX_TO_BASEPIPELINE.md)
 > - [MIGRATE_DUPLICATE_DETECTION_TO_BASEPIPELINE.md](architecture/MIGRATE_DUPLICATE_DETECTION_TO_BASEPIPELINE.md)
 
-### Low
+### Done
 
 | ID | Priority | Description |
 |----|----------|-------------|
-| BP-L1 | P3 | Migrate `duplicate-detection-pipeline.ts` to `DuplicateDetectionPipeline extends BasePipeline<DuplicateDetectionWorker>`. Requires adding optional `async initialize()` hook to `BasePipeline` (for `worker.initialize()` + config stats logging). Benefits: `scheduleCron()` consistency, `setupDefaultEventListeners()`. Complexity: pipeline has `runOnStartup` early-exit mode (`process.exit(0)`) that doesn't fit `BasePipeline` lifecycle. ~35 lines saved. Post-DD-GW1: stale PRCreator type re-exports in comment can be cleaned regardless. Acceptable to leave functional. |
+| BP-L1 | P3 | ~~Migrate DD to BasePipeline~~ — Partial migration completed 2026-03-15. `DuplicateDetectionPipeline extends BasePipeline<DuplicateDetectionWorker>` using `scheduleCron()` + `waitForCompletion()`. Fixed premature `process.exit(0)` in runOnStartup mode that could kill in-flight jobs. `setupDefaultEventListeners()` not adopted (worker handles its own per-job logging). No `initialize()` hook needed — async init handled in `main()` before pipeline construction. |
 
 ---
 
@@ -155,3 +155,25 @@ Code review of codebase via `repomix-git-ranked.xml`. Issues #6 (pipelineId extr
 No active low-priority backlog items.
 
 > CR-L13 through CR-L20 migrated to [v2.3.29](changelog/2.3/CHANGELOG.md#2329---2026-03-14).
+
+---
+
+## Frontend Code Review Findings (2026-03-15)
+
+Code review of `frontend/src/hooks/useWebSocketConnection.ts`. Critical and high-severity issues (1-5) fixed in session; remaining medium/low findings documented below.
+
+### Medium
+
+| ID | Priority | Description |
+|---|----------|-------------|
+| FE-M1 | P2 | **Activity feed deduplication gap** — `mapApiActivity()` generates new `crypto.randomUUID()` on every poll for items with missing `id`, causing duplicates to accumulate. Use stable ID derived from content (type + timestamp + jobId) or require backend to supply id. -- `frontend/src/hooks/useWebSocketConnection.ts:160` |
+| FE-M2 | P2 | **Pipeline timestamps regenerate on every poll** — `mapPipeline()` uses `p.lastRun \|\| new Date().toISOString()` for createdAt/updatedAt, causing unnecessary re-renders and semantic incorrectness. Remove fallback or use static sentinel value. -- `frontend/src/hooks/useWebSocketConnection.ts:148-149` |
+| FE-M3 | P2 | **Unknown pipeline IDs silently misclassified** — `PIPELINE_TYPE_MAP[p.id] ?? PipelineType.DUPLICATE_DETECTION` defaults unknown pipelines to DUPLICATE_DETECTION. Add `UNKNOWN` variant or validate map on startup with warning. -- `frontend/src/hooks/useWebSocketConnection.ts:141` |
+| FE-M4 | P2 | **Lookup object allocations in tight loop** — `getPipelineIcon()` and `getPipelineColor()` recreate Record literals on every call (called during each poll). Hoist PIPELINE_ICONS and PIPELINE_COLORS to module-level constants. -- `frontend/src/hooks/useWebSocketConnection.ts:303-334` |
+| FE-M5 | P3 | **Import ordering violation** — `DASHBOARD_TIMING` import on line 72 appears after const `ACTIVITY_TYPE_MAP` declaration on line 63. Move to top-level import block. -- `frontend/src/hooks/useWebSocketConnection.ts:72` |
+
+### Low
+
+| ID | Priority | Description |
+|---|----------|-------------|
+| FE-L1 | P3 | **Missing return type annotations** — `mapActiveJob()` and `mapQueuedJob()` lack `: Job` return types; TypeScript infers structural type, missing required Job fields won't be caught. Add explicit return type annotations. -- `frontend/src/hooks/useWebSocketConnection.ts:101,118` |

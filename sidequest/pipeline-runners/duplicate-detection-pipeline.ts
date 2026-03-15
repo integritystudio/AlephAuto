@@ -32,8 +32,8 @@ export type {
 /**
  * Duplicate Detection Pipeline — extends BasePipeline for scheduleCron().
  *
- * Uses worker.runNightlyScan() which manages its own job lifecycle,
- * so addJob/waitForCompletion are not used here.
+ * Uses worker.runNightlyScan() which manages its own job scheduling.
+ * waitForCompletion() ensures all enqueued jobs finish before exit.
  */
 class DuplicateDetectionPipeline extends BasePipeline<DuplicateDetectionWorker> {
   /**
@@ -45,10 +45,11 @@ class DuplicateDetectionPipeline extends BasePipeline<DuplicateDetectionWorker> 
   }
 
   /**
-   * Run a single nightly scan immediately.
+   * Run a single nightly scan and wait for all enqueued jobs to complete.
    */
   async runNightlyScan(): Promise<void> {
     await this.worker.runNightlyScan();
+    await this.waitForCompletion(TIMEOUTS.ONE_HOUR_MS);
   }
 }
 

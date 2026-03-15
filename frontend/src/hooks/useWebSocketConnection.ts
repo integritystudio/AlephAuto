@@ -8,11 +8,11 @@
  * - Initial data loading
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { wsService } from '../services/websocket';
 import { useDashboardStore } from '../store/dashboard';
-import { PipelineType, ActivityType, JobStatus, PipelineStatus } from '../types';
-import type { Pipeline, SystemHealth } from '../types';
+import { PipelineType, ActivityType, JobStatus, PipelineStatus, SystemHealth } from '../types';
+import type { Pipeline } from '../types';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('Dashboard');
@@ -56,6 +56,7 @@ interface ApiStatusData {
   queuedJobs?: ApiJob[];
   recentActivity?: ApiActivity[];
   queue?: { active: number; queued: number; capacity: number };
+  health?: string;
   timestamp?: string;
   retryMetrics?: { activeRetries: number };
 }
@@ -87,12 +88,16 @@ const PIPELINE_TYPE_MAP: Record<string, PipelineType> = {
 /**
  * fetchStatus.
  */
-async function fetchStatus(): Promise<ApiStatusData> {
-  const response = await fetch('/api/status');
+async function fetchStatus(signal?: AbortSignal): Promise<ApiStatusData> {
+  const response = await fetch('/api/status', { signal });
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`);
   }
-  return response.json() as Promise<ApiStatusData>;
+  const data: unknown = await response.json();
+  if (typeof data !== 'object' || data === null) {
+    throw new Error('Invalid API response: expected object');
+  }
+  return data as ApiStatusData;
 }
 
 /**
@@ -170,16 +175,26 @@ function mapApiActivity(activity: ApiActivity) {
 /**
  * Build system status object from API status data.
  */
+const HEALTH_VALUES = new Set<string>([SystemHealth.HEALTHY, SystemHealth.DEGRADED, SystemHealth.ERROR]);
+
+function deriveHealth(statusData: ApiStatusData): SystemHealth {
+  if (statusData.health && HEALTH_VALUES.has(statusData.health)) {
+    return statusData.health as SystemHealth;
+  }
+  if ((statusData.retryMetrics?.activeRetries ?? 0) > 0) return SystemHealth.DEGRADED;
+  return SystemHealth.HEALTHY;
+}
+
 function buildSystemStatus(statusData: ApiStatusData): Parameters<ReturnType<typeof useDashboardStore.getState>['setSystemStatus']>[0] {
   return {
     '@type': 'https://schema.org/Report',
-    health: 'healthy' as SystemHealth,
-    activeJobs: statusData.queue?.active || 0,
-    queuedJobs: statusData.queue?.queued || 0,
-    totalCapacity: statusData.queue?.capacity || 5,
+    health: deriveHealth(statusData),
+    activeJobs: statusData.queue?.active ?? 0,
+    queuedJobs: statusData.queue?.queued ?? 0,
+    totalCapacity: statusData.queue?.capacity ?? 5,
     websocketConnected: false,
-    lastUpdate: statusData.timestamp || new Date().toISOString(),
-    retryQueueSize: statusData.retryMetrics?.activeRetries || 0,
+    lastUpdate: statusData.timestamp ?? new Date().toISOString(),
+    retryQueueSize: statusData.retryMetrics?.activeRetries ?? 0,
   };
 }
 
@@ -207,14 +222,16 @@ function applyActivityFeed(store: ReturnType<typeof useDashboardStore.getState>,
 /**
  * loadInitialData.
  */
-async function loadInitialData() {
+async function loadInitialData(signal?: AbortSignal) {
   const store = useDashboardStore.getState();
   store.setLoading(true);
   store.setError(null);
 
   try {
     logger.log('Loading initial data...');
-    const statusData = await fetchStatus();
+    const statusData = await fetchStatus(signal);
+
+    if (signal?.aborted) return;
 
     store.setPipelines((statusData.pipelines || []).map(mapPipeline));
     applyStatusToStore(store, statusData);
@@ -224,6 +241,7 @@ async function loadInitialData() {
     logger.log('Initial data loaded:', (statusData.pipelines || []).length, 'pipelines');
     store.setLoading(false);
   } catch (error) {
+    if (signal?.aborted) return;
     logger.error('Failed to load initial data:', error);
     const errorMessage = error instanceof Error
       ? error.message
@@ -236,25 +254,27 @@ async function loadInitialData() {
 /**
  * pollForUpdates.
  */
-async function pollForUpdates() {
+async function pollForUpdates(signal?: AbortSignal) {
   const systemStatus = useDashboardStore.getState().systemStatus;
   if (systemStatus.websocketConnected) return;
 
   logger.log('Polling for updates (WebSocket disconnected)');
   try {
-    const statusData = await fetchStatus();
+    const statusData = await fetchStatus(signal);
+    if (signal?.aborted) return;
     const store = useDashboardStore.getState();
 
     store.setSystemStatus({
       ...store.systemStatus,
-      activeJobs: statusData.queue?.active || 0,
-      queuedJobs: statusData.queue?.queued || 0,
+      activeJobs: statusData.queue?.active ?? 0,
+      queuedJobs: statusData.queue?.queued ?? 0,
       lastUpdate: new Date().toISOString(),
     });
 
     applyStatusToStore(store, statusData);
     applyActivityFeed(store, statusData.recentActivity, true);
   } catch (error) {
+    if (signal?.aborted) return;
     logger.error('Polling failed:', error);
   }
 }
@@ -274,23 +294,20 @@ async function pollForUpdates() {
  * ```
  */
 export const useWebSocketConnection = () => {
-  const isInitialized = useRef(false);
-
   useEffect(() => {
-    // Guard against double initialization (e.g. strict mode dev double-invoke)
-    // Note: ref is intentionally NOT reset in cleanup so the guard remains effective
-    if (isInitialized.current) return;
-    isInitialized.current = true;
+    const controller = new AbortController();
+    const { signal } = controller;
 
-    loadInitialData();
+    loadInitialData(signal);
 
     logger.log('Connecting WebSocket...');
     wsService.connect();
 
-    const pollInterval = setInterval(pollForUpdates, POLL_INTERVAL_MS);
+    const pollInterval = setInterval(() => pollForUpdates(signal), POLL_INTERVAL_MS);
 
     return () => {
       logger.log('Cleaning up...');
+      controller.abort();
       clearInterval(pollInterval);
       wsService.disconnect();
     };
