@@ -4,71 +4,78 @@ All notable changes to AlephAuto are documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Release Changelogs
+
+- [v2.3.x](./2.3/CHANGELOG.md) - Pipeline constants, dashboard features, type safety, complexity fixes
+- [v2.2.0](./2.2/CHANGELOG.md) - Quality remediation and duplicate-detection DRY follow-up
+- [v2.1.0](./2.1/CHANGELOG.md) - Pipeline runner DRY and code review fixes
+- [v2.0](./2.0/) - Phase implementation docs, backlog, and handoff artifacts
+
 ---
 
 ## [2.3.29] - 2026-03-14
 
-See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2329---2026-03-14)
+See [v2.3 Changelog](./2.3/CHANGELOG.md#2329---2026-03-14)
 
 ---
 
 ## [2.3.28] - 2026-03-13
 
-See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2328---2026-03-13)
+See [v2.3 Changelog](./2.3/CHANGELOG.md#2328---2026-03-13)
 
 ---
 
 ## [2.3.27] - 2026-03-11
 
-See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2327---2026-03-11)
+See [v2.3 Changelog](./2.3/CHANGELOG.md#2327---2026-03-11)
 
 ---
 
 ## [2.3.26] - 2026-03-10
 
-See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2326---2026-03-10)
+See [v2.3 Changelog](./2.3/CHANGELOG.md#2326---2026-03-10)
 
 ---
 
 ## [2.3.25] - 2026-03-09
 
-See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2325---2026-03-09)
+See [v2.3 Changelog](./2.3/CHANGELOG.md#2325---2026-03-09)
 
 ---
 
 ## [2.3.23] - 2026-03-09
 
-See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2323---2026-03-09)
+See [v2.3 Changelog](./2.3/CHANGELOG.md#2323---2026-03-09)
 
 ---
 
 ## [2.3.22] - 2026-03-08
 
-See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2322---2026-03-08)
+See [v2.3 Changelog](./2.3/CHANGELOG.md#2322---2026-03-08)
 
 ---
 
 ## [2.3.21] - 2026-03-08
 
-See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2321---2026-03-08)
+See [v2.3 Changelog](./2.3/CHANGELOG.md#2321---2026-03-08)
 
 ---
 
 ## [2.3.20] - 2026-03-09
 
-See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2320---2026-03-09)
+See [v2.3 Changelog](./2.3/CHANGELOG.md#2320---2026-03-09)
 
 ---
 
 ## [2.3.19] - 2026-03-09
 
-See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2319---2026-03-09)
+See [v2.3 Changelog](./2.3/CHANGELOG.md#2319---2026-03-09)
 
 ---
 
 ## [2.3.18] - 2026-03-09
 
-See [v2.3 Changelog](changelog/2.3/CHANGELOG.md#2318---2026-03-09)
+See [v2.3 Changelog](./2.3/CHANGELOG.md#2318---2026-03-09)
 
 ---
 

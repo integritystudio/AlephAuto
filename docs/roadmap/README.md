@@ -1,6 +1,8 @@
 # Roadmap
 
-Active implementation plans for AlephAuto.
+Active implementation plans and future directions for AlephAuto.
+
+**Updated:** 2026-03-14
 
 ---
 
@@ -29,3 +31,31 @@ Repomix packs the codebase into XML for LLM context loading. A pre-trained zstd 
 - Dictionary stays committed to git (110 KB, changes infrequently)
 - Operates downstream of repomix — no changes to `repomix.config.json`
 - `.condense/cache/` is gitignored; `.condense/dictionaries/` is tracked
+
+---
+
+## Dashboard: Future Enhancements
+
+Items below are uncommitted ideas — no implementation work has started.
+
+### Analytics & Visualization
+
+- [ ] Historical metrics and charts
+- [ ] Pipeline performance analytics
+- [ ] Job retry visualization
+- [ ] Export reports as PDF/CSV
+- [ ] Custom dashboard layouts
+
+### Optimization
+
+- [ ] Further CLS reduction (target <0.1)
+- [ ] Service worker for offline support
+- [ ] Progressive Web App (PWA)
+- [ ] GraphQL API option
+
+### Collaboration
+
+- [ ] Multi-user support
+- [ ] Role-based access control
+- [ ] Shared dashboards
+- [ ] Notification preferences
