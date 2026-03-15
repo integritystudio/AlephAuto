@@ -195,4 +195,4 @@ Code review of `frontend/src/hooks/useWebSocketConnection.ts`. Critical and high
 
 | ID | Priority | Description |
 |---|----------|-------------|
-| FE-L1 | P3 | **Missing return type annotations** — `mapActiveJob()` and `mapQueuedJob()` lack `: Job` return types; TypeScript infers structural type, missing required Job fields won't be caught. Add explicit return type annotations. -- `frontend/src/hooks/useWebSocketConnection.ts:101,118` |
+| ~~FE-L1~~ | ~~P3~~ | ~~**Missing return type annotations** — Already resolved: `mapActiveJob()` and `mapQueuedJob()` have explicit `: Job` return types (fixed during `e8c0fab` type centralization refactor).~~ **Done** |
