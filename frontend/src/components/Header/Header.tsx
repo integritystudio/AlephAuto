@@ -12,6 +12,7 @@
 import React from 'react';
 import type { SystemStatus } from '../../types';
 import { SystemHealthBadge, CountBadge } from '../ui';
+import { CAPACITY } from '../../constants';
 import './Header.css';
 
 interface HeaderProps {
@@ -62,7 +63,7 @@ const formatRelativeTime = (isoDate: string): string => {
  */
 const calculateUtilization = (active: number, total: number): number => {
   if (total === 0) return 0;
-  return Math.round((active / total) * 100);
+  return Math.round((active / total) * CAPACITY.MAX_PERCENT);
 };
 
 /**
@@ -147,12 +148,12 @@ export const Header: React.FC<HeaderProps> = ({
               {systemStatus.activeJobs} / {systemStatus.totalCapacity}
             </span>
             <span
-              className={`capacity-bar ${utilization > 80 ? 'capacity-high' : ''}`}
+              className={`capacity-bar ${utilization > CAPACITY.HIGH_THRESHOLD_PERCENT ? 'capacity-high' : ''}`}
               style={{ width: `${utilization}%` }}
               role="progressbar"
               aria-valuenow={utilization}
               aria-valuemin={0}
-              aria-valuemax={100}
+              aria-valuemax={CAPACITY.MAX_PERCENT}
               aria-label="System capacity"
             />
           </div>

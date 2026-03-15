@@ -15,6 +15,7 @@ import { PipelineCard } from '../PipelineCard';
 import { JobItem } from '../JobItem';
 import { ActivityFeed } from '../ActivityFeed';
 import { LoadingOverlay, ErrorMessage } from '../ui';
+import { CAPACITY } from '../../constants';
 import './Layout.css';
 
 interface LayoutProps {
@@ -149,21 +150,21 @@ export const Layout: React.FC<LayoutProps> = ({
                 <div className="capacity-header">
                   <span className="capacity-label">Capacity</span>
                   <span className="capacity-value">
-                    {systemStatus.activeJobs} / {systemStatus.totalCapacity}
+                    {systemStatus.activeJobs + queuedJobs.length} / {systemStatus.totalCapacity}
                   </span>
                 </div>
                 <div className="capacity-bar-container">
                   <div
                     className={`capacity-bar-fill ${
-                      systemStatus.activeJobs / systemStatus.totalCapacity > 0.8
+                      (systemStatus.activeJobs + queuedJobs.length) / systemStatus.totalCapacity > CAPACITY.HIGH_THRESHOLD
                         ? 'capacity-high'
                         : ''
                     }`}
                     style={{
-                      width: `${(systemStatus.activeJobs / systemStatus.totalCapacity) * 100}%`
+                      width: `${Math.min(((systemStatus.activeJobs + queuedJobs.length) / systemStatus.totalCapacity) * CAPACITY.MAX_PERCENT, CAPACITY.MAX_PERCENT)}%`
                     }}
                     role="progressbar"
-                    aria-valuenow={systemStatus.activeJobs}
+                    aria-valuenow={systemStatus.activeJobs + queuedJobs.length}
                     aria-valuemin={0}
                     aria-valuemax={systemStatus.totalCapacity}
                     aria-label="Job queue capacity"
