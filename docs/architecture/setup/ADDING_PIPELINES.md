@@ -175,6 +175,8 @@ This enables `GET /api/pipelines`, `POST /api/pipelines/my-new-pipeline/trigger`
 "mypipeline:schedule": "doppler run -- node --strip-types sidequest/pipeline-runners/my-new-pipeline.ts --recurring"
 ```
 
+For execution methods, shebangs, Doppler integration, and PM2 config, see [Pipeline Execution Runbook](../pipeline-execution.md).
+
 ## Step 5: Verify
 
 ```bash
@@ -197,6 +199,8 @@ npm run mypipeline:once
 ## What You Get for Free
 
 Registered pipelines automatically get: **Sentry** error tracking, **SQLite** job persistence (`GET /api/pipelines/:id/jobs`), **Dashboard** real-time status via WebSocket (with SQLite fallback after restart), **Pino** structured logging, **retry with circuit breaker** (retryable: ETIMEDOUT/5xx; non-retryable: ENOENT/4xx).
+
+For error classification, retry logic, circuit breaker, and worker registry details, see [Error Handling](../ERROR_HANDLING.md).
 
 ## Reference
 

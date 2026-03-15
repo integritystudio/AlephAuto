@@ -3,6 +3,30 @@
 **Purpose**: Configure Discord to receive Sentry error alerts via webhooks
 **Last Updated**: 2025-11-12
 
+## Quick Start
+
+1. Discord: right-click channel > Edit Channel > Integrations > Webhooks > New Webhook > copy URL
+2. Store in Doppler:
+   ```bash
+   doppler secrets set DISCORD_SENTRY_WEBHOOK="paste-your-webhook-url-here"
+   ```
+3. Test:
+   ```bash
+   doppler run -- node test/test-discord-webhook.js
+   ```
+4. Configure Sentry alerts:
+   ```bash
+   doppler run -- node ../setup/configure-discord-alerts.js
+   ```
+5. Verify end-to-end:
+   ```bash
+   node test/test-sentry-connection.js
+   ```
+
+For the middleware option (custom formatting), see [Step 5: Format Discord Messages](#step-5-format-discord-messages).
+
+---
+
 ## Overview
 
 This guide walks through setting up Discord webhooks to receive real-time Sentry error notifications in a Discord channel.
@@ -506,6 +530,13 @@ pm2 startup
 ```
 
 ## Troubleshooting
+
+| Issue | Fix |
+|-------|-----|
+| Webhook URL not found | `doppler secrets set DISCORD_SENTRY_WEBHOOK="your-url"` |
+| Discord API 404 | Webhook deleted; create a new one in Discord |
+| Messages not appearing | Verify webhook is active in Channel Settings > Integrations; test with curl below |
+| Sentry not sending | Check alert rules have webhook action; trigger test: `node test/test-sentry-connection.js` |
 
 ### Messages Not Appearing in Discord
 
