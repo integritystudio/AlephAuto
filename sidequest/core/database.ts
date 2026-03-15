@@ -22,8 +22,9 @@ import { DATABASE, LIMITS, PAGINATION, VALIDATION } from './constants.ts';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logger = createComponentLogger('Database');
 
-// Database path - in project root/data directory
-const DB_PATH = path.join(__dirname, '../../data/jobs.db');
+// Database path - prefer DATABASE_PATH env var (for Render persistent disk),
+// fall back to project root/data directory
+const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '../../data/jobs.db');
 
 let db: DatabaseType | null = null;
 let activePath = DB_PATH;

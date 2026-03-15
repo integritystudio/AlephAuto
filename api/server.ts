@@ -502,6 +502,31 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
     // Start Doppler health monitoring (check every 15 minutes)
     await dopplerMonitor.startMonitoring(TIMEOUTS.DOPPLER_MONITOR_INTERVAL_MIN);
 
+    // Start pipeline cron scheduler if enabled (Render single-service mode)
+    if (process.env.ENABLE_CRON_SCHEDULER === 'true') {
+      const cronSchedule = process.env.DUPLICATE_SCAN_CRON_SCHEDULE || '0 2 * * *';
+      try {
+        const { default: cronLib } = await import('node-cron');
+        const dupWorker = await workerRegistry.getWorker('duplicate-detection');
+        if (dupWorker) {
+          cronLib.schedule(cronSchedule, async () => {
+            logger.info('Cron: triggering nightly duplicate scan');
+            try {
+              await (dupWorker as import('../sidequest/workers/duplicate-detection-worker.ts').DuplicateDetectionWorker).runNightlyScan();
+            } catch (err) {
+              logError(logger, err, 'Cron: nightly scan failed');
+              Sentry.captureException(err);
+            }
+          });
+          logger.info({ cronSchedule }, 'Cron scheduler enabled for duplicate detection');
+        } else {
+          logger.warn('Cron scheduler enabled but duplicate-detection worker not available');
+        }
+      } catch (err) {
+        logError(logger, err, 'Failed to start cron scheduler');
+      }
+    }
+
     // Setup graceful shutdown handlers
     setupGracefulShutdown(httpServer, {
       timeout: PORT.DEFAULT_SHUTDOWN_TIMEOUT_MS,

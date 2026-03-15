@@ -3,10 +3,15 @@
 #
 # DEPLOYMENT REQUIREMENTS:
 # - Node.js 25.x (pinned via NODE_VERSION env var)
-# - Python 3.11+ with pydantic (for duplicate detection pipeline stages 3-7)
 # - Doppler CLI (for secrets management)
 # - pnpm (for Node.js dependencies)
 # - Redis/Valkey (for scan result caching)
+# - Persistent disk (for SQLite database)
+#
+# ARCHITECTURE:
+# Single web service runs both the API server and pipeline cron scheduler.
+# Render does not support shared disks between services, so both must run
+# in the same process to share the SQLite database on persistent disk.
 
 services:
   # Redis/Valkey Key-Value Store for caching scan results
@@ -18,54 +23,52 @@ services:
     ipAllowList: []  # Allow connections from all Render services
     maxmemoryPolicy: allkeys-lru  # Evict least recently used keys when memory full
 
-  # Main API Service
+  # API + Dashboard + Pipeline Cron (single service for shared SQLite disk)
   - type: web
     name: alephauto
     runtime: node
     region: oregon
-    plan: free
-    # Build command: Install all dependencies including Python for pipeline stages 3-7
-    # The duplicate detection pipeline uses Python (pydantic) for code analysis
+    plan: starter
     buildCommand: |
-      # Install build tools, Doppler CLI, and Python FIRST (needed for native modules)
+      # Install Doppler CLI and build tools
       curl -sLf --retry 3 --tlsv1.2 --proto "=https" 'https://packages.doppler.com/public/cli/gpg.DE2A7741.key' | gpg --dearmor -o /usr/share/keyrings/doppler-archive-keyring.gpg
       echo "deb [signed-by=/usr/share/keyrings/doppler-archive-keyring.gpg] https://packages.doppler.com/public/cli/deb/debian any-version main" | tee /etc/apt/sources.list.d/doppler-cli.list
-      apt-get update && apt-get install -y doppler python3 python3-pip python3-venv build-essential
+      apt-get update && apt-get install -y doppler build-essential
 
       # Install Node.js dependencies and build frontend
       pnpm install
       npm run build:frontend
 
       # Force rebuild better-sqlite3 native module for Linux
-      # pnpm's symlink structure can cause issues, so use npm to rebuild
       npm rebuild better-sqlite3 --build-from-source
 
-      # Create Python virtual environment and install dependencies
-      python3 -m venv venv
-      . venv/bin/activate
-      pip install --upgrade pip
-      pip install -r requirements.txt
-
-      echo "✅ Build complete: Node.js, Python, and Doppler configured"
-    # Start command: Activate venv for Python access, then start server with Doppler
-    startCommand: . venv/bin/activate && doppler run -c prd -- node --strip-types api/server.ts
+      echo "Build complete"
+    # ENABLE_CRON_SCHEDULER causes the API server to also start pipeline cron jobs
+    startCommand: doppler run -c prd -- node --strip-types api/server.ts
     healthCheckPath: /health
+    # Persistent disk for SQLite database (survives deploys and restarts)
+    # https://docs.render.com/disks
+    disk:
+      name: alephauto-data
+      mountPath: /data
+      sizeGB: 1
     envVars:
       - key: NODE_VERSION
         value: "25.6.0"
       - key: NODE_ENV
         value: production
-      # NOTE: Do NOT set PORT - Render automatically sets it and routes traffic to that port
-      # The app must read process.env.PORT to bind correctly
+      # SQLite path on persistent disk (default: project-relative data/jobs.db)
+      - key: DATABASE_PATH
+        value: /data/jobs.db
+      # Enable in-process cron scheduler for pipeline jobs
+      - key: ENABLE_CRON_SCHEDULER
+        value: "true"
       # Doppler service token for production config
       - key: DOPPLER_TOKEN
         sync: false
-      # CORS configuration for GitHub Pages frontend
+      # CORS configuration
       - key: CORS_ORIGIN
         value: https://n0ai.app
-      # Python path for spawn() calls in pipeline
-      - key: PYTHON_PATH
-        value: ./venv/bin/python3
       # Redis connection for scan result caching
       - key: REDIS_URL
         fromService:
