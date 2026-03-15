@@ -58,11 +58,11 @@ This implementation addresses these TODOs:
 
 | ID | Location | Description |
 |----|----------|-------------|
-| H1 | `grouping.py:387` | Layer 3 - Semantic similarity implementation |
-| H2 | `extract_blocks.py:286` | Detect language from file extension |
-| H3 | `extract_blocks.py:684` | Implement full semantic annotator (Stage 4) |
-| H4 | `extract_blocks.py:699` | Implement semantic grouping for duplicate detection |
-| H5 | `extract_blocks.py:702` | Calculate duplication percentage properly |
+| H1 | `grouping.ts` | Layer 3 - Semantic similarity implementation |
+| H2 | `extract-blocks.ts` | Detect language from file extension |
+| H3 | `extract-blocks.ts` | Implement full semantic annotator (Stage 4) |
+| H4 | `extract-blocks.ts` | Implement semantic grouping for duplicate detection |
+| H5 | `extract-blocks.ts` | Calculate duplication percentage properly |
 
 ---
 
@@ -72,12 +72,12 @@ This implementation addresses these TODOs:
 
 ```mermaid
 flowchart TB
-    subgraph JS["JavaScript (Stages 1-2)"]
+    subgraph JS["TypeScript (Stages 1-2)"]
         S1[Stage 1: Repository Scanner]
         S2[Stage 2: AST-Grep Detector]
     end
 
-    subgraph PY["Python (Stages 3-7)"]
+    subgraph PY["TypeScript (Stages 3-7)"]
         S3[Stage 3: Code Block Extraction]
         S3_5[Stage 3.5: Block Deduplication]
         S4[Stage 4: Semantic Annotation<br/>⚠️ TODO: Full Implementation]
@@ -95,7 +95,7 @@ flowchart TB
 
 ### Current Grouping Flow
 
-**File:** `sidequest/pipeline-core/similarity/grouping.py`
+**File:** `sidequest/pipeline-core/similarity/grouping.ts`
 
 ```python
 def group_by_similarity(blocks, similarity_threshold=0.90):
@@ -182,7 +182,7 @@ flowchart TD
 
 ### Phase 1: Language Detection (H2)
 
-**File:** `sidequest/pipeline-core/extractors/extract_blocks.py:286`
+**File:** `sidequest/pipeline-core/extractors/extract-blocks.ts`
 
 ```python
 # Current (hardcoded)
@@ -208,7 +208,7 @@ def detect_language(file_path: str) -> str:
 
 ### Phase 2: Semantic Annotator (H3)
 
-**New File:** `sidequest/pipeline-core/annotators/semantic_annotator.py`
+**File:** `sidequest/pipeline-core/annotators/semantic-annotator.ts`
 
 ```python
 from dataclasses import dataclass
@@ -367,7 +367,7 @@ class SemanticAnnotator:
 
 ### Phase 3: Layer 3 Grouping (H1, H4)
 
-**File:** `sidequest/pipeline-core/similarity/grouping.py:387`
+**File:** `sidequest/pipeline-core/similarity/grouping.ts`
 
 ```python
 def _group_by_semantic_similarity(
@@ -482,7 +482,7 @@ def _intents_compatible(intent1: str, intent2: str) -> bool:
 
 ### Phase 4: Metrics Update (H5)
 
-**File:** `sidequest/pipeline-core/extractors/extract_blocks.py:699-702`
+**File:** `sidequest/pipeline-core/extractors/extract-blocks.ts`
 
 ```python
 def calculate_metrics(
@@ -786,13 +786,13 @@ Add to `tests/accuracy/ground-truth.json`:
 4. Add unit tests
 
 ### Step 2: Semantic Annotator (H3)
-1. Create `annotators/semantic_annotator.py`
+1. Create `annotators/semantic-annotator.ts`
 2. Implement `SemanticAnnotator` class
 3. Add pattern libraries for operations/domains
 4. Add unit tests
 
 ### Step 3: Layer 3 Grouping (H1, H4)
-1. Add `_group_by_semantic_similarity()` to grouping.py
+1. Add `groupBySemanticSimilarity()` to grouping.ts
 2. Add `_calculate_semantic_similarity()` helper
 3. Update `group_by_similarity()` to call Layer 3
 4. Add integration tests
@@ -816,8 +816,8 @@ Add to `tests/accuracy/ground-truth.json`:
 - [Multi-Layer Similarity Algorithm](./similarity-algorithm.md)
 - [Pipeline Data Flow](./pipeline-data-flow.md)
 - [Backlog](../BACKLOG.md)
-- [Grouping Implementation](../../sidequest/pipeline-core/similarity/grouping.py)
-- [Block Extraction](../../sidequest/pipeline-core/extractors/extract_blocks.py)
+- [Grouping Implementation](../../sidequest/pipeline-core/similarity/grouping.ts)
+- [Block Extraction](../../sidequest/pipeline-core/extractors/extract-blocks.ts)
 
 ---
 

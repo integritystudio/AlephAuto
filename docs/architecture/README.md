@@ -34,7 +34,7 @@ This directory contains comprehensive architectural documentation for the AlephA
 - WebSocket real-time communication
 - Database schema and operations
 - Error handling and retry logic
-- Inter-process communication (JS ↔ Python)
+- Pipeline stage orchestration
 - Configuration loading hierarchy
 - Deployment architecture (PM2, Nginx)
 

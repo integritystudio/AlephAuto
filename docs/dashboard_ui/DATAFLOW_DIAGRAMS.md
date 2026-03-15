@@ -385,7 +385,7 @@ Parallel execution: repos processed up to `maxConcurrentScans` at once, next rep
 | Architecture | Hybrid microservices + monolithic job processing |
 | Pipelines | 11 logical pipelines, 10 worker types |
 | Detection | 7-stage pipeline, 18 AST-grep rules, 2-phase similarity |
-| IPC | JS <-> Python via JSON stdin/stdout |
+| IPC | Pure TypeScript (Python stages migrated) |
 | Caching | Git-aware, 30-day TTL |
 | Monitoring | Sentry v8, WebSocket real-time updates |
 | Scheduling | node-cron with configurable frequency/priority |

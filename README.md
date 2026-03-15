@@ -4,7 +4,7 @@ Job queue framework with real-time dashboard for automation pipelines.
 
 ```mermaid
 graph TD
-    root["AlephAuto<br/><i>v2.3.x &bull; Node + Python</i>"]
+    root["AlephAuto<br/><i>v2.3.x &bull; Node.js + TypeScript</i>"]
 
     root --> api["api/<br/><i>REST API + WebSocket</i>"]
     root --> frontend["frontend/<br/><i>React Dashboard (Vite + TS)</i>"]
@@ -24,7 +24,7 @@ graph TD
     frontend --> fe_src["src/<br/>components, services, store"]
 
     sidequest --> sq_core["core/<br/>server, job-repo, config, constants"]
-    sidequest --> sq_pipe["pipeline-core/<br/>scan-orchestrator, similarity (Python)"]
+    sidequest --> sq_pipe["pipeline-core/<br/>scan-orchestrator, similarity"]
     sidequest --> sq_runners["pipeline-runners/<br/>11 pipeline entry points"]
     sidequest --> sq_workers["workers/<br/>10 worker implementations"]
 
@@ -51,7 +51,7 @@ graph TD
 
 | # | Pipeline | Language | Schedule | Output |
 |---|----------|----------|----------|--------|
-| 1 | **Duplicate Detection** | JS (1-2) + Python (3-6) + JS (7) | 2 AM daily | HTML/MD/JSON reports + PRs |
+| 1 | **Duplicate Detection** | TypeScript (all stages) | 2 AM daily | HTML/MD/JSON reports + PRs |
 | 2 | **Schema Enhancement** | JS | 3 AM daily | Modified READMEs + JSON |
 | 3 | **Git Activity Reporter** | JS | Sunday 8 PM | Jekyll MD + SVG |
 | 4 | **Repository Cleanup** | JS | Sunday 3 AM | Cleanup logs |
@@ -76,8 +76,8 @@ npm start                                 # Server (reads .env)
 npm run dashboard                         # Dashboard UI → http://localhost:8080
 npm run test:all:core                     # Core Node suites (env-gated)
 npm run test:all:env                      # Env-sensitive suites (safe + host-required)
-npm run test:all                          # Core Node + Python tests
-npm run test:all:full                     # Core + env-sensitive + Python
+npm run test:all                          # Core Node tests
+npm run test:all:full                     # Core + env-sensitive
 npm run typecheck                         # Type check
 npm run lint                              # ESLint check (eslint.config.js)
 npm run lint:fix                          # ESLint auto-fix
@@ -94,11 +94,10 @@ SidequestServer (Base)
 ├── BranchManager (branch/commit/PR)
 └── JobRepository (SQLite persistence)
 
-Multi-Language Pipeline (Duplicate Detection)
-  JS Stages 1-2: repo scanning, pattern detection
-       │ JSON stdin/stdout
-  Python Stages 3-6: extraction, annotation, similarity, grouping
-  JS Stage 7: report generation (HTML/JSON/Markdown via ReportCoordinator)
+Duplicate Detection Pipeline (pure TypeScript)
+  Stages 1-2: repo scanning, pattern detection
+  Stages 3-6: extraction, annotation, similarity, grouping
+  Stage 7: report generation (HTML/JSON/Markdown via ReportCoordinator)
 ```
 
 ## Directory Structure
@@ -113,7 +112,7 @@ Multi-Language Pipeline (Duplicate Detection)
 │   └── src/               # Components, services, store, types
 ├── sidequest/             # AlephAuto job queue framework
 │   ├── core/              # server.ts, job-repository, config, constants
-│   ├── pipeline-core/     # Scan orchestrator, similarity (Python)
+│   ├── pipeline-core/     # Scan orchestrator, similarity
 │   ├── pipeline-runners/  # 11 pipeline entry points
 │   └── workers/           # Worker implementations
 ├── packages/              # pnpm workspace packages
@@ -154,8 +153,8 @@ npm run test:all:core                      # Core Node suites (SKIP_ENV_SENSITIV
 npm run test:all:env-safe                  # Env-sensitive suites that are sandbox-safe
 npm run test:all:env-host-required         # Env-sensitive suites requiring host capabilities
 npm run test:all:env                       # Env aggregate (safe + host-required)
-npm run test:all                           # Core Node + Python
-npm run test:all:full                      # Core + env-sensitive + Python
+npm run test:all                           # Core Node tests
+npm run test:all:full                      # Core + env-sensitive
 npm run typecheck                          # TypeScript checks
 npm run lint                              # ESLint check (eslint.config.js)
 npm run lint:fix                          # ESLint auto-fix

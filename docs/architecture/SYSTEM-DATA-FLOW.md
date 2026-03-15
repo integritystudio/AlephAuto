@@ -768,37 +768,26 @@ graph LR
 
 ### TypeScript ↔ Python Bridge
 
-The duplicate detection pipeline bridges TypeScript and Python via JSON over stdin/stdout:
+The duplicate detection pipeline runs entirely in TypeScript (previously bridged JS and Python via stdin/stdout):
 
 ```mermaid
 sequenceDiagram
-    participant JS as TypeScript
-    participant Spawn as Node spawn
-    participant PY as Python
+    participant Orch as Scan Orchestrator
 
-    Note over JS: Stages 1-2 Complete
+    Note over Orch: Stages 1-2: Scan & Detect
 
-    JS->>JS: Prepare PythonPipelineInput
-    JS->>Spawn: spawn('python3', ['extract_blocks.py'])
+    Orch->>Orch: Stage 1: Repository Scanner
+    Orch->>Orch: Stage 2: AST-Grep Detector
 
-    Spawn->>PY: Start process
+    Note over Orch: Stages 3-7: Extract & Group
 
-    JS->>Spawn: stdin.write(JSON.stringify(input))
-    Spawn->>PY: JSON via stdin
+    Orch->>Orch: Stage 3: Extract blocks (extract-blocks.ts)
+    Orch->>Orch: Stage 4: Annotate (semantic-annotator.ts)
+    Orch->>Orch: Stage 5: Group duplicates (grouping.ts)
+    Orch->>Orch: Stage 6: Generate suggestions
+    Orch->>Orch: Stage 7: Build report
 
-    PY->>PY: Stage 3: Extract blocks
-    PY->>PY: Stage 4: Annotate
-    PY->>PY: Stage 5: Group duplicates
-    PY->>PY: Stage 6: Generate suggestions
-    PY->>PY: Stage 7: Build report
-
-    PY->>Spawn: json.dump(result, stdout)
-    Spawn->>JS: stdout data event
-
-    JS->>JS: JSON.parse(stdout)
-    JS->>JS: Process result
-
-    Note over JS: Pipeline Complete
+    Note over Orch: Pipeline Complete
 ```
 
 ### Data Format Specifications

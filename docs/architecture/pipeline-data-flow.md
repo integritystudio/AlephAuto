@@ -95,7 +95,7 @@ graph LR
 
 | # | Pipeline | Job Type | Runner File | Worker File | Base Class | Git Workflow | Languages |
 |---|----------|----------|-------------|-------------|------------|--------------|-----------|
-| 1 | Duplicate Detection | `duplicate-detection` | `duplicate-detection-pipeline.ts` | `workers/duplicate-detection-worker.ts` (API/registry) · inline class in pipeline file (CLI runner) | functional | ✅ Yes | TS + Python |
+| 1 | Duplicate Detection | `duplicate-detection` | `duplicate-detection-pipeline.ts` | `workers/duplicate-detection-worker.ts` (API/registry) · inline class in pipeline file (CLI runner) | functional | ✅ Yes | TypeScript |
 | 2 | Schema Enhancement | `schema-enhancement` | `schema-enhancement-pipeline.ts` | `schema-enhancement-worker.ts` | BasePipeline | ✅ Yes | TypeScript |
 | 3 | Git Activity | `git-activity` | `git-activity-pipeline.ts` | `git-activity-worker.ts` + `git-activity-collector.ts` | BasePipeline | ❌ No | TypeScript |
 | 4 | Gitignore Manager | `gitignore-manager` | `gitignore-pipeline.ts` | `gitignore-worker.ts` | BasePipeline | ⚠️ Batch N/A | TypeScript |
@@ -155,10 +155,10 @@ graph TB
 - Process: Execute `sg scan --json` with 18 AST-grep rules
 - Output: Pattern matches (array-map-filter, express routes, etc.)
 
-**Stage 3: Code Block Extraction** (`sidequest/pipeline-core/extractors/extract_blocks.py`)
+**Stage 3: Code Block Extraction** (`sidequest/pipeline-core/extractors/extract-blocks.ts`)
 - Duration: ~100-500ms
-- Input: JSON via stdin (repository info + pattern matches)
-- Process: Convert matches to CodeBlock Pydantic models
+- Input: Repository info + pattern matches
+- Process: Convert matches to CodeBlock objects (Zod-validated)
 - Output: List of CodeBlock objects with tags
 
 **Stage 3.5: Block Deduplication**
@@ -171,12 +171,12 @@ graph TB
 - Process: Category mapping (utility, api_handler, database_operation)
 - Output: Blocks with semantic categories
 
-**Stage 5: Duplicate Grouping** (`sidequest/pipeline-core/similarity/grouping.py`)
+**Stage 5: Duplicate Grouping** (`sidequest/pipeline-core/similarity/grouping.ts`)
 - Duration: ~200ms - 2s
 - Process: Multi-layer algorithm (exact hash → structural similarity)
 - Output: DuplicateGroup objects with similarity scores
 
-**Stage 6: Suggestion Generation** (`sidequest/pipeline-core/extractors/extract_blocks.py`)
+**Stage 6: Suggestion Generation** (`sidequest/pipeline-core/extractors/extract-blocks.ts`)
 - Duration: ~50-200ms
 - Process: Strategy determination (local_util, shared_package, mcp_server)
 - Output: ConsolidationSuggestion objects with migration steps
@@ -188,7 +188,7 @@ graph TB
 
 #### Data Format Examples
 
-**CodeBlock (Python → JSON)**
+**CodeBlock (TypeScript → JSON)**
 ```json
 {
   "block_id": "cb_a1b2c3d4",
@@ -1731,7 +1731,7 @@ async _generatePRContext(job) {
 
 ## Common Patterns
 
-### 1. Language Boundaries (JavaScript ↔ Python)
+### 1. Language Boundaries (Historical — Python stages migrated to TypeScript)
 
 **Pattern:** JSON over stdin/stdout
 

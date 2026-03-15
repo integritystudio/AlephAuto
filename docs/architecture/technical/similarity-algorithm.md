@@ -810,7 +810,7 @@ adjusted_similarity = (base_similarity * 0.7) + (chain_similarity * 0.3)
 
 ### Test Results
 
-**Current regression test (`sidequest/pipeline-core/similarity/test_grouping_layer3.py`):**
+**Current regression test (`tests/unit/grouping.test.ts`):**
 ```
 Precision: 100.00% (0 false positives)
 Recall: 87.50% (7/8 true duplicates detected)
@@ -910,8 +910,8 @@ for i in range(match_line - 1, match_line - 11, -1):
 ## Related Documentation
 
 - [Pipeline Data Flow Documentation](./pipeline-data-flow.md)
-- [Grouping Algorithm Documentation](../../sidequest/pipeline-core/similarity/grouping.py) (see inline comments)
-- [Layer 3 Grouping Test](../../sidequest/pipeline-core/similarity/test_grouping_layer3.py)
+- [Grouping Algorithm Documentation](../../sidequest/pipeline-core/similarity/grouping.ts) (see inline comments)
+- [Layer 3 Grouping Test](../../tests/unit/grouping.test.ts)
 
 ---
 

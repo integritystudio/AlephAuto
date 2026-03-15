@@ -76,6 +76,6 @@ Covers: step parsing, AST transforms, stash/rollback, dry run, error isolation.
 ## References
 
 - `sidequest/pipeline-core/git/branch-manager.ts` -- centralized git workflow
-- `sidequest/pipeline-core/models/consolidation_suggestion.py` -- suggestion model
+- `sidequest/pipeline-core/models/types.ts` -- data models (CodeBlock, DuplicateGroup, ConsolidationSuggestion)
 - [Pipeline Data Flow](./pipeline-data-flow.md) -- duplicate detection pipeline
 - [Error Handling](./ERROR_HANDLING.md)
