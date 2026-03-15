@@ -13,14 +13,14 @@
 
 This directory contains all project documentation organized by category.
 
-**Docs Version:** 2.3.20
+**Docs Version:** 2.3.29
 
 ## Directory Structure
 
 ```
 docs/
 ├── ADDING_PIPELINES.md      # How to add a new pipeline/job type
-├── API_REFERENCE.md         # REST API endpoints (22 endpoints)
+├── API_REFERENCE.md         # REST API endpoints (23 endpoints)
 ├── MCP_SERVERS.md           # MCP server configuration (Sentry, Redis, etc.)
 ├── ROADMAP.md               # Future enhancements (Phases 5-7)
 ├── changelog/               # Versioned release-cycle changelogs
@@ -75,7 +75,7 @@ docs/
 - [Discord Quickstart](./setup/DISCORD_QUICKSTART.md) - Alert notifications
 
 ### API & Integration
-- [API Reference](./API_REFERENCE.md) - REST API endpoints (22 endpoints)
+- [API Reference](./API_REFERENCE.md) - REST API endpoints (23 endpoints)
 - [MCP Servers](./MCP_SERVERS.md) - Sentry, Redis, TaskQueue, Filesystem MCP
 
 ### Architecture

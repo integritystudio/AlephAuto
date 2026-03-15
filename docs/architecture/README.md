@@ -14,7 +14,7 @@
 
 **Directory:** `/docs/architecture/`
 **Last Updated:** 2026-03-15
-**Version:** 2.3.20
+**Version:** 2.3.29
 
 ## Overview
 

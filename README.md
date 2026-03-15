@@ -52,15 +52,15 @@ graph TD
 | # | Pipeline | Language | Schedule | Output |
 |---|----------|----------|----------|--------|
 | 1 | **Duplicate Detection** | TypeScript (all stages) | 2 AM daily | HTML/MD/JSON reports + PRs |
-| 2 | **Schema Enhancement** | JS | 3 AM daily | Modified READMEs + JSON |
-| 3 | **Git Activity Reporter** | JS | Sunday 8 PM | Jekyll MD + SVG |
-| 4 | **Repository Cleanup** | JS | Sunday 3 AM | Cleanup logs |
-| 5 | **Repomix** | JS | 2 AM daily | `docs/repomix/{repo-compressed.xml,repomix.xml}` |
-| 6 | **Claude Health** | JS | 8 AM daily | MD/JSON reports |
-| 7 | **Dashboard Populate** | JS | 6 AM/6 PM | Cloudflare KV + reports |
-| 8 | **Bugfix Audit** | JS | Recurring | Audit reports |
-| 9 | **Gitignore Update** | JS | Scheduled | Updated .gitignore files |
-| 10 | **Plugin Management** | JS | Monday 9 AM | Audit reports |
+| 2 | **Schema Enhancement** | TS | 3 AM daily | Modified READMEs + JSON |
+| 3 | **Git Activity Reporter** | TS | Sunday 8 PM | Jekyll MD + SVG |
+| 4 | **Repository Cleanup** | TS | Sunday 3 AM | Cleanup logs |
+| 5 | **Repomix** | TS | 2 AM daily | `docs/repomix/{repo-compressed.xml,repomix.xml}` |
+| 6 | **Claude Health** | TS | 8 AM daily | MD/JSON reports |
+| 7 | **Dashboard Populate** | TS | 6 AM/6 PM | Cloudflare KV + reports |
+| 8 | **Bugfix Audit** | TS | Recurring | Audit reports |
+| 9 | **Gitignore Update** | TS | Scheduled | Updated .gitignore files |
+| 10 | **Plugin Management** | TS | Monday 9 AM | Audit reports |
 | 11 | **Test Refactor** | TS | Manual | Refactored test files |
 
 ## Quick Start
@@ -89,7 +89,7 @@ npm run lint:fix                          # ESLint auto-fix
 SidequestServer (Base)
 ├── Event-driven lifecycle: created → queued → running → completed/failed
 ├── Concurrency control (default: 5)
-├── Auto-retry with circuit breaker
+├── Auto-retry with error classification
 ├── Sentry integration
 ├── BranchManager (branch/commit/PR)
 └── JobRepository (SQLite persistence)

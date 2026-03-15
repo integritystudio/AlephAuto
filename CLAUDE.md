@@ -191,7 +191,7 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 ├── frontend/              # React dashboard (Vite + TypeScript)
 ├── sidequest/             # Job queue framework
 │   ├── core/              # server.ts, database, job-repository, config, constants, units
-│   ├── pipeline-core/     # Scan orchestrator, similarity (Python)
+│   ├── pipeline-core/     # Scan orchestrator, similarity, extractors, reports
 │   ├── pipeline-runners/  # 11 pipeline entry points + base-pipeline.ts
 │   └── workers/           # 10 worker implementations (Plugin Management worker lives in utils/)
 ├── packages/              # pnpm workspace packages

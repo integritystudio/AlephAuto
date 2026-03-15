@@ -27,13 +27,13 @@ sidequest/
 │   ├── cache/          # Git-aware caching (Redis integration)
 │   ├── config/         # Repository configuration loader
 │   ├── errors/         # Error classification & retry logic
-│   ├── annotators/     # Python semantic annotation
-│   ├── extractors/     # Python code block extraction
+│   ├── annotators/     # Semantic annotation (TypeScript)
+│   ├── extractors/     # Code block extraction (TypeScript)
 │   ├── git/            # Branch management, PR creation, AST migration
-│   ├── models/         # Python Pydantic models (CodeBlock, DuplicateGroup)
+│   ├── models/         # TypeScript data models (CodeBlock, DuplicateGroup)
 │   ├── reports/        # HTML/JSON/Markdown report generators
 │   ├── scanners/       # AST pattern detection, repository scanning
-│   ├── similarity/     # Multi-layer similarity algorithm (Python)
+│   ├── similarity/     # Multi-layer similarity algorithm (TypeScript)
 │   ├── types/          # TypeScript type definitions (Zod schemas)
 │   ├── utils/          # Error, FS, process, and timing helpers
 │   ├── inter-project-scanner.ts  # Cross-repository scanning
@@ -93,7 +93,7 @@ The base class for all workers with:
 - **SQLite persistence**: Job history stored in `data/jobs.db`
 - **Sentry integration**: Error tracking and performance monitoring
 - **Git workflow**: Optional branch creation, commits, and PR automation
-- **Auto-retry with circuit breaker**: Classifies errors as retryable/non-retryable
+- **Auto-retry with error classification**: Classifies errors as retryable/non-retryable
 
 ```typescript
 import { SidequestServer } from './core/server.ts';
@@ -122,19 +122,19 @@ Intelligent error handling with retry logic:
 
 ### 1. Duplicate Detection Pipeline
 
-7-stage pipeline combining JavaScript (stages 1-2) and Python (stages 3-7):
+7-stage pure TypeScript pipeline:
 
 ```bash
-doppler run -- RUN_ON_STARTUP=true npx tsx pipeline-runners/duplicate-detection-pipeline.ts
+doppler run -- RUN_ON_STARTUP=true node --strip-types pipeline-runners/duplicate-detection-pipeline.ts
 ```
 
 **Stages:**
-1. Repository scanning (JS)
-2. AST pattern detection with ast-grep (JS)
-3. Code block extraction (Python)
-4. Semantic annotation (Python)
-5. Multi-layer similarity calculation (Python)
-6. Duplicate grouping (Python)
+1. Repository scanning (TS)
+2. AST pattern detection with ast-grep (TS)
+3. Code block extraction (TS)
+4. Semantic annotation (TS)
+5. Multi-layer similarity calculation (TS)
+6. Duplicate grouping (TS)
 7. Report generation (HTML/JSON/Markdown)
 
 **Similarity Algorithm Layers:**
@@ -206,30 +206,23 @@ Inject Schema.org structured data into HTML documents.
 
 Sync and validate .gitignore files across repositories.
 
-## Python Components (Duplicate Detection only)
+## Pipeline Core Components (Duplicate Detection)
 
-Located in `pipeline-core/` with dependencies on:
-- **Pydantic**: Data models (CodeBlock, DuplicateGroup, ScanReport)
-- **Standard library**: hashlib, re, json, sys
+Located in `pipeline-core/` — all TypeScript:
 
 ### Models (pipeline-core/models/)
 
-```python
-from code_block import CodeBlock, SourceLocation
-from duplicate_group import DuplicateGroup
-from consolidation_suggestion import ConsolidationSuggestion
-from scan_report import ScanReport, ScanMetrics
-```
+TypeScript types with Zod validation in `types.ts` and `validation.ts`.
 
 ### Similarity Module (pipeline-core/similarity/)
 
-```python
-from similarity.structural import calculate_structural_similarity, normalize_code
-from similarity.grouping import group_by_similarity
-from similarity.semantic import are_semantically_compatible, validate_duplicate_group
+```typescript
+import { calculateStructuralSimilarity, normalizeCode } from './similarity/structural.ts';
+import { groupBySimilarity } from './similarity/grouping.ts';
+import { areSemanticallySimilar } from './similarity/semantic.ts';
 ```
 
-**Configuration** (via environment variables):
+**Configuration** (via `pipeline-core/similarity/config.ts`):
 - `STRUCTURAL_THRESHOLD`: Minimum similarity (default: 0.90)
 - `MIN_GROUP_QUALITY`: Group quality threshold (default: 0.70)
 - `MIN_LINE_COUNT`: Minimum lines (default: 1)
@@ -251,7 +244,7 @@ doppler run -- npx tsx pipeline-runners/duplicate-detection-pipeline.ts
 - `SENTRY_DSN`: Sentry error tracking
 - `ENABLE_GIT_WORKFLOW`: Enable branch/PR creation
 - `ENABLE_PR_CREATION`: Auto-create PRs for changes
-- `PIPELINE_DEBUG`: Enable verbose debug output (Duplicate Detection Python stages)
+- `PIPELINE_DEBUG`: Enable verbose debug output (Duplicate Detection pipeline)
 
 ### Repository Configuration (config/scan-repositories.json)
 
