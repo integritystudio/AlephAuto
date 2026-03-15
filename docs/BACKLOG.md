@@ -91,16 +91,16 @@ Migrate the last pipeline (Repomix) to `BasePipeline`. Duplicate Detection compl
 
 <a id="ast-grep-findings"></a>
 
-Address the 2 high-severity large-class code smells and 14 standards warnings identified by ast-grep.
+Address the 14 standards warnings identified by ast-grep.
 
 > **Source analysis** — keep in sync with this section when items are completed or scope changes:
-> - [ast-grep-analysis-2026-03-09.md](ast-grep-analysis-2026-03-09.md)
+> - [ast-grep-analysis-2026-03-09.md](roadmap/ast-grep-analysis-2026-03-09.md)
 
 ### Medium
 
-| ID | Priority | Description |
-|---|----------|-------------|
-| AG-M1 | P2 | **2 large-class code smells** — High-severity findings from ast-grep `detect_code_smells`. Reduce class size or extract collaborators. See `ast-grep-analysis-2026-03-09.md` §Code Smells for file locations. |
+No active medium-priority backlog items.
+
+> AG-M1 migrated to [v2.3.30](changelog/2.3/CHANGELOG.md#2330---2026-03-15).
 
 ### Low
 

@@ -6,6 +6,28 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.30] - 2026-03-15
+
+### Summary
+
+BasePipeline migration: Partial migration of Duplicate Detection pipeline to BasePipeline with cron scheduling and job completion guarantees. Fixed bug where runOnStartup mode could exit before enqueued jobs completed.
+
+### Pipeline Migration
+
+| ID | Priority | Description |
+|---|----------|-------------|
+| BP-L1 | P3 | **Migrate DD to BasePipeline** — Partial migration completed. `DuplicateDetectionPipeline extends BasePipeline<DuplicateDetectionWorker>` using `scheduleCron()` + `waitForCompletion()`. Fixed premature `process.exit(0)` in runOnStartup mode that could kill in-flight jobs by folding `waitForCompletion(TIMEOUTS.ONE_HOUR_MS)` into `runNightlyScan()` method. `setupDefaultEventListeners()` not adopted (worker handles its own per-job logging). No `initialize()` hook needed — async init handled in `main()` before pipeline construction. |
+
+### Refactored
+
+| ID | Priority | Description |
+|---|----------|-------------|
+| AG-M1 | P2 | **Resolve 2 large-class code smells** — `MigrationTransformer` already decomposed (145 lines, 4 methods — well under 300/20 thresholds) via prior extraction of `MigrationAstTransformer`, `MigrationFileResolver`, `MigrationGitManager`. `HTMLReportGenerator` reduced from 388 → 65 lines by extracting 8 section generators to `html-report-sections.ts`. |
+
+### Changed
+
+---
+
 ## [2.3.29] - 2026-03-14
 
 ### Summary

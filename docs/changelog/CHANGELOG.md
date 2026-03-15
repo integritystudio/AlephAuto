@@ -13,6 +13,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.3.30] - 2026-03-15
+
+See [v2.3 Changelog](./2.3/CHANGELOG.md#2330---2026-03-15)
+
+---
+
 ## [2.3.29] - 2026-03-14
 
 See [v2.3 Changelog](./2.3/CHANGELOG.md#2329---2026-03-14)
