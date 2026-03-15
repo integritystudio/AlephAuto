@@ -1,6 +1,6 @@
 /**
  * Shared HTTP status code constants.
- * GENERATED from shared/constants/http-status.yaml by scripts/generate-http-status-constants.ts.
+ * GENERATED from shared/constants/http-status.yaml by scripts/codegen/generate-http-status-constants.ts.
  * Do not edit manually.
  */
 export const HttpStatus = {

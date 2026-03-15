@@ -31,8 +31,8 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 pm2 save && pm2 startup
 ```
 
-First-time: `./scripts/deploy-traditional-server.sh --setup`
-Updates: `./scripts/deploy-traditional-server.sh --update`
+First-time: `./scripts/deploy/deploy-traditional-server.sh --setup`
+Updates: `./scripts/deploy/deploy-traditional-server.sh --update`
 
 ### systemd (Linux)
 

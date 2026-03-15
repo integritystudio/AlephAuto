@@ -246,7 +246,7 @@ describe('Pipeline Execution - Integration Tests', () => {
     );
 
     // Managed runner entrypoints are invoked via `node ...` and must not be executable.
-    // Keep this list aligned with scripts/validate-permissions.ts CRITICAL_FILES.
+    // Keep this list aligned with scripts/setup/validate-permissions.ts CRITICAL_FILES.
     const nonExecutableEntrypoints = new Set([
       'duplicate-detection-pipeline.ts',
       'claude-health-pipeline.ts',

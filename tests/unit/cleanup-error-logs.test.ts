@@ -1,5 +1,5 @@
 /**
- * Unit tests for scripts/cleanup-error-logs.ts
+ * Unit tests for scripts/logs/cleanup-error-logs.ts
  * Covers TC-M1 (getFileAgeDays) and TC-M3 (scanErrorLogs file-filter and recursion).
  */
 
@@ -9,7 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { TIME_MS } from '../../sidequest/core/units.ts';
-import { DEFAULT_RETENTION_DAYS, getFileAgeDays, scanErrorLogs } from '../../scripts/cleanup-error-logs.ts';
+import { DEFAULT_RETENTION_DAYS, getFileAgeDays, scanErrorLogs } from '../../scripts/logs/cleanup-error-logs.ts';
 
 /** Days offset beyond retention threshold for "old file" tests */
 const DAYS_BEYOND_RETENTION = DEFAULT_RETENTION_DAYS + 1;

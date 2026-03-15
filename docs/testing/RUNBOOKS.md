@@ -106,7 +106,7 @@ curl -s http://localhost:8080/api/health/doppler | jq '.cacheAgeHours'
 ### Force Cache Refresh
 
 ```bash
-doppler run -- bash scripts/warm-doppler-cache.sh
+doppler run -- bash scripts/deploy/warm-doppler-cache.sh
 # Or: doppler run -- pm2 restart aleph-dashboard --update-env
 ```
 
@@ -145,7 +145,7 @@ pm2 logs aleph-worker --lines 50
 ### Requirements for Pipeline Files
 
 1. **Shebang:** `#!/usr/bin/env -S node --strip-types`
-2. **Non-executable file mode** (`644`): `node --strip-types scripts/validate-permissions.ts --check-only`
+2. **Non-executable file mode** (`644`): `node --strip-types scripts/setup/validate-permissions.ts --check-only`
 3. **PM2 config** must use `interpreter: 'node'`
 
 See also: [Pipeline Execution](../architecture/pipeline-execution.md)

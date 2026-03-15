@@ -10,11 +10,11 @@
 # 5. PM2 configuration validation
 #
 # Usage:
-#   ./scripts/verify-bugfixes.sh              # Run all checks
-#   ./scripts/verify-bugfixes.sh --pre        # Pre-deployment checks only
-#   ./scripts/verify-bugfixes.sh --post       # Post-deployment checks only
-#   ./scripts/verify-bugfixes.sh --smoke      # Smoke tests only
-#   ./scripts/verify-bugfixes.sh --rollback   # Create rollback script
+#   ./scripts/deploy/verify-bugfixes.sh              # Run all checks
+#   ./scripts/deploy/verify-bugfixes.sh --pre        # Pre-deployment checks only
+#   ./scripts/deploy/verify-bugfixes.sh --post       # Post-deployment checks only
+#   ./scripts/deploy/verify-bugfixes.sh --smoke      # Smoke tests only
+#   ./scripts/deploy/verify-bugfixes.sh --rollback   # Create rollback script
 #
 
 set -e  # Exit on error (disabled for individual checks)
@@ -33,7 +33,7 @@ WARNINGS=0
 
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
 # Deployment mode
 MODE="${1:-all}"
@@ -241,8 +241,8 @@ pre_deployment_checks() {
   print_section "Verifying Script Permissions"
 
   local scripts=(
-    "scripts/verify-bugfixes.sh"
-    "scripts/deploy-traditional-server.sh"
+    "scripts/deploy/verify-bugfixes.sh"
+    "scripts/deploy/deploy-traditional-server.sh"
   )
 
   for script in "${scripts[@]}"; do

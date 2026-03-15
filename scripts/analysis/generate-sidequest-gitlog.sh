@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Resolve repo root (parent of scripts/)
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Resolve repo root (grandparent of scripts/analysis/)
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 COMMITS="${1:-200}"
 DEFAULT_OUT="$REPO_ROOT/sidequest/docs/gitlog-sidequest.txt"
 REPO_MIRROR_OUT="$REPO_ROOT/docs/repomix/gitlog-sidequest.txt"

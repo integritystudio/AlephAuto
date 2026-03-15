@@ -4,11 +4,11 @@ set -euo pipefail
 
 ROOT="${1:?Usage: $0 <root_dir> <output_file>}"
 OUTPUT_FILE="${2:?Usage: $0 <root_dir> <output_file>}"
-CONFIG_FILE="$ROOT/scripts/repomix-docs.config.json"
+CONFIG_FILE="$ROOT/scripts/repomix/repomix-docs.config.json"
 BASE_CONFIG_FILE="$ROOT/repomix.config.json"
 TMP_CONFIG="$(mktemp "${TMPDIR:-/tmp}/repomix-docs.XXXXXX.json")"
 
-# shellcheck source=scripts/repomix-lib.sh
+# shellcheck source=scripts/repomix/repomix-lib.sh
 source "$(dirname "$0")/repomix-lib.sh"
 
 cleanup() {

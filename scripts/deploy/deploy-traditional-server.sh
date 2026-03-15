@@ -4,7 +4,7 @@
 # Automates deployment of AlephAuto Dashboard to a server (macOS or Linux)
 #
 # Usage:
-#   ./scripts/deploy-traditional-server.sh [--setup|--update|--rollback]
+#   ./scripts/deploy/deploy-traditional-server.sh [--setup|--update|--rollback]
 #
 # Options:
 #   --setup     Initial server setup (dependencies, PM2, Nginx)
@@ -378,9 +378,9 @@ update_application() {
     # Normalize critical entrypoint modes to match runtime policy (node interpreter + non-executable TS files)
     log "Normalizing critical entrypoint file modes..."
     if $IS_MACOS; then
-        node --strip-types scripts/validate-permissions.ts --fix
+        node --strip-types scripts/setup/validate-permissions.ts --fix
     else
-        sudo -u "$DEPLOY_USER" bash -c "cd $APP_DIR && node --strip-types scripts/validate-permissions.ts --fix"
+        sudo -u "$DEPLOY_USER" bash -c "cd $APP_DIR && node --strip-types scripts/setup/validate-permissions.ts --fix"
     fi
 
     # Restart PM2 processes

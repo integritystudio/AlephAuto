@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import yaml from 'js-yaml';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.resolve(scriptDir, '..');
+const rootDir = path.resolve(scriptDir, '../..');
 
 const sourcePath = path.join(rootDir, 'shared', 'constants', 'http-status.yaml');
 const tsTargetPath = path.join(rootDir, 'shared', 'constants', 'http-status.ts');
@@ -55,7 +55,7 @@ function renderTs(statusMap: StatusMap): string {
 
   return `/**
  * Shared HTTP status code constants.
- * GENERATED from shared/constants/http-status.yaml by scripts/generate-http-status-constants.ts.
+ * GENERATED from shared/constants/http-status.yaml by scripts/codegen/generate-http-status-constants.ts.
  * Do not edit manually.
  */
 export const HttpStatus = {

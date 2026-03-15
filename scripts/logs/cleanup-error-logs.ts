@@ -14,13 +14,13 @@
  * - Dry-run mode for testing
  *
  * Usage:
- *   node --strip-types scripts/cleanup-error-logs.ts                    # Normal cleanup
- *   node --strip-types scripts/cleanup-error-logs.ts --dry-run          # Preview without changes
- *   node --strip-types scripts/cleanup-error-logs.ts --retention 14    # Custom retention days
- *   node --strip-types scripts/cleanup-error-logs.ts --help             # Show help
+ *   node --strip-types scripts/logs/cleanup-error-logs.ts                    # Normal cleanup
+ *   node --strip-types scripts/logs/cleanup-error-logs.ts --dry-run          # Preview without changes
+ *   node --strip-types scripts/logs/cleanup-error-logs.ts --retention 14    # Custom retention days
+ *   node --strip-types scripts/logs/cleanup-error-logs.ts --help             # Show help
  *
  * Cron setup (weekly, Sunday 3 AM):
- *   0 3 * * 0 cd /path/to/jobs && node --strip-types scripts/cleanup-error-logs.ts
+ *   0 3 * * 0 cd /path/to/jobs && node --strip-types scripts/logs/cleanup-error-logs.ts
  */
 
 import fs from 'fs/promises';
@@ -28,8 +28,8 @@ import path from 'path';
 import { createGzip } from 'zlib';
 import { pipeline } from 'stream/promises';
 import { createReadStream, createWriteStream } from 'fs';
-import { BYTES_PER_KB, TIMEOUTS } from '../sidequest/core/constants.ts';
-import { createComponentLogger, logError } from '../sidequest/utils/logger.ts';
+import { BYTES_PER_KB, TIMEOUTS } from '../../sidequest/core/constants.ts';
+import { createComponentLogger, logError } from '../../sidequest/utils/logger.ts';
 
 const logger = createComponentLogger('ErrorLogCleanup');
 
@@ -99,7 +99,7 @@ Error Log Cleanup Script
 Automatically archives and removes old error log files.
 
 Usage:
-  node --strip-types scripts/cleanup-error-logs.ts [options]
+  node --strip-types scripts/logs/cleanup-error-logs.ts [options]
 
 Options:
   --dry-run, -d         Preview changes without modifying files
@@ -108,13 +108,13 @@ Options:
   --help, -h            Show this help message
 
 Examples:
-  node --strip-types scripts/cleanup-error-logs.ts
-  node --strip-types scripts/cleanup-error-logs.ts --dry-run
-  node --strip-types scripts/cleanup-error-logs.ts --retention 14
-  node --strip-types scripts/cleanup-error-logs.ts -d -v
+  node --strip-types scripts/logs/cleanup-error-logs.ts
+  node --strip-types scripts/logs/cleanup-error-logs.ts --dry-run
+  node --strip-types scripts/logs/cleanup-error-logs.ts --retention 14
+  node --strip-types scripts/logs/cleanup-error-logs.ts -d -v
 
 Cron Setup (weekly, Sunday 3 AM):
-  0 3 * * 0 cd /path/to/jobs && node --strip-types scripts/cleanup-error-logs.ts
+  0 3 * * 0 cd /path/to/jobs && node --strip-types scripts/logs/cleanup-error-logs.ts
 `);
 }
 

@@ -36,7 +36,7 @@ describe('Aggregate Test Script Coverage', () => {
       'npm run test:all:env-safe && npm run test:all:env-host-required'
     );
     assert.equal(scripts['test:all:node'], 'npm run test:all:core');
-    assert.equal(scripts['test:all:py'], 'bash scripts/run-python-tests.sh');
+    assert.equal(scripts['test:all:py'], 'bash scripts/analysis/run-python-tests.sh');
     assert.equal(scripts['test:all'], 'npm run test:all:core && npm run test:all:py');
     assert.equal(scripts['test:all:full'], 'npm run test:all:core && npm run test:all:env && npm run test:all:py');
     assert.equal(scripts['test:aall'], 'npm run test:all');
@@ -46,7 +46,7 @@ describe('Aggregate Test Script Coverage', () => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'run-python-tests-'));
     const fakePython = path.join(tempDir, 'fake-python');
     const argsFile = path.join(tempDir, 'pytest-args.txt');
-    const runScript = path.join(PROJECT_ROOT, 'scripts', 'run-python-tests.sh');
+    const runScript = path.join(PROJECT_ROOT, 'scripts', 'analysis', 'run-python-tests.sh');
 
     const fakePythonScript = `#!/usr/bin/env bash
 set -euo pipefail

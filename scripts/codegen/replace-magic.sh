@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/replace-magic.sh --from <pattern> --to <replacement> [options] [path...]
+  scripts/codegen/replace-magic.sh --from <pattern> --to <replacement> [options] [path...]
 
 Description:
   Preview-first helper for rg + sed replacements.
@@ -24,13 +24,13 @@ Options:
 
 Examples:
   # Preview: replace standalone 1000 with TIME_MS.SECOND in TS files
-  scripts/replace-magic.sh --from 1000 --to TIME_MS.SECOND --word --glob '*.ts' sidequest api
+  scripts/codegen/replace-magic.sh --from 1000 --to TIME_MS.SECOND --word --glob '*.ts' sidequest api
 
   # Apply same replacement
-  scripts/replace-magic.sh --from 1000 --to TIME_MS.SECOND --word --glob '*.ts' --apply sidequest api
+  scripts/codegen/replace-magic.sh --from 1000 --to TIME_MS.SECOND --word --glob '*.ts' --apply sidequest api
 
   # Regex mode
-  scripts/replace-magic.sh --from '30\\s*\\*\\s*24\\s*\\*\\s*60\\s*\\*\\s*60' \
+  scripts/codegen/replace-magic.sh --from '30\\s*\\*\\s*24\\s*\\*\\s*60\\s*\\*\\s*60' \
     --to 'GIT_ACTIVITY.MONTHLY_WINDOW_DAYS * (TIME_MS.DAY / TIME_MS.SECOND)' \
     --regex --glob '*.ts' sidequest
 EOF

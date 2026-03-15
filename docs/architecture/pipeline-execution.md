@@ -112,8 +112,8 @@ head -n 1 api/server.ts sidequest/pipeline-runners/*-pipeline.ts
 ls -la api/server.ts sidequest/pipeline-runners/*-pipeline.ts
 
 # Enforce expected non-executable mode policy
-node --strip-types scripts/validate-permissions.ts --check-only
-node --strip-types scripts/validate-permissions.ts --fix
+node --strip-types scripts/setup/validate-permissions.ts --check-only
+node --strip-types scripts/setup/validate-permissions.ts --fix
 ```
 
 ## Doppler Integration
@@ -258,7 +258,7 @@ npm run test:validate-paths
 
 # TS entrypoint shebang + mode checks
 head -n 1 api/server.ts sidequest/pipeline-runners/*-pipeline.ts
-node --strip-types scripts/validate-permissions.ts --check-only
+node --strip-types scripts/setup/validate-permissions.ts --check-only
 
 # Smoke tests
 node --strip-types --version

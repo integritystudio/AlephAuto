@@ -23,7 +23,7 @@ npm run typecheck                          # TypeScript checks
 
 # Production
 doppler run -c prd -- pm2 start config/ecosystem.config.cjs
-./scripts/deploy-traditional-server.sh --update
+./scripts/deploy/deploy-traditional-server.sh --update
 ```
 
 ## Code Quality Standards

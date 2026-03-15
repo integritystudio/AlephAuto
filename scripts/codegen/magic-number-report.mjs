@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Magic number report — extracts and categorizes magic numbers from ESLint output.
- * Usage: npx eslint --rule '{"no-magic-numbers": "warn"}' --format json <files> | node scripts/magic-number-report.mjs
+ * Usage: npx eslint --rule '{"no-magic-numbers": "warn"}' --format json <files> | node scripts/codegen/magic-number-report.mjs
  */
 import { readFileSync } from 'fs';
 

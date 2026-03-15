@@ -6,17 +6,17 @@
 # This provides resilience during Doppler API outages.
 #
 # Usage:
-#   ./scripts/warm-doppler-cache.sh
+#   ./scripts/deploy/warm-doppler-cache.sh
 #
 # Add to cron for periodic updates:
-#   0 */6 * * * cd /Users/alyshialedlie/code/jobs && ./scripts/warm-doppler-cache.sh
+#   0 */6 * * * cd /Users/alyshialedlie/code/jobs && ./scripts/deploy/warm-doppler-cache.sh
 #
 
 set -e  # Exit on error
 
 CACHE_DIR="$HOME/.doppler/fallback"
 CACHE_FILE_PATTERN="$CACHE_DIR/.secrets-*.json"
-LOG_FILE="$(dirname "$0")/../logs/doppler-cache-warming.log"
+LOG_FILE="$(dirname "$0")/../../logs/doppler-cache-warming.log"
 
 # Ensure log directory exists
 mkdir -p "$(dirname "$LOG_FILE")"

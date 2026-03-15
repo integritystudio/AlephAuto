@@ -17,9 +17,9 @@
  * - Log to Sentry for monitoring
  *
  * Usage:
- *   node --strip-types scripts/validate-permissions.ts
- *   node --strip-types scripts/validate-permissions.ts --fix
- *   node --strip-types scripts/validate-permissions.ts --check-only
+ *   node --strip-types scripts/setup/validate-permissions.ts
+ *   node --strip-types scripts/setup/validate-permissions.ts --fix
+ *   node --strip-types scripts/setup/validate-permissions.ts --check-only
  */
 
 import fs from 'fs/promises';
@@ -28,7 +28,7 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const ROOT = path.resolve(__dirname, '..');
+const ROOT = path.resolve(__dirname, '../..');
 
 // Files that must NOT be executable (invoked with 'node', not './')
 const CRITICAL_FILES = [

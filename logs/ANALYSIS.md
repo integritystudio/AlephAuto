@@ -68,7 +68,7 @@ find logs/ -name "*.json" -size +100k -exec ls -lh {} \;
 ## Log Cleanup Strategy
 
 ### Automated Cleanup
-The `scripts/cleanup-error-logs.js` script handles:
+The `scripts/logs/cleanup-error-logs.ts` script handles:
 - Archiving logs older than configurable threshold
 - Deleting archived logs older than retention period
 - Verbose reporting of cleanup actions

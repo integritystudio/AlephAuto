@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # Optional input directory (defaults to repo root)
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
 # repomix compression variant names
 TREE_FILE="token-tree"
@@ -29,13 +29,13 @@ GIT_RANKED_FILE_NAME="$OUTPUT_PATH/$GIT_RANKED_FILE.xml"
 GITLOG_TOP_FILE_NAME="$OUTPUT_PATH/gitlog-top20.txt"
 
 # input file paths
-INPUT_DIR="$ROOT/scripts/generate-"
+INPUT_DIR="$ROOT/scripts/repomix/generate-"
 TOKEN_TREE_SCRIPT="$INPUT_DIR$TREE_FILE.sh"
 COMPRESS_SCRIPT="$INPUT_DIR$COMPRESSED_FILE.sh"
 LOSSLESS_SCRIPT="$INPUT_DIR$LOSSLESS_FILE.sh"
 DOCS_ONLY_SCRIPT="$INPUT_DIR$DOCS_ONLY_FILE.sh"
 GIT_RANKED_SCRIPT="$INPUT_DIR$GIT_RANKED_FILE.sh"
-GITLOG_TOP_SCRIPT="$ROOT/scripts/generate-diff-summary.sh"
+GITLOG_TOP_SCRIPT="$ROOT/scripts/analysis/generate-diff-summary.sh"
 GIT_RANKED_INCLUDE_LOGS_COUNT="${REPOMIX_GIT_RANKED_INCLUDE_LOGS_COUNT:-100}"
 
 echo "File set up..."

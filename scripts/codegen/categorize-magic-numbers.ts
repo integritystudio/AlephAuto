@@ -169,7 +169,7 @@ function parseArgs(argv: string[]): CliOptions {
 function printUsage(): void {
   const msg = `
 Usage:
-  node --strip-types scripts/categorize-magic-numbers.ts [options]
+  node --strip-types scripts/codegen/categorize-magic-numbers.ts [options]
 
 Options:
   --eslint-json <path>         Use an existing ESLint JSON report.
