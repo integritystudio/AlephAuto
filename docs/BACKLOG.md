@@ -116,6 +116,24 @@ Address the 2 high-severity large-class code smells and 14 standards warnings id
 
 ---
 
+## Relocated Scripts — Dead Code / Staleness Audit (2026-03-15)
+
+<a id="scripts-audit"></a>
+
+8 setup scripts relocated from `docs/setup/` to `scripts/` in commit `30f0cde`. Audit for dead code, stale references, and continued relevance.
+
+### Low
+
+| ID | Priority | Description |
+|---|----------|-------------|
+| SC-L1 | P3 | **Audit `scripts/cron-setup.sh`** — Verify cron entries match current pipeline runner names and schedules. Remove references to deleted pipelines. |
+| SC-L2 | P3 | **Audit `scripts/setup-sentry.js` / `scripts/setup-doppler-sentry.js`** — Check for hardcoded project slugs, stale DSN values, or deprecated Sentry SDK setup patterns. |
+| SC-L3 | P3 | **Audit `scripts/configure-discord-alerts.js` / `scripts/sentry-to-discord.js`** — Verify webhook URLs and channel references are still valid. Check for dead import paths post-relocation. |
+| SC-L4 | P3 | **Audit `scripts/log-cleanup.sh` / `scripts/weekly-log-summary.sh`** — Confirm log directory paths match current `logs/` structure. Check for references to removed log formats. |
+| SC-L5 | P3 | **Audit `scripts/update-cron.sh`** — Verify it references current `ecosystem.config.cjs` and PM2 process names. |
+
+---
+
 ## Code Review Findings (2026-03-14)
 
 Code review of codebase via `repomix-git-ranked.xml`. Issues #6 (pipelineId extraction) and #7 (default error classification) addressed in session. Remaining 15 findings documented below.
