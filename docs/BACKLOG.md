@@ -126,11 +126,11 @@ Address the 2 high-severity large-class code smells and 14 standards warnings id
 
 | ID | Priority | Description |
 |---|----------|-------------|
-| SC-L1 | P3 | **Audit `scripts/cron-setup.sh`** — Verify cron entries match current pipeline runner names and schedules. Remove references to deleted pipelines. |
-| SC-L2 | P3 | **Audit `scripts/setup-sentry.js` / `scripts/setup-doppler-sentry.js`** — Check for hardcoded project slugs, stale DSN values, or deprecated Sentry SDK setup patterns. |
-| SC-L3 | P3 | **Audit `scripts/configure-discord-alerts.js` / `scripts/sentry-to-discord.js`** — Verify webhook URLs and channel references are still valid. Check for dead import paths post-relocation. |
-| SC-L4 | P3 | **Audit `scripts/log-cleanup.sh` / `scripts/weekly-log-summary.sh`** — Confirm log directory paths match current `logs/` structure. Check for references to removed log formats. |
-| SC-L5 | P3 | **Audit `scripts/update-cron.sh`** — Verify it references current `ecosystem.config.cjs` and PM2 process names. |
+| SC-L1 | P3 | **Audit `scripts/logs/cron-setup.sh`** — Verify cron entries match current pipeline runner names and schedules. Remove references to deleted pipelines. |
+| SC-L2 | P3 | **Audit `scripts/setup/setup-sentry.js` / `scripts/setup/setup-doppler-sentry.js`** — Check for hardcoded project slugs, stale DSN values, or deprecated Sentry SDK setup patterns. |
+| SC-L3 | P3 | **Audit `scripts/setup/configure-discord-alerts.js` / `scripts/setup/sentry-to-discord.js`** — Verify webhook URLs and channel references are still valid. Check for dead import paths post-relocation. |
+| SC-L4 | P3 | **Audit `scripts/logs/log-cleanup.sh` / `scripts/logs/weekly-log-summary.sh`** — Confirm log directory paths match current `logs/` structure. Check for references to removed log formats. |
+| SC-L5 | P3 | **Audit `scripts/logs/update-cron.sh`** — Verify it references current `ecosystem.config.cjs` and PM2 process names. |
 
 ---
 

@@ -10,8 +10,12 @@ INCLUDE_LOGS_COUNT="${3:-200}"
 # Optional overrides via environment variables.
 INCLUDE_DIFFS="${REPOMIX_INCLUDE_DIFFS:-true}"
 INCLUDE_LOGS="${REPOMIX_INCLUDE_LOGS:-true}"
-SORT_BY_CHANGES_MAX_COMMITS="${REPOMIX_SORT_BY_CHANGES_MAX_COMMITS:-100}"
+COMPRESS="${REPOMIX_COMPRESS:-true}"
+SORT_BY_CHANGES_MAX_COMMITS="${REPOMIX_SORT_BY_CHANGES_MAX_COMMITS:-50}"
 TIMEOUT_SECONDS="${REPOMIX_TIMEOUT_SECONDS:-120}"
+
+# Directory prefixes to exclude from the ranked bundle (space-separated).
+EXCLUDE_PREFIXES="${REPOMIX_EXCLUDE_PREFIXES:-docs/ tests/}"
 
 if ! [[ "$INCLUDE_LOGS_COUNT" =~ ^[0-9]+$ ]] || [[ "$INCLUDE_LOGS_COUNT" -lt 0 ]]; then
   echo "include_logs_count must be a non-negative integer: $INCLUDE_LOGS_COUNT" >&2
@@ -33,13 +37,18 @@ if [[ "$INCLUDE_LOGS" != "true" && "$INCLUDE_LOGS" != "false" ]]; then
   exit 1
 fi
 
+if [[ "$COMPRESS" != "true" && "$COMPRESS" != "false" ]]; then
+  echo "REPOMIX_COMPRESS must be true|false: $COMPRESS" >&2
+  exit 1
+fi
+
 TMP_CONFIG="$(mktemp "${TMPDIR:-/tmp}/repomix-git-ranked.XXXXXX.json")"
 cleanup() {
   rm -f "$TMP_CONFIG"
 }
 trap cleanup EXIT
 
-# shellcheck source=scripts/repomix-lib.sh
+# shellcheck source=scripts/repomix/repomix-lib.sh
 source "$(dirname "$0")/repomix-lib.sh"
 
 # Generated bundle patterns sourced from base repomix config.
@@ -58,28 +67,41 @@ is_generated_bundle_artifact() {
   esac
 }
 
+# Check if a path starts with any excluded prefix.
+is_excluded_prefix() {
+  local rel_path="$1"
+  for prefix in $EXCLUDE_PREFIXES; do
+    case "$rel_path" in
+      "$prefix"*) return 0 ;;
+    esac
+  done
+  return 1
+}
+
 # Build include list from files touched in the selected commit window.
-declare -A seen=()
+# Collect unique, existing files without associative arrays (Bash 3.2 compat).
 include_files=()
-while IFS= read -r -d '' rel_path; do
+while IFS= read -r rel_path; do
   [[ -z "$rel_path" ]] && continue
   if is_generated_bundle_artifact "$rel_path"; then
     continue
   fi
-  [[ -n "${seen[$rel_path]:-}" ]] && continue
+  if is_excluded_prefix "$rel_path"; then
+    continue
+  fi
   # Keep only files that still exist on disk so repomix can resolve them.
   if [[ -f "$ROOT/$rel_path" ]]; then
-    seen["$rel_path"]=1
     include_files+=("$rel_path")
   fi
-done < <(git -C "$ROOT" log --name-only --pretty=format: -z -n "$SORT_BY_CHANGES_MAX_COMMITS")
+done < <(git -C "$ROOT" log --name-only --pretty=format: -n "$SORT_BY_CHANGES_MAX_COMMITS" \
+  | awk 'NF && !seen[$0]++ { print }')
 
 if [[ "${#include_files[@]}" -eq 0 ]]; then
   echo "No existing files found in the selected commit window." >&2
   exit 1
 fi
 
-include_files_json="$(printf '%s\0' "${include_files[@]}" | jq -Rs 'split("\u0000")[:-1]')"
+include_files_json="$(printf '%s\n' "${include_files[@]}" | jq -R . | jq -s .)"
 
 jq -n \
   --argjson includeFiles "$include_files_json" \
@@ -116,5 +138,10 @@ jq -n \
   "include": $includeFiles
 }' > "$TMP_CONFIG"
 
+COMPRESS_FLAG=()
+if [[ "$COMPRESS" == "true" ]]; then
+  COMPRESS_FLAG=(--compress)
+fi
+
 FORCE_COLOR=0 NO_COLOR=1 timeout "$TIMEOUT_SECONDS" \
-  npx repomix "$ROOT" -c "$TMP_CONFIG" -o "$OUTPUT_FILE" >/dev/null 2>&1
+  npx repomix "$ROOT" -c "$TMP_CONFIG" -o "$OUTPUT_FILE" "${COMPRESS_FLAG[@]}" >/dev/null 2>&1
