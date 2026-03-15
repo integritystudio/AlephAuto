@@ -42,13 +42,13 @@ export class HTMLReportGenerator {
 </head>
 <body>
     <div class="container">
-        ${generateHeader(scanResult, title, isInterProject)}
+        ${generateHeader(scanResult, title)}
         ${generateMetrics(scanResult, isInterProject)}
         ${generateSummaryCharts(scanResult, isInterProject)}
         ${isInterProject ? generateCrossRepoSection(scanResult) : ''}
         ${generateDuplicateGroups(scanResult, isInterProject)}
         ${generateSuggestions(scanResult, isInterProject)}
-        ${generateFooter()}
+        ${generateFooter(scanResult)}
     </div>
     <script>
         // Add interactivity hooks here if needed.
