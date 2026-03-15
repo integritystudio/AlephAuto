@@ -1,28 +1,24 @@
-#!/usr/bin/env -S npx tsx
+#!/usr/bin/env -S node --strip-types
 
 /**
- * Duplicate Detection Pipeline - TypeScript Version
+ * Duplicate Detection Pipeline
  *
  * Automated duplicate detection scanning system with cron scheduling.
  * Scans repositories on a configured schedule, detects duplicates, generates reports.
  *
  * Usage:
- *   tsx duplicate-detection-pipeline.ts                    # Start cron server
- *   RUN_ON_STARTUP=true tsx duplicate-detection-pipeline.ts # Run immediately
+ *   node --strip-types duplicate-detection-pipeline.ts                    # Start cron server
+ *   RUN_ON_STARTUP=true node --strip-types duplicate-detection-pipeline.ts # Run immediately
  */
 
 import { DuplicateDetectionWorker } from '../workers/duplicate-detection-worker.ts';
-import { createComponentLogger } from '../utils/logger.ts';
+import { createComponentLogger, logError } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
 import { TIMEOUTS } from '../core/constants.ts';
-// @ts-ignore - no declaration file for node-cron
-import cron from 'node-cron';
-import * as Sentry from '@sentry/node';
+import { BasePipeline } from './base-pipeline.ts';
 import { isDirectExecution } from '../utils/execution-helpers.ts';
 
-import type { Logger } from 'pino';
-
-const logger: Logger = createComponentLogger('DuplicateDetectionPipeline');
+const logger = createComponentLogger('DuplicateDetectionPipeline');
 
 // Re-export worker and types for external consumers.
 export { DuplicateDetectionWorker };
@@ -34,12 +30,28 @@ export type {
 } from '../pipeline-core/types/duplicate-detection-types.ts';
 
 /**
- * Main execution.
+ * Duplicate Detection Pipeline — extends BasePipeline for scheduleCron().
  *
- * This pipeline stays functional (not class-based) because it uses
- * worker.runNightlyScan() which manages its own lifecycle, and requires
- * async initialization. No BasePipeline methods would be used.
+ * Uses worker.runNightlyScan() which manages its own job lifecycle,
+ * so addJob/waitForCompletion are not used here.
  */
+class DuplicateDetectionPipeline extends BasePipeline<DuplicateDetectionWorker> {
+  /**
+   * Schedule nightly duplicate scans via cron.
+   */
+  scheduleNightlyScans(cronSchedule: string) {
+    return this.scheduleCron(logger, 'nightly duplicate scan', cronSchedule,
+      () => this.worker.runNightlyScan());
+  }
+
+  /**
+   * Run a single nightly scan immediately.
+   */
+  async runNightlyScan(): Promise<void> {
+    await this.worker.runNightlyScan();
+  }
+}
+
 async function main(): Promise<void> {
   const cronSchedule = process.env.DUPLICATE_SCAN_CRON_SCHEDULE || '0 2 * * *';
   const runOnStartup = config.runOnStartup;
@@ -47,7 +59,6 @@ async function main(): Promise<void> {
   logger.info({ cronSchedule, runOnStartup }, 'Starting duplicate detection pipeline');
 
   try {
-    // Initialize worker
     const worker = new DuplicateDetectionWorker({
       maxConcurrentScans: 3
     });
@@ -63,21 +74,10 @@ async function main(): Promise<void> {
       repositoryGroups: stats.groups
     }, 'Loaded duplicate-detection configuration');
 
-    // Schedule cron job
+    const pipeline = new DuplicateDetectionPipeline(worker);
+
     if (!runOnStartup) {
-      logger.info({ cronSchedule }, 'Scheduling nightly duplicate scans');
-
-      cron.schedule(cronSchedule, async () => {
-        logger.info('Cron job triggered');
-        try {
-          await worker.runNightlyScan();
-        } catch (error) {
-          logger.error({ error }, 'Nightly scan failed');
-          Sentry.captureException(error);
-        }
-      });
-
-      logger.info('Duplicate detection scheduler is running');
+      pipeline.scheduleNightlyScans(cronSchedule);
 
       // Notify PM2 that process is ready (fork mode)
       if (process.send) {
@@ -92,7 +92,7 @@ async function main(): Promise<void> {
       }, TIMEOUTS.FIVE_MINUTES_MS);
     } else {
       logger.info('Running scan immediately (runOnStartup=true)');
-      await worker.runNightlyScan();
+      await pipeline.runNightlyScan();
 
       const metrics = worker.getScanMetrics();
       logger.info({
@@ -113,8 +113,7 @@ async function main(): Promise<void> {
     }
 
   } catch (error) {
-    logger.error({ error, message: (error as Error).message }, 'Pipeline initialization failed');
-    Sentry.captureException(error);
+    logError(logger, error, 'Pipeline initialization failed');
     process.exit(1);
   }
 }
@@ -123,7 +122,7 @@ async function main(): Promise<void> {
 // PM2's ProcessContainerFork, not this script. Detect PM2 via pm_id env var.
 if (isDirectExecution(import.meta.url) || process.env.pm_id !== undefined) {
   main().catch((error) => {
-    logger.error({ error }, 'Fatal error in duplicate detection pipeline');
+    logError(logger, error, 'Fatal error in duplicate detection pipeline');
     process.exit(1);
   });
 }

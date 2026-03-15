@@ -18,7 +18,7 @@ Node.js automation toolkit for managing code repositories at scale.
 
 AlephAuto provides eleven production-ready automation pipelines for managing multiple code repositories:
 
-1. **Duplicate Detection** - 7-stage multi-language pipeline (JS + Python) for code duplication detection
+1. **Duplicate Detection** - 7-stage pure TypeScript pipeline for code duplication detection
 2. **Schema Enhancement** - Schema.org markup injection for better SEO
 3. **Git Activity Reporter** - Weekly/monthly reports with commit analytics
 4. **Repository Cleanup** - Automated repo maintenance and cleanup

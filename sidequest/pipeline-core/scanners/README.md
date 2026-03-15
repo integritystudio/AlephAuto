@@ -100,15 +100,14 @@ Open the generated markdown report and prioritize fixes by severity:
 ## Files Created
 
 ```
-~/code/jobs/lib/scanners/
+sidequest/pipeline-core/scanners/
 ├── README.md (this file)
-├── timeout-pattern-detector.js      # Main timeout scanner (Node.js)
-├── root-directory-analyzer.js       # Root directory scanner (Node.js)
-├── codebase-health-scanner.js       # CLI wrapper (runs all scanners)
-└── timeout-detector.ts              # TypeScript version (simpler)
-
-~/code/jobs/docs/
-└── codebase-health-scanners.md      # Full documentation
+├── timeout-pattern-detector.ts      # Main timeout scanner
+├── timeout-detector.ts              # Simplified timeout detector
+├── root-directory-analyzer.ts       # Root directory scanner
+├── codebase-health-scanner.ts       # CLI wrapper (runs all scanners)
+├── repository-scanner.ts            # Repository file scanner
+└── ast-grep-detector.ts             # AST pattern detection
 ```
 
 ---
