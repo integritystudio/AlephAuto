@@ -56,7 +56,7 @@ graph TD
 | 3 | **Git Activity Reporter** | JS | Sunday 8 PM | Jekyll MD + SVG |
 | 4 | **Repository Cleanup** | JS | Sunday 3 AM | Cleanup logs |
 | 5 | **Repomix** | JS | 2 AM daily | `docs/repomix/{repo-compressed.xml,repomix.xml}` |
-| 6 | **Claude Health** | JS + Python | 8 AM daily | MD/JSON reports |
+| 6 | **Claude Health** | JS | 8 AM daily | MD/JSON reports |
 | 7 | **Dashboard Populate** | JS | 6 AM/6 PM | Cloudflare KV + reports |
 | 8 | **Bugfix Audit** | JS | Recurring | Audit reports |
 | 9 | **Gitignore Update** | JS | Scheduled | Updated .gitignore files |

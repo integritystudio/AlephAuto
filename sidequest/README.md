@@ -49,13 +49,13 @@ sidequest/
 │   ├── plugin-management-pipeline.ts     # Plugin management
 │   ├── bugfix-audit-pipeline.ts          # Bugfix audit workflow
 │   ├── dashboard-populate-pipeline.ts    # Dashboard data population
-│   ├── collect_git_activity.py           # Git activity collector
 │   └── test-refactor-pipeline.ts         # Test suite refactoring
 │
 ├── workers/            # Worker implementations (extend SidequestServer)
 │   ├── duplicate-detection-worker.ts     # Duplicate detection jobs
 │   ├── claude-health-worker.ts           # Health check jobs
 │   ├── git-activity-worker.ts            # Git activity jobs
+│   ├── git-activity-collector.ts         # Git activity data collection (pure TS)
 │   ├── gitignore-worker.ts               # .gitignore jobs
 │   ├── repo-cleanup-worker.ts            # Cleanup jobs
 │   ├── repomix-worker.ts                 # Repomix jobs
@@ -168,7 +168,6 @@ Weekly/monthly git activity reports:
 ```bash
 node --strip-types pipeline-runners/git-activity-pipeline.ts --run --weekly
 node --strip-types pipeline-runners/git-activity-pipeline.ts --run --monthly
-python3 pipeline-runners/collect_git_activity.py --weekly
 ```
 
 **Features:**
@@ -207,7 +206,7 @@ Inject Schema.org structured data into HTML documents.
 
 Sync and validate .gitignore files across repositories.
 
-## Python Components
+## Python Components (Duplicate Detection only)
 
 Located in `pipeline-core/` with dependencies on:
 - **Pydantic**: Data models (CodeBlock, DuplicateGroup, ScanReport)
@@ -252,7 +251,7 @@ doppler run -- npx tsx pipeline-runners/duplicate-detection-pipeline.ts
 - `SENTRY_DSN`: Sentry error tracking
 - `ENABLE_GIT_WORKFLOW`: Enable branch/PR creation
 - `ENABLE_PR_CREATION`: Auto-create PRs for changes
-- `PIPELINE_DEBUG`: Enable verbose Python debug output
+- `PIPELINE_DEBUG`: Enable verbose debug output (Duplicate Detection Python stages)
 
 ### Repository Configuration (config/scan-repositories.json)
 

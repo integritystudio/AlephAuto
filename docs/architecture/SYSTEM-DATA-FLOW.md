@@ -32,7 +32,7 @@ AlephAuto is a **job queue framework** with real-time dashboard for automation p
 | Characteristic | Value |
 |---------------|-------|
 | **Architecture** | Event-driven microservices |
-| **Primary Language** | JavaScript/TypeScript + Python |
+| **Primary Language** | TypeScript (Python for Duplicate Detection only) |
 | **Database** | SQLite (WAL mode) |
 | **Real-time** | WebSocket (ws library) |
 | **Error Tracking** | Sentry v8 |

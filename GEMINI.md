@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **AlephAuto** - Job queue framework with real-time dashboard for automation pipelines.
 
-11 pipelines: Duplicate Detection (JS+Python), Schema Enhancement, Git Activity Reporter, Repository Cleanup, Repomix, Codebase Health, Dashboard Populate, Bugfix Audit, Gitignore Update, Plugin Management, Test Refactor.
+11 pipelines: Duplicate Detection (JS+Python), Schema Enhancement, Git Activity Reporter (pure TS), Repository Cleanup, Repomix, Codebase Health, Dashboard Populate, Bugfix Audit, Gitignore Update, Plugin Management, Test Refactor.
 
 ## Quick Reference
 
@@ -111,7 +111,7 @@ const limit = Math.min(limit, PAGINATION.MAX_LIMIT);         // max 1000
 
 ## Architecture
 
-### Multi-Language Pipeline (JS ↔ Python)
+### Multi-Language Pipeline: Duplicate Detection (JS ↔ Python)
 ```
 JavaScript (Stages 1-2)          Python (Stages 3-7)
 ├── Repository scanning          ├── Code block extraction
@@ -180,7 +180,7 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 | Purpose | File |
 |---------|------|
 | Pipeline coordinator | `sidequest/pipeline-core/scan-orchestrator.ts` |
-| Feature extraction | `sidequest/pipeline-core/similarity/structural.py:29` |
+| Structural similarity | `sidequest/pipeline-core/similarity/structural.ts` |
 | Base job queue | `sidequest/core/server.ts` |
 | Base pipeline runner | `sidequest/pipeline-runners/base-pipeline.ts` |
 | Job repository | `sidequest/core/job-repository.js` |

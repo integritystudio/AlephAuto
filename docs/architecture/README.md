@@ -60,7 +60,7 @@ This directory contains comprehensive architectural documentation for the AlephA
 **Complete guide to all 11 AlephAuto pipelines and their data flows**
 
 **Contents:**
-- End-to-end pipeline architecture (JavaScript Stage 1-2 → Python Stage 3-7)
+- End-to-end pipeline architecture (Duplicate Detection: JS Stage 1-2 → Python Stage 3-7)
 - Stage-by-stage data flow with Mermaid diagrams
 - JSON data format specifications for all stages
 - Component interaction patterns
@@ -77,7 +77,7 @@ This directory contains comprehensive architectural documentation for the AlephA
 - Metrics and reporting
 
 **Use This Document When:**
-- Understanding how data flows between JavaScript and Python
+- Understanding how data flows between JavaScript and Python (Duplicate Detection)
 - Debugging pipeline stage failures
 - Adding new pattern detection rules
 - Extending the suggestion generation logic
@@ -153,7 +153,7 @@ Layer 0 (complexity filter) → Layer 1 (exact hash) → Layer 2 (structural sim
 | Repository scanner | `sidequest/pipeline-core/scanners/repository-scanner.ts` | [Pipeline Data Flow](./pipeline-data-flow.md#stage-1-repository-scanner) |
 | AST-grep detector | `sidequest/pipeline-core/scanners/ast-grep-detector.ts` | [Pipeline Data Flow](./pipeline-data-flow.md#stage-2-ast-grep-pattern-detector) |
 | Block extraction | `sidequest/pipeline-core/extractors/extract_blocks.py` | [Pipeline Data Flow](./pipeline-data-flow.md#stage-3-code-block-extraction) |
-| Similarity algorithm | `sidequest/pipeline-core/similarity/structural.py` | [Similarity Algorithm](./technical/similarity-algorithm.md) |
+| Similarity algorithm | `sidequest/pipeline-core/similarity/structural.ts` | [Similarity Algorithm](./technical/similarity-algorithm.md) |
 | Multi-layer grouping | `sidequest/pipeline-core/similarity/grouping.py` | [Pipeline Data Flow](./pipeline-data-flow.md#stage-5-duplicate-grouping) |
 | AST-grep rules | `.ast-grep/rules/*` (18 rules) | [Pipeline Data Flow](./pipeline-data-flow.md#pattern-detection-rules) |
 | Pydantic models | `sidequest/pipeline-core/models/*.py` | [Pipeline Data Flow](./pipeline-data-flow.md#data-format-specifications) |

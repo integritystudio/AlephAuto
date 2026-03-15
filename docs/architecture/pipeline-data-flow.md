@@ -37,7 +37,7 @@ The AlephAuto automation system consists of 11 specialized pipelines built on a 
 - Retry orchestration is owned by `SidequestServer` (`sidequest/core/server.ts`), including retry scheduling and `pendingRetries` accounting. Individual workers should not create ad-hoc retry jobs.
 - `retryDelayMs` is now a configurable `SidequestServerOptions` property (default: `RETRY.DEFAULT_DELAY_MS`). Workers can override it; `DuplicateDetectionWorker` syncs from `scanConfig.retryDelay` (`RETRY.SCAN_DELAY_MS`, 60s).
 - `GitActivityPipeline` default report-type selection is constrained to valid defaults (`weekly` / `monthly`) before fallback to configured default; this is a type-safety hardening and does not change pipeline data flow.
-- `collect_git_activity.py` and related tests were formatting-only updates; input/output contract remains unchanged.
+- `collect_git_activity.py` has been replaced by `sidequest/workers/git-activity-collector.ts` (pure TypeScript). The worker no longer spawns Python; it calls collector functions directly.
 - Startup-once runner behavior is verified for `repo-cleanup`, `gitignore`, and `dashboard-populate`: `--run-now`/`--run` creates one startup job, waits for terminal status, and exits when `--cron` is not set.
 - Aggregate test execution is split into `test:all:core` (default, env-sensitive suites skipped via `SKIP_ENV_SENSITIVE_TESTS=1`) and `test:all:full` (includes env-sensitive suites requiring socket bind and writable report/database paths).
 - `GET /api/status` activity feed now falls back to SQLite job history when the in-memory `ActivityFeedManager` is empty (e.g. after server restart). This ensures the dashboard always shows recent job history. See `api/server.ts` and `tests/unit/api-status-activity-fallback.test.ts`.
@@ -61,7 +61,7 @@ The AlephAuto automation system consists of 11 specialized pipelines built on a 
 | **Documentation** | Schema Enhancement | TypeScript |
 | **Operations** | Repomix, Gitignore, Repository Cleanup | TypeScript + Shell |
 | **Observability** | Dashboard Populate | TypeScript (external) |
-| **Reporting** | Git Activity, Plugin Manager, Claude Health | TypeScript + Python + Shell |
+| **Reporting** | Git Activity, Plugin Manager, Claude Health | TypeScript + Shell |
 
 ---
 
@@ -97,7 +97,7 @@ graph LR
 |---|----------|----------|-------------|-------------|------------|--------------|-----------|
 | 1 | Duplicate Detection | `duplicate-detection` | `duplicate-detection-pipeline.ts` | `workers/duplicate-detection-worker.ts` (API/registry) · inline class in pipeline file (CLI runner) | functional | ✅ Yes | TS + Python |
 | 2 | Schema Enhancement | `schema-enhancement` | `schema-enhancement-pipeline.ts` | `schema-enhancement-worker.ts` | BasePipeline | ✅ Yes | TypeScript |
-| 3 | Git Activity | `git-activity` | `git-activity-pipeline.ts` | `git-activity-worker.ts` | BasePipeline | ❌ No | TS + Python |
+| 3 | Git Activity | `git-activity` | `git-activity-pipeline.ts` | `git-activity-worker.ts` + `git-activity-collector.ts` | BasePipeline | ❌ No | TypeScript |
 | 4 | Gitignore Manager | `gitignore-manager` | `gitignore-pipeline.ts` | `gitignore-worker.ts` | BasePipeline | ⚠️ Batch N/A | TypeScript |
 | 5 | Repomix | `repomix` | `repomix-pipeline.ts` | `repomix-worker.ts` | BasePipeline | ❌ No | TypeScript |
 | 6 | Plugin Manager | `plugin-manager` | `plugin-management-pipeline.ts` | `utils/plugin-manager.ts` | BasePipeline | ❌ No | TypeScript |
@@ -376,7 +376,7 @@ graph TB
 
 **Purpose:** Generate weekly/monthly git activity reports with visualizations
 **Job Type:** Worker `git-activity` (payload type: `git-activity-report`)
-**Languages:** JavaScript → Python
+**Languages:** Pure TypeScript
 **Git Workflow:** ❌ No (generates reports only)
 
 #### Data Flow
@@ -384,37 +384,28 @@ graph TB
 ```mermaid
 graph TB
     A[Report Request] --> B[GitActivityWorker]
-    B --> C[Build Python Args]
-    C --> D{Report Type?}
-    D -->|Weekly| E[--weekly flag]
-    D -->|Monthly| F[--monthly flag]
-    D -->|Custom| G[--start-date [--end-date]]
-    E --> H[Execute Python Script]
-    F --> H
-    G --> H
-    H --> I[collect_git_activity.py]
-    I --> J[Scan configured repos + dotfiles]
-    J --> K[Collect commit data]
-    K --> L[Calculate statistics]
-    L --> M{Output format?}
-    M -->|markdown| N[Generate Jekyll markdown]
-    M -->|json| O[Generate JSON]
-    M -->|both| P[Generate markdown + JSON]
-    N --> Q{Visualizations?}
-    O --> Q
-    P --> Q
-    Q -->|Yes| R[Generate SVG charts]
-    Q -->|No| S[Skip visualizations]
-    R --> T[Save output files]
-    S --> T
-    T --> U[Parse stats from stdout]
-    U --> V[Verify files exist]
-    V --> W[Return job result]
+    B --> C[Resolve Date Range]
+    C --> D[loadGitReportConfig]
+    D --> E[findGitRepos]
+    E --> F[getRepoStats per repo]
+    F --> G[compileActivityData]
+    G --> H{Output format?}
+    H -->|markdown| I[generateJekyllReport]
+    H -->|json| J[Write JSON file]
+    H -->|both| K[Jekyll + JSON]
+    I --> L{Visualizations?}
+    J --> L
+    K --> L
+    L -->|Yes| M[generateVisualizations → SVG charts]
+    L -->|No| N[Skip visualizations]
+    M --> O[Verify output files]
+    N --> O
+    O --> P[Return job result]
 
-    style I fill:#bfb,stroke:#333
-    style J fill:#bfb,stroke:#333
-    style K fill:#bfb,stroke:#333
-    style R fill:#bbf,stroke:#333
+    style E fill:#bfb,stroke:#333
+    style F fill:#bfb,stroke:#333
+    style G fill:#bfb,stroke:#333
+    style M fill:#bbf,stroke:#333
 ```
 
 #### Scheduling Behavior
@@ -423,39 +414,33 @@ graph TB
 - Weekly cron: `GIT_CRON_SCHEDULE` (default `0 20 * * 0`).
 - Monthly cron: `GIT_MONTHLY_CRON_SCHEDULE` (default `0 8 1 * *`).
 
-#### Python Script Flow
+#### Collector Module Flow
 
-**File:** `sidequest/pipeline-runners/collect_git_activity.py`
+**File:** `sidequest/workers/git-activity-collector.ts`
 
-```python
-# 1. Parse command-line arguments
-args = parse_args()  # --weekly, --monthly, --start-date [--end-date], --output-format, --no-visualizations
+```typescript
+// 1. Load configuration
+const config = resolveConfig(await loadGitReportConfig());
 
-# 2. Find git repositories
-repos = find_git_repositories(config)  # CODE_DIR, REPORTS_DIR, additional_repositories, include_dotfiles
+// 2. Find git repositories
+const repos = await findGitRepos(config);  // codeDir, reportsDir, dotfiles, additional repos
 
-# 3. Collect commit data per repository
-for repo in repos:
-    commits = git log --since={date} [--until={date}] --all
-    parse_commit_data(commits)
+// 3. Collect commit data per repository (via execCommandOrThrow → git log)
+for (const repoPath of repos) {
+  const stats = await getRepoStats(repoPath, sinceDate, untilDate, config);
+  // commits, monthlyCommits, files, additions, deletions
+}
 
-# 4. Aggregate statistics
-total_commits = sum(repo.commits for repo in repos)
-total_additions = sum(repo.additions for repo in repos)
-total_deletions = sum(repo.deletions for repo in repos)
+// 4. Aggregate statistics
+const data = compileActivityData(repositories, allFiles, sinceDate, untilDate, config);
+data.websites = await findProjectWebsites(repositories);
 
-# 5. Save report outputs based on output format
-if args.output_format in ("markdown", "both"):
-    generate_jekyll_report(...)
-if args.output_format in ("json", "both") or args.json_output:
-    save_json_report(...)
+// 5. Generate outputs based on format
+if (wantsMarkdown) await generateJekyllReport(data, reportFile);
+if (wantsJson) await fs.writeFile(jsonFile, JSON.stringify(data));
 
-# 6. Generate visualizations (optional)
-if not args.no_visualizations:
-    generate_svg_charts(...)
-
-# 7. Print summary + return
-print_summary(...)
+// 6. Generate visualizations (optional)
+if (doVisualizations) await generateVisualizations(data, vizDir);
 ```
 
 #### Job Data Format
