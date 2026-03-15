@@ -51,7 +51,7 @@ graph TD
 
 | # | Pipeline | Language | Schedule | Output |
 |---|----------|----------|----------|--------|
-| 1 | **Duplicate Detection** | JS (1-2) + Python (3-7) | 2 AM daily | HTML/MD/JSON reports + PRs |
+| 1 | **Duplicate Detection** | JS (1-2) + Python (3-6) + JS (7) | 2 AM daily | HTML/MD/JSON reports + PRs |
 | 2 | **Schema Enhancement** | JS | 3 AM daily | Modified READMEs + JSON |
 | 3 | **Git Activity Reporter** | JS | Sunday 8 PM | Jekyll MD + SVG |
 | 4 | **Repository Cleanup** | JS | Sunday 3 AM | Cleanup logs |
@@ -97,7 +97,8 @@ SidequestServer (Base)
 Multi-Language Pipeline (Duplicate Detection)
   JS Stages 1-2: repo scanning, pattern detection
        │ JSON stdin/stdout
-  Python Stages 3-7: extraction, annotation, similarity, grouping, reports
+  Python Stages 3-6: extraction, annotation, similarity, grouping
+  JS Stage 7: report generation (HTML/JSON/Markdown via ReportCoordinator)
 ```
 
 ## Directory Structure
@@ -169,6 +170,7 @@ doppler run -c prd -- pm2 start config/ecosystem.config.cjs
 | Purpose | File |
 |---------|------|
 | Pipeline coordinator | `sidequest/pipeline-core/scan-orchestrator.ts` |
+| Structural similarity | `sidequest/pipeline-core/similarity/structural.ts` |
 | Base job queue | `sidequest/core/server.ts` |
 | Base pipeline runner | `sidequest/pipeline-runners/base-pipeline.ts` |
 | Job repository | `sidequest/core/job-repository.ts` |

@@ -6,12 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **AlephAuto** - Job queue framework with real-time dashboard for automation pipelines.
 
-11 logical pipelines: Duplicate Detection (JS+Python), Schema Enhancement, Git Activity Reporter, Repository Cleanup, Repomix, Claude Health, Dashboard Populate, Bugfix Audit, Gitignore Update, Plugin Management, Test Refactor.
+11 logical pipelines: Duplicate Detection (JS+Python), Schema Enhancement, Git Activity Reporter (pure TS), Repository Cleanup, Repomix, Claude Health, Dashboard Populate, Bugfix Audit, Gitignore Update, Plugin Management, Test Refactor.
 
 All 11 pipelines have `*-pipeline.ts` runner scripts in `pipeline-runners/`. Repomix also uses direct worker registration via `worker-registry.ts` (independent of the runner).
 
 ## Efficient read operations
-(file tree w/ token count)[docs/repomix/token-tree.txt]
+[file tree w/ token count](docs/repomix/token-tree.txt)
 lossless codebase packed at docs/repomix/repomix.xml
 compressed, loss-y codebase packed at docs/repomix/repo-compressed.xml
 
@@ -22,7 +22,7 @@ file tree with token count at docs/
 
 ```bash
 # Development
-doppler run -- npm start                   # Server
+npm start                                  # Server (reads .env in dev)
 npm run dashboard                          # Dashboard UI → http://localhost:8080
 npm run build:frontend                     # Build React dashboard
 
@@ -100,12 +100,12 @@ const count = jobRepository.getJobCount({ status });  // Efficient COUNT(*) quer
 
 ### 8. Constants: No Magic Numbers
 ```typescript
-import { TIMEOUTS, RETRY, CONCURRENCY, TIME, CACHE } from './sidequest/core/constants.ts';
+import { TIMEOUTS, RETRY, CONCURRENCY, DURATION_MS, CACHE } from './sidequest/core/constants.ts';
 const timeout = TIMEOUTS.PYTHON_PIPELINE_BASE_MS; // Correct
-const oneDay = TIME.DAY;                          // Correct
+const oneDay = DURATION_MS.DAY;                   // Correct
 ```
 
-Available groups: `TIMEOUTS`, `RETRY`, `CONCURRENCY`, `PAGINATION`, `VALIDATION`, `PORT`, `CACHE`, `WEBSOCKET`, `WORKER_COOLDOWN`, `RATE_LIMIT`, `LIMITS`, `TIME`
+Available groups: `TIMEOUTS`, `RETRY`, `CONCURRENCY`, `PAGINATION`, `VALIDATION`, `PORT`, `CACHE`, `WEBSOCKET`, `WORKER_COOLDOWN`, `RATE_LIMIT`, `LIMITS`, `DURATION_MS`
 
 ### 9. Git Operations: Use BranchManager
 ```javascript
@@ -128,7 +128,7 @@ const limit = Math.min(limit, PAGINATION.MAX_LIMIT);         // max 1000
 
 ## Architecture
 
-### Multi-Language Pipeline (JS ↔ Python)
+### Multi-Language Pipeline: Duplicate Detection (JS ↔ Python)
 ```
 JavaScript (Stages 1-2)          Python (Stages 3-6)           JavaScript (Stage 7)
 ├── Repository scanning          ├── Code block extraction      └── Report generation
@@ -184,7 +184,7 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 ## Directory Structure
 
 ```
-├── api/                    # REST API + WebSocket (22 endpoints)
+├── api/                    # REST API + WebSocket (23 endpoints)
 │   ├── routes/            # jobs, scans, pipelines, reports, repositories
 │   ├── types/             # Zod schemas
 │   ├── middleware/        # Auth, validation, rate-limit
@@ -194,7 +194,7 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 │   ├── core/              # server.ts, database, job-repository, config, constants, units
 │   ├── pipeline-core/     # Scan orchestrator, similarity (Python)
 │   ├── pipeline-runners/  # 11 pipeline entry points + base-pipeline.ts
-│   └── workers/           # 10 worker implementations (all extend SidequestServer)
+│   └── workers/           # 10 worker implementations (Plugin Management worker lives in utils/)
 ├── packages/              # pnpm workspace packages
 │   ├── shared-logging/    # @shared/logging (Pino)
 │   └── shared-process-io/ # @shared/process-io (child process utils)
@@ -211,7 +211,7 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 | Purpose | File |
 |---------|------|
 | Pipeline coordinator | `sidequest/pipeline-core/scan-orchestrator.ts` |
-| Feature extraction | `sidequest/pipeline-core/similarity/structural.py:29` |
+| Structural similarity | `sidequest/pipeline-core/similarity/structural.ts` |
 | Base job queue | `sidequest/core/server.ts` |
 | Base pipeline runner | `sidequest/pipeline-runners/base-pipeline.ts` |
 | SQLite persistence | `sidequest/core/database.ts` |
@@ -235,4 +235,4 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 
 ---
 
-**Version:** 2.3.20 | **Updated:** 2026-03-09 | **Status:** Production Ready
+**Version:** 2.3.29 | **Updated:** 2026-03-15 | **Status:** Production Ready

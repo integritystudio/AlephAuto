@@ -4,7 +4,7 @@ import { EventEmitter } from 'node:events';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
 
-import { formatSentryToDiscord, routeRequest } from '../../docs/setup/sentry-to-discord.js';
+import { formatSentryToDiscord, routeRequest } from '../../scripts/setup/sentry-to-discord.js';
 
 describe('sentry-to-discord bridge', () => {
   type MockResponse = ServerResponse & {

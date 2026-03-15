@@ -1,38 +1,32 @@
 import { SidequestServer, type Job, type SidequestServerOptions } from '../core/server.ts';
 import { generateReport } from '../utils/report-generator.ts';
-import { spawn } from 'child_process';
-import { captureProcessOutput } from '@shared/process-io';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { fileURLToPath } from 'url';
 import * as Sentry from '@sentry/node';
 import { createComponentLogger } from '../utils/logger.ts';
-import { TIMEOUTS, GIT_ACTIVITY, NUMBER_BASE } from '../core/constants.ts';
+import { GIT_ACTIVITY, NUMBER_BASE } from '../core/constants.ts';
 import { TIME_MS } from '../core/units.ts';
+import {
+  loadGitReportConfig,
+  resolveConfig,
+  findGitRepos,
+  getRepoStats,
+  compileActivityData,
+  findProjectWebsites,
+  generateVisualizations,
+  generateJekyllReport,
+  resolveOutputDir,
+  type ActivityData,
+  type ResolvedConfig,
+} from './git-activity-collector.ts';
 
 const logger = createComponentLogger('GitActivityWorker');
 
 interface GitActivityWorkerOptions extends SidequestServerOptions {
   codeBaseDir?: string;
-  pythonScript?: string;
   personalSiteDir?: string;
   outputDir?: string;
-}
-
-interface PythonArgs {
-  reportType?: string;
-  days?: number;
-  sinceDate?: string;
-  untilDate?: string;
-  outputFormat?: string;
-  generateVisualizations?: boolean;
-}
-
-interface PythonScriptResult {
-  stdout: string;
-  stderr: string;
-  outputFiles: string[];
 }
 
 export interface GitActivityStats {
@@ -113,7 +107,6 @@ export async function parseGitActivityStatsFromJsonFiles(
           file: resolvedPath,
         },
       });
-      // Continue to next JSON output file.
     }
   }
 
@@ -156,36 +149,32 @@ export function parseGitActivityStatsFromText(stdout: string): GitActivityStats 
   return stats;
 }
 
+function buildStatsFromActivityData(data: ActivityData): GitActivityStats {
+  return {
+    totalCommits: data.total_commits,
+    totalRepositories: data.total_repositories,
+    linesAdded: data.total_additions,
+    linesDeleted: data.total_deletions,
+    filesChanged: data.total_files,
+  };
+}
+
 /**
  * GitActivityWorker - Executes git activity report jobs
  *
- * Integrates the Python git activity collector into the AlephAuto framework,
- * providing job queue management, event tracking, and Sentry error monitoring.
+ * Collects git activity across repositories, generates reports and visualizations.
  */
 export class GitActivityWorker extends SidequestServer {
   codeBaseDir: string;
-  pythonScript: string;
   personalSiteDir: string;
   outputDir: string;
 
-  /**
-   * Initialize a git activity worker with project and output paths.
-   *
-   * @param options Optional worker configuration.
-   */
   constructor(options: GitActivityWorkerOptions = {}) {
     super({
       ...options,
       jobType: 'git-activity',
     });
     this.codeBaseDir = options.codeBaseDir ?? path.join(os.homedir(), 'code');
-    const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-    this.pythonScript = options.pythonScript ?? path.join(
-      moduleDir,
-      '..',
-      'pipeline-runners',
-      'collect_git_activity.py'
-    );
     this.personalSiteDir = options.personalSiteDir ?? path.join(
       os.homedir(),
       'code',
@@ -194,18 +183,15 @@ export class GitActivityWorker extends SidequestServer {
     this.outputDir = options.outputDir ?? path.join(os.homedir(), 'code', 'PersonalSite', '_reports');
   }
 
-  /**
-   * Run git activity report job
-   */
   async runJobHandler(job: Job): Promise<unknown> {
     const startTime = Date.now();
     const {
       reportType,
       days,
-      sinceDate,
-      untilDate,
+      sinceDate: rawSinceDate,
+      untilDate: rawUntilDate,
       outputFormat = 'both',
-      generateVisualizations = true
+      generateVisualizations: doVisualizations = true
     } = job.data as {
       reportType?: string;
       days?: number;
@@ -219,30 +205,70 @@ export class GitActivityWorker extends SidequestServer {
       jobId: job.id,
       reportType,
       days,
-      sinceDate,
-      untilDate
+      sinceDate: rawSinceDate,
+      untilDate: rawUntilDate
     }, 'Running git activity report');
 
     try {
-      // Build command arguments
-      const args = this.#buildPythonArgs({
-        reportType,
-        days,
-        sinceDate,
-        untilDate,
-        outputFormat,
-        generateVisualizations
+      // Resolve date range
+      const { sinceDate, untilDate } = this.#resolveDateRange({
+        reportType, days, sinceDate: rawSinceDate, untilDate: rawUntilDate,
       });
 
-      // Execute Python script
-      const { stdout, stderr, outputFiles } = await this.#runPythonScript(args);
+      // Load config and discover repos
+      const rawConfig = await loadGitReportConfig();
+      const config = resolveConfig(rawConfig);
+      const repos = await findGitRepos(config);
 
-      if (stderr) {
-        logger.warn({ jobId: job.id, stderr }, 'Git activity warnings');
+      // Collect stats from all repos
+      const repositories = [];
+      const allFiles: string[] = [];
+      for (const repoPath of repos) {
+        try {
+          const stats = await getRepoStats(repoPath, sinceDate, untilDate, config);
+          if (stats.commits > 0) {
+            repositories.push(stats);
+            allFiles.push(...stats.files);
+          }
+        } catch (err) {
+          logger.warn({ repoPath, error: (err as Error).message }, 'Failed to get repo stats, skipping');
+        }
+      }
+      repositories.sort((a, b) => b.commits - a.commits);
+
+      // Compile activity data
+      const data = compileActivityData(repositories, allFiles, sinceDate, untilDate, config);
+      data.websites = await findProjectWebsites(repositories);
+
+      const stats = buildStatsFromActivityData(data);
+      const outputFiles: string[] = [];
+
+      // Generate outputs based on format
+      const wantsMarkdown = outputFormat === 'markdown' || outputFormat === 'both';
+      const wantsJson = outputFormat === 'json' || outputFormat === 'both';
+
+      const reportDate = new Date().toISOString().slice(0, 10);
+
+      if (wantsMarkdown) {
+        const reportDir = path.join(config.personalSiteDir, config.workCollection);
+        const reportFile = path.join(reportDir, `${reportDate}-git-activity-report.md`);
+        await generateJekyllReport(data, reportFile);
+        outputFiles.push(reportFile);
       }
 
-      // Parse JSON output to get statistics
-      const stats = await this.#parseStats(stdout, outputFiles);
+      if (wantsJson) {
+        const reportDir = path.join(config.personalSiteDir, config.workCollection);
+        const jsonFile = path.join(reportDir, `${reportDate}-git-activity-report.json`);
+        await fs.mkdir(path.dirname(jsonFile), { recursive: true });
+        await fs.writeFile(jsonFile, JSON.stringify(data, null, 2));
+        outputFiles.push(jsonFile);
+      }
+
+      if (doVisualizations) {
+        const vizDir = resolveOutputDir(config);
+        const vizFiles = await generateVisualizations(data, vizDir);
+        outputFiles.push(...vizFiles);
+      }
 
       // Verify output files exist
       const verifiedFiles = await this.#verifyOutputFiles(outputFiles);
@@ -294,142 +320,35 @@ export class GitActivityWorker extends SidequestServer {
     }
   }
 
-  /**
-   * Build Python script arguments
-   */
-  #buildPythonArgs({ reportType, days, sinceDate, untilDate, outputFormat, generateVisualizations }: PythonArgs): string[] {
-    const args: string[] = [];
+  #resolveDateRange(opts: {
+    reportType?: string;
+    days?: number;
+    sinceDate?: string;
+    untilDate?: string;
+  }): { sinceDate: string; untilDate: string | undefined } {
+    if (opts.sinceDate) {
+      return { sinceDate: opts.sinceDate, untilDate: opts.untilDate };
+    }
 
-    // Add date range arguments
-    if (sinceDate) {
-      args.push('--start-date', sinceDate);
-      if (untilDate) {
-        args.push('--end-date', untilDate);
-      }
-    } else if (reportType === GIT_ACTIVITY.WEEKLY_REPORT_TYPE || days === GIT_ACTIVITY.WEEKLY_WINDOW_DAYS) {
-      args.push('--weekly');
-    } else if (reportType === GIT_ACTIVITY.MONTHLY_REPORT_TYPE || days === GIT_ACTIVITY.MONTHLY_WINDOW_DAYS) {
-      args.push('--monthly');
-    } else if (days) {
-      args.push('--days', String(days));
+    let daysBack: number;
+    if (opts.reportType === GIT_ACTIVITY.WEEKLY_REPORT_TYPE || opts.days === GIT_ACTIVITY.WEEKLY_WINDOW_DAYS) {
+      daysBack = GIT_ACTIVITY.WEEKLY_WINDOW_DAYS;
+    } else if (opts.reportType === GIT_ACTIVITY.MONTHLY_REPORT_TYPE || opts.days === GIT_ACTIVITY.MONTHLY_WINDOW_DAYS) {
+      daysBack = GIT_ACTIVITY.MONTHLY_WINDOW_DAYS;
+    } else if (opts.days) {
+      daysBack = opts.days;
     } else {
-      // Default to weekly
-      args.push('--weekly');
+      daysBack = GIT_ACTIVITY.WEEKLY_WINDOW_DAYS;
     }
 
-    // Always pass output format explicitly so Python defaults cannot drift.
-    if (outputFormat) {
-      args.push('--output-format', outputFormat);
-    }
-
-    // Add visualization flag
-    if (!generateVisualizations) {
-      args.push('--no-visualizations');
-    }
-
-    return args;
+    const end = new Date();
+    const start = new Date(end.getTime() - daysBack * TIME_MS.DAY);
+    return {
+      sinceDate: start.toISOString().slice(0, 10),
+      untilDate: end.toISOString().slice(0, 10),
+    };
   }
 
-  /**
-   * Execute Python script
-   */
-  #runPythonScript(args: string[]): Promise<PythonScriptResult> {
-    return new Promise((resolve, reject) => {
-      logger.debug({ args }, 'Executing Python script');
-
-      const proc = spawn('python3', [this.pythonScript, ...args], {
-        cwd: path.dirname(this.pythonScript),
-        timeout: TIMEOUTS.GIT_REPORT_MS,
-      });
-
-      const output = captureProcessOutput(proc);
-
-      proc.on('close', (code) => {
-        const stdout = output.getStdout();
-        const stderr = output.getStderr();
-        if (code === 0) {
-          // Extract output files from stdout if present
-          const outputFiles = this.#extractOutputFiles(stdout);
-          resolve({ stdout, stderr, outputFiles });
-        } else {
-          const error = new Error(`Python script exited with code ${code}`) as Error & {
-            code: number | null;
-            stdout: string;
-            stderr: string;
-          };
-          error.code = code;
-          error.stdout = stdout;
-          error.stderr = stderr;
-          reject(error);
-        }
-      });
-
-      proc.on('error', (error) => {
-        const augmented = error as Error & { stdout: string; stderr: string };
-        augmented.stdout = output.getStdout();
-        augmented.stderr = output.getStderr();
-        reject(augmented);
-      });
-    });
-  }
-
-  /**
-   * Extract output file paths from script output
-   */
-  #extractOutputFiles(stdout: string): string[] {
-    const files = new Set<string>();
-    const pendingSvgBasenames: string[] = [];
-
-    // JSON output lines emitted by the Python script.
-    const jsonPatterns = [
-      /JSON data saved to:\s*(.+\.json)/gi,
-      /(?:Saving|Saved)\s+(?:to|data to):\s*(.+\.json)/gi,
-    ];
-    for (const pattern of jsonPatterns) {
-      for (const match of stdout.matchAll(pattern)) {
-        files.add(match[1].trim());
-      }
-    }
-
-    // Markdown output line emitted by the Python script.
-    for (const match of stdout.matchAll(/Jekyll report saved to:\s*(.+\.md)/gi)) {
-      files.add(match[1].trim());
-    }
-
-    // SVG output lines (supports "Created:", "Saving:", "Generated:", etc).
-    for (const match of stdout.matchAll(/(?:Generating|Generated|Saving|Created).*?:\s*(.+\.svg)/gi)) {
-      const rawPath = match[1].trim();
-      if (path.isAbsolute(rawPath) || rawPath.includes('/')) {
-        files.add(rawPath);
-      } else {
-        pendingSvgBasenames.push(rawPath);
-      }
-    }
-
-    // When Python logs only SVG basenames, recover full paths from summary output.
-    const visualizationDirMatch = stdout.match(/Visualizations saved to:\s*(.+)/i);
-    if (visualizationDirMatch) {
-      const visualizationDir = visualizationDirMatch[1].trim();
-      for (const svgName of pendingSvgBasenames) {
-        files.add(path.join(visualizationDir, svgName));
-      }
-    }
-
-    return Array.from(files);
-  }
-
-  async #parseStats(stdout: string, outputFiles: string[]): Promise<GitActivityStats> {
-    const scriptDir = path.dirname(this.pythonScript);
-    const jsonStats = await parseGitActivityStatsFromJsonFiles(outputFiles, scriptDir);
-    if (jsonStats) {
-      return jsonStats;
-    }
-    return parseGitActivityStatsFromText(stdout);
-  }
-
-  /**
-   * Calculate days between two dates
-   */
   #calculateDays(sinceDate?: string, untilDate?: string): number | null {
     if (!sinceDate || !untilDate) return null;
 
@@ -441,30 +360,23 @@ export class GitActivityWorker extends SidequestServer {
     return diffDays;
   }
 
-  /**
-   * Verify output files exist
-   */
   async #verifyOutputFiles(files: string[]): Promise<VerifiedFile[]> {
     const verified: VerifiedFile[] = [];
-    const scriptDir = path.dirname(this.pythonScript);
 
     for (const file of files) {
-      const resolvedPath = path.isAbsolute(file)
-        ? file
-        : path.resolve(scriptDir, file);
       try {
-        await fs.access(resolvedPath);
-        const stats = await fs.stat(resolvedPath);
+        await fs.access(file);
+        const fileStat = await fs.stat(file);
         verified.push({
-          path: resolvedPath,
-          size: stats.size,
+          path: file,
+          size: fileStat.size,
           exists: true,
         });
       } catch (error) {
         const err = error as Error;
-        logger.warn({ file: resolvedPath, error: err.message }, 'Output file not found');
+        logger.warn({ file, error: err.message }, 'Output file not found');
         verified.push({
-          path: resolvedPath,
+          path: file,
           exists: false,
         });
       }
@@ -473,9 +385,6 @@ export class GitActivityWorker extends SidequestServer {
     return verified;
   }
 
-  /**
-   * Create a weekly report job
-   */
   createWeeklyReportJob(): Job {
     const jobId = `git-activity-weekly-${Date.now()}`;
 
@@ -487,9 +396,6 @@ export class GitActivityWorker extends SidequestServer {
     });
   }
 
-  /**
-   * Create a monthly report job
-   */
   createMonthlyReportJob(): Job {
     const jobId = `git-activity-monthly-${Date.now()}`;
 
@@ -501,9 +407,6 @@ export class GitActivityWorker extends SidequestServer {
     });
   }
 
-  /**
-   * Create a custom date range report job
-   */
   createCustomReportJob(sinceDate: string, untilDate: string): Job {
     const jobId = `git-activity-custom-${Date.now()}`;
 
@@ -515,9 +418,6 @@ export class GitActivityWorker extends SidequestServer {
     });
   }
 
-  /**
-   * Create a report job with custom parameters
-   */
   createReportJob(options: ReportJobOptions = {}): Job {
     const jobId = options.jobId ?? `git-activity-${Date.now()}`;
 

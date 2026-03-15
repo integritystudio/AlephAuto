@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js >= 22.0.0, Python 3.10+, Git
+- Node.js >= 22.0.0, Python 3.10+ (for Duplicate Detection pipeline only), Git
 - pnpm (`npm i -g pnpm`)
 - [Doppler CLI](https://docs.doppler.com/docs/install-cli) (required for all pipelines)
 
@@ -73,7 +73,6 @@ Pages setup: Repository **Settings** > **Pages** > Source: **GitHub Actions**.
 ### Git Activity Reporter
 
 ```bash
-chmod +x sidequest/pipeline-runners/collect_git_activity.py
 node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --run --weekly
 ```
 
@@ -88,7 +87,7 @@ doppler run -- node --strip-types sidequest/pipeline-runners/duplicate-detection
 - **Dev:** `.env` file -- `npm start` loads it automatically
 - **Production:** Doppler -- `doppler run -- node --strip-types api/server.ts`
 - **Never** use `process.env` directly -- use `import { config } from './sidequest/core/config.ts'`
-- **Paths:** Set `CODE_BASE_DIR` env var or edit `collect_git_activity.py` directly
+- **Paths:** Set `CODE_BASE_DIR` env var or edit `sidequest/git-report-config.json`
 
 ## Monitoring
 
@@ -102,8 +101,8 @@ doppler run -- node --strip-types sidequest/pipeline-runners/duplicate-detection
 | Problem | Fix |
 |---------|-----|
 | TypeScript fails to start | `pnpm install && node --version` (>= 22.0.0) |
-| Python script won't execute | `chmod +x` the `.py` file, verify `python3 --version` >= 3.10 |
-| No repositories found | Check `$CODE_BASE_DIR` or edit `collect_git_activity.py` |
+| Python script won't execute (Duplicate Detection) | Verify `python3 --version` >= 3.10 |
+| No repositories found | Check `$CODE_BASE_DIR` or edit `sidequest/git-report-config.json` |
 | Jobs not completing | `pm2 logs`, check `logs/*.json`, check Sentry |
 | Dashboard "Connection Failed" | Expected on Pages (no backend); on self-hosted check `pm2 status`, port 8080, firewall |
 | Pages workflow fails | Legacy `public/` files missing -- see note above |

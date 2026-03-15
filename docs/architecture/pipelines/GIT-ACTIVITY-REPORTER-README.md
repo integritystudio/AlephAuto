@@ -25,8 +25,9 @@ node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts
 
 - `sidequest/pipeline-runners/git-activity-pipeline.ts` - Pipeline orchestrator
 - `sidequest/workers/git-activity-worker.ts` - Job worker
-- `sidequest/pipeline-runners/collect_git_activity.py` - Python data collector
+- `sidequest/workers/git-activity-collector.ts` - Data collector (repo discovery, stats, charts, Jekyll reports)
 - `sidequest/git-report-config.json` - Collector configuration
+- `tests/unit/git-activity-collector.test.ts` - Collector unit tests
 - `GIT-ACTIVITY-REPORTER-README.md` - This file
 - `docs/INSTALL.md` - Installation guide
 - `logs/` - Job/event logs directory
@@ -39,9 +40,6 @@ Quick install:
 ```bash
 # From project root
 npm install
-
-# Make Python script executable
-chmod +x sidequest/pipeline-runners/collect_git_activity.py
 
 # Test the integration
 node --strip-types sidequest/pipeline-runners/git-activity-pipeline.ts --run --weekly
@@ -75,7 +73,8 @@ pm2 startup
 ## Output
 
 - **Visualizations**: `~/code/PersonalSite/assets/images/git-activity-{year}/*.svg`
-- **JSON Data**: `/tmp/git_activity_weekly_*.json`
+- **JSON Data**: `~/code/PersonalSite/_reports/*-git-activity-report.json`
+- **Markdown**: `~/code/PersonalSite/_reports/*-git-activity-report.md`
 - **Logs**: `~/code/jobs/logs/*.json`
 
 ## Claude Code Integration
