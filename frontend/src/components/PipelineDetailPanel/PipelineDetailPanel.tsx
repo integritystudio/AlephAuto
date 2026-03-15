@@ -1,18 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import type { Pipeline } from '../../types';
+import type { Pipeline, PipelineJobResult } from '../../types';
 import './PipelineDetailPanel.css';
-
-interface PipelineJob {
-  id: string;
-  pipelineId: string;
-  status: string;
-  startTime?: string;
-  createdAt: string;
-  endTime?: string;
-  duration?: number;
-  error?: Record<string, unknown>;
-  result?: Record<string, unknown>;
-}
 
 interface PipelineDetailPanelProps {
   pipeline: Pipeline;
@@ -41,7 +29,7 @@ const formatDuration = (seconds: number): string => {
 };
 
 export const PipelineDetailPanel: React.FC<PipelineDetailPanelProps> = ({ pipeline, onClose, onJobClick }) => {
-  const [jobs, setJobs] = useState<PipelineJob[]>([]);
+  const [jobs, setJobs] = useState<PipelineJobResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<'recent' | 'failed'>('recent');

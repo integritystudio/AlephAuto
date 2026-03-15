@@ -11,8 +11,8 @@
 import { useEffect } from 'react';
 import { wsService } from '../services/websocket';
 import { useDashboardStore } from '../store/dashboard';
-import { PipelineType, ActivityType, JobStatus, PipelineStatus, SystemHealth } from '../types';
-import type { Job, Pipeline } from '../types';
+import { PipelineType, ActivityType, JobStatus, PipelineStatus, SystemHealth, PIPELINE_TYPE_MAP } from '../types';
+import type { Job, Pipeline, PipelineId } from '../types';
 import { createLogger } from '../utils/logger';
 import { DASHBOARD_TIMING } from '../constants/timing';
 
@@ -75,16 +75,7 @@ export const ACTIVITY_TYPE_MAP: Record<string, ActivityType> = {
 const POLL_INTERVAL_MS = DASHBOARD_TIMING.STATUS_POLL_INTERVAL_MS;
 const UNKNOWN_TIMESTAMP = '1970-01-01T00:00:00.000Z';
 
-const PIPELINE_TYPE_MAP: Record<string, PipelineType> = {
-  'duplicate-detection': PipelineType.DUPLICATE_DETECTION,
-  'schema-enhancement': PipelineType.DOC_ENHANCEMENT,
-  'git-activity': PipelineType.GIT_ACTIVITY,
-  'repomix': PipelineType.REPOMIX_AUTOMATION,
-  'claude-health': PipelineType.CLAUDE_HEALTH,
-  'gitignore-manager': PipelineType.GITIGNORE_MANAGER,
-  'plugin-manager': PipelineType.PLUGIN_AUDIT,
-  'test-refactor': PipelineType.TEST_REFACTOR,
-};
+
 
 /**
  * fetchStatus.
@@ -144,7 +135,7 @@ function mapPipeline(p: ApiPipeline): Pipeline {
     icon: getPipelineIcon(p.id),
     color: getPipelineColor(p.id),
     status: (p.status ?? 'idle') as PipelineStatus,
-    type: PIPELINE_TYPE_MAP[p.id] ?? PipelineType.DUPLICATE_DETECTION,
+    type: isPipelineId(p.id) ? PIPELINE_TYPE_MAP[p.id] : PipelineType.DUPLICATE_DETECTION,
     totalJobs: (p.completedJobs ?? 0) + (p.failedJobs ?? 0),
     successRate: (p.completedJobs ?? 0) > 0
       ? (p.completedJobs ?? 0) / ((p.completedJobs ?? 0) + (p.failedJobs ?? 0))
@@ -315,7 +306,7 @@ export const useWebSocketConnection = () => {
   }, []);
 };
 
-const PIPELINE_ICONS: Record<string, string> = {
+const PIPELINE_ICONS: Record<PipelineId, string> = {
   'duplicate-detection': '🔍',
   'schema-enhancement': '📄',
   'git-activity': '📊',
@@ -329,7 +320,7 @@ const PIPELINE_ICONS: Record<string, string> = {
 
 type PipelineColor = 'purple' | 'cyan' | 'pink' | 'teal' | 'blue' | 'green' | 'amber';
 
-const PIPELINE_COLORS: Record<string, PipelineColor> = {
+const PIPELINE_COLORS: Record<PipelineId, PipelineColor> = {
   'duplicate-detection': 'purple',
   'schema-enhancement': 'cyan',
   'git-activity': 'pink',
@@ -341,10 +332,14 @@ const PIPELINE_COLORS: Record<string, PipelineColor> = {
   'repo-cleanup': 'cyan',
 };
 
+function isPipelineId(id: string): id is PipelineId {
+  return id in PIPELINE_TYPE_MAP;
+}
+
 function getPipelineIcon(pipelineId: string): string {
-  return PIPELINE_ICONS[pipelineId] || '⚙️';
+  return isPipelineId(pipelineId) ? PIPELINE_ICONS[pipelineId] : '⚙️';
 }
 
 function getPipelineColor(pipelineId: string): PipelineColor {
-  return PIPELINE_COLORS[pipelineId] || 'blue';
+  return isPipelineId(pipelineId) ? PIPELINE_COLORS[pipelineId] : 'blue';
 }

@@ -63,8 +63,23 @@ export enum PipelineType {
   CLAUDE_HEALTH = 'claude_health',
   GITIGNORE_MANAGER = 'gitignore_manager',
   REPOMIX_AUTOMATION = 'repomix_automation',
-  TEST_REFACTOR = 'test_refactor'
+  TEST_REFACTOR = 'test_refactor',
+  REPO_CLEANUP = 'repo_cleanup'
 }
+
+export const PIPELINE_TYPE_MAP = {
+  'duplicate-detection': PipelineType.DUPLICATE_DETECTION,
+  'schema-enhancement': PipelineType.DOC_ENHANCEMENT,
+  'git-activity': PipelineType.GIT_ACTIVITY,
+  'repomix': PipelineType.REPOMIX_AUTOMATION,
+  'claude-health': PipelineType.CLAUDE_HEALTH,
+  'gitignore-manager': PipelineType.GITIGNORE_MANAGER,
+  'plugin-manager': PipelineType.PLUGIN_AUDIT,
+  'test-refactor': PipelineType.TEST_REFACTOR,
+  'repo-cleanup': PipelineType.REPO_CLEANUP,
+} as const;
+
+export type PipelineId = keyof typeof PIPELINE_TYPE_MAP;
 
 // ============================================================================
 // Core Data Models (schema.org compliant)
@@ -119,6 +134,23 @@ export interface Pipeline {
   updatedAt: string;
   /** Last successful run timestamp (ISO 8601) */
   lastRunAt?: string;
+}
+
+/**
+ * Raw job result from pipeline detail API endpoints.
+ * Unlike Job, this mirrors the API response shape directly
+ * (object error, startTime/endTime naming, result field).
+ */
+export interface PipelineJobResult {
+  id: string;
+  pipelineId: string;
+  status: string;
+  startTime?: string;
+  createdAt: string;
+  endTime?: string;
+  duration?: number;
+  error?: Record<string, unknown>;
+  result?: Record<string, unknown>;
 }
 
 /**
