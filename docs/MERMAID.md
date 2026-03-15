@@ -13,7 +13,7 @@ graph TB
         Server["api/server.ts<br/>Port 8080"]
         WS_Server["WebSocket Server"]
         Routes["REST Routes"]
-        Middleware["Middleware<br/>Auth, Validation, Rate-limit"]
+        Middleware["Middleware<br/>Auth, Validation, Rate-limit, Error-handler"]
         Types["Zod Schemas<br/>api/types/"]
     end
 
@@ -42,7 +42,7 @@ graph TB
     subgraph Pipelines["Pipeline Runners (11)"]
         DupP["Duplicate Detection<br/>JS + Python"]
         GitP["Git Activity"]
-        HealthP["Codebase Health"]
+        HealthP["Claude Health"]
         RepomixP["Repomix"]
         SchemaP["Schema Enhancement"]
         GitignoreP["Gitignore Update"]
@@ -121,9 +121,11 @@ stateDiagram-v2
     queued --> running: Worker available
     running --> completed: Success
     running --> failed: Error
+    queued --> cancelled: Cancel requested
     failed --> queued: Retryable + attempts remaining
     failed --> [*]: Non-retryable or max retries
     completed --> [*]
+    cancelled --> [*]
 
     note right of running
         Concurrency: max 5 jobs
@@ -145,12 +147,15 @@ graph LR
         S2["Stage 2<br/>Pattern Detection"]
     end
 
-    subgraph PY["Python (Stages 3-7)"]
+    subgraph PY["Python (Stages 3-6)"]
         S3["Stage 3<br/>Code Block Extraction"]
         S4["Stage 4<br/>Semantic Annotation"]
         S5["Stage 5<br/>Similarity Calculation"]
         S6["Stage 6<br/>Duplicate Grouping"]
-        S7["Stage 7<br/>Report Generation"]
+    end
+
+    subgraph JS2["JavaScript (Stage 7)"]
+        S7["Stage 7<br/>Report Generation<br/>ReportCoordinator"]
     end
 
     S1 --> S2
@@ -162,6 +167,7 @@ graph LR
 
     style JS fill:#fef3c7,stroke:#f59e0b
     style PY fill:#ede9fe,stroke:#8b5cf6
+    style JS2 fill:#fef3c7,stroke:#f59e0b
 ```
 
 ## Repository Structure
@@ -178,6 +184,7 @@ graph TD
     root --> docs["docs/<br/>Documentation"]
     root --> scripts["scripts/<br/>Deploy + Utilities"]
     root --> config["config/<br/>PM2 Ecosystem"]
+    root --> cfworkers["cloudflare-workers/<br/>Edge Workers"]
 
     api --> routes["routes/ (5)"]
     api --> types["types/ (Zod)"]
@@ -188,6 +195,7 @@ graph TD
     sidequest --> workers["workers/ (10)"]
     sidequest --> runners["pipeline-runners/ (11)"]
     sidequest --> pcore["pipeline-core/<br/>orchestrator, similarity"]
+    sidequest --> squtils["utils/<br/>report-generator, plugin-manager"]
 
     packages --> logging["@shared/logging<br/>Pino"]
     packages --> processio["@shared/process-io<br/>Child process utils"]
@@ -201,4 +209,5 @@ graph TD
     style docs fill:#f3f4f6,stroke:#6b7280
     style scripts fill:#f3f4f6,stroke:#6b7280
     style config fill:#f3f4f6,stroke:#6b7280
+    style cfworkers fill:#fce7f3,stroke:#ec4899
 ```

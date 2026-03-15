@@ -8,6 +8,7 @@
 
 - [Error Response Format](#error-response-format)
 - [Health & Status](#health--status)
+- [Pipeline Data Flow](#pipeline-data-flow)
 - [Scans](#scans)
 - [Jobs](#jobs)
 - [Repositories](#repositories)
@@ -165,6 +166,19 @@ System status with pipeline metrics and activity feed.
   ]
 }
 ```
+
+---
+
+### GET /api/pipeline-data-flow
+
+Renders `docs/architecture/SYSTEM-DATA-FLOW.md` as sanitized HTML (no auth required).
+
+**Response:**
+- Content-Type: `text/html`
+- Body: Markdown parsed to HTML via `marked`, sanitized with DOMPurify (allows `pre`, `code` tags for mermaid blocks)
+
+**Errors:**
+- `500`: Failed to load documentation file
 
 ---
 
