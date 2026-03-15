@@ -22,6 +22,11 @@ import {
 
 const logger = createComponentLogger('GitActivityWorker');
 
+const ISO_DATE_LENGTH = 10;
+const JSON_INDENT = 2;
+const DEFAULT_OUTPUT_FORMAT = 'both';
+const JOB_TYPE_REPORT = 'git-activity-report';
+
 interface GitActivityWorkerOptions extends SidequestServerOptions {
   codeBaseDir?: string;
   personalSiteDir?: string;
@@ -189,7 +194,7 @@ export class GitActivityWorker extends SidequestServer {
       days,
       sinceDate: rawSinceDate,
       untilDate: rawUntilDate,
-      outputFormat = 'both',
+      outputFormat = DEFAULT_OUTPUT_FORMAT,
       generateVisualizations: doVisualizations = true
     } = job.data as {
       reportType?: string;
@@ -243,10 +248,10 @@ export class GitActivityWorker extends SidequestServer {
       const outputFiles: string[] = [];
 
       // Generate outputs based on format
-      const wantsMarkdown = outputFormat === 'markdown' || outputFormat === 'both';
-      const wantsJson = outputFormat === 'json' || outputFormat === 'both';
+      const wantsMarkdown = outputFormat === 'markdown' || outputFormat === DEFAULT_OUTPUT_FORMAT;
+      const wantsJson = outputFormat === 'json' || outputFormat === DEFAULT_OUTPUT_FORMAT;
 
-      const reportDate = new Date().toISOString().slice(0, 10);
+      const reportDate = new Date().toISOString().slice(0, ISO_DATE_LENGTH);
 
       if (wantsMarkdown) {
         const reportDir = path.join(config.personalSiteDir, config.workCollection);
@@ -259,7 +264,7 @@ export class GitActivityWorker extends SidequestServer {
         const reportDir = path.join(config.personalSiteDir, config.workCollection);
         const jsonFile = path.join(reportDir, `${reportDate}-git-activity-report.json`);
         await fs.mkdir(path.dirname(jsonFile), { recursive: true });
-        await fs.writeFile(jsonFile, JSON.stringify(data, null, 2));
+        await fs.writeFile(jsonFile, JSON.stringify(data, null, JSON_INDENT));
         outputFiles.push(jsonFile);
       }
 
@@ -343,8 +348,8 @@ export class GitActivityWorker extends SidequestServer {
     const end = new Date();
     const start = new Date(end.getTime() - daysBack * TIME_MS.DAY);
     return {
-      sinceDate: start.toISOString().slice(0, 10),
-      untilDate: end.toISOString().slice(0, 10),
+      sinceDate: start.toISOString().slice(0, ISO_DATE_LENGTH),
+      untilDate: end.toISOString().slice(0, ISO_DATE_LENGTH),
     };
   }
 
@@ -390,8 +395,8 @@ export class GitActivityWorker extends SidequestServer {
     return this.createJob(jobId, {
       reportType: GIT_ACTIVITY.WEEKLY_REPORT_TYPE,
       days: GIT_ACTIVITY.WEEKLY_WINDOW_DAYS,
-      outputFormat: 'both',
-      type: 'git-activity-report',
+      outputFormat: DEFAULT_OUTPUT_FORMAT,
+      type: JOB_TYPE_REPORT,
     });
   }
 
@@ -401,8 +406,8 @@ export class GitActivityWorker extends SidequestServer {
     return this.createJob(jobId, {
       reportType: GIT_ACTIVITY.MONTHLY_REPORT_TYPE,
       days: GIT_ACTIVITY.MONTHLY_WINDOW_DAYS,
-      outputFormat: 'both',
-      type: 'git-activity-report',
+      outputFormat: DEFAULT_OUTPUT_FORMAT,
+      type: JOB_TYPE_REPORT,
     });
   }
 
@@ -413,7 +418,7 @@ export class GitActivityWorker extends SidequestServer {
       reportType: GIT_ACTIVITY.CUSTOM_REPORT_TYPE,
       sinceDate,
       untilDate,
-      type: 'git-activity-report',
+      type: JOB_TYPE_REPORT,
     });
   }
 
@@ -425,9 +430,9 @@ export class GitActivityWorker extends SidequestServer {
       days: options.days,
       sinceDate: options.sinceDate,
       untilDate: options.untilDate,
-      outputFormat: options.outputFormat ?? 'both',
+      outputFormat: options.outputFormat ?? DEFAULT_OUTPUT_FORMAT,
       generateVisualizations: options.generateVisualizations !== false,
-      type: 'git-activity-report',
+      type: JOB_TYPE_REPORT,
     });
   }
 }

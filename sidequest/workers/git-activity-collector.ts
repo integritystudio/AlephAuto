@@ -10,6 +10,7 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { createComponentLogger } from '../utils/logger.ts';
+import { TIME_MS } from '../core/units.ts';
 import { z } from 'zod';
 
 const logger = createComponentLogger('GitActivityCollector');
@@ -66,6 +67,16 @@ const REPORT_DEFAULTS = {
   MONTHLY_BUCKET_MAX_DAYS: 31,
   SEPARATOR_LENGTH: 60,
   ISO_DATE_FORMAT: 'yyyy-MM-dd',
+  DEFAULT_MAX_DEPTH: 3,
+} as const;
+
+const MATH = {
+  HALF: 2,
+  PERCENT: 100,
+  DEGREES_PER_HALF_CIRCLE: 180,
+  PAD_WIDTH: 2,
+  MIN_NUMSTAT_PARTS: 2,
+  MS_PER_DAY: TIME_MS.DAY,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -218,7 +229,7 @@ export function resolveConfig(config: GitReportConfig): ResolvedConfig {
     reportsDir: resolvePath(scanning.reports_directory, path.join(homeDir, 'reports')),
     additionalRepos,
     includeDotfiles: scanning.include_dotfiles ?? true,
-    maxDepth: scanning.max_depth ?? 3,
+    maxDepth: scanning.max_depth ?? REPORT_DEFAULTS.DEFAULT_MAX_DEPTH,
     excludePatterns: scanning.exclude_patterns ?? ['vim/bundle', 'node_modules', '.git', 'venv', '.venv'],
     personalSiteDir: resolvePath(output.personalsite_dir, path.join(homeDir, 'code', 'PersonalSite')),
     workCollection: output.work_collection && output.work_collection.trim() ? output.work_collection : '_reports',
@@ -381,7 +392,7 @@ export async function getRepoStats(
   let deletions = 0;
   for (const line of numstatOut.trim().split('\n')) {
     const parts = line.split('\t');
-    if (parts.length < 2) continue;
+    if (parts.length < MATH.MIN_NUMSTAT_PARTS) continue;
     if (/^\d+$/.test(parts[0])) additions += Number(parts[0]);
     if (/^\d+$/.test(parts[1])) deletions += Number(parts[1]);
   }
@@ -579,8 +590,8 @@ export function createPieChartSvg(
   width: number = CHART.WIDTH,
   height: number = CHART.HEIGHT,
 ): string {
-  const cx = width / 2;
-  const cy = height / 2;
+  const cx = width / MATH.HALF;
+  const cy = height / MATH.HALF;
   const radius = Math.min(width, height) / CHART.RADIUS_DIVISOR;
   const total = Object.values(data).reduce((sum, v) => sum + v, 0);
   if (total === 0) return '';
@@ -597,12 +608,12 @@ export function createPieChartSvg(
   for (const [label, value] of Object.entries(data)) {
     if (value === 0) continue;
 
-    const percent = (value / total) * 100;
+    const percent = (value / total) * MATH.PERCENT;
     const angle = (value / total) * CHART.FULL_CIRCLE_DEGREES;
     const endAngle = startAngle + angle;
 
-    const startRad = (startAngle - CHART.SVG_ANGLE_OFFSET) * Math.PI / 180;
-    const endRad = (endAngle - CHART.SVG_ANGLE_OFFSET) * Math.PI / 180;
+    const startRad = (startAngle - CHART.SVG_ANGLE_OFFSET) * Math.PI / MATH.DEGREES_PER_HALF_CIRCLE;
+    const endRad = (endAngle - CHART.SVG_ANGLE_OFFSET) * Math.PI / MATH.DEGREES_PER_HALF_CIRCLE;
 
     const x1 = cx + radius * Math.cos(startRad);
     const y1 = cy + radius * Math.sin(startRad);
@@ -644,7 +655,7 @@ export function createBarChartSvg(
 
   const parts: string[] = [
     `<svg width="${width}" height="${actualHeight}" xmlns="http://www.w3.org/2000/svg">`,
-    `<text x="${width / 2}" y="${CHART.TITLE_Y}" text-anchor="middle" font-size="${CHART.TITLE_FONT_SIZE}" font-weight="bold">${title}</text>`,
+    `<text x="${width / MATH.HALF}" y="${CHART.TITLE_Y}" text-anchor="middle" font-size="${CHART.TITLE_FONT_SIZE}" font-weight="bold">${title}</text>`,
   ];
 
   let idx = 0;
@@ -653,8 +664,8 @@ export function createBarChartSvg(
     const barWidth = (width - marginLeft - CHART.MARGIN_RIGHT) * value / maxValue;
 
     parts.push(`<rect x="${marginLeft}" y="${y}" width="${barWidth}" height="${barHeight}" fill="${CHART_COLORS.BAR_FILL}" stroke="${CHART_COLORS.BAR_STROKE}" stroke-width="${CHART.STROKE_WIDTH_BAR}"/>`);
-    parts.push(`<text x="${marginLeft - CHART.LABEL_GAP}" y="${y + barHeight / 2 + CHART.TEXT_VERTICAL_OFFSET}" text-anchor="end" font-size="${CHART.LABEL_FONT_SIZE}">${label}</text>`);
-    parts.push(`<text x="${marginLeft + barWidth + CHART.VALUE_GAP}" y="${y + barHeight / 2 + CHART.TEXT_VERTICAL_OFFSET}" font-size="${CHART.LABEL_FONT_SIZE}" font-weight="bold">${value}</text>`);
+    parts.push(`<text x="${marginLeft - CHART.LABEL_GAP}" y="${y + barHeight / MATH.HALF + CHART.TEXT_VERTICAL_OFFSET}" text-anchor="end" font-size="${CHART.LABEL_FONT_SIZE}">${label}</text>`);
+    parts.push(`<text x="${marginLeft + barWidth + CHART.VALUE_GAP}" y="${y + barHeight / MATH.HALF + CHART.TEXT_VERTICAL_OFFSET}" font-size="${CHART.LABEL_FONT_SIZE}" font-weight="bold">${value}</text>`);
     idx++;
   }
 
@@ -742,13 +753,13 @@ export async function generateVisualizations(
 // ---------------------------------------------------------------------------
 function formatDate(date: Date): string {
   const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(MATH.PAD_WIDTH, '0');
+  const d = String(date.getDate()).padStart(MATH.PAD_WIDTH, '0');
   return `${y}-${m}-${d}`;
 }
 
 function formatDateTime(date: Date): string {
-  return `${formatDate(date)} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  return `${formatDate(date)} ${String(date.getHours()).padStart(MATH.PAD_WIDTH, '0')}:${String(date.getMinutes()).padStart(MATH.PAD_WIDTH, '0')}`;
 }
 
 export async function generateJekyllReport(
@@ -758,7 +769,7 @@ export async function generateJekyllReport(
   const { start: startDate, end: endDate } = data.date_range;
   const start = new Date(startDate);
   const end = new Date(endDate);
-  const days = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+  const days = Math.round((end.getTime() - start.getTime()) / MATH.MS_PER_DAY);
 
   let reportType: string;
   if (days <= REPORT_DEFAULTS.WEEKLY_WINDOW_DAYS) {
