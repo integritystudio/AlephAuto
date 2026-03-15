@@ -5,6 +5,12 @@ export const DASHBOARD_TIMING = {
   STATUS_POLL_INTERVAL_MS: 5000,
 } as const;
 
+/** Display constants for job/pipeline rendering. */
+export const DISPLAY = {
+  JOB_ID_PREFIX_LENGTH: 8,
+  DEFAULT_PIPELINE_NAME: 'Unknown Pipeline',
+} as const;
+
 /**
  * Frontend WebSocket connection constants.
  * Mirrors backend WEBSOCKET group in sidequest/core/constants.ts.

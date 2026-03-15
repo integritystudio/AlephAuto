@@ -10,7 +10,7 @@ import { ActivityType, PipelineStatus } from '../types';
 import type { Job, Pipeline, ActivityItem, SystemStatus } from '../types';
 import { ACTIVITY_TYPE_MAP } from '../hooks/useWebSocketConnection';
 import { createLogger } from '../utils/logger';
-import { DASHBOARD_WEBSOCKET } from '../constants/timing';
+import { DASHBOARD_WEBSOCKET, DISPLAY } from '../constants/timing';
 
 interface ActivityEventPayload {
   id?: string | number;
@@ -23,7 +23,7 @@ interface ActivityEventPayload {
 }
 
 /** Partial job shape broadcast by the server (subset of the full Job interface) */
-type JobBroadcast = Pick<Job, 'id'> & Partial<Omit<Job, 'id'>>;
+type JobBroadcast = Pick<Job, 'id' | 'pipelineId'> & Partial<Omit<Job, 'id' | 'pipelineId'>>;
 
 type WebSocketMessage =
   | { type: 'connected'; message: string }
@@ -45,6 +45,16 @@ type OutboundMessage =
   | { type: 'subscribe'; channels: string[] };
 
 const logger = createLogger('WebSocket');
+
+/** Promote a partial broadcast into a store-compatible Job (fills required @type) */
+function toStoreJob(broadcast: JobBroadcast): Job {
+  return {
+    '@type': 'https://schema.org/Action',
+    status: 'queued' as Job['status'],
+    createdAt: new Date().toISOString(),
+    ...broadcast,
+  } as Job;
+}
 
 type WebSocketMessageType = WebSocketMessage['type'];
 
@@ -207,7 +217,7 @@ class WebSocketService {
         break;
 
       default:
-        logger.log('Unknown message type:', message.type);
+        logger.log('Unknown message type:', (message as { type: string }).type);
     }
   }
 
@@ -270,15 +280,15 @@ class WebSocketService {
     const store = useDashboardStore.getState();
 
     // Add to queued jobs
-    store.setQueuedJobs([...store.queuedJobs, job]);
+    store.setQueuedJobs([...store.queuedJobs, toStoreJob(job)]);
 
     // Add activity item
     this.addActivity({
       id: `activity-${job.id}-created`,
       type: 'queued' as ActivityType,
       pipelineId: job.pipelineId,
-      pipelineName: job.pipelineName || 'Unknown Pipeline',
-      message: `Job ${job.id.substring(0, 8)}... queued`,
+      pipelineName: job.pipelineName ?? DISPLAY.DEFAULT_PIPELINE_NAME,
+      message: `Job ${job.id.substring(0, DISPLAY.JOB_ID_PREFIX_LENGTH)}... queued`,
       timestamp: new Date().toISOString(),
       jobId: job.id,
     });
@@ -292,7 +302,7 @@ class WebSocketService {
 
     // Move from queued to active
     store.setQueuedJobs(store.queuedJobs.filter((j) => j.id !== job.id));
-    store.setActiveJobs([...store.activeJobs, job]);
+    store.setActiveJobs([...store.activeJobs, toStoreJob(job)]);
 
     // Update pipeline status
     store.updatePipeline(job.pipelineId, {
@@ -305,8 +315,8 @@ class WebSocketService {
       id: `activity-${job.id}-started`,
       type: 'started' as ActivityType,
       pipelineId: job.pipelineId,
-      pipelineName: job.pipelineName || 'Unknown Pipeline',
-      message: `Job ${job.id.substring(0, 8)}... started`,
+      pipelineName: job.pipelineName ?? DISPLAY.DEFAULT_PIPELINE_NAME,
+      message: `Job ${job.id.substring(0, DISPLAY.JOB_ID_PREFIX_LENGTH)}... started`,
       timestamp: new Date().toISOString(),
       jobId: job.id,
     });
@@ -337,8 +347,8 @@ class WebSocketService {
       id: `activity-${job.id}-completed`,
       type: 'completed' as ActivityType,
       pipelineId: job.pipelineId,
-      pipelineName: job.pipelineName || 'Unknown Pipeline',
-      message: `Job ${job.id.substring(0, 8)}... completed successfully`,
+      pipelineName: job.pipelineName ?? DISPLAY.DEFAULT_PIPELINE_NAME,
+      message: `Job ${job.id.substring(0, DISPLAY.JOB_ID_PREFIX_LENGTH)}... completed successfully`,
       timestamp: new Date().toISOString(),
       jobId: job.id,
       severity: 'success',
@@ -366,8 +376,8 @@ class WebSocketService {
       id: `activity-${job.id}-failed`,
       type: 'failed' as ActivityType,
       pipelineId: job.pipelineId,
-      pipelineName: job.pipelineName || 'Unknown Pipeline',
-      message: `Job ${job.id.substring(0, 8)}... failed: ${job.error || 'Unknown error'}`,
+      pipelineName: job.pipelineName ?? DISPLAY.DEFAULT_PIPELINE_NAME,
+      message: `Job ${job.id.substring(0, DISPLAY.JOB_ID_PREFIX_LENGTH)}... failed: ${job.error ?? 'Unknown error'}`,
       timestamp: new Date().toISOString(),
       jobId: job.id,
       severity: 'error',
@@ -392,8 +402,8 @@ class WebSocketService {
       id: `activity-${job.id}-cancelled`,
       type: 'cancelled' as ActivityType,
       pipelineId: job.pipelineId,
-      pipelineName: job.pipelineName || 'Unknown Pipeline',
-      message: `Job ${job.id.substring(0, 8)}... cancelled`,
+      pipelineName: job.pipelineName ?? DISPLAY.DEFAULT_PIPELINE_NAME,
+      message: `Job ${job.id.substring(0, DISPLAY.JOB_ID_PREFIX_LENGTH)}... cancelled`,
       timestamp: new Date().toISOString(),
       jobId: job.id,
       severity: 'warning',
