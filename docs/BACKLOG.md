@@ -169,7 +169,7 @@ No active low-priority backlog items.
 | PG-3 | Update `sidequest/core/config.ts` to parse `DATABASE_URL` connection string (Render provides this for managed PostgreSQL) |
 | PG-4 | Add a migration runner or use a lightweight migration tool for schema versioning |
 | PG-5 | Update `render.yaml` — add managed PostgreSQL service, remove persistent disk, wire `DATABASE_URL` env var |
-| PG-6 | Remove `.env` references to `JOB_DB_PORT` (dead config) |
+| ~~PG-6~~ | ~~Remove `.env` references to `JOB_DB_PORT` (dead config) — No tracked code references `JOB_DB_PORT`; only exists in local `.env:8` (gitignored). No config parsing in `config.ts`. Remove manually from local `.env`.~~ **Done** |
 | PG-7 | Update tests — `initDatabase(':memory:')` path needs a test-database strategy (test container, in-memory PG via `pg-mem`, or dedicated test DB) |
 | PG-8 | Update `job-repository.ts` if any SQLite-specific query patterns leaked through the facade |
 
