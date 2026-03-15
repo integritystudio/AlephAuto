@@ -153,11 +153,11 @@ Layer 0 (complexity filter) → Layer 1 (exact hash) → Layer 2 (structural sim
 | Scan orchestrator | `sidequest/pipeline-core/scan-orchestrator.ts` | [Pipeline Data Flow](./pipeline-data-flow.md) |
 | Repository scanner | `sidequest/pipeline-core/scanners/repository-scanner.ts` | [Pipeline Data Flow](./pipeline-data-flow.md#stage-1-repository-scanner) |
 | AST-grep detector | `sidequest/pipeline-core/scanners/ast-grep-detector.ts` | [Pipeline Data Flow](./pipeline-data-flow.md#stage-2-ast-grep-pattern-detector) |
-| Block extraction | `sidequest/pipeline-core/extractors/extract_blocks.py` | [Pipeline Data Flow](./pipeline-data-flow.md#stage-3-code-block-extraction) |
+| Block extraction | `sidequest/pipeline-core/extractors/extract-blocks.ts` | [Pipeline Data Flow](./pipeline-data-flow.md#stage-3-code-block-extraction) |
 | Similarity algorithm | `sidequest/pipeline-core/similarity/structural.ts` | [Similarity Algorithm](./technical/similarity-algorithm.md) |
-| Multi-layer grouping | `sidequest/pipeline-core/similarity/grouping.py` | [Pipeline Data Flow](./pipeline-data-flow.md#stage-5-duplicate-grouping) |
+| Multi-layer grouping | `sidequest/pipeline-core/similarity/grouping.ts` | [Pipeline Data Flow](./pipeline-data-flow.md#stage-5-duplicate-grouping) |
 | AST-grep rules | `.ast-grep/rules/*` (18 rules) | [Pipeline Data Flow](./pipeline-data-flow.md#pattern-detection-rules) |
-| Pydantic models | `sidequest/pipeline-core/models/*.py` | [Pipeline Data Flow](./pipeline-data-flow.md#data-format-specifications) |
+| Data models | `sidequest/pipeline-core/models/types.ts` | [Pipeline Data Flow](./pipeline-data-flow.md#data-format-specifications) |
 
 ---
 

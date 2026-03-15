@@ -56,7 +56,7 @@ The AlephAuto automation system consists of 11 specialized pipelines built on a 
 
 | Category | Pipelines | Language Stack |
 |----------|-----------|----------------|
-| **Code Analysis** | Duplicate Detection, Test Refactor | TypeScript + Python |
+| **Code Analysis** | Duplicate Detection, Test Refactor | TypeScript |
 | **Code Quality** | Bugfix Audit | TypeScript + Shell |
 | **Documentation** | Schema Enhancement | TypeScript |
 | **Operations** | Repomix, Gitignore, Repository Cleanup | TypeScript + Shell |
@@ -115,32 +115,30 @@ graph LR
 
 **Purpose:** 7-stage AST-based duplicate code detection with consolidation suggestions
 **Job Type:** `duplicate-detection`
-**Languages:** JavaScript (stages 1-2) → Python (stages 3-7)
+**Languages:** TypeScript (all stages, migrated from JS+Python)
 
 #### Complete Data Flow
 
 ```mermaid
 graph TB
-    Start([Repository Path]) --> S1[Stage 1: Repository Scanner<br/>JS]
-    S1 --> S2[Stage 2: AST-Grep Detector<br/>JS]
-    S2 --> Bridge{JSON Bridge<br/>stdin/stdout}
-    Bridge --> S3[Stage 3: Code Block Extraction<br/>Python]
-    S3 --> S3_5[Stage 3.5: Block Deduplication<br/>Python]
-    S3_5 --> S4[Stage 4: Semantic Annotation<br/>Python]
-    S4 --> S5[Stage 5: Duplicate Grouping<br/>Python]
-    S5 --> S6[Stage 6: Suggestion Generation<br/>Python]
-    S6 --> S7[Stage 7: Metrics & Reporting<br/>Python]
+    Start([Repository Path]) --> S1[Stage 1: Repository Scanner<br/>TS]
+    S1 --> S2[Stage 2: AST-Grep Detector<br/>TS]
+    S2 --> S3[Stage 3: Code Block Extraction<br/>TS]
+    S3 --> S3_5[Stage 3.5: Block Deduplication<br/>TS]
+    S3_5 --> S4[Stage 4: Semantic Annotation<br/>TS]
+    S4 --> S5[Stage 5: Duplicate Grouping<br/>TS]
+    S5 --> S6[Stage 6: Suggestion Generation<br/>TS]
+    S6 --> S7[Stage 7: Metrics & Reporting<br/>TS]
     S7 --> End([Scan Report JSON])
 
-    style Bridge fill:#f9f,stroke:#333,stroke-width:4px
     style S1 fill:#bbf,stroke:#333,stroke-width:2px
     style S2 fill:#bbf,stroke:#333,stroke-width:2px
-    style S3 fill:#bfb,stroke:#333,stroke-width:2px
-    style S3_5 fill:#bfb,stroke:#333,stroke-width:2px
-    style S4 fill:#bfb,stroke:#333,stroke-width:2px
-    style S5 fill:#bfb,stroke:#333,stroke-width:2px
-    style S6 fill:#bfb,stroke:#333,stroke-width:2px
-    style S7 fill:#bfb,stroke:#333,stroke-width:2px
+    style S3 fill:#bbf,stroke:#333,stroke-width:2px
+    style S3_5 fill:#bbf,stroke:#333,stroke-width:2px
+    style S4 fill:#bbf,stroke:#333,stroke-width:2px
+    style S5 fill:#bbf,stroke:#333,stroke-width:2px
+    style S6 fill:#bbf,stroke:#333,stroke-width:2px
+    style S7 fill:#bbf,stroke:#333,stroke-width:2px
 ```
 
 #### Stage Details
