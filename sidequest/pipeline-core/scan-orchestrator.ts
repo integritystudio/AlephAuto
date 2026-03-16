@@ -4,11 +4,11 @@
  * Coordinates the entire duplicate detection pipeline:
  * 1. Repository scanning (repomix)
  * 2. Pattern detection (ast-grep)
- * 3. Code block extraction (Python/pydantic)
- * 4. Semantic annotation (Python)
- * 5. Duplicate grouping (Python)
- * 6. Suggestion generation (Python)
- * 7. Report generation (Python)
+ * 3. Code block extraction (TypeScript/Zod)
+ * 4. Semantic annotation (TypeScript)
+ * 5. Duplicate grouping (TypeScript)
+ * 6. Suggestion generation (TypeScript)
+ * 7. Report generation (TypeScript)
  */
 
 import { RepositoryScanner } from './scanners/repository-scanner.ts';

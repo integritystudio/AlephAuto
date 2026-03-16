@@ -25,15 +25,6 @@ condense/
 docs/repomix/*
 docs/output/*
 
-# Python
-venv/
-__pycache__/
-**/__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-
 # OS
 .DS_Store
 Thumbs.db

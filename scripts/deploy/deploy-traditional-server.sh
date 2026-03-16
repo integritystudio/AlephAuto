@@ -136,14 +136,6 @@ setup_macos() {
         info "Node.js already installed: $(node --version)"
     fi
 
-    # Install Python 3
-    if ! command_exists python3; then
-        log "Installing Python 3..."
-        brew install python@3.11
-    else
-        info "Python already installed: $(python3 --version)"
-    fi
-
     # Install Redis
     if ! command_exists redis-cli; then
         log "Installing Redis..."
@@ -229,17 +221,6 @@ setup_linux() {
         apt-get install -y nodejs
     else
         info "Node.js already installed: $(node --version)"
-    fi
-
-    # Install Python 3.11
-    if ! command_exists python3.11; then
-        log "Installing Python 3.11..."
-        apt-get install -y software-properties-common
-        add-apt-repository -y ppa:deadsnakes/ppa
-        apt-get update
-        apt-get install -y python3.11 python3.11-venv python3.11-dev python3-pip build-essential
-    else
-        info "Python 3.11 already installed: $(python3.11 --version)"
     fi
 
     # Install Redis
@@ -334,7 +315,6 @@ update_application() {
     BACKUP_FILE="$BACKUP_DIR/backup-$(date +%Y%m%d_%H%M%S).tar.gz"
     tar -czf "$BACKUP_FILE" \
         --exclude='node_modules' \
-        --exclude='venv' \
         --exclude='logs' \
         -C "$(dirname "$APP_DIR")" "$(basename "$APP_DIR")"
     log "Backup created: $BACKUP_FILE"
@@ -365,28 +345,6 @@ update_application() {
         npm run build:frontend
     else
         sudo -u "$DEPLOY_USER" npm run build:frontend
-    fi
-
-    # Install/Update Python dependencies
-    log "Setting up Python virtual environment..."
-    PYTHON_CMD="python3"
-    if $IS_LINUX && command_exists python3.11; then
-        PYTHON_CMD="python3.11"
-    fi
-
-    if [[ ! -d venv ]]; then
-        if $IS_MACOS; then
-            $PYTHON_CMD -m venv venv
-        else
-            sudo -u "$DEPLOY_USER" $PYTHON_CMD -m venv venv
-        fi
-    fi
-
-    log "Installing Python dependencies..."
-    if $IS_MACOS; then
-        source venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt
-    else
-        sudo -u "$DEPLOY_USER" bash -c "source venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt"
     fi
 
     # Set correct permissions (Linux only)
@@ -483,11 +441,9 @@ rollback_application() {
     if $IS_MACOS; then
         pnpm install --frozen-lockfile
         npm run build:frontend
-        source venv/bin/activate && pip install -r requirements.txt
     else
         sudo -u "$DEPLOY_USER" pnpm install --frozen-lockfile
         sudo -u "$DEPLOY_USER" npm run build:frontend
-        sudo -u "$DEPLOY_USER" bash -c "source venv/bin/activate && pip install -r requirements.txt"
     fi
 
     # Restart PM2 processes

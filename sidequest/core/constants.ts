@@ -30,9 +30,6 @@ export const DURATION_MS = {
 // -----------------------------------------------------------------------------
 export const TIMEOUTS = {
   /** Pipeline and worker execution */
-  PYTHON_PIPELINE_BASE_MS: DURATION_MS.TEN_MINUTES,
-  PYTHON_PIPELINE_PER_PATTERN_MS: DURATION_MS.ONE_HUNDRED_MS,
-  PYTHON_PIPELINE_PER_FILE_MS: DURATION_MS.TEN_MS,
   REPOMIX_MS: DURATION_MS.TEN_MINUTES,
   GIT_REPORT_MS: DURATION_MS.FIVE_MINUTES,
   WORKER_INIT_MS: DURATION_MS.THIRTY_SECONDS,

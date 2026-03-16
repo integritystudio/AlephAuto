@@ -14,7 +14,6 @@ jobs:
     strategy:
       matrix:
         node-version: ['24.x']
-        python-version: ['3.11', '3.12']
 
     steps:
       - name: Checkout code
@@ -31,28 +30,11 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'pnpm'
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: 'pip'
-
       - name: Install Node.js dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Install ast-grep
         run: pnpm add -g @ast-grep/cli@latest
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Verify Python pipeline availability
-        run: |
-          echo "Verifying Python pipeline dependencies..."
-          python3 -c "import pydantic; print(f'✅ pydantic {pydantic.__version__} available')"
-          python3 -c "import sys; print(f'✅ Python {sys.version} available')"
 
       - name: Verify setup
         run: pnpm run verify
@@ -80,31 +62,6 @@ jobs:
           else
             echo "⚠️ No dashboard directory found (skipping)"
           fi
-
-      - name: Test Python pipeline integration
-        run: |
-          echo "Testing Python pipeline stages (3-7)..."
-
-          # Verify pydantic models load correctly
-          python3 << 'PYEOF'
-          import sys
-          sys.path.insert(0, 'sidequest/pipeline-core')
-          from models.code_block import CodeBlock, SourceLocation
-          from models.duplicate_group import DuplicateGroup
-          print('✅ Pydantic models imported successfully')
-          PYEOF
-
-          # Test structural similarity module
-          python3 << 'PYEOF'
-          import sys
-          sys.path.insert(0, 'sidequest/pipeline-core')
-          from similarity.structural import calculate_structural_similarity
-          score, method = calculate_structural_similarity('function a() { return 1; }', 'function b() { return 1; }')
-          assert 0 <= score <= 1, f'Invalid score: {score}'
-          print(f'✅ Structural similarity working (score: {score:.2f}, method: {method})')
-          PYEOF
-
-          echo "✅ Python pipeline integration verified"
 
   lint:
     name: Lint and Code Quality

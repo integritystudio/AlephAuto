@@ -1,7 +1,7 @@
 /**
  * DependencyValidator - Pre-flight validation for external dependencies
  *
- * Validates that required tools (repomix, ast-grep, Python) are available
+ * Validates that required tools (repomix, ast-grep) are available
  * before running the duplicate detection pipeline.
  *
  * @module dependency-validator
@@ -9,7 +9,7 @@
 
 import { execFileSync } from 'child_process';
 import { createComponentLogger } from './logger.ts';
-import { NUMBER_BASE, TIMEOUTS } from '../core/constants.ts';
+import { TIMEOUTS } from '../core/constants.ts';
 
 const logger = createComponentLogger('DependencyValidator');
 
@@ -35,7 +35,6 @@ export class DependencyValidationError extends Error {
  * Checks for:
  * - repomix (via npx)
  * - ast-grep (global binary or via npx)
- * - Python 3.11+ (venv or system)
  */
 export class DependencyValidator {
   /**
@@ -44,8 +43,7 @@ export class DependencyValidator {
   static async validateAll(): Promise<void> {
     const results = await Promise.allSettled([
       this.validateRepomix(),
-      this.validateAstGrep(),
-      this.validatePython()
+      this.validateAstGrep()
     ]);
 
     const failures = results
@@ -113,43 +111,4 @@ export class DependencyValidator {
     }
   }
 
-  /**
-   * Validate Python 3.11+ is available
-   */
-  static validatePython(): string {
-    const pythonPaths = [
-      { path: 'venv/bin/python3', name: 'venv' },
-      { path: 'python3', name: 'system' }
-    ];
-
-    for (const { path: pythonPath, name } of pythonPaths) {
-      try {
-        const version = execFileSync(pythonPath, ['--version'], {
-          encoding: 'utf-8',
-          timeout: TIMEOUTS.VERSION_CHECK_MS,
-          env: process.env
-        });
-
-        const match = version.match(/Python (\d+)\.(\d+)/);
-        if (match) {
-          const major = parseInt(match[1], NUMBER_BASE.DECIMAL);
-          const minor = parseInt(match[2], NUMBER_BASE.DECIMAL);
-
-          if (major > 3 || (major === 3 && minor >= 11)) {
-            logger.debug({ pythonPath, version: `${major}.${minor}`, name }, 'Python validation passed');
-            return pythonPath;
-          }
-        }
-      } catch {
-        // This Python path not available, try next
-      }
-    }
-
-    throw new Error(
-      'Python 3.11+ not available. Install:\n' +
-      '  macOS: brew install python@3.11\n' +
-      '  Ubuntu: sudo apt install python3.11\n' +
-      'Or create venv: python3 -m venv venv'
-    );
-  }
 }

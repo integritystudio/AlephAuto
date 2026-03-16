@@ -101,7 +101,7 @@ const count = jobRepository.getJobCount({ status });  // Efficient COUNT(*) quer
 ### 8. Constants: No Magic Numbers
 ```typescript
 import { TIMEOUTS, RETRY, CONCURRENCY, DURATION_MS, CACHE } from './sidequest/core/constants.ts';
-const timeout = TIMEOUTS.PYTHON_PIPELINE_BASE_MS; // Correct
+const timeout = TIMEOUTS.REPOMIX_MS;              // Correct
 const oneDay = DURATION_MS.DAY;                   // Correct
 ```
 
