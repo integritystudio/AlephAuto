@@ -360,8 +360,8 @@ function validateConfig(): void {
   }
 
   // Database validation
-  if (config.databaseUrl !== null && !config.databaseUrl.startsWith('postgres://') && !config.databaseUrl.startsWith('postgresql://')) {
-    errors.push('DATABASE_URL must start with postgres:// or postgresql://');
+  if (config.databaseUrl !== null && !config.databaseUrl.startsWith('postgres://') && !config.databaseUrl.startsWith('postgresql://') && !config.databaseUrl.startsWith('pglite://')) {
+    errors.push('DATABASE_URL must start with postgres://, postgresql://, or pglite://');
   }
 
   if (errors.length > 0) {
