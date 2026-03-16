@@ -107,14 +107,14 @@ export class MarkdownReportGenerator {
    * Generate report header
    * @private
    */
-  private static _generateHeader(scanResult: ScanResult, isInterProject: boolean): string {
+  private static _generateHeader(scanResult: ScanResult, interProject: boolean): string {
     const metadata = scanResult.scan_metadata ?? {};
     const repoInfo = scanResult.repository_info ?? {};
-    const scanType = isInterProject ? 'Inter-Project' : 'Intra-Project';
+    const scanType = interProject ? 'Inter-Project' : 'Intra-Project';
 
     let header = `# ${scanType} Duplicate Detection Report\n\n`;
 
-    if (isInterProject) {
+    if (interProject) {
       header += `**Repositories:** ${metadata.repository_count ?? 0}\n`;
     } else {
       header += `**Repository:** ${repoInfo.name ?? 'Unknown'}\n`;
@@ -131,12 +131,12 @@ export class MarkdownReportGenerator {
    * Generate metrics table
    * @private
    */
-  private static _generateMetrics(scanResult: ScanResult, isInterProject: boolean): string {
+  private static _generateMetrics(scanResult: ScanResult, interProject: boolean): string {
     const metrics = scanResult.metrics ?? {};
 
     let markdown = '## Metrics\n\n';
 
-    if (isInterProject) {
+    if (interProject) {
       markdown += '| Metric | Value |\n';
       markdown += '|--------|-------|\n';
       markdown += `| Repositories Scanned | ${metrics.total_repositories_scanned ?? 0} |\n`;
@@ -191,15 +191,15 @@ export class MarkdownReportGenerator {
    */
   private static _generateDuplicateGroups(
     scanResult: ScanResult,
-    isInterProject: boolean,
+    interProject: boolean,
     maxGroups: number,
     includeDetails: boolean
   ): string {
-    const groups = isInterProject
+    const groups = interProject
       ? (scanResult.cross_repository_duplicates ?? [])
       : (scanResult.duplicate_groups ?? []);
 
-    let markdown = isInterProject
+    let markdown = interProject
       ? '## Top Cross-Repository Duplicates\n\n'
       : '## Top Duplicate Groups\n\n';
 
@@ -220,7 +220,7 @@ export class MarkdownReportGenerator {
       markdown += `- **Language:** ${group.language}\n`;
       markdown += `- **Occurrences:** ${group.occurrence_count}\n`;
 
-      if (isInterProject) {
+      if (interProject) {
         markdown += `- **Repositories:** ${group.repository_count ?? 0} (${group.affected_repositories?.join(', ') ?? 'N/A'})\n`;
       }
 
@@ -252,15 +252,15 @@ export class MarkdownReportGenerator {
    */
   private static _generateSuggestions(
     scanResult: ScanResult,
-    isInterProject: boolean,
+    interProject: boolean,
     maxSuggestions: number,
     includeDetails: boolean
   ): string {
-    const suggestions = isInterProject
+    const suggestions = interProject
       ? (scanResult.cross_repository_suggestions ?? [])
       : (scanResult.suggestions ?? []);
 
-    let markdown = isInterProject
+    let markdown = interProject
       ? '## Top Cross-Repository Suggestions\n\n'
       : '## Top Consolidation Suggestions\n\n';
 
@@ -283,7 +283,7 @@ export class MarkdownReportGenerator {
       markdown += `- **Complexity:** ${this._formatComplexity(suggestion.complexity)}\n`;
       markdown += `- **Risk:** ${this._formatRisk(suggestion.migration_risk)}\n`;
 
-      if (isInterProject) {
+      if (interProject) {
         const repos = suggestion.affected_repositories ?? [];
         markdown += `- **Repositories:** ${repos.join(', ')}\n`;
       } else {

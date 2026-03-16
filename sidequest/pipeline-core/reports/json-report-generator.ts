@@ -274,12 +274,12 @@ export class JSONReportGenerator {
    * Generate metadata section
    * @private
    */
-  private static _generateMetadata(scanResult: ScanResult, isInterProject: boolean): Record<string, unknown> {
+  private static _generateMetadata(scanResult: ScanResult, interProject: boolean): Record<string, unknown> {
     const metadata = scanResult.scan_metadata ?? {};
     const repoInfo = scanResult.repository_info ?? {};
 
     return {
-      ...(isInterProject ? {
+      ...(interProject ? {
         repository_count: metadata.repository_count ?? 0,
         repositories: (scanResult.scanned_repositories ?? []).map(r => r.name)
       } : {
@@ -298,12 +298,12 @@ export class JSONReportGenerator {
    * Generate summary section
    * @private
    */
-  private static _generateSummary(scanResult: ScanResult, isInterProject: boolean): ReportSummary {
+  private static _generateSummary(scanResult: ScanResult, interProject: boolean): ReportSummary {
     const metrics = scanResult.metrics ?? {};
-    const duplicateGroups = isInterProject
+    const duplicateGroups = interProject
       ? (scanResult.cross_repository_duplicates ?? [])
       : (scanResult.duplicate_groups ?? []);
-    const suggestions = isInterProject
+    const suggestions = interProject
       ? (scanResult.cross_repository_suggestions ?? [])
       : (scanResult.suggestions ?? []);
 
@@ -314,7 +314,7 @@ export class JSONReportGenerator {
       complexity_distribution: this._calculateComplexityDistribution(suggestions)
     };
 
-    if (isInterProject) {
+    if (interProject) {
       summary.repositories_scanned = metrics.total_repositories_scanned ?? 0;
       summary.cross_repo_duplicates = duplicateGroups.length;
       summary.top_impact_score = duplicateGroups.length > 0
@@ -348,11 +348,11 @@ export class JSONReportGenerator {
    */
   private static _formatDuplicateGroups(
     scanResult: ScanResult,
-    isInterProject: boolean,
+    interProject: boolean,
     maxGroups: number | null,
     includeSourceCode: boolean
   ): Record<string, unknown>[] {
-    const groups = isInterProject
+    const groups = interProject
       ? (scanResult.cross_repository_duplicates ?? [])
       : (scanResult.duplicate_groups ?? []);
 
@@ -370,7 +370,7 @@ export class JSONReportGenerator {
         similarity_method: group.similarity_method,
         member_block_ids: group.member_block_ids ?? [],
         affected_files: group.affected_files ?? [],
-        ...(isInterProject ? {
+        ...(interProject ? {
           repository_count: group.repository_count,
           affected_repositories: group.affected_repositories ?? []
         } : {}),
@@ -392,10 +392,10 @@ export class JSONReportGenerator {
    */
   private static _formatSuggestions(
     scanResult: ScanResult,
-    isInterProject: boolean,
+    interProject: boolean,
     maxSuggestions: number | null
   ): Record<string, unknown>[] {
-    const suggestions = isInterProject
+    const suggestions = interProject
       ? (scanResult.cross_repository_suggestions ?? [])
       : (scanResult.suggestions ?? []);
 
@@ -414,7 +414,7 @@ export class JSONReportGenerator {
         breaking_changes: suggestion.breaking_changes ?? false,
         confidence: suggestion.confidence,
         strategy_rationale: suggestion.strategy_rationale,
-        ...(isInterProject ? {
+        ...(interProject ? {
           affected_repositories: suggestion.affected_repositories ?? [],
           affected_repositories_count: suggestion.affected_repositories_count ?? 0
         } : {
