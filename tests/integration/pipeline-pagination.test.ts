@@ -19,11 +19,11 @@ import { TestTiming } from '../constants/timing-test-constants.ts';
 import { TIME_MS } from '../../sidequest/core/units.ts';
 
 /** Seed the in-memory database with realistic test jobs */
-function seedTestData() {
+async function seedTestData() {
   const now = new Date();
   for (let i = 0; i < 15; i++) {
     const status = i < 10 ? 'completed' : 'failed';
-    saveJob({
+    await saveJob({
       id: `test-dd-job-${i}`,
       pipelineId: 'duplicate-detection',
       status,
@@ -40,15 +40,15 @@ function seedTestData() {
 describe('Pipeline Pagination Integration Tests', () => {
   before(async () => {
     await initDatabase(':memory:');
-    seedTestData();
+    await seedTestData();
   });
 
-  after(() => {
-    closeDatabase();
+  after(async () => {
+    await closeDatabase();
   });
 
-  it('should return total count with includeTotal option', () => {
-    const result = getJobs('duplicate-detection', {
+  it('should return total count with includeTotal option', async () => {
+    const result = await getJobs('duplicate-detection', {
       limit: 5,
       offset: 0,
       includeTotal: true
@@ -61,8 +61,8 @@ describe('Pipeline Pagination Integration Tests', () => {
     assert.ok(Array.isArray(result.jobs), 'Jobs should be an array');
   });
 
-  it('should handle different limit/offset combinations', () => {
-    const initial = getJobs('duplicate-detection', {
+  it('should handle different limit/offset combinations', async () => {
+    const initial = await getJobs('duplicate-detection', {
       limit: 1,
       offset: 0,
       includeTotal: true
@@ -75,7 +75,7 @@ describe('Pipeline Pagination Integration Tests', () => {
     }
 
     // Page 1
-    const page1 = getJobs('duplicate-detection', {
+    const page1 = await getJobs('duplicate-detection', {
       limit: 3,
       offset: 0,
       includeTotal: true
@@ -85,7 +85,7 @@ describe('Pipeline Pagination Integration Tests', () => {
     assert.strictEqual(page1.total, totalCount, 'Page 1 total should be consistent');
 
     // Page 2
-    const page2 = getJobs('duplicate-detection', {
+    const page2 = await getJobs('duplicate-detection', {
       limit: 3,
       offset: 3,
       includeTotal: true
@@ -108,9 +108,9 @@ describe('Pipeline Pagination Integration Tests', () => {
     }
   });
 
-  it('should filter by status correctly', () => {
+  it('should filter by status correctly', async () => {
     // Get completed jobs
-    const completed = getJobs('duplicate-detection', {
+    const completed = await getJobs('duplicate-detection', {
       status: 'completed',
       limit: 100,
       offset: 0,
@@ -123,7 +123,7 @@ describe('Pipeline Pagination Integration Tests', () => {
     }
 
     // Get failed jobs
-    const failed = getJobs('duplicate-detection', {
+    const failed = await getJobs('duplicate-detection', {
       status: 'failed',
       limit: 100,
       offset: 0,
@@ -135,8 +135,8 @@ describe('Pipeline Pagination Integration Tests', () => {
     }
   });
 
-  it('should calculate hasMore flag correctly based on limit', () => {
-    const initial = getJobs('duplicate-detection', {
+  it('should calculate hasMore flag correctly based on limit', async () => {
+    const initial = await getJobs('duplicate-detection', {
       limit: 1,
       offset: 0,
       includeTotal: true
@@ -150,7 +150,7 @@ describe('Pipeline Pagination Integration Tests', () => {
 
     // Test with small limit - should have more if total > limit
     const smallLimit = Math.min(2, totalCount);
-    const page1 = getJobs('duplicate-detection', {
+    const page1 = await getJobs('duplicate-detection', {
       limit: smallLimit,
       offset: 0,
       includeTotal: true
@@ -165,8 +165,8 @@ describe('Pipeline Pagination Integration Tests', () => {
     }
   });
 
-  it('should handle edge cases (empty results, large offsets)', () => {
-    const initial = getJobs('duplicate-detection', {
+  it('should handle edge cases (empty results, large offsets)', async () => {
+    const initial = await getJobs('duplicate-detection', {
       limit: 1,
       offset: 0,
       includeTotal: true
@@ -175,7 +175,7 @@ describe('Pipeline Pagination Integration Tests', () => {
     const totalCount = initial.total;
 
     // Offset beyond total
-    const beyond = getJobs('duplicate-detection', {
+    const beyond = await getJobs('duplicate-detection', {
       limit: 10,
       offset: totalCount + 100,
       includeTotal: true
@@ -185,7 +185,7 @@ describe('Pipeline Pagination Integration Tests', () => {
     assert.strictEqual(beyond.total, totalCount, 'Total should still be accurate with large offset');
 
     // Very large limit
-    const large = getJobs('duplicate-detection', {
+    const large = await getJobs('duplicate-detection', {
       limit: 10000,
       offset: 0,
       includeTotal: true
@@ -195,8 +195,8 @@ describe('Pipeline Pagination Integration Tests', () => {
     assert.strictEqual(large.total, totalCount, 'Total should be accurate with large limit');
   });
 
-  it('should maintain consistent total across pagination', () => {
-    const initial = getJobs('duplicate-detection', {
+  it('should maintain consistent total across pagination', async () => {
+    const initial = await getJobs('duplicate-detection', {
       limit: 1,
       offset: 0,
       includeTotal: true
@@ -208,12 +208,12 @@ describe('Pipeline Pagination Integration Tests', () => {
       return;
     }
 
-    const totals = [];
+    const totals: number[] = [];
 
     // Get total from multiple pages
     const limit = Math.min(3, totalCount);
     for (let offset = 0; offset < totalCount; offset += limit) {
-      const result = getJobs('duplicate-detection', {
+      const result = await getJobs('duplicate-detection', {
         limit,
         offset,
         includeTotal: true
@@ -228,8 +228,8 @@ describe('Pipeline Pagination Integration Tests', () => {
     assert.strictEqual(totals[0], totalCount, `Total should always be ${totalCount}`);
   });
 
-  it('should return job counts via getJobCounts', () => {
-    const counts = getJobCounts('duplicate-detection');
+  it('should return job counts via getJobCounts', async () => {
+    const counts = await getJobCounts('duplicate-detection');
 
     assert.ok(typeof counts === 'object', 'Should return an object');
     assert.ok(typeof counts.total === 'number', 'Should have total count');

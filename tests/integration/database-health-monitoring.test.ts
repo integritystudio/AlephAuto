@@ -112,6 +112,7 @@ describe('Database Health Monitoring Integration', () => {
           status: 'ok',
           component: 'database',
           details: {
+            mode: 'normal',
             persistence: health.persistenceWorking ? 'working' : 'failed',
             metrics: {
               recoveryAttempts: health.recoveryAttempts,
