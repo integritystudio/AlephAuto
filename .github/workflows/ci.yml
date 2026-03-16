@@ -176,3 +176,4 @@ jobs:
         env:
           NODE_ENV: test
           JOBS_API_PORT: 8080
+          DATABASE_URL: 'pglite://memory'
