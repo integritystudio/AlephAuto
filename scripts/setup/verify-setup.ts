@@ -91,7 +91,7 @@ check('repomix available via npx', () => {
   if (result.status !== 0) {
     throw new Error('repomix not available. Run: npm install');
   }
-  console.log(`   Version: ${result.stdout.trim()}`);
+  console.log(`   Version: ${(result.stdout ?? '').trim()}`);
 });
 
 check('git available', () => {
@@ -103,7 +103,7 @@ check('git available', () => {
   if (result.status !== 0) {
     throw new Error('git not found. Please install git');
   }
-  console.log(`   ${result.stdout.trim()}`);
+  console.log(`   ${(result.stdout ?? '').trim()}`);
 });
 
 check('ast-grep available', () => {
@@ -126,7 +126,7 @@ check('ast-grep available', () => {
     });
     if (result.status === 0) {
       found = true;
-      console.log(`   ${result.stdout.trim()} (${label})`);
+      console.log(`   ${(result.stdout ?? '').trim()} (${label})`);
       break;
     }
   }
@@ -156,7 +156,7 @@ check('Doppler CLI available (optional)', () => {
     timeout: TIMEOUTS.SHORT_MS,
   });
   if (result.status === 0) {
-    console.log(`   ${result.stdout.trim()}`);
+    console.log(`   ${(result.stdout ?? '').trim()}`);
   } else {
     console.log('   ⚠️  Doppler not available (optional for secrets management)');
   }
