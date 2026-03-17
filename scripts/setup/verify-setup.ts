@@ -101,6 +101,7 @@ check('git available', () => {
     const version = execSync('git --version', {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: TIMEOUTS.SHORT_MS,
     }).trim();
     console.log(`   ${version}`);
   } catch (error) {
