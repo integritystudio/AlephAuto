@@ -116,7 +116,7 @@ export class DashboardPopulateWorker extends SidequestServer {
       if (dryRun) populateArgs.push('--dry-run');
       if (skipJudge) populateArgs.push('--skip-judge');
       if (skipSync) populateArgs.push('--skip-sync');
-      if (limit) populateArgs.push('--limit', String(limit));
+      if (limit !== undefined) populateArgs.push('--limit', String(limit));
 
       logger.info({
         jobId: job.id,
@@ -130,7 +130,7 @@ export class DashboardPopulateWorker extends SidequestServer {
         env: { ...process.env, FORCE_COLOR: '0' },
       });
 
-      const stepTimings = this.#parseTimings(stdout);
+      const stepTimings = this._parseTimings(stdout);
 
       const endTime = Date.now();
       const output: PopulateOutput = {
@@ -187,7 +187,7 @@ export class DashboardPopulateWorker extends SidequestServer {
   /**
    * Parse step timings from populate-dashboard.ts stdout
    */
-  #parseTimings(stdout: string): StepTiming[] {
+  _parseTimings(stdout: string): StepTiming[] {
     const timings: StepTiming[] = [];
     const lines = stdout.split('\n');
     for (const line of lines) {
