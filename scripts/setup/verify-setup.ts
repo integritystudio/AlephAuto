@@ -16,21 +16,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = join(__dirname, '../..');
 
-const checks = [];
+interface Check {
+  name: string;
+  fn: () => void;
+}
+
+const checks: Check[] = [];
 let passed = 0;
 let failed = 0;
 
-/**
- * check.
- */
-function check(name, fn) {
+function check(name: string, fn: () => void): void {
   checks.push({ name, fn });
 }
 
-/**
- * runCheck.
- */
-function runCheck(checkItem) {
+function runCheck(checkItem: Check): boolean {
   try {
     checkItem.fn();
     console.log(`✅ ${checkItem.name}`);
