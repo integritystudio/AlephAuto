@@ -5,7 +5,7 @@
  * Verifies all required dependencies and binaries are available
  */
 
-import { execSync, spawnSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -83,29 +83,27 @@ check('@types/node installed (TypeScript support)', () => {
 });
 
 check('repomix available via npx', () => {
-  try {
-    const version = execSync('npx repomix --version', {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: TIMEOUTS.SHORT_MS,
-    }).trim();
-    console.log(`   Version: ${version}`);
-  } catch (error) {
+  const result = spawnSync('npx', ['repomix', '--version'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    timeout: TIMEOUTS.SHORT_MS,
+  });
+  if (result.status !== 0) {
     throw new Error('repomix not available. Run: npm install');
   }
+  console.log(`   Version: ${result.stdout.trim()}`);
 });
 
 check('git available', () => {
-  try {
-    const version = execSync('git --version', {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: TIMEOUTS.SHORT_MS,
-    }).trim();
-    console.log(`   ${version}`);
-  } catch (error) {
+  const result = spawnSync('git', ['--version'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    timeout: TIMEOUTS.SHORT_MS,
+  });
+  if (result.status !== 0) {
     throw new Error('git not found. Please install git');
   }
+  console.log(`   ${result.stdout.trim()}`);
 });
 
 check('ast-grep available', () => {
@@ -139,27 +137,27 @@ check('ast-grep available', () => {
 });
 
 check('Redis available (optional)', () => {
-  try {
-    execSync('redis-cli ping', {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: TIMEOUTS.TWO_SECONDS_MS,
-    });
+  const result = spawnSync('redis-cli', ['ping'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    timeout: TIMEOUTS.TWO_SECONDS_MS,
+  });
+  if (result.status === 0) {
     console.log('   Redis is running');
-  } catch (error) {
+  } else {
     console.log('   ⚠️  Redis not available (optional for caching)');
   }
 });
 
 check('Doppler CLI available (optional)', () => {
-  try {
-    const version = execSync('doppler --version', {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: TIMEOUTS.SHORT_MS,
-    }).trim();
-    console.log(`   ${version}`);
-  } catch (error) {
+  const result = spawnSync('doppler', ['--version'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    timeout: TIMEOUTS.SHORT_MS,
+  });
+  if (result.status === 0) {
+    console.log(`   ${result.stdout.trim()}`);
+  } else {
     console.log('   ⚠️  Doppler not available (optional for secrets management)');
   }
 });
