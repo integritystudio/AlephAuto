@@ -164,6 +164,7 @@ check('Doppler CLI available (optional)', () => {
     const version = execSync('doppler --version', {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: TIMEOUTS.SHORT_MS,
     }).trim();
     console.log(`   ${version}`);
   } catch (error) {
