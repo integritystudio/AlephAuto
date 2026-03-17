@@ -349,6 +349,13 @@ app.use((req: Request, res: Response) => {
   });
 });
 
+// Sentry error handler (must be before custom error handler)
+// setupExpressErrorHandler requires Sentry v8+; guard for v7 compatibility
+const sentryModule = Sentry as Record<string, unknown>;
+if (typeof sentryModule.setupExpressErrorHandler === 'function') {
+  (sentryModule.setupExpressErrorHandler as (app: express.Express) => void)(app);
+}
+
 // Error handler
 app.use(errorHandler);
 
@@ -550,6 +557,9 @@ const PREFERRED_PORT = config.apiPort; // Now using JOBS_API_PORT from Doppler (
 
         // Close job repository
         jobRepository.close();
+
+        // Flush pending Sentry events
+        await Sentry.close(2000);
       }
     });
   } catch (error) {
