@@ -1,6 +1,6 @@
 # Doppler Configuration
-# These values are managed by Doppler and injected as environment variables
-# Run commands with: doppler run -- <command>
+# These values are managed by Doppler
+# injected as environment variables in .env
 
 # Sentry Configuration
 SENTRY_DSN: ${SENTRY_DSN}
