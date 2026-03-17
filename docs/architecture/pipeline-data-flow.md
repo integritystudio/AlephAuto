@@ -40,7 +40,7 @@ The AlephAuto automation system consists of 11 specialized pipelines built on a 
 - `collect_git_activity.py` has been replaced by `sidequest/workers/git-activity-collector.ts` (pure TypeScript). The worker no longer spawns Python; it calls collector functions directly.
 - Startup-once runner behavior is verified for `repo-cleanup`, `gitignore`, and `dashboard-populate`: `--run-now`/`--run` creates one startup job, waits for terminal status, and exits when `--cron` is not set.
 - Aggregate test execution is split into `test:all:core` (default, env-sensitive suites skipped via `SKIP_ENV_SENSITIVE_TESTS=1`) and `test:all:full` (includes env-sensitive suites requiring socket bind and writable report/database paths).
-- `GET /api/status` activity feed now falls back to SQLite job history when the in-memory `ActivityFeedManager` is empty (e.g. after server restart). This ensures the dashboard always shows recent job history. See `api/server.ts` and `tests/unit/api-status-activity-fallback.test.ts`.
+- `GET /api/status` activity feed now falls back to PostgreSQL job history when the in-memory `ActivityFeedManager` is empty (e.g. after server restart). This ensures the dashboard always shows recent job history. See `api/server.ts` and `tests/unit/api-status-activity-fallback.test.ts`.
 - Dashboard-populate, repo-cleanup, gitignore, and test-refactor pipelines migrated from functional pattern to `BasePipeline` class-based pattern. `BasePipeline` now provides `waitForJobTerminalStatus(jobId, timeoutMs?)` for single-job tracking and `waitForCompletion(timeoutMs?)` with optional deadline timeout. Duplicate-detection stays functional (uses `worker.runNightlyScan()` self-managed lifecycle).
 
 ### System Characteristics
@@ -49,7 +49,7 @@ The AlephAuto automation system consists of 11 specialized pipelines built on a 
 - **Job Queue:** In-memory with configurable concurrency (default: 5, via `CONCURRENCY.DEFAULT_MAX_JOBS`)
 - **Event System:** EventEmitter-based job lifecycle tracking
 - **Error Tracking:** Sentry v8 with automatic classification
-- **Dashboard:** Real-time WebSocket + REST API (port 8080); activity feed persists across restarts via SQLite fallback
+- **Dashboard:** Real-time WebSocket + REST API (port 8080); activity feed persists across restarts via PostgreSQL fallback
 - **Deployment:** PM2 + Doppler + traditional server stack
 
 ### Pipeline Categories
@@ -1811,7 +1811,7 @@ const port = config.jobsApiPort;    // Correct — typed access
 // Non-retryable: ENOENT, EACCES, EPERM, ENOTFOUND, 4xx
 //
 // On retry: status → queued, retryCount++, delay via setTimeout (classification.suggestedDelay ?? this.retryDelayMs)
-// On final failure: status → failed, Sentry capture, persist to SQLite
+// On final failure: status → failed, Sentry capture, persist to PostgreSQL
 ```
 
 ### 5. WebSocket Broadcasting

@@ -258,5 +258,5 @@ curl http://localhost:8080/api/status
 curl http://localhost:8080/ws/status
 
 # Database (columns are snake_case)
-sqlite3 data/jobs.db "SELECT * FROM jobs ORDER BY created_at DESC LIMIT 10;"
+psql "$DATABASE_URL" -c "SELECT * FROM jobs ORDER BY created_at DESC LIMIT 10;"
 ```

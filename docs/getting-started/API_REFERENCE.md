@@ -110,7 +110,7 @@ Doppler secrets health check (no auth required).
 
 System status with pipeline metrics and activity feed.
 
-**Activity Feed Behavior:** The `recentActivity` field returns events from the in-memory `ActivityFeedManager` when available. After a server restart (when the in-memory feed is empty), it falls back to recent jobs from the SQLite database, mapped to the same activity format. This ensures the dashboard always shows job history even after deploys or restarts.
+**Activity Feed Behavior:** The `recentActivity` field returns events from the in-memory `ActivityFeedManager` when available. After a server restart (when the in-memory feed is empty), it falls back to recent jobs from the PostgreSQL database, mapped to the same activity format. This ensures the dashboard always shows job history even after deploys or restarts.
 
 **Response:**
 ```json

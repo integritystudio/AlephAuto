@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **AlephAuto** - Job queue framework with real-time dashboard for automation pipelines.
 
-11 pipelines: Duplicate Detection (JS+Python), Schema Enhancement, Git Activity Reporter (pure TS), Repository Cleanup, Repomix, Codebase Health, Dashboard Populate, Bugfix Audit, Gitignore Update, Plugin Management, Test Refactor.
+11 pipelines: Duplicate Detection (pure TS), Schema Enhancement, Git Activity Reporter (pure TS), Repository Cleanup, Repomix, Codebase Health, Dashboard Populate, Bugfix Audit, Gitignore Update, Plugin Management, Test Refactor.
 
 ## Quick Reference
 
@@ -111,14 +111,13 @@ const limit = Math.min(limit, PAGINATION.MAX_LIMIT);         // max 1000
 
 ## Architecture
 
-### Multi-Language Pipeline: Duplicate Detection (JS ↔ Python)
+### Duplicate Detection Pipeline (pure TypeScript)
 ```
-JavaScript (Stages 1-2)          Python (Stages 3-7)
-├── Repository scanning          ├── Code block extraction
-├── Pattern detection            ├── Semantic annotation
-└── candidates.json → stdout     ├── Similarity calculation
-         │                       ├── Duplicate grouping
-         └─── JSON stdin/stdout ─┘── Report generation
+TypeScript (Stages 1-2)          TypeScript (Stages 3-6)        TypeScript (Stage 7)
+├── Repository scanning          ├── Code block extraction      └── Report generation
+├── Pattern detection            ├── Semantic annotation            (HTML/JSON/Markdown
+└── candidates → in-process      ├── Similarity calculation          via ReportCoordinator)
+                                 └── Duplicate grouping
 ```
 
 ### Job Queue Framework
@@ -129,7 +128,7 @@ SidequestServer (Base — sidequest/core/server.ts)
 ├── Auto-retry with error classification (retryable: ETIMEDOUT, 5xx; non-retryable: ENOENT, 4xx)
 ├── Sentry integration
 ├── GitWorkflowManager for branch/commit/PR operations
-├── JobRepository for SQLite persistence
+├── JobRepository for PostgreSQL persistence
 └── Centralized config via sidequest/core/config.ts
 
 BasePipeline<TWorker> (sidequest/pipeline-runners/base-pipeline.ts)
@@ -161,7 +160,7 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 ├── frontend/              # React dashboard (Vite + TypeScript)
 ├── sidequest/             # Job queue framework
 │   ├── core/              # server.ts, job-repository, git-workflow, constants, config
-│   ├── pipeline-core/     # Scan orchestrator, similarity (Python)
+│   ├── pipeline-core/     # Scan orchestrator, similarity
 │   ├── pipeline-runners/  # 11 pipeline entry points + base-pipeline.ts
 │   └── workers/           # 10 worker implementations (all extend SidequestServer)
 ├── packages/              # pnpm workspace packages
@@ -171,7 +170,7 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 ├── scripts/               # Deploy, config monitoring, health checks
 ├── config/                # PM2 ecosystem config (.cjs)
 ├── cloudflare-workers/    # Edge worker (n0ai-proxy)
-├── data/                  # SQLite database (runtime)
+├── data/                  # Runtime data
 └── logs/                  # Runtime logs (gzipped)
 ```
 

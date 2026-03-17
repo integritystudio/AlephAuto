@@ -92,7 +92,7 @@ SidequestServer (Base)
 ├── Auto-retry with error classification
 ├── Sentry integration
 ├── BranchManager (branch/commit/PR)
-└── JobRepository (SQLite persistence)
+└── JobRepository (PostgreSQL persistence)
 
 Duplicate Detection Pipeline (pure TypeScript)
   Stages 1-2: repo scanning, pattern detection
@@ -121,9 +121,9 @@ Duplicate Detection Pipeline (pure TypeScript)
 ├── tests/                 # Unit, integration, accuracy tests
 ├── docs/                  # Architecture, runbooks, API reference
 ├── scripts/               # Deploy, config monitoring, health checks
-├── config/                # PM2 ecosystem configs
+├── config/                # PM2 ecosystem config
 ├── cloudflare-workers/    # Edge worker (n0ai-proxy)
-├── data/                  # SQLite database (runtime)
+├── data/                  # Runtime data
 └── logs/                  # Runtime logs (gzipped)
 ```
 

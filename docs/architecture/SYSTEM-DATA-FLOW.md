@@ -2,8 +2,8 @@
 
 > **Hub document.** Authoritative source for system-level architecture, data flow diagrams, and deployment. For pipeline-specific data flows, see [Pipeline Data Flow](./pipeline-data-flow.md). For error handling details, see [Error Handling](./ERROR_HANDLING.md). For pipeline list and critical patterns, see [CLAUDE.md](../../CLAUDE.md).
 
-**Last Updated:** 2026-03-15
-**Version:** 1.4
+**Last Updated:** 2026-03-17
+**Version:** 1.5
 
 ## Table of Contents
 
@@ -32,8 +32,8 @@ AlephAuto is a **job queue framework** with real-time dashboard for automation p
 | Characteristic | Value |
 |---------------|-------|
 | **Architecture** | Event-driven microservices |
-| **Primary Language** | TypeScript (Python for Duplicate Detection only) |
-| **Database** | SQLite (WAL mode) |
+| **Primary Language** | TypeScript (pure TS pipelines) |
+| **Database** | PostgreSQL |
 | **Real-time** | WebSocket (ws library) |
 | **Error Tracking** | Sentry v8 |
 | **Config Management** | Doppler |
@@ -81,7 +81,7 @@ AlephAuto is a **job queue framework** with real-time dashboard for automation p
 │                        DATA ACCESS LAYER                             │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐      │
 │  │  JobRepository  │  │   File System   │  │   External      │      │
-│  │  (SQLite)       │  │   (reports)     │  │   Services      │      │
+│  │  (PostgreSQL)   │  │   (reports)     │  │   Services      │      │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -111,7 +111,7 @@ graph TB
 
     subgraph Framework["Job Queue Framework (sidequest/)"]
         SQ["SidequestServer<br/>Event-driven lifecycle"]
-        JobRepo["JobRepository<br/>SQLite persistence"]
+        JobRepo["JobRepository<br/>PostgreSQL persistence"]
         GitWF["BranchManager<br/>Branch/commit/PR"]
         Config["Config<br/>Doppler secrets"]
         Constants["Constants<br/>Timeouts, retry, limits"]
@@ -132,7 +132,7 @@ graph TB
     end
 
     subgraph Pipelines["Pipeline Runners (11)"]
-        DupP["Duplicate Detection<br/>JS + Python"]
+        DupP["Duplicate Detection<br/>Pure TypeScript"]
         GitP["Git Activity"]
         HealthP["Claude Health"]
         RepomixP["Repomix"]
@@ -147,12 +147,11 @@ graph TB
 
     subgraph Processing["Processing Layer"]
         Orchestrator["Scan Orchestrator<br/>7-Stage Pipeline"]
-        JSProc["JavaScript Processing<br/>repomix + ast-grep"]
-        PyProc["Python Processing<br/>5-Stage Analysis"]
+        JSProc["TypeScript Processing<br/>repomix + ast-grep"]
     end
 
     subgraph Data["Data Layer"]
-        SQLite[(SQLite<br/>data/jobs.db)]
+        PG[(PostgreSQL<br/>jobs DB)]
         Logs["Logs<br/>Pino + gzip"]
         Reports["Reports<br/>HTML/MD/JSON"]
     end
@@ -184,9 +183,8 @@ graph TB
 
     DupP --> Orchestrator
     Orchestrator --> JSProc
-    Orchestrator --> PyProc
 
-    JobRepo --> SQLite
+    JobRepo --> PG
     Workers --> Logs
     Pipelines --> Reports
 
@@ -246,12 +244,11 @@ graph TB
 
     subgraph Pipeline["Pipeline Processing"]
         Orchestrator["Scan Orchestrator"]
-        JSStages["JS Stages 1-2"]
-        PyStages["Python Stages 3-7"]
+        TSStages["TS Stages 1-7"]
     end
 
     subgraph Data["Data Layer"]
-        SQLite[("SQLite DB")]
+        PG[("PostgreSQL DB")]
         FileSystem[("File System")]
         Config["Config"]
     end
@@ -281,14 +278,14 @@ graph TB
 
     %% Worker to pipeline
     DD --> Orchestrator
-    Orchestrator --> JSStages
-    JSStages -->|"JSON stdin-stdout"| PyStages
-    PyStages --> FileSystem
+    Orchestrator --> TSStages
+    TSStages --> FileSystem
 
     %% Data persistence
     BaseServer --> JobRepo
-    JobRepo --> SQLite
+    JobRepo --> PG
     Routes --> JobRepo
+
     BaseServer --> GitWorkflow
     Config --> Doppler
 
@@ -304,7 +301,7 @@ graph TB
 
     style BaseServer fill:#bbf,stroke:#333,stroke-width:2px
     style Orchestrator fill:#bfb,stroke:#333,stroke-width:2px
-    style SQLite fill:#f9f,stroke:#333,stroke-width:2px
+    style PG fill:#f9f,stroke:#333,stroke-width:2px
     style WSServer fill:#ff9,stroke:#333,stroke-width:2px
 ```
 
@@ -324,7 +321,7 @@ sequenceDiagram
     participant Q as Job Queue
     participant W as Worker
     participant P as Pipeline
-    participant DB as SQLite
+    participant DB as PostgreSQL
     participant WS as WebSocket
 
     U->>D: Click "Start Scan"
@@ -513,7 +510,7 @@ sequenceDiagram
 
 ### Database Flow
 
-SQLite database operations and schema:
+PostgreSQL database operations and schema:
 
 ```mermaid
 erDiagram
@@ -557,10 +554,10 @@ flowchart LR
         I3[idx_jobs_created_at DESC]
     end
 
-    subgraph WAL["WAL Mode"]
+    subgraph Conn["Connection Pool"]
         Write[Write Operations]
         Read[Read Operations]
-        Checkpoint[Auto Checkpoint]
+        Pool[pg Pool]
     end
 
     Init --> Save
@@ -568,19 +565,19 @@ flowchart LR
     Get --> I1 & I2 & I3
     Stats --> I1 & I2
 
-    Write --> WAL
-    Read --> WAL
-    WAL --> Checkpoint
+    Write --> Conn
+    Read --> Conn
+    Conn --> Pool
 
     style Init fill:#bbf,stroke:#333
-    style WAL fill:#bfb,stroke:#333
+    style Conn fill:#bfb,stroke:#333
 ```
 
 ### Error Handling Flow
 
 For complete error classification, retry logic, circuit breakers, and worker registry patterns, see [Error Handling](./ERROR_HANDLING.md).
 
-**Summary:** Errors are classified as retryable (ETIMEDOUT, 5xx) or non-retryable (ENOENT, 4xx). Retryable errors use exponential backoff up to max retries. All failures are captured to Sentry, persisted to SQLite, and broadcast via WebSocket.
+**Summary:** Errors are classified as retryable (ETIMEDOUT, 5xx) or non-retryable (ENOENT, 4xx). Retryable errors use exponential backoff up to max retries. All failures are captured to Sentry, persisted to PostgreSQL, and broadcast via WebSocket.
 
 ---
 
@@ -704,7 +701,7 @@ flowchart TB
     Routes --> JobRepo
     Workers --> Constants
 
-    JobRepo -->|"saveJob, getJobs"| DB[(SQLite)]
+    JobRepo -->|"saveJob, getJobs"| DB[(PostgreSQL)]
     GitWF -->|"branch, commit, PR"| Git[Git Operations]
 
     style JobRepo fill:#bbf,stroke:#333
@@ -734,41 +731,41 @@ flowchart TB
 
 ## Inter-Process Communication
 
-### Duplicate Detection Pipeline (JS + Python)
+### Duplicate Detection Pipeline (Pure TypeScript)
 
 ```mermaid
 graph LR
-    subgraph JS["JavaScript (Stages 1-2)"]
+    subgraph TS1["TypeScript (Stages 1-2)"]
         S1["Stage 1<br/>Repository Scanning"]
         S2["Stage 2<br/>Pattern Detection"]
     end
 
-    subgraph PY["Python (Stages 3-6)"]
+    subgraph TS2["TypeScript (Stages 3-6)"]
         S3["Stage 3<br/>Code Block Extraction"]
         S4["Stage 4<br/>Semantic Annotation"]
         S5["Stage 5<br/>Similarity Calculation"]
         S6["Stage 6<br/>Duplicate Grouping"]
     end
 
-    subgraph JS2["JavaScript (Stage 7)"]
+    subgraph TS3["TypeScript (Stage 7)"]
         S7["Stage 7<br/>Report Generation<br/>ReportCoordinator"]
     end
 
     S1 --> S2
-    S2 -->|candidates.json via stdout| S3
+    S2 -->|candidates in-process| S3
     S3 --> S4
     S4 --> S5
     S5 --> S6
     S6 --> S7
 
-    style JS fill:#fef3c7,stroke:#f59e0b
-    style PY fill:#ede9fe,stroke:#8b5cf6
-    style JS2 fill:#fef3c7,stroke:#f59e0b
+    style TS1 fill:#fef3c7,stroke:#f59e0b
+    style TS2 fill:#fef3c7,stroke:#f59e0b
+    style TS3 fill:#fef3c7,stroke:#f59e0b
 ```
 
-### TypeScript ↔ Python Bridge
+### Pipeline Execution
 
-The duplicate detection pipeline runs entirely in TypeScript (previously bridged JS and Python via stdin/stdout):
+The duplicate detection pipeline runs entirely in TypeScript:
 
 ```mermaid
 sequenceDiagram
@@ -902,10 +899,11 @@ flowchart TB
         Nginx[Nginx Reverse Proxy]
     end
 
-    subgraph Runtime["Runtime"]
-        Express["Express Server Port 8080"]
-        WebSocket["WebSocket Port 8080"]
-        SQLite[SQLite Database]
+    subgraph Runtime["Runtime (3 PM2 Processes)"]
+        Express["aleph-dashboard<br/>Express + WebSocket :8080"]
+        Worker["aleph-worker<br/>Pipeline Cron Jobs"]
+        Populate["aleph-populate<br/>Dashboard Populate"]
+        PG[PostgreSQL Database]
         Logs[Log Files]
     end
 
@@ -921,11 +919,12 @@ flowchart TB
     Build -->|Success| Script
     Script --> PM2
 
-    PM2 --> Express & WebSocket
+    PM2 --> Express & Worker & Populate
     Express --> Nginx
-    WebSocket --> Nginx
 
-    Express --> SQLite & Logs
+    Express --> PG & Logs
+    Worker --> PG & Logs
+    Populate --> Logs
     Express --> Doppler & Sentry & GitHub
 
     style PM2 fill:#bbf,stroke:#333
@@ -935,27 +934,46 @@ flowchart TB
 
 ### PM2 Process Configuration
 
+Three PM2 processes are defined in a single `config/ecosystem.config.cjs` (the populate process was previously in a separate `populate.config.cjs`, now inlined). Shared config is extracted into `SHARED_ENV` and `SHARED_LOGGING` constants to reduce duplication.
+
 ```javascript
 // config/ecosystem.config.cjs
+const SHARED_ENV = {
+  NODE_ENV, SENTRY_DSN, SENTRY_ENVIRONMENT, PATH  // from process.env / Doppler
+};
+const SHARED_LOGGING = {
+  log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+  merge_logs: true, max_size: '10M', interpreter: 'node'
+};
+
 module.exports = {
   apps: [
     {
-      name: 'aleph-dashboard',
+      name: 'aleph-dashboard',       // API + WebSocket server
       script: 'api/server.ts',
-      instances: 1,
-      exec_mode: 'fork',
-      interpreter: 'node',
       node_args: '--strip-types --import ./api/preload.ts --max-old-space-size=512',
-      max_memory_restart: '500M'
+      env: { ...SHARED_ENV, JOBS_API_PORT, REDIS_HOST, REDIS_PORT },
+      ...SHARED_LOGGING
     },
     {
-      name: 'aleph-worker',
+      name: 'aleph-worker',          // Background pipelines (cron-scheduled)
       script: 'sidequest/pipeline-runners/duplicate-detection-pipeline.ts',
-      instances: 1,
-      exec_mode: 'fork',
-      interpreter: 'node',
       node_args: '--strip-types',
-      max_memory_restart: '1G'
+      max_memory_restart: '1G',
+      env: { ...SHARED_ENV, JOBS_API_PORT, REDIS_HOST, REDIS_PORT,
+             CRON_SCHEDULE, DOC_CRON_SCHEDULE, GIT_CRON_SCHEDULE,
+             PLUGIN_CRON_SCHEDULE, CLAUDE_HEALTH_CRON_SCHEDULE,
+             CLOUDFLARE_KV_NAMESPACE_ID },
+      ...SHARED_LOGGING
+    },
+    {
+      name: 'aleph-populate',        // Dashboard populate pipeline (DP-H1)
+      script: 'sidequest/pipeline-runners/dashboard-populate-pipeline.ts',
+      args: '--cron',
+      node_args: '--strip-types',
+      max_memory_restart: '1G',
+      env: { ...SHARED_ENV, DASHBOARD_CRON_SCHEDULE, CLOUDFLARE_KV_NAMESPACE_ID },
+      ...SHARED_LOGGING
     }
   ]
 };
@@ -1024,7 +1042,7 @@ server {
 | Job Repository | `sidequest/core/job-repository.ts` |
 | Branch Manager | `sidequest/pipeline-core/git/branch-manager.ts` |
 | Constants | `sidequest/core/constants.ts` |
-| Database | `sidequest/core/database.ts` |
+| Database | `sidequest/core/database.ts` (pg) |
 | Config | `sidequest/core/config.ts` |
 | Job Status Types | `api/types/job-status.ts` |
 | Worker Registry | `api/utils/worker-registry.ts` |
@@ -1046,5 +1064,5 @@ server {
 
 ---
 
-**Document Version:** 2.3.20
-**Last Updated:** 2026-03-15
+**Document Version:** 2.3.29
+**Last Updated:** 2026-03-17

@@ -21,8 +21,8 @@
                                     │
         ┌───────────────────────────┼───────────────────────────┐
 ┌───────┴───────┐         ┌────────┴────────┐         ┌────────┴────────┐
-│   SQLite DB   │         │   File System   │         │    External     │
-│  (jobs.db)    │         │   (reports)     │         │  (Sentry, Git)  │
+│  PostgreSQL   │         │   File System   │         │    External     │
+│  (jobs DB)    │         │   (reports)     │         │  (Sentry, Git)  │
 └───────────────┘         └─────────────────┘         └─────────────────┘
 ```
 
@@ -32,7 +32,7 @@
 | **API** | Express 5 + WebSocket |
 | **Queue** | SidequestServer (11 workers) |
 | **Workers** | bugfix-audit, claude-health, dashboard-populate, duplicate-detection, git-activity, gitignore, plugin-manager, repo-cleanup, repomix, schema-enhancement, test-refactor |
-| **Database** | SQLite (WAL) |
+| **Database** | PostgreSQL |
 | **Config** | Doppler |
 | **Monitoring** | Sentry v8 |
 

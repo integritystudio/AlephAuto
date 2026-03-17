@@ -58,7 +58,7 @@
       "**/repomix.*",
       "**/repo-compressed.*",
       "**/repomix-docs.*",
-      "**gitlog-top20.*.*"
+      "**gitlog-top20.*.*",
 
       "**/node_modules/**",
       "**/.next/**",

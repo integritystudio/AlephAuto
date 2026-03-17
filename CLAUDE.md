@@ -145,7 +145,7 @@ SidequestServer extends EventEmitter (sidequest/core/server.ts)
 ├── Auto-retry with error classification (retryable: ETIMEDOUT, 5xx; non-retryable: ENOENT, 4xx)
 ├── Sentry tracing wraps every executeJob
 ├── Git branch setup before execution, commit/PR on success (non-blocking)
-├── JobRepository for SQLite persistence (lazy-init singleton)
+├── JobRepository for PostgreSQL persistence (lazy-init singleton)
 └── Centralized config via sidequest/core/config.ts
 
 BasePipeline<TWorker> (sidequest/pipeline-runners/base-pipeline.ts)
@@ -201,7 +201,7 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 ├── scripts/               # Deploy, config monitoring, health checks
 ├── config/                # PM2 ecosystem config (.cjs)
 ├── cloudflare-workers/    # Edge worker (n0ai-proxy)
-├── data/                  # SQLite database (runtime)
+├── data/                  # Runtime data
 └── logs/                  # Runtime logs (gzipped)
 ```
 

@@ -45,12 +45,11 @@ graph TB
 
     subgraph "Processing Layer"
         ORCHESTRATOR[Scan Orchestrator<br/>7-Stage Pipeline]
-        JSPROCESSOR[JavaScript Processing<br/>repomix + ast-grep]
-        PYPROCESSOR[Python Processing<br/>5-Stage Analysis]
+        JSPROCESSOR[TypeScript Processing<br/>repomix + ast-grep]
     end
 
     subgraph "Data Layer"
-        SQLITE[(SQLite<br/>Job Persistence)]
+        PG[(PostgreSQL<br/>Job Persistence)]
         FILESYSTEM[(File System<br/>Reports & Logs)]
     end
 
@@ -77,12 +76,10 @@ graph TB
 
     DUPWORKER --> ORCHESTRATOR
     ORCHESTRATOR --> JSPROCESSOR
-    JSPROCESSOR --> PYPROCESSOR
     JSPROCESSOR --> REPOMIX
     JSPROCESSOR --> ASTGREP
 
     ORCHESTRATOR --> FILESYSTEM
-    PYPROCESSOR --> FILESYSTEM
 
     DUPWORKER --> SENTRY
     DOCWORKER --> SENTRY
@@ -101,8 +98,8 @@ graph TB
 | **Client** | REST API, WebSocket | User/system interaction |
 | **API Gateway** | Express.js, WebSocket Server | Request routing, real-time updates |
 | **Job Queue** | 10 Worker Types | Job management & execution |
-| **Processing** | Orchestrator, JS/Python Processors | Code analysis pipeline |
-| **Data** | SQLite, File System | Persistence & reports |
+| **Processing** | Orchestrator, TypeScript Processors | Code analysis pipeline |
+| **Data** | PostgreSQL, File System | Persistence & reports |
 | **External** | Sentry, repomix, ast-grep | Monitoring & tools |
 | **Scheduling** | node-cron | Automated job triggering |
 

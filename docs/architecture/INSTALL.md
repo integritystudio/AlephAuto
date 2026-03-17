@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js >= 22.0.0, Python 3.10+ (for Duplicate Detection pipeline only), Git
+- Node.js >= 22.0.0, Git
 - pnpm (`npm i -g pnpm`)
 - [Doppler CLI](https://docs.doppler.com/docs/install-cli) (required for all pipelines)
 
@@ -101,7 +101,6 @@ doppler run -- node --strip-types sidequest/pipeline-runners/duplicate-detection
 | Problem | Fix |
 |---------|-----|
 | TypeScript fails to start | `pnpm install && node --version` (>= 22.0.0) |
-| Python script won't execute (Duplicate Detection) | Verify `python3 --version` >= 3.10 |
 | No repositories found | Check `$CODE_BASE_DIR` or edit `sidequest/git-report-config.json` |
 | Jobs not completing | `pm2 logs`, check `logs/*.json`, check Sentry |
 | Dashboard "Connection Failed" | Expected on Pages (no backend); on self-hosted check `pm2 status`, port 8080, firewall |

@@ -30,7 +30,7 @@ AlephAuto provides eleven production-ready automation pipelines for managing mul
 10. **Plugin Management** - Plugin audit and management automation
 11. **Test Refactor** - Automated test suite modularization and utility generation
 
-Built on a robust job queue architecture with Sentry error tracking, event-driven monitoring, job persistence (SQLite), and configurable concurrency.
+Built on a robust job queue architecture with Sentry error tracking, event-driven monitoring, job persistence (PostgreSQL), and configurable concurrency.
 
 ## Features
 

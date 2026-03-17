@@ -5,13 +5,13 @@
   "@context": "https://schema.org",
   "@type": "APIReference",
   "name": "Sidequest - Job Queue Framework",
-  "description": "The **sidequest** directory contains the core job queue framework for AlephAuto automation pipelines. It provides event-driven job management with SQLite persistence, Sentry integration, and Git wo...",
+  "description": "The **sidequest** directory contains the core job queue framework for AlephAuto automation pipelines. It provides event-driven job management with PostgreSQL persistence, Sentry integration, and Git wo...",
   "additionalType": "https://schema.org/TechArticle"
 }
 </script>
 
 
-The **sidequest** directory contains the core job queue framework for AlephAuto automation pipelines. It provides event-driven job management with SQLite persistence, Sentry integration, and Git workflow automation.
+The **sidequest** directory contains the core job queue framework for AlephAuto automation pipelines. It provides event-driven job management with PostgreSQL persistence, Sentry integration, and Git workflow automation.
 
 ## Architecture
 
@@ -19,7 +19,7 @@ The **sidequest** directory contains the core job queue framework for AlephAuto 
 sidequest/
 ├── core/               # Base framework components
 │   ├── server.ts       # SidequestServer base class (job queue engine)
-│   ├── database.ts     # SQLite persistence layer
+│   ├── database.ts     # PostgreSQL persistence layer
 │   ├── config.ts       # Centralized configuration
 │   └── index.ts        # Module exports
 │
@@ -90,7 +90,7 @@ The base class for all workers with:
 
 - **Event-driven lifecycle**: `created → queued → running → completed/failed`
 - **Concurrency control**: Configurable max concurrent jobs (default: 5)
-- **SQLite persistence**: Job history stored in `data/jobs.db`
+- **PostgreSQL persistence**: Job history stored via `DATABASE_URL`
 - **Sentry integration**: Error tracking and performance monitoring
 - **Git workflow**: Optional branch creation, commits, and PR automation
 - **Auto-retry with error classification**: Classifies errors as retryable/non-retryable

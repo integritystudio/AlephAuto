@@ -54,7 +54,7 @@
     "cleanup:once": "RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/repo-cleanup-pipeline.ts",
     "cleanup:dryrun": "CLEANUP_DRY_RUN=true RUN_ON_STARTUP=true doppler run -- node --strip-types sidequest/pipeline-runners/repo-cleanup-pipeline.ts",
     "cleanup:schedule": "doppler run -- node --strip-types sidequest/pipeline-runners/repo-cleanup-pipeline.ts",
-    "setup:sentry": "node docs/setup/setup-sentry.js",
+    "setup:sentry": "node scripts/setup/setup-sentry.js",
     "verify": "node --strip-types scripts/setup/verify-setup.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

@@ -198,7 +198,7 @@ npm run mypipeline:once
 
 ## What You Get for Free
 
-Registered pipelines automatically get: **Sentry** error tracking, **SQLite** job persistence (`GET /api/pipelines/:id/jobs`), **Dashboard** real-time status via WebSocket (with SQLite fallback after restart), **Pino** structured logging, **retry with circuit breaker** (retryable: ETIMEDOUT/5xx; non-retryable: ENOENT/4xx).
+Registered pipelines automatically get: **Sentry** error tracking, **PostgreSQL** job persistence (`GET /api/pipelines/:id/jobs`), **Dashboard** real-time status via WebSocket (with database fallback after restart), **Pino** structured logging, **retry with circuit breaker** (retryable: ETIMEDOUT/5xx; non-retryable: ENOENT/4xx).
 
 For error classification, retry logic, circuit breaker, and worker registry details, see [Error Handling](../ERROR_HANDLING.md).
 
