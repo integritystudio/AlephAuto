@@ -88,8 +88,8 @@ check('repomix available via npx', () => {
     stdio: ['ignore', 'pipe', 'ignore'],
     timeout: TIMEOUTS.SHORT_MS,
   });
-  if (result.status !== 0) {
-    throw new Error('repomix not available. Run: npm install');
+  if (result.error || result.status !== 0) {
+    throw new Error(`repomix not available${result.error ? `: ${result.error.message}` : ''}. Run: npm install`);
   }
   console.log(`   Version: ${(result.stdout ?? '').trim()}`);
 });
@@ -100,8 +100,8 @@ check('git available', () => {
     stdio: ['ignore', 'pipe', 'ignore'],
     timeout: TIMEOUTS.SHORT_MS,
   });
-  if (result.status !== 0) {
-    throw new Error('git not found. Please install git');
+  if (result.error || result.status !== 0) {
+    throw new Error(`git not found${result.error ? `: ${result.error.message}` : ''}. Please install git`);
   }
   console.log(`   ${(result.stdout ?? '').trim()}`);
 });
@@ -124,7 +124,7 @@ check('ast-grep available', () => {
       stdio: ['ignore', 'pipe', 'ignore'],
       timeout: TIMEOUTS.TWO_SECONDS_MS,
     });
-    if (result.status === 0) {
+    if (!result.error && result.status === 0) {
       found = true;
       console.log(`   ${(result.stdout ?? '').trim()} (${label})`);
       break;
@@ -142,7 +142,7 @@ check('Redis available (optional)', () => {
     stdio: ['ignore', 'pipe', 'ignore'],
     timeout: TIMEOUTS.TWO_SECONDS_MS,
   });
-  if (result.status === 0) {
+  if (!result.error && result.status === 0) {
     console.log('   Redis is running');
   } else {
     console.log('   ⚠️  Redis not available (optional for caching)');
@@ -155,7 +155,7 @@ check('Doppler CLI available (optional)', () => {
     stdio: ['ignore', 'pipe', 'ignore'],
     timeout: TIMEOUTS.SHORT_MS,
   });
-  if (result.status === 0) {
+  if (!result.error && result.status === 0) {
     console.log(`   ${(result.stdout ?? '').trim()}`);
   } else {
     console.log('   ⚠️  Doppler not available (optional for secrets management)');
