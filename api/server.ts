@@ -350,11 +350,7 @@ app.use((req: Request, res: Response) => {
 });
 
 // Sentry error handler (must be before custom error handler)
-// setupExpressErrorHandler requires Sentry v8+; guard for v7 compatibility
-const sentryModule = Sentry as Record<string, unknown>;
-if (typeof sentryModule.setupExpressErrorHandler === 'function') {
-  (sentryModule.setupExpressErrorHandler as (app: express.Express) => void)(app);
-}
+Sentry.setupExpressErrorHandler(app);
 
 // Error handler
 app.use(errorHandler);

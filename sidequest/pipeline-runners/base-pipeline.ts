@@ -2,6 +2,7 @@ import type { Job, JobStats } from '../core/server.ts';
 import { SidequestServer } from '../core/server.ts';
 import { JOB_EVENTS, RETRY_EVENTS, TIMEOUTS } from '../core/constants.ts';
 import { logError } from '../utils/logger.ts';
+import * as Sentry from '@sentry/node';
 import cron from 'node-cron';
 import type { Logger } from 'pino';
 
@@ -140,13 +141,18 @@ export abstract class BasePipeline<TWorker extends SidequestServer = SidequestSe
 
     logger.info({ cronSchedule }, `Scheduling ${name}`);
 
+    const monitorSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
     const task = cron.schedule(cronSchedule, async () => {
       logger.info(`Cron triggered - starting ${name}`);
-      try {
-        await runFn();
-      } catch (error) {
-        logError(logger, error, `Scheduled ${name} failed`);
-      }
+      await Sentry.withMonitor(monitorSlug, async () => {
+        try {
+          await runFn();
+        } catch (error) {
+          logError(logger, error, `Scheduled ${name} failed`);
+          throw error;
+        }
+      }, { schedule: { type: 'crontab', value: cronSchedule } });
     });
 
     logger.info(`${name} scheduled`);

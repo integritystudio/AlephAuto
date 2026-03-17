@@ -7,4 +7,5 @@ Sentry.init({
   tracesSampleRate: config.sentryTracesSampleRate,
   sendDefaultPii: true,
   includeLocalVariables: true,
+  enableLogs: true,
 });
