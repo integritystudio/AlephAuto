@@ -47,7 +47,7 @@ function runCheck(checkItem: Check): boolean {
 
 check('Node.js version (>=18.0.0)', () => {
   const version = process.version;
-  const major = parseInt(version.slice(1).split('.')[0]);
+  const major = parseInt(version.slice(1).split('.')[0], 10);
   if (major < 18) {
     throw new Error(`Node.js ${version} found, requires >=18.0.0`);
   }
