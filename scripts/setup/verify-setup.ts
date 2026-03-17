@@ -143,7 +143,7 @@ check('Redis available (optional)', () => {
     execSync('redis-cli ping', {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 2000,
+      timeout: TIMEOUTS.TWO_SECONDS_MS,
     });
     console.log('   Redis is running');
   } catch (error) {
