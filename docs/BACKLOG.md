@@ -124,6 +124,25 @@ No active low-priority backlog items.
 
 ---
 
+## Setup Script Code Review Findings (2026-03-17)
+
+Code review of `scripts/setup/verify-setup.ts`. High-severity type and error-handling issues (1-12) fixed across 12 commits; remaining medium/low findings documented below.
+
+### Medium
+
+| ID | Priority | Description |
+|---|----------|-------------|
+| VS-M1 | P2 | **`spawnSync` error state not fully checked** — `scripts/setup/verify-setup.ts:91, 103, 127, 145, 158`. Current code checks only `result.status !== 0`, missing cases where `result.status` is `null` and `result.error` is set (ENOENT, timeout). Guard with `if (result.error \|\| result.status !== 0)` and include error detail in thrown message. |
+
+### Low
+
+| ID | Priority | Description |
+|---|----------|-------------|
+| VS-L1 | P3 | **`pkg.version` read from package.json is untyped** — `scripts/setup/verify-setup.ts:79`. `JSON.parse()` returns `any`; cast to `{ version?: string }` and provide fallback. |
+| VS-L2 | P3 | **`result.stdout` trimmed without null guard on optional checks** — `scripts/setup/verify-setup.ts:94, 106, 129, 159`. While safe due to `encoding: 'utf8'`, add explicit null coalescing: `(result.stdout ?? '').trim()` for robustness. |
+
+---
+
 ## Frontend Code Review Findings (2026-03-15)
 
 Code review of `frontend/src/hooks/useWebSocketConnection.ts`. Critical and high-severity issues (1-5) fixed in session; remaining medium/low findings documented below.
