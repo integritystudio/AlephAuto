@@ -140,15 +140,18 @@ router.get('/', async (req, res) => {
  * NOTE: This route MUST be defined before /:jobId routes to avoid matching 'bulk-import' as a jobId
  * Requires MIGRATION_API_KEY environment variable for authentication
  *
+ * Headers:
+ *   X-Migration-Key: <migration-key-from-env>
+ *
  * Request body:
  * {
- *   "jobs": [{ id, pipeline_id, status, created_at, ... }],
- *   "apiKey": "migration-key-from-env"
+ *   "jobs": [{ id, pipeline_id, status, created_at, ... }]
  * }
  */
 router.post('/bulk-import', bulkImportRateLimiter, async (req, res) => {
   try {
-    const { jobs, apiKey } = req.body;
+    const { jobs } = req.body;
+    const apiKey = req.headers['x-migration-key'] as string | undefined;
 
     // Validate API key for migration operations
     // Note: config.migrationApiKey is loaded via Doppler - never use process.env directly
