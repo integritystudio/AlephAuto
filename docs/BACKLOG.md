@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-17 | **Last Session:** 2026-03-17 (code review + fix: scripts/setup/fix-types.ts, 5 findings)
+**Last Updated:** 2026-03-17 | **Last Session:** 2026-03-17 (backlog fixes: VS-M1, AG-M1-T1, CR-H5, SC-L5, SU-FR-M4)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -31,13 +31,13 @@ objects instead. Import paths must use `.ts` extensions (Node v24 does not rewri
 
 **Affected versions:** Node v24.x, PM2 6.x. Not observed on Node v25.x.
 
-### SC-L5: `_generateCommitMessage`/`_generatePRContext` public on `server.ts`
+### SC-L5: `_generateCommitMessage`/`_generatePRContext` — Resolved
 
-Should be `protected`; currently exposed on external API surface. Skipped — 6+ test call sites require public access.
+Changed from `public` to `protected` in base class and all 3 worker overrides. Test subclass exposes proxy methods. Commit `61e6a04`.
 
-### SU-FR-M4: Unnecessary `as readonly string[]` cast on `METRIC_KEYS`
+### SU-FR-M4: Unnecessary `as readonly string[]` cast on `METRIC_KEYS` — Resolved (won't-fix)
 
-`report-generator.ts:361` — Reverted by linter; cast required by project lint rules. Accepted as-is.
+`report-generator.ts:361` — Cast required by TypeScript: `.includes()` on `readonly` tuple with literal types won't accept plain `string` without it. Accepted as-is.
 
 ---
 
@@ -58,11 +58,11 @@ Tracking artifacts:
 ---
 
 ## Complexity Analysis — Full Repo (2026-03-08)
-### Low
+### Low — Resolved
 
 #### AG-M1-T1: Add snapshot tests for html-report-sections generators
 
-`sidequest/pipeline-core/reports/html-report-sections.ts` exports 7 section generators + `isInterProject` with no test coverage. Add snapshot tests covering both intra-project and inter-project `ScanResult` inputs, empty arrays, missing metadata fallbacks, and invalid timestamp strings.
+24 tests covering all 7 exported section generators + `isInterProject` with intra-project, inter-project, and empty input fixtures. Commit `19bd662`.
 
 > SV4-SV6 migrated to [v2.3.23](changelog/2.3/CHANGELOG.md#2323---2026-03-09).
 > AG-M1 review fixes and refactoring items migrated to [v2.3.31](changelog/2.3/CHANGELOG.md#2331---2026-03-15).
@@ -110,7 +110,12 @@ Code review of codebase via `repomix-git-ranked.xml`. Issues #6 (pipelineId extr
 | ID | Priority | Description |
 |---|----------|-------------|
 | CR-H1 | P1 | **Authentication bypass on read endpoints** — `api/middleware/auth.ts:17-29`. `PUBLIC_PATHS` exempts `/api/jobs`, `/api/pipelines`, `/api/scans`, `/api/reports` — all read endpoints are fully unauthenticated. If intentional for internal-only dashboard, document explicitly. Otherwise, restrict GET routes. |
-| CR-H5 | P2 | **Migration API key in request body, not header** — `api/routes/jobs.ts:151,161`. Secrets in request bodies are logged in full by middleware stacks and appear in error traces. Accept key via header (e.g., `X-Migration-Key`) matching `authMiddleware` pattern. |
+
+### High — Resolved
+
+| ID | Description | Resolution |
+|---|-------------|------------|
+| CR-H5 | **Migration API key in request body, not header** | Moved to `X-Migration-Key` header. Commit `af8fdd2`. |
 
 ### Medium
 
