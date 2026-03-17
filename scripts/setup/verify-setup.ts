@@ -7,9 +7,8 @@
 
 import { execSync, spawnSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import { TIMEOUTS } from '../../sidequest/core/constants.ts';
 
 const __filename = fileURLToPath(import.meta.url);
