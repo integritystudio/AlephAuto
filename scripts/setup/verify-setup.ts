@@ -75,8 +75,8 @@ check('@types/node installed (TypeScript support)', () => {
   // Check version
   try {
     const packageJsonPath = join(typesNodePath, 'package.json');
-    const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
-    console.log(`   Version: ${pkg.version}`);
+    const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as { version?: string };
+    console.log(`   Version: ${pkg.version ?? 'unknown'}`);
   } catch {
     // Version check optional
   }
