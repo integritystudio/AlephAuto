@@ -167,7 +167,9 @@ check('Doppler CLI available (optional)', () => {
 // Run all checks
 console.log('🔍 Running setup verification...\n');
 
-checks.forEach(runCheck);
+for (const item of checks) {
+  runCheck(item);
+}
 
 console.log('\n' + '='.repeat(50));
 console.log(`✅ Passed: ${passed}`);
