@@ -4,7 +4,7 @@ import os from 'os';
 import { BYTES_PER_KB } from '../../sidequest/core/constants.ts';
 import { TIME_MS } from '../../sidequest/core/units.ts';
 import { waitForJobCompletion } from '../utils/test-utilities.ts';
-import { config } from '../../sidequest/core/config.ts';
+
 
 /**
  * Test script to run a single repomix job
@@ -64,7 +64,6 @@ async function testSingleJob() {
     outputBaseDir: './sidequest/output/condense',
     codeBaseDir: codeBase,
     logDir: './logs',
-    sentryDsn: config.sentryDsn,
   });
 
   setupWorkerEventListeners(worker);

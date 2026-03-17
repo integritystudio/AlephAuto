@@ -133,7 +133,6 @@ class ClaudeHealthPipeline extends BasePipeline<ClaudeHealthWorker> {
     super(new ClaudeHealthWorker({
       maxConcurrent: 1,
       logDir: config.logDir,
-      sentryDsn: config.sentryDsn,
       ...options
     }));
 

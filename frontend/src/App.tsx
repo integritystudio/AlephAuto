@@ -9,9 +9,11 @@
  */
 
 import { useCallback, useState } from 'react';
+import * as Sentry from '@sentry/react';
 import { Layout } from './components/Layout';
 import { PipelineDetailPanel } from './components/PipelineDetailPanel/PipelineDetailPanel';
 import { JobLogsModal } from './components/JobLogsModal/JobLogsModal';
+import { ErrorMessage } from './components/ui/ErrorMessage/ErrorMessage';
 import { useWebSocketConnection } from './hooks/useWebSocketConnection';
 import { useDashboardStore } from './store/dashboard';
 import { apiService } from './services/api';
@@ -202,42 +204,52 @@ function App() {
   const selectedPipeline = pipelines.find(p => p.id === selectedPipelineDetail);
 
   return (
-    <div className="app">
-      <Layout
-        systemStatus={systemStatus}
-        pipelines={pipelines}
-        activeJobs={activeJobs}
-        queuedJobs={queuedJobs}
-        activities={activity}
-        isLoading={isLoading}
-        error={error}
-        onRetry={handleRetry}
-        onPipelineView={handlePipelineView}
-        onPipelineRetry={handlePipelineRetry}
-        onJobViewLogs={handleJobViewLogs}
-        onJobCancel={handleJobCancel}
-        onJobRetry={handleJobRetry}
-        onActivityItemClick={handleActivityItemClick}
-        onActivityClear={handleActivityClear}
-      />
-
-      {/* Pipeline Detail Slide-out */}
-      {selectedPipeline && (
-        <PipelineDetailPanel
-          pipeline={selectedPipeline}
-          onClose={() => setSelectedPipelineDetail(null)}
-          onJobClick={handleJobViewLogs}
+    <Sentry.ErrorBoundary
+      fallback={({ error: boundaryError }) => (
+        <ErrorMessage
+          message="An unexpected error occurred"
+          details={boundaryError instanceof Error ? boundaryError.message : String(boundaryError)}
+          onRetry={() => window.location.reload()}
         />
       )}
-
-      {/* Job Logs Modal */}
-      {selectedJobForLogs && (
-        <JobLogsModal
-          jobId={selectedJobForLogs}
-          onClose={() => setSelectedJobForLogs(null)}
+    >
+      <div className="app">
+        <Layout
+          systemStatus={systemStatus}
+          pipelines={pipelines}
+          activeJobs={activeJobs}
+          queuedJobs={queuedJobs}
+          activities={activity}
+          isLoading={isLoading}
+          error={error}
+          onRetry={handleRetry}
+          onPipelineView={handlePipelineView}
+          onPipelineRetry={handlePipelineRetry}
+          onJobViewLogs={handleJobViewLogs}
+          onJobCancel={handleJobCancel}
+          onJobRetry={handleJobRetry}
+          onActivityItemClick={handleActivityItemClick}
+          onActivityClear={handleActivityClear}
         />
-      )}
-    </div>
+
+        {/* Pipeline Detail Slide-out */}
+        {selectedPipeline && (
+          <PipelineDetailPanel
+            pipeline={selectedPipeline}
+            onClose={() => setSelectedPipelineDetail(null)}
+            onJobClick={handleJobViewLogs}
+          />
+        )}
+
+        {/* Job Logs Modal */}
+        {selectedJobForLogs && (
+          <JobLogsModal
+            jobId={selectedJobForLogs}
+            onClose={() => setSelectedJobForLogs(null)}
+          />
+        )}
+      </div>
+    </Sentry.ErrorBoundary>
   );
 }
 

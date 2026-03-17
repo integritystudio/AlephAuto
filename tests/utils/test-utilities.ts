@@ -6,7 +6,6 @@ interface TestWorkerOptions {
   jobType?: string;
   maxConcurrent?: number;
   maxRetries?: number;
-  enableSentry?: boolean;
   [key: string]: unknown;
 }
 
@@ -26,7 +25,6 @@ export class TestWorker extends SidequestServer {
       jobType: options.jobType ?? 'test-worker',
       maxConcurrent: options.maxConcurrent ?? 1,
       maxRetries: options.maxRetries ?? 0,
-      sentryDsn: options.enableSentry ? undefined : null,
       ...options
     });
 
@@ -368,7 +366,6 @@ export function assertJobState(job: Record<string, unknown>, expected: JobAssert
 
 interface TestContextOptions {
   workerOptions?: TestWorkerOptions;
-  enableSentry?: boolean;
 }
 
 interface TestContext {

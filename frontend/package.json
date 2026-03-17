@@ -25,6 +25,7 @@
     "react-dom": "^19.2.0",
     "recharts": "^3.4.1",
     "typescript": "^5.9.3",
+    "@sentry/react": "^10.0.0",
     "zustand": "^5.0.8"
   },
   "optionalDependencies": {

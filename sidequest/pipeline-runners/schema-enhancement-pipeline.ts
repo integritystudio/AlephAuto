@@ -63,7 +63,6 @@ class SchemaEnhancementPipeline extends BasePipeline<SchemaEnhancementWorker> {
       ...options,
       maxConcurrent: config.maxConcurrent ?? CONCURRENCY.DEFAULT_IO_BOUND,
       logDir: config.logDir,
-      sentryDsn: config.sentryDsn,
       gitWorkflowEnabled: options.gitWorkflowEnabled ?? config.enableGitWorkflow,
       gitBranchPrefix: options.gitBranchPrefix || 'docs',
       gitBaseBranch: options.gitBaseBranch || config.gitBaseBranch,

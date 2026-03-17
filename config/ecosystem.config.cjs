@@ -59,7 +59,7 @@ module.exports = {
       max_memory_restart: process.env.MAX_MEMORY_RESTART,
 
       // Node.js arguments - preload script to set EventEmitter max listeners before any imports
-      node_args: '--strip-types --import ./api/preload.ts --max-old-space-size=512',
+      node_args: '--strip-types --import ./instrument.ts --import ./api/preload.ts --max-old-space-size=512',
 
       // Environment variables (pulled from Doppler at PM2 startup)
       env: {
@@ -106,7 +106,7 @@ module.exports = {
       max_memory_restart: '1G',
 
       // Node.js arguments - enable TypeScript strip-types for .ts imports
-      node_args: '--strip-types',
+      node_args: '--strip-types --import ./instrument.ts',
 
       // Environment variables (pulled from Doppler at PM2 startup)
       env: {
@@ -162,7 +162,7 @@ module.exports = {
       // NOTE: Do not add --import ./api/preload.ts here — it causes crash loops
       // under PM2 6.x with this pipeline runner. EventEmitter limits are not needed
       // since this process only runs a single cron-triggered worker.
-      node_args: '--strip-types',
+      node_args: '--strip-types --import ./instrument.ts',
 
       // Environment variables (pulled from Doppler at PM2 startup)
       env: {

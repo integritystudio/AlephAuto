@@ -60,8 +60,7 @@ const PIPELINE_CONFIGS: Record<string, PipelineConfig> = {
     WorkerClass: DuplicateDetectionWorker as unknown as WorkerConstructor,
     getOptions: () => ({
       maxConcurrentScans: CONCURRENCY.MAX_WORKER_INITS,
-      logDir: config.logDir,
-      sentryDsn: config.sentryDsn
+      logDir: config.logDir
     })
   },
   'schema-enhancement': {
@@ -69,7 +68,6 @@ const PIPELINE_CONFIGS: Record<string, PipelineConfig> = {
     getOptions: () => ({
       maxConcurrent: config.maxConcurrent ?? CONCURRENCY.DEFAULT_IO_BOUND,
       logDir: config.logDir,
-      sentryDsn: config.sentryDsn,
       gitWorkflowEnabled: config.enableGitWorkflow,
       gitBranchPrefix: 'docs',
       gitBaseBranch: config.gitBaseBranch,
@@ -80,24 +78,21 @@ const PIPELINE_CONFIGS: Record<string, PipelineConfig> = {
     WorkerClass: GitActivityWorker as unknown as WorkerConstructor,
     getOptions: () => ({
       maxConcurrent: config.maxConcurrent ?? CONCURRENCY.MAX_WORKER_INITS,
-      logDir: config.logDir,
-      sentryDsn: config.sentryDsn
+      logDir: config.logDir
     })
   },
   'gitignore-manager': {
     WorkerClass: GitignoreWorker as unknown as WorkerConstructor,
     getOptions: () => ({
       maxConcurrent: config.maxConcurrent ?? CONCURRENCY.MAX_WORKER_INITS,
-      logDir: config.logDir,
-      sentryDsn: config.sentryDsn
+      logDir: config.logDir
     })
   },
   'repomix': {
     WorkerClass: RepomixWorker as unknown as WorkerConstructor,
     getOptions: () => ({
       maxConcurrent: config.maxConcurrent ?? CONCURRENCY.MAX_WORKER_INITS,
-      logDir: config.logDir,
-      sentryDsn: config.sentryDsn
+      logDir: config.logDir
     }),
     disabled: true,
     disabledReason: 'Paused pending refactor — see BACKLOG.md'
@@ -106,16 +101,14 @@ const PIPELINE_CONFIGS: Record<string, PipelineConfig> = {
     WorkerClass: ClaudeHealthWorker as unknown as WorkerConstructor,
     getOptions: () => ({
       maxConcurrent: config.maxConcurrent ?? CONCURRENCY.MAX_WORKER_INITS,
-      logDir: config.logDir,
-      sentryDsn: config.sentryDsn
+      logDir: config.logDir
     })
   },
   'repo-cleanup': {
     WorkerClass: RepoCleanupWorker as unknown as WorkerConstructor,
     getOptions: () => ({
       maxConcurrent: config.maxConcurrent ?? CONCURRENCY.MAX_WORKER_INITS,
-      logDir: config.logDir,
-      sentryDsn: config.sentryDsn
+      logDir: config.logDir
     })
   },
   'bugfix-audit': {
@@ -123,7 +116,6 @@ const PIPELINE_CONFIGS: Record<string, PipelineConfig> = {
     getOptions: () => ({
       maxConcurrent: config.maxConcurrent ?? CONCURRENCY.MAX_WORKER_INITS,
       logDir: config.logDir,
-      sentryDsn: config.sentryDsn,
       gitBaseBranch: config.gitBaseBranch,
       gitDryRun: config.gitDryRun,
     })
@@ -132,16 +124,14 @@ const PIPELINE_CONFIGS: Record<string, PipelineConfig> = {
     WorkerClass: DashboardPopulateWorker as unknown as WorkerConstructor,
     getOptions: () => ({
       maxConcurrent: 1,
-      logDir: config.logDir,
-      sentryDsn: config.sentryDsn
+      logDir: config.logDir
     })
   },
   'plugin-manager': {
     WorkerClass: PluginManagerWorker as unknown as WorkerConstructor,
     getOptions: () => ({
       maxConcurrent: 1,
-      logDir: config.logDir,
-      sentryDsn: config.sentryDsn
+      logDir: config.logDir
     })
   },
   'test-refactor': {

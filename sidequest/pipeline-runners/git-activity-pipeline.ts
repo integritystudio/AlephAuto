@@ -85,7 +85,6 @@ class GitActivityPipeline extends BasePipeline<GitActivityWorker> {
     super(new GitActivityWorker({
       maxConcurrent: config.maxConcurrent ?? CONCURRENCY.DEFAULT_IO_BOUND,
       logDir: config.logDir,
-      sentryDsn: config.sentryDsn,
       codeBaseDir: config.codeBaseDir,
       ...options
     }));

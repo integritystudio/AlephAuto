@@ -189,11 +189,11 @@ export class BranchManager {
 
       logger.info({ branchName, repositoryPath }, 'Branch created and checked out');
 
-      span?.setStatus('ok');
+      span?.setStatus({ code: 1 });
       return { branchName, originalBranch };
 
     } catch (error) {
-      span?.setStatus('internal_error');
+      span?.setStatus({ code: 2, message: 'internal_error' });
       logError(logger, error, 'Failed to create job branch', { repositoryPath, jobContext });
 
       Sentry.captureException(error, {
@@ -235,7 +235,7 @@ export class BranchManager {
       const hasChanges = await this.hasChanges(repositoryPath);
       if (!hasChanges) {
         logger.info({ repositoryPath }, 'No changes to commit');
-        span?.setStatus('ok');
+        span?.setStatus({ code: 1 });
         return '';
       }
 
@@ -251,11 +251,11 @@ export class BranchManager {
 
       logger.info({ commitSha: commitSha.trim(), filesCount: changedFiles.length }, 'Changes committed');
 
-      span?.setStatus('ok');
+      span?.setStatus({ code: 1 });
       return commitSha.trim();
 
     } catch (error) {
-      span?.setStatus('internal_error');
+      span?.setStatus({ code: 2, message: 'internal_error' });
       logError(logger, error, 'Failed to commit changes', { repositoryPath, commitContext });
 
       Sentry.captureException(error, {
@@ -294,7 +294,7 @@ export class BranchManager {
     try {
       if (this.dryRun) {
         logger.info({ branchName }, 'Dry run: Skipping branch push');
-        span?.setStatus('ok');
+        span?.setStatus({ code: 1 });
         return false;
       }
 
@@ -304,11 +304,11 @@ export class BranchManager {
 
       logger.info({ branchName }, 'Branch pushed successfully');
 
-      span?.setStatus('ok');
+      span?.setStatus({ code: 1 });
       return true;
 
     } catch (error) {
-      span?.setStatus('internal_error');
+      span?.setStatus({ code: 2, message: 'internal_error' });
       logError(logger, error, 'Failed to push branch', { repositoryPath, branchName });
 
       Sentry.captureException(error, {
@@ -346,7 +346,7 @@ export class BranchManager {
     try {
       if (this.dryRun) {
         logger.info({ branch: prContext.branchName }, 'Dry run: Skipping PR creation');
-        span?.setStatus('ok');
+        span?.setStatus({ code: 1 });
         return `dry-run-${prContext.branchName}`;
       }
 
@@ -373,11 +373,11 @@ export class BranchManager {
 
       logger.info({ prUrl: prUrl.trim() }, 'Pull request created');
 
-      span?.setStatus('ok');
+      span?.setStatus({ code: 1 });
       return prUrl.trim();
 
     } catch (error) {
-      span?.setStatus('internal_error');
+      span?.setStatus({ code: 2, message: 'internal_error' });
       logError(logger, error, 'Failed to create pull request', { repositoryPath, prContext });
 
       Sentry.captureException(error, {

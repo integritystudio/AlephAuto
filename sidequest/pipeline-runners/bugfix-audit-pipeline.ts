@@ -56,7 +56,6 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
       ...options,
       maxConcurrent: options.maxConcurrent ?? CONCURRENCY.DEFAULT_PIPELINE_CONCURRENCY,
       logDir: config.logDir,
-      sentryDsn: config.sentryDsn,
       activeDocsDir: options.activeDocsDir ?? path.join(config.homeDir, 'dev', 'active'),
       outputBaseDir: options.outputBaseDir ?? path.join(config.homeDir, 'code', 'jobs', 'sidequest', 'bug-fixes', 'output'),
       gitBaseBranch: options.gitBaseBranch ?? config.gitBaseBranch,

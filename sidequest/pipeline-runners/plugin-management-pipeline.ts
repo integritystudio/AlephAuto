@@ -42,7 +42,6 @@ class PluginManagementPipeline extends BasePipeline<PluginManagerWorker> {
     super(new PluginManagerWorker({
       maxConcurrent: 1,
       logDir: config.logDir,
-      sentryDsn: config.sentryDsn,
       ...options
     }));
 

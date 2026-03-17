@@ -49,7 +49,6 @@ class RepomixPipeline extends BasePipeline<RepomixWorker> {
       outputBaseDir: config.outputBaseDir,
       codeBaseDir: config.codeBaseDir,
       logDir: config.logDir,
-      sentryDsn: config.sentryDsn,
     });
     super(worker);
 
