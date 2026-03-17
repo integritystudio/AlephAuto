@@ -2,7 +2,7 @@
 
 Technical debt and planned improvements.
 
-**Last Updated:** 2026-03-17 | **Last Session:** 2026-03-17 (code-review: verify-setup.ts, 12 fixes + 3 deferred items)
+**Last Updated:** 2026-03-17 | **Last Session:** 2026-03-17 (code review + fix: scripts/setup/fix-types.ts, 5 findings)
 
 > Tools: ast-grep MCP `analyze_complexity`, `detect_code_smells`, `detect_security_issues`, `enforce_standards`, `find_duplication`, `sync_documentation`
 
@@ -124,22 +124,43 @@ No active low-priority backlog items.
 
 ---
 
+## Fix-Types Script Code Review Findings (2026-03-17)
+
+Code review of `scripts/setup/fix-types.ts`. All 5 findings fixed in session.
+
+### Medium — Resolved
+
+| ID | Description | Resolution |
+|---|-------------|------------|
+| FT-M1 | **Unsafe `as Error` cast on catch** — `(error as Error).message` drops failure details when thrown value is not an `Error`. | Replaced with `instanceof` check + `String()` fallback. |
+| FT-M2 | **Silent swallowed typecheck errors** — Both typecheck `catch` blocks suppressed actual error, masking environmental failures. | Both blocks now capture and log the error message. |
+
+### Low — Resolved
+
+| ID | Description | Resolution |
+|---|-------------|------------|
+| FT-L1 | **Magic exit code** — Bare `process.exit(1)` in 3 locations. | Extracted `EXIT_FAILURE = 1` constant. |
+| FT-L2 | **Fragile `../..` path traversal** — Hardcoded relative path breaks if script moves. | Replaced with `findProjectRoot()` that walks up searching for `package.json`. |
+| FT-L3 | **Inconsistent `stdio` option** — `rm -rf node_modules` call lacked `stdio: 'inherit'` unlike all other `execSync` calls. | Added `stdio: 'inherit'`. |
+
+---
+
 ## Setup Script Code Review Findings (2026-03-17)
 
 Code review of `scripts/setup/verify-setup.ts`. High-severity type and error-handling issues (1-12) fixed across 12 commits; remaining medium/low findings documented below.
 
-### Medium
+### Medium — Resolved
 
-| ID | Priority | Description |
-|---|----------|-------------|
-| VS-M1 | P2 | **`spawnSync` error state not fully checked** — `scripts/setup/verify-setup.ts:91, 103, 127, 145, 158`. Current code checks only `result.status !== 0`, missing cases where `result.status` is `null` and `result.error` is set (ENOENT, timeout). Guard with `if (result.error \|\| result.status !== 0)` and include error detail in thrown message. |
+| ID | Description | Resolution |
+|---|-------------|------------|
+| VS-M1 | **`spawnSync` error state not fully checked** | Added `result.error` guard at all 5 call sites with error detail in thrown messages. |
 
-### Low
+### Low — Resolved
 
-| ID | Priority | Description |
-|---|----------|-------------|
-| VS-L1 | P3 | **`pkg.version` read from package.json is untyped** — `scripts/setup/verify-setup.ts:79`. `JSON.parse()` returns `any`; cast to `{ version?: string }` and provide fallback. |
-| VS-L2 | P3 | **`result.stdout` trimmed without null guard on optional checks** — `scripts/setup/verify-setup.ts:94, 106, 129, 159`. While safe due to `encoding: 'utf8'`, add explicit null coalescing: `(result.stdout ?? '').trim()` for robustness. |
+| ID | Description | Resolution |
+|---|-------------|------------|
+| VS-L1 | **`pkg.version` read from package.json is untyped** | Cast `JSON.parse()` result to `{ version?: string }` with `?? 'unknown'` fallback. |
+| VS-L2 | **`result.stdout` trimmed without null guard on optional checks** | Added `(result.stdout ?? '').trim()` at all 4 call sites. |
 
 ---
 
