@@ -7,28 +7,44 @@
  * all existing alert rules to include Discord notifications.
  *
  * Usage:
- *   doppler run -- node scripts/setup/configure-discord-alerts.js
+ *   node scripts/setup/configure-discord-alerts.js
  */
 
-import https from 'https';
-import 'dotenv/config';
 
-const SENTRY_TOKEN = process.env.SENTRY_TOKEN;
-const DISCORD_WEBHOOK = process.env.DISCORD_SENTRY_WEBHOOK;
-const ORG_SLUG = 'integrity-studio';
-const PROJECT_SLUG = 'node';
+import { execSync } from 'child_process';
+import https from 'https';
+import path from 'path';
+const PROJECT_SLUG = 'job';
+
+// ---------------------------------------------------------------------------
+// Doppler env loader
+// ---------------------------------------------------------------------------
+
+export function loadDopplerEnv() {
+  const scriptDir = path.dirname(new URL(import.meta.url).pathname);
+  const loadScript = path.join(scriptDir, 'load-doppler-env.sh');
+  const env = execSync(`source "${loadScript}" && env -0`, {
+    encoding: 'utf-8',
+    shell: '/bin/bash',
+  });
+  for (const entry of env.split('\0')) {
+    const idx = entry.indexOf('=');
+    if (idx > 0) process.env[entry.slice(0, idx)] = entry.slice(idx + 1);
+  }
+}
+
 
 /**
  * Make Sentry API request
  */
 function sentryRequest(method, path, body = null) {
-  return new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
     const options = {
       hostname: 'sentry.io',
-      path: path,
-      method: method,
+      path,
+      method,
       headers: {
-        'Authorization': `Bearer ${SENTRY_TOKEN}`,
+        'Authorization': `Bearer ${process.env.SENTRY_API_TOKEN}`,
         'Content-Type': 'application/json'
       }
     };
@@ -62,7 +78,7 @@ function sentryRequest(method, path, body = null) {
  */
 async function getAlertRules() {
   console.log('📋 Fetching existing alert rules...');
-  const rules = await sentryRequest('GET', `/api/0/projects/${ORG_SLUG}/${PROJECT_SLUG}/rules/`);
+  const rules = await sentryRequest('GET', `/api/0/projects/${process.env.SENTRY_ORG_SLUG}/${PROJECT_SLUG}/rules/`);
   console.log(`   Found ${rules.length} alert rules\n`);
   return rules;
 }
@@ -74,13 +90,12 @@ async function addWebhookIntegration() {
   console.log('🔗 Configuring Discord webhook integration...');
 
   try {
-    const result = await sentryRequest(
+    await sentryRequest(
       'POST',
-      `/api/0/projects/${ORG_SLUG}/${PROJECT_SLUG}/plugins/webhooks/`,
-      { urls: [DISCORD_WEBHOOK] }
+      `/api/0/projects/${process.env.SENTRY_ORG_SLUG}/${PROJECT_SLUG}/plugins/webhooks/`,
+      { urls: [process.env.DISCORD_CHANNEL_WEBHOOK] }
     );
     console.log('   ✅ Webhook integration configured\n');
-    return result;
   } catch (error) {
     if (error.message.includes('400')) {
       console.log('   ℹ️  Webhook integration already exists\n');
@@ -114,7 +129,7 @@ async function updateAlertRule(rule) {
 
   await sentryRequest(
     'PUT',
-    `/api/0/projects/${ORG_SLUG}/${PROJECT_SLUG}/rules/${rule.id}/`,
+    `/api/0/projects/${process.env.SENTRY_ORG_SLUG}/${PROJECT_SLUG}/rules/${rule.id}/`,
     { ...rule, actions: updatedActions }
   );
 
@@ -122,23 +137,22 @@ async function updateAlertRule(rule) {
   return { updated: true };
 }
 
-function validateEnvironment() {
-  if (!SENTRY_TOKEN) {
-    console.error('❌ SENTRY_TOKEN not found in environment');
-    console.error('   Get it from: doppler secrets get SENTRY_TOKEN -p analyticsbot -c dev --plain');
+function requireEnvVar(name, value) {
+  if (!value) {
+    console.error(`❌ ${name} not found in environment`);
+    console.error('   source scripts/setup/load-doppler-env.sh before running this script');
     process.exit(1);
   }
+}
 
-  if (!DISCORD_WEBHOOK) {
-    console.error('❌ DISCORD_SENTRY_WEBHOOK not found in environment');
-    console.error('   Set it with: doppler secrets set DISCORD_SENTRY_WEBHOOK="your-webhook-url"');
-    process.exit(1);
-  }
+function validateEnvironment() {
+  requireEnvVar('SENTRY_API_TOKEN', process.env.SENTRY_API_TOKEN);
+  requireEnvVar('DISCORD_CHANNEL_WEBHOOK', process.env.DISCORD_CHANNEL_WEBHOOK);
 
   console.log('✅ Environment variables found');
-  console.log(`   Organization: ${ORG_SLUG}`);
+  console.log(`   Organization: ${process.env.SENTRY_ORG_SLUG}`);
   console.log(`   Project: ${PROJECT_SLUG}`);
-  console.log(`   Discord webhook: ${DISCORD_WEBHOOK.substring(0, 50)}...\n`);
+  console.log(`   Discord webhook: ${process.env.DISCORD_CHANNEL_WEBHOOK.slice(0, 50)}...\n`);
 }
 
 async function updateAllRules(rules) {
@@ -150,11 +164,7 @@ async function updateAllRules(rules) {
   for (const rule of rules) {
     try {
       const result = await updateAlertRule(rule);
-      if (result.updated) {
-        updated++;
-      } else {
-        skipped++;
-      }
+      result.updated ? updated++ : skipped++;
     } catch (error) {
       console.log(`     ❌ Error: ${error.message}`);
     }
@@ -183,6 +193,7 @@ async function main() {
   console.log('║         Configure Discord Integration for Sentry              ║');
   console.log('╚════════════════════════════════════════════════════════════════╝\n');
 
+  loadDopplerEnv();
   validateEnvironment();
 
   try {

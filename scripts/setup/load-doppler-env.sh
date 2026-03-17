@@ -27,6 +27,7 @@ _doppler_get() {
 
 # Sentry
 export SENTRY_DSN="$(_doppler_get SENTRY_DSN)"
+export SENTRY_ORG_SLUG="$(_doppler_get SENTRY_ORG_SLUG)"
 export SENTRY_ENVIRONMENT="$(_doppler_get SENTRY_ENVIRONMENT)"
 export SENTRY_OTLP="$(_doppler_get SENTRY_OTLP)"
 export SENTRY_PROJECT="$(_doppler_get SENTRY_PROJECT)"

@@ -21,7 +21,7 @@ const DISCORD_WEBHOOK_PATTERN = /discord\.com\/api\/webhooks\//;
 // Doppler env loader
 // ---------------------------------------------------------------------------
 
-function loadDopplerEnv() {
+export function loadDopplerEnv() {
   const scriptDir = path.dirname(new URL(import.meta.url).pathname);
   const loadScript = path.join(scriptDir, 'load-doppler-env.sh');
   const env = execSync(`source "${loadScript}" && env -0`, {

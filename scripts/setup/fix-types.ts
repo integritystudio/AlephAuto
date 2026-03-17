@@ -10,12 +10,24 @@
 
 import { execSync } from 'child_process';
 import { existsSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
+
+const EXIT_FAILURE = 1;
+
+function findProjectRoot(startDir: string): string {
+  let dir = resolve(startDir);
+  while (dir !== dirname(dir)) {
+    if (existsSync(join(dir, 'package.json'))) return dir;
+    dir = dirname(dir);
+  }
+  console.error('Could not locate project root (no package.json found)');
+  process.exit(EXIT_FAILURE);
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const projectRoot = join(__dirname, '../..');
+const projectRoot = findProjectRoot(__dirname);
 
 const typesNodePath = join(projectRoot, 'node_modules', '@types', 'node');
 
@@ -31,8 +43,9 @@ if (existsSync(typesNodePath)) {
       stdio: 'pipe'
     });
     console.log('TypeScript compilation working correctly');
-  } catch {
-    console.log('TypeScript compilation has errors (but @types/node is installed)');
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.log('TypeScript compilation has errors (but @types/node is installed):', msg);
   }
 } else {
   console.log('@types/node is missing — fixing installation...\n');
@@ -47,7 +60,7 @@ if (existsSync(typesNodePath)) {
 
     // Remove node_modules
     console.log('2. Removing node_modules...');
-    execSync('rm -rf node_modules', { cwd: projectRoot });
+    execSync('rm -rf node_modules', { cwd: projectRoot, stdio: 'inherit' });
 
     // Install with NODE_ENV=development to ensure dev deps are included
     console.log('3. Installing dependencies with NODE_ENV=development...');
@@ -69,22 +82,24 @@ if (existsSync(typesNodePath)) {
           stdio: 'pipe'
         });
         console.log('TypeScript compilation working correctly');
-      } catch {
-        console.log('TypeScript compilation has errors (but @types/node is installed)');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.log('TypeScript compilation has errors (but @types/node is installed):', msg);
         console.log('This is expected if there are other type errors in the codebase');
       }
     } else {
       console.error('Failed to install @types/node');
       console.error('Please try running: NODE_ENV=development pnpm install');
-      process.exit(1);
+      process.exit(EXIT_FAILURE);
     }
   } catch (error) {
-    console.error('Error fixing installation:', (error as Error).message);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Error fixing installation:', message);
     console.error('\nTroubleshooting steps:');
     console.error('1. Check your pnpm version: pnpm --version');
     console.error('2. Try manual installation: NODE_ENV=development pnpm install');
     console.error('3. Check for .npmrc files that might override settings');
-    process.exit(1);
+    process.exit(EXIT_FAILURE);
   }
 }
 
