@@ -128,7 +128,7 @@ check('ast-grep available', () => {
       version = execSync(`${astGrepPath} --version`, {
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'ignore'],
-        timeout: 2000,
+        timeout: TIMEOUTS.TWO_SECONDS_MS,
       }).trim();
       found = true;
       location = astGrepPath.includes('node_modules') ? 'local install' :
