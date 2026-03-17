@@ -114,8 +114,7 @@ Code review of codebase via `repomix-git-ranked.xml`. Issues #6 (pipelineId extr
 
 ### Medium
 
-| ID | Priority | Description |
-|---|----------|-------------|
+No active medium-priority backlog items.
 
 ### Low
 
