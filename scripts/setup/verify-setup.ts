@@ -5,7 +5,7 @@
  * Verifies all required dependencies and binaries are available
  */
 
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -110,34 +110,27 @@ check('git available', () => {
 });
 
 check('ast-grep available', () => {
-  // Check for ast-grep in common locations
-  const possiblePaths = [
-    join(projectRoot, 'node_modules/.bin/ast-grep'),  // Local install (preferred)
-    'npx ast-grep',  // Via npx
-    'ast-grep',  // In PATH
-    '/opt/homebrew/bin/ast-grep',  // Apple Silicon Homebrew
-    '/usr/local/bin/ast-grep',  // Intel Mac Homebrew
-    'sg',  // Alternative command name
+  const possiblePaths: { bin: string; args: string[]; label: string }[] = [
+    { bin: join(projectRoot, 'node_modules/.bin/ast-grep'), args: ['--version'], label: 'local install' },
+    { bin: 'npx', args: ['ast-grep', '--version'], label: 'npx' },
+    { bin: 'ast-grep', args: ['--version'], label: 'global' },
+    { bin: '/opt/homebrew/bin/ast-grep', args: ['--version'], label: 'global' },
+    { bin: '/usr/local/bin/ast-grep', args: ['--version'], label: 'global' },
+    { bin: 'sg', args: ['--version'], label: 'global' },
   ];
 
   let found = false;
-  let version = '';
-  let location = '';
 
-  for (const astGrepPath of possiblePaths) {
-    try {
-      version = execSync(`${astGrepPath} --version`, {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-        timeout: TIMEOUTS.TWO_SECONDS_MS,
-      }).trim();
+  for (const { bin, args, label } of possiblePaths) {
+    const result = spawnSync(bin, args, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: TIMEOUTS.TWO_SECONDS_MS,
+    });
+    if (result.status === 0) {
       found = true;
-      location = astGrepPath.includes('node_modules') ? 'local install' :
-                 astGrepPath.includes('npx') ? 'npx' : 'global';
-      console.log(`   ${version} (${location})`);
+      console.log(`   ${result.stdout.trim()} (${label})`);
       break;
-    } catch {
-      // Try next path
     }
   }
 
