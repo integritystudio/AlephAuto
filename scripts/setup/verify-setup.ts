@@ -37,7 +37,8 @@ function runCheck(checkItem: Check): boolean {
     return true;
   } catch (error) {
     console.error(`❌ ${checkItem.name}`);
-    console.error(`   ${error.message}`);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`   ${message}`);
     failed++;
     return false;
   }
