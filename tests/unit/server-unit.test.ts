@@ -41,6 +41,15 @@ class TestSidequestServer extends SidequestServer {
     }
     return this.handlerResult;
   }
+
+  // Expose protected methods for testing (SC-L5)
+  async testGenerateCommitMessage(job) {
+    return this._generateCommitMessage(job);
+  }
+
+  async testGeneratePRContext(job, commitMessage) {
+    return this._generatePRContext(job, commitMessage);
+  }
 }
 
 before(async () => {
@@ -627,7 +636,7 @@ describe('SidequestServer - _generateCommitMessage', () => {
       git: { changedFiles: ['file1.js', 'file2.js'] }
     };
 
-    const message = await server._generateCommitMessage(job);
+    const message = await server.testGenerateCommitMessage(job);
 
     assert.ok(message.title);
     assert.ok(message.body);
@@ -643,7 +652,7 @@ describe('SidequestServer - _generateCommitMessage', () => {
       git: { changedFiles: [] }
     };
 
-    const message = await server._generateCommitMessage(job);
+    const message = await server.testGenerateCommitMessage(job);
 
     assert.ok(message.title.includes('job:'));
   });
@@ -660,7 +669,7 @@ describe('SidequestServer - _generatePRContext', () => {
       }
     };
 
-    const context = await server._generatePRContext(job);
+    const context = await server.testGeneratePRContext(job);
 
     assert.ok(context.branchName);
     assert.ok(context.title);
@@ -680,7 +689,7 @@ describe('SidequestServer - _generatePRContext', () => {
       git: { branchName: 'branch', changedFiles: [] }
     };
 
-    const context = await server._generatePRContext(job);
+    const context = await server.testGeneratePRContext(job);
 
     assert.ok(context.body.includes('Claude Code'));
   });

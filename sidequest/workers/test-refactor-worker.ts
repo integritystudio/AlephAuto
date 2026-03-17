@@ -33,7 +33,6 @@ interface TestRefactorWorkerOptions {
   e2eDir?: string;
   framework?: 'vitest' | 'jest' | 'playwright';
   dryRun?: boolean;
-  sentryDsn?: string;
 }
 
 interface JobData {
@@ -842,7 +841,7 @@ export async function clickExternalLink(page: Page, linkText: string) {
   /**
    * Override commit message generation
    */
-  public async _generateCommitMessage(job: BaseJob): Promise<{ title: string; body: string }> {
+  protected override async _generateCommitMessage(job: BaseJob): Promise<{ title: string; body: string }> {
     const result = job.result as JobResult | undefined;
     return {
       title: `refactor(tests): add modular test utilities`,

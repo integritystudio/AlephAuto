@@ -670,7 +670,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
   /**
    * Override: consolidation-specific commit message
    */
-  public override async _generateCommitMessage(_job: Job): Promise<{ title: string; body: string }> {
+  protected override async _generateCommitMessage(_job: Job): Promise<{ title: string; body: string }> {
     const result = _job.result as IntraProjectScanResult | undefined;
     const count = result?.suggestionsApplied ?? 0;
     const suggestions = result?.automatedSuggestions ?? [];
@@ -696,7 +696,7 @@ export class DuplicateDetectionWorker extends SidequestServer {
   /**
    * Override: consolidation-specific PR context with impact scores and migration notes
    */
-  public override async _generatePRContext(
+  protected override async _generatePRContext(
     job: Job,
     commitMessage?: { title: string; body: string }
   ): Promise<{ branchName: string; title: string; body: string; labels: string[] }> {

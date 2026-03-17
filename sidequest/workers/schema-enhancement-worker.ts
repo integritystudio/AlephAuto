@@ -335,7 +335,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
   /**
    * Generate commit message for schema enhancement
    */
-  public async _generateCommitMessage(job: Job): Promise<{ title: string; body: string }> {
+  protected override async _generateCommitMessage(job: Job): Promise<{ title: string; body: string }> {
     const { relativePath } = job.data as unknown as EnhancementJobData;
     const result = job.result as EnhancementResult | undefined;
     const impact = result?.impact;
@@ -371,7 +371,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
   /**
    * Generate PR context for schema enhancement
    */
-  public async _generatePRContext(job: Job, commitMessage?: { title: string; body: string }): Promise<{
+  protected override async _generatePRContext(job: Job, commitMessage?: { title: string; body: string }): Promise<{
     branchName: string;
     title: string;
     body: string;
