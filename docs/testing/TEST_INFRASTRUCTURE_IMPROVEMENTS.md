@@ -10,9 +10,7 @@ Test infrastructure for AlephAuto's 796+ tests across unit, integration, and acc
 npm test                           # Unit tests (30s timeout)
 npm run test:integration           # Integration tests (60s timeout, serial)
 npm run test:all:core              # Unit + integration + sidequest (SKIP_ENV_SENSITIVE_TESTS=1)
-npm run test:all:env-safe          # Env-sensitive, sandbox-safe
-npm run test:all:env-host-required # Env-sensitive, host-dependent (API routes, ports, WebSocket)
-npm run test:all                   # Core + Python suites
+npm run test:all:env               # Env-sensitive, host-dependent (API routes, ports, WebSocket)
 npm run test:all:full              # Everything
 npm run test:coverage              # Coverage report (c8)
 ```

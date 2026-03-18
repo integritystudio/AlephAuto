@@ -75,8 +75,7 @@ doppler setup --project integrity-studio --config dev
 npm start                                 # Server (reads .env)
 npm run dashboard                         # Dashboard UI → http://localhost:8080
 npm run test:all:core                     # Core Node suites (env-gated)
-npm run test:all:env                      # Env-sensitive suites (safe + host-required)
-npm run test:all                          # Core Node tests
+npm run test:all:env                      # Env-sensitive suites requiring host capabilities
 npm run test:all:full                     # Core + env-sensitive
 npm run typecheck                         # Type check
 npm run lint                              # ESLint check (eslint.config.js)
@@ -150,10 +149,7 @@ npm run plugin:audit                       # Plugin management audit
 npm test                                   # Unit tests
 npm run test:integration                   # Integration tests
 npm run test:all:core                      # Core Node suites (SKIP_ENV_SENSITIVE_TESTS=1)
-npm run test:all:env-safe                  # Env-sensitive suites that are sandbox-safe
-npm run test:all:env-host-required         # Env-sensitive suites requiring host capabilities
-npm run test:all:env                       # Env aggregate (safe + host-required)
-npm run test:all                           # Core Node tests
+npm run test:all:env                       # Env-sensitive suites requiring host capabilities
 npm run test:all:full                      # Core + env-sensitive
 npm run typecheck                          # TypeScript checks
 npm run lint                              # ESLint check (eslint.config.js)

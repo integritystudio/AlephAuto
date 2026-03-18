@@ -19,21 +19,9 @@ describe('Aggregate Test Script Coverage', () => {
       "SKIP_ENV_SENSITIVE_TESTS=1 node --strip-types --test --test-timeout=30000 --test-force-exit $(rg --files tests/unit -g '*.test.ts' -g '!api-routes.test.ts') $(rg --files tests/integration -g '*.test.ts' -g '!error-recovery.integration.test.ts' -g '!pipeline-execution.integration.test.ts' -g '!port-manager.integration.test.ts') sidequest/core/*.test.ts sidequest/pipeline-runners/*.test.ts sidequest/utils/*.test.ts sidequest/workers/*.test.ts"
     );
     assert.equal(
-      scripts['test:all:env-safe'],
-      "echo 'No env-safe tests currently defined'"
-    );
-    assert.equal(
-      scripts['test:all:env-host-required'],
+      scripts['test:all:env'],
       'node --strip-types --test --test-timeout=60000 --test-force-exit tests/unit/api-routes.test.ts tests/unit/port-manager.test.ts tests/unit/websocket.test.ts tests/integration/error-recovery.integration.test.ts tests/integration/pipeline-execution.integration.test.ts tests/integration/port-manager.integration.test.ts sidequest/pipeline-runners/startup-once-mode.test.ts'
     );
-    assert.equal(
-      scripts['test:all:env'],
-      'npm run test:all:env-safe && npm run test:all:env-host-required'
-    );
-    assert.equal(scripts['test:all:node'], 'npm run test:all:core');
-    assert.equal(scripts['test:all:py'], undefined);
-    assert.equal(scripts['test:all'], 'npm run test:all:core');
     assert.equal(scripts['test:all:full'], 'npm run test:all:core && npm run test:all:env');
-    assert.equal(scripts['test:aall'], 'npm run test:all');
   });
 });
