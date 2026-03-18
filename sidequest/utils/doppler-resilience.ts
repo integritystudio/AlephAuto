@@ -7,7 +7,7 @@
 
 import { createComponentLogger, logError } from './logger.ts';
 import { CONFIG_POLICY, MAX_SCORE, TIMEOUTS, RETRY, CACHE, FORMATTING } from '../core/constants.ts';
-import Sentry from '@sentry/node';
+import * as Sentry from '@sentry/node';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';

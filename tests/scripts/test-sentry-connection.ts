@@ -4,7 +4,7 @@
  * Sends a test message to verify Sentry is configured correctly
  */
 
-import Sentry from '@sentry/node';
+import * as Sentry from '@sentry/node';
 import { config } from '../../sidequest/core/config.ts';
 
 function checkSentryDsn() {
