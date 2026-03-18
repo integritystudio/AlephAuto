@@ -43,7 +43,7 @@ export function toISOString(val: Date | string | null | undefined): string | nul
   return val; // Already a string
 }
 
-export function toDate(time: Date | string | null): Date | null {
+export function toDate(time: Date | string | null | undefined): Date | null {
   if (!time) return null;
 
   const dateTime = time instanceof Date ? time : new Date(time);
@@ -73,7 +73,7 @@ export function calculateDurationSeconds(startTime: Date | string | null, endTim
  */
 export function formatTimestamp(value: string | null | undefined): string {
   const date = toDate(value);
-  return date ? 'Unknown' : date.toLocaleString();
+  return date ? date.toLocaleString() : 'Unknown';
 }
 
 /**
