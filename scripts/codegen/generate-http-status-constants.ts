@@ -10,10 +10,6 @@ const rootDir = path.resolve(scriptDir, '../..');
 
 const sourcePath = path.join(rootDir, 'shared', 'constants', 'http-status.yaml');
 const tsTargetPath = path.join(rootDir, 'shared', 'constants', 'http-status.ts');
-const pyTargetPath = path.join(rootDir, 'sidequest', 'pipeline-core', 'constants.py');
-
-const pyStartMarker = '# BEGIN GENERATED HTTP STATUS CONSTANTS';
-const pyEndMarker = '# END GENERATED HTTP STATUS CONSTANTS';
 
 type StatusMap = Record<string, number>;
 
@@ -66,44 +62,9 @@ export type HttpStatusCode = (typeof HttpStatus)[keyof typeof HttpStatus];
 `;
 }
 
-function renderPythonGeneratedBlock(statusMap: StatusMap): string {
-  const entries = Object.entries(statusMap)
-    .map(([name, code]) => `    ${name} = ${code}`)
-    .join('\n');
-
-  return `${pyStartMarker}
-class HTTPCodes(IntEnum):
-    """Standard HTTP status codes referenced in structural similarity analysis."""
-
-${entries}
-${pyEndMarker}`;
-}
-
-function writeTs(statusMap: StatusMap): void {
-  fs.writeFileSync(tsTargetPath, renderTs(statusMap), 'utf8');
-}
-
-function updatePython(statusMap: StatusMap): void {
-  const original = fs.readFileSync(pyTargetPath, 'utf8');
-  const startIndex = original.indexOf(pyStartMarker);
-  const endIndex = original.indexOf(pyEndMarker);
-
-  if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
-    throw new Error(`Expected markers not found in ${pyTargetPath}. Add ${pyStartMarker}/${pyEndMarker} first.`);
-  }
-
-  const before = original.slice(0, startIndex).trimEnd();
-  const after = original.slice(endIndex + pyEndMarker.length).trimStart();
-  const generated = renderPythonGeneratedBlock(statusMap);
-  const normalizedAfter = after.replace(/\n+$/u, '');
-
-  fs.writeFileSync(pyTargetPath, `${before}\n\n${generated}\n\n${normalizedAfter}\n`, 'utf8');
-}
-
 function main(): void {
   const statusMap = loadStatusMap();
-  writeTs(statusMap);
-  updatePython(statusMap);
+  fs.writeFileSync(tsTargetPath, renderTs(statusMap), 'utf8');
   console.log(`Generated HTTP status constants from ${sourcePath}`);
 }
 

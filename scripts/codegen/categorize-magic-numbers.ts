@@ -319,7 +319,6 @@ function listConstantFiles(): string[] {
   const stdout = runCommand('rg', [
     '--files',
     '-g', '*constants*.ts',
-    '-g', '*constants*.py',
     '-g', '*units.ts',
     '-g', '*score-thresholds.ts',
     '-g', '*http-status.ts',
