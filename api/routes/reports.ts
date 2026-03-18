@@ -21,6 +21,9 @@ const logger = createComponentLogger('ReportRoutes');
 
 const REPORTS_DIR = path.join(config.scanReportsDir, 'reports');
 
+// Ensure reports directory exists at module load (non-blocking)
+fs.mkdir(REPORTS_DIR, { recursive: true }).catch(() => {});
+
 /**
  * GET /api/reports
  * List available reports
@@ -146,35 +149,42 @@ router.get('/:filename', async (req, res, next) => {
       if (match) {
         const [, jobType, ext] = match;
 
+        let files: string[];
         try {
-          const files = await fs.readdir(REPORTS_DIR);
+          files = await fs.readdir(REPORTS_DIR);
+        } catch {
+          return res.status(HttpStatus.NOT_FOUND).json({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: `Report '${filename}' not found`
+            },
+            timestamp: new Date().toISOString()
+          });
+        }
 
-          // Find files matching the job type and extension
-          const matchingFiles = files.filter(f =>
-            f.startsWith(`${jobType}-`) && f.endsWith(`.${ext}`)
-          ).sort().reverse(); // Most recent first
+        // Find files matching the job type and extension
+        const matchingFiles = files.filter(f =>
+          f.startsWith(`${jobType}-`) && f.endsWith(`.${ext}`)
+        ).sort().reverse(); // Most recent first
 
-          if (matchingFiles.length > 0) {
-            reportPath = path.join(REPORTS_DIR, matchingFiles[0]);
-            logger.info({
-              filename,
-              resolvedTo: matchingFiles[0],
-              totalMatches: matchingFiles.length
-            }, 'Resolved report via pattern matching');
-          } else {
-            logger.warn({ filename, jobType, ext }, 'No matching reports found');
-            return res.status(HttpStatus.NOT_FOUND).json({
-              success: false,
-              error: {
-                code: 'NOT_FOUND',
-                message: `Report '${filename}' not found`
-              },
-              timestamp: new Date().toISOString()
-            });
-          }
-        } catch (readErr) {
-          logError(logger, readErr, 'Failed to read reports directory');
-          throw readErr;
+        if (matchingFiles.length > 0) {
+          reportPath = path.join(REPORTS_DIR, matchingFiles[0]);
+          logger.info({
+            filename,
+            resolvedTo: matchingFiles[0],
+            totalMatches: matchingFiles.length
+          }, 'Resolved report via pattern matching');
+        } else {
+          logger.warn({ filename, jobType, ext }, 'No matching reports found');
+          return res.status(HttpStatus.NOT_FOUND).json({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: `Report '${filename}' not found`
+            },
+            timestamp: new Date().toISOString()
+          });
         }
       } else {
         logger.warn({ filename }, 'Invalid filename pattern');
@@ -293,7 +303,20 @@ router.get('/:scanId/summary', async (req, res, next) => {
 
     logger.debug({ scanId }, 'Getting scan summary');
 
-    const files = await fs.readdir(REPORTS_DIR);
+    let files: string[];
+    try {
+      files = await fs.readdir(REPORTS_DIR);
+    } catch {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: `Summary not found for scan '${scanId}'`
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
     const summaryFile = files.find(f =>
       f.includes(scanId) && f.includes('summary') && f.endsWith('.json')
     );
