@@ -42,6 +42,11 @@
   margin: 0;
 }
 
+.logs-title-id {
+  font-weight: 400;
+  color: #6b7280;
+}
+
 .logs-job-id {
   font-family: 'Monaco', 'Courier New', monospace;
   font-size: 0.75rem;
@@ -52,6 +57,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.logs-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .logs-close {
@@ -80,6 +91,12 @@
 .logs-meta-item { color: #374151; }
 .logs-meta-item strong { font-weight: 600; }
 
+.logs-meta-timestamp {
+  margin-left: 0.5rem;
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
 .logs-meta-status {
   font-size: 0.75rem;
   font-weight: 500;
@@ -92,6 +109,44 @@
 .logs-status-failed { background: #fee2e2; color: #991b1b; }
 .logs-status-running { background: #dbeafe; color: #1e40af; }
 .logs-status-queued { background: #fef3c7; color: #92400e; }
+
+/* Reports */
+.logs-reports {
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.logs-reports-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.5rem;
+}
+
+.logs-reports-list {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.logs-report-link {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.375rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  text-decoration: none;
+  border: 1px solid #bfdbfe;
+}
+
+.logs-report-link:hover {
+  background: #dbeafe;
+  color: #1e40af;
+}
 
 /* Log body */
 .logs-body {

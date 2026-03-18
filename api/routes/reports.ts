@@ -14,6 +14,7 @@ import { HttpStatus } from '../../shared/constants/http-status.ts';
 import { VALIDATION } from '#sidequest/core/constants.ts';
 import { sendError, ERROR_CODES } from '../utils/api-error.ts';
 import { config } from '#sidequest/core/config.ts';
+import { convertMarkdownToHTML, convertJSONToHTML } from '../utils/report-renderers.ts';
 
 const router = express.Router();
 const logger = createComponentLogger('ReportRoutes');
@@ -199,7 +200,15 @@ router.get('/:filename', async (req, res, next) => {
     // Read and send file
     const content = await fs.readFile(reportPath, 'utf-8');
 
-    res.type(contentType).send(content);
+    if (reportPath.endsWith('.md')) {
+      const html = await convertMarkdownToHTML(content, path.basename(reportPath, '.md'));
+      res.type('text/html').send(html);
+    } else if (reportPath.endsWith('.json')) {
+      const html = convertJSONToHTML(content, path.basename(reportPath));
+      res.type('text/html').send(html);
+    } else {
+      res.type(contentType).send(content);
+    }
   } catch (error) {
     next(error);
   }

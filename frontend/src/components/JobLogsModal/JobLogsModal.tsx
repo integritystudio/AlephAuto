@@ -67,21 +67,51 @@ export const JobLogsModal: React.FC<JobLogsModalProps> = ({ jobId, onClose }) =>
         {/* Header */}
         <div className="logs-header">
           <div>
-            <h2 className="logs-title">Job Logs</h2>
-            <span className="logs-job-id" title={jobId}>{jobId}</span>
+            <h2 className="logs-title">
+              {job?.pipelineName || 'Job Logs'}
+              {jobId && <span className="logs-title-id"> - {jobId.match(/\d+/)?.[0] ?? jobId}</span>}
+            </h2>
+            {job?.createdAt && (
+              <span className="logs-job-id">
+                {new Date(job.createdAt).toLocaleString(undefined, {
+                  month: 'short', day: 'numeric', year: 'numeric',
+                  hour: 'numeric', minute: '2-digit',
+                })}
+              </span>
+            )}
           </div>
-          <button className="logs-close" onClick={onClose} aria-label="Close">✕</button>
+          <div className="logs-header-right">
+            {job && (
+              <span className={`logs-meta-status logs-status-${job.status}`}>
+                {job.status}
+              </span>
+            )}
+            <button className="logs-close" onClick={onClose} aria-label="Close">✕</button>
+          </div>
         </div>
 
-        {/* Job metadata */}
-        {job && (
-          <div className="logs-meta">
-            <span className="logs-meta-item">
-              <strong>Pipeline:</strong> {job.pipelineName || job.pipelineId}
-            </span>
-            <span className={`logs-meta-status logs-status-${job.status}`}>
-              {job.status}
-            </span>
+        {/* Reports */}
+        {job?.result?.reportPaths != null && (
+          <div className="logs-reports">
+            <h3 className="logs-reports-title">Reports</h3>
+            <div className="logs-reports-list">
+              {Object.entries(job.result.reportPaths as Record<string, string>)
+                .filter(([, v]) => typeof v === 'string' && /\.\w+$/.test(v))
+                .map(([format, filePath]) => {
+                const filename = String(filePath).split('/').pop() || filePath;
+                return (
+                  <a
+                    key={format}
+                    className="logs-report-link"
+                    href={`/api/reports/${filename}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {format.toUpperCase()}
+                  </a>
+                );
+              })}
+            </div>
           </div>
         )}
 

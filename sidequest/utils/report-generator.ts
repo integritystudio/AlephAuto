@@ -76,8 +76,10 @@ export async function generateReport(options: ReportOptions): Promise<ReportPath
     throw new Error('Missing required fields: jobId, jobType, status');
   }
 
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-  const baseName = `${jobType}-${timestamp}`;
+  const now = new Date();
+  const fileTimestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, -5);
+  const timestamp = now.toISOString();
+  const baseName = `${jobType}-${fileTimestamp}`;
 
   await fs.mkdir(outputDir, { recursive: true });
 
