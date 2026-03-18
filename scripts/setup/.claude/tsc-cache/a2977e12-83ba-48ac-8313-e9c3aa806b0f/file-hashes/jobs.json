@@ -1,0 +1,16 @@
+{
+  "/Users/alyshialedlie/code/jobs/instrument.ts": "e695be7bcd8cfc9c99a715c3f4f0b02a",
+  "/Users/alyshialedlie/code/jobs/sidequest/core/server.ts": "feac30178fa56d88e2a4169dcb627def",
+  "/Users/alyshialedlie/code/jobs/sidequest/pipeline-runners/bugfix-audit-pipeline.ts": "21af5ce517081a8fd5b4a661e97c46e5",
+  "/Users/alyshialedlie/code/jobs/sidequest/pipeline-runners/git-activity-pipeline.ts": "3e70675579f2511a83f5fe0fd37b8bc8",
+  "/Users/alyshialedlie/code/jobs/sidequest/pipeline-runners/claude-health-pipeline.ts": "fcb0c0f64f3b50507e843b06083b3098",
+  "/Users/alyshialedlie/code/jobs/sidequest/pipeline-runners/plugin-management-pipeline.ts": "8ba5c3612e4e9b02b7c36a2c2c88a505",
+  "/Users/alyshialedlie/code/jobs/sidequest/pipeline-runners/repomix-pipeline.ts": "a7d6de0fd5ca9321ed1f9d37b753dabf",
+  "/Users/alyshialedlie/code/jobs/sidequest/pipeline-runners/schema-enhancement-pipeline.ts": "5523450c238f1ef829a7e6f2a5082b14",
+  "/Users/alyshialedlie/code/jobs/api/utils/worker-registry.ts": "14ddeb047b14b0f61a67b629bf2a1dbe",
+  "/Users/alyshialedlie/code/jobs/sidequest/pipeline-core/git/branch-manager.ts": "c38742eaed9e39bd77ba86b1b2935f51",
+  "/Users/alyshialedlie/code/jobs/tests/utils/test-utilities.ts": "4820555286e327397a1f57e1815a12c5",
+  "/Users/alyshialedlie/code/jobs/tests/scripts/test-single-job.ts": "4ecb73e8f82a7f5bcad387ee132839c7",
+  "/Users/alyshialedlie/code/jobs/api/server.ts": "6aa0149c1139c4b2965cab15e3689100",
+  "/Users/alyshialedlie/code/jobs/sidequest/workers/test-refactor-worker.ts": "f8130187bbbe0764b989d2af49d98318"
+}

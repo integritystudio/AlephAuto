@@ -1,0 +1,2 @@
+jobs:tsc:cd "/Users/alyshialedlie/code/jobs" && npm run typecheck
+frontend:tsc:cd "/Users/alyshialedlie/code/jobs/frontend" && npm run typecheck
