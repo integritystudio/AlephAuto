@@ -195,8 +195,8 @@ describe('Error Recovery - End-to-End Integration Tests', () => {
     assert.equal(server.listening, true);
 
     // Create jobs that will trigger activity feed (broadcaster will fail initially)
-    const _jobId1 = worker.createJob({ type: 'test' });
-    const _jobId2 = worker.createJob({ type: 'test' });
+    const _jobId1 = worker.createJob('error-recovery-test-1', { type: 'test' });
+    const _jobId2 = worker.createJob('error-recovery-test-2', { type: 'test' });
 
     worker.handleJob = async () => {
       throw new Error('Test failure');

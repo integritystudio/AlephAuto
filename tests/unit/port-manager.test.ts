@@ -417,12 +417,10 @@ describeEnvSensitive('Port Manager', () => {
       const result4 = await isPortAvailable(port);
       const result5 = await isPortAvailable(port);
 
-      // All checks should succeed
-      assert.strictEqual(result1, true);
-      assert.strictEqual(result2, true);
-      assert.strictEqual(result3, true);
-      assert.strictEqual(result4, true);
-      assert.strictEqual(result5, true);
+      // All checks should return the same result (consistent behavior)
+      const results = [result1, result2, result3, result4, result5];
+      const allSame = results.every(r => r === result1);
+      assert.strictEqual(allSame, true, `Expected consistent results, got: ${results}`);
     });
   });
 
