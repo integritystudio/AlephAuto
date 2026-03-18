@@ -4,6 +4,7 @@ import os from 'os';
 import { FORMATTING, LIMITS, PROCESS } from '../core/constants.ts';
 import { isDirectExecution } from './execution-helpers.ts';
 import { createComponentLogger, logError, logWarn } from './logger.ts';
+import { nowISO } from './time-helpers.ts';
 
 const logger = createComponentLogger('GitignoreRepomixUpdater');
 
@@ -269,7 +270,7 @@ export class GitignoreRepomixUpdater {
    */
   async saveResults(results: ProcessResults, outputPath: string): Promise<object> {
     const report = {
-      timestamp: new Date().toISOString(),
+      timestamp: nowISO(),
       baseDir: this.baseDir,
       dryRun: this.dryRun,
       gitignoreEntry: this.gitignoreEntry,

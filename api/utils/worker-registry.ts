@@ -571,6 +571,13 @@ class WorkerRegistry {
   }
 
   /**
+   * Get all currently initialized worker instances
+   */
+  getAllWorkers(): SidequestServer[] {
+    return Array.from(this._workers.values());
+  }
+
+  /**
    * Get aggregated stats from all initialized workers
    */
   getAllStats(): WorkerStats {

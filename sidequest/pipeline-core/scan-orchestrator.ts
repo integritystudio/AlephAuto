@@ -25,6 +25,7 @@ import * as Sentry from '@sentry/node';
 import { MARKDOWN_REPORT } from '../core/constants.ts';
 import { TIME_MS } from '../core/units.ts';
 import { runPipelineFromRaw } from './extractors/extract-blocks.ts';
+import { nowISO } from '../utils/time-helpers.ts';
 
 const logger = createComponentLogger('ScanOrchestrator');
 
@@ -421,7 +422,7 @@ export class ScanOrchestrator {
         ...pythonResult,
         scan_metadata: {
           duration_seconds: duration,
-          scanned_at: new Date().toISOString(),
+          scanned_at: nowISO(),
           repository_path: repoPath
         }
       };
@@ -463,7 +464,7 @@ export class ScanOrchestrator {
     const repoName = repoInfo.name || 'scan';
     const isInterProject = scanResult.scan_type === 'inter-project';
 
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const timestamp = nowISO().replace(/[:.]/g, '-').slice(0, -5);
     const baseName = options.baseName || `${repoName}-${timestamp}`;
 
     const outputDir = options.outputDir || this.outputDir;

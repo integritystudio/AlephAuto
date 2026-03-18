@@ -9,6 +9,24 @@
 import { TIME_MS } from '../core/units.ts';
 
 export const DURATION_UNKNOWN_LABEL = 'unknown';
+const ISO_DATE_LENGTH = 10;
+
+/**
+ * Returns the date portion (YYYY-MM-DD) of an ISO timestamp.
+ *
+ * @param date Date to format. Defaults to now.
+ * @returns Date string in YYYY-MM-DD format.
+ */
+export function toISODateString(date: Date = new Date()): string {
+  return date.toISOString().slice(0, ISO_DATE_LENGTH);
+}
+
+/**
+ * Returns the current time as an ISO 8601 string.
+ */
+export function nowISO(): string {
+  return new Date().toISOString();
+}
 
 const SECONDS_PER_MINUTE = TIME_MS.MINUTE / TIME_MS.SECOND;
 const SECONDS_PER_HOUR = TIME_MS.HOUR / TIME_MS.SECOND;
@@ -25,16 +43,24 @@ export function toISOString(val: Date | string | null | undefined): string | nul
   return val; // Already a string
 }
 
+export function toDate(time: Date | string | null): Date | null {
+  if (!time) return null;
+
+  const dateTime = time instanceof Date ? time : new Date(time);
+
+  if (isNaN(dateTime.getTime())) return null;
+
+  return dateTime;
+}
+
 /**
  * Calculate duration in seconds between two timestamps
  */
 export function calculateDurationSeconds(startTime: Date | string | null, endTime: Date | string | null): number | null {
-  if (!startTime || !endTime) return null;
+  const start = toDate(startTime);
+  const end = toDate(endTime);
 
-  const start = startTime instanceof Date ? startTime : new Date(startTime);
-  const end = endTime instanceof Date ? endTime : new Date(endTime);
-
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
+  if (!start || !end) return null;
 
   return Math.round((end.getTime() - start.getTime()) / TIME_MS.SECOND);
 }
@@ -46,9 +72,8 @@ export function calculateDurationSeconds(startTime: Date | string | null, endTim
  * Format a timestamp string for display, returning 'Unknown' for missing or invalid values.
  */
 export function formatTimestamp(value: string | null | undefined): string {
-  if (!value) return 'Unknown';
-  const d = new Date(value);
-  return isNaN(d.getTime()) ? 'Unknown' : d.toLocaleString();
+  const date = toDate(value);
+  return date ? 'Unknown' : date.toLocaleString();
 }
 
 /**

@@ -23,6 +23,7 @@ import os from 'os';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { BYTES_PER_KB, LIMITS, NUMBER_BASE } from '../core/constants.ts';
+import { nowISO } from '../utils/time-helpers.ts';
 
 const execFileAsync = promisify(execFile);
 const logger = createComponentLogger('RepoCleanupWorker');
@@ -146,7 +147,7 @@ export class RepoCleanupWorker extends SidequestServer {
         finalSize,
         savedSpace: dryRun ? 'N/A (dry run)' : this.formatSizeDiff(initialSize, finalSize),
         ...result,
-        timestamp: new Date().toISOString(),
+        timestamp: nowISO(),
       };
 
       logger.info({

@@ -10,6 +10,7 @@ import { GitignoreRepomixUpdater } from '../utils/gitignore-repomix-updater.ts';
 import { generateReport } from '../utils/report-generator.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import { LIMITS } from '../core/constants.ts';
+import { nowISO } from '../utils/time-helpers.ts';
 import * as Sentry from '@sentry/node';
 import path from 'path';
 import os from 'os';
@@ -159,7 +160,7 @@ export class GitignoreWorker extends SidequestServer {
 
       const result: GitignoreUpdateResult = {
         ...results,
-        timestamp: new Date().toISOString(),
+        timestamp: nowISO(),
         dryRun,
         gitignoreEntry,
       };

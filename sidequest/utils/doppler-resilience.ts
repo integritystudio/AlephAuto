@@ -7,6 +7,7 @@
 
 import { createComponentLogger, logError } from './logger.ts';
 import { CONFIG_POLICY, MAX_SCORE, TIMEOUTS, RETRY, CACHE, FORMATTING } from '../core/constants.ts';
+import { nowISO } from './time-helpers.ts';
 import * as Sentry from '@sentry/node';
 import fs from 'fs/promises';
 import path from 'path';
@@ -257,7 +258,7 @@ export abstract class DopplerResilience {
     this.metrics.totalFailures++;
     this.metrics.lastError = {
       message: error.message,
-      timestamp: new Date().toISOString()
+      timestamp: nowISO()
     };
 
     const backoffMs = Math.min(

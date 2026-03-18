@@ -24,6 +24,7 @@ import { RootDirectoryAnalyzer } from './root-directory-analyzer.ts';
 import type { RootDirectoryAnalysis } from './root-directory-analyzer.ts';
 import { FORMATTING, PROCESS } from '../../core/constants.ts';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
+import { nowISO } from '../../utils/time-helpers.ts';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -96,7 +97,7 @@ async function main(): Promise<void> {
 
   const results: ScanResults = {
     repository: resolvedPath,
-    timestamp: new Date().toISOString(),
+    timestamp: nowISO(),
     scans: {}
   };
 
@@ -245,7 +246,7 @@ function generateMarkdownReport(results: ScanResults): string {
 export async function runHealthScan(repoPath: string, options: HealthScanOptions = {}): Promise<ScanResults> {
   const results: ScanResults = {
     repository: path.resolve(repoPath),
-    timestamp: new Date().toISOString(),
+    timestamp: nowISO(),
     scans: {}
   };
 

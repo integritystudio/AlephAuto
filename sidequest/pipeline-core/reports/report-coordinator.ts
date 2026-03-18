@@ -12,6 +12,7 @@ import type { ScanResult } from './json-report-generator.ts';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 import { MARKDOWN_REPORT } from '../../core/constants.ts';
 import { createTimer, ensureDir } from '../utils/index.ts';
+import { nowISO } from '../../utils/time-helpers.ts';
 import path from 'path';
 
 const logger = createComponentLogger('ReportCoordinator');
@@ -231,7 +232,7 @@ export class ReportCoordinator {
   private _generateBaseFilename(scanResult: ScanResult, isInterProject: boolean | null = null): string {
     const isInter = isInterProject ?? (scanResult.scan_type === 'inter-project');
 
-    const timestamp = new Date().toISOString()
+    const timestamp = nowISO()
       .replace(/[:.]/g, '-')
       .replace('T', '_')
       .replace('Z', '');

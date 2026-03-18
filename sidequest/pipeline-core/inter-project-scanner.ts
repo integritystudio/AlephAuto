@@ -9,6 +9,7 @@ import { ScanOrchestrator, type ScanResult, type CodeBlock, type DuplicateGroup,
 import { createComponentLogger, logError, logStart, logStage } from '../utils/logger.ts';
 import { INTER_PROJECT_SCAN, MAX_SCORE, NUMBER_BASE } from '../core/constants.ts';
 import { MONTHS_PER_YEAR, TIME_MS } from '../core/units.ts';
+import { nowISO } from '../utils/time-helpers.ts';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -269,7 +270,7 @@ export class InterProjectScanner {
         metrics,
         scan_metadata: {
           duration_seconds: duration,
-          scanned_at: new Date().toISOString(),
+          scanned_at: nowISO(),
           repository_count: repoPaths.length,
           total_code_blocks: allCodeBlocks.length
         }

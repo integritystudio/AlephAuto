@@ -17,6 +17,7 @@ import { config } from '../core/config.ts';
 import { FORMATTING, LIMITS, TIMEOUTS } from '../core/constants.ts';
 import { TIME_MS } from '../core/units.ts';
 import { isDirectExecution } from '../utils/execution-helpers.ts';
+import { nowISO } from '../utils/time-helpers.ts';
 import { BasePipeline } from './base-pipeline.ts';
 import type { Job, JobStats } from '../core/server.ts';
 import path from 'path';
@@ -113,7 +114,7 @@ class RepomixPipeline extends BasePipeline<RepomixWorker> {
 
   private async saveRunSummary(stats: JobStats, duration: number): Promise<void> {
     const summary = {
-      timestamp: new Date().toISOString(),
+      timestamp: nowISO(),
       duration,
       stats,
     };

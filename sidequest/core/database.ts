@@ -15,6 +15,7 @@ import { createComponentLogger, logMetrics } from '../utils/logger.ts';
 import { isValidJobStatus } from '#api/types/job-status.ts';
 import type { JobStatus } from '#api/types/job-status.ts';
 import { LIMITS, PAGINATION, VALIDATION } from './constants.ts';
+import { nowISO } from '../utils/time-helpers.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logger = createComponentLogger('Database');
@@ -422,7 +423,7 @@ export async function saveJob(job: SaveJobInput): Promise<void> {
     job.id,
     job.pipelineId ?? 'unknown',
     job.status,
-    job.createdAt ?? new Date().toISOString(),
+    job.createdAt ?? nowISO(),
     job.startedAt ?? null,
     job.completedAt ?? null,
     serializeJsonForStorage(job.data),
@@ -534,7 +535,7 @@ export async function bulkCancelJobsByPipeline(pipelineId: string, statuses: Job
   const result = await pool!.query(
     `UPDATE jobs SET status = 'cancelled', completed_at = $1
      WHERE pipeline_id = $2 AND status = ANY($3::text[])`,
-    [new Date().toISOString(), pipelineId, statuses]
+    [nowISO(), pipelineId, statuses]
   );
   return result.rowCount ?? 0;
 }
@@ -833,7 +834,7 @@ export async function bulkImportJobs(jobs: BulkImportJob[]): Promise<BulkImportR
         job.id,
         job.pipeline_id || job.pipelineId || 'unknown',
         job.status,
-        job.created_at || job.createdAt || new Date().toISOString(),
+        job.created_at || job.createdAt || nowISO(),
         job.started_at ?? job.startedAt ?? null,
         job.completed_at ?? job.completedAt ?? null,
         typeof job.data === 'string' ? job.data : serializeJsonForStorage(job.data),

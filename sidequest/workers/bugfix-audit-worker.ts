@@ -2,6 +2,7 @@ import { SidequestServer, type Job, type SidequestServerOptions } from '../core/
 import { BranchManager } from '../pipeline-core/git/branch-manager.ts';
 import { execCommand } from '@shared/process-io';
 import { createComponentLogger, logError, logStage } from '../utils/logger.ts';
+import { nowISO, toISODateString } from '../utils/time-helpers.ts';
 import { FORMATTING } from '../core/constants.ts';
 import { config } from '../core/config.ts';
 import fs from 'fs/promises';
@@ -197,7 +198,7 @@ export class BugfixAuditWorker extends SidequestServer {
       throw new Error(`Failed to create git branch for ${projectName}`);
     }
 
-    const outputDir = path.join(this.outputBaseDir, projectName, new Date().toISOString().split('T')[0]);
+    const outputDir = path.join(this.outputBaseDir, projectName, toISODateString());
     await fs.mkdir(outputDir, { recursive: true });
 
     const results: WorkflowResults = {
@@ -207,7 +208,7 @@ export class BugfixAuditWorker extends SidequestServer {
       stages: [],
       branchName,
       pullRequestUrl: null,
-      timestamp: new Date().toISOString(),
+      timestamp: nowISO(),
     };
 
     try {

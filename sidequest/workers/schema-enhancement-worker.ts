@@ -8,6 +8,7 @@ import { generateReport } from '../utils/report-generator.ts';
 import { createComponentLogger } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
 import { FORMATTING, LIMITS, MAX_SCORE } from '../core/constants.ts';
+import { nowISO } from '../utils/time-helpers.ts';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -211,7 +212,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
         schema,
         impact,
         validation,
-        timestamp: new Date().toISOString(),
+        timestamp: nowISO(),
       };
 
       // Generate HTML/JSON reports
@@ -263,7 +264,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
       relativePath,
       schema,
       impact,
-      timestamp: new Date().toISOString(),
+      timestamp: nowISO(),
     };
 
     await fs.writeFile(reportPath, JSON.stringify(report, null, FORMATTING.JSON_INDENT));
@@ -466,7 +467,7 @@ export class SchemaEnhancementWorker extends SidequestServer {
     const jobStats = this.getStats();
 
     const summary: EnhancementSummary = {
-      timestamp: new Date().toISOString(),
+      timestamp: nowISO(),
       enhancement: stats,
       jobs: jobStats,
       outputDirectory: this.outputBaseDir,

@@ -11,7 +11,7 @@ import * as Sentry from '@sentry/node';
 import { FORMATTING, GIT_ACTIVITY } from '../core/constants.ts';
 import { createComponentLogger, logError } from './logger.ts';
 import { TIME_MS } from '../core/units.ts';
-import { formatDuration, formatTimestamp } from './time-helpers.ts';
+import { formatDuration, formatTimestamp, nowISO } from './time-helpers.ts';
 import { escapeHtml, getBaseStyles } from './html-report-utils.ts';
 
 const logger = createComponentLogger('ReportGenerator');
@@ -84,7 +84,7 @@ export async function generateReport(options: ReportOptions): Promise<ReportPath
   await fs.mkdir(outputDir, { recursive: true });
 
   const reportPaths: ReportPaths = {
-    timestamp: new Date().toISOString()
+    timestamp: nowISO()
   };
 
   try {
@@ -279,13 +279,31 @@ function generateHTMLResults(result: unknown): string {
   const resultObj = result as Record<string, unknown>;
   const metrics = extractMetrics(resultObj);
   const details = extractDetails(resultObj);
+  const articleLinks = generateArticleLinksSection(resultObj);
 
   return `
     <section class="results">
         <h2>📊 Results</h2>
+        ${articleLinks}
         ${metrics ? generateMetricsSection(metrics) : ''}
         ${details ? generateDetailsSection(details) : ''}
     </section>`;
+}
+
+/**
+ * Generate article link section from articleUrl in result.
+ */
+function generateArticleLinksSection(resultObj: Record<string, unknown>): string {
+  const articleUrl = resultObj.articleUrl as string | undefined;
+  if (!articleUrl) return '';
+
+  return `
+    <div class="metrics-section">
+        <h3>Published Article</h3>
+        <div class="param-item">
+            <a href="${escapeHtml(articleUrl)}" target="_blank" rel="noopener">${escapeHtml(articleUrl)}</a>
+        </div>
+    </div>`;
 }
 
 /**

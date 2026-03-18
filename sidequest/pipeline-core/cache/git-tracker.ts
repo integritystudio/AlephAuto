@@ -12,6 +12,7 @@ import path from 'path';
 import { createComponentLogger } from '../../utils/logger.ts';
 import { TIME_MS } from '../../core/units.ts';
 import { GIT, PAGINATION } from '../../core/constants.ts';
+import { nowISO } from '../../utils/time-helpers.ts';
 
 const execPromise = promisify(exec);
 const logger = createComponentLogger('GitCommitTracker');
@@ -350,7 +351,7 @@ export class GitCommitTracker {
       branch: branchName,
       has_uncommitted_changes: hasUncommitted,
       remote_url: remoteUrl,
-      scanned_at: new Date().toISOString()
+      scanned_at: nowISO()
     };
 
     logger.info({ repoPath, status }, 'Retrieved repository status');

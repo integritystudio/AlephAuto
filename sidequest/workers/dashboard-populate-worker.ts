@@ -7,6 +7,7 @@ import path from 'path';
 import os from 'os';
 import type { Job } from '../core/server.ts';
 import { LIMITS, NUMBER_BASE, TIMEOUTS } from '../core/constants.ts';
+import { nowISO } from '../utils/time-helpers.ts';
 
 const logger = createComponentLogger('DashboardPopulateWorker');
 
@@ -143,7 +144,7 @@ export class DashboardPopulateWorker extends SidequestServer {
         durationMs: endTime - startTime,
         stdout: stdout.slice(-(2 * LIMITS.MAX_OUTPUT_CHARS)),
         stderr: stderr.slice(-LIMITS.MAX_OUTPUT_CHARS),
-        timestamp: new Date().toISOString(),
+        timestamp: nowISO(),
       };
 
       logger.info({

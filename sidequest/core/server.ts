@@ -855,23 +855,28 @@ export class SidequestServer extends EventEmitter {
 
   /**
    * Cancels a queued or paused job.
-   * Running jobs are not cancellable because handlers are not abortable.
+   * Running jobs are not cancellable unless force is true (for stale/stuck jobs).
    *
    * @param jobId Job identifier.
+   * @param options.force When true, allows cancelling running jobs (still blocks terminal statuses).
    * @returns Action result summary.
    */
-  cancelJob(jobId: string): JobActionResult {
+  cancelJob(jobId: string, options?: { force?: boolean }): JobActionResult {
+    const force = options?.force ?? false;
     return this._executeJobAction(jobId, {
       action: 'cancelled',
-      statusGuard: (s) => TERMINAL_STATUSES.includes(s) || s === JOB_STATUS.RUNNING,
+      statusGuard: (s) => TERMINAL_STATUSES.includes(s) || (!force && s === JOB_STATUS.RUNNING),
       guardMessage: (s) => s === JOB_STATUS.RUNNING
-        ? 'Cannot cancel a running job. Cancellation is only supported for queued or paused jobs.'
+        ? 'Cannot cancel a running job. Cancellation is only supported for queued or paused jobs. Use ?force=true for stale jobs.'
         : `Cannot cancel job with status '${s}'`,
       mutate: (job) => {
         job.status = JOB_STATUS.CANCELLED;
         job.retryPending = false;
         job.completedAt = new Date();
-        job.error = { message: 'Job cancelled by user', cancelled: true };
+        job.error = {
+          message: force ? 'Job force-cancelled by user' : 'Job cancelled by user',
+          cancelled: true
+        };
       },
       logLevel: 'warning'
     });

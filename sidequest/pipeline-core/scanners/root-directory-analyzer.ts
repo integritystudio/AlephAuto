@@ -1,6 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { LIMITS, MARKDOWN_REPORT, MAX_SCORE } from '../../core/constants.ts';
+import { nowISO } from '../../utils/time-helpers.ts';
 
 // ============================================================================
 // Type Definitions
@@ -590,7 +591,7 @@ export class RootDirectoryAnalyzer {
     const lines = [
       '# Root Directory Cleanup Analysis',
       '',
-      `**Generated:** ${new Date().toISOString()}`,
+      `**Generated:** ${nowISO()}`,
       `**Total Root Files:** ${analysis.statistics.total_root_files}`,
       `**Reduction Potential:** ${analysis.statistics.reduction_potential} files (${analysis.statistics.reduction_percentage}%)`,
       `**Final Root Files:** ${analysis.statistics.final_root_files}`,

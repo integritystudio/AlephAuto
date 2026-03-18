@@ -4,6 +4,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { createComponentLogger } from '../../utils/logger.ts';
 import { TIMEOUTS } from '../../core/constants.ts';
+import { nowISO } from '../../utils/time-helpers.ts';
 
 // ============================================================================
 // Type Definitions
@@ -517,7 +518,7 @@ useEffect(() => {
     const lines = [
       '# Timeout Pattern Detection Report',
       '',
-      `**Generated:** ${new Date().toISOString()}`,
+      `**Generated:** ${nowISO()}`,
       `**Total Issues:** ${findings.statistics.total_issues}`,
       `**Affected Files:** ${findings.statistics.affected_files}`,
       `**Scan Duration:** ${findings.statistics.scan_duration_ms}ms`,

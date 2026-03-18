@@ -7,6 +7,7 @@ import path from 'path';
 import os from 'os';
 import { createComponentLogger, logError } from '../utils/logger.ts';
 import { config } from '../core/config.ts';
+import { nowISO } from '../utils/time-helpers.ts';
 import { TIMEOUTS, LIMITS } from '../core/constants.ts';
 
 const logger = createComponentLogger('RepomixWorker');
@@ -131,7 +132,7 @@ export class RepomixWorker extends SidequestServer {
         outputFile,
         relativePath,
         size: (await fs.stat(outputFile)).size,
-        timestamp: new Date().toISOString(),
+        timestamp: nowISO(),
       };
 
       // Generate HTML/JSON reports

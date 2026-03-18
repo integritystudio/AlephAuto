@@ -762,10 +762,14 @@ function formatDateTime(date: Date): string {
   return `${formatDate(date)} ${String(date.getHours()).padStart(MATH.PAD_WIDTH, '0')}:${String(date.getMinutes()).padStart(MATH.PAD_WIDTH, '0')}`;
 }
 
+export interface JekyllReportResult {
+  permalink: string;
+}
+
 export async function generateJekyllReport(
   data: ActivityData,
   outputFile: string,
-): Promise<void> {
+): Promise<JekyllReportResult> {
   const { start: startDate, end: endDate } = data.date_range;
   const start = new Date(startDate);
   const end = new Date(endDate);
@@ -782,11 +786,14 @@ export async function generateJekyllReport(
 
   const reportDate = formatDate(new Date());
   const now = formatDateTime(new Date());
+  const slug = path.basename(outputFile).replace(/\.(md|markdown)$/, '');
+  const permalink = `/work/${slug}/`;
 
   const frontmatter = `---
 layout: single
 title: "${reportType} Git Activity Report: ${startDate} to ${endDate}"
 date: ${reportDate}
+permalink: ${permalink}
 author_profile: true
 breadcrumbs: true
 categories: [git-activity, development-metrics]
@@ -870,7 +877,8 @@ header:
 
   await fs.mkdir(path.dirname(outputFile), { recursive: true });
   await fs.writeFile(outputFile, frontmatter + content);
-  logger.info({ outputFile }, 'Jekyll report saved');
+  logger.info({ outputFile, permalink }, 'Jekyll report saved');
+  return { permalink };
 }
 
 // ---------------------------------------------------------------------------

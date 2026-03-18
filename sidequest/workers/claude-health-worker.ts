@@ -19,6 +19,7 @@ import { BYTES_PER_KB, LIMITS, MAX_SCORE, TIMEOUTS } from '../core/constants.ts'
 import { HEALTH_SCORE_THRESHOLDS } from '../core/score-thresholds.ts';
 import { createComponentLogger, logError, logWarn, logStart } from '../utils/logger.ts';
 import { generateReport } from '../utils/report-generator.ts';
+import { nowISO } from '../utils/time-helpers.ts';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
@@ -223,7 +224,7 @@ class ClaudeHealthWorker extends SidequestServer {
 
       const result: HealthCheckResult = {
         success: true,
-        timestamp: new Date().toISOString(),
+        timestamp: nowISO(),
         duration: Date.now() - startTime,
         checks,
         analysis,

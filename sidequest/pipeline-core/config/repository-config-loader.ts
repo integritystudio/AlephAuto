@@ -11,6 +11,7 @@ import os from 'os';
 import { FORMATTING, LIMITS } from '../../core/constants.ts';
 import { createComponentLogger, logError } from '../../utils/logger.ts';
 import { config } from '../../core/config.ts';
+import { nowISO } from '../../utils/time-helpers.ts';
 
 const logger = createComponentLogger('RepositoryConfigLoader');
 
@@ -295,7 +296,7 @@ export class RepositoryConfigLoader {
     }
 
     repo.scanHistory.unshift({
-      timestamp: new Date().toISOString(),
+      timestamp: nowISO(),
       ...historyEntry
     });
 

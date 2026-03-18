@@ -270,27 +270,77 @@ router.post('/:jobId/cancel', async (req, res) => {
     }
 
     const sanitizedJobId = validation.sanitized!;
-    logger.info({ jobId: sanitizedJobId }, 'Cancelling job');
+    const force = req.query.force === 'true';
+    logger.info({ jobId: sanitizedJobId, force }, 'Cancelling job');
 
     // Look up job to get canonical pipelineId (split('-')[0] breaks for hyphenated IDs like git-activity)
     const job = await jobRepository.getJob(sanitizedJobId);
+
+    // For in-memory-only jobs (not in DB), try all workers directly
     if (!job) {
+      const allWorkers = workerRegistry.getAllWorkers();
+      for (const worker of allWorkers) {
+        const inMemoryJob = worker.getJob(sanitizedJobId);
+        if (inMemoryJob) {
+          const result = worker.cancelJob(sanitizedJobId, { force });
+          if (result.success) {
+            logger.info({ jobId: sanitizedJobId, force }, 'Job cancelled successfully (in-memory only)');
+            return res.json({
+              success: true,
+              message: result.message || 'Job cancelled successfully',
+              timestamp: new Date().toISOString()
+            });
+          }
+          return sendError(res, ERROR_CODES.CANCEL_FAILED,
+            result.message || 'Failed to cancel job', HttpStatus.BAD_REQUEST);
+        }
+      }
       return sendError(res, ERROR_CODES.NOT_FOUND,
         `Job not found: ${sanitizedJobId}`, HttpStatus.NOT_FOUND);
     }
 
     const pipelineId = job.pipelineId;
 
-    // Get worker for this pipeline
-    const worker = await workerRegistry.getWorker(pipelineId);
+    // Get worker for this pipeline — may not exist for orphaned/stale jobs
+    let worker: Awaited<ReturnType<typeof workerRegistry.getWorker>> | null = null;
+    try {
+      worker = await workerRegistry.getWorker(pipelineId);
+    } catch {
+      // Worker not available (unknown pipeline, disabled, circuit-breaker, etc.)
+    }
 
+    // No worker available — force-cancel stale DB-only jobs directly
     if (!worker) {
-      return sendError(res, ERROR_CODES.WORKER_NOT_FOUND,
-        `No worker found for pipeline: ${pipelineId}`, HttpStatus.NOT_FOUND);
+      if (!force) {
+        return sendError(res, ERROR_CODES.WORKER_NOT_FOUND,
+          `No worker found for pipeline: ${pipelineId}. Use ?force=true to cancel stale jobs.`, HttpStatus.NOT_FOUND);
+      }
+      if (job.status !== JOB_STATUS.RUNNING && job.status !== JOB_STATUS.QUEUED) {
+        return sendError(res, ERROR_CODES.CANCEL_FAILED,
+          `Cannot cancel job with status '${job.status}'`, HttpStatus.BAD_REQUEST);
+      }
+      await jobRepository.saveJob({
+        id: sanitizedJobId,
+        pipelineId,
+        status: JOB_STATUS.CANCELLED,
+        createdAt: job.createdAt as string,
+        startedAt: job.startedAt as string | null,
+        completedAt: new Date().toISOString(),
+        data: job.data as Record<string, unknown> | null,
+        result: job.result as unknown,
+        error: { message: 'Job force-cancelled by user (no active worker)', cancelled: true },
+        git: job.git as Record<string, unknown> | null
+      });
+      logger.info({ jobId: sanitizedJobId, pipelineId, force }, 'Stale job force-cancelled via DB');
+      return res.json({
+        success: true,
+        message: 'Stale job force-cancelled successfully (no active worker)',
+        timestamp: new Date().toISOString()
+      });
     }
 
     // Cancel the job via worker
-    const result = worker.cancelJob(sanitizedJobId);
+    const result = worker.cancelJob(sanitizedJobId, { force });
 
     if (result.success) {
       logger.info({ jobId: sanitizedJobId }, 'Job cancelled successfully');

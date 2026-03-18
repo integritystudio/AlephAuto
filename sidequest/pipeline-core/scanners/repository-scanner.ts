@@ -2,6 +2,7 @@ import { RepomixWorker } from '../../workers/repomix-worker.ts';
 import { createComponentLogger, logStart } from '../../utils/logger.ts';
 import { config } from '../../core/config.ts';
 import { TIME_MS } from '../../core/units.ts';
+import { nowISO } from '../../utils/time-helpers.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import { execSync } from 'child_process';
@@ -146,7 +147,7 @@ export class RepositoryScanner {
         scan_metadata: {
           duration_seconds: duration,
           repomix_output: repomixOutput,
-          timestamp: new Date().toISOString(),
+          timestamp: nowISO(),
           used_repomix: repomixOutput !== null
         }
       };

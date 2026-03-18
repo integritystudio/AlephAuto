@@ -183,3 +183,99 @@ No active medium-priority backlog items.
 ### Low
 
 No active low-priority backlog items.
+
+---
+
+## Git Activity Pipeline (2026-03-18)
+
+<a id="git-activity"></a>
+
+Investigation of production failures (`git-activity-weekly-1773018000380`, `git-activity-weekly-1773018000292`) — jobs hung for 9 days, marked failed on server restart with null error.
+
+### GA-M1: Migrate getRepoStats from filesystem git to GitHub API
+
+**Problem:** `getRepoStats` in `git-activity-collector.ts` runs local `git log` commands against `~/code` paths. This only works on the dev machine — the production Render server has no local repos, causing jobs to hang indefinitely.
+
+**Solution:** Replace filesystem-based `git log` calls with GitHub API (`gh api` or Octokit) to fetch commit stats, file changes, and contributor activity. Remove dependency on local repo clones.
+
+**Files:** `sidequest/workers/git-activity-collector.ts` (`getRepoStats`, `findGitRepos`)
+
+### GA-M2: Add execution timeout to git-activity worker
+
+**Problem:** No timeout on `runJobHandler` — a single slow or hanging git operation blocks the job forever. The two 3/9 jobs ran for 9 days before being killed by a server restart.
+
+**Solution:** Wrap `runJobHandler` body (or individual `getRepoStats` calls) with `AbortSignal.timeout()` or `Promise.race` against a configurable timeout (e.g., `TIMEOUTS.GIT_ACTIVITY_MS`). Fail fast with a clear timeout error.
+
+**Files:** `sidequest/workers/git-activity-worker.ts` (`runJobHandler`), `sidequest/core/constants.ts` (add timeout constant)
+
+---
+
+## Dashboard Populate Pipeline (2026-03-18)
+
+<a id="dashboard-populate"></a>
+
+7 failures across three distinct modes.
+
+### DP-M1: Fix `spawn npm ENOENT` in child process execution
+
+**Problem:** 4 failures (3/4) — `npm` not found when the worker spawns `npm run populate -- --seed`. PM2/cron environments don't inherit NVM-managed PATH, so `npm` resolves to nothing.
+
+**Solution:** Use absolute path to `npm` (resolve via `which npm` at startup or use `process.execPath` to derive the node bin directory), or spawn `node` directly with the populate script instead of going through `npm run`.
+
+**Files:** `sidequest/workers/dashboard-populate-worker.ts`
+
+### DP-L1: Investigate populate script crash at line 68
+
+**Problem:** 1 failure (3/11) — `npm run populate -- --seed` exited with code 1, stack trace points to `populate-dashboard.ts:68`. Error message truncated in DB.
+
+**Solution:** Reproduce locally with `npm run populate -- --seed`, inspect the error at line 68, and add better error handling/logging so the full message persists.
+
+**Files:** `~/.claude/mcp-servers/observability-toolkit/dashboard/scripts/populate-dashboard.ts`
+
+---
+
+## Duplicate Detection Pipeline (2026-03-18)
+
+<a id="duplicate-detection"></a>
+
+26 failures. All recent failures (3/9, 3/10) share the same root cause; older failures (2/16, 2/26) are null-error hung jobs killed by server restarts.
+
+### DD-M1: Fix `ast-grep not available` in PM2/production PATH
+
+**Problem:** Dependency validation fails because `ast-grep` CLI is not on PATH when the process is spawned by PM2. Same class of issue as DP-M1 — PM2 doesn't inherit NVM-managed or globally-installed binaries.
+
+**Solution:** Resolve `ast-grep` binary path at worker startup (e.g., via `which` or known install location) and pass the absolute path to the scan orchestrator. Alternatively, ensure PM2 ecosystem config sets `env.PATH` to include the node bin directory.
+
+**Files:** `sidequest/pipeline-core/scan-orchestrator.ts` (dependency validation), `config/ecosystem.config.cjs` (PM2 PATH)
+
+---
+
+## Job Pipeline (2026-03-18)
+
+<a id="job-pipeline"></a>
+
+35 failures. The `job` pipeline ID is used by duplicate-detection retries that lost their original pipeline ID. Same root causes as duplicate-detection.
+
+### JB-L1: Audit `job` pipeline ID assignment on retries
+
+**Problem:** Retry jobs created with generic `job` pipeline ID instead of `duplicate-detection`. This makes failure triage harder and skews per-pipeline stats.
+
+**Solution:** Ensure retry jobs inherit `pipelineId` from the original job. Check `_finalizeJobFailure` retry path and the retry endpoint in `api/routes/jobs.ts`.
+
+**Files:** `sidequest/core/server.ts` (`_finalizeJobFailure`), `api/routes/jobs.ts` (retry endpoint)
+
+---
+
+## Repomix Pipeline (2026-03-18)
+
+<a id="repomix"></a>
+
+10 failures — all from 2/15, all test fixture temp-dir jobs with null errors. Not real production failures.
+
+### RX-L1: Clean up test fixture repomix jobs from production DB
+
+**Problem:** Integration tests on 2/15 persisted 10 repomix jobs against `/var/folders/.../aleph-test-*` temp dirs to the production database. They failed with null errors (temp dirs cleaned up before jobs ran).
+
+**Solution:** Delete these rows. Prevent test jobs from persisting to production DB by checking for test-pattern job IDs or a `NODE_ENV=test` guard in `_persistJob`.
+
+**Files:** `sidequest/core/server.ts` (`_persistJob`)

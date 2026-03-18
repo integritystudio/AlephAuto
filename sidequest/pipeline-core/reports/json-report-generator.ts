@@ -13,6 +13,7 @@
 import { saveGeneratedReport } from '../utils/index.ts';
 import { FORMATTING } from '../../core/constants.ts';
 import { isInterProject } from './html-report-sections.ts';
+import { nowISO } from '../../utils/time-helpers.ts';
 import type { MigrationStep } from '../types/migration-types.ts';
 
 export interface ScanMetadata {
@@ -179,7 +180,7 @@ export class JSONReportGenerator {
 
     const report: Record<string, unknown> = {
       report_version: '1.0.0',
-      generated_at: new Date().toISOString(),
+      generated_at: nowISO(),
       scan_type: interProject ? 'inter-project' : 'intra-project',
       metadata: this._generateMetadata(scanResult, interProject),
       metrics: scanResult.metrics ?? {},
@@ -229,7 +230,7 @@ export class JSONReportGenerator {
 
     return {
       scan_type: interProject ? 'inter-project' : 'intra-project',
-      generated_at: new Date().toISOString(),
+      generated_at: nowISO(),
       summary: this._generateSummary(scanResult, interProject),
       metrics: {
         ...(interProject ? {
@@ -288,7 +289,7 @@ export class JSONReportGenerator {
         total_files: repoInfo.total_files ?? 0,
         languages: repoInfo.languages ?? []
       }),
-      scanned_at: metadata.scanned_at ?? new Date().toISOString(),
+      scanned_at: metadata.scanned_at ?? nowISO(),
       duration_seconds: metadata.duration_seconds ?? 0,
       scanner_version: '2.0.0'
     };

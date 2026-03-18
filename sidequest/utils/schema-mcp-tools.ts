@@ -1,6 +1,7 @@
 import { config } from '../core/config.ts';
 import { FORMATTING, MAX_SCORE, SCHEMA_SCORING } from '../core/constants.ts';
 import { SCHEMA_RATING_THRESHOLDS } from '../core/score-thresholds.ts';
+import { nowISO } from './time-helpers.ts';
 
 interface SchemaContext {
   hasPackageJson?: boolean;
@@ -195,7 +196,7 @@ function addArticleSchemaFields(schema: SchemaObject, schemaType: string): void 
     return;
   }
 
-  schema.dateModified = new Date().toISOString();
+  schema.dateModified = nowISO();
   schema.inLanguage = 'en-US';
 }
 
@@ -342,7 +343,7 @@ function getRatingForScore(score: number): string {
 function analyzeSchemaImpactData(originalContent: string, enhancedContent: string, schema: SchemaObject): SchemaImpact {
   const schemaType = schema['@type'];
   const impact: SchemaImpact = {
-    timestamp: new Date().toISOString(),
+    timestamp: nowISO(),
     schemaType,
     metrics: {
       contentSize: {

@@ -9,6 +9,7 @@ import { createComponentLogger, logError } from '../../utils/logger.ts';
 import crypto from 'crypto';
 import { GIT, GIT_ACTIVITY, LIMITS, PAGINATION } from '../../core/constants.ts';
 import { TIME_MS } from '../../core/units.ts';
+import { nowISO } from '../../utils/time-helpers.ts';
 
 const logger = createComponentLogger('ScanResultCache');
 
@@ -195,7 +196,7 @@ export class ScanResultCache {
         repository_path: repoPath,
         commit_hash: commitHash,
         short_commit: commitHash ? commitHash.substring(0, GIT.SHORT_HASH_LENGTH) : null,
-        cached_at: new Date().toISOString(),
+        cached_at: nowISO(),
         ttl: this.ttl,
         scan_type: (scanResult.scan_type as string) ?? 'unknown',
         total_duplicates: (scanResult.metrics?.total_duplicate_groups as number) ?? 0,
@@ -254,7 +255,7 @@ export class ScanResultCache {
         cache_key: cacheKey,
         repository_path: repoPath,
         commit_hash: commitHash,
-        indexed_at: new Date().toISOString()
+        indexed_at: nowISO()
       };
 
       await this.redis.lpush({

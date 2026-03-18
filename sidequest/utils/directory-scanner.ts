@@ -3,6 +3,7 @@ import path from 'path';
 import os from 'os';
 import { FORMATTING, LIMITS } from '../core/constants.ts';
 import { createComponentLogger, logWarn } from './logger.ts';
+import { nowISO } from './time-helpers.ts';
 
 const logger = createComponentLogger('DirectoryScanner');
 
@@ -226,7 +227,7 @@ export class DirectoryScanner {
 
     const timestamp = Date.now();
     const report: ScanReport = {
-      timestamp: new Date().toISOString(),
+      timestamp: nowISO(),
       baseDir: this.baseDir,
       scanStats: stats,
       directories: directories.map(d => ({
@@ -292,7 +293,7 @@ export class DirectoryScanner {
     const treePath = await this.saveDirectoryTree(directories);
 
     const summary: ScanSummary = {
-      timestamp: new Date().toISOString(),
+      timestamp: nowISO(),
       baseDir: this.baseDir,
       totalDirectories: directories.length,
       maxDepth: directories.length > 0 ? Math.max(...directories.map(d => d.depth)) : 0,

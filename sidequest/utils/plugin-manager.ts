@@ -8,6 +8,7 @@
 import { SidequestServer } from '../core/server.ts';
 import { PLUGIN_THRESHOLDS } from '../core/constants.ts';
 import { createComponentLogger, logStart, logError, logWarn } from './logger.ts';
+import { nowISO } from './time-helpers.ts';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
@@ -115,7 +116,7 @@ class PluginManagerWorker extends SidequestServer {
 
       const result = {
         success: true,
-        timestamp: new Date().toISOString(),
+        timestamp: nowISO(),
         duration: Date.now() - startTime,
         ...analysis,
         recommendations

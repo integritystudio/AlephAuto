@@ -8,6 +8,7 @@ import { BasePipeline, type Job, type JobStats } from './base-pipeline.ts';
 import fs from 'fs/promises';
 import path from 'path';
 import { isDirectExecution } from '../utils/execution-helpers.ts';
+import { nowISO } from '../utils/time-helpers.ts';
 
 const logger = createComponentLogger('BugfixAuditPipeline');
 
@@ -84,7 +85,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
    * Run bugfix audit on all active projects
    */
   async runBugfixAudit(): Promise<RunResult> {
-    logStart(logger, 'bugfix audit pipeline', { timestamp: new Date().toISOString() });
+    logStart(logger, 'bugfix audit pipeline', { timestamp: nowISO() });
 
     const startTime = Date.now();
 
@@ -117,7 +118,7 @@ class BugfixAuditPipeline extends BasePipeline<BugfixAuditWorker> {
 
   private async saveRunSummary(stats: JobStats, duration: number, jobs: Job[]): Promise<void> {
     const summary = {
-      timestamp: new Date().toISOString(),
+      timestamp: nowISO(),
       duration,
       stats,
       jobs: jobs.map((job) => {
