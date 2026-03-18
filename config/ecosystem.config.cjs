@@ -20,6 +20,8 @@ require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 // This prevents "spawn npx ENOENT" errors in workers (E4 bugfix 2025-11-25)
 const PATH_FALLBACK = '/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
 
+const PROJECT_ROOT = path.resolve(__dirname, '..');
+const LOGS_DIR = path.join(PROJECT_ROOT, 'logs');
 const LOG_DATE_FORMAT = 'YYYY-MM-DD HH:mm:ss Z';
 
 // Shared env fields present in all three processes
@@ -49,14 +51,14 @@ module.exports = {
      * Note: Cluster mode disabled due to EADDRINUSE errors with WebSocket server
      */
     {
-      name: process.env.NAME,
-      script: process.env.SCRIPT,
+      name: 'aleph-dashboard',
+      script: 'api/server.ts',
       cwd: PROJECT_ROOT,
-      instances: process.env.INSTANCES,
-      exec_mode: process.env.EXEC_MODE,
-      autorestart: process.env.AUTORESTART,
-      watch: process.env.WATCH,
-      max_memory_restart: process.env.MAX_MEMORY_RESTART,
+      instances: 1,
+      exec_mode: 'fork',
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '512M',
 
       // Node.js arguments - preload script to set EventEmitter max listeners before any imports
       node_args: '--strip-types --import ./instrument.ts --import ./api/preload.ts --max-old-space-size=512',
@@ -152,10 +154,10 @@ module.exports = {
       script: 'sidequest/pipeline-runners/dashboard-populate-pipeline.ts',
       args: '--cron',
       cwd: PROJECT_ROOT,
-      instances: process.env.INSTANCES,
+      instances: 1,
       exec_mode: 'fork',
-      autorestart: process.env.AUTORESTART,
-      watch: process.env.WATCH,
+      autorestart: true,
+      watch: false,
       max_memory_restart: '1G',
 
       // Node.js arguments - enable TypeScript strip-types for .ts imports
