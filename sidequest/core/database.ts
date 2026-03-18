@@ -348,7 +348,8 @@ export async function initDatabase(connectionString?: string): Promise<void> {
       pool = new PgPoolAdapter(pgPool);
     }
 
-    logger.info({ connStr }, 'Database initialized');
+    const redacted = connStr.replace(/\/\/[^@]+@/, '//***@');
+    logger.info({ connStr: redacted }, 'Database initialized');
   } catch (error) {
     logger.error({ error: (error as Error).message }, 'Failed to initialize database');
     throw error;
