@@ -143,6 +143,9 @@ export const config = {
   prDryRun: process.env.PR_DRY_RUN === 'true',
   enablePRCreation: process.env.ENABLE_PR_CREATION === 'true',
 
+  // Job execution control
+  disableJobExecution: process.env.DISABLE_JOB_EXECUTION === 'true',
+
   // Repomix settings
   repomixTimeout: safeParseInt(
     process.env.REPOMIX_TIMEOUT,

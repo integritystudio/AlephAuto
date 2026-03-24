@@ -166,6 +166,11 @@ router.post('/bulk-import', bulkImportRateLimiter, async (req, res) => {
       return sendError(res, ERROR_CODES.UNAUTHORIZED, 'Invalid migration API key', HttpStatus.UNAUTHORIZED);
     }
 
+    if (config.disableJobExecution) {
+      return sendError(res, ERROR_CODES.SERVICE_UNAVAILABLE,
+        'Job execution is currently disabled. Please try again later.', HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
     // Validate jobs array
     if (!Array.isArray(jobs) || jobs.length === 0) {
       return sendError(res, ERROR_CODES.INVALID_REQUEST,

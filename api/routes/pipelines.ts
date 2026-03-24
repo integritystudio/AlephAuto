@@ -22,6 +22,7 @@ import { createComponentLogger } from '#sidequest/utils/logger.ts';
 import * as Sentry from '@sentry/node';
 import { jobRepository } from '#sidequest/core/job-repository.ts';
 import { workerRegistry } from '../utils/worker-registry.ts';
+import { config } from '#sidequest/core/config.ts';
 import { HttpStatus } from '../../shared/constants/http-status.ts';
 import { LIMITS, PAGINATION } from '#sidequest/core/constants.ts';
 import { sendError, ERROR_CODES } from '../utils/api-error.ts';
@@ -132,6 +133,11 @@ router.post(
     const { parameters = {} } = req.body;
 
     try {
+      if (config.disableJobExecution) {
+        return sendError(res, ERROR_CODES.SERVICE_UNAVAILABLE,
+          'Job execution is currently disabled. Please try again later.', HttpStatus.SERVICE_UNAVAILABLE);
+      }
+
       logger.info({
         pipelineId,
         parameters

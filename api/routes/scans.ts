@@ -10,6 +10,8 @@ import { createComponentLogger, logStart } from '#sidequest/utils/logger.ts';
 import { strictRateLimiter } from '../middleware/rate-limit.ts';
 import { validateRequest } from '../middleware/validation.ts';
 import { workerRegistry } from '../utils/worker-registry.ts';
+import { config } from '#sidequest/core/config.ts';
+import { sendError, ERROR_CODES } from '../utils/api-error.ts';
 import {
   StartScanRequestSchema,
   StartMultiScanRequestSchema,
@@ -53,6 +55,11 @@ router.post(
     try {
       // Request body is now type-safe and validated
       const { repositoryPath, options = {} } = req.body;
+
+      if (config.disableJobExecution) {
+        return sendError(res, ERROR_CODES.SERVICE_UNAVAILABLE,
+          'Job execution is currently disabled. Please try again later.', HttpStatus.SERVICE_UNAVAILABLE);
+      }
 
       logStart(logger, 'scan via API', { repositoryPath, options });
 

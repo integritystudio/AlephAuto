@@ -181,6 +181,11 @@ api/types/*.ts (Zod schemas) → api/middleware/validation.ts → api/routes/*.t
 
 Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENABLE_PR_CREATION`
 
+### Job Execution Control
+- `DISABLE_JOB_EXECUTION` (default: `false`) — Set to `true` to prevent new jobs from being created. All job-creation endpoints return 503 Service Unavailable. Useful before CI/CD pushes to prevent remote jobs from interfering with deployments.
+  - Affects: `POST /api/scans/start`, `POST /api/sidequest/pipeline-runners/:pipelineId/trigger`, `POST /api/jobs/bulk-import`
+  - In `.env`: `DISABLE_JOB_EXECUTION=true` | In Doppler: Set via `doppler secrets set DISABLE_JOB_EXECUTION=true`
+
 ## Directory Structure
 
 ```
@@ -235,4 +240,4 @@ Key variables: `JOBS_API_PORT` (8080), `SENTRY_DSN`, `ENABLE_GIT_WORKFLOW`, `ENA
 
 ---
 
-**Version:** 2.3.29 | **Updated:** 2026-03-15 | **Status:** Production Ready
+**Version:** 2.3.30 | **Updated:** 2026-03-23 | **Status:** Production Ready

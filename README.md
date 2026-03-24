@@ -134,6 +134,13 @@ npm start                                  # Server (reads .env)
 npm run dashboard                          # Dashboard UI
 npm run build:frontend                     # Build React app
 
+# Job Execution Control
+# Disable job creation before CI/CD deployments:
+#   Set DISABLE_JOB_EXECUTION=true in .env
+# Resume after deployment:
+#   Set DISABLE_JOB_EXECUTION=false in .env
+# All job-creation endpoints return 503 Service Unavailable when disabled
+
 # Pipelines
 doppler run -- node --strip-types sidequest/pipeline-runners/duplicate-detection-pipeline.ts --run-now
 npm run docs:enhance                       # Schema.org injection

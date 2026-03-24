@@ -52,6 +52,10 @@ services:
       # Enable in-process cron scheduler for pipeline jobs
       - key: ENABLE_CRON_SCHEDULER
         value: "true"
+      # Disable job execution on Render to prevent CI/CD interference
+      # Set to "false" in Doppler if you need Render to run jobs
+      - key: DISABLE_JOB_EXECUTION
+        value: "true"
       # Doppler service token for production config
       - key: DOPPLER_TOKEN
         sync: false
